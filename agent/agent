@@ -1,0 +1,66 @@
+#! /bin/sh
+
+# This file is part of IVRE.
+# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+NMAPOPTS="-vv -A --host-timeout 15m"
+SLEEP="sleep 2"
+THREADS=10
+STOREDOWN="true"
+
+INDIR=./input/
+CURDIR=./cur/
+OUTDIR=./output/
+
+if [ "$TERM" != "screen" ] ; then
+    screen "$0" $@
+    exit 0
+fi
+
+mkdir -p "$INDIR" "$CURDIR" "$OUTDIR"
+
+if [ -z "$INTHREAD" ] ; then
+    screen -X setenv INTHREAD 1
+    for i in `seq $THREADS` ; do
+	screen "$0" $@
+    done
+    exit 0
+fi
+
+while true ; do
+    [ -f "want_down" ] && break
+    fname=`ls -rt "$INDIR" | head -1`
+    if [ -z "$fname" ] ; then
+	$SLEEP
+	continue
+    fi
+    if ! mv "$INDIR/$fname" "$CURDIR/" ; then
+	continue
+    fi
+    if ! (nmap $NMAPOPTS -iL "$CURDIR/$fname" -oX "$CURDIR/$fname.xml") ; then
+	rm -f "$CURDIR/$fname.xml"
+	mv "$CURDIR/$fname" "$INDIR/"
+	$SLEEP
+    else
+	if [ "$STOREDOWN" = "false" ] &&
+	    grep -q -F '<status state="down"' "$CURDIR/$fname.xml" ; then
+	    rm -f "$CURDIR/$fname.xml" "$CURDIR/$fname"
+	else
+	    mv "$CURDIR/$fname.xml" "$OUTDIR"
+	    rm -f "$CURDIR/$fname"
+	fi
+    fi
+done

@@ -1,0 +1,69 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+server {
+    listen 80 default_server;
+
+    root /usr/local/share/ivre/web/static/;
+    index index.html index.htm index.php;
+
+    server_name localhost;
+
+    location / {
+        # First attempt to serve request as file, then
+        # as directory, then fall back to displaying a 404.
+        try_files $uri $uri/ =404;
+    }
+
+    location /cgi-bin/scanjson.py {
+        fastcgi_pass unix:/var/run/fcgiwrap.socket;
+        fastcgi_param SCRIPT_FILENAME /usr/local/share/ivre/web/cgi-bin/scanjson.py;
+        include fastcgi_params;
+    }
+
+    location ~ ^/dokuwiki/.*\.php$ {
+        root /var/www/;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass unix:/var/run/php5-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    location /dokuwiki/ {
+        root /var/www/;
+        try_files $uri $uri/ @dokuwiki;
+    }
+
+    location @dokuwiki {
+        root /var/www/;
+        rewrite ^/dokuwiki/_media/(.*) /dokuwiki/lib/exe/fetch.php?media=$1 last;
+        rewrite ^/dokuwiki/_detail/(.*) /dokuwiki/lib/exe/detail.php?media=$1 last;
+        rewrite ^/dokuwiki/_export/([^/]+)/(.*) /dokuwiki/doku.php?do=export_$1&id=$2 last;
+        rewrite ^/dokuwiki/(.*) /dokuwiki/doku.php?id=$1 last;
+    }
+
+    # deny access to .htaccess files, if Apache's document root
+    # concurs with nginx's one
+    #
+    location ~ ^/dokuwiki/((data|conf|bin|inc(/lang)?)/)?\.ht {
+        deny all;
+    }
+
+    location ~ ^/dokuwiki/(data|conf|bin|inc)/ {
+        deny all;
+    }
+}

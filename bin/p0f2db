@@ -1,0 +1,108 @@
+#! /usr/bin/env python
+
+# This file is part of IVRE.
+# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+import ivre.db
+import ivre.utils
+
+import re
+import subprocess
+import datetime
+import signal
+
+
+def terminate(signum, stack_frame):
+    p0fprocess.stdout.close()
+    p0fprocess.terminate()
+    exit()
+
+signal.signal(signal.SIGINT, terminate)
+signal.signal(signal.SIGTERM, terminate)
+
+
+def process_file(sensor, fname, mode='SYN'):
+    global p0fprocess
+    distre = re.compile('distance ([0-9]+),')
+    if fname.startswith('iface:'):
+        fname = ['-i', fname[6:]]
+    else:
+        fname = ['-s', fname]
+    mode = {
+        'SYN': {
+            'options': [],
+            'name': 'SYN',
+            'filter': 'tcp and tcp[tcpflags] & (tcp-syn|tcp-ack) == 2'
+        },
+        'SYN+ACK': {
+            'options': ['-A'],
+            'name': 'SYN+ACK',
+            'filter': 'tcp and tcp[tcpflags] & (tcp-syn|tcp-ack) == 18'},
+        'RST+': {
+            'options': ['-R'],
+            'name': 'RST+',
+            'filter': 'tcp and tcp[tcpflags] & (tcp-rst) == 4'},
+        'ACK': {
+            'options': ['-O'],
+            'name': 'ACK',
+            'filter': 'tcp and tcp[tcpflags] & (tcp-syn|tcp-ack) == 16'}
+    }[mode]
+    p0fprocess = subprocess.Popen(
+        ['p0f', '-l', '-S', '-ttt'] + fname
+        + mode['options'] + [mode['filter']],
+        stdout=subprocess.PIPE
+    )
+    for l in p0fprocess.stdout:
+        # try:
+            l = [l.split(' - ')[0]] + l.split(' - ')[1].split(' -> ')
+            if l[1].startswith('UNKNOWN '):
+                sig = l[1][l[1].index('UNKNOWN ') + 8:][1:-1].split(':')[:6]
+                OS, version, dist = '?', '?', -1
+            else:
+                sig = l[1][l[1].index(' Signature: ') + 12:][
+                    1:-1].split(':')[:6]
+                if ' (up: ' in l[1]:
+                    OS = l[1][:l[1].index(' (up: ')]
+                else:
+                    OS = l[1][:l[1].index(' Signature: ')]
+                OS, version = OS.split(' ')[0], ' '.join(OS.split(' ')[1:])
+                dist = int(distre.search(l[2]).groups()[0])
+            # *** we wildcard any window size which is not Sxxx or Tyyy
+            if sig[0][0] not in ['S', 'T']:
+                sig[0] = '*'
+            spec = {
+                'addr': ivre.utils.ip2int(l[0][l[0].index('> ')
+                                               + 2:l[0].index(':')]),
+                'recontype': 'P0F2-%s' % mode['name'],
+                'distance': dist,
+                'value': OS,
+                'version': version,
+                'signature': ":".join(map(str, sig)),
+                'sensor': sensor,
+            }
+            if mode['name'] == 'SYN+ACK':
+                spec.update({'port': int(l[0][l[0].index(':') + 1:])})
+            ivre.db.db.passive.insert_or_update(
+                float(l[0][1:l[0].index('>')]), spec)
+        # except:
+        #    sys.stderr.write('Warning for line [[[%s]]]\n' % str(l))
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) == 4:
+        process_file(sys.argv[1], sys.argv[2], mode=sys.argv[3])
+    else:
+        process_file(sys.argv[1], sys.argv[2])

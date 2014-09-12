@@ -1,0 +1,192 @@
+<!--
+  This file is part of IVRE.
+  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+
+  IVRE is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  IVRE is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<!-- HELP -->
+<li>
+  <a class="clickable" ng-click="togglenotes('doc:webui');">
+    <i class="icon-question-sign icon-white"></i> <b>HELP</b>
+  </a>
+</li>
+
+<!-- Unix -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-heart icon-white"></i> Unix<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable" onclick="setparam('nfs');">NFS</a></li>
+    <li><a class="clickable" onclick="setparam('nis');">NIS / YP</a></li>
+    <li><a class="clickable" onclick="setparam('x11');">X11</a></li>
+    <li><a class="clickable" onclick="setparam('x11open');">X11 (open)</a></li>
+  </ul>
+</li>
+
+<!-- Windows -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-th-large icon-white"></i> Win<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable" onclick="setparam('xp445');">XP / 445</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('hostscript', 'smb-enum-shares:/WRITE/', false, true); setparam('display', 'script:smb-enum-shares', true);"
+	   >Writable shares</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('mssqlemptypwd');"
+	   >MS-SQL empty password</li></a>
+  </ul>
+</li>
+
+<!-- Web -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-globe icon-white"></i> Web<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable" onclick="setparam('authhttp');">HTTP Auth</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('webfiles');">Shared web files</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('script', 'http-git:\'/Git repository found/\'');"
+	   >Git repository</a></li>
+    <li><a class="clickable" onclick="setparam('owa');">OWA</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('phpmyadmin');"
+	   >PHPMyAdmin</a></li>
+  </ul>
+</li>
+
+<!-- Authentication -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-lock icon-white"></i> Auth<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable" onclick="setparam('authhttp');">HTTP Auth</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('anonftp', undefined, true, true); setparam('display', 'script:ftp-anon', true);"
+	   >Anonymous FTP</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('anonldap');">Anonymous LDAP</a></li>
+    <li><a class="clickable" onclick="setparam('nis');">NIS / YP</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('authbypassvnc');"
+	   >VNC Authentication Bypass</li></a>	    
+    <li><a class="clickable"
+	   onclick="setparam('mssqlemptypwd');"
+	   >MS-SQL empty password</li></a>	    
+    <li><a class="clickable"
+	   onclick="setparam('mysqlemptypwd');"
+	   >MySQL empty password</li></a>	    
+  </ul>
+</li>
+
+<!-- Relay -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-share-alt icon-white"></i> Relay<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable"
+	   onclick="setparam('script', 'http-open-proxy');"
+	   >HTTP Open Proxy</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('script', 'socks-open-proxy');"
+	   >Socks Open Proxy</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('script', 'smtp-open-relay');"
+	   >SMTP Open Relay</a></li>
+    <li>
+      <a class="clickable"
+	 onclick="setparam('script', 'ftp-bounce:&quot;bounce working!&quot;');"
+	 >FTP Bounce</a>
+    </li>
+  </ul>
+</li>
+
+<!-- Embedded -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-screenshot icon-white"></i> Embed<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable"
+	   onclick="setparam('devicetype', 'webcam');">Webcam</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('geovision');"
+	   ><i class="icon-chevron-right"></i> GeoVision</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('netdev');">Network devices</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('phonedev');">Telephony systems</a></li>
+  </ul>
+</li>
+
+<!-- Sort -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-random icon-white"></i> Sort<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a class="clickable"
+	   onclick="unsetparam('sortby'); setparam('sortby', 'endtime');"
+	   ><i class="icon-arrow-down"></i>Date of scan</a></li>
+    <li><a class="clickable"
+	   onclick="unsetparam('sortby'); setparam('-sortby', 'endtime');"
+	   ><i class="icon-arrow-up"></i> Date of scan</a></li>
+    <li><a class="clickable"
+	   onclick="unsetparam('sortby'); setparam('sortby', 'addr');"
+	   ><i class="icon-arrow-down"></i> IP Address</a></li>
+    <li><a class="clickable"
+	   onclick="unsetparam('sortby'); setparam('-sortby', 'addr');"
+	   ><i class="icon-arrow-up"></i> IP Address</a></li>
+    <li>
+      <a class="clickable"
+	 onclick="'archives' in parametersobj ? unsetparam('archives') : setparam('archives');"
+	 ><i class="icon-file"></i> Archives</a></li>
+  </ul>
+</li>
+
+<!-- Share -->
+<li class="dropdown">
+  <a class="dropdown-toggle clickable" data-toggle="dropdown">
+    <i class="icon-share icon-white"></i> Share<b class="caret"></b>
+  </a>
+  <ul class="dropdown-menu">
+    <li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
+	<i class="icon-plus"></i> New tab
+    </a></li>
+    <li><a id="share-bookmark" rel="sidebar"
+	   ng-href="{{get_href()}}" ng-title="{{get_title()}}"
+	   ng-click="add_bookmark()">
+	<i class="icon-star"></i> Bookmark
+    </a></li>
+    <li><a id="share-mail" ng-href="{{get_mail_href()}}">
+	<i class="icon-envelope"></i> Mail
+    </a></li>
+  </ul>
+</li>
+
+<!-- Droids Corp web site -->
+<li>
+  <a title="Droids Corporation"
+     href="http://droids-corp.org/"
+     target="_blank">
+    droids-corp.org
+  </a>
+</li>

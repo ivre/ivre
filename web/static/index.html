@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+
+<!--
+  This file is part of IVRE.
+  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+
+  IVRE is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  IVRE is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<html ng-app="ivreWebUi">
+
+  <head>
+    <link rel="stylesheet" type="text/css" href="bs/css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="bs/css/bootstrap-responsive.css" />
+    <link rel="stylesheet" type="text/css" href="ivre.css" />
+    <link rel="icon" type="image/png" id="favicon" href="favicon.png" />
+    <script type="text/javascript" src="jq/jquery.js"></script>
+    <script type="text/javascript" src="bs/js/bootstrap.js"></script>
+    <script type="text/javascript" src="d3/js/d3.v3.min.js"></script>
+    <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
+    <script type="text/javascript" src="an/js/angular.js"></script>
+    <script type="text/javascript">
+      config = {};
+    </script>
+    <script type="text/javascript" src="config.js"></script>
+    <script type="text/javascript" src="ivre.js"></script>
+    <title>IVRE Web UI</title>
+  </head>
+
+  <body onload="load();" ng-controller="IvreMainCtrl">
+
+    <!-- The top navigation bar -->
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+	  <!-- The logo + app name -->
+	  <img alt="DroidsCorp" src="logo.png" class="logo"/>
+	  <a href="#" class="brand">
+	    IVRE
+	  </a>
+	  <!-- The menu -->
+	  <ul class="nav"
+	      ng-controller="IvreMenuCtrl"
+	      ivre-menu=""></ul>
+	</div>
+      </div>
+    </div>
+
+    <div class="container-fluid">
+      <div class="row-fluid">
+	<div class="span2">
+	  <ul class="nav nav-list sidebar">
+	    <ul class="nav"
+		ng-controller="IvreProgressCtrl"
+		ivre-progress-bar="">
+	    </ul>
+            <li class="divider"></li>
+	    <ul class="nav"
+		ng-controller="IvreFilterListCtrl"
+		ivre-filters="">
+	    </ul>
+	  </ul>
+	</div>
+	<div id="results-container" class="span5"
+	     ng-controller="IvreResultListCtrl"
+	     ng-switch="display_mode">
+	  <div ng-switch-when="script" display-script=""></div>
+	  <div ng-switch-default="host" display-host=""></div>
+	</div>
+	<div id="notes-container" class="span5"
+	     ng-controller="IvreAnalysisCtrl">
+	  <iframe id="notes" frameborder="0" height="99%" width="100%"
+		  ng-style="{'display': notes_display}"
+		  ng-src="{{notes_page}}";
+		  onload="this.parentNode.style.height=window.innerHeight-50+'px'">
+	  </iframe>
+	  <div id="charts" style="display: none;">
+	    <div>
+	      <center>
+		<span id="chartstitle"></span>
+		<i class="icon-remove clickable"
+		   onclick="build_current_graph = undefined; hidecharts();"></i>
+	      </center>
+	    </div>
+	    <div id="chart1"></div>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,158 @@
+/*
+ * This file is part of IVRE.
+ * Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+ *
+ * IVRE is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * IVRE is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+ * License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/* leave room from the topbar */
+body {
+    padding-top: 50px;
+}
+
+.navbar .logo {
+    margin-right: 20px;
+    margin-top: 5px;
+    max-height: 30px;
+    float: left;
+}
+
+.navbar .credits {
+    float: right;
+}
+
+.sidebar {
+    position: fixed;
+}
+
+.sidebar .progress {
+    margin-bottom: 5px;
+}
+
+.sidebar .input-append {
+     margin-bottom: 10px;
+}
+
+/* Progress bar not starting at the beginning */
+.progress .bar-empty {
+    background-image: none;
+    background: none;
+    box-shadow: none;
+}
+
+form {
+    margin: 0 0 10px;
+}
+
+.btn-with-input-medium {
+    width: 164px;
+}
+
+.btn-with-input-large {
+    width: 224px;
+}
+
+#notes-container {
+    position: fixed;
+    right: 20px;
+}
+
+.result-container {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+    padding: 5px;
+    margin-bottom: 5px;
+    transition: border .2s, margin .2s;
+}
+
+.result-scripts-output {
+    font-size: 9pt;
+}
+
+.result-url {
+    float: right;
+}
+
+.result-traceroute-hops {
+    font-size: 9pt;
+    background-color: #F5F5F5;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    display: block;
+    line-height: 20px;
+    margin: 0 0 10px;
+    padding: 9.5px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    word-wrap: break-word;
+    color: #333333;
+    font-family: Monaco,Menlo,Consolas,"Courier New",monospace;
+}
+
+.preview {
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    max-height: 150px;
+}
+
+.result {
+    border: 2px solid rgba(0, 0, 0, 0.4);
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.result-hidden-part {
+    display: none;
+}
+
+.summary > table > tbody > tr > td {
+  padding-right: 10px;
+  white-space: nowrap;
+}
+
+.dtnormal {
+    font-weight: normal;
+}
+
+.highlight {
+    background-color: #ffdddd;
+}
+
+.highlight-more {
+    background-color: #ffaaaa;
+}
+
+.notebtn {
+    cursor: pointer;
+    float: right;
+}
+
+.charts > div {
+    height: 400px;
+}
+
+.label-status {
+    min-width: 7ex;
+    text-align: center;
+}
+
+.brush .extent {
+  stroke: #000;
+  fill-opacity: .125;
+  shape-rendering: crispEdges;
+}
+
+.clickable {
+    cursor: pointer;
+}

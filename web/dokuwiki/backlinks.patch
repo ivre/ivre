@@ -1,0 +1,19 @@
+--- inc/html.php.orig	2013-04-13 13:54:32.942894348 +0200
++++ inc/html.php	2013-04-13 14:10:28.926918827 +0200
+@@ -844,7 +844,15 @@ function html_backlinks(){
+             print '</div></li>';
+         }
+         print '</ul>';
+-    } else {
++    }
++    if(preg_match('/^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/', $ID)) {
++        print '<ul class="idx">';
++        print '<li><div class="li">';
++        print '<a target="_top" href="/#'.$ID.'">IVRE record(s)</a>';
++        print '</div></li>';
++        print '</ul>';
++    }
++    else if(empty($data)) {
+         print '<div class="level1"><p>' . $lang['nothingfound'] . '</p></div>';
+     }
+ }
