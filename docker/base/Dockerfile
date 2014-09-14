@@ -21,8 +21,16 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Dependencies
 RUN apt-get update
-RUN apt-get -y install python-pymongo python-crypto
+RUN apt-get -y install python-pymongo python-crypto git
 
 # IVRE
-ADD ivre-latest.linux-x86_64.tar.gz .
+RUN git clone https://github.com/cea-sec/ivre.git
+RUN cd ivre/ && \
+  python setup.py build && python setup.py install
+
 ADD ivre.conf /etc/ivre.conf
+
+# Clean
+RUN rm -rf ivre/
+RUN apt-get -y --purge remove git
+RUN apt-get -y --purge autoremove

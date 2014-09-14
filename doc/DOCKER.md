@@ -26,15 +26,7 @@ and an access to the Internet.
 ## Build the images ##
 
 You can also build the images from the provided `Dockerfile`s. For
-that, you first need to create a *built distribution*. From IVRE's
-source tree, run:
-
-    $ python setup.py bdist
-
-Then move the archive produced from the `dist/` directory to
-`docker/base/ivre-latest.linux-x86_64.tar.gz`.
-
-Then run from the `docker/` directory:
+that, from the `docker/` directory, run:
 
     $ docker pull ubuntu:latest
     $ for img in agent base client db web ; do
