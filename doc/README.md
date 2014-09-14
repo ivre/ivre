@@ -6,9 +6,11 @@ Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK
 (Dynamic Recon of UNKnown networks) is a network recon framework,
-including two modules for passive recon (one p0f-base and one
-bro-based) and one module for active recon (mostly nmap-based, with a
-bit of zmap).
+including two modules for passive recon (one
+[p0f](http://lcamtuf.coredump.cx/p0f/)-based and one
+[Bro](https://www.bro.org/)-based) and one module for active recon
+(mostly [Nmap](http://nmap.org/)-based, with a bit of
+[ZMap](https://zmap.io/)).
 
 The advertising slogans are:
 
@@ -33,7 +35,7 @@ IVRE relies on:
     * the [Crypto](http://www.pycrypto.org/) module
     * the [pymongo](http://api.mongodb.org/python/) module
 
-  * [Nmap](http://nmap.org/) & [Zmap](https://zmap.io/)
+  * [Nmap](http://nmap.org/) & [ZMap](https://zmap.io/)
 
   * [Bro](http://www.bro.org/) & [p0f](http://lcamtuf.coredump.cx/p0f/)
 

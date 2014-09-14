@@ -4,9 +4,10 @@ Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # Introduction #
 
-IVRE agent is meant to be run in an environment not totally
-controlled (e.g., during a pentest, on a machine you have just owned
-and want to use to do some network recon without installing IVRE).
+[IVRE](README.md) agent is meant to be run in an environment not
+totally controlled (e.g., during a pentest, on a machine you have just
+owned and want to use to do some network recon without installing
+IVRE).
 
 IVRE agent only requires nmap (of course), screen and rsync (plus
 `/bin/sh` and basic shell utils, including `grep`).

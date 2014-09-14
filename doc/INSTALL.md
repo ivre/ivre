@@ -4,20 +4,28 @@ Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # DB Server #
 
-Follow the documentation from MongoDB project, depending on your
-distribution. It is recommended to install packages from the MongoDB
-project rather than the (possibly old) packages from your
+Follow the [documentation from MongoDB
+project](http://docs.mongodb.org/manual/installation/), depending on
+your distribution. It is recommended to install packages from the
+MongoDB project rather than the (possibly old) packages from your
 distribution.
 
 # IVRE #
 
 ## Installation ##
 
-The installation of IVRE itself can be done either via the `setup.py`
-(classical `./setup.py build; sudo ./setup.py install`) script, or by
-building an RPM package (you can use the provided `buildrpm` script,
-or use the `setup.py` script with your own options) and then
-installing it.
+The installation of [IVRE](README.md) itself can be done by:
+
+  * using the `setup.py` (classical `./setup.py build; sudo ./setup.py
+    install`) script.
+
+  * building an RPM package (you can use the provided `buildrpm`
+    script, or use the `setup.py` script with your own options) and
+    then installing it.
+
+  * using [Docker](DOCKER.md) (in this case you do not need to follow
+    the following instructions, as the Docker containers are already
+    configured).
 
 ## Configuration ##
 

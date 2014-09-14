@@ -6,7 +6,10 @@ Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 Docker is an open-source platform that automates the deployment of
 applications inside containers. See the [official
-website](http://www.docker.com/)
+website](http://www.docker.com/).
+
+This document describes the (easy) installation of [IVRE](README.md)
+using Docker containers, including the database and web servers.
 
 # Getting the images #
 

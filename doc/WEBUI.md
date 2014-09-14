@@ -4,11 +4,11 @@ Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # Introduction #
 
-IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK
-(Dynamic Recon of UNKnown networks) is a network recon framework,
-including two modules for passive recon (one p0f-base and one
-bro-based) and one module for active recon (mostly nmap-based, with a
-bit of zmap).
+[IVRE](README.md) (Instrument de veille sur les réseaux extérieurs) or
+DRUNK (Dynamic Recon of UNKnown networks) is a network recon
+framework, including two modules for passive recon (one p0f-base and
+one bro-based) and one module for active recon (mostly nmap-based,
+with a bit of zmap).
 
 This web interface presents results of (Nmap) active scans that can be
 filtered with keywords (and, for some of them, shortcuts are available

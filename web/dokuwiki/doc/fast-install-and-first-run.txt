@@ -2,9 +2,9 @@ This file is part of IVRE.
 
 Copyright 2011 - 2014 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
-This file describes the steps to install IVRE, run the first scans and add the results to the database with all components (scanner, web server, database server) on the same (Debian or Ubuntu) machine.
+This file describes the steps to install [[doc:README|IVRE]], run the first scans and add the results to the database with all components (scanner, web server, database server) on the same (Debian or Ubuntu) machine.
 
-Adapt it to your needs, architecture, etc.
+Adapt it to your needs, architecture, etc. For another way to run IVRE easily, see [[doc:DOCKER|Docker]].
 
 ====== Install ======
 
