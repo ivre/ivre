@@ -26,6 +26,13 @@ RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
 ADD http://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz ./dokuwiki-stable.tgz
 RUN tar --transform='s#^dokuwiki-\([^/]*\)#var/www/dokuwiki#' -zxf ./dokuwiki-stable.tgz && rm ./dokuwiki-stable.tgz
 
+# IVRE-specific
+RUN patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/dokuwiki/backlinks.patch
+RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc
+RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png
+ADD ivre-scanjsonconfig.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py
+RUN touch usr/local/share/ivre/web/static/config.js
+
 # Configure Dokuwiki
 RUN rm var/www/dokuwiki/install.php
 ADD doku-conf-local.php var/www/dokuwiki/conf/local.php
@@ -33,13 +40,6 @@ ADD doku-conf-plugins.local.php var/www/dokuwiki/conf/plugins.local.php
 ADD doku-conf-acl.auth.php var/www/dokuwiki/conf/acl.auth.php
 ADD doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
 RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/www/dokuwiki/lib/plugins
-
-# IVRE-specific
-RUN patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/dokuwiki/backlinks.patch
-RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc
-RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png
-ADD ivre-scanjsonconfig.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py
-RUN touch usr/local/share/ivre/web/static/config.js
 
 RUN apt-get -y --purge remove patch
 
