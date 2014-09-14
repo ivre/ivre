@@ -1,0 +1,3 @@
+*.py[cod]
+build/
+dist/
