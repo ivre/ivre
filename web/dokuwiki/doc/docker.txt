@@ -33,31 +33,32 @@ This might take a long time.
 
 To create the volume to store MongoDB data, run (''%%chmod%%''-ing to ''%%1777%%'' is a bit overkill, ''%%chown%%''-ing it to the UID of the MongoDB user in the container would do):
 
-<code>$ mkdir var_lib_mongodb
-$ chmod 1777 var_lib_mongodb</code>
+<code>$ mkdir var_lib_mongodb var_log_mongodb
+$ chmod 1777 var_lib_mongodb var_log_mongodb</code>
 To run an instance of the MongoDB server ready for IVRE, issue (this will run the instance and give it the name ''%%ivredb%%''; we will use this name later):
 
 <code>$ docker run -d --name ivredb --hostname ivredb \
 >        --volume "`pwd`/var_lib_mongodb":/var/lib/mongodb \
+>        --volume "`pwd`/var_log_mongodb":/var/log/mongodb \
 >        ivre/db</code>
-You can add the option ''%%-p 27017:27017%%'' to have the MongoDB service accessible from the (physical) host.
+You can add the option ''%%-p 27017:27017%%'' to have the MongoDB service accessible through the host's TCP port 27017.
 
 ===== The web server =====
 
 <code>$ docker run -d --name ivreweb --hostname ivreweb \
 >        --link ivredb:ivredb --publish 80:80 ivre/web</code>
-The ''%%-p 80:80%%'' option creates a redirection and makes the web server accessible through the physical host.
+The ''%%--publish 80:80%%'' option creates a redirection and makes the web server accessible through the host's TCP port 80.
 
 ===== A command line client =====
 
 First, place Nmap result files (XML format) in a specific directory:
 
-<code>$ mkdir /tmp/ivre-share
-$ cp -r /path/to/my/nmap/results.xml /tmp/ivre-share</code>
+<code>$ mkdir ivre-share
+$ cp -r /path/to/my/nmap/results.xml ivre-share</code>
 Now to get a shell in an IVRE client instance (for command line actions), issue:
 
 <code>$ docker run -i -t --name ivreclient --hostname ivreclient \
->        --link ivredb:ivredb --volume /tmp/ivre-share:/ivre-share \
+>        --link ivredb:ivredb --volume "`pwd`/ivre-share":/ivre-share \
 >        ivre/client</code>
 This gives a shell in the ''%%ivreclient%%'' container, and from there we can use IVRE's command line tools and Python API. For example, to initialize the database:
 
@@ -75,7 +76,7 @@ The latest command will take a long time. Then we can integrate the Nmap results
 You can then exit the shell (''%%CTRL + d%%''), this will stop the container.
 
 <code>root@ivreclient:/# exit</code>
-You can start the container again by issuing:
+You can start the container again later by issuing:
 
 <code>$ docker start -i ivreclient
 root@ivreclient:/#</code>

@@ -18,7 +18,7 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Install & configure Nginx
-RUN apt-get -y install nginx spawn-fcgi php5-fpm php5-gd fcgiwrap patch
+RUN apt-get -qy install nginx spawn-fcgi php5-fpm php5-gd fcgiwrap patch
 ADD nginx-default-site /etc/nginx/sites-available/default
 RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
 
@@ -41,7 +41,8 @@ ADD doku-conf-acl.auth.php var/www/dokuwiki/conf/acl.auth.php
 ADD doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
 RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/www/dokuwiki/lib/plugins
 
-RUN apt-get -y --purge remove patch
+RUN apt-get -qy --purge remove patch
+RUN apt-get -qy --purge autoremove
 
 EXPOSE 80
 CMD service php5-fpm restart && service fcgiwrap restart && /usr/sbin/nginx

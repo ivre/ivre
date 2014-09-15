@@ -19,7 +19,7 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update
-RUN apt-get -y install nmap screen
+RUN apt-get -q update
+RUN apt-get -qy install nmap screen
 
 VOLUME /var/lib/ivre-agent

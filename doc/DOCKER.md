@@ -43,40 +43,41 @@ To create the volume to store MongoDB data, run (`chmod`-ing to `1777`
 is a bit overkill, `chown`-ing it to the UID of the MongoDB user in
 the container would do):
 
-    $ mkdir var_lib_mongodb
-    $ chmod 1777 var_lib_mongodb
+    $ mkdir var_lib_mongodb var_log_mongodb
+    $ chmod 1777 var_lib_mongodb var_log_mongodb
 
 To run an instance of the MongoDB server ready for IVRE, issue (this
 will run the instance and give it the name `ivredb`; we will use this
 name later):
 
     $ docker run -d --name ivredb --hostname ivredb \
-	>        --volume "`pwd`/var_lib_mongodb":/var/lib/mongodb \
-	>        ivre/db
+    >        --volume "`pwd`/var_lib_mongodb":/var/lib/mongodb \
+    >        --volume "`pwd`/var_log_mongodb":/var/log/mongodb \
+    >        ivre/db
 
 You can add the option `-p 27017:27017` to have the MongoDB service
-accessible from the (physical) host.
+accessible through the host's TCP port 27017.
 
 ## The web server ##
 
     $ docker run -d --name ivreweb --hostname ivreweb \
     >        --link ivredb:ivredb --publish 80:80 ivre/web
 
-The `-p 80:80` option creates a redirection and makes the web server
-accessible through the physical host.
+The `--publish 80:80` option creates a redirection and makes the web
+server accessible through the host's TCP port 80.
 
 ## A command line client ##
 
 First, place Nmap result files (XML format) in a specific directory:
 
-    $ mkdir /tmp/ivre-share
-    $ cp -r /path/to/my/nmap/results.xml /tmp/ivre-share
+    $ mkdir ivre-share
+    $ cp -r /path/to/my/nmap/results.xml ivre-share
 
 Now to get a shell in an IVRE client instance (for command line
 actions), issue:
 
     $ docker run -i -t --name ivreclient --hostname ivreclient \
-    >        --link ivredb:ivredb --volume /tmp/ivre-share:/ivre-share \
+    >        --link ivredb:ivredb --volume "`pwd`/ivre-share":/ivre-share \
     >        ivre/client
 
 This gives a shell in the `ivreclient` container, and from there we
@@ -102,7 +103,7 @@ container.
 
     root@ivreclient:/# exit
 
-You can start the container again by issuing:
+You can start the container again later by issuing:
 
     $ docker start -i ivreclient
     root@ivreclient:/#

@@ -20,17 +20,20 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 ENV DEBIAN_FRONTEND noninteractive
 
 # Dependencies
-RUN apt-get update
-RUN apt-get -y install python-pymongo python-crypto git
+RUN apt-get -q update
+RUN apt-get -qy install python-pymongo python-crypto unzip
 
 # IVRE
-RUN git clone https://github.com/cea-sec/ivre.git
+ADD https://github.com/cea-sec/ivre/zipball/master ./ivre.zip
+RUN unzip ivre.zip && rm ivre.zip
+RUN mv cea-sec-ivre-* ivre
 RUN cd ivre/ && \
   python setup.py build && python setup.py install
+RUN rm -rf ivre/
 
 ADD ivre.conf /etc/ivre.conf
 
 # Clean
 RUN rm -rf ivre/
-RUN apt-get -y --purge remove git
-RUN apt-get -y --purge autoremove
+RUN apt-get -qy --purge remove unzip
+RUN apt-get -qy --purge autoremove

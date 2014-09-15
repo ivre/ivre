@@ -23,10 +23,11 @@ ENV DEBIAN_FRONTEND noninteractive
 # http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
 RUN echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' > /etc/apt/sources.list.d/10gen.list
-RUN apt-get update && apt-get install -y mongodb-org
+RUN apt-get -q update && apt-get -qy install mongodb-org
 
-# Data directory
+# Data & log directories
 VOLUME /var/lib/mongodb
+VOLUME /var/log/mongodb
 
 # MongoDB config
 RUN sed -i 's/^bind_ip = /#bind_ip = /' /etc/mongod.conf
