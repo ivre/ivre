@@ -379,21 +379,40 @@ class MongoDB(DB):
 
     def __init__(self, host, dbname,
                  username=None, password=None, mechanism=None):
-        self.connection = pymongo.MongoClient(
-            host=host,
-            read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED
-        )
-        self.db = self.connection[dbname]
-        if username is not None:
-            if password is not None:
-                self.db.authenticate(username, password)
-            elif mechanism is not None:
-                self.db.authenticate(username, mechanism=mechanism)
-            else:
-                raise TypeError("provide either 'password' or 'mechanism'"
-                                " with 'username'")
+        self.host = host
+        self.dbname = dbname
+        self.username = username
+        self.password = password
+        self.mechanism = mechanism
+        self._connection = None
+        self._db = None
         self.indexes = {}
         self.specialindexes = {}
+
+    def _get_connection(self):
+        if self._connection is None:
+            self._connection = pymongo.MongoClient(
+                host=self.host,
+                read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED
+            )
+        return self._connection
+
+    def _get_db(self):
+        if self._db is None:
+            self._db = self.connection[self.dbname]
+            if self.username is not None:
+                if self.password is not None:
+                    self.db.authenticate(self.username, self.password)
+                elif self.mechanism is not None:
+                    self.db.authenticate(self.username,
+                                         mechanism=self.mechanism)
+                else:
+                    raise TypeError("provide either 'password' or 'mechanism'"
+                                    " with 'username'")
+        return self._db
+
+    connection = property(fget=_get_connection)
+    db = property(fget=_get_db)
 
     def getid(self, record):
         return record['_id']
