@@ -385,7 +385,6 @@ class MongoDB(DB):
         self.password = password
         self.mechanism = mechanism
         self._connection = None
-        self._db = None
         self.indexes = {}
         self.specialindexes = {}
 
@@ -398,7 +397,9 @@ class MongoDB(DB):
         return self._connection
 
     def _get_db(self):
-        if self._db is None:
+        try:
+            return self._db
+        except AttributeError:
             self._db = self.connection[self.dbname]
             if self.username is not None:
                 if self.password is not None:
@@ -409,7 +410,7 @@ class MongoDB(DB):
                 else:
                     raise TypeError("provide either 'password' or 'mechanism'"
                                     " with 'username'")
-        return self._db
+            return self._db
 
     connection = property(fget=_get_connection)
     db = property(fget=_get_db)
