@@ -35,6 +35,7 @@ docker/web/doku-conf-acl.auth.php
 docker/web/doku-conf-plugins.local.php
 docker/web/doku-conf-local.php
 docker/web/doku-conf-users.auth.php
+docker/web/ivre-scanjsonconfig.py
 docker/web/nginx-default-site
 honeyd/sshd
 ivre/__init__.py
