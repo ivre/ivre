@@ -26,11 +26,13 @@ MongoDB databases.
 """
 
 from ivre.db import DB, DBNmap, DBPassive, DBData
+from ivre import utils
 
 import pymongo
 import bson
 import json
-
+import re
+import datetime
 
 class MongoDB(DB):
 

@@ -28,7 +28,6 @@ database.
 from ivre import config, utils
 
 import re
-import datetime
 import urlparse
 import urllib
 # tests: I don't want to depend on cluster for now
