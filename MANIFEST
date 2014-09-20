@@ -40,7 +40,6 @@ docker/web/nginx-default-site
 honeyd/sshd
 ivre/__init__.py
 ivre/config.py
-ivre/db.py
 ivre/geoiputils.py
 ivre/graphroute.py
 ivre/keys.py
@@ -50,6 +49,8 @@ ivre/scanengine.py
 ivre/target.py
 ivre/utils.py
 ivre/xmlnmap.py
+ivre/db/__init__.py
+ivre/db/mongo.py
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
 web/cgi-bin/scanjson.py

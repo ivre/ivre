@@ -31,7 +31,7 @@ from distutils.core import setup
 setup(
     name='ivre',
     version='0.9',
-    packages=['ivre'],
+    packages=['ivre', 'ivre/db'],
     scripts=['bin/attackkeys', 'bin/checkknownkeys', 'bin/detectdupkeys',
              'bin/getmoduli', 'bin/ipinfo', 'bin/ipinfohost', 'bin/ipdata',
              'bin/httpd-ivre', 'bin/nmap2db', 'bin/p0f2db',
