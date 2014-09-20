@@ -38,9 +38,9 @@ import re
 class Target(object):
     """This is the base class for a Target object, which is,
     basically, a set of IP selected according specific criteria
-    (implemented in the daughter classes) that we will be able to
-    enumerate in a random order (most of the time, see `TargetFile`
-    class below).
+    (selection is implemented in the subclasses) that we will be able
+    to enumerate in a random order (most of the time, see `TargetFile`
+    class below when this is not possible).
 
     """
 
@@ -433,12 +433,22 @@ def target_from_args(args):
     else:
         return None
     if args.zmap_prescan_port is not None:
+        if args.zmap_prescan_opts is None:
+            zmap_prescan_opts = []
+        else:
+            zmap_prescan_opts = shlex.split(args.zmap_prescan_opts)
+        if '-b' not in zmap_prescan_opts:
+            zmap_prescan_opts += ['-b', '/dev/null']
         return TargetZMapPreScan(
             target,
             port=args.zmap_prescan_port,
-            zmap_opts=shlex.split(args.zmap_prescan_opts)
+            zmap_opts=zmap_prescan_opts,
         )
     if args.nmap_prescan_ports is not None:
+        if args.nmap_prescan_opts is None:
+            nmap_prescan_opts = []
+        else:
+            nmap_prescan_opts = shlex.split(args.nmap_prescan_opts)
         return TargetNmapPreScan(
             target,
             ports=args.nmap_prescan_ports,
