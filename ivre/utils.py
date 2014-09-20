@@ -32,6 +32,7 @@ import re
 import hashlib
 import subprocess
 import os
+import errno
 import stat
 
 # (1)
@@ -342,7 +343,7 @@ def makedirs(dirname):
     try:
         os.makedirs(dirname)
     except OSError as exception:
-        if not (exception.errno == 17 and os.path.isdir(dirname)):
+        if not (exception.errno == errno.EEXIST and os.path.isdir(dirname)):
             raise exception
 
 
