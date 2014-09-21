@@ -31,8 +31,10 @@ from ivre import utils
 import pymongo
 import bson
 import json
+
 import re
 import datetime
+
 
 class MongoDB(DB):
 
@@ -43,23 +45,17 @@ class MongoDB(DB):
         self.username = username
         self.password = password
         self.mechanism = mechanism
-        self._connection = None
         self.indexes = {}
         self.specialindexes = {}
-
-    def _get_connection(self):
-        if self._connection is None:
-            self._connection = pymongo.MongoClient(
-                host=self.host,
-                read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED
-            )
-        return self._connection
 
     def _get_db(self):
         try:
             return self._db
         except AttributeError:
-            self._db = self.connection[self.dbname]
+            self._db = pymongo.MongoClient(
+                host=self.host,
+                read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED
+            )[self.dbname]
             if self.username is not None:
                 if self.password is not None:
                     self.db.authenticate(self.username, self.password)
@@ -71,7 +67,6 @@ class MongoDB(DB):
                                     " with 'username'")
             return self._db
 
-    connection = property(fget=_get_connection)
     db = property(fget=_get_db)
 
     def getid(self, record):
@@ -443,10 +438,12 @@ have no effect if it is not expected)."""
         """
         if type(country) in [str, unicode]:
             country = utils.str2list(country)
-        if type(country) not in [str, unicode] and hasattr(country, '__iter__'):
+        if type(country) not in [str, unicode] and hasattr(
+                country, '__iter__'):
             return {'infos.country_code':
                     {'$nin' if neg else '$in': list(country)}}
-        return {'infos.country_code': {'$ne': country} if neg else country}
+        return {'infos.country_code':
+                {'$ne': country} if neg else country}
 
     def searchhaslocation(self, neg=False):
         return {'infos.loc': {"$exists": not neg}}
@@ -893,9 +890,11 @@ service_* tags."""
             # specialproj = {"_id": 0, "ports.port": 1,
             #                "ports.state_state": 1}
             # specialflt = [
-            #     {"$match": {"ports.state_state": field.split(':', 1)[1]}},
+            #     {"$match": {"ports.state_state":
+            #                 field.split(':', 1)[1]}},
             #     {"$project": {"ports.port": 1}},
-            #     {"$group": {"_id": "$ports.port", "countports": {"$sum": 1}}},
+            #     {"$group": {"_id": "$ports.port",
+            #                 "countports": {"$sum": 1}}},
             # ]
             # field = "countports"
             pass
@@ -961,9 +960,9 @@ service_* tags."""
             field = 'scripts.smb-os-discovery.forest_dns'
         elif field.startswith('smb.'):
             field = 'scripts.smb-os-discovery.' + field[4:]
-        elif field.startswith('script:') or \
-             field.startswith('portscript:') or \
-             field.startswith('hostscript:'):
+        elif (field.startswith('script:') or
+              field.startswith('portscript:') or
+              field.startswith('hostscript:')):
             scriptid = field.split(':', 1)[1]
             if ':' in scriptid:
                 base = 'ports.scripts'
