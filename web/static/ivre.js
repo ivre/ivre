@@ -350,6 +350,26 @@ function build_chart_map(chart, locs, fullworld) {
 	var maxcount = locations.features[0].properties.count;
 	var mincount = locations.features[locations.features.length - 1].properties.count;
 	var maxsize = 10, minsize = 1;
+	var radiusscale = d3.scale.linear()
+	    .domain([mincount, maxcount])
+	    .range([minsize, maxsize]);
+
+	var dotgradient = vis.append("svg:defs")
+	    .append("svg:radialGradient")
+	    .attr("id", "dotgradient");
+	dotgradient.append("svg:stop")
+	    .attr("offset", "0%")
+	    .attr("stop-color", "red")
+	    .attr("stop-opacity", 1);
+	dotgradient.append("svg:stop")
+	    .attr("offset", "30%")
+	    .attr("stop-color", "red")
+	    .attr("stop-opacity", 1/2);
+	dotgradient.append("svg:stop")
+	    .attr("offset", "100%")
+	    .attr("stop-color", "red")
+	    .attr("stop-opacity", 1/3);
+
 	vis.selectAll("country")
 	    .data(world.features)
 	    .enter().append("path")
@@ -366,20 +386,16 @@ function build_chart_map(chart, locs, fullworld) {
 	    .data(locations.features)
 	    .enter().append("svg:circle")
 	    .attr("class", "dot")
-	    //.attr("r", 2)
 	    .attr("r", function(d, i) {
-		return (d.properties.count - mincount) * (maxsize - minsize) / (maxcount - mincount) + minsize;
-		//return (maxsize - minsize) * Math.log(d.properties.count - mincount + 1) / Math.log(maxcount - mincount + 1) + minsize;
-
+		return radiusscale(d.properties.count);
 	    })
-            .attr("fill-opacity", 1/2)
 	    .attr("cx", function(d, i) {
 		return projection(d.geometry.coordinates)[0];
 	    })
 	    .attr("cy", function(d, i) {
 		return projection(d.geometry.coordinates)[1];
 	    })
-	    .attr("fill", "red");
+	    .attr("fill", "url(#dotgradient)");
 	// The next lines enable "boundary dots" (debug)
 	// vis.selectAll("dotbound")
 	//     .data([[bounds[0][0], bounds[1][0]],
