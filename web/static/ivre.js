@@ -360,7 +360,8 @@ function build_chart_map(chart, locs, fullworld) {
 	    .attr("onclick", function(d) {
 		return 'setparam("country", "' + d.id + '", true);';
 	    })
-	    .attr("d", path);
+	    .attr("d", path)
+	    .attr("fill", "lightgrey");
 	vis.selectAll("dot")
 	    .data(locations.features)
 	    .enter().append("svg:circle")
@@ -371,7 +372,7 @@ function build_chart_map(chart, locs, fullworld) {
 		//return (maxsize - minsize) * Math.log(d.properties.count - mincount + 1) / Math.log(maxcount - mincount + 1) + minsize;
 
 	    })
-            .attr("fill-opacity", 1/3)
+            .attr("fill-opacity", 1/2)
 	    .attr("cx", function(d, i) {
 		return projection(d.geometry.coordinates)[0];
 	    })
