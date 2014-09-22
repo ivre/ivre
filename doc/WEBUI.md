@@ -49,7 +49,7 @@ displayed in the rightest part of the screen.
     number of results to scan is important. Here is a list of
     (sometimes) interesting values to try here:
     - `category`, `source`
-    - `country`, `city`, `asnum`
+    - `country`, `city`, `as`
     - `domains`, `domains:[level]`
     - `hop`, `hop:[number]`
     - `port`, `port:[open/closed/filtered]`,

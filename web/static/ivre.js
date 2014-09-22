@@ -603,6 +603,7 @@ function build_chart(chart, field, dataset) {
     color = [ "steelblue", "lightblue" ];
     prepareoutput = function(x) {return x;};
     preparefilter = undefined;
+    preparetitle = undefined;
     if(field.substr(0,1) === "-") {
 	field = field.substr(1);
 	neg = true;
@@ -636,6 +637,17 @@ function build_chart(chart, field, dataset) {
     else if(field === 'asnum') {
 	preparefilter = function(x) {
 	    return 'setparam("asnum", "' + x + '", true);';
+	};
+    }
+    else if(field === 'as') {
+	prepareoutput = function(x) {
+	    return x[0];
+	};
+	preparetitle = function(x) {
+	    return x[1];
+	};
+	preparefilter = function(x) {
+	    return 'setparam("asnum", "' + x[0] + '", true);';
 	};
     }
     else if(field === 'country') {
@@ -697,6 +709,10 @@ function build_chart(chart, field, dataset) {
 	.attr("width", 0)
 	.attr("height", y.rangeBand())
 	.attr("class", preparefilter === undefined ? "" : "clickable")
+	.attr("title", function(d, i) {
+	    if (preparetitle !== undefined)
+		return preparetitle(labels[i]);
+	})
 	.attr("onclick", function(d, i) {
 	    return (preparefilter === undefined ?
 		    undefined :
@@ -709,18 +725,24 @@ function build_chart(chart, field, dataset) {
     bars.append("svg:text")
 	.attr("x", -6)
 	.attr("y", y.rangeBand() / 2)
-	//.attr("dx", -60)
 	.attr("dy", ".35em")
 	.attr("text-anchor", "end")
 	.text(function(d, i) { return data[i]; });
     
     bars.append("svg:text")
-	.attr("x", function(d, i) {return x(d, i) + (x(d, i) < (w-10)/2 ? 10 : -10);})
+	.attr("x", function(d, i) {
+	    return x(d, i) + (x(d, i) < (w-10)/2 ? 10 : -10);
+	})
 	.attr("y", y.rangeBand() / 2)
-	//.attr("dx", 6)
 	.attr("dy", ".35em")
-	.attr("text-anchor", function(d, i) {return x(d, i) < (w-10)/2 ? "start" : "end" ;})
-	.text(function(d, i) { return prepareoutput(labels[i]); })
+	.attr("text-anchor", function(d, i) {
+	    return x(d, i) < (w-10)/2 ? "start" : "end" ;
+	})
+	.text(function(d, i) {return prepareoutput(labels[i]);})
+	.attr("title", function(d, i) {
+	    if (preparetitle !== undefined)
+		return preparetitle(labels[i]);
+	})
 	.attr("class", preparefilter === undefined ? "" : "clickable")
 	.attr("onclick", function(d, i) {
 	    return (preparefilter === undefined ?
@@ -1538,7 +1560,7 @@ ivreWebUi
 	var topvalues = [
 	    "category", "domains", "domains:", "hop", "hop:",
 	    // infos
-	    "country", "city", "asnum",
+	    "country", "city", "as",
 	    // ports
 	    "port", "port:open", "port:closed", "port:filtered",
 	    // countports / portlist

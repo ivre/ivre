@@ -847,6 +847,24 @@ service_* tags."""
                                     '_id': x['_id'].split('###')}
         elif field == "asnum":
             field = "infos.as_num"
+        elif field == "as":
+            flt = self.flt_and(
+                flt,
+                {"infos.as_num": {"$exists": True}},
+            )
+            specialproj = {
+                "_id": 0,
+                "as": {"$concat": [
+                    # hack to convert the integer to a string and
+                    # prevent the exception "$concat only supports
+                    # strings, not NumberInt32"
+                    {"$toLower": "$infos.as_num"},
+                    "###",
+                    "$infos.as_name",
+                ]}}
+            field = "as"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
         elif field == "port":
             field = "ports.port"
         elif field.startswith("port:"):
