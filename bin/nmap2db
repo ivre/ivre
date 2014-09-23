@@ -22,14 +22,20 @@ import ivre.xmlnmap
 import xml.sax
 import os
 
+CONTENTHANDLER = {
+    "test": ivre.xmlnmap.Nmap2Txt,
+}
+
+try:
+    from ivre.db.mongo import MongoDBNmap
+    CONTENTHANDLER[MongoDBNmap] = ivre.xmlnmap.Nmap2Mongo
+except ImportError:
+    pass
 
 def storescan(fname, database, **kargs):
     parser = xml.sax.make_parser()
     try:
-        contenthandler = {
-            "test": ivre.xmlnmap.Nmap2Txt,
-            ivre.db.MongoDBNmap: ivre.xmlnmap.Nmap2Mongo,
-        }[database](fname, **kargs)
+        CONTENTHANDLER[database](fname, **kargs)
     except Exception as exc:
         print "WARNING: %s [%r] [fname=%s]" % (exc.message, exc, fname)
     else:
