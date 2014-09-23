@@ -349,7 +349,7 @@ function build_chart_map(chart, locs, fullworld) {
 	var locations = topojson.feature(locs, locs);
 	var maxcount = locations.features[0].properties.count;
 	var mincount = locations.features[locations.features.length - 1].properties.count;
-	var maxsize = 10, minsize = 1;
+	var maxsize = 10, minsize = 1.2;
 	var radiusscale = d3.scale.linear()
 	    .domain([mincount, maxcount])
 	    .range([minsize, maxsize]);
