@@ -369,7 +369,7 @@ for q in query:
             q[0] = q[0].split('<', 1)
             if q[0][1] and q[0][1][0] == '=':
                 flt = db.nmap.flt_and(flt, db.nmap.searchcmp(q[0][0],
-                                                             int(q[0][1]),
+                                                             int(q[0][1][1:]),
                                                              '<='))
             else:
                 flt = db.nmap.flt_and(flt, db.nmap.searchcmp(q[0][0],
@@ -379,7 +379,7 @@ for q in query:
             q[0] = q[0].split('>', 1)
             if q[0][1] and q[0][1][0] == '=':
                 flt = db.nmap.flt_and(flt, db.nmap.searchcmp(q[0][0],
-                                                             int(q[0][1]),
+                                                             int(q[0][1][1:]),
                                                              '>='))
             else:
                 flt = db.nmap.flt_and(flt, db.nmap.searchcmp(q[0][0],
