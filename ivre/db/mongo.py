@@ -26,7 +26,7 @@ MongoDB databases.
 """
 
 from ivre.db import DB, DBNmap, DBPassive, DBData
-from ivre import utils
+from ivre import utils, xmlnmap
 
 import pymongo
 import bson
@@ -203,6 +203,8 @@ class MongoDB(DB):
 
 
 class MongoDBNmap(MongoDB, DBNmap):
+
+    content_handler = xmlnmap.Nmap2Mongo
 
     def __init__(self, host, dbname,
                  colname_scans="scans", colname_hosts="hosts",

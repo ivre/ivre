@@ -25,11 +25,14 @@ This sub-module contains functions to interact with the
 database.
 """
 
-from ivre import config, utils
+from ivre import config, utils, xmlnmap
 
+import sys
 import re
 import urlparse
 import urllib
+import xml.sax
+
 # tests: I don't want to depend on cluster for now
 try:
     import cluster
@@ -195,6 +198,8 @@ class DB(object):
 
 class DBNmap(DB):
 
+    content_handler = xmlnmap.Nmap2Txt
+
     def __init__(self):
         try:
             import argparse
@@ -238,6 +243,30 @@ class DBNmap(DB):
                                     action='store_true')
         self.argparser.add_argument('--torcert', action='store_true')
         self.argparser.add_argument('--sshkey')
+
+    def store_scan(self, fname, **kargs):
+        """This method parses a scan result, displays a JSON version
+        of the result, and return True if everything went fine, False
+        otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `content_handler`
+        attribute.
+
+        """
+        parser = xml.sax.make_parser()
+        try:
+            content_handler = self.content_handler(fname, **kargs)
+        except Exception as exc:
+            sys.stderr.write("WARNING: %s [%r] [fname=%s]\n" % (
+                exc.message, exc, fname))
+        else:
+            parser.setContentHandler(content_handler)
+            parser.setEntityResolver(xmlnmap.NoExtResolver())
+            parser.parse(fname)
+            content_handler.outputresults()
+            return True
+        return False
 
     def get_mean_open_ports(self, flt, archive=False):
         """This method returns for a specific query `flt` a list of

@@ -17,35 +17,8 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 import ivre.db
-import ivre.xmlnmap
 
-import xml.sax
 import os
-
-CONTENTHANDLER = {
-    "test": ivre.xmlnmap.Nmap2Txt,
-}
-
-try:
-    from ivre.db.mongo import MongoDBNmap
-    CONTENTHANDLER[MongoDBNmap] = ivre.xmlnmap.Nmap2Mongo
-except ImportError:
-    pass
-
-def storescan(fname, database, **kargs):
-    parser = xml.sax.make_parser()
-    try:
-        contenthandler = CONTENTHANDLER[database](fname, **kargs)
-    except Exception as exc:
-        print "WARNING: %s [%r] [fname=%s]" % (exc.message, exc, fname)
-    else:
-        parser.setContentHandler(contenthandler)
-        parser.setEntityResolver(ivre.xmlnmap.NoExtResolver())
-        parser.parse(fname)
-        contenthandler.outputresults()
-        return True
-    return False
-
 
 def recursive_filelisting(base_directories):
     "Iterator on filenames in base_directories"
@@ -54,7 +27,6 @@ def recursive_filelisting(base_directories):
         for root, _, files in os.walk(base_directory):
             for leaffile in files:
                 yield os.path.join(root, leaffile)
-
 
 def main():
     try:
@@ -97,10 +69,10 @@ def main():
     args = parser.parse_args()
     categories = []
     source = None
-    database = ivre.db.db.nmap.__class__
+    database = ivre.db.db.nmap
     categories = args.categories.split(',')
     if args.test:
-        database = "test"
+        database = ivre.db.DBNmap()
     if args.never_archive:
         def gettoarchive(collection, addr, source):
             return []
@@ -117,12 +89,13 @@ def main():
         scans = args.scan
     count = 0
     for scan in scans:
-        if storescan(scan, database,
-                     categories=categories, source=args.source,
-                     needports=args.port, gettoarchive=gettoarchive):
+        if database.store_scan(
+                scan,
+                categories=categories, source=args.source,
+                needports=args.port, gettoarchive=gettoarchive
+        ):
             count += 1
     print "%d results imported." % count
-
 
 if __name__ == '__main__':
     main()
