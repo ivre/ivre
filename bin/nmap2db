@@ -35,7 +35,7 @@ except ImportError:
 def storescan(fname, database, **kargs):
     parser = xml.sax.make_parser()
     try:
-        CONTENTHANDLER[database](fname, **kargs)
+        contenthandler = CONTENTHANDLER[database](fname, **kargs)
     except Exception as exc:
         print "WARNING: %s [%r] [fname=%s]" % (exc.message, exc, fname)
     else:
