@@ -228,7 +228,7 @@ class NmapHandler(ContentHandler):
                 self._curhostnames = []
             hostname = dict(attrs)
             if 'name' in attrs:
-                hostname['domains'] = list(utils.getdomains(attrs['name']))
+                hostname['domains'] = list(utils.get_domains(attrs['name']))
             self._curhostnames.append(hostname)
         elif name == 'status' and self._curhost is not None:
             self._curhost['state'] = attrs['state']
@@ -365,7 +365,7 @@ class NmapHandler(ContentHandler):
                 pass
             if 'host' in attrsdict:
                 attrsdict['domains'] = list(
-                    utils.getdomains(attrsdict['host']))
+                    utils.get_domains(attrsdict['host']))
             self._curtrace['hops'].append(attrsdict)
 
     def endElement(self, name):

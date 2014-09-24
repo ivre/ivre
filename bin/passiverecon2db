@@ -18,6 +18,8 @@
 
 import ivre.db
 import ivre.utils
+import ivre.passive
+
 import re
 import hashlib
 
@@ -25,86 +27,6 @@ MAXVALLEN = ivre.utils.MAXVALLEN
 SymantecUA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
 DigestAuthInfos = re.compile('(username|realm|algorithm|qop)=')
 
-
-def preparerec(spec, ignorenets, neverignore):
-    # First of all, let's see if we are supposed to ignore this spec,
-    # and if so, do so.
-    if ('addr' in spec and
-        spec.get('source') not in neverignore.get(spec['recontype'], [])):
-        for n in ignorenets.get(spec['recontype'], ()):
-            if n[0] <= spec['addr'] <= n[1]:
-                return None
-    # Then, let's clean up the records.
-    # Change Symantec's random user agents (matching SymantecUA) to
-    # the constant string 'SymantecRandomUserAgent', to store
-    # different SymantecUA for the same host & sensor in the same
-    # records.
-    if spec['recontype'] == 'HTTP_CLIENT_HEADER' and \
-       spec.get('source') == 'USER-AGENT':
-        if SymantecUA.match(spec['value']):
-            spec['value'] = 'SymantecRandomUserAgent'
-    # Change any Digest authorization header to remove non-constant
-    # information. On one hand we loose the necessary information to
-    # try to recover the passwords, but on the other hand we store
-    # specs with different challenges but the same username, realm,
-    # host and sensor in the same records.
-    if spec['recontype'] in ['HTTP_CLIENT_HEADER',
-                             'HTTP_CLIENT_HEADER_SERVER'] and \
-        spec.get('source') in ['AUTHORIZATION',
-                               'PROXY-AUTHORIZATION']:
-        if spec['value'].startswith('Digest'):
-            try:
-                # we only keep relevant info
-                v = filter(DigestAuthInfos.match,
-                           spec['value'][6:].lstrip().split(','))
-                spec['value'] = 'Digest ' + ','.join(v)
-            except:
-                pass
-    # Finally we prepare the record to be stored. For that, we make
-    # sure that no indexed value has a size greater than MAXVALLEN. If
-    # so, we replace the value with its SHA1 hash and store the
-    # original value in full[original column name].
-    if len(spec['value']) > MAXVALLEN:
-        spec['fullvalue'] = spec['value']
-        spec['value'] = hashlib.sha1(spec['fullvalue']).hexdigest()
-    if 'targetval' in spec and len(spec['targetval']) > MAXVALLEN:
-        spec['fulltargetval'] = spec['targetval']
-        spec['targetval'] = hashlib.sha1(spec['fulltargetval']).hexdigest()
-    return spec
-
-
-def handle_rec(sensor, ignorenets, neverignore,
-               # these argmuments are provided by *<line.split()>
-               ts, host, port, recon_type, source, value, targetval):
-    ts = float(ts)
-    recon_type = recon_type[14:]  # skip PassiveRecon::
-    if host == '-':
-        spec = {
-            'targetval': targetval,
-            'recontype': recon_type,
-            'value': value
-        }
-    else:
-        try:
-            host = ivre.utils.ip2int(host)
-        except:
-            pass
-        spec = {
-            'addr': host,
-            'recontype': recon_type,
-            'value': value
-        }
-    if sensor is not None:
-        spec.update({'sensor': sensor})
-    if port != '-':
-        spec.update({'port': int(port)})
-    if source != '-':
-        spec.update({'source': source})
-    spec = preparerec(spec, ignorenets, neverignore)
-    if spec is not None:
-        ivre.db.db.passive.insert_or_update(
-            ts, spec, getinfos=ivre.utils.passive_getinfos
-        )
 
 def main():
     import sys
@@ -132,10 +54,16 @@ def main():
         if l.endswith('\n'):
             l = l[:-1]
         try:
-            handle_rec(args.sensor,
-                       ignore_rules.get('IGNORENETS', {}),
-                       ignore_rules.get('NEVERIGNORE', {}),
-                       *l.split('\t'))
+            timestamp, spec = ivre.passive.handle_rec(
+                args.sensor,
+                ignore_rules.get('IGNORENETS', {}),
+                ignore_rules.get('NEVERIGNORE', {}),
+                *l.split('\t')
+            )
+            if spec is not None:
+                ivre.db.db.passive.insert_or_update(
+                    timestamp, spec, getinfos=ivre.passive.getinfos
+                )
         except:
             sys.stderr.write("WARNING: cannot parse line [%s]\n" % l)
 

@@ -144,138 +144,10 @@ def range2nets(rng):
         mask = int2mask(maskint)
 
 
-def getdomains(name):
+def get_domains(name):
     """Generates the upper domains from a domain name."""
     name = name.split('.')
     return ('.'.join(name[i:]) for i in xrange(len(name)))
-
-
-def _passive_getinfos_http_client_authorization(spec):
-    """Extract (for now) the usernames and passwords from Basic
-    authorization headers
-    """
-    infos = {}
-    fullinfos = {}
-    data = spec.get('fullvalue', spec['value']).split(None, 1)
-    if data[0].strip().lower() == 'basic' and data[1:]:
-        try:
-            infos['username'], infos['password'] = ''.join(
-                data[1].strip()).decode('base64').decode('latin-1').split(':', 1)
-            for field in ['username', 'password']:
-                if len(infos[field]) > MAXVALLEN:
-                    fullinfos[field] = infos[field]
-                    infos[field] = infos[field][:MAXVALLEN]
-        except Exception:
-            pass
-    res = {}
-    if infos:
-        res['infos'] = infos
-    if fullinfos:
-        res['fullinfos'] = fullinfos
-    return res
-
-
-def _passive_getinfos_dns(spec):
-    """Extract domain names in an handy-to-index-and-query form."""
-    infos = {}
-    fullinfos = {}
-    fields = {'domain': 'value', 'domaintarget': 'targetval'}
-    for field in fields:
-        try:
-            if fields[field] not in spec:
-                continue
-            infos[field] = []
-            fullinfos[field] = []
-            for domain in getdomains(spec.get('full' + fields[field],
-                                              spec[fields[field]])):
-                infos[field].append(domain[:MAXVALLEN])
-                if len(domain) > MAXVALLEN:
-                    fullinfos[field].append(domain)
-            if not infos[field]:
-                del infos[field]
-            if not fullinfos[field]:
-                del fullinfos[field]
-        except Exception:
-            pass
-    res = {}
-    if infos:
-        res['infos'] = infos
-    if fullinfos:
-        res['fullinfos'] = fullinfos
-    return res
-
-_CERTINFOS = re.compile(
-    '\n *'
-    'Issuer: (?P<issuer>.*)'
-    '\n(?:.*\n)* *'
-    'Subject: (?P<subject>.*)'
-    '\n(?:.*\n)* *'
-    'Public Key Algorithm: (?P<pubkeyalgo>.*)'
-    '(?:\n|$)'
-)
-
-
-def _passive_getinfos_cert(spec):
-    """Extract info from a certificate (hash values, issuer, subject,
-    algorithm) in an handy-to-index-and-query form.
-
-    """
-    infos = {}
-    fullinfos = {}
-    try:
-        cert = spec.get('fullvalue', spec['value']).decode('base64')
-    except Exception:
-        return {}
-    for hashtype in ['md5', 'sha1']:
-        infos['%shash' % hashtype] = hashlib.new(hashtype, cert).hexdigest()
-    proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
-                             '-inform', 'DER'], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE)
-    proc.stdin.write(cert)
-    proc.stdin.close()
-    try:
-        newinfos = _CERTINFOS.search(proc.stdout.read()).groupdict()
-        newfullinfos = {}
-        for field in newinfos:
-            if len(newinfos[field]) > MAXVALLEN:
-                newfullinfos[field] = newinfos[field]
-                newinfos[field] = newinfos[field][:MAXVALLEN]
-        infos.update(newinfos)
-        fullinfos.update(newfullinfos)
-    except Exception:
-        pass
-    res = {}
-    if infos:
-        res['infos'] = infos
-    if fullinfos:
-        res['fullinfos'] = fullinfos
-    return res
-
-_PASSIVE_GETINFOS_FUNCTIONS = {
-    'HTTP_CLIENT_HEADER':
-    {'AUTHORIZATION': _passive_getinfos_http_client_authorization,
-     'PROXY-AUTHORIZATION': _passive_getinfos_http_client_authorization},
-    'HTTP_CLIENT_HEADER_SERVER':
-    {'AUTHORIZATION': _passive_getinfos_http_client_authorization,
-     'PROXY-AUTHORIZATION': _passive_getinfos_http_client_authorization},
-    'DNS_ANSWER': _passive_getinfos_dns,
-    'SSL_SERVER': _passive_getinfos_cert,
-}
-
-
-def passive_getinfos(spec):
-    """This functions takes a document from a passive sensor, and
-    prepares its 'infos' and 'fullinfos' fields (which are not added
-    but returned).
-
-    """
-    function = _PASSIVE_GETINFOS_FUNCTIONS.get(spec.get('recontype'))
-    if type(function) is dict:
-        function = function.get(spec.get('source'))
-    if function is None:
-        return {}
-    if hasattr(function, '__call__'):
-        return function(spec)
 
 
 def str2regexp(string):
@@ -352,7 +224,8 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return type(elt) in [str, int, float, unicode, datetime.datetime]
+    return type(elt) in [str, int, float, unicode,
+                         datetime.datetime, REGEXP_T]
 
 
 def diff(doc1, doc2):
