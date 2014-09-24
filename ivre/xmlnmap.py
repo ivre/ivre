@@ -192,8 +192,10 @@ class NmapHandler(ContentHandler):
             for attr in attrs.keys():
                 self._curhost[attr] = attrs[attr]
             for field in ['starttime', 'endtime']:
-                self._curhost[field] = datetime.datetime.fromtimestamp(
-                    int(self._curhost[field]))
+                if field in self._curhost:
+                    self._curhost[
+                        field] = datetime.datetime.fromtimestamp(
+                            int(self._curhost[field]))
         elif name == 'address' and self._curhost is not None:
             if attrs['addrtype'] != 'ipv4':
                 if 'addresses' not in self._curhost:
