@@ -78,9 +78,9 @@
   <span class="label"
 	ng-class="{'label-success': host.state == 'up', 'label-important': host.state == 'down'}"
 	>{{host.state | uppercase}}</span>
-  <span ng-if="host.state_reason">{{host.state_reason}}</span>
-</dd>
-<dd ng-if="host.starttime && host.endtime">
-  {{host.starttime | date:"yyyy-MM-dd HH:mm"}} -
-  {{host.endtime | date:"yyyy-MM-dd HH:mm"}}
+  <span ng-if="host.state_reason"> - {{host.state_reason}}</span>
+  <span ng-if="host.starttime && host.endtime">
+    - {{host.starttime | date:"yyyy-MM-dd HH:mm"}}
+    - {{host.endtime | date:"yyyy-MM-dd HH:mm"}}
+  </span>
 </dd>
