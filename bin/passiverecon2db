@@ -20,14 +20,6 @@ import ivre.db
 import ivre.utils
 import ivre.passive
 
-import re
-import hashlib
-
-MAXVALLEN = ivre.utils.MAXVALLEN
-SymantecUA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
-DigestAuthInfos = re.compile('(username|realm|algorithm|qop)=')
-
-
 def main():
     import sys
     description = ('Update the database from output of the Bro script '

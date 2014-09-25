@@ -25,7 +25,10 @@ This sub-module contains functions used for passive recon.
 """
 
 from ivre import utils
+
 import re
+import hashlib
+import subprocess
 
 # p0f specific
 
@@ -49,6 +52,8 @@ P0F_MODES = {
         'filter': 'tcp and tcp[tcpflags] & (tcp-syn|tcp-ack) == 16'}
 }
 
+P0F_DIST = re.compile('distance ([0-9]+),')
+
 def parse_p0f_line(line, include_port=False):
     line = [line.split(' - ')[0]] + line.split(' - ')[1].split(' -> ')
     if line[1].startswith('UNKNOWN '):
@@ -62,7 +67,7 @@ def parse_p0f_line(line, include_port=False):
         else:
             OS = line[1][:line[1].index(' Signature: ')]
         OS, version = OS.split(' ')[0], ' '.join(OS.split(' ')[1:])
-        dist = int(distre.search(line[2]).groups()[0])
+        dist = int(P0F_DIST.search(line[2]).groups()[0])
     # We wildcard any window size which is not Sxxx or Tyyy
     if sig[0][0] not in ['S', 'T']:
         sig[0] = '*'
@@ -81,6 +86,9 @@ def parse_p0f_line(line, include_port=False):
 
 # Bro specific
 
+SYMANTEC_UA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
+DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
+
 def _prepare_rec(spec, ignorenets, neverignore):
     # First of all, let's see if we are supposed to ignore this spec,
     # and if so, do so.
@@ -90,13 +98,11 @@ def _prepare_rec(spec, ignorenets, neverignore):
             if n[0] <= spec['addr'] <= n[1]:
                 return None
     # Then, let's clean up the records.
-    # Change Symantec's random user agents (matching SymantecUA) to
-    # the constant string 'SymantecRandomUserAgent', to store
-    # different SymantecUA for the same host & sensor in the same
-    # records.
+    # Change Symantec's random user agents (matching SYMANTEC_UA) to
+    # the constant string 'SymantecRandomUserAgent'.
     if spec['recontype'] == 'HTTP_CLIENT_HEADER' and \
        spec.get('source') == 'USER-AGENT':
-        if SymantecUA.match(spec['value']):
+        if SYMANTEC_UA.match(spec['value']):
             spec['value'] = 'SymantecRandomUserAgent'
     # Change any Digest authorization header to remove non-constant
     # information. On one hand we loose the necessary information to
@@ -110,7 +116,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
         if spec['value'].startswith('Digest'):
             try:
                 # we only keep relevant info
-                v = filter(DigestAuthInfos.match,
+                v = filter(DIGEST_AUTH_INFOS.match,
                            spec['value'][6:].lstrip().split(','))
                 spec['value'] = 'Digest ' + ','.join(v)
             except:

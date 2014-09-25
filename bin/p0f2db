@@ -37,7 +37,6 @@ signal.signal(signal.SIGTERM, terminate)
 
 def process_file(sensor, fname, mode='SYN'):
     global p0fprocess
-    distre = re.compile('distance ([0-9]+),')
     if fname.startswith('iface:'):
         fname = ['-i', fname[6:]]
     else:
