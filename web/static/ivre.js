@@ -1674,9 +1674,6 @@ ivreWebUi
 		"host": wanted_hostscripts
 	    }[type];
 	};
-	$scope.format_date = function(timestamp) {
-	    return new Date(timestamp * 1000).toUTCString();
-	};
 	$scope.class_from_port_status = function(status) {
 	    switch(status) {
 	    case "open": return "label-success";
@@ -1776,6 +1773,8 @@ function prepare_host(host) {
     host['hostnames_links'] = hostnames_links(host);
     host['fulldisplay'] = false;
     host['port_summary'] = port_summary(host);
+    host['starttime'] = 1000 * host['starttime']
+    host['endtime'] = 1000 * host['endtime']
     return host;
 }
 
