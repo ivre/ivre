@@ -578,24 +578,6 @@ service_* tags."""
     def searchsvchostname(self, srv):
         return {'ports.service_hostname': srv}
 
-    def searchhttpauth(self, newscript=True, oldscript=False):
-        # $or queries are too slow, by default support only new script
-        # output.
-        res = []
-        if newscript:
-            res.append(self.searchscriptidout(
-                'http-default-accounts',
-                re.compile('credentials\\ found')))
-        if oldscript:
-            res.append(self.searchscriptidout(
-                'http-auth',
-                re.compile('HTTP\\ server\\ may\\ accept')))
-        if not res:
-            raise Exception('"newscript" and "oldscript" are both False')
-        if len(res) == 1:
-            return res[0]
-        return {'$or': res}
-
     def searchwebmin(self):
         return {
             'ports': {
@@ -614,29 +596,6 @@ service_* tags."""
                 'service_extrainfo': {'$ne': 'access denied'}
             }}}
 
-    def searchowa(self):
-        return {
-            '$or': [
-                self.searchscriptidout(
-                    'http-headers',
-                    re.compile('^ *(Location:.*(owa|exchweb)|X-OWA-Version)',
-                               flags=re.MULTILINE | re.I)),
-                self.searchscriptidout(
-                    'http-auth-finder',
-                    re.compile('/(owa|exchweb)',
-                               flags=re.I)),
-                self.searchscriptidout(
-                    'http-title',
-                    re.compile('Outlook Web A|(Requested resource was|'
-                               'Did not follow redirect to ).*/(owa|exchweb)',
-                               flags=re.I)),
-                self.searchscriptidout(
-                    'html-title',
-                    re.compile('Outlook Web A|(Requested resource was|'
-                               'Did not follow redirect to ).*/(owa|exchweb)',
-                               flags=re.I))
-            ]}
-
     def searchfile(self, fname):
         return self.searchscriptidout(
             {'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
@@ -644,12 +603,9 @@ service_* tags."""
             fname)
 
     def searchhttptitle(self, title):
-        return {'$or': [
-            # new script name
-            self.searchscriptidout('http-title', title),
-            # old script name
-            self.searchscriptidout('html-title', title)
-        ]}
+        return self.searchscriptidout(
+            {'$in': ['http-title', 'html-title']},
+            title)
 
     def searchservicescript(self, srv, port=None):
         if port is None:

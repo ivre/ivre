@@ -340,6 +340,46 @@ class DBNmap(DB):
             re.compile('^Anonymous\\ FTP\\ login\\ allowed',
                        flags=0))
 
+    def searchhttpauth(self, newscript=True, oldscript=False):
+        # $or queries are too slow, by default support only new script
+        # output.
+        res = []
+        if newscript:
+            res.append(self.searchscriptidout(
+                'http-default-accounts',
+                re.compile('credentials\\ found')))
+        if oldscript:
+            res.append(self.searchscriptidout(
+                'http-auth',
+                re.compile('HTTP\\ server\\ may\\ accept')))
+        if not res:
+            raise Exception('"newscript" and "oldscript" are both False')
+        if len(res) == 1:
+            return res[0]
+        return self.flt_or(*res)
+
+    def searchowa(self):
+        return self.flt_or(
+            self.searchscriptidout(
+                'http-headers',
+                re.compile('^ *(Location:.*(owa|exchweb)|X-OWA-Version)',
+                           flags=re.MULTILINE | re.I)),
+            self.searchscriptidout(
+                'http-auth-finder',
+                re.compile('/(owa|exchweb)',
+                           flags=re.I)),
+            self.searchscriptidout(
+                'http-title',
+                re.compile('Outlook Web A|(Requested resource was|'
+                           'Did not follow redirect to ).*/(owa|exchweb)',
+                           flags=re.I)),
+            self.searchscriptidout(
+                'html-title',
+                re.compile('Outlook Web A|(Requested resource was|'
+                           'Did not follow redirect to ).*/(owa|exchweb)',
+                           flags=re.I))
+        )
+
     def searchxp445(self):
         return self.flt_and(
             self.searchport(445),
