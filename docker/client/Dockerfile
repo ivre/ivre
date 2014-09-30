@@ -21,13 +21,12 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 RUN apt-get -qy install nmap p0f rsync screen
 
 # Install bro
-RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev flex bison libpython2.7-dev swig
 ADD https://www.bro.org/downloads/release/bro-2.3.1.tar.gz ./bro-2.3.1.tar.gz
-RUN \
-  cd tmp/ && tar zxf ../bro-2.3.1.tar.gz && \
-  cd bro-2.3.1 && \
-  ./configure && make -j 4 && make install && \
-  cd ../ && rm -rf bro-2.3.1
-RUN rm ./bro-2.3.1.tar.gz
-RUN apt-get -qy --purge remove build-essential cmake libssl-dev libpcap-dev flex bison libpython2.7-dev swig
-RUN apt-get -qy --purge autoremove
+RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev \
+                        flex bison libpython2.7-dev swig && \
+    cd tmp/ && tar zxf ../bro-2.3.1.tar.gz && \
+    cd bro-2.3.1 && ./configure && make -j 4 && make install && \
+    cd / && rm -rf tmp/bro-2.3.1 bro-2.3.1.tar.gz && \
+    apt-get -qy --purge remove build-essential cmake libssl-dev libpcap-dev \
+                        flex bison libpython2.7-dev swig && \
+    apt-get -qy --purge autoremove

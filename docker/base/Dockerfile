@@ -21,19 +21,18 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Dependencies
 RUN apt-get -q update
-RUN apt-get -qy install python-pymongo python-crypto unzip
+RUN apt-get -qy install python-pymongo python-crypto
 
 # IVRE
 ADD https://github.com/cea-sec/ivre/zipball/master ./ivre.zip
-RUN unzip ivre.zip && rm ivre.zip
-RUN mv cea-sec-ivre-* ivre
-RUN cd ivre/ && \
-  python setup.py build && python setup.py install
-RUN rm -rf ivre/
+RUN apt-get -qy install unzip && \
+    unzip ivre.zip && rm ivre.zip && \
+    apt-get -qy --purge remove unzip && \
+    apt-get -qy --purge autoremove && \
+    mv cea-sec-ivre-* ivre && \
+    cd ivre/ && \
+    python setup.py build && python setup.py install && \
+    cd ../ && rm -rf ivre/
 
+# Config
 ADD ivre.conf /etc/ivre.conf
-
-# Clean
-RUN rm -rf ivre/
-RUN apt-get -qy --purge remove unzip
-RUN apt-get -qy --purge autoremove

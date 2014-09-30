@@ -41,9 +41,9 @@ and using the `base-local` directory instead of `base`:
 
     $ rm -f dist/ivre-*.tar.gz
     $ python setup.py bdist
-	$ mv dist/ivre-*.tar.gz docker/base-local/ivre-latest.tar.gz
-	$ cd docker
-	$ docker build -t ivre/base base-local
+    $ mv dist/ivre-*.tar.gz docker/base-local/ivre-latest.tar.gz
+    $ cd docker
+    $ docker build -t ivre/base base-local
 
 # Running #
 
