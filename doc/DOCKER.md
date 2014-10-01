@@ -76,6 +76,14 @@ accessible through the host's TCP port 27017.
 The `--publish 80:80` option creates a redirection and makes the web
 server accessible through the host's TCP port 80.
 
+If you want to use modified configuration files, you can use
+`--volume`. For example:
+
+    $ docker run -d --name ivreweb --hostname ivreweb \
+    >        --volume "`pwd`/scanjsonconfig.py:/usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py"
+    >        --volume "`pwd`/nginx-default-site:/etc/nginx/sites-available/default"
+    >        --link ivredb:ivredb --publish 80:80 ivre/web
+
 ## A command line client ##
 
 First, place Nmap result files (XML format) in a specific directory:
