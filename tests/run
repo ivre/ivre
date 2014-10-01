@@ -1,0 +1,6 @@
+#! /bin/sh
+
+[ -n "$1" ] && OPTS="--samples=$1"
+
+python-coverage run tests.py $OPTS
+python-coverage html --include="*/ivre/*" --omit="tests.py"

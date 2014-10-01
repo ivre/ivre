@@ -1,3 +1,6 @@
 *.py[cod]
 build/
 dist/
+tests/samples/
+tests/htmlcov/
+tests/.coverage
