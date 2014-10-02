@@ -34,4 +34,5 @@ RUN sed -i 's/^bind_ip = /#bind_ip = /' /etc/mongod.conf
 
 # MongoDB instance
 EXPOSE 27017
-ENTRYPOINT /usr/bin/sudo -u mongodb /usr/bin/mongod -f /etc/mongod.conf
+USER mongodb
+CMD exec /usr/bin/mongod -f /etc/mongod.conf
