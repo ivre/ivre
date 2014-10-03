@@ -787,7 +787,20 @@ service_* tags."""
         if field == "category":
             field = "categories"
         elif field == "country":
-            field = "infos.country_code"
+            flt = self.flt_and(
+                flt,
+                {"infos.country_code": {"$exists": True}},
+            )
+            specialproj = {
+                "_id": 0,
+                "country": {"$concat": [
+                    "$infos.country_code",
+                    "###",
+                    "$infos.country_name",
+                ]}}
+            field = "country"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
         elif field == "city":
             flt = self.flt_and(
                 flt,

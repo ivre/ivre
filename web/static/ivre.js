@@ -651,8 +651,14 @@ function build_chart(chart, field, dataset) {
 	};
     }
     else if(field === 'country') {
+	prepareoutput = function(x) {
+	    return x[0];
+	};
+	preparetitle = function(x) {
+	    return x[1];
+	};
 	preparefilter = function(x) {
-	    return 'setparam("country", "' + x + '", true);';
+	    return 'setparam("country", "' + x[0] + '", true);';
 	};
     }
     else if(field === 'city') {
