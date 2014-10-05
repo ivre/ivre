@@ -25,7 +25,7 @@ This sub-module contains functions to interact with the
 MongoDB databases.
 """
 
-from ivre.db import DB, DBNmap, DBPassive, DBData
+from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
 from ivre import utils, xmlnmap
 
 import pymongo
@@ -253,7 +253,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 [('source', pymongo.ASCENDING)],
             ],
         }
-        self.specialindexes = {}
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -1161,6 +1160,7 @@ class MongoDBPassive(MongoDB, DBPassive):
                          username=username,
                          password=password,
                          mechanism=mechanism)
+        DBPassive.__init__(self)
         self.colname_passive = colname_passive
         self.colname_ipdata = colname_ipdata
         self.indexes = {
@@ -1514,6 +1514,7 @@ class MongoDBData(MongoDB, DBData):
                          username=username,
                          password=password,
                          mechanism=mechanism)
+        DBData.__init__(self)
         self.colname_geoip_country = colname_geoip_country
         self.colname_geoip_as = colname_geoip_as
         self.colname_geoip_city = colname_geoip_city
@@ -1548,7 +1549,10 @@ class MongoDBData(MongoDB, DBData):
         }
 
     def init(self):
-        """Initializes the data columns, and creates the default indexes."""
+        """Initializes the data columns, and creates the default
+        indexes.
+
+        """
         self.db[self.colname_geoip_country].drop()
         self.db[self.colname_geoip_as].drop()
         self.db[self.colname_geoip_city].drop()
@@ -1789,3 +1793,28 @@ class MongoDBData(MongoDB, DBData):
                 {'as_num': asnum},
                 fields=['start', 'stop'])
         ]
+
+
+class MongoDBAgent(MongoDB, DBAgent):
+
+    def __init__(self, host, dbname,
+                 colname_agents="agents",
+                 colname_scans="scans",
+                 username=None, password=None, mechanism=None, **_):
+        MongoDB.__init__(self, host, dbname,
+                         username=username,
+                         password=password,
+                         mechanism=mechanism)
+        DBAgent.__init__(self)
+        self.colname_agents = colname_agents
+        self.colname_scans = colname_scans
+        self.indexes = {
+            self.colname_agents: [
+                [('host', pymongo.ASCENDING),
+                 ('path.remote', pymongo.ASCENDING),
+                 ('path.local', pymongo.ASCENDING)],
+            ],
+            self.colname_scans: [
+                [('categories', pymongo.ASCENDING)]
+            ],
+        }

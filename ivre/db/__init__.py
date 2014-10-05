@@ -439,11 +439,16 @@ class DBData(DB):
     pass
 
 
+class DBAgent(DB):
+    pass
+
+
 class MetaDB(object):
-    DB_TYPES = {
+    db_types = {
         "nmap": {},
         "passive": {},
         "data": {},
+        "agent": {},
     }
     nmap = None
     passive = None
@@ -490,15 +495,16 @@ class MetaDB(object):
 
     def __init__(self, url=None, urls=None):
         try:
-            from ivre.db.mongo import MongoDBNmap, MongoDBPassive, MongoDBData
-            self.DB_TYPES["nmap"]["mongodb"] = MongoDBNmap
-            self.DB_TYPES["passive"]["mongodb"] = MongoDBPassive
-            self.DB_TYPES["data"]["mongodb"] = MongoDBData
+            from ivre.db.mongo import MongoDBNmap, MongoDBPassive, MongoDBData, MongoDBAgent
+            self.db_types["nmap"]["mongodb"] = MongoDBNmap
+            self.db_types["passive"]["mongodb"] = MongoDBPassive
+            self.db_types["data"]["mongodb"] = MongoDBData
+            self.db_types["agent"]["mongodb"] = MongoDBAgent
         except ImportError:
             pass
         if urls is None:
             urls = {}
-        for datatype, dbtypes in self.DB_TYPES.iteritems():
+        for datatype, dbtypes in self.db_types.iteritems():
             specificurl = urls.get(datatype, url)
             if specificurl is not None:
                 (spurlscheme,
