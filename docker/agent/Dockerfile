@@ -22,4 +22,13 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get -q update
 RUN apt-get -qy install nmap screen
 
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/agent/agent \
+    /usr/bin/agent
+RUN chmod +x /usr/bin/agent
+ADD runagent /usr/bin/runagent
+
+RUN chmod 777 /var/run/screen
+
 VOLUME /var/lib/ivre-agent
+WORKDIR /var/lib/ivre-agent
+CMD exec /usr/bin/runagent
