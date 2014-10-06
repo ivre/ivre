@@ -39,14 +39,31 @@ import datetime
 class MongoDB(DB):
 
     def __init__(self, host, dbname,
-                 username=None, password=None, mechanism=None):
+                 username=None, password=None, mechanism=None,
+                 maxscan=None, maxtime=None,
+                 **_):
         self.host = host
         self.dbname = dbname
         self.username = username
         self.password = password
         self.mechanism = mechanism
+        try:
+            self.maxscan = int(maxscan)
+        except TypeError:
+            self.maxscan = None
+        try:
+            self.maxtime = int(maxtime)
+        except TypeError:
+            self.maxtime = None
         self.indexes = {}
         self.specialindexes = {}
+
+    def set_limits(self, cur):
+        if self.maxscan is not None:
+            cur.max_scan(self.maxscan)
+        if self.maxtime is not None:
+            cur.max_time_ms(self.maxtime)
+        return cur
 
     def _get_db(self):
         try:
@@ -210,11 +227,8 @@ class MongoDBNmap(MongoDB, DBNmap):
                  colname_scans="scans", colname_hosts="hosts",
                  colname_oldscans="archivesscans",
                  colname_oldhosts="archiveshosts",
-                 username=None, password=None, mechanism=None, **_):
-        MongoDB.__init__(self, host, dbname,
-                         username=username,
-                         password=password,
-                         mechanism=mechanism)
+                 **kargs):
+        MongoDB.__init__(self, host, dbname, **kargs)
         DBNmap.__init__(self)
         self.colname_scans = colname_scans
         self.colname_hosts = colname_hosts
@@ -241,7 +255,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('traces.hops.ttl', pymongo.ASCENDING),
                 ],
                 [
-                    ('infos.country', pymongo.ASCENDING),
+                    ('infos.country_code', pymongo.ASCENDING),
                     ('infos.city', pymongo.ASCENDING),
                 ],
                 [('infos.loc', pymongo.GEOSPHERE)],
@@ -275,8 +289,10 @@ Any keyword argument other than "archive" is passed to the .find()
 method of the Mongodb column object, without any validation (and might
 have no effect if it is not expected)."""
         if archive:
-            return self.db[self.colname_oldhosts].find(flt, **kargs)
-        return self.db[self.colname_hosts].find(flt, **kargs)
+            cur = self.db[self.colname_oldhosts].find(flt, **kargs)
+        else:
+            cur = self.db[self.colname_hosts].find(flt, **kargs)
+        return self.set_limits(cur)
 
     def getscan(self, scanid, archive=False, **kargs):
         if archive:
@@ -786,20 +802,13 @@ service_* tags."""
         if field == "category":
             field = "categories"
         elif field == "country":
-            flt = self.flt_and(
-                flt,
-                {"infos.country_code": {"$exists": True}},
-            )
-            specialproj = {
-                "_id": 0,
-                "country": {"$concat": [
-                    "$infos.country_code",
-                    "###",
-                    "$infos.country_name",
-                ]}}
-            field = "country"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+            field = "infos.country_code"
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': [
+                    x['_id'],
+                    self.globaldb.data.country_name_by_code(x['_id']),
+                ]}
         elif field == "city":
             flt = self.flt_and(
                 flt,
@@ -1017,6 +1026,16 @@ service_* tags."""
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
                                     '_id': utils.int2ip(x['_id'])}
+        elif self.maxtime is not None or self.maxscan is not None:
+            # Hack: when a limit has been set, we only accept
+            # topvalues for indexed fields (except when a
+            # pseudo-field has been used)
+            colname = self.colname_oldhosts if archive else self.colname_hosts
+            indexes = [x[0][0] for x in self.indexes.get(colname, [])
+            ] + [x[0][0][0] for x in self.specialindexes.get(colname, [])]
+            if field not in indexes:
+                raise ValueError(".topvalues() cannot be used on non-indexed "
+                                 "fields when a limit has been set.")
         needunwind = ["categories", "ports", "ports.scripts", "scripts",
                       "extraports.filtered", "traces", "traces.hops",
                       "os.osmatch", "os.osclass", "hostnames",
@@ -1155,11 +1174,8 @@ class MongoDBPassive(MongoDB, DBPassive):
     def __init__(self, host, dbname,
                  colname_passive="passive",
                  colname_ipdata="ipdata",
-                 username=None, password=None, mechanism=None, **_):
-        MongoDB.__init__(self, host, dbname,
-                         username=username,
-                         password=password,
-                         mechanism=mechanism)
+                 **kargs):
+        MongoDB.__init__(self, host, dbname, **kargs)
         DBPassive.__init__(self)
         self.colname_passive = colname_passive
         self.colname_ipdata = colname_ipdata
@@ -1232,7 +1248,8 @@ take a long time, depending on both the operations and the filter.
 Any keyword argument is passed to the .find() method of the Mongodb
 column object, without any validation (and might have no effect if it
 is not expected)."""
-        return self.db[self.colname_passive].find(spec, **kargs)
+        return self.set_limits(
+            self.db[self.colname_passive].find(spec, **kargs))
 
     def get_one(self, spec, **kargs):
         """Same function as get, except .find_one() method is called
@@ -1241,6 +1258,7 @@ returned.
 
 Unlike get(), this function might take a long time, depending
 on "spec" and the indexes set on COLNAME_PASSIVE column."""
+        # TODO: check limits
         return self.db[self.colname_passive].find_one(spec, **kargs)
 
     def update(self, spec, **kargs):
@@ -1417,16 +1435,16 @@ field "count" by one.
         return {field: {'$lt' if neg else '$gte': now - delta}}
 
     def knownip_bycountry(self, code):
-        return self.db[self.colname_ipdata].find(
-            {'country_code': code}).distinct('addr')
+        return self.set_limits(self.db[self.colname_ipdata].find(
+            {'country_code': code})).distinct('addr')
 
     def knownip_byas(self, asnum):
         if type(asnum) is str:
             if asnum.startswith('AS'):
                 asnum = asnum[2:]
             asnum = int(asnum)
-        return self.db[self.colname_ipdata].find(
-            {'as_num': asnum}).distinct('addr')
+        return self.set_limits(self.db[self.colname_ipdata].find(
+            {'as_num': asnum})).distinct('addr')
 
     def set_data(self, addr, force=False):
         """Sets IP information in colname_ipdata."""
@@ -1509,11 +1527,8 @@ class MongoDBData(MongoDB, DBData):
                  colname_geoip_city="geoipcity",
                  colname_country_codes="countries",
                  colname_city_locations="cities",
-                 username=None, password=None, mechanism=None, **_):
-        MongoDB.__init__(self, host, dbname,
-                         username=username,
-                         password=password,
-                         mechanism=mechanism)
+                 **kargs):
+        MongoDB.__init__(self, host, dbname, **kargs)
         DBData.__init__(self)
         self.colname_geoip_country = colname_geoip_country
         self.colname_geoip_as = colname_geoip_as
@@ -1723,8 +1738,9 @@ class MongoDBData(MongoDB, DBData):
         return rec
 
     def country_codes_by_name(self, name):
-        return self.db[self.colname_country_codes].find({
-            'name': name}).distinct('country_code')
+        return self.set_limits(
+            self.db[self.colname_country_codes].find({
+                'name': name})).distinct('country_code')
 
     def find_data_byip(self, addr, column):
         try:
@@ -1777,9 +1793,10 @@ class MongoDBData(MongoDB, DBData):
     def ipranges_bycountry(self, code):
         return [
             (x['start'], x['stop']) for x in
-            self.db[self.colname_geoip_country].find(
-                {'country_code': code},
-                fields=['start', 'stop'])
+            self.set_limits(
+                self.db[self.colname_geoip_country].find(
+                    {'country_code': code},
+                    fields=['start', 'stop']))
         ]
 
     def ipranges_byas(self, asnum):
@@ -1789,9 +1806,10 @@ class MongoDBData(MongoDB, DBData):
             asnum = int(asnum)
         return [
             (x['start'], x['stop']) for x in
-            self.db[self.colname_geoip_as].find(
-                {'as_num': asnum},
-                fields=['start', 'stop'])
+            self.set_limits(
+                self.db[self.colname_geoip_as].find(
+                    {'as_num': asnum},
+                    fields=['start', 'stop']))
         ]
 
 
@@ -1800,11 +1818,8 @@ class MongoDBAgent(MongoDB, DBAgent):
     def __init__(self, host, dbname,
                  colname_agents="agents",
                  colname_scans="scans",
-                 username=None, password=None, mechanism=None, **_):
-        MongoDB.__init__(self, host, dbname,
-                         username=username,
-                         password=password,
-                         mechanism=mechanism)
+                 **kargs):
+        MongoDB.__init__(self, host, dbname, **kargs)
         DBAgent.__init__(self)
         self.colname_agents = colname_agents
         self.colname_scans = colname_scans
