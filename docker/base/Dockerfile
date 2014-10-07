@@ -24,13 +24,9 @@ RUN apt-get -q update
 RUN apt-get -qy install python-pymongo python-crypto
 
 # IVRE
-ADD https://github.com/cea-sec/ivre/zipball/master ./ivre.zip
-RUN apt-get -qy install unzip && \
-    unzip ivre.zip && rm ivre.zip && \
-    apt-get -qy --purge remove unzip && \
-    apt-get -qy --purge autoremove && \
-    mv cea-sec-ivre-* ivre && \
-    cd ivre/ && \
+ADD https://github.com/cea-sec/ivre/tarball/master ./ivre.tar.gz
+RUN tar zxf ./ivre.tar.gz && rm ./ivre.tar.gz && \
+    mv cea-sec-ivre-* ivre && cd ivre/ && \
     python setup.py build && python setup.py install && \
     cd ../ && rm -rf ivre/
 
