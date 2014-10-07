@@ -82,6 +82,10 @@ IGNORE_SCRIPTS_REGEXP = {
 
 IGNORE_SCRIPT_OUTPUTS = set([
     'ERROR: Script execution failed (use -d to debug)',
+    'Unable to open connection',
+    'ERROR: Failed to connect to server',
+    '\n  ERROR: Failed to receive response from server',
+    '  \n  ERROR: ERROR',
     'false',
 ])
 
