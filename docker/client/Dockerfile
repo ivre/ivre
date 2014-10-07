@@ -18,7 +18,7 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Tools
-RUN apt-get -qy install nmap p0f rsync screen
+RUN apt-get -qy install nmap p0f rsync screen ipython
 
 # Install bro
 ADD https://www.bro.org/downloads/release/bro-2.3.1.tar.gz ./bro-2.3.1.tar.gz
