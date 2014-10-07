@@ -57,9 +57,35 @@ IGNORE_SCRIPTS = {
     'http-cisco-anyconnect': set([
         '\n  ERROR: Not a Cisco ASA or unsupported version',
     ]),
+    'ndmp-fs-info': set([
+        '\n  ERROR: Failed to get filesystem information from server',
+    ]),
+    'ndmp-version': set([
+        '\n  ERROR: Failed to get host information from server',
+    ]),
+    'ajp-auth': set(['\n  ERROR: Failed to connect to AJP server']),
+    'ajp-headers': set(['\n  ERROR: Failed to retrieve server headers']),
+    'ajp-methods': set([
+        'Failed to get a valid response for the OPTION request',
+    ]),
+    'ajp-request': set([
+        '\n  ERROR: Failed to retrieve response for request',
+        '\n  ERROR: Failed to connect to AJP server',
+    ]),
+    'giop-info': set(['  \n  ERROR: Failed to read Packet.GIOP']),
+    'rsync-list-modules': set(['\n  ERROR: Failed to connect to rsync server']),
+    'sip-methods': set(['ERROR: Failed to connect to the SIP server.']),
+    'rpcap-info': set(['\n  ERROR: EOF']),
+    'irc-botnet-channels': set(['\n  ERROR: EOF\n']),
+    'bitcoin-getaddr': set(['\n  ERROR: Failed to extract version information']),
+    'bitcoin-info': set(['\n  ERROR: Failed to extract version information']),
     # host scripts
     'firewalk': set(['None found']),
     'ipidseq': set(['Unknown']),
+    'fcrdns': set(['FAIL (No PTR record)']),
+    'msrpc-enum': set(['SMB: ERROR: Server disconnected the connection']),
+    'smb-mbenum': set(['\n  ERROR: Failed to connect to browser service: '
+                       'SMB: ERROR: Server disconnected the connection']),
 }
 
 MSSQL_ERROR = re.compile('^ *(ERROR: )?('
@@ -81,18 +107,24 @@ IGNORE_SCRIPTS_REGEXP = {
 }
 
 IGNORE_SCRIPT_OUTPUTS = set([
-    'ERROR: Script execution failed (use -d to debug)',
     'Unable to open connection',
-    'ERROR: Failed to connect to server',
-    '\n  ERROR: Failed to connect to server',
-    '\n  ERROR: Failed to receive response from server',
-    '  \n  ERROR: ERROR',
     'false',
+    'TIMEOUT',
+    'ERROR',
 ])
 
 IGNORE_SCRIPT_OUTPUTS_REGEXP = set([
     # MD5(<empty>)
-    re.compile('d41d8cd98f00b204e9800998ecf8427e', re.I)
+    re.compile('d41d8cd98f00b204e9800998ecf8427e', re.IGNORECASE),
+    re.compile(
+        '^ *ERROR\\:\\ ('
+        'Failed\\ to\\ (connect\\ to|receive\\ response\\ from)\\ server|'
+        'Script\\ execution\\ failed\\ \\(use\\ \\-d\\ to\\ debug\\)|'
+        'Receiving\\ packet\\:\\ (ERROR|EOF)|'
+        'Failed\\ to\\ send\\ packet\\:\\ ERROR|'
+        'ERROR)', re.MULTILINE
+    ),
+    re.compile('^ *(SMB|ERROR):.*TIMEOUT', re.MULTILINE)
 ])
 
 
