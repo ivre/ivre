@@ -641,10 +641,10 @@ function build_chart(chart, field, dataset) {
     }
     else if(field === 'as') {
 	prepareoutput = function(x) {
-	    return x[0];
+	    return x[1];
 	};
 	preparetitle = function(x) {
-	    return x[1];
+	    return x[0];
 	};
 	preparefilter = function(x) {
 	    return 'setparam("asnum", "' + x[0] + '", true);';
