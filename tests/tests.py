@@ -700,10 +700,19 @@ class IvreTests(unittest.TestCase):
 
 def parse_args():
     global MONGODB, SAMPLES
-    import argparse
-    parser = argparse.ArgumentParser(
-        description='Run IVRE tests',
-    )
+    try:
+        import argparse
+        parser = argparse.ArgumentParser(
+            description='Run IVRE tests',
+        )
+    except ImportError:
+        import optparse
+        parser = optparse.OptionParser(
+            description='Run IVRE tests',
+        )
+        parser.parse_args_orig = parser.parse_args
+        parser.parse_args = lambda: parser.parse_args_orig()[0]
+        parser.add_argument = parser.add_option
     parser.add_argument('--samples', metavar='DIR',
                         default="./samples/")
     parser.add_argument('--mongodb', metavar='URL',
