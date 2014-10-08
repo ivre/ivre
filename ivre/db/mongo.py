@@ -65,7 +65,9 @@ class MongoDB(DB):
             cur.max_time_ms(self.maxtime)
         return cur
 
-    def _get_db(self):
+    @property
+    def db(self):
+        """The DB connection."""
         try:
             return self._db
         except AttributeError:
@@ -83,8 +85,6 @@ class MongoDB(DB):
                     raise TypeError("provide either 'password' or 'mechanism'"
                                     " with 'username'")
             return self._db
-
-    db = property(fget=_get_db)
 
     def getid(self, record):
         return record['_id']
