@@ -527,9 +527,9 @@ have no effect if it is not expected)."""
                                               state=state, neg=neg)
                               for p in ports))
 
-    def searchopenport(self):
+    def searchopenport(self, neg=False):
         "Filters records with at least one open port."
-        return {'ports.state_state': 'open'}
+        return {'ports.state_state': {'$nin': ['open']} if neg else 'open'}
 
     def searchservice(self, srv, port=None, probed=False):
         """Search an open port with a particular regular expression in the
