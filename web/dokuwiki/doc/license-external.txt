@@ -32,6 +32,12 @@ Files under the ''%%web/static/d3%%'' directory come from the [[https://d3js.org
 
 They are licensed under [[http://opensource.org/licenses/BSD-3-Clause|BSD license]].
 
+===== flag-icon-css =====
+
+Files under the ''%%web/static/fi%%'' directory come from the [[https://lipis.github.io/flag-icon-css/|flag-icon-css]] project.
+
+They are licensed under [[https://en.wikipedia.org/wiki/MIT_License|MIT license]].
+
 ===== Natural Earth =====
 
 The file ''%%web/static/world-110m.json%%'' has been generated with the tools from [[http://www.gdal.org/|Geospatial Data Abstraction Library]] and [[https://github.com/mbostock/world-atlas.git|World Atlas]] from data published by [[http://www.naturalearthdata.com/|Natural Eath]] in the public domain.

@@ -50,7 +50,11 @@
 	 ng-click="setparam('country', host.infos.country_code)"
 	 ng-class="{highlight: wanted_param('country', host.infos.country_code)}"
 	 ng-attr-title="{{host.infos.country_name}}">
-	{{host.infos.country_code}}</a>
+	<span
+	   class="flag-icon flag-icon-{{host.infos.country_code | lowercase}}"
+	   ></span>
+	{{host.infos.country_code}}
+      </a>
       <span ng-if="host.infos.city">
 	(<a class="category clickable"
 	    ng-click="setparam('country', host.infos.country_code, undefined, true); setparam('city', host.infos.city); "

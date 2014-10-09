@@ -37,6 +37,7 @@ IVRE comes with (refer to the [[doc:LICENSE-EXTERNAL|LICENSE-EXTERNAL]] file for
   * [[http://getbootstrap.com/|Twitter Bootstrap]]
   * [[https://jquery.com/|jQuery]]
   * [[http://d3js.org/|D3.js]]
+  * [[https://lipis.github.io/flag-icon-css/|flag-icon-css]]
 
 ====== Installation ======
 

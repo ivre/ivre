@@ -27,6 +27,7 @@ $ python setup.py build
 """
 
 from distutils.core import setup
+import os
 
 setup(
     name='ivre',
@@ -94,6 +95,12 @@ setup(
         # AngularJS
         ('share/ivre/web/static/an/js',
          ['web/static/an/js/angular.js']),
+        # flag-icon-css
+        ('share/ivre/web/static/fi/css',
+         ['web/static/fi/css/flag-icon.css']),
+        ('share/ivre/web/static/fi/flags/4x3',
+         [os.path.join('web/static/fi/flags/4x3/', x)
+          for x in os.listdir('web/static/fi/flags/4x3/')]),
         # Dokuwiki
         ('share/ivre/dokuwiki',
          ['web/dokuwiki/backlinks.patch']),

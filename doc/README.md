@@ -65,6 +65,8 @@ file for the licenses):
 
   * [D3.js](http://d3js.org/)
 
+  * [flag-icon-css](https://lipis.github.io/flag-icon-css/)
+
 # Installation #
 
 See the [INSTALL](INSTALL.md) file. You can also try to use

@@ -32,8 +32,8 @@ Twitter Bootstrap project.
 Files under the `web/static/jq` directory come from the
 [jQuery](https://jquery.com/) project.
 
-They are licensed under
-[MIT license](https://en.wikipedia.org/wiki/MIT_License).
+They are licensed under [MIT
+license](https://en.wikipedia.org/wiki/MIT_License).
 
 ## D3.js ##
 
@@ -42,6 +42,15 @@ Files under the `web/static/d3` directory come from the
 
 They are licensed under
 [BSD license](http://opensource.org/licenses/BSD-3-Clause).
+
+## flag-icon-css ##
+
+Files under the `web/static/fi` directory come from the
+[flag-icon-css](https://lipis.github.io/flag-icon-css/) project.
+
+They are licensed under [MIT
+license](https://en.wikipedia.org/wiki/MIT_License).
+
 
 ## Natural Earth ##
 

@@ -156,3 +156,7 @@ form {
 .clickable {
     cursor: pointer;
 }
+
+.flag-icon {
+    vertical-align: -10%;
+}
