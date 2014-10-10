@@ -374,6 +374,8 @@ try:
 except ImportError:
     argparser = utils.FakeArgparserParent()
 
+argparser.add_argument('--categories', metavar='CAT', nargs='+',
+                       help='tag scan results with these categories')
 argparser.add_argument('--country', '-c', metavar='CODE',
                        help='select a country')
 argparser.add_argument('--asnum', '-a', metavar='AS', type=int,

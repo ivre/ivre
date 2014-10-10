@@ -69,10 +69,10 @@ if __name__ == '__main__':
         parser.add_argument('agents', metavar='AGENT', nargs='+',
                             help='agents to use (rsync address)')
     args = parser.parse_args()
-    if args.category is None:
-        args.categories = []
-    else:
+    if args.categories is None:
         args.categories = [args.category]
+    elif args.category not in args.categories:
+        args.categories.append(args.category)
     agents = [
         ivre.scanengine.Agent.from_string(a, localbase=MAINDIR,
                                           maxwaiting=args.max_waiting)

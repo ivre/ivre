@@ -284,8 +284,6 @@ if __name__ == '__main__':
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
-    parser.add_argument('--categories', metavar='CAT', nargs='+',
-                        help='tag scan results with these categories')
     parser.add_argument('--output',
                         choices=['XML', 'XMLFull', 'XMLFork', 'Test',
                                  'Count', 'List', 'ListAll',
