@@ -697,6 +697,26 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(ivre.utils.isfinal("1"))
         self.assertFalse(ivre.utils.isfinal([]))
         self.assertFalse(ivre.utils.isfinal({}))
+        
+        # Math utils
+        # http://stackoverflow.com/a/15285588/3223422
+        def is_prime(n):
+            if n == 2 or n == 3: return True
+            if n < 2 or n%2 == 0: return False
+            if n < 9: return True
+            if n % 3 == 0: return False
+            r = int(n**0.5)
+            f = 5
+            while f <= r:
+                if n % f == 0: return False
+                if n % (f + 2) == 0: return False
+                f += 6
+            return True
+        for _ in xrange(3):
+            nbr = random.randint(2, 1000)
+            factors = list(ivre.mathutils.factors(nbr))
+            self.assertTrue(all(is_prime(x) for x in factors))
+            self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
 def parse_args():
     global MONGODB, SAMPLES
@@ -728,5 +748,6 @@ if __name__ == '__main__':
     prepare_config()
     import ivre.db
     import ivre.utils
+    import ivre.mathutils
     import ivre.passive
     unittest.main(verbosity=2)
