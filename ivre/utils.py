@@ -32,6 +32,7 @@ import re
 import hashlib
 import subprocess
 import os
+import shutil
 import errno
 import stat
 
@@ -216,6 +217,18 @@ def makedirs(dirname):
         os.makedirs(dirname)
     except OSError as exception:
         if not (exception.errno == errno.EEXIST and os.path.isdir(dirname)):
+            raise exception
+
+
+def cleandir(dirname):
+    """Removes a complete tree, like rm -rf on a directory, raising no
+    exception when dirname does not exist.
+
+    """
+    try:
+        shutil.rmtree(dirname)
+    except OSError as exception:
+        if exception.errno != errno.ENOENT:
             raise exception
 
 

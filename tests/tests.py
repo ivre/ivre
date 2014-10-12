@@ -38,15 +38,6 @@ def prepare_config():
         delattr(ivre.config, param)
     ivre.config.DB = MONGODB
 
-def clean_dir(dirname):
-    for root, _, files in os.walk(dirname):
-        for fname in files:
-            os.unlink(os.path.join(root, fname))
-    try:
-        os.rmdir(dirname)
-    except OSError:
-        pass
-
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
 @contextmanager
@@ -76,8 +67,8 @@ class IvreTests(unittest.TestCase):
 
     def tearDown(self):
         ivre.db.db.nmap.db.connection.drop_database('testivre')
-        clean_dir("logs")
-        clean_dir(".state")
+        ivre.utils.cleandir("logs")
+        ivre.utils.cleandir(".state")
         if self.new_results:
             with open(os.path.join(SAMPLES, "results"), 'a') as fdesc:
                 for valname in self.new_results:
