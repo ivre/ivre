@@ -454,6 +454,6 @@ def target_from_args(args):
         return TargetNmapPreScan(
             target,
             ports=args.nmap_prescan_ports,
-            nmap_opts=shlex.split(args.nmap_prescan_opts)
+            nmap_opts=shlex.split(nmap_prescan_opts)
         )
     return target
