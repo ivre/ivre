@@ -70,16 +70,23 @@ dedicated to insertion tasks.
 Once IVRE has been properly configured, it's time to initialize its
 databases.
 
-For that, the command-line tools (namely `ipdata`, `ipinfo` and
-`scancli`, respectively for information about IP addresses, passive
-information and active information) have a `--init` option.
+For that, the command-line tools (namely `ipdata`, `ipinfo`, `scancli`
+and `runscans-agentdb`, respectively for information about IP
+addresses, passive information, active information and running scans
+through agents) have a `--init` option.
 
 So you can run, with a user or from a host where the configuration has
-a write access to the database:
+a write access to the database (add `< /dev/null` to skip the
+confirmation):
 
-    $ ipdata --init
-    $ ipinfo --init
     $ scancli --init
+    This will remove any scan result in your database. Process ? [y/N] y
+    $ ipinfo --init
+    This will remove any passive information in your database. Process ? [y/N] y
+    $ ipdata --init
+    This will remove any country/AS information in your database. Process ? [y/N] y
+    $ runscans-agentdb --init
+    This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 
 ### Getting IP data ###
 

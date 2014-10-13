@@ -100,15 +100,15 @@ def bgp_raw_to_csv(fname, out):
                 out.write('"%s","%s","%d","%d"\n' % (
                     utils.int2ip(cur[0]),
                     utils.int2ip(cur[1]),
-                    cur[0], cur[1])
-                )
+                    cur[0], cur[1]
+                ))
             cur = [start, stop]
     if cur:
         out.write('"%s","%s","%d","%d"\n' % (
             utils.int2ip(cur[0]),
             utils.int2ip(cur[1]),
-            cur[0], cur[1])
-        )
+            cur[0], cur[1]
+        ))
 
 
 def unzip_all(fname):

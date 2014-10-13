@@ -29,8 +29,6 @@ import struct
 import socket
 import datetime
 import re
-import hashlib
-import subprocess
 import os
 import shutil
 import errno
@@ -62,7 +60,7 @@ def guess_prefix(directory=None):
             if stat.S_ISDIR(os.stat(candidate).st_mode):
                 return candidate
         except OSError:
-            pass    
+            pass
     if __file__.startswith('/'):
         path = '/'
         # absolute path

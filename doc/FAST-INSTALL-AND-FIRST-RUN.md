@@ -54,6 +54,8 @@ button to check if everything works.
     This will remove any passive information in your database. Process ? [y/N] y
     $ ipdata --init
     This will remove any country/AS information in your database. Process ? [y/N] y
+    $ runscans-agentdb --init
+    This will remove any agent and/or scan in your database and files. Process ? [y/N] y
     $ sudo ipdata --download
     $ ipdata --import-all
 

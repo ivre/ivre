@@ -32,6 +32,11 @@ import re
 import urlparse
 import urllib
 import xml.sax
+import os
+import subprocess
+import shutil
+import tempfile
+import pickle
 
 # tests: I don't want to depend on cluster for now
 try:
@@ -177,8 +182,17 @@ class DB(object):
         """
         raise NotImplementedError
 
-    def searchid(self, idval):
+    def searchid(self, idval, neg=False):
         """Gets a specific record given its unique identifier `idval`.
+
+        The type of the identifier is backend-specific, and this is
+        typically implemented in the backend-specific subclasses
+
+        """
+        raise NotImplementedError
+
+    def str2id(self, string):
+        """Returns a unique identifier from `string`.
 
         The type of the identifier is backend-specific, and this is
         typically implemented in the backend-specific subclasses
@@ -440,7 +454,275 @@ class DBData(DB):
 
 
 class DBAgent(DB):
-    pass
+    """Backend-independent code to handle agents-in-DB"""
+
+    def add_agent(self, host, remotepath, rsync=None, source=None,
+                  maxwaiting=60):
+        """Prepares an agent and adds it to the DB using
+        `self._add_agent()`
+
+        """
+        if rsync is None:
+            rsync = ["rsync"]
+        if not remotepath.endswith('/'):
+            remotepath += '/'
+        if source is None:
+            source = ("" if host is None
+                      else "%s:" % host) + remotepath
+        utils.makedirs(config.AGENT_MASTER_PATH)
+        localpath = tempfile.mkdtemp(prefix="",
+                                     dir=config.AGENT_MASTER_PATH)
+        for dirname in ["input", "remoteinput", "remotecur", "remoteoutput"]:
+            utils.makedirs(os.path.join(localpath, dirname))
+        agent = {
+            "host": host,
+            "path": {
+                "remote": remotepath,
+                "local": localpath,
+            },
+            "source": source,
+            "rsync": rsync,
+            "maxwaiting": maxwaiting,
+            "scan": None,
+            "sync": True,
+        }
+        return self._add_agent(agent)
+
+    def add_agent_from_string(self, string, source=None, maxwaiting=60):
+        """Adds an agent from a description string of the form
+        [tor:][hostname:]path.
+
+        """
+        string = string.split(':', 1)
+        if string[0].lower() == 'tor':
+            string = string[1].split(':', 1)
+            rsync = ['torify', 'rsync']
+        else:
+            rsync = None
+        if len(string) == 1:
+            return self.add_agent(None, string[0], rsync=rsync,
+                                  source=source,
+                                  maxwaiting=maxwaiting)
+        return self.add_agent(string[0], string[1], rsync=rsync,
+                              source=source,
+                              maxwaiting=maxwaiting)
+
+    def may_receive(self, agentid):
+        """Returns the number of targets that can be added to an agent
+        without exceeding its `maxwaiting` limit (the returned value
+        cannot be negative).
+
+        """
+        agent = self.get_agent(agentid)
+        curwaiting = sum(
+            len(os.listdir(self.get_local_path(agent, p)))
+            for p in ['input', 'remoteinput']
+        )
+        return max(agent["maxwaiting"] - curwaiting, 0)
+
+    def has_waiting_targets(self, agentid):
+        """Returns the number of waiting targets an agent has.
+
+        """
+        agent = self.get_agent(agentid)
+        return (
+            len(os.listdir(self.get_local_path(agent, 'input')))
+            + len(os.listdir(self.get_local_path(agent, 'remoteinput')))
+            + len(os.listdir(self.get_local_path(agent, 'remotecur'))) / 2
+        )
+
+    def get_local_path(self, agent, dirname):
+        if not dirname.endswith('/'):
+            dirname += '/'
+        return os.path.join(agent["path"]["local"], dirname)
+
+    def get_remote_path(self, agent, dirname):
+        if not dirname.endswith('/'):
+            dirname += '/'
+        return ("%s:" % agent['host']
+                if agent['host'] is not None
+                else ''
+            ) +  os.path.join(agent["path"]["remote"], dirname)
+
+    def sync_all(self):
+        for agentid in self.get_agents():
+            self.sync(agentid)
+
+    def sync(self, agentid):
+        agent = self.get_agent(agentid)
+        subprocess.call(agent['rsync'] + [
+            '-a',
+            self.get_local_path(agent, 'input'),
+            self.get_local_path(agent, 'remoteinput')
+        ])
+        subprocess.call(agent['rsync'] + [
+            '-a', '--remove-source-files',
+            self.get_local_path(agent, 'input'),
+            self.get_remote_path(agent, 'input')
+        ])
+        subprocess.call(agent['rsync'] + [
+            '-a', '--delete',
+            self.get_remote_path(agent, 'input'),
+            self.get_local_path(agent, 'remoteinput')
+        ])
+        subprocess.call(agent['rsync'] + [
+            '-a', '--delete',
+            self.get_remote_path(agent, 'cur'),
+            self.get_local_path(agent, 'remotecur')
+        ])
+        subprocess.call(agent['rsync'] + [
+            '-a', '--remove-source-files',
+            self.get_remote_path(agent, 'output'),
+            self.get_local_path(agent, 'remoteoutput')
+        ])
+        outpath = self.get_local_path(agent, 'remoteoutput')
+        for fname in os.listdir(outpath):
+            scanid = fname.split('-', 1)[0]
+            scan = self.get_scan(self.str2id(scanid))
+            storedir = os.path.join(
+                config.AGENT_MASTER_PATH,
+                "output",
+                scanid,
+                str(agentid),
+            )
+            utils.makedirs(storedir)
+            with tempfile.NamedTemporaryFile(dir=storedir,
+                                             delete=False) as fdesc:
+                pass
+            shutil.move(
+                os.path.join(outpath, fname),
+                fdesc.name
+            )
+            self.globaldb.nmap.store_scan(
+                fdesc.name,
+                categories=scan['target'].target.infos['categories'],
+                source=agent['source'],
+            )
+            # TODO gettoarchive parameter
+            self.incr_scan_results(self.str2id(scanid))
+
+    def feed_all(self):
+        for scanid in self.get_scans():
+            self.feed(scanid)
+
+    def feed(self, scanid):
+        scan = self.get_scan(scanid)
+        # TODO: lock
+        target = scan['target']
+        try:
+            for agentid in scan['agents']:
+                for _ in xrange(self.may_receive(agentid)):
+                    self.add_target(agentid, scanid, target.next())
+        except StopIteration:
+            # This scan is over, let's free its agents
+            for agentid in scan['agents']:
+                self.unassign_agent(agentid)
+        self.update_scan_target(scanid, target)
+
+    def add_target(self, agentid, scanid, addr):
+        agent = self.get_agent(agentid)
+        try:
+            addr = utils.ip2int(addr)
+        except (TypeError, utils.socket.error):
+            pass
+        with tempfile.NamedTemporaryFile(
+                prefix=str(scanid) + '-',
+                dir=self.get_local_path(agent, "input"),
+                delete=False,
+        ) as fdesc:
+            fdesc.write("%s\n" % addr)
+            return True
+        return False
+
+    def _add_agent(self, agent):
+        """Adds an agent and returns its (backend-specific) unique
+        identifier.
+
+        This is implemented in the backend-specific class.
+
+        """
+        raise NotImplementedError
+
+    def get_agent(self, agentid):
+        """Gets an agent from its (backend-specific) unique
+        identifier.
+
+        This is implemented in the backend-specific class.
+
+        """
+        raise NotImplementedError
+
+    def get_free_agents(self):
+        raise NotImplementedError
+
+    def get_agents(self):
+        raise NotImplementedError
+
+    def del_agent(self, agentid, wait_results=True):
+        """Removes an agent from its (backend-specific) unique
+        identifier.
+        """
+        agent = self.get_agent(agentid)
+        # stop adding targets
+        self.unassign_agent(agentid, dont_reuse=True)
+        # remove not-yet-sent targets
+        path = self.get_local_path(agent, "input")
+        dstdir = os.path.join(config.AGENT_MASTER_PATH, "onhold")
+        for fname in os.listdir(path):
+            shutil.move(os.path.join(path, fname), dstdir)
+        if wait_results:
+            self.sync(agentid)
+
+    def _del_agent(self, agentid):
+        """Removes an agent's database entry from its
+        (backend-specific) unique identifier.
+
+        This is implemented in the backend-specific class.
+
+        """
+        raise NotImplementedError
+
+    def add_scan(self, target, assign_to_free_agents=True):
+        scan = {
+            "target": pickle.dumps(target.__iter__()),
+            "agents": [],
+            "results": 0,
+        }
+        scanid = self._add_scan(scan)
+        if assign_to_free_agents:
+            for agentid in self.get_free_agents():
+                self.assign_agent(agentid, scanid)
+
+    def _add_scan(self, scan):
+        raise NotImplementedError
+
+    def get_scan(self, scanid):
+        scan = self._get_scan(scanid)
+        scan['target'] = pickle.loads(scan['target'])
+        return scan
+
+    def get_scans(self):
+        raise NotImplementedError
+
+    def _get_scan(self, scanid):
+        raise NotImplementedError
+
+    def assign_agent(self, agentid, scanid,
+                     only_if_unassigned=False,
+                     force=False):
+        raise NotImplementedError
+
+    def unassign_agent(self, agentid, dont_reuse=False):
+        raise NotImplementedError
+
+    def update_scan_target(self, scanid, target):
+        return self._update_scan_target(scanid, pickle.dumps(target))
+
+    def _update_scan_target(self, scanid, target):
+        raise NotImplementedError
+
+    def incr_scan_results(self, scanid):
+        raise NotImplementedError
 
 
 class MetaDB(object):

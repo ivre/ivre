@@ -39,6 +39,7 @@ DB = "mongodb:///ivre"
 # end of this file).
 GEOIP_PATH = None
 HONEYD_IVRE_SCRIPTS_PATH = None
+AGENT_MASTER_PATH = "/var/lib/ivre/master"
 NMAP_CMD = "nmap"
 NMAP_SCAN_TYPE = ['sS', 'A']
 NMAP_PING_TYPE = ['PS', 'PE']

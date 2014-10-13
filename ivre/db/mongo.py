@@ -128,6 +128,9 @@ class MongoDB(DB):
     # filters
     flt_empty = {}
 
+    def str2id(self, string):
+        return bson.ObjectId(string)
+
     def str2flt(self, string):
         return json.loads(string)
 
@@ -168,7 +171,7 @@ class MongoDB(DB):
         record, given its id.
 
         """
-        return {"_id": idval}
+        return {"_id": {'$ne': idval} if neg else idval}
 
     def searchhost(self, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
@@ -331,9 +334,9 @@ have no effect if it is not expected)."""
             colname_hosts = self.colname_hosts
             colname_scans = self.colname_scans
         self.db[colname_hosts].remove(spec_or_id=host['_id'])
-        scanid = host.get('scanid', None)
-        if scanid is not None and self.get({'scanid': scanid},
-                                           archive=archive).count() == 0:
+        scanid = host.get('scanid')
+        if scanid is not None and self.get(
+                {'scanid': scanid}, archive=archive).count() == 0:
             self.db[colname_scans].remove(spec_or_id=scanid)
 
     def get_mean_open_ports(self, flt, archive=False):
@@ -1031,8 +1034,10 @@ service_* tags."""
             # topvalues for indexed fields (except when a
             # pseudo-field has been used)
             colname = self.colname_oldhosts if archive else self.colname_hosts
-            indexes = [x[0][0] for x in self.indexes.get(colname, [])
-            ] + [x[0][0][0] for x in self.specialindexes.get(colname, [])]
+            indexes = (
+                [x[0][0] for x in self.indexes.get(colname, [])] +
+                [x[0][0][0] for x in self.specialindexes.get(colname, [])]
+            )
             if field not in indexes:
                 raise ValueError(".topvalues() cannot be used on non-indexed "
                                  "fields when a limit has been set.")
@@ -1814,10 +1819,11 @@ class MongoDBData(MongoDB, DBData):
 
 
 class MongoDBAgent(MongoDB, DBAgent):
+    """MongoDB-specific code to handle agents-in-DB"""
 
     def __init__(self, host, dbname,
                  colname_agents="agents",
-                 colname_scans="scans",
+                 colname_scans="runningscans",
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBAgent.__init__(self)
@@ -1825,11 +1831,103 @@ class MongoDBAgent(MongoDB, DBAgent):
         self.colname_scans = colname_scans
         self.indexes = {
             self.colname_agents: [
-                [('host', pymongo.ASCENDING),
-                 ('path.remote', pymongo.ASCENDING),
-                 ('path.local', pymongo.ASCENDING)],
+                [('host', pymongo.ASCENDING)],
+                [('path.remote', pymongo.ASCENDING)],
+                [('path.local', pymongo.ASCENDING)],
+                [('scan', pymongo.ASCENDING)],
             ],
             self.colname_scans: [
-                [('categories', pymongo.ASCENDING)]
+                [('agents', pymongo.ASCENDING)],
             ],
         }
+
+    def init(self):
+        """Initializes the "agent" columns, i.e., drops those columns
+        and creates the default indexes.
+
+        """
+        self.db[self.colname_agents].drop()
+        self.db[self.colname_scans].drop()
+        self.create_indexes()
+
+    def stop_agent(self, agentid):
+        agent = self.get_agent(agentid)
+        if agent is None:
+            raise IndexError("Agent not found [%r]" % agentid)
+        if agent['scan'] is not None:
+            self.unassign_agent(agent['_id'])
+
+    def _add_agent(self, agent):
+        return self.db[self.colname_agents].insert(agent)
+
+    def get_agent(self, agentid):
+        return self.db[self.colname_agents].find_one({"_id": agentid})
+
+    def get_free_agents(self):
+        return (x['_id'] for x in
+                self.set_limits(
+                    self.db[self.colname_agents].find(
+                        {"scan": None},
+                        fields=["_id"])))
+
+    def get_agents(self):
+        return (x['_id'] for x in
+                self.set_limits(
+                    self.db[self.colname_agents].find(
+                        fields=["_id"])))
+
+    def assign_agent(self, agentid, scanid,
+                     only_if_unassigned=False,
+                     force=False):
+        flt = {"_id": agentid}
+        if only_if_unassigned:
+            flt.update({"scan": None})
+        elif not force:
+            flt.update({"scan": {"$ne": False}})
+        self.db[self.colname_agents].update(
+            flt,
+            {"$set": {"scan": scanid}}
+        )
+        agent = self.get_agent(agentid)
+        if (scanid is not None and scanid is not False
+            and scanid == agent["scan"]):
+            self.db[self.colname_scans].update(
+                {"_id": scanid, "agents": {"$ne": agentid}},
+                {"$push": {"agents": agentid}}
+            )
+
+    def unassign_agent(self, agentid, dont_reuse=False):
+        agent = self.get_agent(agentid)
+        scanid = agent["scan"]
+        if scanid is not None:
+            self.db[self.colname_scans].update(
+                {"_id": scanid, "agents": agentid},
+                {"$pull": {"agents": agentid}}
+            )
+        if dont_reuse:
+            self.assign_agent(agentid, False, force=True)
+        else:
+            self.assign_agent(agentid, None, force=True)
+
+    def _del_agent(self, agentid):
+        return self.db[self.colname_agents].remove(spec_or_id=agentid)
+
+    def _add_scan(self, scan):
+        return self.db[self.colname_scans].insert(scan)
+
+    def _get_scan(self, scanid):
+        return self.db[self.colname_scans].find_one({"_id": scanid})
+
+    def get_scans(self):
+        return (x['_id'] for x in
+                self.set_limits(
+                    self.db[self.colname_scans].find(
+                        fields=["_id"])))
+
+    def _update_scan_target(self, scanid, target):
+        return self.db[self.colname_scans].update(
+            {"_id": scanid}, {"$set": {"target": target}})
+
+    def incr_scan_results(self, scanid):
+        return self.db[self.colname_scans].update(
+            {"_id": scanid}, {"$inc": {"results": 1}})
