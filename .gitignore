@@ -2,6 +2,6 @@
 build/
 dist/
 docker/base-local/ivre-latest.tar.gz
-tests/samples/
-tests/htmlcov/
+tests/samples*
+tests/htmlcov*
 tests/.coverage
