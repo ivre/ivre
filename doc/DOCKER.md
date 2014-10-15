@@ -28,7 +28,7 @@ and an access to the Internet.
 You can also build the images from the provided `Dockerfile`s. For
 that, from the `docker/` directory, run:
 
-    $ docker pull ubuntu:latest
+    $ docker pull debian:testing
     $ for img in agent base client db web ; do
     > docker build -t "ivre/$img" "$img"
     > done

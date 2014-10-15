@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM ubuntu:latest
+FROM debian:testing
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 ENV DEBIAN_FRONTEND noninteractive

@@ -45,4 +45,4 @@ ADD doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
 RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/www/dokuwiki/lib/plugins
 
 EXPOSE 80
-CMD service php5-fpm restart && service fcgiwrap restart && exec /usr/sbin/nginx
+CMD service php5-fpm start && service fcgiwrap start && exec /usr/sbin/nginx

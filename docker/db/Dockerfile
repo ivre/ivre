@@ -14,15 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM ubuntu:latest
+FROM debian:testing
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 ENV DEBIAN_FRONTEND noninteractive
 
 # MongoDB install
-# http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/
+# http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
-RUN echo 'deb http://downloads-distro.mongodb.org/repo/ubuntu-upstart dist 10gen' > /etc/apt/sources.list.d/10gen.list
+RUN echo 'deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen' > /etc/apt/sources.list.d/mongodb.list
 RUN apt-get -q update && apt-get -qy install mongodb-org
 
 # Data & log directories
