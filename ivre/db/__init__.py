@@ -626,21 +626,27 @@ class DBAgent(DB):
         """
         agent = self.get_agent(agentid)
         curwaiting = sum(
-            len(os.listdir(self.get_local_path(agent, p)))
-            for p in ['input', 'remoteinput']
+            len(os.listdir(self.get_local_path(agent, path)))
+            for path in ['input', 'remoteinput']
         )
         return max(agent["maxwaiting"] - curwaiting, 0)
 
-    def has_waiting_targets(self, agentid):
+    def count_waiting_targets(self, agentid):
         """Returns the number of waiting targets an agent has.
 
         """
         agent = self.get_agent(agentid)
-        return (
-            len(os.listdir(self.get_local_path(agent, 'input')))
-            + len(os.listdir(self.get_local_path(agent, 'remoteinput')))
-            + len(os.listdir(self.get_local_path(agent, 'remotecur'))) / 2
+        return sum(
+            len(os.listdir(self.get_local_path(agent, path)))
+            for path in ['input', 'remoteinput']
         )
+
+    def count_current_targets(self, agentid):
+        """Returns the number of waiting targets an agent has.
+
+        """
+        agent = self.get_agent(agentid)
+        return len([None for x in os.listdir('.') if x.endswith('.xml')])
 
     def get_local_path(self, agent, dirname):
         if not dirname.endswith('/'):
@@ -697,7 +703,9 @@ class DBAgent(DB):
                 str(agentid),
             )
             utils.makedirs(storedir)
-            with tempfile.NamedTemporaryFile(dir=storedir,
+            with tempfile.NamedTemporaryFile(prefix="",
+                                             suffix=".xml",
+                                             dir=storedir,
                                              delete=False) as fdesc:
                 pass
             shutil.move(
@@ -719,6 +727,7 @@ class DBAgent(DB):
     def feed(self, scanid):
         scan = self.get_scan(scanid)
         # TODO: lock
+        # TODO: handle "onhold" targets
         target = scan['target']
         try:
             for agentid in scan['agents']:
@@ -733,8 +742,9 @@ class DBAgent(DB):
     def add_target(self, agentid, scanid, addr):
         agent = self.get_agent(agentid)
         try:
-            addr = utils.ip2int(addr)
-        except (TypeError, utils.socket.error):
+            addr = int(addr)
+            addr = utils.int2ip(addr)
+        except (ValueError, struct.error):
             pass
         with tempfile.NamedTemporaryFile(
                 prefix=str(scanid) + '-',

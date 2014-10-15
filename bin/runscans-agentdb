@@ -67,7 +67,10 @@ def display_agent(agent, verbose=True):
     print "  - currently synced: %s" % agent["sync"]
     print "  - max waiting targets: %d" % agent["maxwaiting"]
     print "  - waiting targets: %d" % (
-        ivre.db.db.agent.has_waiting_targets(agent['_id'])
+        ivre.db.db.agent.count_waiting_targets(agent['_id'])
+    )
+    print "  - current targets: %d" % (
+        ivre.db.db.agent.count_current_targets(agent['_id'])
     )
     print "  - can receive: %d" % (
         ivre.db.db.agent.may_receive(agent['_id'])
