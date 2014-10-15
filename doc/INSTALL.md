@@ -92,7 +92,7 @@ confirmation):
 
     # mkdir /usr/local/share/ivre/geoip/
     # ipdata --download
-    $ ipdata --import-all
+    $ ipdata --import-all --dont-feed-ipdata-cols
 
 ### Web Server ###
 

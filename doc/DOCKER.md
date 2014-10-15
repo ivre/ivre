@@ -110,7 +110,7 @@ initialize the database:
     This will remove any scan result in your database. Process ? [y/N] y
     root@ivreclient:~$ runscans-agentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-    root@ivreclient:~$ ipdata --download --import-all
+    root@ivreclient:~$ ipdata --download --import-all --dont-feed-ipdata-cols
     [...]
 
 The latest command will take a long time. Then we can integrate the

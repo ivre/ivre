@@ -1582,32 +1582,17 @@ class MongoDBData(MongoDB, DBData):
 
     def feed_geoip_country(self, fname, feedipdata=None,
                            createipdata=False):
-        codes = {}
+        self.country_codes = {}
         with open(fname) as fdesc:
-            for line in fdesc:
-                if line.endswith('\n'):
-                    line = line[:-1]
-                if line.endswith('"'):
-                    line = line[:-1]
-                if line.startswith('"'):
-                    line = line[1:]
-                line = line.split('","')
-                self.db[self.colname_geoip_country].insert({
-                    'start': int(line[2]),
-                    'stop': int(line[3]),
-                    'country_code': line[4]
-                })
-                if feedipdata is not None:
-                    for dbinst in feedipdata:
-                        dbinst.update_country(
-                            int(line[2]), int(line[3]), line[4],
-                            create=createipdata)
-                if line[4] not in codes:
-                    codes[line[4]] = line[5]
-        for code, name in codes.iteritems():
-            self.db[self.colname_country_codes].insert({
-                'country_code': code,
-                'name': name})
+            self.db[self.colname_geoip_country].insert(
+                self.parse_line_country(line, feedipdata=feedipdata,
+                                        createipdata=createipdata)
+                for line in fdesc
+            )
+        self.db[self.colname_country_codes].insert(
+            {'country_code': code, 'name': name}
+            for code, name in self.country_codes.iteritems()
+        )
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
@@ -1615,124 +1600,29 @@ class MongoDBData(MongoDB, DBData):
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
-            for line in fdesc:
-                if line.endswith('\n'):
-                    line = line[:-1]
-                if line.endswith('"'):
-                    line = line[:-1]
-                if line.startswith('"'):
-                    line = line[1:]
-                line = line.split('","')
-                self.db[self.colname_geoip_city].insert({
-                    'start': int(line[0]),
-                    'stop': int(line[1]),
-                    'location_id': int(line[2])
-                })
-                if feedipdata is not None:
-                    for dbinst in feedipdata:
-                        dbinst.update_city(
-                            int(line[0]), int(line[1]), line[2],
-                            create=createipdata)
+            self.db[self.colname_geoip_city].insert(
+                self.parse_line_city(line, feedipdata=feedipdata,
+                                     createipdata=createipdata)
+                for line in fdesc
+            )
 
     def feed_city_location(self, fname):
         with open(fname) as fdesc:
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
-            for line in fdesc:
-                if line.endswith('\n'):
-                    line = line[:-1]
-                # Pop an integer
-                i = line.index(',')
-                parsedline = [int(line[:i])]
-                line = line[i + 1:]
-                # Pop 4 strings or None
-                for i in xrange(4):
-                    i = line.index('",')
-                    curval = line[1:i]
-                    if curval:
-                        parsedline.append(curval.decode('latin-1'))
-                    else:
-                        parsedline.append(None)
-                    line = line[i + 2:]
-                # Pop 2 floats or None
-                for i in xrange(2):
-                    i = line.index(',')
-                    curval = line[:i]
-                    if curval:
-                        parsedline.append(float(curval))
-                    else:
-                        parsedline.append(None)
-                    line = line[i + 1:]
-                # Pop 1 int or None
-                i = line.index(',')
-                curval = line[:i]
-                if curval:
-                    parsedline.append(int(curval))
-                else:
-                    parsedline.append(None)
-                line = line[i + 1:]
-                # Pop 1 int or None (at the end of the line)
-                if line:
-                    parsedline.append(int(line))
-                else:
-                    parsedline.append(None)
-                try:
-                    infos = {}
-                    for i, k in [(0, 'location_id'),
-                                 (1, 'country_code'),
-                                 (2, 'region_code'),
-                                 (3, 'city'),
-                                 (4, 'postal_code'),
-                                 (7, 'metro_code'),
-                                 (8, 'area_code')]:
-                        if parsedline[i] is not None:
-                            infos[k] = parsedline[i]
-                    if parsedline[5] is not None and \
-                       parsedline[6] is not None and \
-                       (parsedline[5], parsedline[6]) != (0., 0.):
-                        infos['loc'] = {
-                            'type': 'Point',
-                            'coordinates': [parsedline[6], parsedline[5]],
-                        }
-                    self.db[self.colname_city_locations].insert(infos)
-                except Exception as exc:
-                    # FIXME Error message
-                    print exc
-                    print line
-                    raise exc
+            self.db[self.colname_city_locations].insert(
+                self.parse_line_city_location(line)
+                for line in fdesc)
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
         with open(fname) as fdesc:
-            for line in fdesc:
-                if line.endswith('\n'):
-                    line = line[:-1]
-                line = line.split(',', 2)
-                spec = {
-                    'start': int(line[0]),
-                    'stop': int(line[1]),
-                }
-                data = line[2]
-                if data.endswith('"'):
-                    data = data[:-1]
-                if data.startswith('"'):
-                    data = data[1:]
-                if data.startswith('AS'):
-                    data = data.split(None, 1)
-                    spec['as_num'] = int(data[0][2:])
-                    if len(data) == 2:
-                        spec['as_name'] = data[1].decode('latin-1')
-                else:
-                    spec['as_num'] = -1
-                    spec['as_name'] = data.decode('latin-1')
-                self.db[self.colname_geoip_as].insert(spec)
-                if feedipdata is not None:
-                    for dbinst in feedipdata:
-                        dbinst.update_as(spec['start'], spec['stop'],
-                                         spec['as_num'],
-                                         spec.get('as_name'),
-                                         create=createipdata)
+            self.db[self.colname_geoip_as].insert(
+                self.parse_line_asnum(line, feedipdata=feedipdata,
+                                      createipdata=createipdata)
+                for line in fdesc
+            )
 
     def country_name_by_code(self, code):
         rec = self.db[self.colname_country_codes].find_one(

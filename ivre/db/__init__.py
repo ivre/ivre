@@ -450,7 +450,118 @@ class DBPassive(DB):
 
 
 class DBData(DB):
-    pass
+
+    def parse_line_country(self, line, feedipdata=None,
+                        createipdata=False):
+        parsedline = {}
+        if line.endswith('\n'):
+            line = line[:-1]
+        if line.endswith('"'):
+            line = line[:-1]
+        if line.startswith('"'):
+            line = line[1:]
+        line = line.split('","')
+        if line[4] not in self.country_codes:
+            self.country_codes[line[4]] = line[5]
+        if feedipdata is not None:
+            for dbinst in feedipdata:
+                dbinst.update_country(
+                    int(line[2]), int(line[3]), line[4],
+                    create=createipdata
+                )
+        return {'start': int(line[2]),
+                'stop': int(line[3]),
+                'country_code': line[4]}
+
+    def parse_line_city(self, line, feedipdata=None,
+                        createipdata=False):
+        parsedline = {}
+        if line.endswith('\n'):
+            line = line[:-1]
+        if line.endswith('"'):
+            line = line[:-1]
+        if line.startswith('"'):
+            line = line[1:]
+        line = line.split('","')
+        if feedipdata is not None:
+            for dbinst in feedipdata:
+                dbinst.update_city(
+                    int(line[0]), int(line[1]), line[2],
+                    create=createipdata
+                )
+        return {'start': int(line[0]),
+                'stop': int(line[1]),
+                'location_id': int(line[2])}
+
+    def parse_line_city_location(self, line):
+        if line.endswith('\n'):
+            line = line[:-1]
+        # Get an integer
+        i = line.index(',')
+        parsedline = {'location_id': int(line[:i])}
+        line = line[i + 1:]
+        # Get 4 strings
+        for field in ['country_code', 'region_code', 'city',
+                      'postal_code']:
+            i = line.index('",')
+            curval = line[1:i]
+            if curval:
+                parsedline[field] = curval.decode('latin-1')
+            line = line[i + 2:]
+        # Get 2 floats
+        coords = []
+        for i in xrange(2):
+            i = line.index(',')
+            curval = line[:i]
+            if curval:
+                coords.append(float(curval))
+            line = line[i + 1:]
+        if len(coords) == 2:
+            parsedline['loc'] = {
+                'type': 'Point',
+                'coordinates': [coords[1], coords[0]],
+            }
+        # Get 1 int
+        i = line.index(',')
+        curval = line[:i]
+        if curval:
+            parsedline['metro_code'] = int(curval)
+        line = line[i + 1:]
+        # Pop 1 int or None (at the end of the line)
+        if line:
+            parsedline['area_code'] = int(line)
+        return parsedline
+
+    def parse_line_asnum(self, line, feedipdata=None,
+                         createipdata=False):
+        if line.endswith('\n'):
+            line = line[:-1]
+        line = line.split(',', 2)
+        parsedline = {
+            'start': int(line[0]),
+            'stop': int(line[1]),
+        }
+        data = line[2]
+        if data.endswith('"'):
+            data = data[:-1]
+        if data.startswith('"'):
+            data = data[1:]
+        if data.startswith('AS'):
+            data = data.split(None, 1)
+            parsedline['as_num'] = int(data[0][2:])
+            if len(data) == 2:
+                parsedline['as_name'] = data[1].decode('latin-1')
+        else:
+            parsedline['as_num'] = -1
+            parsedline['as_name'] = data.decode('latin-1')
+        if feedipdata is not None:
+            for dbinst in feedipdata:
+                dbinst.update_as(parsedline['start'],
+                                 parsedline['stop'],
+                                 parsedline['as_num'],
+                                 parsedline.get('as_name'),
+                                 create=createipdata)
+        return parsedline
 
 
 class DBAgent(DB):

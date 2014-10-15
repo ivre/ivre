@@ -46,8 +46,8 @@ This will remove any country/AS information in your database. Process ? [y/N] y
 $ runscans-agentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 $ sudo ipdata --download
-$ ipdata --import-all</code>
-The two latest steps take a long time to run, nothing to worry about.
+$ ipdata --import-all --dont-feed-ipdata-cols</code>
+The two latest steps may take a long time to run, nothing to worry about.
 
 ====== Run a first scan ======
 

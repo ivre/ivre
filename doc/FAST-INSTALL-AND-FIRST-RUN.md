@@ -57,9 +57,10 @@ button to check if everything works.
     $ runscans-agentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
     $ sudo ipdata --download
-    $ ipdata --import-all
+    $ ipdata --import-all --dont-feed-ipdata-cols
 
-The two latest steps take a long time to run, nothing to worry about.
+The two latest steps may take a long time to run, nothing to worry
+about.
 
 
 # Run a first scan #
