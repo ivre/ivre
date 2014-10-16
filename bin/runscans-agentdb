@@ -108,6 +108,7 @@ if __name__ == '__main__':
     parser.add_argument('--list-agents', action="store_true")
     parser.add_argument('--list-scans', action="store_true")
     parser.add_argument('--assign', metavar="AGENT:SCAN")
+    parser.add_argument('--unassign', metavar="AGENT")
     parser.add_argument('--init', action="store_true",
                         help='Purge or create and initialize the database.')
     parser.add_argument('--sleep', type=int, default=2,
@@ -151,6 +152,9 @@ if __name__ == '__main__':
         except ValueError:
             parser.error("argument --assing: must give agentid:scanid")
         ivre.db.db.agent.assign_agent(agentid, scanid)
+
+    if args.unassign is not None:
+        ivre.db.db.agent.unassign_agent(ivre.db.db.agent.str2id(args.unassign))
 
     targets = ivre.target.target_from_args(args)
     if targets is not None:
