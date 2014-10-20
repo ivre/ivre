@@ -20,7 +20,11 @@ from ivre import utils, db, graphroute, config
 
 import sys
 import os
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+    USING_ORDEREDDICT = True
+except ImportError:
+    USING_ORDEREDDICT = False
 from datetime import datetime
 
 
@@ -433,16 +437,17 @@ def main():
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
-    parser.add_argument('--csv', metavar='TYPE',
-                        help='Output result as a CSV file. Supported '
-                        'values for type are currently "ports" and '
-                        '"hops".')
-    parser.add_argument('--csv-separator', metavar='SEPARATOR',
-                        default=",",
-                        help='Select separator for --csv output')
-    parser.add_argument('--csv-add-infos', action='store_true',
-                        help="Include country_code and as_number"
-                        "fields to CSV file")
+    if USING_ORDEREDDICT:
+        parser.add_argument('--csv', metavar='TYPE',
+                            help='Output result as a CSV file. Supported '
+                            'values for type are currently "ports" and '
+                            '"hops".')
+        parser.add_argument('--csv-separator', metavar='SEPARATOR',
+                            default=",",
+                            help='Select separator for --csv output')
+        parser.add_argument('--csv-add-infos', action='store_true',
+                            help="Include country_code and as_number"
+                            "fields to CSV file")
     if USING_ARGPARSE:
         parser.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
                             help='Sort results according to FIELD; use ~FIELD '
@@ -560,7 +565,7 @@ def main():
         def displayfunction(x):
             for h in x:
                 db.db.nmap.remove(h)
-    elif args.csv is not None:
+    elif USING_ORDEREDDICT and args.csv is not None:
         fields = {
             "ports": OrderedDict([
                 ["addr", utils.int2ip],
@@ -573,13 +578,20 @@ def main():
                      ["hops", OrderedDict([
                          ["ipaddr", utils.int2ip],
                          ["ttl", str],
-                         ["rtt", lambda x: 'NA' if x == '--' else str(int(x*1000))]])]])]]),
-            }.get(args.csv)
+                         ["rtt", lambda x: 'NA' if x == '--' else str(int(x*1000))]
+                     ])
+                  ]
+                ])]
+            ]),
+        }.get(args.csv)
         if fields is None:
             parser.error("Invalid choice for --csv.")
         if args.csv_add_infos:
-            fields['infos'] = OrderedDict([["country_code", True],
-                                           ["as_num", str]])
+            fields['infos'] = OrderedDict([
+                ["country_code", lambda x: "NA" if x is None else x],
+                ["city", lambda x: "NA" if x is None else x],
+                ["as_num", lambda x: "NA" if x is None else str(x)],
+            ])
         def displayfunction(x):
             out.write(args.csv_separator.join(utils.fields2csv_head(fields)))
             out.write('\n')
@@ -605,4 +617,6 @@ def main():
     sys.exit(0)
 
 if __name__ == '__main__':
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
     main()
