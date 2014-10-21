@@ -47,6 +47,7 @@ MAXVALLEN = 1000
 
 REGEXP_T = type(re.compile(''))
 
+
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are
     installed.
@@ -74,6 +75,7 @@ def guess_prefix(directory=None):
         candidate = check_candidate(path, directory=directory)
         if candidate is not None:
             return candidate
+
 
 def ip2int(ipstr):
     """Converts the classical decimal, dot-separated, string
@@ -285,6 +287,7 @@ def diff(doc1, doc2):
                 # print kkey
     return res
 
+
 def fields2csv_head(fields, prefix=''):
     line = []
     for field, subfields in fields.iteritems():
@@ -294,6 +297,7 @@ def fields2csv_head(fields, prefix=''):
             line += fields2csv_head(subfields,
                                     prefix=prefix + field + '.')
     return line
+
 
 def doc2csv(doc, fields, nastr="NA"):
     lines = [[]]

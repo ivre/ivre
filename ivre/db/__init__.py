@@ -452,7 +452,7 @@ class DBPassive(DB):
 class DBData(DB):
 
     def parse_line_country(self, line, feedipdata=None,
-                        createipdata=False):
+                           createipdata=False):
         parsedline = {}
         if line.endswith('\n'):
             line = line[:-1]
@@ -659,7 +659,7 @@ class DBAgent(DB):
         return ("%s:" % agent['host']
                 if agent['host'] is not None
                 else ''
-            ) +  os.path.join(agent["path"]["remote"], dirname)
+        ) + os.path.join(agent["path"]["remote"], dirname)
 
     def sync_all(self):
         for agentid in self.get_agents():
@@ -898,7 +898,8 @@ class MetaDB(object):
 
     def __init__(self, url=None, urls=None):
         try:
-            from ivre.db.mongo import MongoDBNmap, MongoDBPassive, MongoDBData, MongoDBAgent
+            from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
+                                       MongoDBData, MongoDBAgent)
             self.db_types["nmap"]["mongodb"] = MongoDBNmap
             self.db_types["passive"]["mongodb"] = MongoDBPassive
             self.db_types["data"]["mongodb"] = MongoDBData

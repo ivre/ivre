@@ -54,6 +54,7 @@ P0F_MODES = {
 
 P0F_DIST = re.compile('distance ([0-9]+),')
 
+
 def parse_p0f_line(line, include_port=False):
     line = [line.split(' - ')[0]] + line.split(' - ')[1].split(' -> ')
     if line[1].startswith('UNKNOWN '):
@@ -88,6 +89,7 @@ def parse_p0f_line(line, include_port=False):
 
 SYMANTEC_UA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
 DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
+
 
 def _prepare_rec(spec, ignorenets, neverignore):
     # First of all, let's see if we are supposed to ignore this spec,
@@ -133,6 +135,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
         spec['targetval'] = hashlib.sha1(spec['fulltargetval']).hexdigest()
     return spec
 
+
 def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by *<line.split()>
                timestamp, host, port, recon_type, source, value,
@@ -163,6 +166,7 @@ def handle_rec(sensor, ignorenets, neverignore,
     spec = _prepare_rec(spec, ignorenets, neverignore)
     return float(timestamp), spec
 
+
 def _getinfos_http_client_authorization(spec):
     """Extract (for now) the usernames and passwords from Basic
     authorization headers
@@ -186,6 +190,7 @@ def _getinfos_http_client_authorization(spec):
     if fullinfos:
         res['fullinfos'] = fullinfos
     return res
+
 
 def _getinfos_dns(spec):
     """Extract domain names in an handy-to-index-and-query form."""
@@ -226,6 +231,7 @@ _CERTINFOS = re.compile(
     'Public Key Algorithm: (?P<pubkeyalgo>.*)'
     '(?:\n|$)'
 )
+
 
 def _getinfos_cert(spec):
     """Extract info from a certificate (hash values, issuer, subject,
@@ -273,6 +279,7 @@ _GETINFOS_FUNCTIONS = {
     'DNS_ANSWER': _getinfos_dns,
     'SSL_SERVER': _getinfos_cert,
 }
+
 
 def getinfos(spec):
     """This functions takes a document from a passive sensor, and

@@ -73,11 +73,13 @@ IGNORE_SCRIPTS = {
         '\n  ERROR: Failed to connect to AJP server',
     ]),
     'giop-info': set(['  \n  ERROR: Failed to read Packet.GIOP']),
-    'rsync-list-modules': set(['\n  ERROR: Failed to connect to rsync server']),
+    'rsync-list-modules': set(['\n  ERROR: Failed to '
+                               'connect to rsync server']),
     'sip-methods': set(['ERROR: Failed to connect to the SIP server.']),
     'rpcap-info': set(['\n  ERROR: EOF']),
     'irc-botnet-channels': set(['\n  ERROR: EOF\n']),
-    'bitcoin-getaddr': set(['\n  ERROR: Failed to extract version information']),
+    'bitcoin-getaddr': set(['\n  ERROR: Failed to extract version '
+                            'information']),
     'bitcoin-info': set(['\n  ERROR: Failed to extract version information']),
     # host scripts
     'firewalk': set(['None found']),
@@ -230,9 +232,9 @@ class NmapHandler(ContentHandler):
                 self._curhost[attr] = attrs[attr]
             for field in ['starttime', 'endtime']:
                 if field in self._curhost:
-                    self._curhost[
-                        field] = datetime.datetime.fromtimestamp(
-                            int(self._curhost[field]))
+                    self._curhost[field] = datetime.datetime.fromtimestamp(
+                        int(self._curhost[field])
+                    )
         elif name == 'address' and self._curhost is not None:
             if attrs['addrtype'] != 'ipv4':
                 if 'addresses' not in self._curhost:

@@ -62,6 +62,7 @@ NMAP_SCRIPT_EXCLUDE = [
 NMAP_SCRIPT_FORCE = []
 NMAP_EXTRA_OPTIONS = None
 
+
 def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""
     if paths is None:
