@@ -583,7 +583,8 @@ class DBAgent(DB):
         utils.makedirs(config.AGENT_MASTER_PATH)
         localpath = tempfile.mkdtemp(prefix="",
                                      dir=config.AGENT_MASTER_PATH)
-        for dirname in ["input", "remoteinput", "remotecur", "remoteoutput"]:
+        for dirname in ["input"] + [os.path.join("remote", dname)
+                                    for dname in "input", "cur", "output"]:
             utils.makedirs(os.path.join(localpath, dirname))
         agent = {
             "host": host,
@@ -625,11 +626,8 @@ class DBAgent(DB):
 
         """
         agent = self.get_agent(agentid)
-        curwaiting = sum(
-            len(os.listdir(self.get_local_path(agent, path)))
-            for path in ['input', 'remoteinput']
-        )
-        return max(agent["maxwaiting"] - curwaiting, 0)
+        return max(agent["maxwaiting"] - self.count_waiting_targets(agentid),
+                   0)
 
     def count_waiting_targets(self, agentid):
         """Returns the number of waiting targets an agent has.
@@ -638,7 +636,7 @@ class DBAgent(DB):
         agent = self.get_agent(agentid)
         return sum(
             len(os.listdir(self.get_local_path(agent, path)))
-            for path in ['input', 'remoteinput']
+            for path in ['input', os.path.join('remote', 'input')]
         )
 
     def count_current_targets(self, agentid):
@@ -654,11 +652,10 @@ class DBAgent(DB):
         return os.path.join(agent["path"]["local"], dirname)
 
     def get_remote_path(self, agent, dirname):
-        if not dirname.endswith('/'):
+        if dirname and not dirname.endswith('/'):
             dirname += '/'
-        return ("%s:" % agent['host']
-                if agent['host'] is not None
-                else ''
+        return ('' if agent['host'] is None
+                else ''"%s:" % agent['host']
         ) + os.path.join(agent["path"]["remote"], dirname)
 
     def sync_all(self):
@@ -670,29 +667,25 @@ class DBAgent(DB):
         subprocess.call(agent['rsync'] + [
             '-a',
             self.get_local_path(agent, 'input'),
-            self.get_local_path(agent, 'remoteinput')
+            self.get_local_path(agent, os.path.join('remote', 'input'))
         ])
         subprocess.call(agent['rsync'] + [
             '-a', '--remove-source-files',
             self.get_local_path(agent, 'input'),
             self.get_remote_path(agent, 'input')
         ])
-        subprocess.call(agent['rsync'] + [
-            '-a', '--delete',
-            self.get_remote_path(agent, 'input'),
-            self.get_local_path(agent, 'remoteinput')
-        ])
-        subprocess.call(agent['rsync'] + [
-            '-a', '--delete',
-            self.get_remote_path(agent, 'cur'),
-            self.get_local_path(agent, 'remotecur')
-        ])
+        for dname in ['input', 'cur']:
+            subprocess.call(agent['rsync'] + [
+                '-a', '--delete',
+                self.get_remote_path(agent, dname),
+                self.get_local_path(agent, os.path.join('remote', dname))
+            ])
         subprocess.call(agent['rsync'] + [
             '-a', '--remove-source-files',
             self.get_remote_path(agent, 'output'),
-            self.get_local_path(agent, 'remoteoutput')
+            self.get_local_path(agent, os.path.join('remote', 'output'))
         ])
-        outpath = self.get_local_path(agent, 'remoteoutput')
+        outpath = self.get_local_path(agent, os.path.join('remote', 'output'))
         for fname in os.listdir(outpath):
             scanid = fname.split('-', 1)[0]
             scan = self.get_scan(self.str2id(scanid))
