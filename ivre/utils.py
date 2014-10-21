@@ -295,23 +295,26 @@ def fields2csv_head(fields, prefix=''):
                                     prefix=prefix + field + '.')
     return line
 
-def doc2csv(doc, fields):
+def doc2csv(doc, fields, nastr="NA"):
     lines = [[]]
     for field, subfields in fields.iteritems():
         if subfields is True:
             value = doc.get(field)
             if type(value) is list:
-                lines = [line + [valelt]
+                lines = [line + [nastr if valelt is None else valelt]
                          for line in lines for valelt in value]
             else:
-                lines = [line + [value] for line in lines]
+                lines = [line + [nastr if value is None else value]
+                         for line in lines]
         elif callable(subfields):
             value = doc.get(field)
             if type(value) is list:
-                lines = [line + [subfields(valelt)]
+                lines = [line + [nastr if valelt is None
+                                 else subfields(valelt)]
                          for line in lines for valelt in value]
             else:
-                lines = [line + [subfields(value)] for line in lines]
+                lines = [line + [nastr if value is None else subfields(value)]
+                         for line in lines]
         elif isinstance(subfields, dict):
             subdoc = doc.get(field)
             if type(subdoc) is list:
@@ -319,12 +322,14 @@ def doc2csv(doc, fields):
                          for line in lines
                          for subdocelt in subdoc
                          for newline in doc2csv(subdocelt,
-                                                subfields)]
+                                                subfields,
+                                                nastr=nastr)]
             elif subdoc is not None:
                 lines = [line + newline
                          for line in lines
                          for newline in doc2csv(subdoc,
-                                                subfields)]
+                                                subfields,
+                                                nastr=nastr)]
     return lines
 
 
