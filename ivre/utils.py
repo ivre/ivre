@@ -324,7 +324,13 @@ def doc2csv(doc, fields, nastr="NA"):
                          for newline in doc2csv(subdocelt,
                                                 subfields,
                                                 nastr=nastr)]
-            elif subdoc is not None:
+            elif subdoc is None:
+                lines = [line + newline
+                         for line in lines
+                         for newline in doc2csv({},
+                                                subfields,
+                                                nastr=nastr)]
+            else:
                 lines = [line + newline
                          for line in lines
                          for newline in doc2csv(subdoc,
