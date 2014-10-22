@@ -1588,6 +1588,8 @@ ivreWebUi
 	    "cert.issuer", "cert.subject",
 	    // modbus (portscript modbus-discover)
 	    "modbus.deviceid",
+            // s7 (portscript s7-info)
+            "s7.Module", "s7.Version", "s7.Module Type",
 	    // enip (portscript enip-info)
 	    "enip.vendor", "enip.product", "enip.serial", "enip.devtype",
 	    "enip.prodcode", "enip.rev", "enip.ip",

@@ -997,6 +997,9 @@ service_* tags."""
         elif field.startswith('modbus.'):
             subfield = field[7:]
             field = 'ports.scripts.modbus-discover.' + subfield
+        elif field.startswith('s7.'):
+            subfield = field[3:]
+            field = 'ports.scripts.s7-info.' + subfield
         elif field.startswith('enip.'):
             subfield = field[5:]
             subfield = {
