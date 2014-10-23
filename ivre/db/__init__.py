@@ -29,6 +29,7 @@ from ivre import config, utils, xmlnmap
 
 import sys
 import re
+import struct
 import urlparse
 import urllib
 import xml.sax
@@ -450,6 +451,7 @@ class DBPassive(DB):
 
 
 class DBData(DB):
+    country_codes = None
 
     def parse_line_country(self, line, feedipdata=None,
                            createipdata=False):

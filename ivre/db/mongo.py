@@ -1596,6 +1596,7 @@ class MongoDBData(MongoDB, DBData):
             {'country_code': code, 'name': name}
             for code, name in self.country_codes.iteritems()
         )
+        self.country_codes = None
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
