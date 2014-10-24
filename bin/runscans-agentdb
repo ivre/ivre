@@ -26,7 +26,6 @@ import ivre.config
 import os
 import sys
 import time
-import json
 import signal
 
 def display_scan(scan, verbose=True):
@@ -60,6 +59,7 @@ def display_agent(agent, verbose=True):
     else:
         print "  - remote host: %s" % agent["host"]
     print "  - remote path: %s" % agent["path"]["remote"]
+    print "  - master: %s" % agent["master"]
     if verbose:
         print "  - local path: %s" % agent["path"]["local"]
         print "  - rsync command: %s" % ' '.join(agent["rsync"])
@@ -76,7 +76,14 @@ def display_agent(agent, verbose=True):
         ivre.db.db.agent.may_receive(agent['_id'])
     )
 
-if __name__ == '__main__':
+def display_master(master, verbose=True):
+    print "master:"
+    if verbose:
+        print "  - id: %s" % master['_id']
+    print "  - hostname %s" % master["hostname"]
+    print "  - path %s" % master["path"]
+
+def main():
     try:
         import argparse
         parser = argparse.ArgumentParser(
@@ -105,8 +112,15 @@ if __name__ == '__main__':
         help='Source name (only affects --add-agent)'
     )
     parser.add_argument('--add-agent', metavar='(HOST:)PATH', nargs='+')
+    parser.add_argument('--add-local-master', action="store_true")
+    parser.add_argument('--master-path', metavar="PATH",
+                        default=ivre.config.AGENT_MASTER_PATH,
+                        help="Non-default path to use for master "
+                        "(default is specified by the configuration "
+                        "attribute `AGENT_MASTER_PATH`)")
     parser.add_argument('--list-agents', action="store_true")
     parser.add_argument('--list-scans', action="store_true")
+    parser.add_argument('--list-masters', action="store_true")
     parser.add_argument('--assign', metavar="AGENT:SCAN")
     parser.add_argument('--unassign', metavar="AGENT")
     parser.add_argument('--init', action="store_true",
@@ -133,16 +147,23 @@ if __name__ == '__main__':
             if ans.lower() != 'y':
                 sys.exit(-1)
         ivre.db.db.agent.init()
-        ivre.utils.cleandir(ivre.config.AGENT_MASTER_PATH)
+        ivre.utils.cleandir(args.master_path)
         for dirname in ["output", "onhold"]:
             ivre.utils.makedirs(
-                os.path.join(ivre.config.AGENT_MASTER_PATH, dirname)
+                os.path.join(args.master_path, dirname)
             )
-    
+
+    if args.add_local_master:
+        ivre.utils.makedirs(args.master_path)
+        ivre.db.db.agent.add_local_master(args.master_path)
+
     if args.add_agent is not None:
+        masterid = ivre.db.db.agent.masterid_from_dir(args.master_path)
         for agent in args.add_agent:
             ivre.db.db.agent.add_agent_from_string(
-                agent, maxwaiting=args.max_waiting, source=args.source
+                masterid, agent,
+                maxwaiting=args.max_waiting,
+                source=args.source,
             )
 
     if args.assign is not None:
@@ -150,7 +171,7 @@ if __name__ == '__main__':
             agentid, scanid = map(ivre.db.db.agent.str2id,
                                   args.assign.split(':', 1))
         except ValueError:
-            parser.error("argument --assing: must give agentid:scanid")
+            parser.error("argument --assign: must give agentid:scanid")
         ivre.db.db.agent.assign_agent(agentid, scanid)
 
     if args.unassign is not None:
@@ -170,29 +191,37 @@ if __name__ == '__main__':
 
     if args.list_scans:
         for scan in (ivre.db.db.agent.get_scan(scanid)
-                      for scanid in ivre.db.db.agent.get_scans()):
+                     for scanid in ivre.db.db.agent.get_scans()):
             display_scan(scan)
 
+    if args.list_masters:
+        for master in (ivre.db.db.agent.get_master(masterid)
+                       for masterid in ivre.db.db.agent.get_masters()):
+            display_master(master)
+
     if args.daemon:
-        WANT_DOWN = False
         def terminate(signum, _):
             global WANT_DOWN
-            print 'SHUTDOWN: got signal %d, will halt after current task.' % signum
+            print ('SHUTDOWN: got signal %d, will halt after current '
+                   'task.' % signum)
             WANT_DOWN = True
         def terminate_now(signum, _):
-            global WANT_DOWN
             print 'SHUTDOWN: got signal %d, halting now.' % signum
             exit()
         signal.signal(signal.SIGINT, terminate)
         signal.signal(signal.SIGTERM, terminate)
 
+        masterid = ivre.db.db.agent.masterid_from_dir(args.master_path)
         while not WANT_DOWN:
-            ivre.db.db.agent.feed_all()
-            ivre.db.db.agent.sync_all()
+            ivre.db.db.agent.feed_all(masterid)
+            ivre.db.db.agent.sync_all(masterid)
             signal.signal(signal.SIGINT, terminate_now)
             signal.signal(signal.SIGTERM, terminate_now)
             if not WANT_DOWN:
                 time.sleep(args.sleep)
             signal.signal(signal.SIGINT, terminate)
             signal.signal(signal.SIGTERM, terminate)
-            
+
+if __name__ == '__main__':
+    WANT_DOWN = False
+    main()

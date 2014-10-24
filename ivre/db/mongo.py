@@ -1718,20 +1718,27 @@ class MongoDBAgent(MongoDB, DBAgent):
     def __init__(self, host, dbname,
                  colname_agents="agents",
                  colname_scans="runningscans",
+                 colname_masters="masters",
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBAgent.__init__(self)
         self.colname_agents = colname_agents
         self.colname_scans = colname_scans
+        self.colname_masters = colname_masters
         self.indexes = {
             self.colname_agents: [
                 [('host', pymongo.ASCENDING)],
                 [('path.remote', pymongo.ASCENDING)],
                 [('path.local', pymongo.ASCENDING)],
+                [('master', pymongo.ASCENDING)],
                 [('scan', pymongo.ASCENDING)],
             ],
             self.colname_scans: [
                 [('agents', pymongo.ASCENDING)],
+            ],
+            self.colname_masters: [
+                [('hostname', pymongo.ASCENDING),
+                 ('path', pymongo.ASCENDING)],
             ],
         }
 
@@ -1742,6 +1749,7 @@ class MongoDBAgent(MongoDB, DBAgent):
         """
         self.db[self.colname_agents].drop()
         self.db[self.colname_scans].drop()
+        self.db[self.colname_masters].drop()
         self.create_indexes()
 
     def stop_agent(self, agentid):
@@ -1764,11 +1772,20 @@ class MongoDBAgent(MongoDB, DBAgent):
                         {"scan": None},
                         fields=["_id"])))
 
+    def get_agents_by_master(self, masterid):
+        return (x['_id'] for x in
+                self.set_limits(
+                    self.db[self.colname_agents].find(
+                        {"master": masterid},
+                        fields=["_id"],
+                    )))
+
     def get_agents(self):
         return (x['_id'] for x in
                 self.set_limits(
                     self.db[self.colname_agents].find(
-                        fields=["_id"])))
+                        fields=["_id"],
+                    )))
 
     def assign_agent(self, agentid, scanid,
                      only_if_unassigned=False,
@@ -1812,6 +1829,32 @@ class MongoDBAgent(MongoDB, DBAgent):
     def _get_scan(self, scanid):
         return self.db[self.colname_scans].find_one({"_id": scanid})
 
+    def _lock_scan(self, scanid, oldlockid, newlockid):
+        if oldlockid is not None:
+            oldlockid = bson.Binary(oldlockid)
+        if newlockid is not None:
+            newlockid = bson.Binary(newlockid)
+        result = self.db[self.colname_scans].find_and_modify({
+            "_id": scanid,
+            "lock": oldlockid,
+        }, {
+            "$set": {"lock": newlockid}
+        }, full_response=True, new=True)['value']
+        if result is not None and result['lock'] is not None:
+            result['lock'] = str(result['lock'])
+        return result
+
+    def _unlock_scan(self, scanid, lockid):
+        result = self.db[self.colname_scans].find_and_modify({
+            "_id": scanid,
+            "lock": bson.Binary(lockid),
+        }, {
+            "$set": {"lock": None}
+        }, full_response=True, new=True)['value']
+        if result is not None and result['lock'] is not None:
+            result['lock'] = str(result['lock'])
+        return result
+
     def get_scans(self):
         return (x['_id'] for x in
                 self.set_limits(
@@ -1825,3 +1868,15 @@ class MongoDBAgent(MongoDB, DBAgent):
     def incr_scan_results(self, scanid):
         return self.db[self.colname_scans].update(
             {"_id": scanid}, {"$inc": {"results": 1}})
+
+    def _add_master(self, master):
+        return self.db[self.colname_masters].insert(master)
+
+    def get_master(self, masterid):
+        return self.db[self.colname_masters].find_one({"_id": masterid})
+
+    def get_masters(self):
+        return (x['_id'] for x in
+                self.set_limits(
+                    self.db[self.colname_masters].find(
+                        fields=["_id"])))

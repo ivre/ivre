@@ -77,7 +77,8 @@ You have to specify the agent(s) data directory. For example, run:
     >     agenthost2:/path/to/agent/dir      \
 
 You can now import the results as if you had run the "regular"
-`runscans` program to scan locally, see [README](README.md).
+`runscans` program to scan locally, see [README](README.md). The
+results are stored under `agentsdata/output/`
 
 ### `runscans-agentdb`, the "modern" (but probably broken) one ###
 
@@ -85,18 +86,19 @@ Please note that it is important to run all the `runscans-agentdb`
 from the same host (the "master", which does not need to be the same
 host than the database server), since it relies on local directories.
 
-First, let's add the agent(s):
+First, let's create a master and add the agent(s):
 
-    $ runscans-agentdb --add-agent \
-        agenthost1:/path/to/agent/dir \
-        agenthost2:/path/to/agent/dir
+    $ runscans-agentdb --add-local-master
+    $ runscans-agentdb --source MySource --add-agent \
+    >     agenthost1:/path/to/agent/dir \
+    >     agenthost2:/path/to/agent/dir
 
 Let's check it's OK:
 
     $ runscans-agentdb --list-agents
     agent:
       - id: 543bfc8a312f915728f1709b
-      - source name: agenthost1:/path/to/agent/dir/
+      - source name: MySource
       - remote host: agenthost1
       - remote path: /path/to/agent/dir/
       - local path: /var/lib/ivre/master/sbOist
@@ -108,7 +110,7 @@ Let's check it's OK:
       - can receive: 60
     agent:
       - id: 543bfc8a312f915728f1709c
-      - source name: agenthost2:/path/to/agent/dir/
+      - source name: MySource
       - remote host: agenthost2
       - remote path: /path/to/agent/dir/
       - local path: /var/lib/ivre/master/m2584z
@@ -144,9 +146,10 @@ process, run:
 
     $ runscans-agentdb --daemon
 
-After some time, the first results get imported (`READING [...]`,
-`HOST STORED: [...]`, `SCAN STORED: [...]`). You can stop the daemon
-at any time by `(p)kill`-ing it (using `CTRL+c` will do).
+After some time, the first results get imported in the database
+(`READING [...]`, `HOST STORED: [...]`, `SCAN STORED: [...]`). You can
+stop the daemon at any time by `(p)kill`-ing it (using `CTRL+c` will
+do).
 
 When all the targets have been sent to an agent, the agents get
 disassociated from the scan so that another scan can use them. You can

@@ -28,6 +28,7 @@ database.
 from ivre import config, utils, xmlnmap
 
 import sys
+import socket
 import re
 import struct
 import urlparse
@@ -38,6 +39,7 @@ import subprocess
 import shutil
 import tempfile
 import pickle
+import uuid
 
 # tests: I don't want to depend on cluster for now
 try:
@@ -455,7 +457,6 @@ class DBData(DB):
 
     def parse_line_country(self, line, feedipdata=None,
                            createipdata=False):
-        parsedline = {}
         if line.endswith('\n'):
             line = line[:-1]
         if line.endswith('"'):
@@ -477,7 +478,6 @@ class DBData(DB):
 
     def parse_line_city(self, line, feedipdata=None,
                         createipdata=False):
-        parsedline = {}
         if line.endswith('\n'):
             line = line[:-1]
         if line.endswith('"'):
@@ -569,8 +569,8 @@ class DBData(DB):
 class DBAgent(DB):
     """Backend-independent code to handle agents-in-DB"""
 
-    def add_agent(self, host, remotepath, rsync=None, source=None,
-                  maxwaiting=60):
+    def add_agent(self, masterid, host, remotepath,
+                  rsync=None, source=None, maxwaiting=60):
         """Prepares an agent and adds it to the DB using
         `self._add_agent()`
 
@@ -582,11 +582,11 @@ class DBAgent(DB):
         if source is None:
             source = ("" if host is None
                       else "%s:" % host) + remotepath
-        utils.makedirs(config.AGENT_MASTER_PATH)
-        localpath = tempfile.mkdtemp(prefix="",
-                                     dir=config.AGENT_MASTER_PATH)
+        master = self.get_master(masterid)
+        localpath = tempfile.mkdtemp(prefix="", dir=master['path'])
         for dirname in ["input"] + [os.path.join("remote", dname)
-                                    for dname in "input", "cur", "output"]:
+                                    for dname in "input", "cur",
+                                    "output"]:
             utils.makedirs(os.path.join(localpath, dirname))
         agent = {
             "host": host,
@@ -599,10 +599,12 @@ class DBAgent(DB):
             "maxwaiting": maxwaiting,
             "scan": None,
             "sync": True,
+            "master": masterid,
         }
         return self._add_agent(agent)
 
-    def add_agent_from_string(self, string, source=None, maxwaiting=60):
+    def add_agent_from_string(self, masterid, string,
+                              source=None, maxwaiting=60):
         """Adds an agent from a description string of the form
         [tor:][hostname:]path.
 
@@ -614,10 +616,12 @@ class DBAgent(DB):
         else:
             rsync = None
         if len(string) == 1:
-            return self.add_agent(None, string[0], rsync=rsync,
+            return self.add_agent(masterid, None, string[0],
+                                  rsync=rsync,
                                   source=source,
                                   maxwaiting=maxwaiting)
-        return self.add_agent(string[0], string[1], rsync=rsync,
+        return self.add_agent(masterid, string[0], string[1],
+                              rsync=rsync,
                               source=source,
                               maxwaiting=maxwaiting)
 
@@ -646,7 +650,12 @@ class DBAgent(DB):
 
         """
         agent = self.get_agent(agentid)
-        return len([None for x in os.listdir('.') if x.endswith('.xml')])
+        return len([None
+                    for x in os.listdir(
+                            self.get_local_path(
+                                agent,
+                                os.path.join("remote", "cur")))
+                    if x.endswith('.xml')])
 
     def get_local_path(self, agent, dirname):
         if not dirname.endswith('/'):
@@ -658,14 +667,15 @@ class DBAgent(DB):
             dirname += '/'
         return ('' if agent['host'] is None
                 else ''"%s:" % agent['host']
-        ) + os.path.join(agent["path"]["remote"], dirname)
+            ) + os.path.join(agent["path"]["remote"], dirname)
 
-    def sync_all(self):
-        for agentid in self.get_agents():
+    def sync_all(self, masterid):
+        for agentid in self.get_agents_by_master(masterid):
             self.sync(agentid)
 
     def sync(self, agentid):
         agent = self.get_agent(agentid)
+        master = self.get_master(agent['master'])
         subprocess.call(agent['rsync'] + [
             '-a',
             self.get_local_path(agent, 'input'),
@@ -692,7 +702,7 @@ class DBAgent(DB):
             scanid = fname.split('-', 1)[0]
             scan = self.get_scan(self.str2id(scanid))
             storedir = os.path.join(
-                config.AGENT_MASTER_PATH,
+                master["path"],
                 "output",
                 scanid,
                 str(agentid),
@@ -715,24 +725,29 @@ class DBAgent(DB):
             # TODO gettoarchive parameter
             self.incr_scan_results(self.str2id(scanid))
 
-    def feed_all(self):
+    def feed_all(self, masterid):
         for scanid in self.get_scans():
-            self.feed(scanid)
+            self.feed(masterid, scanid)
 
-    def feed(self, scanid):
-        scan = self.get_scan(scanid)
-        # TODO: lock
+    def feed(self, masterid, scanid):
+        scan = self.lock_scan(scanid)
+        if scan is None:
+            raise StandardError(
+                "Could not acquire lock for scan %s" % scanid
+            )
         # TODO: handle "onhold" targets
         target = scan['target']
         try:
             for agentid in scan['agents']:
-                for _ in xrange(self.may_receive(agentid)):
-                    self.add_target(agentid, scanid, target.next())
+                if self.get_agent(agentid)['master'] == masterid:
+                    for _ in xrange(self.may_receive(agentid)):
+                        self.add_target(agentid, scanid, target.next())
         except StopIteration:
             # This scan is over, let's free its agents
             for agentid in scan['agents']:
                 self.unassign_agent(agentid)
         self.update_scan_target(scanid, target)
+        self.unlock_scan(scan)
 
     def add_target(self, agentid, scanid, addr):
         agent = self.get_agent(agentid)
@@ -771,6 +786,9 @@ class DBAgent(DB):
     def get_free_agents(self):
         raise NotImplementedError
 
+    def get_agents_by_master(self, masterid):
+        raise NotImplementedError
+
     def get_agents(self):
         raise NotImplementedError
 
@@ -779,11 +797,12 @@ class DBAgent(DB):
         identifier.
         """
         agent = self.get_agent(agentid)
+        master = self.get_master(agent['master'])
         # stop adding targets
         self.unassign_agent(agentid, dont_reuse=True)
         # remove not-yet-sent targets
         path = self.get_local_path(agent, "input")
-        dstdir = os.path.join(config.AGENT_MASTER_PATH, "onhold")
+        dstdir = os.path.join(master["path"], "onhold")
         for fname in os.listdir(path):
             shutil.move(os.path.join(path, fname), dstdir)
         if wait_results:
@@ -803,6 +822,7 @@ class DBAgent(DB):
             "target": pickle.dumps(target.__iter__()),
             "agents": [],
             "results": 0,
+            "lock": None
         }
         scanid = self._add_scan(scan)
         if assign_to_free_agents:
@@ -816,6 +836,22 @@ class DBAgent(DB):
         scan = self._get_scan(scanid)
         scan['target'] = pickle.loads(scan['target'])
         return scan
+
+    def lock_scan(self, scanid):
+        lockid = uuid.uuid1()
+        scan = self._lock_scan(scanid, None, lockid.bytes)
+        scan['target'] = pickle.loads(scan['target'])
+        if scan['lock'] is not None:
+            scan['lock'] = uuid.UUID(bytes=scan['lock'])
+        if scan['lock'] == lockid:
+            return scan
+
+    def unlock_scan(self, scan):
+        scan = self._lock_scan(scan['_id'], scan['lock'].bytes, None)
+        return scan['lock'] is None
+
+    def _lock_scan(self, scanid, oldlockid, newlockid):
+        raise NotImplementedError
 
     def get_scans(self):
         raise NotImplementedError
@@ -840,6 +876,39 @@ class DBAgent(DB):
     def incr_scan_results(self, scanid):
         raise NotImplementedError
 
+    def add_local_master(self, path):
+        masterid = self.add_master(socket.gethostname(), path)
+        with open(os.path.join(path, "whoami"), "w") as fdesc:
+            fdesc.write(str(masterid))
+        return masterid
+
+    def add_master(self, hostname, path):
+        """Prepares a master and adds it to the DB using
+        `self._add_master()`
+
+        """
+        master = {
+            "hostname": hostname,
+            "path": path,
+        }
+        return self._add_master(master)
+
+    def _add_master(self, master):
+        """Adds a master and returns its (backend-specific) unique
+        identifier.
+
+        This is implemented in the backend-specific class.
+
+        """
+        raise NotImplementedError
+
+    def get_master(self, masterid):
+        raise NotImplementedError
+
+    def masterid_from_dir(self, path):
+        with open(os.path.join(path, "whoami")) as fdesc:
+            return self.str2id(fdesc.read())
+
 
 class MetaDB(object):
     db_types = {
@@ -851,6 +920,7 @@ class MetaDB(object):
     nmap = None
     passive = None
     data = None
+    agent = None
 
     def url2dbinfos(self, url):
         url = urlparse.urlparse(url)
