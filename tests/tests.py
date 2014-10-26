@@ -688,7 +688,15 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(ivre.utils.isfinal("1"))
         self.assertFalse(ivre.utils.isfinal([]))
         self.assertFalse(ivre.utils.isfinal({}))
-        
+
+        # Nmap ports
+        ports = [1,3,2,4,6,80,5,5,110,111]
+        self.assertEqual(
+            set(ports),
+            ivre.utils.nmapspec2ports(ivre.utils.ports2nmapspec(ports))
+        )
+        self.assertEqual(ivre.utils.ports2nmapspec(ports), '1-6,80,110-111')
+
         # Math utils
         # http://stackoverflow.com/a/15285588/3223422
         def is_prime(n):

@@ -208,6 +208,46 @@ def str2list(string):
     return string
 
 
+def ports2nmapspec(portlist):
+    """This function takes an iterable and returns a string
+    suitable for use as argument for Nmap's -p option.
+
+    """
+    # unique and sorted (http://stackoverflow.com/a/13605607/3223422)
+    portlist = sorted(set(portlist))
+    result = []
+    current = (None, None)
+    for port in portlist:
+        if port - 1 == current[1]:
+            current = (current[0], port)
+        else:
+            if current[0] is not None:
+                result.append(str(current[0])
+                              if current[0] == current[1]
+                              else "%d-%d" % current)
+            current = (port, port)
+    if current[0] is not None:
+        result.append(str(current[0])
+                      if current[0] == current[1]
+                      else "%d-%d" % current)
+    return ",".join(result)
+
+
+def nmapspec2ports(string):
+    """This function takes a string suitable for use as argument for
+    Nmap's -p option and returns the corresponding set of ports.
+
+    """
+    result = set()
+    for ports in string.split(','):
+        if '-' in ports:
+            ports = map(int, ports.split('-', 1))
+            result = result.union(xrange(ports[0], ports[1] + 1))
+        else:
+            result.add(int(ports))
+    return result
+
+
 def makedirs(dirname):
     """Makes directories like mkdir -p, raising no exception when
     dirname already exists.
