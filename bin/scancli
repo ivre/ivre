@@ -19,6 +19,8 @@
 from ivre import utils, db, graphroute, config
 
 import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 import os
 try:
     from collections import OrderedDict
