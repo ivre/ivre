@@ -84,7 +84,7 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%[!]city:%%'' filter a city (use with ''%%country:%%'').
   * ''%%[!]source:%%'' filter a source (specify the source name).
   * ''%%[!]timeago:%%'' filter recent enough results; the value can be specified in seconds or with the appropriate suffix in minutes (''%%m%%''), hours (''%%h%%''), days (''%%d%%'') or years (''%%y%%'').
-  * ''%%service:[expression]%%'', `service:[expression]:[port number] look for an expression in the name, the version, the name of the product,... of a service.
+  * ''%%service:[expression]%%'', ''%%service:[expression]:[port number]%%'' look for an expression in the name, the version, the name of the product,... of a service.
   * ''%%banner:%%'' look for a specific banner of a service.
   * ''%%script:[scriptid]%%'', ''%%script:[scriptid]:[output]%%'' look for a specific (port) script.
   * ''%%hostscript:[scriptid]%%'', ''%%hostscript:[scriptid]:[output]%%'' look for a specific host script.

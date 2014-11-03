@@ -131,7 +131,7 @@ single or double quotes.
   - `[!]timeago:` filter recent enough results; the value can be
     specified in seconds or with the appropriate suffix in minutes
     (`m`), hours (`h`), days (`d`) or years (`y`).
-  - `service:[expression]`, `service:[expression]:[port number] look
+  - `service:[expression]`, `service:[expression]:[port number]` look
     for an expression in the name, the version, the name of the
     product,... of a service.
   - `banner:` look for a specific banner of a service.
