@@ -24,5 +24,10 @@ RUN apt-get -q update
 RUN apt-get -qy install python-pymongo python-crypto
 
 # IVRE
-ADD ivre-latest.tar.gz ./
+ADD ivre.tar ./
+RUN cd ivre/ && \
+    python setup.py build && python setup.py install && \
+    cd ../ && rm -rf ivre/
+
+# Config
 ADD ivre.conf /etc/ivre.conf

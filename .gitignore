@@ -1,7 +1,7 @@
 *.py[cod]
 build/
 dist/
-docker/base-local/ivre-latest.tar.gz
+docker/base-local/ivre.tar
 tests/samples*
 tests/htmlcov*
 tests/.coverage

@@ -36,12 +36,11 @@ that, from the `docker/` directory, run:
 This might take a long time.
 
 It is also possible to build the `ivre/base` image without fetching
-the *zipball* from GitHub, by creating a *binary distribution* of IVRE
-and using the `base-local` directory instead of `base`:
+the *tarball* from GitHub, by creating it locally and using the
+`base-local` directory instead of `base`. From the repository root,
+run:
 
-    $ rm -f dist/ivre-*.tar.gz
-    $ python setup.py bdist
-    $ mv dist/ivre-*.tar.gz docker/base-local/ivre-latest.tar.gz
+    $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
     $ cd docker
     $ docker build -t ivre/base base-local
 
