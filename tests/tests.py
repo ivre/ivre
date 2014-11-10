@@ -416,7 +416,7 @@ class IvreTests(unittest.TestCase):
         neg_count = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchports([80, 443],
                                         neg=True)).count()
-        self.check_value("nmap_not_80_443_count", count)
+        self.check_value("nmap_not_80_443_count", neg_count)
         count = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchopenport()).count()
         self.check_value("nmap_openport_count", count)
