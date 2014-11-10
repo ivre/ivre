@@ -1326,12 +1326,12 @@ field "count" by one.
                     '$min': {'firstseen': timestamp},
                     '$max': {'lastseen': timestamp},
                 })
-            count += 1
-            if count >= 10000:
-                bulk.execute()
-                bulk = self.db[self.colname_passive]\
-                           .initialize_unordered_bulk_op()
-                count = 0
+                count += 1
+                if count >= 10000:
+                    bulk.execute()
+                    bulk = self.db[self.colname_passive]\
+                               .initialize_unordered_bulk_op()
+                    count = 0
         else:
             for timestamp, spec in specs:
                 bulk.find(spec).upsert().update({
@@ -1340,12 +1340,12 @@ field "count" by one.
                     '$max': {'lastseen': timestamp},
                     '$setOnInsert': getinfos(spec)
                 })
-            count += 1
-            if count >= 10000:
-                bulk.execute()
-                bulk = self.db[self.colname_passive]\
-                           .initialize_unordered_bulk_op()
-                count = 0
+                count += 1
+                if count >= 10000:
+                    bulk.execute()
+                    bulk = self.db[self.colname_passive]\
+                               .initialize_unordered_bulk_op()
+                    count = 0
         bulk.execute()
 
     def insert_or_update_mix(self, spec, getinfos=None):
