@@ -1304,6 +1304,50 @@ field "count" by one.
                          'count': 1})
             self.insert(spec, getinfos=getinfos)
 
+    def insert_or_update_bulk(self, specs, getinfos=None):
+        """Like `.insert_or_update()`, but `specs` parameter has to be
+        an iterable of (timestamp, spec) values. This will perform
+        bulk MongoDB inserts with the major drawback that the
+        `getinfos` parameter will be called (if it is not `None`) for
+        each spec, the spec already exists in the database and the
+        call was hence unnecessary.
+
+        It's up to you to decide whether having bulk insert is worth
+        it or if you want to go with the regular `.insert_or_update()`
+        method.
+
+        """
+        bulk = self.db[self.colname_passive].initialize_unordered_bulk_op()
+        count = 0
+        if getinfos is None:
+            for timestamp, spec in specs:
+                bulk.find(spec).upsert().update({
+                    '$inc': {'count': 1},
+                    '$min': {'firstseen': timestamp},
+                    '$max': {'lastseen': timestamp},
+                })
+            count += 1
+            if count >= 10000:
+                bulk.execute()
+                bulk = self.db[self.colname_passive]\
+                           .initialize_unordered_bulk_op()
+                count = 0
+        else:
+            for timestamp, spec in specs:
+                bulk.find(spec).upsert().update({
+                    '$inc': {'count': 1},
+                    '$min': {'firstseen': timestamp},
+                    '$max': {'lastseen': timestamp},
+                    '$setOnInsert': getinfos(spec)
+                })
+            count += 1
+            if count >= 10000:
+                bulk.execute()
+                bulk = self.db[self.colname_passive]\
+                           .initialize_unordered_bulk_op()
+                count = 0
+        bulk.execute()
+
     def insert_or_update_mix(self, spec, getinfos=None):
         """Updates the first record matching "spec" (without
         "firstseen", "lastseen" and "count") by mixing "firstseen",

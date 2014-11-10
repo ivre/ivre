@@ -55,7 +55,7 @@ P0F_MODES = {
 P0F_DIST = re.compile('distance ([0-9]+),')
 
 
-def parse_p0f_line(line, include_port=False):
+def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
     line = [line.split(' - ')[0]] + line.split(' - ')[1].split(' -> ')
     if line[1].startswith('UNKNOWN '):
         sig = line[1][line[1].index('UNKNOWN ') + 8:][1:-1].split(':')[:6]
@@ -82,6 +82,10 @@ def parse_p0f_line(line, include_port=False):
     }
     if include_port:
         spec.update({'port': int(line[0][line[0].index(':') + 1:])})
+    if sensor is not None:
+        spec['sensor'] = sensor
+    if recontype is not None:
+        spec['recontype'] = recontype
     return float(line[0][1:line[0].index('>')]), spec
 
 

@@ -42,19 +42,20 @@ def process_file(sensor, fname, mode='SYN'):
     else:
         fname = ['-s', fname]
     mode = ivre.passive.P0F_MODES[mode]
+    recontype = 'P0F2-%s' % mode['name']
     p0fprocess = subprocess.Popen(
         ['p0f', '-l', '-S', '-ttt'] + fname
         + mode['options'] + [mode['filter']],
         stdout=subprocess.PIPE
     )
-    for line in p0fprocess.stdout:
-        timestamp, spec = ivre.passive.parse_p0f_line(
+    ivre.db.db.passive.insert_or_update_bulk(
+        ivre.passive.parse_p0f_line(
             line,
-            include_port=(mode['name'] == 'SYN+ACK')
-        )
-        spec['sensor'] = sensor
-        spec['recontype'] = 'P0F2-%s' % mode['name']
-        ivre.db.db.passive.insert_or_update(timestamp, spec)
+            include_port=(mode['name'] == 'SYN+ACK'),
+            sensor=sensor,
+            recontype=recontype,
+        ) for line in p0fprocess.stdout
+    )
 
 if __name__ == '__main__':
     import sys
