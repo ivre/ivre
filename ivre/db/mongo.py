@@ -1328,7 +1328,9 @@ field "count" by one.
                         '$max': {'lastseen': timestamp},
                     }
                     if getinfos is not None:
-                        updatespec['$setOnInsert'] = getinfos(spec)
+                        infos = getinfos(spec)
+                        if infos:
+                            updatespec['$setOnInsert'] = infos
                     bulk.find(spec).upsert().update(updatespec)
                     count += 1
                     if count >= 10000:
