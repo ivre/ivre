@@ -20,16 +20,13 @@ import ivre.db
 import ivre.utils
 import ivre.passive
 
-import re
 import subprocess
-import datetime
+import os
 import signal
 
 
 def terminate(signum, stack_frame):
-    p0fprocess.stdout.close()
     p0fprocess.terminate()
-    exit()
 
 signal.signal(signal.SIGINT, terminate)
 signal.signal(signal.SIGTERM, terminate)
@@ -37,7 +34,7 @@ signal.signal(signal.SIGTERM, terminate)
 
 def process_file(sensor, fname, mode='SYN'):
     global p0fprocess
-    if fname.startswith('iface:'):
+    if fname.lower().startswith('iface:'):
         fname = ['-i', fname[6:]]
     else:
         fname = ['-s', fname]
@@ -46,7 +43,8 @@ def process_file(sensor, fname, mode='SYN'):
     p0fprocess = subprocess.Popen(
         ['p0f', '-l', '-S', '-ttt'] + fname
         + mode['options'] + [mode['filter']],
-        stdout=subprocess.PIPE
+        stdout=subprocess.PIPE,
+        preexec_fn=os.setpgrp,
     )
     ivre.db.db.passive.insert_or_update_bulk(
         ivre.passive.parse_p0f_line(

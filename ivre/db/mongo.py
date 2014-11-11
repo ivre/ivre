@@ -1319,34 +1319,29 @@ field "count" by one.
         """
         bulk = self.db[self.colname_passive].initialize_unordered_bulk_op()
         count = 0
-        if getinfos is None:
+        try:
             for timestamp, spec in specs:
-                bulk.find(spec).upsert().update({
-                    '$inc': {'count': 1},
-                    '$min': {'firstseen': timestamp},
-                    '$max': {'lastseen': timestamp},
-                })
-                count += 1
-                if count >= 10000:
-                    bulk.execute()
-                    bulk = self.db[self.colname_passive]\
-                               .initialize_unordered_bulk_op()
-                    count = 0
-        else:
-            for timestamp, spec in specs:
-                bulk.find(spec).upsert().update({
-                    '$inc': {'count': 1},
-                    '$min': {'firstseen': timestamp},
-                    '$max': {'lastseen': timestamp},
-                    '$setOnInsert': getinfos(spec)
-                })
-                count += 1
-                if count >= 10000:
-                    bulk.execute()
-                    bulk = self.db[self.colname_passive]\
-                               .initialize_unordered_bulk_op()
-                    count = 0
-        bulk.execute()
+                if spec is not None:
+                    updatespec = {
+                        '$inc': {'count': 1},
+                        '$min': {'firstseen': timestamp},
+                        '$max': {'lastseen': timestamp},
+                    }
+                    if getinfos is not None:
+                        updatespec['$setOnInsert'] = getinfos(spec)
+                    bulk.find(spec).upsert().update(updatespec)
+                    count += 1
+                    if count >= 10000:
+                        bulk.execute()
+                        bulk = self.db[self.colname_passive]\
+                                   .initialize_unordered_bulk_op()
+                        count = 0
+        except IOError:
+            pass
+        try:
+            bulk.execute()
+        except pymongo.errors.InvalidOperation:
+            pass
 
     def insert_or_update_mix(self, spec, getinfos=None):
         """Updates the first record matching "spec" (without
