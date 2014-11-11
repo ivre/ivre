@@ -127,9 +127,8 @@ event bro_init()
 	Log::create_stream(PassiveRecon::LOG, [$columns=Info]);
 	#Log::remove_default_filter(PassiveRecon::LOG);
 	local filter = Log::get_filter(PassiveRecon::LOG, "default");
-	#filter$path = "/dev/stdout";
-	filter$path = "logs/passiverecon";
-	filter$interv = 1 min;
+	filter$path = getenv("LOG_PATH") == "" ? "/dev/stdout" : getenv("LOG_PATH");
+	filter$interv = getenv("LOG_ROTATE") == "" ? Log::default_rotation_interval : double_to_interval(to_double(getenv("LOG_ROTATE")));
 	Log::add_filter(PassiveRecon::LOG, filter);
 	}
 
