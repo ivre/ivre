@@ -443,6 +443,20 @@ class DBNmap(DB):
 
 class DBPassive(DB):
 
+    def insert_or_update(self, timestamp, spec, getinfos=None):
+        raise NotImplementedError
+
+    def insert_or_update_bulk(self, specs, getinfos=None):
+        """Like `.insert_or_update()`, but `specs` parameter has to be
+        an iterable of (timestamp, spec) values. This generic
+        implementation does not use bulk capacity of the underlying DB
+        implementation but rather calls its `.insert_or_update()`
+        method.
+
+        """
+        for timestamp, spec in specs:
+            self.insert_or_update(timestamp, spec, getinfos=getinfos)
+
     def searchtorcert(self):
         return self.searchcertsubject(
             re.compile('^CN=www\\.[a-z2-7]{8,20}\\.(net|com)$',
