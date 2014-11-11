@@ -20,6 +20,11 @@ import ivre.db
 import ivre.utils
 import ivre.passive
 
+import signal
+
+signal.signal(signal.SIGINT, signal.SIG_IGN)
+signal.signal(signal.SIGTERM, signal.SIG_IGN)
+
 def main():
     import sys
     description = ('Update the database from output of the Bro script '
@@ -40,24 +45,19 @@ def main():
     ignore_rules = {}
     if args.ignore_spec is not None:
         execfile(args.ignore_spec, ignore_rules)
-    for l in sys.stdin:
-        if not l or l.startswith('#'):
-            continue
-        if l.endswith('\n'):
-            l = l[:-1]
-        try:
-            timestamp, spec = ivre.passive.handle_rec(
+    ivre.db.db.passive.insert_or_update_bulk(
+        (
+            ivre.passive.handle_rec(
                 args.sensor,
                 ignore_rules.get('IGNORENETS', {}),
                 ignore_rules.get('NEVERIGNORE', {}),
-                *l.split('\t')
+                *line[:-1].split('\t')
             )
-            if spec is not None:
-                ivre.db.db.passive.insert_or_update(
-                    timestamp, spec, getinfos=ivre.passive.getinfos
-                )
-        except:
-            sys.stderr.write("WARNING: cannot parse line [%s]\n" % l)
+            for line in sys.stdin
+            if line and not line.startswith('#')
+        ),
+        getinfos=ivre.passive.getinfos,
+    )
 
 if __name__ == '__main__':
     main()
