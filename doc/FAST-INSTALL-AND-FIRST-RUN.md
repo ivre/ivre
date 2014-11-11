@@ -7,8 +7,22 @@ first scans and add the results to the database with all components
 (scanner, web server, database server) on the same (Debian or Ubuntu)
 machine.
 
-Adapt it to your needs, architecture, etc. For another way to run IVRE
-easily, see [Docker](DOCKER.md).
+Please note that, depending on your distribution, the versions of some
+softwares might not be recent enought, particularly for MongoDB
+(version 2.6 minimum) and pymongo (version 2.7.2 minimum; see
+[README](README.md) to know which versions can be used with IVRE). If
+that's the case, you will have to install those softwares on you own,
+refering to their documentation (see
+[MongoDB on Debian](http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/)
+or
+[MongoDB on Ubuntu](http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)
+and [pymongo](https://pypi.python.org/pypi/pymongo/)), instead of
+`apt-get`-ting them.
+
+You might also want to adapt it to your needs, architecture, etc.
+
+**For another way to run IVRE easily (probably more easily), see
+  [Docker](DOCKER.md).**
 
 
 # Install #

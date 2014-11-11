@@ -21,12 +21,12 @@ IVRE is a **framework**. Meaning it does **not** come with ready-to-run scripts 
 
 IVRE relies on:
 
-  * [[http://www.python.org/|Python]]
+  * [[http://www.python.org/|Python]] 2, version 2.6 minimum
     * the [[http://www.pycrypto.org/|Crypto]] module
-    * the [[http://api.mongodb.org/python/|pymongo]] module
+    * the [[http://api.mongodb.org/python/|pymongo]] module,  version 2.7.2 minimum
   * [[http://nmap.org/|Nmap]] & [[https://zmap.io/|ZMap]]
   * [[http://www.bro.org/|Bro]] & [[http://lcamtuf.coredump.cx/p0f/|p0f]]
-  * [[http://www.mongodb.org/|MongoDB]]
+  * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%httpd-ivre%%'')
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]])
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases

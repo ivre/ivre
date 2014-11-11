@@ -31,15 +31,16 @@ environment, and what you want to do.
 
 IVRE relies on:
 
-  * [Python](http://www.python.org/)
+  * [Python](http://www.python.org/) 2, version 2.6 minimum
     * the [Crypto](http://www.pycrypto.org/) module
-    * the [pymongo](http://api.mongodb.org/python/) module
+    * the [pymongo](http://api.mongodb.org/python/) module,
+      version 2.7.2 minimum
 
   * [Nmap](http://nmap.org/) & [ZMap](https://zmap.io/)
 
   * [Bro](http://www.bro.org/) & [p0f](http://lcamtuf.coredump.cx/p0f/)
 
-  * [MongoDB](http://www.mongodb.org/)
+  * [MongoDB](http://www.mongodb.org/), version 2.6 minimum
 
   * a web server (successfully tested with
     [Apache](https://httpd.apache.org/) and
