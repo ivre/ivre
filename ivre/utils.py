@@ -54,6 +54,10 @@ def guess_prefix(directory=None):
 
     """
     def check_candidate(path, directory=None):
+        """Auxilliary function that checks whether a particular
+        path is a good candidate.
+
+        """
         candidate = os.path.join(path, 'share', 'ivre')
         if directory is not None:
             candidate = os.path.join(candidate, directory)
@@ -329,6 +333,10 @@ def diff(doc1, doc2):
 
 
 def fields2csv_head(fields, prefix=''):
+    """Given an (ordered) dictionnary `fields`, returns a list of the
+    fields. NB: recursive function, hence the `prefix` parameter.
+
+    """
     line = []
     for field, subfields in fields.iteritems():
         if subfields is True or callable(subfields):
@@ -340,6 +348,10 @@ def fields2csv_head(fields, prefix=''):
 
 
 def doc2csv(doc, fields, nastr="NA"):
+    """Given a document and an (ordered) dictionnary `fields`, returns
+    a list of CSV lines. NB: recursive function.
+
+    """
     lines = [[]]
     for field, subfields in fields.iteritems():
         if subfields is True:

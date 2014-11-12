@@ -131,6 +131,11 @@ IGNORE_SCRIPT_OUTPUTS_REGEXP = set([
 
 
 def ignore_script(script):
+    """Predicate that decides whether an Nmap script should be ignored
+    or not, based on IGNORE_* constants. Nmap scripts are ignored when
+    their output is known to be irrelevant.
+
+    """
     sid = script.get('id')
     output = script.get('output')
     if output in IGNORE_SCRIPTS.get(sid, []):

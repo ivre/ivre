@@ -37,7 +37,7 @@ def genprimes():
     while 1:
         if q not in D:
             yield q         # not marked composite, must be prime
-            D[q * q] = [q]    # first multiple of q not already marked
+            D[q * q] = [q]  # first multiple of q not already marked
         else:
             for p in D[q]:  # move each witness to its next multiple
                 D.setdefault(p + q, []).append(p)
