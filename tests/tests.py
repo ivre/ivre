@@ -538,13 +538,16 @@ class IvreTests(unittest.TestCase):
 
         # Bro insertion
         ivre.utils.makedirs("logs")
-        ivre.utils.makedirs("logs")
         for fname in self.pcap_files:
+            env = os.environ.copy()
+            env["LOG_ROTATE"] = "60"
+            env["LOG_PATH"] = "logs/passiverecon"
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
                  os.path.join(
                      ivre.utils.guess_prefix('passiverecon'),
-                     'passiverecon.bro')])
+                     'passiverecon.bro')],
+                env=env)
             broprocess.wait()
         for root, _, files in os.walk("logs"):
             for fname in files:
