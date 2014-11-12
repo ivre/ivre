@@ -26,7 +26,7 @@ MongoDB databases.
 """
 
 from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
-from ivre import utils, xmlnmap
+from ivre import utils, xmlnmap, config
 
 import pymongo
 import bson
@@ -1333,7 +1333,7 @@ field "count" by one.
                             updatespec['$setOnInsert'] = infos
                     bulk.find(spec).upsert().update(updatespec)
                     count += 1
-                    if count >= 10000:
+                    if count >= config.BULK_UPSERTS_MAXSIZE:
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
                                    .initialize_unordered_bulk_op()

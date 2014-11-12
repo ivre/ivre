@@ -34,6 +34,7 @@ import os
 
 # Default values:
 DB = "mongodb:///ivre"
+BULK_UPSERTS_MAXSIZE = 100
 # specific: if no value is specified for *_PATH variables, they are
 # going to be constructed by guessing the installation PREFIX (see the
 # end of this file).
