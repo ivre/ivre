@@ -1334,6 +1334,8 @@ field "count" by one.
                     bulk.find(spec).upsert().update(updatespec)
                     count += 1
                     if count >= config.BULK_UPSERTS_MAXSIZE:
+                        if config.DEBUG:
+                            print "MongoDB bulk upsert: %d" % count
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
                                    .initialize_unordered_bulk_op()
@@ -1341,6 +1343,8 @@ field "count" by one.
         except IOError:
             pass
         try:
+            if config.DEBUG:
+                print "MongoDB bulk upsert: %d (final)" % count
             bulk.execute()
         except pymongo.errors.InvalidOperation:
             pass
