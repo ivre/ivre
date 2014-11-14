@@ -18,6 +18,8 @@
 
 """Handle passiverecon2db files."""
 
+from ivre import config
+
 import re
 import os
 import sys
@@ -29,8 +31,6 @@ import signal
 
 
 SENSORS = {}  # shortname: fullname
-DIRECTORY = "/ivre/passiverecon/"
-PROGNAME = "passiverecon2db"
 FILEFORMAT = "^(?P<sensor>%s)\\.(?P<datetime>[0-9-]+)\\.log(?:\\.gz)?$"
 SLEEPTIME = 2
 CMDLINE = "%(progname)s -s %(sensor)s"
@@ -47,15 +47,12 @@ def shutdown(signum, _):
     WANTDOWN = True
 
 
-def getnextfiles(directory=None, sensor=None, count=1):
+def getnextfiles(directory, sensor=None, count=1):
     """Returns a list of maximum `count` filenames to process, given
-    the `directory` (or, if it is `None`, the global variable
-    `DIRECTORY` is used ) and the `sensor` (or, if it is `None`, from
-    any sensor).
+    the `directory` and the `sensor` (or, if it is `None`, from any
+    sensor).
 
     """
-    if directory is None:
-        directory = DIRECTORY
     if sensor is None:
         fmt = re.compile(FILEFORMAT % "[^\\.]*")
     else:
@@ -80,15 +77,11 @@ def create_process(progname, sensor):
     )
 
 
-def worker(progname=None, directory=None, sensor=None, debug=False):
+def worker(progname, directory, sensor=None):
     """This function is the main loop, creating the processes when
     needed and feeding them with the data from the files.
 
     """
-    if directory is None:
-        directory = DIRECTORY
-    if progname is None:
-        progname = PROGNAME
     try:
         os.makedirs(os.path.join(directory, "current"))
     except OSError:
@@ -96,14 +89,14 @@ def worker(progname=None, directory=None, sensor=None, debug=False):
     procs = {}
     while not WANTDOWN:
         # We get the next file to handle
-        fname = getnextfiles(directory=directory, sensor=sensor, count=1)
+        fname = getnextfiles(directory, sensor=sensor, count=1)
         # ... if we don't, we sleep for a while
         if not fname:
-            if debug:
+            if config.DEBUG:
                 print "Sleeping for %d s" % SLEEPTIME,
                 sys.stdout.flush()
             time.sleep(SLEEPTIME)
-            if debug:
+            if config.DEBUG:
                 print "DONE"
             continue
         fname = fname[0]
@@ -120,7 +113,7 @@ def worker(progname=None, directory=None, sensor=None, debug=False):
                         os.path.join(directory, "current"))
         except shutil.Error:
             continue
-        if debug:
+        if config.DEBUG:
             print "Handling %s" % fname,
             sys.stdout.flush()
         fname = os.path.join(directory, "current", fname)
@@ -143,7 +136,7 @@ def worker(progname=None, directory=None, sensor=None, debug=False):
         fdesc.close()
         if handled_ok:
             os.unlink(fname)
-        if debug:
+        if config.DEBUG:
             if handled_ok:
                 print "OK"
             else:
@@ -156,7 +149,6 @@ def worker(progname=None, directory=None, sensor=None, debug=False):
 
 def main():
     """Parses the arguments and call worker()"""
-    global DIRECTORY, PROGNAME
     try:
         import argparse
         parser = argparse.ArgumentParser(description=__doc__)
@@ -167,18 +159,21 @@ def main():
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
-    parser.add_argument('--sensor', metavar='SENSOR[:SENSOR]',
-                        help='sensor to check, optionally with a long name, '
-                        'defaults to all.')
-    parser.add_argument('--directory', metavar='DIR',
-                        help='base directory (defaults to %s).' % DIRECTORY,
-                        default=DIRECTORY)
-    parser.add_argument('--progname', metavar='PROG',
-                        help='Program to run (defaults to %s).' % PROGNAME,
-                        default=PROGNAME)
+    parser.add_argument(
+        '--sensor', metavar='SENSOR[:SENSOR]',
+        help='sensor to check, optionally with a long name, defaults to all.',
+    )
+    parser.add_argument(
+        '--directory', metavar='DIR',
+        help='base directory (defaults to /ivre/passiverecon/).',
+        default="/ivre/passiverecon/",
+    )
+    parser.add_argument(
+        '--progname', metavar='PROG',
+        help='Program to run (defaults to passiverecon2db).',
+        default="passiverecon2db",
+    )
     args = parser.parse_args()
-    DIRECTORY = args.directory
-    PROGNAME = args.progname
     if args.sensor is not None:
         SENSORS.update(dict([args.sensor.split(':', 1)
                              if ':' in args.sensor
@@ -186,8 +181,7 @@ def main():
         sensor = args.sensor.split(':', 1)[0]
     else:
         sensor = None
-    #worker(sensor=sensor, debug=True)
-    worker(sensor=sensor)
+    worker(args.progname, args.directory, sensor=sensor)
 
 
 if __name__ == '__main__':
