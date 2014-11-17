@@ -30,7 +30,7 @@ try:
     import datetime
 except Exception as exc:
     print 'Content-Type: application/javascript\r\n\r'
-    print 'alert("ERROR: %s (%r)");' % (exc.message, exc)
+    print 'alert("ERROR: import error.");'
     sys.stderr.write("Import error: %s (%r).\n" % (exc.message, exc))
     sys.exit(0)
 
@@ -39,10 +39,7 @@ try:
     from ivre.db import db
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
-    sys.stdout.write(
-        'alert("ERROR: could not import ivre. Is the DB server '
-        'available? %s (%r)");\n' % (exc.message, exc)
-    )
+    sys.stdout.write('alert("ERROR: could not import ivre.")')
     sys.stderr.write("IVRE: cannot import ivre: %s (%r).\n" % (exc.message,
                                                                exc))
     sys.exit(0)
@@ -490,14 +487,15 @@ if count is not None:
     exit(0)
 
 if unused:
-    sys.stdout.write('alert("WARNING: following option%s not understood, '
-                     'and thus not considered: %s");\n' % (
-                         len(unused) != 1 and 's' or '',
-                         ', '.join(unused),
-                     ))
-    sys.stderr.write('IVRE: warning: option%s not understood: %s\n' % (
-        len(unused) != 1 and 's' or '',
-        ', '.join(unused),
+    sys.stdout.write(
+        'alert("WARNING: following option%s not understood: %s")\n' % (
+            's' if len(unused) > 1 else '',
+            ', '.join(unused),
+        ))
+    sys.stderr.write(
+        'IVRE: warning: option%s not understood: %s\n' % (
+            's' if len(unused) > 1 else '',
+            ', '.join(unused),
     ))
 
 # sys.stdout.write('alert("%r");\n' % flt)
