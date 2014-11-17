@@ -31,6 +31,7 @@ try:
 except Exception as exc:
     print 'Content-Type: application/javascript\r\n\r'
     print 'alert("ERROR: %s (%r)");' % (exc.message, exc)
+    sys.stderr.write("Import error: %s (%r).\n" % (exc.message, exc))
     sys.exit(0)
 
 try:
@@ -42,6 +43,8 @@ except Exception as exc:
         'alert("ERROR: could not import ivre. Is the DB server '
         'available? %s (%r)");\n' % (exc.message, exc)
     )
+    sys.stderr.write("IVRE: cannot import ivre: %s (%r).\n" % (exc.message,
+                                                               exc))
     sys.exit(0)
 
 try:
@@ -64,14 +67,16 @@ for configval, defaultvalue in {
     except AttributeError:
         globals()[configval] = defaultvalue
 
-# headers
-sys.stdout.write("Content-Type: application/json\r\n\r\n")
-
 # the anti-CSRF check
 if ALLOWED_REFERERS is not None and \
    os.getenv('HTTP_REFERER') not in ALLOWED_REFERERS:
+    sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
     sys.stdout.write('alert("ERROR: invalid Referer header.");\n')
+    sys.stderr.write("IVRE: invalid Referer header.\n")
     sys.exit(0)
+
+# headers
+sys.stdout.write("Content-Type: application/json\r\n\r\n")
 
 ipaddr = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 netaddr = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+'
@@ -90,7 +95,7 @@ try:
             else:
                 query.append([q[0], q[1]])
 except Exception as exc:
-    sys.stderr.write('WARNING: %s [%r]' % (exc.message, exc))
+    sys.stderr.write('IVRE: warning: %s (%r)\n' % (exc.message, exc))
 
 callback = None
 count = None
@@ -488,8 +493,12 @@ if unused:
     sys.stdout.write('alert("WARNING: following option%s not understood, '
                      'and thus not considered: %s");\n' % (
                          len(unused) != 1 and 's' or '',
-                         ', '.join(unused)
+                         ', '.join(unused),
                      ))
+    sys.stderr.write('IVRE: warning: option%s not understood: %s\n' % (
+        len(unused) != 1 and 's' or '',
+        ', '.join(unused),
+    ))
 
 # sys.stdout.write('alert("%r");\n' % flt)
 
