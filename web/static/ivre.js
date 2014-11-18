@@ -674,6 +674,11 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("category", "' + x + '");';
 	};
     }
+    else if(field === 'source') {
+	preparefilter = function(x) {
+	    return 'setparam("source", "' + x + '", true);';
+	};
+    }
     else if(field.substr(0, 5) === 'port:') {
 	preparefilter = function(x) {
 	    return 'setparam("' + field.substr(5) + '", "' + x + '");';
@@ -1564,7 +1569,8 @@ ivreWebUi
     .controller('IvreFilterListCtrl', function ($scope) {
 	$scope.lastfiltervalue = "";
 	var topvalues = [
-	    "category", "domains", "domains:", "hop", "hop:",
+	    "category", "source",
+	    "domains", "domains:", "hop", "hop:",
 	    // infos
 	    "country", "city", "as",
 	    // ports
