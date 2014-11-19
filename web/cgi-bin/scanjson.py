@@ -351,7 +351,7 @@ for q in query:
             flt = db.nmap.flt_and(flt, db.nmap.searchport(port,
                                                           protocol=proto,
                                                           neg=neg))
-        elif q[0] == "openport":
+        elif nq == "openport":
             flt = db.nmap.flt_and(flt, db.nmap.searchopenport(neg=neg))
         elif nq.isdigit():
             flt = db.nmap.flt_and(flt, db.nmap.searchport(int(nq), neg=neg))
