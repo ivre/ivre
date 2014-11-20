@@ -639,6 +639,12 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("asnum", "' + x + '", true);';
 	};
     }
+    else if(field.substr(0, 4) === 'smb.') {
+	preparefilter = function(x) {
+	    return 'setparam("' + field + '", "' +
+		x.replace(/\\x/g, '\\\\\\\\x') + '", true);';
+	};
+    }
     else if(field === 'as') {
 	prepareoutput = function(x) {
 	    return x[1];

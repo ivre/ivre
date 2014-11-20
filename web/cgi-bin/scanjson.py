@@ -263,6 +263,8 @@ for q in query:
         flt = db.nmap.flt_and(flt, db.nmap.searchx11())
     elif q[0] == 'x11open':
         flt = db.nmap.flt_and(flt, db.nmap.searchx11access())
+    elif q[0].startswith('smb.'):
+        flt = db.nmap.flt_and(flt, db.nmap.searchsmb(**{q[0][4:]: q[1]}))
     elif q[0] == 'anonldap':
         flt = db.nmap.flt_and(flt, db.nmap.searchldapanon())
     elif q[0] == 'xp445':
