@@ -951,12 +951,16 @@ service_* tags."""
                 {"$project": {"ports.service_devicetype": 1}}
             ]
             field = "ports.service_devicetype"
-        elif field == 'smb.dnsdomain':
-            field = 'scripts.smb-os-discovery.domain_dns'
-        elif field == 'smb.forest':
-            field = 'scripts.smb-os-discovery.forest_dns'
         elif field.startswith('smb.'):
-            field = 'scripts.smb-os-discovery.' + field[4:]
+            flt = self.flt_and(
+                flt, self.searchhostscriptid('smb-os-discovery')
+            )
+            if field == 'smb.dnsdomain':
+                field = 'scripts.smb-os-discovery.domain_dns'
+            elif field == 'smb.forest':
+                field = 'scripts.smb-os-discovery.forest_dns'
+            else:
+                field = 'scripts.smb-os-discovery.' + field[4:]
         elif (field.startswith('script:') or
               field.startswith('portscript:') or
               field.startswith('hostscript:')):
