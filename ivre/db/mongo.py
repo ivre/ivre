@@ -611,6 +611,27 @@ service_* tags."""
                 'service_extrainfo': {'$ne': 'access denied'}
             }}}
 
+    def searchsmb(self, **args):
+        """Search particular results from smb-os-discovery host
+        script. Example:
+
+        .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
+
+        """
+        # key aliases
+        if 'dnsdomain' in args:
+            args['domain_dns'] = args.pop('dnsdomain')
+        if 'forest' in args:
+            args['forest_dns'] = args.pop('forest')
+        # Build the query. Do *not* iterate here since we are
+        # modifying the dictionary
+        for key in args.keys():
+            args['smb-os-discovery.%s' % key] = args.pop(key)
+        args['id'] = 'smb-os-discovery'
+        return {
+            'scripts': {'$elemMatch': args}
+        }
+
     def searchfile(self, fname):
         return self.searchscriptidout(
             {'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
