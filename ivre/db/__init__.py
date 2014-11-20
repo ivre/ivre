@@ -260,6 +260,7 @@ class DBNmap(DB):
                                     action='store_true')
         self.argparser.add_argument('--torcert', action='store_true')
         self.argparser.add_argument('--sshkey')
+        self.argparser.add_argument('--archives', action='store_true')
 
     def store_scan(self, fname, **kargs):
         """This method parses a scan result, displays a JSON version

@@ -305,10 +305,7 @@ have no effect if it is not expected)."""
             {'_id': scanid}, **kargs)
 
     def getlocations(self, flt, archive=False):
-        if archive:
-            col = self.db[self.colname_oldhosts]
-        else:
-            col = self.db[self.colname_hosts]
+        col = self.db[self.colname_oldhosts if archive else self.colname_hosts]
         aggr = [
             {"$match": self.flt_and(flt, self.searchhaslocation())},
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},

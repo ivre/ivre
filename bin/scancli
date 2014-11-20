@@ -280,8 +280,8 @@ def display_xml_preamble(out=sys.stdout):
               'type="text/xsl"?>\n')
 
 
-def display_xml_host(h, out=sys.stdout):
-    scan = db.db.nmap.getscan(h['scanid'])
+def display_xml_host(h, out=sys.stdout, archive=False):
+    scan = db.db.nmap.getscan(h['scanid'], archive=archive)
     if 'scaninfos' in scan and scan['scaninfos']:
         for k in scan['scaninfos'][0]:
             scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
@@ -536,7 +536,7 @@ def main():
         def displayfunction(x):
             display_xml_preamble(out)
             for h in x:
-                display_xml_host(h, out)
+                display_xml_host(h, out=out, archive=args.archives)
     elif args.graphroute_dot or (graphroute.HAVE_DBUS and
                                  args.graphroute_rtgraph3d):
         def displayfunction(cursor):
@@ -569,7 +569,7 @@ def main():
     elif args.delete:
         def displayfunction(x):
             for h in x:
-                db.db.nmap.remove(h)
+                db.db.nmap.remove(h, archive=args.archives)
     elif USING_ORDEREDDICT and args.csv is not None:
         fields = {
             "ports": OrderedDict([
@@ -621,7 +621,7 @@ def main():
     if args.skip is not None:
         skip = args.skip
 
-    cursor = db.db.nmap.get(hostfilter)
+    cursor = db.db.nmap.get(hostfilter, archive=args.archives)
     if sortkeys:
         cursor = cursor.sort(sortkeys)
     if limit is not None:
