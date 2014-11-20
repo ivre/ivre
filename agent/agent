@@ -17,6 +17,8 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 NMAPOPTS="-vv -A --host-timeout 15m"
+NMAPSCRIPTS="(default or discovery or auth) and not (broadcast or brute or \
+dos or exploit or external or fuzzer or intrusive)"
 SLEEP="sleep 2"
 THREADS=10
 STOREDOWN="true"
@@ -24,6 +26,17 @@ STOREDOWN="true"
 INDIR=./input/
 CURDIR=./cur/
 OUTDIR=./output/
+
+filter () {
+    # This basic filter strips out comments, but one can add here more
+    # sophisticaed filters (including network probes). This can be
+    # useful to avoid time-consuming honeypots.
+    sed 's/ *#.*//'
+}
+
+scan () {
+    nmap $NMAPOPTS --script="$NMAPSCRIPTS" -iL - -oX -
+}
 
 if [ "$TERM" != "screen" ] ; then
     screen "$0" $@
@@ -34,10 +47,10 @@ mkdir -p "$INDIR" "$CURDIR" "$OUTDIR"
 
 if [ -z "$INTHREAD" ] ; then
     screen -X setenv INTHREAD 1
-    for i in `seq $THREADS` ; do
+    for i in `seq 2 $THREADS` ; do
+	sleep 1
 	screen "$0" $@
     done
-    exit 0
 fi
 
 while true ; do
@@ -50,7 +63,7 @@ while true ; do
     if ! mv "$INDIR/$fname" "$CURDIR/" ; then
 	continue
     fi
-    if ! (nmap $NMAPOPTS -iL "$CURDIR/$fname" -oX "$CURDIR/$fname.xml") ; then
+    if ! (filter < "$CURDIR/$fname" | scan > "$CURDIR/$fname.xml") ; then
 	rm -f "$CURDIR/$fname.xml"
 	mv "$CURDIR/$fname" "$INDIR/"
 	$SLEEP
