@@ -1120,18 +1120,64 @@ function add_param_objects(p, pp) {
 	var b = true;
 
     // aliases
-    if (p.substr(0,7) === "banner:")
+    if (p.substr(0, 7) === "banner:")
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'banner:' + p.substr(7)]);
-    else if (p.substr(0,7) === "sshkey:")
+    else if (p.substr(0, 7) === "sshkey:")
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'ssh-hostkey:' + p.substr(7)]);
-    else if (p.substr(0,5) === 'file:')
+    else if (p.substr(0, 5) === 'file:')
 	add_param_object(parametersobjunalias, 'script',
 			 [b, '/^(ftp-anon|afp-ls|gopher-ls|http-vlcstreamer-ls|nfs-ls|smb-ls)$/:' + p.substr(5)]);
-    else if (p.substr(0,7) === 'cookie:')
+    else if (p.substr(0, 7) === 'cookie:')
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'http-headers:/Set-Cookie: ' + p.substr(7) + '=/']);
+    else if (p.substr(0, 4) === 'smb.') {
+	/*
+	 * smb.* filters are very specific: they rely on the
+	 * table/elem values of the smb-os-discovery host script,
+	 * which may differ from the displayed output.
+	 *
+	 * For this reason, we do to rely on the value but rather on
+	 * the field and highlight whole lines.
+	 */
+	var subfield = p.substr(4);
+	var subfieldend = subfield.indexOf(':');
+	if (subfieldend !== -1) {
+	    subfield = subfield.substr(0, subfieldend);
+	}
+	switch(subfield) {
+	case 'os':
+	case 'lanmanager':
+	    add_param_object(parametersobjunalias, 'hostscript',
+			     [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
+	    break;
+	case 'server':
+	    add_param_object(
+		parametersobjunalias, 'hostscript',
+		[b, 'smb-os-discovery:/^NetBIOS computer name: .*$/m']
+	    );
+	    break;
+	case 'workgroup':
+	    add_param_object(parametersobjunalias, 'hostscript',
+			     [b, 'smb-os-discovery:/^Workgroup: .*$/m']);
+	    break;
+	case 'date':
+	    add_param_object(parametersobjunalias, 'hostscript',
+			     [b, 'smb-os-discovery:/^System time: .*$/m']);
+	    break;
+	case 'fqdn':
+	case 'domain_dns':
+	    add_param_object(
+		parametersobjunalias, 'hostscript',
+		[b, 'smb-os-discovery:/^Computer name: .*$/m']
+	    );
+	    break;
+	default:
+	    add_param_object(parametersobjunalias, 'hostscript',
+			     [b, 'smb-os-discovery']);
+	}
+    }
     else switch (p) {
     case 'nfs':
     case 'nfsexports':
