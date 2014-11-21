@@ -94,7 +94,9 @@ class Key(object):
 
 
 class PassiveSSLKey(Key):
-    cond_hash = cond_key
+    def __init__(self, cond=None):
+        Key.__init__(self, cond=cond)
+        self.cond_hash = self.cond_key
 
     def cond_key(self):
         return db.passive.flt_and(
