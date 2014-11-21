@@ -690,6 +690,11 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("' + field.substr(5) + '", "' + x + '");';
 	};
     }
+    else if(field.substr(0, 13) === 'probedservice') {
+	preparefilter = function(x) {
+	    return 'setparam("probedservice", "' + x + '");';
+	};
+    }
     else if(field.substr(0,3) === 'hop' && (field[3] === undefined ||
 					    ':>'.indexOf(field[3]) !== -1)) {
 	preparefilter = function(x) {
