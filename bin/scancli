@@ -583,7 +583,8 @@ def main():
                      ["hops", OrderedDict([
                          ["ipaddr", utils.int2ip],
                          ["ttl", str],
-                         ["rtt", lambda x: ('NA' if x == '--' else str(x))],
+                         ["rtt", lambda x: (args.csv_na_str if x == '--'
+                                            else str(x))],
                      ])
                   ]
                 ])]
@@ -592,7 +593,8 @@ def main():
                 ["addr", utils.int2ip],
                 ["traces", OrderedDict([
                      ["hops", OrderedDict([
-                         ["rtt", lambda x: ('NA' if x == '--' else str(x))],
+                         ["rtt", lambda x: (args.csv_na_str if x == '--'
+                                            else str(x))],
                      ])
                   ]
                 ])]
