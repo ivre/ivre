@@ -81,6 +81,7 @@ IGNORE_SCRIPTS = {
     'bitcoin-getaddr': set(['\n  ERROR: Failed to extract version '
                             'information']),
     'bitcoin-info': set(['\n  ERROR: Failed to extract version information']),
+    'ldap-search': set(['ERROR: Failed to bind as the anonymous user']),
     # host scripts
     'firewalk': set(['None found']),
     'ipidseq': set(['Unknown']),
