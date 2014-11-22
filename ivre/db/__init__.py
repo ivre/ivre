@@ -401,9 +401,8 @@ class DBNmap(DB):
     def searchxp445(self):
         return self.flt_and(
             self.searchport(445),
-            self.searchhostscriptidout(
-                'smb-os-discovery',
-                re.compile(re.escape('OS: Windows XP'))))
+            self.searchsmb(os="Windows 5.1"),
+        )
 
     def searchypserv(self):
         return self.searchscriptidout('rpcinfo', re.compile('ypserv', flags=0))

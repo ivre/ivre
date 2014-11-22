@@ -1216,8 +1216,9 @@ function add_param_objects(p, pp) {
 			 [b, 'x11-access:X server access is granted']);
 	break;
     case 'xp445':
+	/* same as smb.os + tcp port 445*/
 	add_param_object(parametersobjunalias, 'hostscript',
-			 [b, 'smb-os-discovery:/OS: Windows XP/']);
+			 [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
 	add_param_object(parametersobjunalias, 'tcp/445',
 			 [b, undefined]);
 	break;
