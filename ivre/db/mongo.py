@@ -675,12 +675,6 @@ service_* tags."""
             }}}
 
     def searchsmb(self, **args):
-        """Search particular results from smb-os-discovery host
-        script. Example:
-
-        .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
-
-        """
         # key aliases
         if 'dnsdomain' in args:
             args['domain_dns'] = args.pop('dnsdomain')

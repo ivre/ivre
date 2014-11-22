@@ -440,6 +440,15 @@ class DBNmap(DB):
     def searchdevicetype(self, devtype):
         raise NotImplementedError
 
+    def searchsmb(self, **args):
+        """Search particular results from smb-os-discovery host
+        script. Example:
+
+        .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
+
+        """
+        raise NotImplementedError
+
 
 class DBPassive(DB):
 
