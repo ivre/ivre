@@ -797,7 +797,7 @@ service_* tags."""
             {'traces.hops.host': hop},
         )
 
-    def topvalues(self, field, flt, topnbr=10,
+    def topvalues(self, field, flt=None, topnbr=10,
                   sortby=None, limit=None, skip=None,
                   least=False, archive=False):
         """
@@ -819,6 +819,8 @@ service_* tags."""
         specialproj = None
         specialflt = []
         outputproc = None
+        if flt is None:
+            flt = self.flt_empty
         # pseudo-fields
         if field == "category":
             field = "categories"

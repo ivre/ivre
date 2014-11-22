@@ -403,7 +403,7 @@ if countfield is not None:
     else:
         least = False
     series = [{"label": t['_id'], "value": t['count']} for t in
-              db.nmap.topvalues(countfield, flt,
+              db.nmap.topvalues(countfield, flt=flt,
                                 least=least, topnbr=countnbr,
                                 limit=countfieldlimit, skip=countfieldskip,
                                 archive=archive)]
