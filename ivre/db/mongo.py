@@ -38,6 +38,8 @@ import datetime
 
 class MongoDB(DB):
 
+    needunwind = []
+
     def __init__(self, host, dbname,
                  username=None, password=None, mechanism=None,
                  maxscan=None, maxtime=None,
@@ -125,6 +127,63 @@ class MongoDB(DB):
         for colname, indexes in self.specialindexes.iteritems():
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
+
+    def _topvalues(self, colname, field, flt=None, topnbr=10,
+                   sortby=None, limit=None, skip=None, least=False,
+                   aggrflt=None, specialproj=None, specialflt=None,
+                   outputproc=None):
+        """This method makes use of the aggregation framework to
+        produce top values for a given field.
+
+        """
+        if flt is None:
+            flt = self.flt_empty
+        if aggrflt is None:
+            aggrflt = self.flt_empty
+        if specialflt is None:
+            specialflt = []
+        pipeline = []
+        if flt:
+            pipeline += [{"$match": flt}]
+        if sortby is not None and ((limit is not None) or (skip is not None)):
+            pipeline += [{"$sort": dict(sortby)}]
+        if skip is not None:
+            pipeline += [{"$skip": skip}]
+        if limit is not None:
+            pipeline += [{"$limit": limit}]
+        if specialproj is None:
+            pipeline += [{"$project": {"_id": 0, field: 1}}]
+        else:
+            pipeline += [{"$project": specialproj}]
+        # hack to allow nested values as field
+        # see <http://stackoverflow.com/questions/13708857/
+        # mongodb-aggregation-framework-nested-arrays-subtract-expression>
+        for i in xrange(field.count('.'), -1, -1):
+            subfield = field.rsplit('.', i)[0]
+            if subfield in self.needunwind:
+                pipeline += [{"$unwind": "$" + subfield}]
+        pipeline += specialflt
+        # next step for previous hack
+        pipeline += [{"$project": {"field": "$" + field}}]
+        if aggrflt:
+            pipeline += [{"$match": aggrflt}]
+        else:
+            # avoid null results
+            pipeline += [{"$match": {"field": {"$exists": True}}}]
+        pipeline += [{"$group": {"_id": "$field", "count": {"$sum": 1}}}]
+        if least:
+            pipeline += [{"$sort": {"count": 1}}]
+        else:
+            pipeline += [{"$sort": {"count": -1}}]
+        if topnbr is not None:
+            pipeline += [{"$limit": topnbr}]
+
+        cursor = self.set_limits(self.db[colname].aggregate(pipeline,
+                                                            cursor={}))
+        if outputproc is not None:
+            return (outputproc(res) for res in cursor)
+        return cursor
+
     # filters
     flt_empty = {}
 
@@ -225,6 +284,10 @@ class MongoDB(DB):
 class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
+    needunwind = ["categories", "ports", "ports.scripts", "scripts",
+                  "extraports.filtered", "traces", "traces.hops",
+                  "os.osmatch", "os.osclass", "hostnames",
+                  "hostnames.domains"]
 
     def __init__(self, host, dbname,
                  colname_scans="scans", colname_hosts="hosts",
@@ -306,13 +369,13 @@ have no effect if it is not expected)."""
 
     def getlocations(self, flt, archive=False):
         col = self.db[self.colname_oldhosts if archive else self.colname_hosts]
-        aggr = [
+        pipeline = [
             {"$match": self.flt_and(flt, self.searchhaslocation())},
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
             {"$sort": {"count": -1}},
         ]
-        return col.aggregate(aggr)['result']
+        return col.aggregate(pipeline)['result']
 
     def remove(self, host, archive=False):
         """Removes the host "host" from the active (the old one if
@@ -797,9 +860,10 @@ service_* tags."""
             {'traces.hops.host': hop},
         )
 
-    def topvalues(self, field, flt=None, topnbr=10,
-                  sortby=None, limit=None, skip=None,
-                  least=False, archive=False):
+    def topvalues(self, field, flt=None, topnbr=10, sortby=None,
+                  limit=None, skip=None, least=False, archive=False,
+                  aggrflt=None, specialproj=None, specialflt=None,
+                  outputproc=None):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
@@ -815,12 +879,13 @@ service_* tags."""
           - [port]script:<scriptid> / hostscript:<scriptid>
           - hop
         """
-        aggrflt = {}
-        specialproj = None
-        specialflt = []
-        outputproc = None
+        colname = self.colname_oldhosts if archive else self.colname_hosts
         if flt is None:
             flt = self.flt_empty
+        if aggrflt is None:
+            aggrflt = self.flt_empty
+        if specialflt is None:
+            specialflt = []
         # pseudo-fields
         if field == "category":
             field = "categories"
@@ -1056,53 +1121,12 @@ service_* tags."""
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
                                     '_id': utils.int2ip(x['_id'])}
-        needunwind = ["categories", "ports", "ports.scripts", "scripts",
-                      "extraports.filtered", "traces", "traces.hops",
-                      "os.osmatch", "os.osclass", "hostnames",
-                      "hostnames.domains"]
-        aggr = []
-        if flt:
-            aggr += [{"$match": flt}]
-        if sortby is not None and ((limit is not None) or (skip is not None)):
-            aggr += [{"$sort": dict(sortby)}]
-        if skip is not None:
-            aggr += [{"$skip": skip}]
-        if limit is not None:
-            aggr += [{"$limit": limit}]
-        if specialproj is None:
-            aggr += [{"$project": {"_id": 0, field: 1}}]
-        else:
-            aggr += [{"$project": specialproj}]
-        # hack to allow nested values as field
-        # see <http://stackoverflow.com/questions/13708857/
-        # mongodb-aggregation-framework-nested-arrays-subtract-expression>
-        for i in xrange(field.count('.'), -1, -1):
-            subfield = field.rsplit('.', i)[0]
-            if subfield in needunwind:
-                aggr += [{"$unwind": "$" + subfield}]
-        aggr += specialflt
-        # next step for previous hack
-        aggr += [{"$project": {"field": "$" + field}}]
-        if aggrflt:
-            aggr += [{"$match": aggrflt}]
-        else:
-            # avoid null results
-            aggr += [{"$match": {"field": {"$exists": True}}}]
-        aggr += [{"$group": {"_id": "$field", "count": {"$sum": 1}}}]
-        if least:
-            aggr += [{"$sort": {"count": 1}}]
-        else:
-            aggr += [{"$sort": {"count": -1}}]
-        if topnbr is not None:
-            aggr += [{"$limit": topnbr}]
-
-        cursor = self.set_limits(
-            self.db[
-                self.colname_oldhosts if archive else self.colname_hosts
-            ].aggregate(aggr, cursor={}))
-        if outputproc is not None:
-            return (outputproc(res) for res in cursor)
-        return cursor
+        return self._topvalues(
+            colname, field, flt=flt, topnbr=topnbr,
+            sortby=sortby, limit=limit, skip=skip, least=least,
+            aggrflt=aggrflt, specialproj=specialproj, specialflt=specialflt,
+            outputproc=outputproc
+        )
 
     def parse_args(self, args, flt=None):
         if flt is None:
@@ -1278,7 +1302,7 @@ instead of .find(), so the first record matching "spec" (or None) is
 returned.
 
 Unlike get(), this function might take a long time, depending
-on "spec" and the indexes set on COLNAME_PASSIVE column."""
+on "spec" and the indexes set on colname_passive column."""
         # TODO: check limits
         return self.db[self.colname_passive].find_one(spec, **kargs)
 
@@ -1426,6 +1450,13 @@ field "count" by one.
 
     def remove(self, spec):
         self.db[self.colname_passive].remove(spec)
+
+    def topvalues(self, field, **kargs):
+        """This method makes use of the aggregation framework to
+        produce top values for a given field.
+
+        """
+        return self._topvalues(self.colname_passive, field, **kargs)
 
     def searchsensor(self, sensor, neg=False):
         if neg:
