@@ -1054,18 +1054,6 @@ service_* tags."""
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
                                     '_id': utils.int2ip(x['_id'])}
-        elif self.maxtime is not None or self.maxscan is not None:
-            # Hack: when a limit has been set, we only accept
-            # topvalues for indexed fields (except when a
-            # pseudo-field has been used)
-            colname = self.colname_oldhosts if archive else self.colname_hosts
-            indexes = (
-                [x[0][0] for x in self.indexes.get(colname, [])] +
-                [x[0][0][0] for x in self.specialindexes.get(colname, [])]
-            )
-            if field not in indexes:
-                raise ValueError(".topvalues() cannot be used on non-indexed "
-                                 "fields when a limit has been set.")
         needunwind = ["categories", "ports", "ports.scripts", "scripts",
                       "extraports.filtered", "traces", "traces.hops",
                       "os.osmatch", "os.osclass", "hostnames",
@@ -1105,13 +1093,14 @@ service_* tags."""
             aggr += [{"$sort": {"count": -1}}]
         if topnbr is not None:
             aggr += [{"$limit": topnbr}]
-        if archive:
-            res = self.db[self.colname_oldhosts].aggregate(aggr)['result']
-        else:
-            res = self.db[self.colname_hosts].aggregate(aggr)['result']
+
+        cursor = self.set_limits(
+            self.db[
+                self.colname_oldhosts if archive else self.colname_hosts
+            ].aggregate(aggr, cursor={}))
         if outputproc is not None:
-            return map(outputproc, res)
-        return res
+            return (outputproc(res) for res in cursor)
+        return cursor
 
     def parse_args(self, args, flt=None):
         if flt is None:

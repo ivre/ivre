@@ -443,69 +443,71 @@ class IvreTests(unittest.TestCase):
         categories = ivre.db.db.nmap.topvalues(
             "category",
             ivre.db.db.nmap.flt_empty)
-        self.assertEqual(len(categories), 1)
-        self.assertEqual(categories[0]["_id"], "TEST")
-        self.assertEqual(categories[0]["count"], hosts_count)
+        category = categories.next()
+        self.assertEqual(category["_id"], "TEST")
+        self.assertEqual(category["count"], hosts_count)
+        with self.assertRaises(StopIteration):
+            categories.next()
         self.check_value(
             "nmap_topsrv",
             ivre.db.db.nmap.topvalues(
                 "service",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topsrv_80",
             ivre.db.db.nmap.topvalues(
                 "service:80",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topprobedsrv",
             ivre.db.db.nmap.topvalues(
                 "probedservice",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topprobedsrv_80",
             ivre.db.db.nmap.topvalues(
                 "probedservice:80",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topprod",
             ivre.db.db.nmap.topvalues(
                 "product",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topprod_80",
             ivre.db.db.nmap.topvalues(
                 "product:80",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topdevtype",
             ivre.db.db.nmap.topvalues(
                 "devicetype",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topdevtype_80",
             ivre.db.db.nmap.topvalues(
                 "devicetype:80",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topdomain",
             ivre.db.db.nmap.topvalues(
                 "domains",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_topdomains_1",
             ivre.db.db.nmap.topvalues(
                 "domains:1",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_tophop",
             ivre.db.db.nmap.topvalues(
                 "hop",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
         self.check_value(
             "nmap_tophop_10+",
             ivre.db.db.nmap.topvalues(
                 "hop>10",
-                ivre.db.db.nmap.flt_empty)[0]['_id'])
+                ivre.db.db.nmap.flt_empty).next()['_id'])
 
     def test_passive(self):
 
