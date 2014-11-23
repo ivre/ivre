@@ -645,6 +645,11 @@ function build_chart(chart, field, dataset) {
 		x.replace(/\\x/g, '\\\\\\\\x') + '", true);';
 	};
     }
+    else if(field === 'devicetype') {
+	preparefilter = function(x) {
+	    return 'setparam("devtype", "' + x + '", true);';
+	};
+    }
     else if(field === 'as') {
 	prepareoutput = function(x) {
 	    return x[1];
