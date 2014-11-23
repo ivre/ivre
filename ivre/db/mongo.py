@@ -930,11 +930,7 @@ service_* tags."""
             field = "ports.port"
         elif field.startswith("port:"):
             state = field.split(':', 1)[1]
-            if state == "open":
-                flt = self.flt_and(
-                    flt,
-                    self.searchopenport()
-                )
+            flt = self.flt_and(flt, {'ports.state_state': state})
             specialproj = {"_id": 0, "ports.port": 1, "ports.state_state": 1}
             specialflt = [
                 {"$match": {"ports.state_state": state}},
