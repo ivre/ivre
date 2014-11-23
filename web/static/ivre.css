@@ -157,6 +157,6 @@ form {
     cursor: pointer;
 }
 
-.flag-icon, .icon-white {
+[class^="icon-"], [class*=" icon-"], .flag-icon {
     vertical-align: -10%;
 }
