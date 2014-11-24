@@ -177,7 +177,6 @@ class MongoDB(DB):
             pipeline += [{"$sort": {"count": -1}}]
         if topnbr is not None:
             pipeline += [{"$limit": topnbr}]
-
         cursor = self.set_limits(self.db[colname].aggregate(pipeline,
                                                             cursor={}))
         if outputproc is not None:
@@ -595,19 +594,12 @@ have no effect if it is not expected)."""
         return {'ports.state_state': {'$nin': ['open']} if neg else 'open'}
 
     def searchservice(self, srv, port=None, probed=False):
-        """Search an open port with a particular regular expression in the
-service_* tags."""
+        """Search an open port with a particular service."""
         # service_method
         res = {
             'ports': {'$elemMatch': {
                 'state_state': 'open',
-                '$or': [
-                    {'service_name': srv},
-                    {'service_product': srv},
-                    {'service_version': srv},
-                    {'service_extrainfo': srv},
-                    {'service_hostname': srv}
-                ]
+                'service_name': srv,
             }}}
         if port is not None:
             res['ports']['$elemMatch']['port'] = port
@@ -615,21 +607,24 @@ service_* tags."""
             res['ports']['$elemMatch']['service_method'] = 'probed'
         return res
 
-    def searchscript(self, srv, port=None):
-        """Search a particular content in the scripts names and outputs.
-"""
-        if port is None:
-            return {'$or': [
-                {'ports.scripts.id': srv},
-                {'ports.scripts.output': srv}
-            ]}
-        return {
-            'ports': {'$elemMatch': {
-                'port': port,
-                '$or': [
-                    {'scripts.id': srv},
-                    {'scripts.output': srv}
-                ]}}}
+    def searchproduct(self, product, version=None, service=None,
+                      port=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        # service_method
+        flt = {'service_product': product}
+        if version is not None:
+            flt['service_version'] = version
+        if service is not None:
+            flt['service_name'] = service
+        if port is not None:
+            flt['port'] = port
+        if len(flt) == 1:
+            return {'ports.service_product': product}
+        return {'ports': {'$elemMatch': flt}}
 
     def searchscriptidout(self, name, output):
         """Search a particular content in the scripts names and
@@ -776,9 +771,6 @@ service_* tags."""
                                                   '4\\.([0-9]|0[0-9]|'
                                                   '1[0-1])([^0-9]|$))')
                 }}}
-
-    def searchproduct(self, product):
-        return {'ports.service_product': product}
 
     def searchdevicetype(self, devtype):
         return {'ports.service_devicetype': devtype}
@@ -974,6 +966,7 @@ service_* tags."""
             # field = "countports"
             pass
         elif field == "service":
+            flt = self.flt_and(flt, self.searchopenport())
             field = "ports.service_name"
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
@@ -1006,17 +999,121 @@ service_* tags."""
             ]
             field = "ports.service_name"
         elif field == 'product':
-            field = "ports.service_product"
-        elif field.startswith('product:'):
-            port = int(field.split(':', 1)[1])
-            flt = self.flt_and(flt, self.searchport(port))
-            specialproj = {"_id": 0, "ports.port": 1,
-                           "ports.service_product": 1}
+            flt = self.flt_and(
+                flt,
+                self.searchopenport(),
+                {"ports.service_name": {"$exists": True}},
+                {"ports.service_product": {"$exists": True}},
+            )
+            specialproj = {
+                "_id": 0,
+                "ports.service_name": 1,
+                "ports.service_product": 1,
+            }
             specialflt = [
-                {"$match": {"ports.port": port}},
-                {"$project": {"ports.service_product": 1}}
+                {"$match": {"ports.service_product": {"$exists": True}}},
+                {"$project":
+                 {"ports.service_product":
+                  {"$concat": [
+                      "$ports.service_name",
+                      "###",
+                      "$ports.service_product",
+                  ]}}}
             ]
             field = "ports.service_product"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
+        elif field.startswith('product:'):
+            port = int(field.split(':', 1)[1])
+            flt = self.flt_and(
+                flt,
+                self.searchport(port),
+                {"ports.service_name": {"$exists": True}},
+                {"ports.service_product": {"$exists": True}},
+            )
+            specialproj = {
+                "_id": 0,
+                "ports.port": 1,
+                "ports.service_name": 1,
+                "ports.service_product": 1,
+            }
+            specialflt = [
+                {"$match": {"ports.port": port,
+                            "ports.service_product": {"$exists": True}}},
+                {"$project":
+                 {"ports.service_product":
+                  {"$concat": [
+                      "$ports.service_name",
+                      "###",
+                      "$ports.service_product",
+                  ]}}}
+            ]
+            field = "ports.service_product"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
+        elif field == 'version':
+            flt = self.flt_and(
+                flt,
+                self.searchopenport(),
+                {"ports.service_name": {"$exists": True}},
+                {"ports.service_product": {"$exists": True}},
+                {"ports.service_version": {"$exists": True}},
+            )
+            specialproj = {
+                "_id": 0,
+                "ports.service_name": 1,
+                "ports.service_product": 1,
+                "ports.service_version": 1,
+            }
+            specialflt = [
+                {"$match": {"ports.service_product": {"$exists": True},
+                            "ports.service_version": {"$exists": True},}},
+                {"$project":
+                 {"ports.service_product":
+                  {"$concat": [
+                      "$ports.service_name",
+                      "###",
+                      "$ports.service_product",
+                      "###",
+                      "$ports.service_version",
+                  ]}}}
+            ]
+            field = "ports.service_product"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
+        elif field.startswith('version:'):
+            port = int(field.split(':', 1)[1])
+            flt = self.flt_and(
+                flt,
+                self.searchport(port),
+                {"ports.service_name": {"$exists": True}},
+                {"ports.service_product": {"$exists": True}},
+                {"ports.service_version": {"$exists": True}},
+            )
+            specialproj = {
+                "_id": 0,
+                "ports.port": 1,
+                "ports.service_name": 1,
+                "ports.service_product": 1,
+                "ports.service_version": 1,
+            }
+            specialflt = [
+                {"$match": {"ports.port": port,
+                            "ports.service_product": {"$exists": True},
+                            "ports.service_version": {"$exists": True},}},
+                {"$project":
+                 {"ports.service_product":
+                  {"$concat": [
+                      "$ports.service_name",
+                      "###",
+                      "$ports.service_product",
+                      "###",
+                      "$ports.service_version",
+                  ]}}}
+            ]
+            field = "ports.service_product"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
         elif field == 'devicetype':
             field = "ports.service_devicetype"
         elif field.startswith('devicetype:'):
@@ -1162,9 +1259,16 @@ service_* tags."""
                 flt,
                 self.searchservicescript(utils.str2regexp(args.service)))
         if args.script is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchscript(utils.str2regexp(args.script)))
+            if ':' in args.script:
+                flt = self.flt_and(
+                    flt,
+                    self.searchscriptidout(map(utils.str2regexp,
+                                               args.script.split(':', 1)))
+                )
+                flt = self.flt_and(
+                    flt,
+                    self.searchscriptid(utils.str2regexp(args.script))
+                )
         if args.hostscript is not None:
             flt = self.flt_and(
                 flt,

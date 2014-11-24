@@ -695,10 +695,51 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("' + field.substr(5) + '", "' + x + '");';
 	};
     }
+    else if(field.substr(0, 7) === 'service') {
+	preparefilter = function(x) {
+	    return 'setparam("service", "' + x + '");';
+	};
+    }
     else if(field.substr(0, 13) === 'probedservice') {
 	preparefilter = function(x) {
 	    return 'setparam("probedservice", "' + x + '");';
 	};
+    }
+    else if(field.substr(0, 7) === 'product') {
+	prepareoutput = function(x) {
+	    return x[1];
+	};
+	preparetitle = function(x) {
+	    return x[0];
+	};
+	if(field[7] === ':') {
+	    preparefilter = function(x) {
+		return 'setparam("product", "' + x[0] + ':' + x[1] + field.substr(7) + '");';
+	    };
+	}
+	else {
+	    preparefilter = function(x) {
+		return 'setparam("product", "' + x[0] + ':' + x[1] + '");';
+	    };
+	}
+    }
+    else if(field.substr(0, 7) === 'version') {
+	prepareoutput = function(x) {
+	    return x[1] + " " + x[2];
+	};
+	preparetitle = function(x) {
+	    return x[0];
+	};
+	if(field[7] === ':') {
+	    preparefilter = function(x) {
+		return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + field.substr(7) + '");';
+	    };
+	}
+	else {
+	    preparefilter = function(x) {
+		return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + '");';
+	    };
+	}
     }
     else if(field.substr(0,3) === 'hop' && (field[3] === undefined ||
 					    ':>'.indexOf(field[3]) !== -1)) {
@@ -1645,6 +1686,7 @@ ivreWebUi
 	    "service", "service:",
 	    "probedservice", "probedservice:",
 	    "product", "product:",
+	    "version", "version:",
 	    "devicetype", "devicetype:",
 	    // scripts
 	    "ports.scripts.id", "scripts.id",

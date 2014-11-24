@@ -215,6 +215,46 @@ for q in query:
                 flt,
                 db.nmap.searchservice(
                     ivre.utils.str2regexp(q[1]), probed=True))
+    elif q[0] == "product" and ":" in q[1]:
+        product = q[1].split(':', 2)
+        if len(product) == 2:
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchproduct(
+                    ivre.utils.str2regexp(product[1]),
+                    service=ivre.utils.str2regexp(product[0])
+                )
+            )
+        else:
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchproduct(
+                    ivre.utils.str2regexp(product[1]),
+                    service=ivre.utils.str2regexp(product[0]),
+                    port=int(product[2])
+                )
+            )
+    elif q[0] == "version" and q[1].count(":") >= 2:
+        product = q[1].split(':', 3)
+        if len(product) == 3:
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchproduct(
+                    ivre.utils.str2regexp(product[1]),
+                    version=ivre.utils.str2regexp(product[2]),
+                    service=ivre.utils.str2regexp(product[0]),
+                )
+            )
+        else:
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchproduct(
+                    ivre.utils.str2regexp(product[1]),
+                    version=ivre.utils.str2regexp(product[2]),
+                    service=ivre.utils.str2regexp(product[0]),
+                    port=int(product[3])
+                )
+            )
     elif q[0] in ["script", "portscript"]:
         v = q[1].split(':', 1)
         if len(v) == 1:

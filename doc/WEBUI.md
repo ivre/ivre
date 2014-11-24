@@ -55,7 +55,8 @@ displayed in the rightest part of the screen.
     - `port`, `port:[open/closed/filtered]`,
       `portlist:[open/closed/filtered]`
     - `service`, `service:[port]`, `probedservice`,
-      `probedservice:[port]`, `product`, `product:[port]`
+      `probedservice:[port]`, `product`, `product:[port]`,
+      `version`, `version:[port]`
     - `devicetype`, `devicetype:[port]`
     - `ports.scripts.id`, `scripts.id`
     - `script:[scriptname]`, `portscript:[scriptname]` (like `port:`),
@@ -132,8 +133,12 @@ single or double quotes.
     specified in seconds or with the appropriate suffix in minutes
     (`m`), hours (`h`), days (`d`) or years (`y`).
   - `service:[expression]`, `service:[expression]:[port number]` look
-    for an expression in the name, the version, the name of the
-    product,... of a service.
+    for an expression in the name of a service.
+  - `product:[service]:[product]`,
+    `product:[service]:[product]:[port number]` look for a product.
+  - `version:[service]:[product]:[version]`,
+    `product:[service]:[product]:[version]:[port number]` look for a
+    specific version of a product.
   - `banner:` look for a specific banner of a service.
   - `script:[scriptid]`, `script:[scriptid]:[output]` look for a
     specific (port) script.

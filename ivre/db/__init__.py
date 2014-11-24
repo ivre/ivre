@@ -243,7 +243,7 @@ class DBNmap(DB):
         self.argparser.add_argument('--port', metavar='PORT')
         self.argparser.add_argument('--openport', action='store_true')
         self.argparser.add_argument('--service', metavar='SVC')
-        self.argparser.add_argument('--script', metavar='SCRIPT')
+        self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
         self.argparser.add_argument('--hostscript', metavar='SCRIPT')
         self.argparser.add_argument('--svchostname')
         self.argparser.add_argument('--os')
@@ -434,7 +434,8 @@ class DBNmap(DB):
     def searchport(self, port, protocol='tcp', state='open', neg=False):
         raise NotImplementedError
 
-    def searchproduct(self, product):
+    def searchproduct(self, product, version=None, service=None,
+                      port=None):
         raise NotImplementedError
 
     def searchdevicetype(self, devtype):
