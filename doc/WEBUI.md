@@ -128,6 +128,8 @@ single or double quotes.
   - `[!]category:` filter a category.
   - `[!]country:[two letters code]` filter a country.
   - `[!]city:` filter a city (use with `country:`).
+  - `[!]asnum:` filter by AS number (lists allowed).
+  - `[!]asname:` filter by AS name (regular expressions allowed).
   - `[!]source:` filter a source (specify the source name).
   - `[!]timeago:` filter recent enough results; the value can be
     specified in seconds or with the appropriate suffix in minutes

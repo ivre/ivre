@@ -515,8 +515,6 @@ have no effect if it is not expected)."""
         """
         Filters (if `neg` == True, filters out) one particular country.
         """
-        if type(country) in [str, unicode]:
-            country = utils.str2list(country)
         if type(country) not in [str, unicode] and hasattr(
                 country, '__iter__'):
             return {'infos.country_code':
@@ -542,13 +540,23 @@ have no effect if it is not expected)."""
         particular AS number(s).
 
         """
-        if type(asnum) in [str, unicode]:
-            asnum = utils.str2list(asnum)
         if type(asnum) not in [str, unicode] and hasattr(asnum, '__iter__'):
             return {'infos.as_num':
                     {'$nin' if neg else '$in': map(int, asnum)}}
         asnum = int(asnum)
         return {'infos.as_num': {'$ne': asnum} if neg else asnum}
+
+    def searchasname(self, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        if neg:
+            if type(asname) is utils.REGEXP_T:
+                return {'infos.as_name': {'$not': asname}}
+            else:
+                return {'infos.as_name': {'$ne': asname}}
+        return {'infos.as_name': asname}
 
     def searchsource(self, src, neg=False):
         "Filters (if `neg` == True, filters out) one particular source."
@@ -1221,7 +1229,14 @@ have no effect if it is not expected)."""
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(args.category))
         if args.country is not None:
-            flt = self.flt_and(flt, self.searchcountry(args.country))
+            flt = self.flt_and(flt, self.searchcountry(
+                utils.str2list(args.country)))
+        if args.asnum is not None:
+            flt = self.flt_and(flt, self.searchasnum(
+                utils.str2list(args.asnum)))
+        if args.asname is not None:
+            flt = self.flt_and(flt, self.searchasname(
+                utils.str2regexp(args.asname)))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
         if args.timeago is not None:

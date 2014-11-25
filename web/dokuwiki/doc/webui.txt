@@ -82,6 +82,8 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%[!]category:%%'' filter a category.
   * ''%%[!]country:[two letters code]%%'' filter a country.
   * ''%%[!]city:%%'' filter a city (use with ''%%country:%%'').
+  * ''%%[!]asnum:%%'' filter by AS number (lists allowed).
+  * ''%%[!]asname:%%'' filter by AS name (regular expressions allowed).
   * ''%%[!]source:%%'' filter a source (specify the source name).
   * ''%%[!]timeago:%%'' filter recent enough results; the value can be specified in seconds or with the appropriate suffix in minutes (''%%m%%''), hours (''%%h%%''), days (''%%d%%'') or years (''%%y%%'').
   * ''%%service:[expression]%%'', ''%%service:[expression]:[port number]%%'' look for an expression in the name of a service.

@@ -230,8 +230,11 @@ class DBNmap(DB):
             '--country', metavar='CODE',
             help='show only results from this country')
         self.argparser.add_argument(
-            '--as', '--asnum', metavar='NUM',
-            help='show only results from this AS')
+            '--asnum', metavar='NUM[,NUM[...]]',
+            help='show only results from this(those) AS(es)')
+        self.argparser.add_argument(
+            '--asname', metavar='NAME',
+            help='show only results from this(those) AS(es)')
         self.argparser.add_argument('--source', metavar='SRC',
                                     help='show only results from this source')
         self.argparser.add_argument('--timeago', metavar='SECONDS', type=int)
