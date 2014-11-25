@@ -1406,14 +1406,6 @@ setting values according to the keyword arguments.
 """
         self.db[self.colname_passive].update(spec, {'$set': kargs})
 
-    def update_incr(self, spec, **kargs):
-        """Updates the first record matching "spec" in the "passive" column,
-setting values according to the keyword arguments, and increment the
-field "count" by one.
-"""
-        self.db[self.colname_passive].update(spec, {'$set': kargs,
-                                                    '$inc': {'count': 1}})
-
     def insert(self, spec, getinfos=None):
         """Inserts the record "spec" into the passive column."""
         if getinfos is not None:
@@ -1423,17 +1415,27 @@ field "count" by one.
             self.set_data(spec['addr'])
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
-        current = self.get_one(spec, fields=['firstseen', 'lastseen'])
+        current = self.get_one(spec, fields=[])
+        updatespec = {
+            '$inc': {'count': 1},
+            '$min': {'firstseen': timestamp},
+            '$max': {'lastseen': timestamp},
+        }
         if current:
-            firstseen = min(timestamp, current['firstseen'])
-            lastseen = max(timestamp, current['lastseen'])
-            self.update_incr({'_id': current['_id']},
-                             firstseen=firstseen,
-                             lastseen=lastseen)
+            self.db[self.colname_passive].update(
+                {'_id': current['_id']},
+                updatespec,
+            )
         else:
-            spec.update({'firstseen': timestamp, 'lastseen': timestamp,
-                         'count': 1})
-            self.insert(spec, getinfos=getinfos)
+            if getinfos is not None:
+                infos = getinfos(spec)
+                if infos:
+                    updatespec['$setOnInsert'] = infos
+            self.db[self.colname_passive].update(
+                spec,
+                updatespec,
+                upsert=True,
+            )
 
     def insert_or_update_bulk(self, specs, getinfos=None):
         """Like `.insert_or_update()`, but `specs` parameter has to be
@@ -1488,59 +1490,45 @@ field "count" by one.
         This is usefull to mix records from different databases.
 
         """
+        updatespec = {}
         if 'firstseen' in spec:
-            firstseen = spec['firstseen']
+            updatespec['$min'] = {'firstseen': spec['firstseen']}
             del spec['firstseen']
-        else:
-            firstseen = None
         if 'lastseen' in spec:
-            lastseen = spec['lastseen']
+            updatespec['$max'] = {'lastseen': spec['lastseen']}
             del spec['lastseen']
-        else:
-            lastseen = None
         if 'count' in spec:
-            count = spec['count']
+            updatespec['$inc'] = {'count': spec['count']}
             del spec['count']
         else:
-            count = None
+            updatespec['$inc'] = {'count': spec['count']}
         if 'infos' in spec:
-            infos = spec['infos']
+            updatespec['$setOnInsert'] = {'infos': spec['infos']}
             del spec['infos']
-        else:
-            infos = None
-        current = self.get_one(spec,
-                               fields=['firstseen', 'lastseen', 'count'])
+        if 'fullinfos' in spec:
+            if '$setOnInsert' in updatespec:
+                updatespec['$setOnInsert'].update(
+                    {'fullinfos': spec['fullinfos']}
+                )
+            else:
+                updatespec['$setOnInsert'] = {'fullinfos': spec['fullinfos']}
+            del spec['fullinfos']
+        current = self.get_one(spec, fields=[])
         if current:
-            if firstseen is not None:
-                firstseen = min(firstseen, current['firstseen'])
-            else:
-                firstseen = current['firstseen']
-            if lastseen is not None:
-                lastseen = max(lastseen, current['lastseen'])
-            else:
-                lastseen = current['lastseen']
-            if count is not None:
-                count += current['count']
-            else:
-                count = current['count'] + 1  # at least...
-            self.update({'_id': current['_id']},
-                        firstseen=firstseen,
-                        lastseen=lastseen,
-                        count=count)
+            self.db[self.colname_passive].update(
+                {'_id': current['_id']},
+                updatespec,
+            )
         else:
-            if firstseen is not None:
-                spec.update({'firstseen': firstseen})
-            if lastseen is not None:
-                spec.update({'lastseen': lastseen})
-            if count is None:
-                spec.update({'count': 1})
-            else:
-                spec.update({'count': count})
-            if infos is not None:
-                spec.update({'infos': infos})
-            elif getinfos is not None:
-                spec.update(getinfos(spec))
-            self.insert(spec)
+            if getinfos is not None and "$setOnInsert" not in updatespec:
+                infos = getinfos(spec)
+                if infos:
+                    updatespec['$setOnInsert'] = infos
+            self.db[self.colname_passive].update(
+                spec,
+                updatespec,
+                upsert=True,
+            )
 
     def remove(self, spec):
         self.db[self.colname_passive].remove(spec)
