@@ -73,23 +73,23 @@ Now to get a shell in an IVRE client instance (for command line actions), issue:
 >        ivre/client</code>
 This gives a shell in the ''%%ivreclient%%'' container, and from there we can use IVRE's command line tools and Python API. For example, to initialize the database:
 
-<code>root@ivreclient:~$ ipinfo --init
+<code>ivre@ivreclient:~$ ipinfo --init
 This will remove any passive information in your database. Process ? [y/N] y
-root@ivreclient:~$ ipdata --init
+ivre@ivreclient:~$ ipdata --init
 This will remove any country/AS information in your database. Process ? [y/N] y
-root@ivreclient:~$ scancli --init
+ivre@ivreclient:~$ scancli --init
 This will remove any scan result in your database. Process ? [y/N] y
-root@ivreclient:~$ runscans-agentdb --init
+ivre@ivreclient:~$ runscans-agentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-root@ivreclient:~$ ipdata --download --import-all --dont-feed-ipdata-cols
+ivre@ivreclient:~$ ipdata --download --import-all --dont-feed-ipdata-cols
 [...]</code>
 The latest command will take a long time. Then we can integrate the Nmap results to the database:
 
-<code>root@ivreclient:~$ nmap2db -r -s MySource -c MyCategory /ivre-share</code>
+<code>ivre@ivreclient:~$ nmap2db -r -s MySource -c MyCategory /ivre-share</code>
 You can then exit the shell (''%%CTRL + d%%''), this will stop the container.
 
-<code>root@ivreclient:~$ exit</code>
+<code>ivre@ivreclient:~$ exit</code>
 You can start the container again later by issuing:
 
 <code>$ docker start -i ivreclient
-root@ivreclient:~$</code>
+ivre@ivreclient:~$</code>
