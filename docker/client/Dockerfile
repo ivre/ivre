@@ -34,7 +34,8 @@ RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev \
 # Create user
 RUN groupadd -g 1000 ivre && \
     useradd -g ivre -d /home/ivre -m -s /sbin/nologin -u 1000 ivre && \
-    mkdir /var/lib/ivre && chown ivre:ivre /var/lib/ivre
+    mkdir /var/lib/ivre && \
+    chown ivre:ivre /var/lib/ivre /usr/local/share/ivre/geoip
 
 USER ivre
 ENV HOME /home/ivre
