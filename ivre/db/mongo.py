@@ -986,6 +986,7 @@ have no effect if it is not expected)."""
             ]
             field = "ports.service_name"
         elif field == "probedservice":
+            flt = self.flt_and(flt, self.searchopenport())
             specialproj = {"_id": 0,
                            "ports.service_name": 1,
                            "ports.service_method": 1}
