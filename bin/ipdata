@@ -17,7 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """This tool can be used to manage IP addresses related data, such as
-AS number et country information.
+AS number and country information.
 
 """
 
@@ -33,12 +33,12 @@ if __name__ == '__main__':
     try:
         import argparse
         parser = argparse.ArgumentParser(
-            description='Access and query the IP metadata.')
+            description=__doc__)
         USING_ARGPARSE = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(
-            description='Access and query the IP metadata.')
+            description=__doc__)
         parser.parse_args_orig = parser.parse_args
 
         def my_parse_args():

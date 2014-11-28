@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+"""Update the database from output of the Bro script 'passiverecon'"""
+
 import ivre.db
 import ivre.utils
 import ivre.passive
@@ -28,14 +30,12 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 def main():
     import sys
-    description = ('Update the database from output of the Bro script '
-                   '"passiverecon"')
     try:
         import argparse
-        parser = argparse.ArgumentParser(description=description)
+        parser = argparse.ArgumentParser(description=__doc__)
     except ImportError:
         import optparse
-        parser = optparse.OptionParser(description=description)
+        parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
