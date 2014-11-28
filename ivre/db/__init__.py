@@ -677,12 +677,12 @@ class DBAgent(DB):
 
         """
         agent = self.get_agent(agentid)
-        return len([None
-                    for x in os.listdir(
-                            self.get_local_path(
-                                agent,
-                                os.path.join("remote", "cur")))
-                    if x.endswith('.xml')])
+        return sum(
+            1 for fname in os.listdir(self.get_local_path(
+                agent,
+                os.path.join("remote", "cur")))
+            if fname.endswith('.xml')
+        )
 
     def get_local_path(self, agent, dirname):
         if not dirname.endswith('/'):
