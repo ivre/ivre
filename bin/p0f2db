@@ -16,13 +16,16 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+"""Update the database from output of a p0f process"""
+
 import ivre.db
 import ivre.utils
 import ivre.passive
 
+import signal
+import functools
 import subprocess
 import os
-import signal
 
 
 def terminate(signum, stack_frame):
@@ -32,12 +35,14 @@ signal.signal(signal.SIGINT, terminate)
 signal.signal(signal.SIGTERM, terminate)
 
 
-def process_file(sensor, fname, mode='SYN'):
+def process_file(fname, sensor, bulk, mode):
     global p0fprocess
     if fname.lower().startswith('iface:'):
         fname = ['-i', fname[6:]]
     else:
         fname = ['-s', fname]
+    if mode == None:
+        mode = 'SYN'
     mode = ivre.passive.P0F_MODES[mode]
     recontype = 'P0F2-%s' % mode['name']
     p0fprocess = subprocess.Popen(
@@ -46,7 +51,14 @@ def process_file(sensor, fname, mode='SYN'):
         stdout=subprocess.PIPE,
         preexec_fn=os.setpgrp,
     )
-    ivre.db.db.passive.insert_or_update_bulk(
+    if bulk:
+        function = ivre.db.db.passive.insert_or_update_bulk
+    else:
+        function = functools.partial(
+            ivre.db.DBPassive.insert_or_update_bulk,
+            ivre.db.db.passive,
+        )
+    function(
         ivre.passive.parse_p0f_line(
             line,
             include_port=(mode['name'] == 'SYN+ACK'),
@@ -56,8 +68,33 @@ def process_file(sensor, fname, mode='SYN'):
     )
 
 if __name__ == '__main__':
-    import sys
-    if len(sys.argv) == 4:
-        process_file(sys.argv[1], sys.argv[2], mode=sys.argv[3])
-    else:
-        process_file(sys.argv[1], sys.argv[2])
+    try:
+        import argparse
+        parser = argparse.ArgumentParser(description=__doc__)
+        USING_ARGPARSE = True
+    except ImportError:
+        import optparse
+        parser = optparse.OptionParser(description=__doc__)
+        parser.parse_args_orig = parser.parse_args
+
+        def my_parse_args():
+            res = parser.parse_args_orig()
+            res[0].ensure_value('filenames', res[1])
+            return res[0]
+        parser.parse_args = my_parse_args
+        parser.add_argument = parser.add_option
+        USING_ARGPARSE = False
+    parser.add_argument('--sensor', '-s', help='Sensor name')
+    parser.add_argument('--mode', '-m', help='p0f mode',
+                        choices=ivre.passive.P0F_MODES.keys(),
+                        default="SYN")
+    parser.add_argument('--bulk', action='store_true',
+                        help='Use bulk inserts')
+    if USING_ARGPARSE:
+        parser.add_argument(
+            'filenames', nargs="+", metavar='filename',
+            help="PCAP file to read or iface:[interface name]",
+        )
+    args = parser.parse_args()
+    for filename in args.filenames:
+        process_file(filename, args.sensor, args.bulk, args.mode)
