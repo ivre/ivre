@@ -692,9 +692,10 @@ class DBAgent(DB):
     def get_remote_path(self, agent, dirname):
         if dirname and not dirname.endswith('/'):
             dirname += '/'
-        return ('' if agent['host'] is None
-                else ''"%s:" % agent['host']
-            ) + os.path.join(agent["path"]["remote"], dirname)
+        return "%s%s" % (
+            '' if agent['host'] is None else "%s:" % agent['host'],
+            os.path.join(agent["path"]["remote"], dirname)
+        )
 
     def sync_all(self, masterid):
         for agentid in self.get_agents_by_master(masterid):

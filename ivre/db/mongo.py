@@ -1076,7 +1076,7 @@ have no effect if it is not expected)."""
             }
             specialflt = [
                 {"$match": {"ports.service_product": {"$exists": True},
-                            "ports.service_version": {"$exists": True},}},
+                            "ports.service_version": {"$exists": True}}},
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
@@ -1109,7 +1109,7 @@ have no effect if it is not expected)."""
             specialflt = [
                 {"$match": {"ports.port": port,
                             "ports.service_product": {"$exists": True},
-                            "ports.service_version": {"$exists": True},}},
+                            "ports.service_version": {"$exists": True}}},
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [

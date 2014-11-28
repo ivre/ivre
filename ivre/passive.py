@@ -180,8 +180,10 @@ def _getinfos_http_client_authorization(spec):
     data = spec.get('fullvalue', spec['value']).split(None, 1)
     if data[0].strip().lower() == 'basic' and data[1:]:
         try:
-            infos['username'], infos['password'] = ''.join(
-                data[1].strip()).decode('base64').decode('latin-1').split(':', 1)
+            infos['username'], infos['password'] = ''.join(data[1].strip())\
+                                                     .decode('base64')\
+                                                     .decode('latin-1')\
+                                                     .split(':', 1)
             for field in ['username', 'password']:
                 if len(infos[field]) > utils.MAXVALLEN:
                     fullinfos[field] = infos[field]
