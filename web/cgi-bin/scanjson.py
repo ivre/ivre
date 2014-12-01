@@ -166,7 +166,7 @@ for q in query:
             ivre.utils.str2regexp(q[1]), neg=neg))
     elif nq == "country":
         flt = db.nmap.flt_and(flt, db.nmap.searchcountry(
-            ivre.utils.str2list(q[1]), neg=neg))
+            ivre.utils.str2list(q[1].upper()), neg=neg))
     elif nq == "city":
         flt = db.nmap.flt_and(flt, db.nmap.searchcity(
             ivre.utils.str2regexp(q[1]), neg=neg))
