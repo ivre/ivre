@@ -60,6 +60,7 @@ setup(
         ('share/ivre/web/static',
          ['web/static/index.html',
           'web/static/ivre.js',
+          'web/static/help.js',
           'web/static/config-sample.js',
           'web/static/ivre.css',
           'web/static/favicon-loading.gif',

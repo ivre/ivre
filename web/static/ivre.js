@@ -1256,7 +1256,7 @@ function add_param_objects(p, pp) {
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'mysql-empty-password:/account has empty password/']);
 	break;
-    // case 'x11': // TODO
+    // case 'x11srv': // TODO
     case 'x11open':
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'x11-access:X server access is granted']);
@@ -1961,6 +1961,98 @@ function compare_params(store, other, count) {
 	}
     }
     return true;
+}
+
+function common_prefix(strings) {
+    var result = "";
+    var i = 0;
+    var curchar;
+    if(strings.length === 0)
+	return result;
+    while(true) {
+	curchar = strings[0][i];
+	if(curchar === undefined) {
+	    return result;
+	}
+	for(var j = 1; j < strings.length; j++)
+	    if(curchar !== strings[j][i])
+		return result;
+	result += curchar;
+	i++;
+    }
+    return result;
+}
+
+function set_tooltip_filter(elt) {
+    var key, content;
+    if(elt.value &&
+       (elt.value.length > 1 || "!-".indexOf(elt.value[0]) === -1)) {
+	var matching_keys = Object.keys(HELP).filter(
+	    function(key) {
+		return elt.value.substr(0, key.length) === key.substr(0, elt.value.length);
+	    }
+	);
+	if(matching_keys.length == 1) {
+	    key = matching_keys[0];
+	    content = HELP[key];
+	    if(elt.getAttribute('data-title') !== content.title) {
+		set_tooltip(elt, content);
+		if(elt.value.length < key.length) {
+		    elt.value = key;
+		}
+	    }
+	    return;
+	}
+	if(matching_keys.length >= 2) {
+	    content = {
+		"title": "Possible commands",
+		"content": "<b>" + matching_keys.join("</b><br><b>") + "</b>",
+	    };
+	    if(elt.getAttribute('data-title') !== content.title ||
+	       elt.getAttribute('data-content') !== content.content) {
+		set_tooltip(elt, content);
+		key = common_prefix(matching_keys);
+		if(elt.value.length < key.length) {
+		    elt.value = key;
+		}
+	    }
+	    return;
+	}
+	if(elt.value.match(/^!?[0-9\.\/]*$/)) {
+	    if(elt.value.indexOf('/') !== -1)
+		content = HELP["net:"];
+	    else if(elt.value.indexOf('.') !== -1)
+		content = HELP["host:"];
+	    else
+		content = HELP["tcp/"];
+	    if(elt.getAttribute('data-title') !== content.title) {
+		set_tooltip(elt, content);
+	    }
+	    return;
+	}
+    }
+    if(elt.hasAttribute('data-title'))
+	remove_tooltip(elt);
+}
+
+function set_tooltip(elt, content) {
+    remove_tooltip(elt);
+    elt.setAttribute('data-title', content.title);
+    elt.setAttribute('data-content', content.content);
+    $('#' + elt.id).popover(content).popover('show');
+}
+
+function remove_tooltip(elt) {
+    elt.removeAttribute('data-title');
+    elt.removeAttribute('data-content');
+    $('#' + elt.id).popover('destroy');
+}
+
+function remove_all_tooltips(parentelt) {
+    var elements = parentelt.getElementsByTagName('input');
+    for(var i = 0; i < elements.length; i++) {
+	remove_tooltip(elements[i]);
+    }
 }
 
 function load() {

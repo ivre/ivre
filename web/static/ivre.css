@@ -160,3 +160,7 @@ form {
 [class^="icon-"], [class*=" icon-"], .flag-icon {
     vertical-align: -10%;
 }
+
+.popover {
+    max-width: 500px;
+}

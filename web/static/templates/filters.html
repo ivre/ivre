@@ -17,12 +17,20 @@
 -->
 
 <li class="nav-header"><i class="icon-filter"></i> Filter</li>
-<form class="form-inline" onsubmit="window.location.hash = Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' ');" id="filters">
+<form class="form-inline" onsubmit="remove_all_tooltips(this); window.location.hash = Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' ');" id="filters">
   <li ng-repeat="filter in filters">
     <div class="input-append">
-      <input class="input-medium" type="text"
+      <input class="input-medium"
+	     type="text"
 	     id="{{'filter' + filter.id}}"
 	     name="{{'filter' + filter.id}}"
+	     data-toggle="tooltip"
+	     data-trigger="manual"
+	     data-html="true"
+	     data-container="#navbar"
+	     oninput="set_tooltip_filter(this);"
+	     onfocus="set_tooltip_filter(this);"
+	     onblur="remove_tooltip(this);"
 	     ng-model="filter.value"
 	     placeholder="Add a criteria"/>
       <span class="add-on clickable"
@@ -36,6 +44,13 @@
 	     type="text"
 	     id="filter-last"
 	     name="filter-last"
+	     data-toggle="tooltip"
+	     data-trigger="manual"
+	     data-html="true"
+	     data-container="#navbar"
+	     oninput="set_tooltip_filter(this);"
+	     onfocus="set_tooltip_filter(this);"
+	     onblur="remove_tooltip(this);"
 	     placeholder="Add a criteria"
 	     ng-model="lastfiltervalue"/>
       <span class="add-on clickable"

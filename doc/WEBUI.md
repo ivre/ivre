@@ -136,6 +136,9 @@ single or double quotes.
     (`m`), hours (`h`), days (`d`) or years (`y`).
   - `service:[expression]`, `service:[expression]:[port number]` look
     for an expression in the name of a service.
+  - `probedservice:[expression]`,
+    `probedservice:[expression]:[port number]` look for an expression
+    in the name of a service discovered with a service probe.
   - `product:[service]:[product]`,
     `product:[service]:[product]:[port number]` look for a product.
   - `version:[service]:[product]:[version]`,
@@ -155,7 +158,9 @@ single or double quotes.
   - `nis`, `yp` look for NIS servers.
   - `mssqlemptypwd` look for MS-SQL servers with an empty password for
     the `sa` account.
-  - `x11` look for X11 servers.
+  - `mysqlemptypwd` look for MySQL servers with an empty password for
+    the `root` account.
+  - `x11srv` look for X11 servers.
   - `x11open` look for open X11 servers.
   - `anonldap` look for LDAP servers with anonymous bind working.
   - `xp445` look for Windows XP machines with TCP/445 port open.
@@ -176,7 +181,7 @@ single or double quotes.
     results.
   - `[!]tcp/[port number]`, `[!]udp/[port number]`, `[!][port number]`
     look for an open TCP or UDP port.
-  - `openport` look for hosts with at least one open port.
+  - `[!]openport` look for hosts with at least one open port.
   - `notes` search results with an associated note.
 
 ### Sort ###
