@@ -693,6 +693,8 @@ have no effect if it is not expected)."""
         }
 
     def searchfile(self, fname):
+        if type(fname) is not utils.REGEXP_T:
+            fname = re.compile(re.escape(fname))
         return self.searchscriptidout(
             {'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
                      'http-vlcstreamer-ls', 'nfs-ls', 'smb-ls']},
