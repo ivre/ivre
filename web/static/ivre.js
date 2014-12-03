@@ -1212,11 +1212,16 @@ function add_param_objects(p, pp) {
 	    add_param_object(parametersobjunalias, 'hostscript',
 			     [b, 'smb-os-discovery:/^System time: .*$/m']);
 	    break;
-	case 'fqdn':
 	case 'domain_dns':
 	    add_param_object(
 		parametersobjunalias, 'hostscript',
-		[b, 'smb-os-discovery:/^Computer name: .*$/m']
+		[b, 'smb-os-discovery:/^Domain name: .*$/m']
+	    );
+	    break;
+	case 'fqdn':
+	    add_param_object(
+		parametersobjunalias, 'hostscript',
+		[b, 'smb-os-discovery:/^FQDN: .*$/m']
 	    );
 	    break;
 	default:
@@ -2011,8 +2016,10 @@ function set_tooltip_filter(elt) {
 		"title": "Possible commands",
 		"content": matching_keys.map(
 		    function(x) {
-			return x.substr(0, key.length) + "<b>"
-			    + x.substr(key.length) + "</b>";
+			return x.substr(0, key.length)
+			    + "<b><span style=\"color: red;\">"
+			    + x.substr(key.length, 1) + "</span>"
+			    + x.substr(key.length + 1) + "</b>";
 		    }
 		).join("<br>"),
 	    };

@@ -188,12 +188,20 @@ for q in query:
         flt = db.nmap.flt_and(flt, db.nmap.searchtimerange(
             *map(float, q[1].replace('-', ',').split(',')),
             neg=neg))
-    elif q[0] in ["nfsexports", "nfs"]:
-        flt = db.nmap.flt_and(flt, db.nmap.searchnfs())
-    elif q[0] in ["ypserv", "yp", "nis"]:
-        flt = db.nmap.flt_and(flt, db.nmap.searchypserv())
-    elif q[0] == "webmin":
-        flt = db.nmap.flt_and(flt, db.nmap.searchwebmin())
+    elif nq == 'timeago':
+        if q[1] and q[1][-1].isalpha():
+            unit = {
+                's': 1,
+                'm': 60,
+                'h': 3600,
+                'd': 86400,
+                'y': 31557600,
+            }[q[1][-1]]
+            timeago = int(q[1][:-1]) * unit
+        else:
+            timeago = int(q[1])
+        flt = db.nmap.flt_and(flt, db.nmap.searchtimeago(
+            datetime.timedelta(0, timeago), neg=neg))
     elif q[0] == "service":
         if ':' in q[1]:
             port, req = q[1].split(':', 1)
@@ -286,72 +294,67 @@ for q in query:
                 db.nmap.searchhostscriptidout(
                     ivre.utils.str2regexp(v[0]),
                     ivre.utils.str2regexp(v[1])))
-    elif q[0] == "svchostname":
-        flt = db.nmap.flt_and(
-            flt,
-            db.nmap.searchsvchostname(ivre.utils.str2regexp(q[1])))
-    elif q[0] == "os":
-        flt = db.nmap.flt_and(
-            flt,
-            db.nmap.searchos(ivre.utils.str2regexp(q[1])))
+    # results of scripts or version scans
     elif q[0] == "anonftp":
         flt = db.nmap.flt_and(flt, db.nmap.searchftpanon())
-    elif q[0] == "authhttp":
-        flt = db.nmap.flt_and(flt, db.nmap.searchhttpauth())
-    elif q[0] == 'authbypassvnc':
-        flt = db.nmap.flt_and(flt, db.nmap.searchvncauthbypass())
-    elif q[0] == 'mssqlemptypwd':
-        flt = db.nmap.flt_and(flt, db.nmap.searchmssqlemptypwd())
-    elif q[0] == 'mysqlemptypwd':
-        flt = db.nmap.flt_and(flt, db.nmap.searchmysqlemptypwd())
-    elif q[0] == 'x11':
-        flt = db.nmap.flt_and(flt, db.nmap.searchx11())
-    elif q[0] == 'x11open':
-        flt = db.nmap.flt_and(flt, db.nmap.searchx11access())
-    elif q[0].startswith('smb.'):
-        flt = db.nmap.flt_and(flt, db.nmap.searchsmb(
-            **{q[0][4:]: ivre.utils.str2regexp(q[1])})
-        )
     elif q[0] == 'anonldap':
         flt = db.nmap.flt_and(flt, db.nmap.searchldapanon())
-    elif q[0] == 'xp445':
-        flt = db.nmap.flt_and(flt, db.nmap.searchxp445())
+    elif q[0] == 'authbypassvnc':
+        flt = db.nmap.flt_and(flt, db.nmap.searchvncauthbypass())
+    elif q[0] == "authhttp":
+        flt = db.nmap.flt_and(flt, db.nmap.searchhttpauth())
     elif q[0] == 'banner':
         flt = db.nmap.flt_and(
             flt,
             db.nmap.searchbanner(ivre.utils.str2regexp(q[1])))
-    elif nq == 'timeago':
-        if q[1] and q[1][-1].isalpha():
-            unit = {
-                's': 1,
-                'm': 60,
-                'h': 3600,
-                'd': 86400,
-                'y': 31557600,
-            }[q[1][-1]]
-            timeago = int(q[1][:-1]) * unit
-        else:
-            timeago = int(q[1])
-        flt = db.nmap.flt_and(flt, db.nmap.searchtimeago(
-            datetime.timedelta(0, timeago), neg=neg))
-    elif nq == 'sshkey':
-        flt = db.nmap.flt_and(flt, db.nmap.searchsshkey(q[1]))
+    elif nq == 'cookie':
+        flt = db.nmap.flt_and(flt, db.nmap.searchcookie(q[1]))
     elif nq == 'file':
         flt = db.nmap.flt_and(
             flt,
             db.nmap.searchfile(ivre.utils.str2regexp(q[1])))
-    elif nq == 'webfiles':
-        flt = db.nmap.flt_and(flt, db.nmap.searchwebfiles())
+    elif q[0] == 'geovision':
+        flt = db.nmap.flt_and(flt, db.nmap.searchgeovision())
     elif nq == 'httptitle':
         flt = db.nmap.flt_and(
             flt,
             db.nmap.searchhttptitle(ivre.utils.str2regexp(q[1])))
-    elif nq == 'owa':
+    elif q[0] == "nfs":
+        flt = db.nmap.flt_and(flt, db.nmap.searchnfs())
+    elif q[0] in ["nis", "yp"]:
+        flt = db.nmap.flt_and(flt, db.nmap.searchypserv())
+    elif q[0] == 'mssqlemptypwd':
+        flt = db.nmap.flt_and(flt, db.nmap.searchmssqlemptypwd())
+    elif q[0] == 'mysqlemptypwd':
+        flt = db.nmap.flt_and(flt, db.nmap.searchmysqlemptypwd())
+    elif q[0] == 'sshkey':
+        flt = db.nmap.flt_and(flt, db.nmap.searchsshkey(q[1]))
+    elif q[0] == 'owa':
         flt = db.nmap.flt_and(flt, db.nmap.searchowa())
-    elif nq == 'cookie':
-        flt = db.nmap.flt_and(flt, db.nmap.searchcookie(q[1]))
     elif nq == 'phpmyadmin':
         flt = db.nmap.flt_and(flt, db.nmap.searchphpmyadmin())
+    elif q[0].startswith('smb.'):
+        flt = db.nmap.flt_and(flt, db.nmap.searchsmb(
+            **{q[0][4:]: ivre.utils.str2regexp(q[1])})
+        )
+    elif nq == 'torcert':
+        flt = db.nmap.flt_and(flt, db.nmap.searchtorcert_active())
+    elif q[0] == 'webfiles':
+        flt = db.nmap.flt_and(flt, db.nmap.searchwebfiles())
+    elif q[0] == "webmin":
+        flt = db.nmap.flt_and(flt, db.nmap.searchwebmin())
+    elif q[0] == 'x11srv':
+        flt = db.nmap.flt_and(flt, db.nmap.searchx11())
+    elif q[0] == 'x11open':
+        flt = db.nmap.flt_and(flt, db.nmap.searchx11access())
+    elif q[0] == 'xp445':
+        flt = db.nmap.flt_and(flt, db.nmap.searchxp445())
+    # OS fingerprint
+    elif q[0] == "os":
+        flt = db.nmap.flt_and(
+            flt,
+            db.nmap.searchos(ivre.utils.str2regexp(q[1])))
+    # device types
     elif nq in ['devicetype', 'devtype']:
         flt = db.nmap.flt_and(
             flt,
@@ -360,10 +363,7 @@ for q in query:
         flt = db.nmap.flt_and(flt, db.nmap.searchnetdev())
     elif nq == 'phonedev':
         flt = db.nmap.flt_and(flt, db.nmap.searchphonedev())
-    elif nq == 'geovision':
-        flt = db.nmap.flt_and(flt, db.nmap.searchgeovision())
-    elif nq == 'torcert':
-        flt = db.nmap.flt_and(flt, db.nmap.searchtorcert_active())
+    # traceroute
     elif nq == 'hop':
         flt = db.nmap.flt_and(flt,
                               db.nmap.searchhop(q[1], neg=neg))
@@ -373,6 +373,7 @@ for q in query:
     elif nq == 'hopdomain':
         flt = db.nmap.flt_and(flt,
                               db.nmap.searchhopdomain(q[1], neg=neg))
+    # sort
     elif nq == 'sortby':
         if neg:
             sortby.append((q[1], -1))

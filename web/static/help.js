@@ -26,9 +26,13 @@ var HELP = {
 	"title": "<b>(!)[IP address]</b> or <b>(!)</b>host:<b>[IP address]</b>",
 	"content": "Look for results for one specific IP address.",
     },
-    "net:": {
-	"title": "<b>(!)[IP address / netmask]</b> or <b>(!)</b>net:<b>[IP address / netmask]</b>",
-	"content": "Look for results within a specific network (CIDR notation).",
+    "hostname:": {
+	"title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
+	"content": "Look for results with a matching hostname ([FQDN] can be specified as a string or a regexp).",
+    },
+    "domain:": {
+	"title": "<b>(!)</b>domain:<b>[FQDN]</b>",
+	"content": "Look for results with a hostname within a matching domain name ([FQDN] can be specified as a string or a regexp).",
     },
     "category:": {
 	"title": "<b>(!)</b>category:<b>[string or regexp]</b>",
@@ -54,6 +58,18 @@ var HELP = {
 	"title": "<b>(!)</b>source:<b>[name]</b>",
 	"content": "Look for results obtained from a specific source.",
     },
+    "net:": {
+	"title": "<b>(!)[IP address / netmask]</b> or <b>(!)</b>net:<b>[IP address / netmask]</b>",
+	"content": "Look for results within a specific network (CIDR notation).",
+    },
+    "range:": {
+	"title": "<b>(!)</b>range:<b>[IP address]-[IP address]</b>",
+	"content": "Look for results within a specific IP range.",
+    },
+    "timerange:": {
+	"title": "<b>(!)</b>timerange:<b>[timestamp]-[timestamp]</b>",
+	"content": "Look for results within a specific time range.",
+    },
     "timeago:": {
 	"title": "<b>(!)</b>timeago:<b>[time]</b>",
 	"content": "Look for results more recent than the specified value. Time can be specified in seconds (the default), minutes (add <b>m</b>), hours (add <b>h</b>), days (add <b>d</b>), or years (add <b>y</b>).",
@@ -70,33 +86,54 @@ var HELP = {
 	"title": "product:<b>[service name]:[product name](:[port number])</b>",
 	"content": "Look for a particular service and product, optionally on the specified port. [service name] and [product name] can be either strings or regular expressions.",
     },
-    "product:": {
-	"title": "product:<b>[service name]:[product name]:[version](:[port number])</b>",
+    "version:": {
+	"title": "version:<b>[service name]:[product name]:[version](:[port number])</b>",
 	"content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
     },
-    "banner:": {
-	"title": "banner:<b>[string or regexp]</b>",
-	"content": "Look for content in service banners (as discovered by Nmap script &quot;banner&quot;).",
-    },
     "script:": {
-	"title": "script:<b>[script id](:[script output])</b>",
+	"title": "script:<b>[script id](:[script output])</b> or portscript:<b>[script id](:[script output])</b>",
 	"content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
     },
     "hostscript:": {
 	"title": "hostscript:<b>[script id](:[script output])</b>",
 	"content": "Look for a host script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
     },
-    "os:": {
-	"title": "os:<b>[string or regexp]</b>",
-	"content": "Look for a specific OS, according to Nmap's fingerprint.",
-    },
+    /* results of scripts or version scans */
     "anonftp": {
 	"title": "anonftp",
 	"content": "Look for FTP servers allowing anonymous access.",
     },
+    "anonldap": {
+	"title": "anonldap",
+	"content": "Look for LDAP servers with anonymous bind working.",
+    },
+    "authbypassvnc": {
+	"title": "authbypassvnc",
+	"content": "Look for VNC servers with authentication that can be bypassed.",
+    },
     "authhttp": {
 	"title": "authhttp",
 	"content": "Look for HTTP servers requiring authentication with default credentials working (the Nmap script seems to get a lot of false positives).",
+    },
+    "banner:": {
+	"title": "banner:<b>[string or regexp]</b>",
+	"content": "Look for content in service banners (as discovered by Nmap script &quot;banner&quot;).",
+    },
+    "cookie:": {
+	"title": "cookie:<b>[name]</b>",
+	"content": "Look for HTTP servers setting a specific cookie.",
+    },
+    "file:": {
+	"title": "file:<b>[pattern or regexp]</b>",
+	"content": "Look for a pattern in the shared files (FTP, SMB, ...).",
+    },
+    "geovision": {
+	"title": "geovision",
+	"content": "Look for Geovision webcams (see also <code>devtype:webcam</code>).",
+    },
+    "httptitle:": {
+	"title": "httptitle:<b>[string or regexp]</b>",
+	"content": "Look for results with a specific title on the root page of an HTTP server.",
     },
     "nfs": {
 	"title": "nfs",
@@ -114,34 +151,6 @@ var HELP = {
 	"title": "mssqlemptypwd",
 	"content": "Look for MySQL servers with an empty password for the <code>root</code> account.",
     },
-    "x11srv": {
-	"title": "x11",
-	"content": "Look for X11 servers. See also <code>x11open</code>.",
-    },
-    "x11open": {
-	"title": "x11open",
-	"content": "Look for open X11 servers.",
-    },
-    "anonldap": {
-	"title": "anonldap",
-	"content": "Look for LDAP servers with anonymous bind working.",
-    },
-    "xp445": {
-	"title": "xp445",
-	"content": "Look for Windows XP machines with TCP/445 port open.",
-    },
-    "sshkey:": {
-	"title": "sshkey:<b>[fingerprint or base64]</b>",
-	"content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
-    },
-    "file:": {
-	"title": "file:<b>[pattern or regexp]</b>",
-	"content": "Look for a pattern in the shared files (FTP, SMB, ...).",
-    },
-    "webfiles": {
-	"title": "webfiles",
-	"content": "Look for &quot;typical&quot; Web files. See also <code>file:</code>.",
-    },
     "owa": {
 	"title": "owa",
 	"content": "Look for OWA (Outlook Web App) servers.",
@@ -150,6 +159,72 @@ var HELP = {
 	"title": "phpmyadmin",
 	"content": "Look for PHPMyAdmin servers.",
     },
+    "smb.dnsdomain:": {
+	"title": "smb.dnsdomain",
+	"content": "Search for results with SMB service in a specific DNS domain.",
+    },
+    "smb.domain:": {
+	"title": "smb.domain",
+	"content": "Search for results with SMB service in a specific NetBIOS domain.",
+    },
+    "smb.fqdn:": {
+	"title": "smb.fqdn",
+	"content": "Search for results with SMB service in a specific host name (FQDN).",
+    },
+    "smb.forest:": {
+	"title": "smb.dnsdomain",
+	"content": "Search for results with SMB service in a specific forest (DNS name).",
+    },
+    "smb.lanmanager:": {
+	"title": "smb.lanmanager",
+	"content": "Search for results with SMB service with a specific LAN Manager.",
+    },
+    "smb.os:": {
+	"title": "smb.os",
+	"content": "Search for results with SMB service with a specific OS.",
+    },
+    "smb.server:": {
+	"title": "smb.server",
+	"content": "Search for results with SMB service in a specific host name (NetBIOS).",
+    },
+    "smb.workgroup:": {
+	"title": "smb.workgroup",
+	"content": "Search for results with SMB service in a specific workgroup (NetBIOS).",
+    },
+    "sshkey:": {
+	"title": "sshkey:<b>[fingerprint or base64]</b>",
+	"content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
+    },
+    "torcert": {
+	"title": "torcert",
+	"content": "Look for Tor certificates.",
+    },
+    "webfiles": {
+	"title": "webfiles",
+	"content": "Look for &quot;typical&quot; Web files. See also <code>file:</code>.",
+    },
+    "webmin": {
+	"title": "webmin",
+	"content": "Look for Webmin servers.",
+    },
+    "x11open": {
+	"title": "x11open",
+	"content": "Look for open X11 servers.",
+    },
+    "x11srv": {
+	"title": "x11",
+	"content": "Look for X11 servers. See also <code>x11open</code>.",
+    },
+    "xp445": {
+	"title": "xp445",
+	"content": "Look for Windows XP machines with TCP/445 port open.",
+    },
+    /* OS fingerprint */
+    "os:": {
+	"title": "os:<b>[string or regexp]</b>",
+	"content": "Look for a specific OS, according to Nmap's fingerprint.",
+    },
+    /* device types */
     "devtype:": {
 	"title": "<b>devtype:</b> or <b>devicetype:[string or regexp]</b>",
 	"content": "Look for a specific device type. See also <code>netdev</code>, <code>phonedev</code> and <code>geovision</code>.",
@@ -162,21 +237,18 @@ var HELP = {
 	"title": "phonedev",
 	"content": "Look for phone devices (e.g., PBX, VoIP devices, phones, etc.).",
     },
-    "geovision": {
-	"title": "geovision",
-	"content": "Look for Geovision webcams (see also <code>devtype:webcam</code>).",
-    },
-    "torcert": {
-	"title": "torcert",
-	"content": "Look for Tor certificates.",
-    },
-    "torcert": {
-	"title": "torcert",
-	"content": "Look for Tor certificates.",
-    },
+    /* traceroute */
     "hop:": {
 	"title": "<b>(!)</b>hop:<b>[IP address]</b>",
 	"content": "Look for results with the specified IP address in the Traceroute result.",
+    },
+    "hopname:": {
+	"title": "<b>(!)</b>hopname:<b>[FQDN]</b>",
+	"content": "Look for results with a matching hostname in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
+    },
+    "hopdomain:": {
+	"title": "<b>(!)</b>hopdomain:<b>[FQDN]</b>",
+	"content": "Look for results with a hostname within a matching domain name in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
     },
     "tcp/": {
 	"title": "<b>(!)[port number]</b> or <b>(!)</b>tcp/<b>[port number]</b>",
@@ -219,6 +291,7 @@ var HELP = {
 };
 
 /* aliases */
+HELP['portscript'] = HELP['script'];
 HELP['yp'] = HELP['nis'];
 HELP['devicetype:'] = HELP['devtype:'];
 HELP['networkdevice'] = HELP['netdev'];
