@@ -1989,7 +1989,9 @@ function set_tooltip_filter(elt) {
        (elt.value.length > 1 || "!-".indexOf(elt.value[0]) === -1)) {
 	var matching_keys = Object.keys(HELP).filter(
 	    function(key) {
-		return elt.value.substr(0, key.length) === key.substr(0, elt.value.length);
+		return (':/'.indexOf(key.slice(-1)) === -1 ?
+			elt.value === key.substr(0, elt.value.length) :
+			elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
 	    }
 	);
 	if(matching_keys.length == 1) {
@@ -2004,14 +2006,19 @@ function set_tooltip_filter(elt) {
 	    return;
 	}
 	if(matching_keys.length >= 2) {
+	    key = common_prefix(matching_keys);
 	    content = {
 		"title": "Possible commands",
-		"content": "<b>" + matching_keys.join("</b><br><b>") + "</b>",
+		"content": matching_keys.map(
+		    function(x) {
+			return x.substr(0, key.length) + "<b>"
+			    + x.substr(key.length) + "</b>";
+		    }
+		).join("<br>"),
 	    };
 	    if(elt.getAttribute('data-title') !== content.title ||
 	       elt.getAttribute('data-content') !== content.content) {
 		set_tooltip(elt, content);
-		key = common_prefix(matching_keys);
 		if(elt.value.length < key.length) {
 		    elt.value = key;
 		}
