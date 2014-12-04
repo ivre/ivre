@@ -291,7 +291,7 @@ var HELP = {
 };
 
 /* aliases */
-HELP['portscript'] = HELP['script'];
+HELP['portscript:'] = HELP['script:'];
 HELP['yp'] = HELP['nis'];
 HELP['devicetype:'] = HELP['devtype:'];
 HELP['networkdevice'] = HELP['netdev'];
