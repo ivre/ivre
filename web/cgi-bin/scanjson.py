@@ -153,6 +153,12 @@ for q in query:
         archive = not neg
     elif nq == "host":
         flt = db.nmap.flt_and(flt, db.nmap.searchhost(q[1], neg=neg))
+    elif nq == "net":
+        flt = db.nmap.flt_and(flt, db.nmap.searchnet(q[1], neg=neg))
+    elif nq == "range":
+        flt = db.nmap.flt_and(flt, db.nmap.searchrange(
+            *q[1].replace('-', ',').split(','),
+            neg=neg))
     elif nq == "hostname":
         flt = db.nmap.flt_and(
             flt, db.nmap.searchhostname(ivre.utils.str2regexp(q[1]),
@@ -178,12 +184,6 @@ for q in query:
             ivre.utils.str2regexp(q[1]), neg=neg))
     elif nq == "source":
         flt = db.nmap.flt_and(flt, db.nmap.searchsource(q[1], neg=neg))
-    elif nq == "net":
-        flt = db.nmap.flt_and(flt, db.nmap.searchnet(q[1], neg=neg))
-    elif nq == "range":
-        flt = db.nmap.flt_and(flt, db.nmap.searchrange(
-            *q[1].replace('-', ',').split(','),
-            neg=neg))
     elif nq == "timerange":
         flt = db.nmap.flt_and(flt, db.nmap.searchtimerange(
             *map(float, q[1].replace('-', ',').split(',')),

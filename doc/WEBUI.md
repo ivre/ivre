@@ -123,14 +123,21 @@ single or double quotes.
   - `[!]host:[IP address]` filter a specific IP address. Using the IP
     address directly (without `host:`) is equivalent.
   - `[!]net:[IP address/netmask]` filter a specific network (CIDR
-    notation). Using the CIDR notation directly (without net:`) is
+    notation). Using the CIDR notation directly (without `net:`) is
     equivalent.
+  - `[!]range:[IP address]-[IP address]` filter a specific IP address
+    range
+  - `[!]hostname:[FQDN]` look for results with a matching hostname.
+  - `[!]domain:[FQDN]` look for results with a hostname within a
+    matching domain name.
   - `[!]category:` filter a category.
   - `[!]country:[two letters code]` filter a country.
   - `[!]city:` filter a city (use with `country:`).
   - `[!]asnum:` filter by AS number (lists allowed).
   - `[!]asname:` filter by AS name (regular expressions allowed).
   - `[!]source:` filter a source (specify the source name).
+  - `[!]timerange:[timestamp]-[timestamp]` filter results within a
+    specific time range.
   - `[!]timeago:` filter recent enough results; the value can be
     specified in seconds or with the appropriate suffix in minutes
     (`m`), hours (`h`), days (`d`) or years (`y`).
@@ -144,43 +151,66 @@ single or double quotes.
   - `version:[service]:[product]:[version]`,
     `product:[service]:[product]:[version]:[port number]` look for a
     specific version of a product.
-  - `banner:` look for a specific banner of a service.
   - `script:[scriptid]`, `script:[scriptid]:[output]` look for a
-    specific (port) script.
+    specific (port) script (using `portscript:` is equivalent).
   - `hostscript:[scriptid]`, `hostscript:[scriptid]:[output]` look for
     a specific host script.
-  - `os:` look for a specific value in the OS discovery results.
   - `anonftp` filter results with anonymous FTP allowed.
+  - `anonldap` look for LDAP servers with anonymous bind working.
+  - `authbypassvnc` look for VNC servers with authentication that can
+    be bypassed.
   - `authhttp` look for HTTP servers with authentication and a default
     (e.g., `admin`/`admin`) login/password working. The Nmap script
     seems to get a lot a false positives.
+  - `banner:` look for a specific banner of a service.
+  - `cookie:` look for HTTP servers setting a specific cookie.
+  - `file:` look for a pattern in the shared files (FTP, SMB, ...).
+  - `geovision` look for GeoVision web-cams.
+  - `httptitle:` look for a specific HTML title value of the homepage
+    of a web site.
   - `nfs` look for NFS servers.
   - `nis`, `yp` look for NIS servers.
   - `mssqlemptypwd` look for MS-SQL servers with an empty password for
     the `sa` account.
   - `mysqlemptypwd` look for MySQL servers with an empty password for
     the `root` account.
-  - `x11srv` look for X11 servers.
-  - `x11open` look for open X11 servers.
-  - `anonldap` look for LDAP servers with anonymous bind working.
-  - `xp445` look for Windows XP machines with TCP/445 port open.
-  - `sshkey:` look for a particular SSH key.
-  - `file:` look for a pattern in the shared files (FTP, SMB, ...).
-  - `webfiles` look for "typical" web files in the shared folders.
-  - `httptitle:` look for a specific HTML title value of the homepage
-    of a web site.
   - `owa` look for OWA (Outlook Web App) servers.
   - `phpmyadmin` look for phpMyAdmin servers.
+  - `smb.dnsdomain:[FQDN]` search results with SMB service in a
+    specific DNS domain.
+  - `smb.domain:[NetBIOS]` search results with SMB service in a
+    specific NetBIOS domain.
+  - `smb.fqdn:[NetBIOS]` search results with SMB service in a specific
+    host name (FQDN).
+  - `smb.forest:[FQDN]` search results with SMB service in a specific
+    forest (DNS name).
+  - `smb.lanmanager:[LAN Manager]` search results with SMB service with a specific LAN Manager.
+  - `smb.os:[OS]` search results with SMB service with a specific OS.
+  - `smb.server:[NetBIOS]` search results with SMB service in a
+    specific host name (NetBIOS).
+  - `smb.workgroup:[NetBIOS]` search results with SMB service in a
+    specific workgroup (NetBIOS).
+  - `sshkey:` look for a particular SSH key.
+  - `torcert` look for Tor certificates.
+  - `webfiles` look for "typical" web files in the shared folders.
+  - `webmin` look for Webmin servers.
+  - `x11open` look for open X11 servers.
+  - `x11srv` look for X11 servers.
+  - `xp445` look for Windows XP machines with TCP/445 port open.
+  - `os:` look for a specific value in the OS discovery results.
   - `devtype:`, `devicetype:` look for a type of devices.
   - `netdev`, `networkdevice` look for network devices (firewalls,
     routers, ...).
   - `phonedev` look for telephony devices.
-  - `geovision` look for GeoVision web-cams.
-  - `torcert` look for Tor certificates.
   - `[!]hop:` look for a particular IP address in the traceroute
     results.
-  - `[!]tcp/[port number]`, `[!]udp/[port number]`, `[!][port number]`
-    look for an open TCP or UDP port.
+  - `[!]hopname:` look for a matching hostname in the traceroute
+    results.
+  - `[!]hopdomain:` look for a hostname within a matching domain name
+    in the traceroute results.
+  - `[!]tcp/[port number]`, `[!]udp/[port number]`, look for an open
+    TCP or UDP port (using `[!][port number]` directly is equivalent
+    to `[!]tcp/[port number]`).
   - `[!]openport` look for hosts with at least one open port.
   - `notes` search results with an associated note.
 

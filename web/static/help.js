@@ -26,6 +26,14 @@ var HELP = {
 	"title": "<b>(!)[IP address]</b> or <b>(!)</b>host:<b>[IP address]</b>",
 	"content": "Look for results for one specific IP address.",
     },
+    "net:": {
+	"title": "<b>(!)[IP address / netmask]</b> or <b>(!)</b>net:<b>[IP address / netmask]</b>",
+	"content": "Look for results within a specific network (CIDR notation).",
+    },
+    "range:": {
+	"title": "<b>(!)</b>range:<b>[IP address]-[IP address]</b>",
+	"content": "Look for results within a specific IP range.",
+    },
     "hostname:": {
 	"title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
 	"content": "Look for results with a matching hostname ([FQDN] can be specified as a string or a regexp).",
@@ -57,14 +65,6 @@ var HELP = {
     "source:": {
 	"title": "<b>(!)</b>source:<b>[name]</b>",
 	"content": "Look for results obtained from a specific source.",
-    },
-    "net:": {
-	"title": "<b>(!)[IP address / netmask]</b> or <b>(!)</b>net:<b>[IP address / netmask]</b>",
-	"content": "Look for results within a specific network (CIDR notation).",
-    },
-    "range:": {
-	"title": "<b>(!)</b>range:<b>[IP address]-[IP address]</b>",
-	"content": "Look for results within a specific IP range.",
     },
     "timerange:": {
 	"title": "<b>(!)</b>timerange:<b>[timestamp]-[timestamp]</b>",
@@ -160,36 +160,36 @@ var HELP = {
 	"content": "Look for PHPMyAdmin servers.",
     },
     "smb.dnsdomain:": {
-	"title": "smb.dnsdomain",
-	"content": "Search for results with SMB service in a specific DNS domain.",
+	"title": "smb.dnsdomain:[FQDN]",
+	"content": "Search results with SMB service in a specific DNS domain.",
     },
     "smb.domain:": {
-	"title": "smb.domain",
-	"content": "Search for results with SMB service in a specific NetBIOS domain.",
+	"title": "smb.domain:[NetBIOS]",
+	"content": "Search results with SMB service in a specific NetBIOS domain.",
     },
     "smb.fqdn:": {
-	"title": "smb.fqdn",
-	"content": "Search for results with SMB service in a specific host name (FQDN).",
+	"title": "smb.fqdn:[NetBIOS]",
+	"content": "Search results with SMB service in a specific host name (FQDN).",
     },
     "smb.forest:": {
-	"title": "smb.dnsdomain",
-	"content": "Search for results with SMB service in a specific forest (DNS name).",
+	"title": "smb.forest:[FQDN]",
+	"content": "Search results with SMB service in a specific forest (DNS name).",
     },
     "smb.lanmanager:": {
-	"title": "smb.lanmanager",
-	"content": "Search for results with SMB service with a specific LAN Manager.",
+	"title": "smb.lanmanager:[LAN Manager]",
+	"content": "Search results with SMB service with a specific LAN Manager.",
     },
     "smb.os:": {
-	"title": "smb.os",
-	"content": "Search for results with SMB service with a specific OS.",
+	"title": "smb.os:[OS]",
+	"content": "Search results with SMB service with a specific OS.",
     },
     "smb.server:": {
-	"title": "smb.server",
-	"content": "Search for results with SMB service in a specific host name (NetBIOS).",
+	"title": "smb.server:[NetBIOS]",
+	"content": "Search results with SMB service in a specific host name (NetBIOS).",
     },
     "smb.workgroup:": {
-	"title": "smb.workgroup",
-	"content": "Search for results with SMB service in a specific workgroup (NetBIOS).",
+	"title": "smb.workgroup:[NetBIOS]",
+	"content": "Search results with SMB service in a specific workgroup (NetBIOS).",
     },
     "sshkey:": {
 	"title": "sshkey:<b>[fingerprint or base64]</b>",
