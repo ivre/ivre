@@ -450,7 +450,7 @@ function build_chart_timeline(chart, ips) {
 	.range([0, w]),
     y = d3.scale.linear()
 	.domain(d3.extent(ips, function(i){return i[1];}))
-	.range([0, h]),
+	.range([h, 0]),
     colscale = d3.scale.log()
 	.domain(d3.extent(ips, function(i){return i[2] + 1;}))
 	.range([0, 1]);
@@ -480,7 +480,7 @@ function build_chart_timeline(chart, ips) {
 	.attr("height", h+50)
 	.append("svg:g")
 	.attr("transform", "translate(70, 10)");
-    
+
     var plane = vis.append("g");
 
     plane.selectAll("g.dot")
@@ -577,6 +577,140 @@ function build_chart_timeline(chart, ips) {
     }
 
     add_download_button(document.getElementById(chart), "Timeline");
+}
+
+function build_chart_ports(chart, ips) {
+    var w = 450,
+    h = 450,
+    xmin = d3.min(ips, function(i){return i[0];})
+    xmax = d3.max(ips, function(i){return i[0];})
+    ymin = d3.min(ips, function(i){return i[1];})
+    ymax = d3.max(ips, function(i){return i[1];})
+    x = d3.scale.linear()
+	.domain(d3.extent(ips, function(i){return i[0];}))
+	.range([0, w]),
+    y = d3.scale.log()
+	.domain([1, 65535])
+	.range([h, 0]),
+    colors = {"open": "green", "closed": "red", "filtered": "orange"},
+    ips_ports = ips.map(function(x) {
+	return x[1].map(function(t) {
+	    return [x[0], t[0], t[1]];
+	})
+    }).reduce(function(x, y) {
+	return x.concat(y);
+    }, []);
+
+    document.getElementById("chartstitle").innerHTML = "Ports status";
+
+    var vis = d3.select("#"+chart)
+	.append("svg:svg")
+	.attr("width", w+100)
+	.attr("height", h+60)
+	.append("svg:g")
+	.attr("transform", "translate(70, 10)");
+
+    var plane = vis.append("g");
+
+    plane.selectAll("g.dot")
+	.data(ips_ports)
+	.enter().append("svg:circle")
+	.attr("class", "dot")
+	.attr("r", 1)
+	.attr("cx", function(d, i) {return x(d[0]);})
+	.attr("cy", function(d, i) {return y(d[1]);})
+        .attr("fill-opacity", 1)
+	.attr("fill", function(d, i) {return colors[d[2]];});
+
+    var xaxis = [];
+    var xstep = Math.max((xmax - xmin) / 10 / 16777216, 1) * 16777216;
+    for(var i=xmin; i <= (xmax+1); i += xstep) {
+	xaxis.push(i);
+    }
+
+    var rulesx = vis.selectAll("g.rulex")
+	.data(xaxis)
+	.enter().append("svg:g")
+	.attr("class", "rule")
+	.attr("transform", function(d) {
+	    return "translate(" + x(d) + ", 0)";
+	});
+
+    rulesx.append("svg:line")
+        .attr("y1", h)
+        .attr("y2", h + 10)
+        .attr("x1", 0)
+        .attr("x2", 0)
+        .attr("stroke", "black");
+
+    rulesx.append("svg:text")
+	.attr("y", h + 15)
+	.attr("x", 0)
+	.attr("dy", ".71em")
+	.attr("text-anchor", "middle")
+	.attr("dominant-baseline", "middle")
+	.attr("transform", "rotate(-45, 5, " + (h + 25) + ")")
+	.text(function(d, i){
+	    return Math.floor(d/16777216) +'.'+(Math.floor(d/65536)%256);
+	});
+
+    var yaxis = [];
+    var ystep = Math.max(h / 10);
+    for(var i=1; i <= h; i += ystep) {
+	yaxis.push(i);
+    }
+
+    var rulesy = vis.selectAll("g.ruley")
+	.data(yaxis)
+	.enter().append("svg:g")
+	.attr("class", "rule")
+	.attr("transform", function(d) {
+	    return "translate(0, " + d + ")";
+	});
+
+    rulesy.append("svg:line")
+	.attr("y1", 0)
+	.attr("y2", 0)
+	.attr("x1", -10)
+	.attr("x2", 0)
+	.attr("stroke", "black");
+
+    rulesy.append("svg:text")
+	.attr("y", 0)
+	.attr("x", -15)
+	.attr("dy", ".5ex")
+	.attr("text-anchor", "end")
+	.text(function(d, i){
+	    return Math.floor(y.invert(d));
+	});
+
+    var brush = d3.svg.brush()
+	.x(x)
+	.on("brushend", brushended);
+
+    var gbrush = plane.append("g")
+	.attr("class", "brush")
+	.call(brush)
+	.call(brush.event);
+
+    gbrush.selectAll("rect")
+	.attr("height", h);
+
+    function brushended() {
+	if(!d3.event.sourceEvent) return; // only transition after input
+	var extent = brush.extent().map(function(val) {
+	    return Math.floor(val / 16777216) + '.'
+		+ Math.floor((val / 65536) % 256) + '.'
+		+ Math.floor((val / 256) % 256) + '.'
+		+ Math.floor(val % 256);
+	});
+	setparam("range", extent[0] + '-' + extent[1]);
+	d3.select(this).transition()
+	    .call(brush.extent(extent))
+	    .call(brush.event);
+    }
+
+    add_download_button(document.getElementById(chart), "IPsPorts");
 }
 
 function build_chart(chart, field, dataset) {
@@ -1559,6 +1693,26 @@ ivreWebUi
 		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&timeline=1&ipsasnumbers=1&q=' + encodeURIComponent(query);
 		if(modulo !== undefined)
 		    s.src += '&modulo=' + modulo;
+		c1.parentNode.appendChild(s);
+	    }
+	    else {
+		hidecharts();
+	    }
+	};
+	$scope.build_ip_ports = function() {
+	    var totalnbrres = $scope.totalnbrres;
+	    if(totalnbrres === undefined)
+		return;
+	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+		hideall();
+		var c1 = document.getElementById('chart1');
+		c1.innerHTML = "";
+		var s = document.getElementById('chart1script');
+		if(s) c1.parentNode.removeChild(s);
+		document.getElementById('charts').style.display = 'inline';
+		s = document.createElement('script');
+		s.id = 'chart1script';
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&ipsports=1&ipsasnumbers=1&q=' + encodeURIComponent(query);
 		c1.parentNode.appendChild(s);
 	    }
 	    else {

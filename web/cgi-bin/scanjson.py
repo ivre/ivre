@@ -101,6 +101,7 @@ countfieldlimit = None
 countfieldskip = None
 countnbr = 10
 onlyips = False
+ipsports = False
 timeline = False
 countopenports = False
 ipsasnumbers = False
@@ -121,6 +122,8 @@ for p in params:
         countnbr = int(params[p])
     elif p == "onlyips":
         onlyips = True
+    elif p == "ipsports":
+        ipsports = True
     elif p == "timeline":
         timeline = True
     elif p == "countopenports":
@@ -459,15 +462,17 @@ if countfield is not None:
         sys.stdout.write("%s;\n" % json.dumps(series))
     exit(0)
 
-if onlyips or timeline or coordinates or countopenports:
+if onlyips or ipsports or timeline or coordinates or countopenports:
     preamble = "[\n"
     postamble = "]\n"
-    r2count = lambda r: len(
-        [p for p in r['ports'] if p.get('state_state') == 'open']
-    ) if 'ports' in r else 0
+    r2count = lambda r: sum(
+        1 for p in r.get('ports', []) if p.get('state_state') == 'open'
+    )
     if timeline:
-        result = db.nmap.get(flt, archive=archive,
-                             fields=['addr', 'starttime', 'ports'])
+        result = db.nmap.get(
+            flt, archive=archive,
+            fields=['addr', 'starttime', 'ports.state_state']
+        )
         count = result.count()
         if modulo is None:
             r2time = lambda r: int(r['starttime'].strftime('%s'))
@@ -493,13 +498,30 @@ if onlyips or timeline or coordinates or countopenports:
         }
     elif countopenports:
         result = db.nmap.get(flt, archive=archive,
-                             fields=['addr', 'ports'])
+                             fields=['addr', 'ports.state_state'])
         count = result.count()
         if ipsasnumbers:
             r2res = lambda r: [r['addr'], r2count(r)]
         else:
             r2res = lambda r: [ivre.utils.int2ip(r['addr']), r2count(r)]
-    else:
+    elif ipsports:
+        result = db.nmap.get(
+            flt, archive=archive,
+            fields=['addr', 'ports.port', 'ports.state_state']
+        )
+        count = sum(len(host.get('ports', [])) for host in result)
+        result.rewind()
+        if ipsasnumbers:
+            r2res = lambda r: [
+                r['addr'],
+                [[p['port'], p['state_state']] for p in r.get('ports', [])]
+            ]
+        else:
+            r2res = lambda r: [
+                ivre.utils.int2ip(r['addr']),
+                [[p['port'], p['state_state']] for p in r.get('ports', [])]
+            ]
+    elif onlyips:
         result = db.nmap.get(flt, archive=archive,
                              fields=['addr'])
         count = result.count()

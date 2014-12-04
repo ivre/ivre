@@ -86,6 +86,14 @@
 <li>
   <div style="margin-top: 10px;" class="btn-group btn-group-vertical">
     <button class="btn btn-with-input-medium"
+	    ng-click="build_ip_ports()"
+	    ng-class="{disabled: totalnbrres == undefined}"
+	    >IPs & Ports</button>
+  </div>
+</li>
+<li>
+  <div style="margin-top: 10px;" class="btn-group btn-group-vertical">
+    <button class="btn btn-with-input-medium"
 	    ng-click="build_ip_map()"
 	    >Map</button>
   </div>
