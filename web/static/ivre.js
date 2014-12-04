@@ -616,7 +616,7 @@ function build_chart_ports(chart, ips) {
 	.data(ips_ports)
 	.enter().append("svg:circle")
 	.attr("class", "dot")
-	.attr("r", 1)
+	.attr("r", 1.5)
 	.attr("cx", function(d, i) {return x(d[0]);})
 	.attr("cy", function(d, i) {return y(d[1]);})
         .attr("fill-opacity", 1)
