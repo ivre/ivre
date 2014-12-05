@@ -81,8 +81,11 @@ netaddr = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+'
 params = []
 query = []
 try:
-    params = dict([[x.split('=', 1)[0], urllib.unquote(x.split('=', 1)[1])]
-                  for x in os.getenv('QUERY_STRING').split('&')])
+    params = dict(
+        [x.split('=', 1)[0], urllib.unquote(x.split('=', 1)[1])]
+        if '=' in x else [x, None]
+        for x in os.getenv('QUERY_STRING').split('&')
+    )
     qu = params.get('q', '')
     qu = [x.split(':', 1) for x in shlex.split(qu)]
     for q in qu:
