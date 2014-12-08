@@ -29,8 +29,7 @@ RUN tar --transform='s#^dokuwiki-\([^/]*\)#var/www/dokuwiki#' -zxf ./dokuwiki-st
 # IVRE-specific
 RUN apt-get -qy install patch && \
     patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/dokuwiki/backlinks.patch && \
-    apt-get -qy --purge remove patch && \
-    apt-get -qy --purge autoremove
+    apt-get -qy --purge autoremove patch
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc
 RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png
 ADD ivre-scanjsonconfig.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py

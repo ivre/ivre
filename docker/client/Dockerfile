@@ -27,9 +27,8 @@ RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev \
     cd tmp/ && tar zxf ../bro-2.3.1.tar.gz && \
     cd bro-2.3.1 && ./configure && make -j 4 && make install && \
     cd / && rm -rf tmp/bro-2.3.1 bro-2.3.1.tar.gz && \
-    apt-get -qy --purge remove build-essential cmake libssl-dev libpcap-dev \
-                        flex bison libpython2.7-dev swig && \
-    apt-get -qy --purge autoremove
+    apt-get -qy --purge autoremove build-essential cmake libssl-dev \
+                        libpcap-dev flex bison libpython2.7-dev swig
 
 # Create user
 RUN groupadd -g 1000 ivre && \
