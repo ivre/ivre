@@ -2,7 +2,7 @@ This file is part of IVRE.
 
 Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
-# What is docker? #
+# What is Docker? #
 
 Docker is an open-source platform that automates the deployment of
 applications inside containers. See the [official
@@ -11,19 +11,63 @@ website](http://www.docker.com/).
 This document describes the (easy) installation of [IVRE](README.md)
 using Docker containers, including the database and web servers.
 
-# Getting the images #
+# Using Vagrant #
+
+If you already manage your Docker containers using
+[Vagrant](https://www.vagrantup.com/), or if you want to git it a try,
+you can use it to get the images, prepare and run the containers.
+
+You'll need a recent version of Vagrant (>= 1.6), since Docker
+providers do not exist in prior versions.
+
+To use the `Vagrantfile` located in the `docker/` directory of the
+source tree, run (from the folder where you want to store your data):
+
+    $ mkdir -m 1777 var_lib_mongodb var_log_mongodb ivre-share
+	$ cp [path to ivre source]/docker/Vagrantfile
+	$ vagrant up --no-parallel
+
+The `--no-parallel` option prevents Vagrant from starting the
+`ivreweb` container before the `ivredb` is ready.
+
+The DB and Web servers should now be running, with the TCP port 80 of
+your host redirected to the `ivreweb` container.
+
+To get a shell with the CLI tools and Python API, first start the
+container:
+
+    $ vagrant up --provider=docker ivreclient
+
+The reason why `--provider=docker` is necessary is unclear to me, so
+if you have an idea, please tell me. Then attach the running
+container:
+
+    $ docker attach ivreclient
+    ivre@fd983ba5e6fd:~$
+
+You can detach the process (without stopping it) by using `C-p C-q`
+and attach it again latter with the same `docker attach ivreclient`
+command.
+
+To initialize the database and start playing with IVRE, you need to
+enter some commands described in the
+[related section below](#a-command-line-client).
+
+# Without Vagrant #
+
+## Getting the images ##
 
 You can either get the images from a repository on the Internet or
 build them. I'll consider you are on a computer with Docker installed
 and an access to the Internet.
 
-## From the Internet ##
+### From the Internet ###
 
     $ for img in agent base client db web ; do
     > docker pull "ivre/$img"
     > done
 
-## Build the images ##
+### Build the images ###
 
 You can also build the images from the provided `Dockerfile`s. For
 that, from the `docker/` directory, run:
@@ -44,16 +88,15 @@ run:
     $ cd docker
     $ docker build -t ivre/base base-local
 
-# Running #
+## Running ##
 
-## The database server ##
+### The database server ###
 
 To create the volume to store MongoDB data, run (`chmod`-ing to `1777`
 is a bit overkill, `chown`-ing it to the UID of the MongoDB user in
 the container would do):
 
-    $ mkdir var_lib_mongodb var_log_mongodb
-    $ chmod 1777 var_lib_mongodb var_log_mongodb
+    $ mkdir -m 1777 var_lib_mongodb var_log_mongodb
 
 To run an instance of the MongoDB server ready for IVRE, issue (this
 will run the instance and give it the name `ivredb`; we will use this
@@ -67,7 +110,7 @@ name later):
 You can add the option `-p 27017:27017` to have the MongoDB service
 accessible through the host's TCP port 27017.
 
-## The web server ##
+### The web server ###
 
     $ docker run -d --name ivreweb --hostname ivreweb \
     >        --link ivredb:ivredb --publish 80:80 ivre/web
@@ -83,11 +126,11 @@ If you want to use modified configuration files, you can use
     >        --volume "`pwd`/nginx-default-site:/etc/nginx/sites-available/default"
     >        --link ivredb:ivredb --publish 80:80 ivre/web
 
-## A command line client ##
+### A command line client ###
 
 First, place Nmap result files (XML format) in a specific directory:
 
-    $ mkdir ivre-share
+    $ mkdir -m 1777 ivre-share
     $ cp -r /path/to/my/nmap/results.xml ivre-share
 
 Now to get a shell in an IVRE client instance (for command line
@@ -117,7 +160,7 @@ Nmap results to the database:
 
     ivre@ivreclient:~$ nmap2db -r -s MySource -c MyCategory /ivre-share
 
-You can then exit the shell (`CTRL + d`), this will stop the
+You can then exit the shell (`C-d`), this will stop the
 container.
 
     ivre@ivreclient:~$ exit
@@ -126,3 +169,7 @@ You can start the container again later by issuing:
 
     $ docker start -i ivreclient
     ivre@ivreclient:~$
+
+If you do not want to exit the shell but only detach it from your
+terminal, use `C-p C-q`. You can attach it again latter by issuing
+`docker attach ivreclient`.

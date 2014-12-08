@@ -1,0 +1,57 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+#
+# This file is part of IVRE.
+# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'docker'
+
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  # The DB server
+  config.vm.define 'ivredb' do |db|
+    db.vm.provider "docker" do |docker|
+      docker.image = 'ivre/db'
+      docker.name = 'ivredb'
+    end
+    db.vm.synced_folder "var_lib_mongodb", "/var/lib/mongodb"
+    db.vm.synced_folder "var_log_mongodb", "/var/log/mongodb"
+  end
+
+  # The Web server
+  config.vm.define 'ivreweb' do |web|
+    web.vm.provider "docker" do |docker|
+      docker.link('ivredb:ivredb')
+      docker.image = 'ivre/web'
+      docker.name = 'ivreweb'
+    end
+    web.vm.network "forwarded_port", guest: 80, host: 80
+  end
+
+  # The command line client
+  config.vm.define 'ivreclient', autostart: false do |client|
+    client.vm.provider "docker" do |docker|
+      docker.link('ivredb:ivredb')
+      docker.image = 'ivre/client'
+      docker.name = 'ivreclient'
+      docker.create_args = ['-i', '-t']
+    end
+    client.vm.synced_folder "ivre-share", "/ivre-share"
+  end
+
+end
