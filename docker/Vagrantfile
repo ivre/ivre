@@ -23,6 +23,9 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
+  # Common options
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
   # The DB server
   config.vm.define 'ivredb' do |db|
     db.vm.provider "docker" do |docker|
