@@ -27,6 +27,7 @@ doc/LICENSE.md
 doc/README.md
 doc/TESTS.md
 doc/WEBUI.md
+docker/Vagrantfile
 docker/agent/Dockerfile
 docker/base/Dockerfile
 docker/base/ivre.conf

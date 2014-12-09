@@ -45,6 +45,7 @@ setup(
           'passiverecon/passiverecon2db-ignore.example']),
         ('share/ivre/honeyd', ['honeyd/sshd']),
         ('share/ivre/geoip', []),
+        ('share/ivre/docker', ['docker/Vagrantfile']),
         ('share/ivre/docker/agent', ['docker/agent/Dockerfile']),
         ('share/ivre/docker/base', ['docker/base/Dockerfile',
                                     'docker/base/ivre.conf']),
