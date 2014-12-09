@@ -20,11 +20,18 @@ you can use it to get the images, prepare and run the containers.
 You'll need a recent version of Vagrant (at least 1.6), since Docker
 providers do not exist in prior versions.
 
+With the `Vagrantfile` as it is provided, the TCP port 80 of your host
+will be used, so you need either to make sure it is not already in
+use, or to modify the `Vagrantfile` after the `cp` step in the
+instructions below to use another port.
+
 To use the `Vagrantfile` located in the `docker/` directory of the
-source tree, run (from the folder where you want to store your data):
+source tree (or the `[PREFIX]/share/ivre/docker/` directory when IVRE
+has been installed), run (from the folder where you want to store your
+data):
 
     $ mkdir -m 1777 var_lib_mongodb var_log_mongodb ivre-share
-	$ cp [path to ivre source]/docker/Vagrantfile
+	$ cp [path to ivre source]/docker/Vagrantfile .
 	$ vagrant up --no-parallel
 
 The `--no-parallel` option prevents Vagrant from starting the
