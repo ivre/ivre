@@ -55,6 +55,9 @@ IVRE relies on:
   * Maxmind [GeoIP](https://www.maxmind.com/en/geolocation_landing)
     free databases
 
+  * optionally [Docker](http://www.docker.com/) &
+    [Vagrant](https://www.vagrantup.com/) (version 1.6 minimum)
+
 IVRE comes with (refer to the [LICENSE-EXTERNAL](LICENSE-EXTERNAL.md)
 file for the licenses):
 

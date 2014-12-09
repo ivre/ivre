@@ -17,7 +17,7 @@ If you already manage your Docker containers using
 [Vagrant](https://www.vagrantup.com/), or if you want to git it a try,
 you can use it to get the images, prepare and run the containers.
 
-You'll need a recent version of Vagrant (>= 1.6), since Docker
+You'll need a recent version of Vagrant (at least 1.6), since Docker
 providers do not exist in prior versions.
 
 To use the `Vagrantfile` located in the `docker/` directory of the
