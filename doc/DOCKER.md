@@ -14,8 +14,10 @@ using Docker containers, including the database and web servers.
 # Using Vagrant #
 
 If you already manage your Docker containers using
-[Vagrant](https://www.vagrantup.com/), or if you want to git it a try,
-you can use it to get the images, prepare and run the containers.
+[Vagrant](https://www.vagrantup.com/), or if you want to give it a try
+(or if you are not running a Linux system and want to use Docker
+anyway), you can use it to get the images, prepare and run the
+containers.
 
 You'll need a recent version of Vagrant (at least 1.6), since Docker
 providers do not exist in prior versions.
@@ -40,21 +42,15 @@ The `--no-parallel` option prevents Vagrant from starting the
 The DB and Web servers should now be running, with the TCP port 80 of
 your host redirected to the `ivreweb` container.
 
-To get a shell with the CLI tools and Python API, first start the
-container:
-
-    $ vagrant up --provider=docker ivreclient
-
-The reason why `--provider=docker` is necessary is unclear to me, so
-if you have an idea, please tell me. Then attach the running
-container:
+To get a shell with the CLI tools and Python API, attach to the
+`ivreclient` container:
 
     $ docker attach ivreclient
     ivre@fd983ba5e6fd:~$
 
-You can detach the process (without stopping it) by using `C-p C-q`
-and attach it again latter with the same `docker attach ivreclient`
-command.
+You can detach from the container (without stopping it) by using `C-p
+C-q` and attach to it again later with the same `docker attach
+ivreclient` command.
 
 To initialize the database and start playing with IVRE, you need to
 enter some commands described in the
@@ -177,6 +173,6 @@ You can start the container again later by issuing:
     $ docker start -i ivreclient
     ivre@ivreclient:~$
 
-If you do not want to exit the shell but only detach it from your
-terminal, use `C-p C-q`. You can attach it again latter by issuing
-`docker attach ivreclient`.
+If you do not want to exit the shell but only detach from it, use `C-p
+C-q`. You can attach to it again later by issuing `docker attach
+ivreclient`.

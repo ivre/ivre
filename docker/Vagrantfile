@@ -47,7 +47,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   # The command line client
-  config.vm.define 'ivreclient', autostart: false do |client|
+  config.vm.define 'ivreclient' do |client|
     client.vm.provider "docker" do |docker|
       docker.link('ivredb:ivredb')
       docker.image = 'ivre/client'
