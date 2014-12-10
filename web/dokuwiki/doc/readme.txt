@@ -67,10 +67,10 @@ This program will not stop by itself. You can (''%%p%%'')''%%kill%%'' it, it wil
 
 To start filling your database with information from the ''%%eth0%%'' interface, you just need to run (''%%passiverecon%%'' is just a sensor name here):
 
-<code># p0f2db passiverecon iface:eth0</code>
+<code># p0f2db -s passiverecon iface:eth0</code>
 And from the same ''%%capture%%'' file:
 
-<code>$ p0f2db passiverecon capture</code>
+<code>$ p0f2db -s passiverecon capture</code>
 ===== Using the results =====
 
 You have two options for now:

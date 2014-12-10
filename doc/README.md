@@ -111,11 +111,11 @@ To start filling your database with information from the `eth0`
 interface, you just need to run (`passiverecon` is just a sensor name
 here):
 
-    # p0f2db passiverecon iface:eth0
+    # p0f2db -s passiverecon iface:eth0
 
 And from the same `capture` file:
 
-    $ p0f2db passiverecon capture
+    $ p0f2db -s passiverecon capture
 
 ## Using the results ##
 
