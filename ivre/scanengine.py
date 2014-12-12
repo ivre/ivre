@@ -82,31 +82,53 @@ class Agent(object):
                        string[1].replace('/', '_'))),
                    usetor=usetor, maxwaiting=maxwaiting)
 
-    def get_local_path(self, name):
-        return os.path.join(self.localpathbase, name) + '/'
+    def get_local_path(self, dirname):
+        """Get local storage path for directory `dirname`."""
+        return os.path.join(self.localpathbase, dirname) + '/'
 
-    def get_remote_path(self, name):
-        if name and name[-1] != '/':
-            name += '/'
-        return self.rsyncbase + name
+    def get_remote_path(self, dirname):
+        """Get remote storage path for directory `dirname` as an rsync
+        address.
+
+        """
+        if dirname and dirname[-1] != '/':
+            dirname += '/'
+        return self.rsyncbase + dirname
 
     def create_local_dirs(self):
+        """Create local directories used to manage the agent"""
         for dirname in ['input', 'remoteinput', 'remotecur', 'remoteoutput']:
             utils.makedirs(self.get_local_path(dirname))
 
     def may_receive(self):
+        """Get the number of targets that can be sent to the agent
+        (based on the total number of targets currently on hold and
+        the `maxwaiting` attribute value).
+
+        """
         curwaiting = sum(len(os.listdir(self.get_local_path(p)))
                          for p in ['input', 'remoteinput'])
         return self.maxwaiting - curwaiting
 
     def add_target(self, category, addr):
+        """Add a new target (locally), given its category and address
+        (technically, addr can be a network or a hostname that can be
+        resolved from the agent).
+
+        """
         with open(os.path.join(self.get_local_path('input'),
-                               '%s.%s' % (category, addr)), 'w') as fdesc:
+                               '%s.%s' % (category,
+                                          addr.replace('/', '_'))),
+                  'w') as fdesc:
             fdesc.write('%s\n' % addr)
             return True
         return False
 
     def sync(self):
+        """Synchronize the local and remote directories, and the
+        relevant `Campaign`s.
+
+        """
         subprocess.call(self.rsync + ['-a',
                                       self.get_local_path('input'),
                                       self.get_local_path('remoteinput')])
