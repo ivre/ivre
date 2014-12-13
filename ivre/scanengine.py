@@ -150,6 +150,12 @@ class Agent(object):
 
 class Campaign(object):
 
+    """A Campaign instance is basically the association of a targets
+    container (an instance of `target.Target`) with a list of agents
+    to run the scans.
+
+    """
+
     def __init__(self, targets, category, agents, outputpath,
                  visiblecategory=None, maxfeed=None, sleep=2,
                  storedown=True):
@@ -170,6 +176,11 @@ class Campaign(object):
         self.storedown = storedown
 
     def sync(self, agent):
+        """This function should only be called from `agent.sync()`
+        method. It stores the results of terminated scans according to
+        the target status.
+
+        """
         remout = agent.get_local_path('remoteoutput')
         for remfname in glob.glob(
                 os.path.join(remout, self.visiblecategory + '.*.xml')):
@@ -197,6 +208,10 @@ class Campaign(object):
             os.rename(remfname, locfname)
 
     def feed(self, agent, maxnbr=None):
+        """Send targets to scan to `agent`, depending on how many it
+        can receive.
+
+        """
         for _ in xrange(max(agent.may_receive(), maxnbr)):
             addr = utils.int2ip(self.targiter.next())
             with open(os.path.join(agent.get_local_path('input'),
@@ -205,6 +220,10 @@ class Campaign(object):
                 fdesc.write('%s\n' % addr)
 
     def feedloop(self):
+        """Feed periodically the agents affected to the `Campaign`
+        (`self.agents`).
+
+        """
         while True:
             for agent in self.agents:
                 try:
@@ -215,6 +234,7 @@ class Campaign(object):
 
 
 def syncloop(agents, sleep=2):
+    """Synchronize periodically the `agents`."""
     while True:
         for agent in agents:
             agent.sync()
