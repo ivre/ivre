@@ -210,7 +210,7 @@ for q in query:
             datetime.timedelta(0, timeago), neg=neg))
     elif q[0] == "service":
         if ':' in q[1]:
-            port, req = q[1].split(':', 1)
+            req, port = q[1].split(':', 1)
             port = int(port)
             flt = db.nmap.flt_and(
                 flt,
@@ -223,7 +223,7 @@ for q in query:
                     ivre.utils.str2regexp(q[1])))
     elif q[0] == "probedservice":
         if ':' in q[1]:
-            port, req = q[1].split(':', 1)
+            req, port = q[1].split(':', 1)
             port = int(port)
             flt = db.nmap.flt_and(
                 flt,
