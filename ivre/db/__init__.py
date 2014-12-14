@@ -785,9 +785,9 @@ class DBAgent(DB):
         except (ValueError, struct.error):
             pass
         with tempfile.NamedTemporaryFile(
-                prefix=str(scanid) + '-',
-                dir=self.get_local_path(agent, "input"),
-                delete=False,
+            prefix=str(scanid) + '-',
+            dir=self.get_local_path(agent, "input"),
+            delete=False,
         ) as fdesc:
             fdesc.write("%s\n" % addr)
             return True

@@ -98,8 +98,8 @@ DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
 def _prepare_rec(spec, ignorenets, neverignore):
     # First of all, let's see if we are supposed to ignore this spec,
     # and if so, do so.
-    if ('addr' in spec and
-        spec.get('source') not in neverignore.get(spec['recontype'], [])):
+    if 'addr' in spec and \
+       spec.get('source') not in neverignore.get(spec['recontype'], []):
         for n in ignorenets.get(spec['recontype'], ()):
             if n[0] <= spec['addr'] <= n[1]:
                 return None

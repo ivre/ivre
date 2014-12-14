@@ -1989,8 +1989,8 @@ class MongoDBAgent(MongoDB, DBAgent):
             {"$set": {"scan": scanid}}
         )
         agent = self.get_agent(agentid)
-        if (scanid is not None and scanid is not False
-            and scanid == agent["scan"]):
+        if scanid is not None and scanid is not False \
+           and scanid == agent["scan"]:
             self.db[self.colname_scans].update(
                 {"_id": scanid, "agents": {"$ne": agentid}},
                 {"$push": {"agents": agentid}}
