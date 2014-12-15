@@ -18,6 +18,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 ENV['VAGRANT_DEFAULT_PROVIDER'] = 'docker'
+ENV['VAGRANT_CHECKPOINT_DISABLE'] = 'true'
 
 VAGRANTFILE_API_VERSION = "2"
 
