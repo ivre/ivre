@@ -1272,6 +1272,8 @@ have no effect if it is not expected)."""
                 self.searchport(port=port, protocol=proto))
         if args.openport:
             flt = self.flt_and(flt, self.searchopenport())
+        if args.no_openport:
+            flt = self.flt_and(flt, self.searchopenport(neg=True))
         if args.service is not None:
             flt = self.flt_and(
                 flt,
