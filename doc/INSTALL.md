@@ -61,7 +61,10 @@ values can be changed:
   - `DB_NMAP`, `DB_PASSIVE` and `DB_DATA`: specific URLs to use;
     default is to use the URL from `DB` setting.
 
-  - `GEOIP_PATH`: default is `/usr/local/share/ivre/geoip/`.
+  - `GEOIP_PATH`: default is `[INSTALL PREFIX]/share/ivre/geoip/`.
+
+For the full and up-to-date list of settings that can be changed, see
+the `ivre/config.py` file.
 
 It might be a good idea to have a read-only account everywhere except
 for some specific users or hosts that need write access to the

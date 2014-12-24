@@ -33,7 +33,9 @@ The file should contain lines of type ''%%key = value%%''. Empty lines and comme
 
   * ''%%DB%%'': the URL to use; default is ''%%mongodb:///%%'', meaning use default database (''%%ivre%%'') on the default host (''%%localhost%%''). Here is a more complete example: ''%%mongodb://user:password@host/db?colname_aaa=bbb&colname_ccc=ddd%%''
   * ''%%DB_NMAP%%'', ''%%DB_PASSIVE%%'' and ''%%DB_DATA%%'': specific URLs to use; default is to use the URL from ''%%DB%%'' setting.
-  * ''%%GEOIP_PATH%%'': default is ''%%/usr/local/share/ivre/geoip/%%''.
+  * ''%%GEOIP_PATH%%'': default is ''%%[INSTALL PREFIX]/share/ivre/geoip/%%''.
+
+For the full and up-to-date list of settings that can be changed, see the ''%%ivre/config.py%%'' file.
 
 It might be a good idea to have a read-only account everywhere except for some specific users or hosts that need write access to the database (the users that insert scan results with ''%%nmap2db%%'', the users or the hosts that run ''%%p0f2db%%'' and/or ''%%passiverecon2db%%''). It is best to avoid using a configuration with write access to the database when you only need a read access. This can be achieved with users or hosts dedicated to insertion tasks.
 
