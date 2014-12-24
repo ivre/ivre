@@ -32,6 +32,10 @@ import os
 setup(
     name='ivre',
     version='0.9',
+    install_requires=[
+        'pycrypto',
+        'pymongo >= 2.7.2',
+    ],
     packages=['ivre', 'ivre/db'],
     scripts=['bin/attackkeys', 'bin/checkknownkeys', 'bin/detectdupkeys',
              'bin/getmoduli', 'bin/ipdata', 'bin/ipinfo', 'bin/ipinfohost',
@@ -134,7 +138,7 @@ setup(
     ],
     author='Pierre LALET',
     author_email='pierre.lalet@cea.fr',
-    url='http://pierre.droids-corp.org/',
+    url='http://pierre.droids-corp.org/blog/html/tags/ivre.html',
     description='IVRE: Instrument de veille sur les reseaux exterieurs',
     license='GPLv3',
     long_description="""
