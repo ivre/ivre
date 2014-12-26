@@ -58,10 +58,12 @@ class Key(object):
     def extract_key(self, i):
         return i
 
-    def filter(self, _):
+    @staticmethod
+    def filter(_):
         return True
 
-    def count(self, cond):
+    @staticmethod
+    def count(cond):
         return db.nmap.get(cond).count()
 
     def count_keys(self):
@@ -103,7 +105,8 @@ class PassiveSSLKey(Key):
             self.cond,
             db.passive.searchcert())
 
-    def count(self, cond):
+    @staticmethod
+    def count(cond):
         return db.passive.get(cond).count()
 
     def count_keys(self):
@@ -150,7 +153,8 @@ class SSHKey(Key):
             i['hash'] = i['hash'].replace(':', '').decode('hex')
         return i
 
-    def extract_key_data(self, data):
+    @staticmethod
+    def extract_key_data(data):
         while data:
             length = struct.unpack('>I', data[:4])[0]
             yield data[4:4 + length]
@@ -159,7 +163,8 @@ class SSHKey(Key):
 
 class SSHRSAKey(SSHKey):
 
-    def filter(self, i):
+    @staticmethod
+    def filter(i):
         return i['type'].lower() == 'rsa'
 
     def extract_key(self, i):
@@ -205,7 +210,8 @@ class SSLRSAKey(SSLKey):
                                   '\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
                                   '\n\\ *Exponent: (?P<exponent>[0-9]+) ')
 
-    def filter(self, i):
+    @staticmethod
+    def filter(i):
         return 'type' in i and i['type'] == 'rsa'
 
     def extract_key(self, i):
