@@ -82,6 +82,10 @@ that, from the `docker/` directory, run:
 
 This might take a long time.
 
+### Alternative builds for the base image ###
+
+#### Local archive ####
+
 It is also possible to build the `ivre/base` image without fetching
 the *tarball* from GitHub, by creating it locally and using the
 `base-local` directory instead of `base`. From the repository root,
@@ -89,7 +93,19 @@ run:
 
     $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
     $ cd docker
+    $ docker pull debian:testing
     $ docker build -t ivre/base base-local
+
+#### Using pip ####
+
+Another way to create the `ivre/base` image is to use
+[pip](https://pypi.python.org/pypi/pip) and thus get IVRE from
+[PyPI](https://pypi.python.org), the Python Package Index. Please note
+that the version of IVRE on PyPI is not always up-to-date. From the
+`docker/` directory, run:
+
+    $ docker pull debian:testing
+    $ docker build -t ivre/base base-pip
 
 ## Running ##
 
