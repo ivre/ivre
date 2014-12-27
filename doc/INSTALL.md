@@ -19,11 +19,12 @@ The installation of [IVRE](README.md) itself can be done by:
   * using the `setup.py` (classical `./setup.py build; sudo ./setup.py
     install`) script.
 
-  * using the `pip` command: with on a Debian-based system for example,
-    install the packages `python-pip` and `python-dev` (needed to
-    build dependencies) and run `pip install ivre` (this will download
-    and install for you IVRE and its Python dependencies from
-    [PyPI](https://pypi.python.org), the Python Package Index).
+  * using [pip](https://pypi.python.org/pypi/pip): with on a
+    Debian-based system for example, install the packages `python-pip`
+    and `python-dev` (needed to build dependencies) and run `pip
+    install ivre` (this will download and install for you IVRE and its
+    Python dependencies from [PyPI](https://pypi.python.org), the
+    Python Package Index).
 
   * building an RPM package (you can use the provided `buildrpm`
     script, or use the `setup.py` script with your own options) and
