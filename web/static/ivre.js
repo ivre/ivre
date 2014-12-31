@@ -25,7 +25,7 @@ function setdefaultconfig() {
 	    "limit": 10,
 	},
 	"warn_dots_count": 20000,
-    }
+    };
 
     for(var k in defaultconfig) {
 	if (config[k] === undefined) {
@@ -46,6 +46,7 @@ var wanted_portscripts, wanted_hostscripts, wanted_hops;
 // the initial prev_query has to be an object and to be different than
 // any valid query
 var prev_query = {"thiswillneverexist": []};
+var query;
 
 /* Chrome */
 // if(String.prototype.repeat === undefined) {
@@ -79,10 +80,11 @@ function build_top_chart(f) {
     document.getElementById('charts').style.display = 'inline';
     s = document.createElement('script');
     s.id = 'chart1script';
-    s.src = config.cgibase + '?callback='
-	+ encodeURIComponent("(function(data){build_chart('chart1', '"
-			     + field + "', data);})")
-	+ '&countfield='+field+'&countnbr=15&q=' + encodeURIComponent(query);
+    s.src = config.cgibase + '?callback=' +
+	encodeURIComponent("(function(data){build_chart('chart1', '" +
+			   field + "', data);})") +
+	'&countfield='+field+'&countnbr=15&q=' +
+	encodeURIComponent(query);
     c1.parentNode.appendChild(s);
 }
 
@@ -153,36 +155,36 @@ function build_chart_pie(chart, field, data) {
 	    return "translate(" + arc.centroid(d) + ")";
 	})
 	.attr("text-anchor", "middle")
-	.text(function(d, i) { return data[i].label; });
+	.text(function(d) { return d.label; });
 }
 
 function build_chart_plane(chart, ips) {
     var w = 500,
     h = 450,
-    ipsint = ips.map(function(i){
+    ipsint = ips.map(function(i) {
 	return [~~(i[0] / 65536), i[0] % 65536, i[1]];
     }),
-    xmin = (d3.min(ipsint, function(i){return i[0];}) / 256) * 256,
-    xmax = (d3.max(ipsint, function(i){return i[0];}) / 256) * 256,
+    xmin = (d3.min(ipsint, function(i) {return i[0];}) / 256) * 256,
+    xmax = (d3.max(ipsint, function(i) {return i[0];}) / 256) * 256,
     x = d3.scale.linear()
-	.domain(d3.extent(ipsint, function(i){return i[0];}))
+	.domain(d3.extent(ipsint, function(i) {return i[0];}))
 	.range([0, w]),
     y = d3.scale.linear()
 	.domain([65536, 0])
 	.range([0, h]),
     colscale = d3.scale.log()
-	.domain(d3.extent(ips, function(i){return i[1] + 1;}))
+	.domain(d3.extent(ips, function(i) {return i[1] + 1;}))
 	.range([0, 1]),
     same_slash_16 = false,
     yaxisvals = [0, 4096, 8192, 12288, 16384, 20480, 24576, 28672, 32768,
 		 36864, 40960, 45056, 49152, 53248, 57344, 61440, 65536];
     if(xmin === xmax) {
-	ipsint = ips.map(function(i){
+	ipsint = ips.map(function(i) {
 	    return [~~(i[0] / 256), i[0] % 256, i[1]];
 	});
-	xmin = (d3.min(ipsint, function(i){return i[0];}) / 256) * 256;
-	xmax = (d3.max(ipsint, function(i){return i[0];}) / 256) * 256;
-	x.domain(d3.extent(ipsint, function(i){return i[0];}));
+	xmin = (d3.min(ipsint, function(i) {return i[0];}) / 256) * 256;
+	xmax = (d3.max(ipsint, function(i) {return i[0];}) / 256) * 256;
+	x.domain(d3.extent(ipsint, function(i) {return i[0];}));
 	y.domain([256, 0]);
 	same_slash_16 = true;
 	yaxisvals = [0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176,
@@ -198,10 +200,11 @@ function build_chart_plane(chart, ips) {
 	.attr("transform", "translate(40, 10)");
     
     var xaxis = [];
+    var xstep;
     if(same_slash_16)
-	var xstep = (Math.max((xmax - xmin) / 7, 1));
+	xstep = (Math.max((xmax - xmin) / 7, 1));
     else
-	var xstep = (Math.max((xmax - xmin) / 7 / 256, 1)) * 256;
+	xstep = (Math.max((xmax - xmin) / 7 / 256, 1)) * 256;
     for(var i=xmin; i <= (xmax+1); i += xstep) {
 	xaxis.push(i);
     }
@@ -215,7 +218,7 @@ function build_chart_plane(chart, ips) {
 	.attr("r", 1.5)
 	.attr("cx", function(d, i) {return x(ipsint[i][0]);})
 	.attr("cy", function(d, i) {return y(ipsint[i][1]);})
-        .attr("fill-opacity", 1)
+	.attr("fill-opacity", 1)
 	.attr("fill", function(d, i) {
 	    return heatmapColour(colscale(ipsint[i][2] + 1));
 	});
@@ -230,18 +233,18 @@ function build_chart_plane(chart, ips) {
 	});
     
     rulesx.append("svg:line")
-        .attr("y1", h)
-        .attr("y2", h + 10)
-        .attr("x1", 0)
-        .attr("x2", 0)
-        .attr("stroke", "black");
+	.attr("y1", h)
+	.attr("y2", h + 10)
+	.attr("x1", 0)
+	.attr("x2", 0)
+	.attr("stroke", "black");
     
     rulesx.append("svg:text")
     	.attr("y", h + 15)
     	.attr("x", 0)
     	.attr("dy", ".71em")
     	.attr("text-anchor", "middle")
-    	.text(function(d, i){
+	.text(function(d) {
 	    if(same_slash_16)
 		return Math.floor(d/65536)+'.'+Math.floor((d/256)%256)+'.'+(Math.floor(d)%256);
 	    else
@@ -255,18 +258,18 @@ function build_chart_plane(chart, ips) {
     	.attr("transform", function(d) {return "translate(0, " + y(d) + ")";});
     
     rulesy.append("svg:line")
-        .attr("y1", 0)
-        .attr("y2", 0)
-        .attr("x1", -10)
-        .attr("x2", 0)
-        .attr("stroke", "black");
+	.attr("y1", 0)
+	.attr("y2", 0)
+	.attr("x1", -10)
+	.attr("x2", 0)
+	.attr("stroke", "black");
     
     rulesy.append("svg:text")
-    	.attr("y", 0)
-    	.attr("x", -25)
-    	.attr("dy", ".5ex")
-    	.attr("text-anchor", "middle")
-    	.text(function(d, i){
+	.attr("y", 0)
+	.attr("x", -25)
+	.attr("dy", ".5ex")
+	.attr("text-anchor", "middle")
+	.text(function(d) {
 	    if(same_slash_16)
 		return Math.floor(d);
 	    else
@@ -287,18 +290,19 @@ function build_chart_plane(chart, ips) {
     
     function brushended() {
 	if(!d3.event.sourceEvent) return; // only transition after input
+	var extent;
 	if(same_slash_16) {
-	    var extent = brush.extent().map(function(val) {
-		return Math.floor(val / 65536) + '.'
-		    + Math.floor((val / 256) % 256) + '.'
-		    + Math.floor(val % 256) + '.';
+	    extent = brush.extent().map(function(val) {
+		return Math.floor(val / 65536) + '.' +
+		    Math.floor((val / 256) % 256) + '.' +
+		    Math.floor(val % 256) + '.';
 	    });
 	    setparam("range", extent[0] + '0-' + extent[1] + '255');
 	}
 	else {
-	    var extent = brush.extent().map(function(val) {
-		return Math.floor(val / 256) + '.'
-		    + Math.floor(val % 256) + '.';
+	    extent = brush.extent().map(function(val) {
+		return Math.floor(val / 256) + '.' +
+		    Math.floor(val % 256) + '.';
 	    });
 	    setparam("range", extent[0] + '0.0-' + extent[1] + '255.255');
 	}
@@ -316,20 +320,20 @@ function build_chart_map(chart, locs, fullworld) {
 
     document.getElementById("chartstitle").innerHTML = "Map";
     var vis = d3.select("#"+chart).append("svg")
-          .attr("width", w)
-          .attr("height", h);
+	  .attr("width", w)
+	  .attr("height", h);
 
     d3.json("world-110m.json", function(error, world) {
 	var projection =  d3.geo.mercator()
-            .scale(80)
+	    .scale(80)
 	    .translate([w / 2, h / 2]);
 
 	if(fullworld !== true) {
 	    var bounds = [
-    		d3.extent(locs.geometries,
-			  function(x){return x.coordinates[0]}),
-    		d3.extent(locs.geometries,
-			  function(x){return x.coordinates[1]}),
+		d3.extent(locs.geometries,
+			  function(x) {return x.coordinates[0];}),
+		d3.extent(locs.geometries,
+			  function(x) {return x.coordinates[1];}),
 	    ];
 
 	    projection
@@ -345,7 +349,7 @@ function build_chart_map(chart, locs, fullworld) {
 
 	var path = d3.geo.path()
 	    .projection(projection);
-	var world = topojson.feature(world, world.objects.world110m);
+	world = topojson.feature(world, world.objects.world110m);
 	var locations = topojson.feature(locs, locs);
 	var maxcount = locations.features[0].properties.count;
 	var mincount = locations.features[locations.features.length - 1].properties.count;
@@ -386,13 +390,13 @@ function build_chart_map(chart, locs, fullworld) {
 	    .data(locations.features)
 	    .enter().append("svg:circle")
 	    .attr("class", "dot")
-	    .attr("r", function(d, i) {
+	    .attr("r", function(d) {
 		return radiusscale(d.properties.count);
 	    })
-	    .attr("cx", function(d, i) {
+	    .attr("cx", function(d) {
 		return projection(d.geometry.coordinates)[0];
 	    })
-	    .attr("cy", function(d, i) {
+	    .attr("cy", function(d) {
 		return projection(d.geometry.coordinates)[1];
 	    })
 	    .attr("fill", "url(#dotgradient)");
@@ -418,8 +422,9 @@ function build_chart_map(chart, locs, fullworld) {
 
     add_download_button(document.getElementById(chart), "Map");
 
+    var b;
     if(fullworld === true) {
-	var b = document.createElement('button');
+	b = document.createElement('button');
 	b.onclick = function() {
 	    build_ip_map();
 	};
@@ -427,7 +432,7 @@ function build_chart_map(chart, locs, fullworld) {
 	b.setAttribute("title", "Adjust zoom");
     }
     else {
-	var b = document.createElement('button');
+	b = document.createElement('button');
 	b.onclick = function() {
 	    build_ip_map(true);
 	};
@@ -441,19 +446,20 @@ function build_chart_timeline(chart, ips) {
     //var w = 437.5, //500*57344./65536
     var w = 450,
     h = 450,
-    xmin = d3.min(ips, function(i){return i[0];})
-    xmax = d3.max(ips, function(i){return i[0];})
-    ymin = d3.min(ips, function(i){return i[1];})
-    ymax = d3.max(ips, function(i){return i[1];})
+    xmin = d3.min(ips, function(i) {return i[0];}),
+    xmax = d3.max(ips, function(i) {return i[0];}),
+    ymin = d3.min(ips, function(i) {return i[1];}),
+    ymax = d3.max(ips, function(i) {return i[1];}),
     x = d3.scale.linear()
-	.domain(d3.extent(ips, function(i){return i[0];}))
+	.domain(d3.extent(ips, function(i) {return i[0];}))
 	.range([0, w]),
     y = d3.scale.linear()
-	.domain(d3.extent(ips, function(i){return i[1];}))
+	.domain(d3.extent(ips, function(i) {return i[1];}))
 	.range([h, 0]),
     colscale = d3.scale.log()
-	.domain(d3.extent(ips, function(i){return i[2] + 1;}))
-	.range([0, 1]);
+	.domain(d3.extent(ips, function(i) {return i[2] + 1;}))
+	.range([0, 1]),
+    date2text;
     document.getElementById("chartstitle").innerHTML = "Timeline";
     if(xmax - xmin > 31536000) // 365 days
 	date2text = function(d) {
@@ -490,69 +496,70 @@ function build_chart_timeline(chart, ips) {
 	.attr("r", 1.5)
 	.attr("cx", function(d, i) {return x(ips[i][0]);})
 	.attr("cy", function(d, i) {return y(ips[i][1]);})
-        .attr("fill-opacity", 1)
+	.attr("fill-opacity", 1)
 	.attr("fill", function(d, i) {
 	    return heatmapColour(colscale(ips[i][2] + 1));
 	});
 
     var xaxis = [];
     var xstep = Math.max((xmax - xmin) / 6, 1);
-    for(var i=xmin; i <= (xmax+1); i += xstep) {
+    for(var i = xmin; i <= (xmax+1); i += xstep) {
 	xaxis.push(i);
     }
 
     var rulesx = vis.selectAll("g.rulex")
-    	.data(xaxis)
-    	.enter().append("svg:g")
-    	.attr("class", "rule")
-    	.attr("transform", function(d) {
+	.data(xaxis)
+	.enter().append("svg:g")
+	.attr("class", "rule")
+	.attr("transform", function(d) {
 	    return "translate(" + x(d) + ", 0)";
 	});
     
     rulesx.append("svg:line")
-        .attr("y1", h)
-        .attr("y2", h + 10)
-        .attr("x1", 0)
-        .attr("x2", 0)
-        .attr("stroke", "black");
+	.attr("y1", h)
+	.attr("y2", h + 10)
+	.attr("x1", 0)
+	.attr("x2", 0)
+	.attr("stroke", "black");
     
     rulesx.append("svg:text")
-    	.attr("y", h + 15)
-    	.attr("x", 0)
-    	.attr("dy", ".71em")
-    	.attr("text-anchor", "middle")
-    	.attr("dominant-baseline", "middle")
-        //.attr("transform", "rotate(45, 0, " + (h + 15) + ")")
-    	.text(function(d, i){d = new Date(d*1000); return date2text(d);});
+	.attr("y", h + 15)
+	.attr("x", 0)
+	.attr("dy", ".71em")
+	.attr("text-anchor", "middle")
+	.attr("dominant-baseline", "middle")
+	//.attr("transform", "rotate(45, 0, " + (h + 15) + ")")
+	.text(function(d) {d = new Date(d*1000); return date2text(d);});
 
     var yaxis = [];
     var ystep = Math.max((ymax - ymin) / 20 / 16777216, 1) * 16777216;
-    for(var i=ymin; i <= (ymax+1); i += ystep) {
+    for(i = ymin; i <= (ymax+1); i += ystep) {
 	yaxis.push(i);
     }
 
     var rulesy = vis.selectAll("g.ruley")
-    	.data(yaxis)
-    	.enter().append("svg:g")
-    	.attr("class", "rule")
-    	.attr("transform", function(d) {
+	.data(yaxis)
+	.enter().append("svg:g")
+	.attr("class", "rule")
+	.attr("transform", function(d) {
 	    return "translate(0, " + y(d) + ")";
 	});
     
     rulesy.append("svg:line")
-        .attr("y1", 0)
-        .attr("y2", 0)
-        .attr("x1", -10)
-        .attr("x2", 0)
-        .attr("stroke", "black");
+	.attr("y1", 0)
+	.attr("y2", 0)
+	.attr("x1", -10)
+	.attr("x2", 0)
+	.attr("stroke", "black");
     
     rulesy.append("svg:text")
-    	.attr("y", 0)
-    	.attr("x", -15)
-    	.attr("dy", ".5ex")
-    	.attr("text-anchor", "end")
-    	.text(function(d, i){
-	    return Math.floor(d/16777216)+'.'+(Math.floor(d/65536)%256);
+	.attr("y", 0)
+	.attr("x", -15)
+	.attr("dy", ".5ex")
+	.attr("text-anchor", "end")
+	.text(function(d) {
+	    return Math.floor(d / 16777216) + '.' +
+		(Math.floor(d / 65536) % 256);
 	});
 
     var brush = d3.svg.brush()
@@ -569,7 +576,7 @@ function build_chart_timeline(chart, ips) {
     
     function brushended() {
 	if (!d3.event.sourceEvent) return; // only transition after input
-	var extent = brush.extent()
+	var extent = brush.extent();
 	setparam("timerange", extent[0] + '-' + extent[1]);
 	d3.select(this).transition()
 	    .call(brush.extent(extent))
@@ -582,12 +589,10 @@ function build_chart_timeline(chart, ips) {
 function build_chart_ports(chart, ips) {
     var w = 450,
     h = 450,
-    xmin = d3.min(ips, function(i){return i[0];})
-    xmax = d3.max(ips, function(i){return i[0];})
-    ymin = d3.min(ips, function(i){return i[1];})
-    ymax = d3.max(ips, function(i){return i[1];})
+    xmin = d3.min(ips, function(i) {return i[0];}),
+    xmax = d3.max(ips, function(i) {return i[0];}),
     x = d3.scale.linear()
-	.domain(d3.extent(ips, function(i){return i[0];}))
+	.domain(d3.extent(ips, function(i) {return i[0];}))
 	.range([0, w]),
     y = d3.scale.log()
 	.domain([1, 65535])
@@ -596,7 +601,7 @@ function build_chart_ports(chart, ips) {
     ips_ports = ips.map(function(x) {
 	return x[1].map(function(t) {
 	    return [x[0], t[0], t[1]];
-	})
+	});
     }).reduce(function(x, y) {
 	return x.concat(y);
     }, []);
@@ -617,14 +622,14 @@ function build_chart_ports(chart, ips) {
 	.enter().append("svg:circle")
 	.attr("class", "dot")
 	.attr("r", 1.5)
-	.attr("cx", function(d, i) {return x(d[0]);})
-	.attr("cy", function(d, i) {return y(d[1]);})
-        .attr("fill-opacity", 1)
-	.attr("fill", function(d, i) {return colors[d[2]];});
+	.attr("cx", function(d) {return x(d[0]);})
+	.attr("cy", function(d) {return y(d[1]);})
+	.attr("fill-opacity", 1)
+	.attr("fill", function(d) {return colors[d[2]];});
 
     var xaxis = [];
     var xstep = Math.max((xmax - xmin) / 10 / 16777216, 1) * 16777216;
-    for(var i=xmin; i <= (xmax+1); i += xstep) {
+    for(var i = xmin; i <= (xmax+1); i += xstep) {
 	xaxis.push(i);
     }
 
@@ -637,11 +642,11 @@ function build_chart_ports(chart, ips) {
 	});
 
     rulesx.append("svg:line")
-        .attr("y1", h)
-        .attr("y2", h + 10)
-        .attr("x1", 0)
-        .attr("x2", 0)
-        .attr("stroke", "black");
+	.attr("y1", h)
+	.attr("y2", h + 10)
+	.attr("x1", 0)
+	.attr("x2", 0)
+	.attr("stroke", "black");
 
     rulesx.append("svg:text")
 	.attr("y", h + 15)
@@ -650,13 +655,14 @@ function build_chart_ports(chart, ips) {
 	.attr("text-anchor", "middle")
 	.attr("dominant-baseline", "middle")
 	.attr("transform", "rotate(-45, 5, " + (h + 25) + ")")
-	.text(function(d, i){
-	    return Math.floor(d/16777216) +'.'+(Math.floor(d/65536)%256);
+	.text(function(d) {
+	    return Math.floor(d / 16777216) + '.' +
+		(Math.floor(d / 65536) % 256);
 	});
 
     var yaxis = [];
     var ystep = Math.max(h / 10);
-    for(var i=1; i <= h; i += ystep) {
+    for(i = 1; i <= h; i += ystep) {
 	yaxis.push(i);
     }
 
@@ -680,7 +686,7 @@ function build_chart_ports(chart, ips) {
 	.attr("x", -15)
 	.attr("dy", ".5ex")
 	.attr("text-anchor", "end")
-	.text(function(d, i){
+	.text(function(d) {
 	    return Math.floor(y.invert(d));
 	});
 
@@ -699,10 +705,10 @@ function build_chart_ports(chart, ips) {
     function brushended() {
 	if(!d3.event.sourceEvent) return; // only transition after input
 	var extent = brush.extent().map(function(val) {
-	    return Math.floor(val / 16777216) + '.'
-		+ Math.floor((val / 65536) % 256) + '.'
-		+ Math.floor((val / 256) % 256) + '.'
-		+ Math.floor(val % 256);
+	    return Math.floor(val / 16777216) + '.' +
+		Math.floor((val / 65536) % 256) + '.' +
+		Math.floor((val / 256) % 256) + '.' +
+		Math.floor(val % 256);
 	});
 	setparam("range", extent[0] + '-' + extent[1]);
 	d3.select(this).transition()
@@ -718,13 +724,13 @@ function build_chart(chart, field, dataset) {
     h = 30 * dataset.length,
     //labelpad = 60,
     labelpad = 10 + d3.max(dataset, function(t) {
-	v = d3.select("#"+chart)
+	var v = d3.select("#"+chart)
 	    .append('svg:svg')
 	    .append('svg:text')
 	    .text(t.value)[0][0]
 	    .getComputedTextLength();
 	d3.select("#"+chart)[0][0].innerHTML = '';
-	return v;});
+	return v;}),
     data = dataset.map(function(t) {return t.value;}),
     labels = dataset.map(function(t) {return t.label;}),
     x = d3.scale.linear()
@@ -732,12 +738,13 @@ function build_chart(chart, field, dataset) {
 	.range([0, w - labelpad]),
     y = d3.scale.ordinal()
 	.domain(d3.range(data.length))
-	.rangeBands([0, h], .2)
+	.rangeBands([0, h], 0.2),
     //color = [ "grey", "lightgrey" ];
-    color = [ "steelblue", "lightblue" ];
-    prepareoutput = function(x) {return x;};
-    preparefilter = undefined;
-    preparetitle = undefined;
+    color = [ "steelblue", "lightblue" ],
+    prepareoutput = function(x) {return x;},
+    preparefilter = undefined,
+    preparetitle = undefined,
+    neg;
     if(field.substr(0,1) === "-") {
 	field = field.substr(1);
 	neg = true;
@@ -750,16 +757,16 @@ function build_chart(chart, field, dataset) {
 	};
     else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
 	prepareoutput = function(x) {
-	    attributes = {
-                'commonName': 'cn',
-                'countryName': 'c',
-                'organizationName': 'o',
-                'organizationalUnitName': 'ou',
-                'emailAddress': 'email',
-                'localityName': 'locality',
-                'stateOrProvinceName': 'state',
-            };
-	    result = [];
+	    var attributes = {
+		'commonName': 'cn',
+		'countryName': 'c',
+		'organizationName': 'o',
+		'organizationalUnitName': 'ou',
+		'emailAddress': 'email',
+		'localityName': 'locality',
+		'stateOrProvinceName': 'state',
+	    };
+	    var result = [];
 	    for(var k in x) {
 		if(k in attributes)
 		    result.push(attributes[k] + '=' + x[k]);
@@ -929,7 +936,7 @@ function build_chart(chart, field, dataset) {
 	.attr("y", y.rangeBand() / 2)
 	.attr("dy", ".35em")
 	.attr("text-anchor", "end")
-	.text(function(d, i) { return data[i]; });
+	.text(function(d) {return d;});
     
     bars.append("svg:text")
 	.attr("x", function(d, i) {
@@ -938,7 +945,7 @@ function build_chart(chart, field, dataset) {
 	.attr("y", y.rangeBand() / 2)
 	.attr("dy", ".35em")
 	.attr("text-anchor", function(d, i) {
-	    return x(d, i) < (w-10)/2 ? "start" : "end" ;
+	    return x(d, i) < (w - 10) / 2 ? "start" : "end" ;
 	})
 	.text(function(d, i) {return prepareoutput(labels[i]);})
 	.attr("title", function(d, i) {
@@ -1001,18 +1008,6 @@ function str2regexp(str) {
     else
 	str = RegExp('^'+escapeRegExp(str)+'$', 'g');
     return str;
-}
-
-function addbookmark(url) {
-    // https://stackoverflow.com/questions/3024745
-    // https://stackoverflow.com/questions/19289739
-    if (window.sidebar) // Mozilla Firefox Bookmark
-        return true;
-    else if(window.external) // IE Favorite
-        window.external.AddFavorite(location.href, document.title);
-    else if(window.opera && window.print) // Opera Hotlist
-        return true;
-    return false;
 }
 
 function protect(value) {
@@ -1237,7 +1232,7 @@ function parse_params() {
     }
     if(curtoken !== undefined)
 	add_param_objects(curtoken, curtokenprotected);
-    create_wanted_scripts()
+    create_wanted_scripts();
 }
 
 function create_wanted_scripts() {
@@ -1269,15 +1264,15 @@ function create_wanted_scripts() {
 		}
 		return o;
 	    }, {});
-    };
+    }
 
     wanted_portscripts = array2object(
 	getparamvalues("script", true)
 	    .concat(getparamvalues("portscript", true)));
     wanted_hostscripts = array2object(getparamvalues("hostscript", true));
     wanted_hops = getparamvalues("hop")
-	.filter(function(x){return x[0];})
-	.map(function(x){return x[1];});
+	.filter(function(x) {return x[0];})
+	.map(function(x) {return x[1];});
 }
 
 function add_param_object(p, f, v) {
@@ -1288,16 +1283,17 @@ function add_param_object(p, f, v) {
 }
 
 function add_param_objects(p, pp) {
-    if (p.length == 0) return;
+    if (p.length === 0) return;
     parameters.push(p);
     parametersprotected.push(pp);
+    var b, i;
     if ('-!'.indexOf(p[0]) != -1) {
-	var b = false;
+	b = false;
 	p = p.substr(1);
-	if (p.length == 0) return;
+	if (p.length === 0) return;
     }
     else
-	var b = true;
+	b = true;
 
     // aliases
     if (p.substr(0, 7) === "banner:")
@@ -1427,7 +1423,7 @@ function add_param_objects(p, pp) {
 			 [b, 'http-headers', '/^ *Set-Cookie: phpMyAdmin/i']);
 	break;
     default:
-	var i = p.indexOf(':');
+	i = p.indexOf(':');
 	if (i === -1)
 	    add_param_object(parametersobjunalias, p,
 			     [b, undefined]);
@@ -1435,7 +1431,7 @@ function add_param_objects(p, pp) {
 	    add_param_object(parametersobjunalias, p.substr(0, i),
 			     [b, p.substr(i+1)]);
     }
-    var i = p.indexOf(':');
+    i = p.indexOf(':');
     if (i === -1)
 	add_param_object(parametersobj, p,
 			 [b, undefined]);
@@ -1445,40 +1441,19 @@ function add_param_objects(p, pp) {
 }
 
 function getparamvalues(param, unalias) {
+    var store;
     if (unalias === true)
-	var store = parametersobjunalias;
+	store = parametersobjunalias;
     else
-	var store = parametersobj;
+	store = parametersobj;
     if (param in store)
 	return store[param];
     return [];
 }
 
-function getsubparam(field, script) {
-    params = [];
-    scripts = getparamvalues(field, true);
-    for(var s in scripts) {
-	ss = scripts[s];
-	bool = ss[0];
-	ss = ss[1];
-	i = ss.indexOf(':');
-	if(i == -1)
-	    ss = [ss];
-	else
-	    ss = [ss.substr(0,i), ss.substr(i+1)];
-	if (script.search(str2regexp(ss[0])) != -1) {
-	    if (ss.length == 1)
-		params.push([script , undefined]);
-	    else
-		params.push([script, ss[1]]);
-	}
-    }
-    return params;
-}
-
 function getparam(param) {
     // returns the first value for param
-    var store = parametersobj;
+    var store = parametersobj, b;
     if (param.length > 0 && '-!'.indexOf(param[0]) != -1) {
 	b = false;
 	param = param.substr(1);
@@ -1499,7 +1474,7 @@ function unsetparam(param) {
 }
 
 function setparam(param, value, unique, notnow) {
-    var store = parametersobj;
+    var store = parametersobj, b;
     if (param.length > 0 && '-!'.indexOf(param[0]) != -1) {
 	b = false;
 	param = param.substr(1);
@@ -1507,8 +1482,8 @@ function setparam(param, value, unique, notnow) {
     else
 	b = true;
     if (param !== 'limit' && param !== 'skip') {
-	delete(store['limit']);
-	delete(store['skip']);
+	delete(store.limit);
+	delete(store.skip);
     }
     if(unique || ! (param in store)) {
 	store[param] = [[b, value]];
@@ -1544,7 +1519,7 @@ function changefav(href) {
 }
 
 function addr_links(host) {
-    var addr = host['addr'].split('.');
+    var addr = host.addr.split('.');
     var result = [];
     var net;
     for(var i = 0; i < addr.length; i++) {
@@ -1563,22 +1538,22 @@ function addr_links(host) {
 function hostnames_links(host) {
     if(!('hostnames' in host))
 	return [];
-    var hostnames = host['hostnames'];
+    var hostnames = host.hostnames;
     var results = [];
     for(var i in hostnames) {
 	if('name' in hostnames[i]) {
-	    var names = hostnames[i]['name'].split('.');
+	    var names = hostnames[i].name.split('.');
 	    var fullname = names.shift();
-	    result = [{
+	    var result = [{
 		'param': 'hostname',
 		'value': fullname + '.' + names.join('.'),
 		'name': fullname,
 	    }];
-	    for(var i in names) {
+	    for(var j in names) {
 		result.push({
 		    'param': 'domain',
-		    'value': names.slice(i).join('.'),
-		    'name': names[i],
+		    'value': names.slice(j).join('.'),
+		    'name': names[j],
 		});
 	    }
 	    results.push(result);
@@ -1588,12 +1563,12 @@ function hostnames_links(host) {
 }
 
 function port_summary(host, width) {
-    var result = [];
+    var result = [], status;
     if(width === undefined)
 	width = 4;
     if('extraports' in host) {
-	for(var status in host['extraports']){
-	    var values = host['extraports'][status];
+	for(status in host.extraports) {
+	    var values = host.extraports[status];
 	    result.push({"type": "extra", "status": status,
 			 "count": values[0] + '',
 			 "reasons": values[1]});
@@ -1601,21 +1576,21 @@ function port_summary(host, width) {
     }
     if('ports' in host) {
 	var ports = {};
-	for(var i in host['ports']) {
-	    port = host['ports'][i];
-	    if(port['state_state'] in ports)
-		ports[port['state_state']].push({
-		    'protocol': port['protocol'],
-		    'port': port['port']
+	for(var i in host.ports) {
+	    var port = host.ports[i];
+	    if(port.state_state in ports)
+		ports[port.state_state].push({
+		    'protocol': port.protocol,
+		    'port': port.port
 		});
 	    else
-		ports[port['state_state']] = [{'protocol': port['protocol'],
-					       'port': port['port']}];
+		ports[port.state_state] = [{'protocol': port.protocol,
+					       'port': port.port}];
 	}
-	for(var status in ports) {
+	for(status in ports) {
 	    result.push({"type": "ports", "status": status,
 			 "count": ports[status].length,
-			 "ports": ports[status]})
+			 "ports": ports[status]});
 	}
     }
     return result;
@@ -1654,7 +1629,7 @@ ivreWebUi
 		$scope.notes_display = "none";
 	    else
 		$scope.notes_page = config.notesbase.replace(/#IP#/g, page);
-	}
+	};
 	// graphs:here beacause the buttons are located w/ the filters
 	$scope.build_ip_plane = function() {
 	    var totalnbrres = $scope.totalnbrres;
@@ -1741,7 +1716,7 @@ ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
 	$scope.get_href = function() {return document.location.href;};
 	$scope.get_title = function() {return document.title;};
-	$scope.add_bookmark = function(url) {
+	$scope.add_bookmark = function() {
 	    // https://stackoverflow.com/questions/3024745
 	    // https://stackoverflow.com/questions/19289739
 	    if (window.sidebar) // Mozilla Firefox Bookmark
@@ -1753,10 +1728,10 @@ ivreWebUi
 	    return false;
 	};
 	$scope.get_mail_href = function() {
-	    return 'mailto:?subject=' + 
-    		encodeURIComponent(document.title) +
-    		'&body=' +
-    		encodeURIComponent(document.location.href);
+	    return 'mailto:?subject=' +
+		encodeURIComponent(document.title) +
+		'&body=' +
+		encodeURIComponent(document.location.href);
 	};
     })
     .directive('ivreMenu', function() {
@@ -1780,25 +1755,23 @@ ivreWebUi
 	$scope.goto_start = function() {
 	    if(!$scope.at_start())
 		setparam('skip', '0', true);
-	}
+	};
 	$scope.goto_end = function() {
 	    if(!$scope.at_end())
 		setparam(
 		    'skip',
-		    $scope.totalnbrres
-			- $scope.lastdisplayed
-			+ $scope.firstdisplayed
-			- 1 + "",
+		    $scope.totalnbrres - $scope.lastdisplayed +
+			$scope.firstdisplayed - 1 + "",
 		    true);
-	}
+	};
 	$scope.go_back = function(count) {
 	    if(!$scope.at_start())
 		setparam('skip', $scope.firstdisplayed - count - 1 + '', true);
-	}
+	};
 	$scope.go_forward = function(count) {
 	    if(!$scope.at_end())
 		setparam('skip', $scope.firstdisplayed + count - 1 + '', true);
-	}
+	};
     })
     .directive('ivreProgressBar', function() {
 	return {
@@ -1810,19 +1783,15 @@ ivreWebUi
 function set_nbrres(nbr) {
     var scope = get_scope('IvreMainCtrl');
     scope.$apply(function() {
-        scope.totalnbrres = nbr;
+	scope.totalnbrres = nbr;
     });
-}
-
-function get_nbrres(nbr) {
-    return get_scope('IvreMainCtrl').totalnbrres;
 }
 
 function set_display_bounds(first, last) {
     var scope = get_scope('IvreProgressCtrl');
     scope.$apply(function() {
-        scope.firstdisplayed = first;
-        scope.lastdisplayed = last;
+	scope.firstdisplayed = first;
+	scope.lastdisplayed = last;
     });
 }
 
@@ -1858,8 +1827,8 @@ ivreWebUi
 	    "cert.issuer", "cert.subject",
 	    // modbus (portscript modbus-discover)
 	    "modbus.deviceid",
-            // s7 (portscript s7-info)
-            "s7.Module", "s7.Version", "s7.Module Type",
+	    // s7 (portscript s7-info)
+	    "s7.Module", "s7.Version", "s7.Module Type",
 	    // enip (portscript enip-info)
 	    "enip.vendor", "enip.product", "enip.serial", "enip.devtype",
 	    "enip.prodcode", "enip.rev", "enip.ip",
@@ -1878,15 +1847,15 @@ ivreWebUi
 function add_filter(filter) {
     var scope = get_scope('IvreFilterListCtrl');
     scope.$apply(function() {
-        scope.filters.push(filter);
+	scope.filters.push(filter);
     });
 }
 
 function clear_filters() {
     var scope = get_scope('IvreFilterListCtrl');
     scope.$apply(function() {
-        scope.filters = [];
-        scope.lastfiltervalue = "";
+	scope.filters = [];
+	scope.lastfiltervalue = "";
     });
 }
 
@@ -1904,12 +1873,12 @@ ivreWebUi
 	    return scripts
 		.map(function(x) {return x.id;})
 		.indexOf($scope.display_mode_args[0]) !== -1;
-	}
+	};
 	$scope.script_display_mode_needed_script = function(scriptid) {
 	    if($scope.display_mode_args.length === 0)
 		return true;
 	    return scriptid === $scope.display_mode_args[0];
-	}
+	};
 	$scope.set_timer_toggle_preview = function(event, host) {
 	    event = event || window.event;
 	    if((event.keyCode || event.which) === 1)
@@ -1931,13 +1900,13 @@ ivreWebUi
 	};
 	$scope.wanted_param = function(param, value) {
 	    var wanted = getparamvalues(param)
-		.filter(function(x){return x[0];})
-		.map(function(x){return x[1];});
-	    return wanted.indexOf(value) != -1
+		.filter(function(x) {return x[0];})
+		.map(function(x) {return x[1];});
+	    return wanted.indexOf(value) != -1;
 	};
 	$scope.wanted_trace = function(trace) {
-	    var hops = trace.hops.map(function(hop){return hop.ipaddr;});
-	    for(i in wanted_hops) {
+	    var hops = trace.hops.map(function(hop) {return hop.ipaddr;});
+	    for(var i in wanted_hops) {
 		if(hops.indexOf(wanted_hops[i]) != -1)
 		    return true;
 	    }
@@ -1968,31 +1937,31 @@ ivreWebUi
 	    var result;
 	    var schemes = {
 		// service_name: [url_scheme, default_port,
-		//                url_scheme_ssl, default_port_ssl]
+		//		  url_scheme_ssl, default_port_ssl]
 		'http': ['http', 80, 'https', 443],
 		'ldap': ['ldap', 389, 'ldaps', 636],
 		'ftp': ['ftp', 21, 'ftps', 990],
 	    };
-	    if ('service_name' in port && port['service_name'] in schemes) {
-		if('service_tunnel' in port
-		   && port['service_tunnel'] === 'ssl') {
-		    result = schemes[port['service_name']][2] + '://' + addr;
-		    if(port['port'] !== schemes[port['service_name']][3])
-			result += ':' + port['port'];
+	    if ('service_name' in port && port.service_name in schemes) {
+		if('service_tunnel' in port &&
+		   port.service_tunnel === 'ssl') {
+		    result = schemes[port.service_name][2] + '://' + addr;
+		    if(port.port !== schemes[port.service_name][3])
+			result += ':' + port.port;
 		    result += '/';
 		}
 		else {
-		    result = schemes[port['service_name']][0] + '://' + addr;
-		    if(port['port'] !== schemes[port['service_name']][1])
-			result += ':' + port['port'];
+		    result = schemes[port.service_name][0] + '://' + addr;
+		    if(port.port !== schemes[port.service_name][1])
+			result += ':' + port.port;
 		    result += '/';
 		}
 	    }
 	    else {
-		result = addr + ':' + port['port'];
+		result = addr + ':' + port.port;
 	    }
 	    return result;
-	}
+	};
     })
     .directive('displayHost', function() {
 	return {
@@ -2020,11 +1989,11 @@ ivreWebUi
 	};
     })
     .directive('scriptOutput', function() {
-    	return {"link": function(scope, element, attr) {
-    	    var wanted = {
-    		'port': wanted_portscripts,
-    		'host': wanted_hostscripts
-    	    }[attr.scriptOutput][scope.script.id];
+	return {"link": function(scope, element, attr) {
+	    var wanted = {
+		'port': wanted_portscripts,
+		'host': wanted_hostscripts
+	    }[attr.scriptOutput][scope.script.id];
 	    var output = scope.script.output
 		.split('\n')
 		.map(function(x) {return x.trim();})
@@ -2032,48 +2001,48 @@ ivreWebUi
 		.join('\n')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;');
-	    if(scope.wanted_script(attr.scriptOutput, scope.script.id)){
-    		for(var i in wanted) {
-    	    	    expr = str2regexp(wanted[i]);
-    	    	    output = output.replace(
+	    if(scope.wanted_script(attr.scriptOutput, scope.script.id)) {
+		for(var i in wanted) {
+		    var expr = str2regexp(wanted[i]);
+		    output = output.replace(
 			expr, '<span class="highlight-more">$&</span>'
 		    );
-    		}
+		}
 	    }
-    	    element.html(output);
+	    element.html(output);
 	}};
     });
 
 function prepare_host(host) {
     // This function adds the properties needed for the presentation
     // of an host object
-    host['addr_links'] = addr_links(host);
-    host['hostnames_links'] = hostnames_links(host);
-    host['fulldisplay'] = false;
-    host['port_summary'] = port_summary(host);
-    host['starttime'] = 1000 * host['starttime']
-    host['endtime'] = 1000 * host['endtime']
+    host.addr_links = addr_links(host);
+    host.hostnames_links = hostnames_links(host);
+    host.fulldisplay = false;
+    host.port_summary = port_summary(host);
+    host.starttime = 1000 * host.starttime;
+    host.endtime = 1000 * host.endtime;
     return host;
 }
 
 function add_host(host) {
     var scope = get_scope('IvreResultListCtrl');
     scope.$apply(function() {
-        scope.results.push(prepare_host(host));
+	scope.results.push(prepare_host(host));
     });
 }
 
 function clear_hosts() {
     var scope = get_scope('IvreResultListCtrl');
     scope.$apply(function() {
-        scope.results = [];
+	scope.results = [];
     });
 }
 
 function toggle_full_display(hostindex) {
     var scope = get_scope('IvreResultListCtrl');
     scope.$apply(function() {
-        scope.results[hostindex].fulldisplay = true;
+	scope.results[hostindex].fulldisplay = true;
     });
 }
 
@@ -2087,7 +2056,7 @@ function set_display_mode(mode) {
     if(mode === undefined)
 	mode = "host"; // default
     scope.$apply(function() { 
-	if(mode.substr(0, 7) === "script:"){
+	if(mode.substr(0, 7) === "script:") {
 	    scope.display_mode_args = [mode.substr(7)];
 	    mode = "script";
 	}
@@ -2101,8 +2070,8 @@ ivreWebUi
 
 function compare_params(store, other, count) {
     for(var key in store) {
-	if((count && (key == 'limit' || key == 'skip' || key == 'sortby'))
-	   || key == 'display') {
+	if((count && (key == 'limit' || key == 'skip' || key == 'sortby')) ||
+	   key == 'display') {
 	    continue;
 	}
 	if(other[key] === undefined) {
@@ -2170,10 +2139,10 @@ function set_tooltip_filter(elt) {
 		"title": "Possible commands",
 		"content": matching_keys.map(
 		    function(x) {
-			return x.substr(0, key.length)
-			    + "<b><span style=\"color: red;\">"
-			    + x.substr(key.length, 1) + "</span>"
-			    + x.substr(key.length + 1) + "</b>";
+			return x.substr(0, key.length) +
+			    "<b><span style=\"color: red;\">" +
+			    x.substr(key.length, 1) + "</span>" +
+			    x.substr(key.length + 1) + "</b>";
 		    }
 		).join("<br>"),
 	    };
@@ -2225,7 +2194,6 @@ function remove_all_tooltips(parentelt) {
 
 function load() {
     parse_params();
-    var display = getparam("display");
     if(getparam('skip') == config.dflt.skip) {
 	unsetparam('skip');
 	return;
@@ -2239,8 +2207,8 @@ function load() {
 
     var ii = 0;
     for(var i in parametersprotected) {
-	if (! (parametersprotected[i].substr(0,5) === "skip:"
-	       || parametersprotected[i].substr(0,6) === "limit:")) {
+	if (! (parametersprotected[i].substr(0,5) === "skip:" ||
+	       parametersprotected[i].substr(0,6) === "limit:")) {
 	    add_filter({
 		"id": ii,
 		"value": parametersprotected[i],
@@ -2279,18 +2247,19 @@ function load() {
     if(s) document.body.removeChild(s);
     s = document.createElement('script');
     s.id = "resultsscript";
-    s.src = config.cgibase + '?callback=add_host&q='
-	+ encodeURIComponent(query);
+    s.src = config.cgibase + '?callback=add_host&q=' +
+	encodeURIComponent(query);
     document.getElementById('results-container')
 	.setAttribute('class', 'span5');
     s.onload = function() {
-	var hostcount = count_displayed_hosts();
-	limit = getparam('limit');
+	var hostcount = count_displayed_hosts(),
+	limit = getparam('limit'),
+	skip = getparam('skip'),
+	maxres = skip + hostcount;
 	if(limit === undefined)
 	    limit = config.dflt.limit;
 	else
 	    limit = limit * 1;
-	skip = getparam('skip');
 	if(skip === undefined)
 	    skip = config.dflt.skip;
 	else {
@@ -2299,14 +2268,13 @@ function load() {
 		setparam('skip', config.dflt.skip, true);
 	}
 	set_display_mode(getparam('display'));
-	maxres = skip + hostcount;
 	if(maxres !== skip) {
 	    set_display_bounds(skip + 1, maxres);
 	}
 
 	changefav("favicon.png");
 
-	if(hostcount === 1){
+	if(hostcount === 1) {
 	    toggle_full_display(0);
 	}
 
@@ -2317,8 +2285,8 @@ function load() {
 	    if(s) document.body.removeChild(s);
 	    s = document.createElement('script');
 	    s.id = "countscript";
-	    s.src = config.cgibase + '?callback=set_nbrres&count=&q='
-		+ encodeURIComponent(query);
+	    s.src = config.cgibase + '?callback=set_nbrres&count=&q=' +
+		encodeURIComponent(query);
 	    document.body.appendChild(s);
 	}
 	prev_query = {};
@@ -2331,7 +2299,3 @@ function load() {
 }
 
 window.onhashchange = load;
-
-function disable_onhashchange_once() {
-    window.onhashchange = function() {window.onhashchange = load;};
-}

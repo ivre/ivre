@@ -16,7 +16,7 @@
  * along with IVRE. If not, see <http://www.gnu.org/licenses/>.
  */
 
-config = {
+var config = {
     /* default values, not needed */
     "notesbase": "/dokuwiki/#IP#",
     "cgibase": "/cgi-bin/scanjson.py",
