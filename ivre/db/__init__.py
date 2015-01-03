@@ -81,7 +81,8 @@ class DB(object):
         """
         return reduce(self._flt_and, args)
 
-    def _flt_and(self, cond1, cond2):
+    @staticmethod
+    def _flt_and(cond1, cond2):
         """Returns a condition that is true iff both `cond1` and
         `cond2` are true.
 
@@ -98,7 +99,8 @@ class DB(object):
         """
         return reduce(self._flt_or, args)
 
-    def _flt_or(self, cond1, cond2):
+    @staticmethod
+    def _flt_or(cond1, cond2):
         """Returns a condition that is true iff either `cond1` or
         `cond2` is true.
 
@@ -115,7 +117,8 @@ class DB(object):
         """
         return self.searchrange(*utils.net2range(net), neg=neg)
 
-    def searchrange(self, start, stop, neg=False):
+    @staticmethod
+    def searchrange(start, stop, neg=False):
         """Filters (if `neg` == True, filters out) one particular IP
         range given its boudaries `start` and `stop`.
 
@@ -163,7 +166,8 @@ class DB(object):
         """Finds Java User-Agent."""
         return self.searchuseragent(re.compile('(^| )(Java|javaws)/', flags=0))
 
-    def searchuseragent(self, useragent):
+    @staticmethod
+    def searchuseragent(useragent):
         """Finds specified User-Agent(s)."""
         raise NotImplementedError
 
@@ -176,7 +180,8 @@ class DB(object):
         """
         raise NotImplementedError
 
-    def getid(self, record):
+    @staticmethod
+    def getid(record):
         """Gets a unique identifier for a specified `record`.
 
         The type of the identifier is backend-specific, and this is
@@ -185,7 +190,8 @@ class DB(object):
         """
         raise NotImplementedError
 
-    def searchid(self, idval, neg=False):
+    @staticmethod
+    def searchid(idval, neg=False):
         """Gets a specific record given its unique identifier `idval`.
 
         The type of the identifier is backend-specific, and this is
@@ -194,7 +200,8 @@ class DB(object):
         """
         raise NotImplementedError
 
-    def str2id(self, string):
+    @staticmethod
+    def str2id(string):
         """Returns a unique identifier from `string`.
 
         The type of the identifier is backend-specific, and this is
@@ -204,7 +211,8 @@ class DB(object):
         raise NotImplementedError
 
     if USE_CLUSTER:
-        def hierarchical_clustering(self, values):
+        @staticmethod
+        def hierarchical_clustering(values):
             """Returns a cluster
             """
             return cluster.HierarchicalClustering(
@@ -426,26 +434,32 @@ class DBNmap(DB):
     def searchwebcam(self):
         return self.searchdevicetype('webcam')
 
-    def searchscriptidout(self, name, output):
+    @staticmethod
+    def searchscriptidout(name, output):
         raise NotImplementedError
 
-    def searchscriptid(self, name):
+    @staticmethod
+    def searchscriptid(name):
         raise NotImplementedError
 
-    def searchhostscriptidout(self, name, out):
+    @staticmethod
+    def searchhostscriptidout(name, out):
         raise NotImplementedError
 
-    def searchport(self, port, protocol='tcp', state='open', neg=False):
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
         raise NotImplementedError
 
-    def searchproduct(self, product, version=None, service=None,
-                      port=None):
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None):
         raise NotImplementedError
 
-    def searchdevicetype(self, devtype):
+    @staticmethod
+    def searchdevicetype(devtype):
         raise NotImplementedError
 
-    def searchsmb(self, **args):
+    @staticmethod
+    def searchsmb(**args):
         """Search particular results from smb-os-discovery host
         script. Example:
 
@@ -476,7 +490,8 @@ class DBPassive(DB):
             re.compile('^CN=www\\.[a-z2-7]{8,20}\\.(net|com)$',
                        flags=0))
 
-    def searchcertsubject(self, expr):
+    @staticmethod
+    def searchcertsubject(expr):
         raise NotImplementedError
 
 
@@ -504,8 +519,8 @@ class DBData(DB):
                 'stop': int(line[3]),
                 'country_code': line[4]}
 
-    def parse_line_city(self, line, feedipdata=None,
-                        createipdata=False):
+    @staticmethod
+    def parse_line_city(line, feedipdata=None, createipdata=False):
         if line.endswith('\n'):
             line = line[:-1]
         if line.endswith('"'):
@@ -523,7 +538,8 @@ class DBData(DB):
                 'stop': int(line[1]),
                 'location_id': int(line[2])}
 
-    def parse_line_city_location(self, line):
+    @staticmethod
+    def parse_line_city_location(line):
         if line.endswith('\n'):
             line = line[:-1]
         # Get an integer
@@ -562,8 +578,8 @@ class DBData(DB):
             parsedline['area_code'] = int(line)
         return parsedline
 
-    def parse_line_asnum(self, line, feedipdata=None,
-                         createipdata=False):
+    @staticmethod
+    def parse_line_asnum(line, feedipdata=None, createipdata=False):
         if line.endswith('\n'):
             line = line[:-1]
         line = line.split(',', 2)
@@ -685,12 +701,14 @@ class DBAgent(DB):
             if fname.endswith('.xml')
         )
 
-    def get_local_path(self, agent, dirname):
+    @staticmethod
+    def get_local_path(agent, dirname):
         if not dirname.endswith('/'):
             dirname += '/'
         return os.path.join(agent["path"]["local"], dirname)
 
-    def get_remote_path(self, agent, dirname):
+    @staticmethod
+    def get_remote_path(agent, dirname):
         if dirname and not dirname.endswith('/'):
             dirname += '/'
         return "%s%s" % (
@@ -951,7 +969,8 @@ class MetaDB(object):
     data = None
     agent = None
 
-    def url2dbinfos(self, url):
+    @staticmethod
+    def url2dbinfos(url):
         url = urlparse.urlparse(url)
         userinfo = {}
         if '@' in url.netloc:

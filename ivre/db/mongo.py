@@ -88,10 +88,12 @@ class MongoDB(DB):
                                     " with 'username'")
             return self._db
 
-    def getid(self, record):
+    @staticmethod
+    def getid(record):
         return record['_id']
 
-    def serialize(self, obj):
+    @staticmethod
+    def serialize(obj):
         if type(obj) is utils.REGEXP_T:
             return '/%s/%s' % (
                 obj.pattern,
@@ -109,7 +111,8 @@ class MongoDB(DB):
         return json.dumps(cursor.explain(), indent=indent,
                           default=self.serialize)
 
-    def distinct(self, cursor, fieldname):
+    @staticmethod
+    def distinct(cursor, fieldname):
         return cursor.distinct(fieldname)
 
     def create_indexes(self):
@@ -186,16 +189,20 @@ class MongoDB(DB):
     # filters
     flt_empty = {}
 
-    def str2id(self, string):
+    @staticmethod
+    def str2id(string):
         return bson.ObjectId(string)
 
-    def str2flt(self, string):
+    @staticmethod
+    def str2flt(string):
         return json.loads(string)
 
-    def flt2str(self, flt):
+    @staticmethod
+    def flt2str(flt):
         return json.dumps(flt)
 
-    def _flt_and(self, cond1, cond2):
+    @staticmethod
+    def _flt_and(cond1, cond2):
         """Returns a filter which will accept results if and only if
         they are accepted by both cond1 and cond2.
 
@@ -221,17 +228,20 @@ class MongoDB(DB):
                                                        {k: cond2[k]}]
         return cond
 
-    def flt_or(self, *args):
+    @staticmethod
+    def flt_or(*args):
         return {'$or': args}
 
-    def searchid(self, idval, neg=False):
+    @staticmethod
+    def searchid(idval, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         record, given its id.
 
         """
         return {"_id": {'$ne': idval} if neg else idval}
 
-    def searchhost(self, addr, neg=False):
+    @staticmethod
+    def searchhost(addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
 
@@ -242,10 +252,12 @@ class MongoDB(DB):
             pass
         return {'addr': {'$ne': addr} if neg else addr}
 
-    def searchhosts(self, hosts, neg=False):
+    @staticmethod
+    def searchhosts(hosts, neg=False):
         return {'addr': {'$nin' if neg else '$in': hosts}}
 
-    def searchrange(self, start, stop, neg=False):
+    @staticmethod
+    def searchrange(start, stop, neg=False):
         """Filters (if `neg` == True, filters out) one particular IP
         address range.
 
@@ -266,10 +278,12 @@ class MongoDB(DB):
         return {'addr': {'$gte': start,
                          '$lte': stop}}
 
-    def searchval(self, key, val):
+    @staticmethod
+    def searchval(key, val):
         return {key: val}
 
-    def searchcmp(self, key, val, cmpop):
+    @staticmethod
+    def searchcmp(key, val, cmpop):
         if cmpop == '<':
             return {key: {'$lt': val}}
         elif cmpop == '<=':
@@ -481,7 +495,8 @@ have no effect if it is not expected)."""
             else self.colname_hosts
         ].aggregate(aggr)['result']
 
-    def searchdomain(self, name, neg=False):
+    @staticmethod
+    def searchdomain(name, neg=False):
         if neg:
             if type(name) is utils.REGEXP_T:
                 return {"hostnames.domains": {"$not": name}}
@@ -500,7 +515,8 @@ have no effect if it is not expected)."""
             {"hostnames.name": name},
         )
 
-    def searchcategory(self, cat, neg=False):
+    @staticmethod
+    def searchcategory(cat, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular category
         (records may have zero, one or more categories).
@@ -511,7 +527,8 @@ have no effect if it is not expected)."""
             return {'categories': {'$ne': cat}}
         return {'categories': cat}
 
-    def searchcountry(self, country, neg=False):
+    @staticmethod
+    def searchcountry(country, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular country.
         """
@@ -522,10 +539,12 @@ have no effect if it is not expected)."""
         return {'infos.country_code':
                 {'$ne': country} if neg else country}
 
-    def searchhaslocation(self, neg=False):
+    @staticmethod
+    def searchhaslocation(neg=False):
         return {'infos.loc': {"$exists": not neg}}
 
-    def searchcity(self, city, neg=False):
+    @staticmethod
+    def searchcity(city, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular city.
         """
@@ -535,7 +554,8 @@ have no effect if it is not expected)."""
             return {'infos.city': {'$ne': city}}
         return {'infos.city': city}
 
-    def searchasnum(self, asnum, neg=False):
+    @staticmethod
+    def searchasnum(asnum, neg=False):
         """Filters (if `neg` == True, filters out) one or more
         particular AS number(s).
 
@@ -546,7 +566,8 @@ have no effect if it is not expected)."""
         asnum = int(asnum)
         return {'infos.as_num': {'$ne': asnum} if neg else asnum}
 
-    def searchasname(self, asname, neg=False):
+    @staticmethod
+    def searchasname(asname, neg=False):
         """Filters (if `neg` == True, filters out) one or more
         particular AS.
 
@@ -558,15 +579,20 @@ have no effect if it is not expected)."""
                 return {'infos.as_name': {'$ne': asname}}
         return {'infos.as_name': asname}
 
-    def searchsource(self, src, neg=False):
-        "Filters (if `neg` == True, filters out) one particular source."
+    @staticmethod
+    def searchsource(src, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        source.
+
+        """
         if neg:
             if type(src) is utils.REGEXP_T:
                 return {'source': {'$not': src}}
             return {'source': {'$ne': src}}
         return {'source': src}
 
-    def searchport(self, port, protocol='tcp', state='open', neg=False):
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
         """Filters (if `neg` == True, filters out) records with
         specified protocol/port at required state. Be aware that when
         a host has a lot of ports filtered or closed, it will not
@@ -597,11 +623,13 @@ have no effect if it is not expected)."""
                                               state=state, neg=neg)
                               for p in ports))
 
-    def searchopenport(self, neg=False):
+    @staticmethod
+    def searchopenport(neg=False):
         "Filters records with at least one open port."
         return {'ports.state_state': {'$nin': ['open']} if neg else 'open'}
 
-    def searchservice(self, srv, port=None, probed=False):
+    @staticmethod
+    def searchservice(srv, port=None, probed=False):
         """Search an open port with a particular service."""
         # service_method
         res = {
@@ -615,8 +643,8 @@ have no effect if it is not expected)."""
             res['ports']['$elemMatch']['service_method'] = 'probed'
         return res
 
-    def searchproduct(self, product, version=None, service=None,
-                      port=None):
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
@@ -634,7 +662,8 @@ have no effect if it is not expected)."""
             return {'ports.service_product': product}
         return {'ports': {'$elemMatch': flt}}
 
-    def searchscriptidout(self, name, output):
+    @staticmethod
+    def searchscriptidout(name, output):
         """Search a particular content in the scripts names and
         outputs.
 
@@ -645,21 +674,25 @@ have no effect if it is not expected)."""
                 'output': output
             }}}
 
-    def searchscriptid(self, name):
+    @staticmethod
+    def searchscriptid(name):
         """Search a script name."""
         return {'ports.scripts.id': name}
 
-    def searchscriptoutput(self, expr):
+    @staticmethod
+    def searchscriptoutput(expr):
         """Search a particular content in the scripts names and
         outputs.
 
         """
         return {'ports.scripts.output': expr}
 
-    def searchsvchostname(self, srv):
+    @staticmethod
+    def searchsvchostname(srv):
         return {'ports.service_hostname': srv}
 
-    def searchwebmin(self):
+    @staticmethod
+    def searchwebmin():
         return {
             'ports': {
                 '$elemMatch': {
@@ -669,7 +702,8 @@ have no effect if it is not expected)."""
                     'service_extrainfo': {'$ne': 'Webmin httpd'},
                 }}}
 
-    def searchx11(self):
+    @staticmethod
+    def searchx11():
         return {
             'ports': {'$elemMatch': {
                 'service_name': 'X11',
@@ -677,7 +711,8 @@ have no effect if it is not expected)."""
                 'service_extrainfo': {'$ne': 'access denied'}
             }}}
 
-    def searchsmb(self, **args):
+    @staticmethod
+    def searchsmb(**args):
         # key aliases
         if 'dnsdomain' in args:
             args['domain_dns'] = args.pop('dnsdomain')
@@ -705,7 +740,8 @@ have no effect if it is not expected)."""
             {'$in': ['http-title', 'html-title']},
             title)
 
-    def searchservicescript(self, srv, port=None):
+    @staticmethod
+    def searchservicescript(srv, port=None):
         if port is None:
             return {
                 'ports': {
@@ -737,13 +773,16 @@ have no effect if it is not expected)."""
                     ]
                 }}}
 
-    def searchhostscript(self, txt):
+    @staticmethod
+    def searchhostscript(txt):
         return {'scripts.output': txt}
 
-    def searchhostscriptid(self, name):
+    @staticmethod
+    def searchhostscriptid(name):
         return {'scripts.id': name}
 
-    def searchhostscriptidout(self, name, out):
+    @staticmethod
+    def searchhostscriptidout(name, out):
         return {
             'scripts': {
                 '$elemMatch': {
@@ -751,7 +790,8 @@ have no effect if it is not expected)."""
                     'output': out
                 }}}
 
-    def searchos(self, txt):
+    @staticmethod
+    def searchos(txt):
         return {
             '$or': [
                 {'os.osclass.vendor': txt},
@@ -759,7 +799,8 @@ have no effect if it is not expected)."""
                 {'os.osclass.osgen': txt}
             ]}
 
-    def searchvsftpdbackdoor(self):
+    @staticmethod
+    def searchvsftpdbackdoor():
         return {
             'ports': {
                 '$elemMatch': {
@@ -769,7 +810,8 @@ have no effect if it is not expected)."""
                     'service_version': '2.3.4',
                 }}}
 
-    def searchvulnintersil(self):
+    @staticmethod
+    def searchvulnintersil():
         # See MSF modules/auxiliary/admin/http/intersil_pass_reset.rb
         return {
             'ports': {
@@ -782,7 +824,8 @@ have no effect if it is not expected)."""
                                                   '1[0-1])([^0-9]|$))')
                 }}}
 
-    def searchdevicetype(self, devtype):
+    @staticmethod
+    def searchdevicetype(devtype):
         return {'ports.service_devicetype': devtype}
 
     def searchnetdev(self):
@@ -809,10 +852,12 @@ have no effect if it is not expected)."""
                 'VoIP phone',
             ]})
 
-    def searchldapanon(self):
+    @staticmethod
+    def searchldapanon():
         return {'ports.service_extrainfo': 'Anonymous bind OK'}
 
-    def searchtimeago(self, delta, neg=False):
+    @staticmethod
+    def searchtimeago(delta, neg=False):
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
         return {'endtime': {'$lt' if neg else '$gte':
@@ -830,14 +875,16 @@ have no effect if it is not expected)."""
             )
         return {'endtime': {'$gte': start}, 'starttime': {'$lte': stop}}
 
-    def searchhop(self, hop, neg=False):
+    @staticmethod
+    def searchhop(hop, neg=False):
         try:
             hop = utils.ip2int(hop)
         except (TypeError, utils.socket.error):
             pass
         return {'traces.hops.ipaddr': {'$ne': hop} if neg else hop}
 
-    def searchhopdomain(self, hop, neg=False):
+    @staticmethod
+    def searchhopdomain(hop, neg=False):
         if neg:
             if type(hop) is utils.REGEXP_T:
                 return {'traces.hops.domains': {'$not': hop}}
@@ -1560,42 +1607,49 @@ setting values according to the keyword arguments.
         """
         return self._topvalues(self.colname_passive, field, **kargs)
 
-    def searchsensor(self, sensor, neg=False):
+    @staticmethod
+    def searchsensor(sensor, neg=False):
         if neg:
             if type(sensor) is utils.REGEXP_T:
                 return {'sensor': {'$not': sensor}}
             return {'sensor': {'$ne': sensor}}
         return {'sensor': sensor}
 
-    def searchuseragent(self, useragent):
+    @staticmethod
+    def searchuseragent(useragent):
         return {
             'recontype': 'HTTP_CLIENT_HEADER',
             'source': 'USER-AGENT',
             'value': useragent
         }
 
-    def searchdns(self, name, reverse=False, subdomains=False):
+    @staticmethod
+    def searchdns(name, reverse=False, subdomains=False):
         return {
             'recontype': 'DNS_ANSWER',
             (('infos.domaintarget' if reverse else 'infos.domain')
              if subdomains else ('targetval' if reverse else 'value')): name,
         }
 
-    def searchcert(self):
+    @staticmethod
+    def searchcert():
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert'}
 
-    def searchcertsubject(self, expr):
+    @staticmethod
+    def searchcertsubject(expr):
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert',
                 'infos.subject': expr}
 
-    def searchcertissuer(self, expr):
+    @staticmethod
+    def searchcertissuer(expr):
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert',
                 'infos.issuer': expr}
 
-    def searchbasicauth(self):
+    @staticmethod
+    def searchbasicauth():
         return {
             'recontype': {'$in': ['HTTP_CLIENT_HEADER',
                                   'HTTP_CLIENT_HEADER_SERVER']},
@@ -1604,7 +1658,8 @@ setting values according to the keyword arguments.
             'value': re.compile('^Basic'),
         }
 
-    def searchhttpauth(self):
+    @staticmethod
+    def searchhttpauth():
         return {
             'recontype': {'$in': ['HTTP_CLIENT_HEADER',
                                   'HTTP_CLIENT_HEADER_SERVER']},
@@ -1612,10 +1667,12 @@ setting values according to the keyword arguments.
                                'PROXY-AUTHORIZATION']},
         }
 
-    def searchftpauth(self):
+    @staticmethod
+    def searchftpauth():
         return {'recontype': {'$in': ['FTP_CLIENT', 'FTP_SERVER']}}
 
-    def searchpopauth(self):
+    @staticmethod
+    def searchpopauth():
         return {'recontype': {'$in': ['POP_CLIENT', 'POP_SERVER']}}
 
     def searchcountry(self, code, neg=False):
@@ -1625,7 +1682,8 @@ setting values according to the keyword arguments.
     def searchasnum(self, asnum, neg=False):
         return {'addr': {'$nin' if neg else '$in': self.knownip_byas(asnum)}}
 
-    def searchtimeago(self, delta, neg=False, new=False):
+    @staticmethod
+    def searchtimeago(delta, neg=False, new=False):
         field = 'lastseen' if new else 'firstseen'
         if isinstance(delta, datetime.timedelta):
             delta = delta.total_seconds()

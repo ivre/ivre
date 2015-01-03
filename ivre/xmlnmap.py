@@ -216,7 +216,7 @@ class NmapHandler(ContentHandler):
 
     def outputresults(self):
         """Subclasses may display any results here."""
-        return
+        pass
 
     def startElement(self, name, attrs):
         if name == 'nmaprun':
