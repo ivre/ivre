@@ -399,6 +399,7 @@ if __name__ == '__main__':
         pool = multiprocessing.Pool(processes=args.processes)
         for i in pool.imap(call_nmap_single, targets, chunksize=1):
             pass
+        restore_echo()
         exit(0)
     elif args.output == 'ListAllRand':
         targiter = targets.__iter__()
