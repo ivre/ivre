@@ -557,8 +557,10 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.passive.searchhost(-1))
         self.assertEqual(result.count(), 0)
 
-        addrrange = [x.get('addr') for x in
-                     ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)[:2]]
+        addrrange = sorted(
+            x.get('addr') for x in
+            ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)[:2]
+        )
         result = ivre.db.db.passive.get(
             ivre.db.db.passive.searchrange(*addrrange))
         self.assertGreaterEqual(result.count(), 2)
