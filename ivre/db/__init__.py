@@ -41,6 +41,8 @@ import tempfile
 import pickle
 import uuid
 
+from functools import reduce
+
 # tests: I don't want to depend on cluster for now
 try:
     import cluster

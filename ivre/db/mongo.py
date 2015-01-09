@@ -35,6 +35,11 @@ import json
 import re
 import datetime
 
+try:
+    range = xrange
+except NameError:
+    pass
+
 
 class MongoDB(DB):
 
@@ -171,7 +176,7 @@ class MongoDB(DB):
         # hack to allow nested values as field
         # see <http://stackoverflow.com/questions/13708857/
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
-        for i in xrange(field.count('.'), -1, -1):
+        for i in range(field.count('.'), -1, -1):
             subfield = field.rsplit('.', i)[0]
             if subfield in self.needunwind:
                 pipeline += [{"$unwind": "$" + subfield}]
