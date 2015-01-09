@@ -381,7 +381,7 @@ class IvreTests(unittest.TestCase):
         name = ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
             'com'))[0]['hostnames'][0]['name']
         count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhostname(name))
+            ivre.db.db.nmap.searchhostname(name)).count()
         self.assertGreater(count, 0)
         count = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchcategory("TEST")).count()
