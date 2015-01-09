@@ -609,6 +609,14 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.passive.searchtorcert()).count()
         self.check_value("passive_torcert_count", count)
         count = ivre.db.db.passive.get(
+            ivre.db.db.passive.searchcertsubject(
+                re.compile('google', re.I))).count()
+        self.check_value("passive_cert_google", count)
+        count = ivre.db.db.passive.get(
+            ivre.db.db.passive.searchcertsubject(
+                re.compile('microsoft', re.I))).count()
+        self.check_value("passive_cert_microsoft", count)
+        count = ivre.db.db.passive.get(
             ivre.db.db.passive.searchjavaua()).count()
         self.check_value("passive_javaua_count", count)
 
