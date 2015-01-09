@@ -28,6 +28,7 @@ import random
 from cStringIO import StringIO
 from contextlib import contextmanager
 import coverage
+from functools import reduce
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -742,7 +743,7 @@ class IvreTests(unittest.TestCase):
                 if n % (f + 2) == 0: return False
                 f += 6
             return True
-        for _ in xrange(3):
+        for _ in range(3):
             nbr = random.randint(2, 1000)
             factors = list(ivre.mathutils.factors(nbr))
             self.assertTrue(all(is_prime(x) for x in factors))
