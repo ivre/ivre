@@ -27,25 +27,25 @@ ipaddr = re.compile('^\d+\.\d+\.\d+\.\d+$')
 def disp_rec(r):
     if 'addr' in r:
         if r['source'].startswith('PTR-'):
-            print '%s PTR %s (%s, %s time%s, %s - %s)' % (
+            print('%s PTR %s (%s, %s time%s, %s - %s)' % (
                 ivre.utils.int2ip(r['addr']),
                 r['value'], r['source'][4:], r['count'],
                 r['count'] > 1 and 's' or '',
                 datetime.datetime.fromtimestamp(int(r['firstseen'])),
-                datetime.datetime.fromtimestamp(int(r['lastseen'])))
+                datetime.datetime.fromtimestamp(int(r['lastseen']))))
         elif r['source'].startswith('A-'):
-            print '%s A %s (%s, %s time%s, %s - %s)' % (
+            print('%s A %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
                 ivre.utils.int2ip(r['addr']),
                 r['source'][2:], r['count'],
                 r['count'] > 1 and 's' or '',
                 datetime.datetime.fromtimestamp(int(r['firstseen'])),
-                datetime.datetime.fromtimestamp(int(r['lastseen'])))
+                datetime.datetime.fromtimestamp(int(r['lastseen']))))
         else:
-            print 'WARNING', r
+            print('WARNING', r)
     else:
         if r['source'].split('-')[0] in ['CNAME', 'NS', 'MX']:
-            print '%s %s %s (%s, %s time%s, %s - %s)' % (
+            print('%s %s %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
                 r['source'].split('-')[0],
                 r['targetval'],
@@ -53,9 +53,9 @@ def disp_rec(r):
                 r['count'],
                 r['count'] > 1 and 's' or '',
                 datetime.datetime.fromtimestamp(int(r['firstseen'])),
-                datetime.datetime.fromtimestamp(int(r['lastseen'])))
+                datetime.datetime.fromtimestamp(int(r['lastseen']))))
         else:
-            print 'WARNING', r
+            print('WARNING', r)
 
 if __name__ == '__main__':
     import sys
@@ -72,7 +72,7 @@ if __name__ == '__main__':
                                        # subdomains
                                        "sub"
                                    ])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
         sys.exit(-1)
     for o, a in opts:
@@ -90,7 +90,7 @@ if __name__ == '__main__':
         if first:
             first = False
         else:
-            print
+            print()
         if ipaddr.match(a) or a.isdigit():
             flts.append(db.passive.flt_and(baseflt, db.passive.searchhost(a)))
         else:

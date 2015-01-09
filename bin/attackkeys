@@ -40,14 +40,14 @@ factor with one of the other keys.
     for kk in keys:
         g = GCD(k, kk)
         if g != 1 and g != k:
-            print g, k, kk
+            print(g, k, kk)
             sys.stdout.flush()
             res = True
     if (len(keys) + 1) % 100 == 0:
-        print "%d unique keys handled in %d seconds" % (
+        print("%d unique keys handled in %d seconds" % (
             len(keys) + 1,
             int(datetime.datetime.now().strftime('%s')) - starttime,
-        )
+        ))
         sys.stdout.flush()
     return res
 
@@ -79,18 +79,18 @@ def test_keys():
                         keys[kk] = kkk
                     continue
                 if check_keys(kk, keys):
-                    print k
+                    print(k)
                     sys.stdout.flush()
                 keys[kk] = set([(k['host'], k['port'])])
             else:
-                print "BUG ?", k
-    print "%d unique keys handled in %d seconds" % (
+                print("BUG ?", k)
+    print("%d unique keys handled in %d seconds" % (
         len(keys),
         int(datetime.datetime.now().strftime('%s')) - starttime,
-    )
+    ))
     for k in keys:
         if len(keys[k]) != 1:
-            print hex(k), len(keys[k]), keys[k]
+            print(hex(k), len(keys[k]), keys[k])
 
 if __name__ == '__main__':
     init()

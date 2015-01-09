@@ -107,5 +107,5 @@ if HAVE_DBUS:
                     graph3d.new_edge(utils.int2ip(node), {},
                                      utils.int2ip(destnode), {})
                 except Exception as exc:
-                    print "WARNING: %r" % exc
+                    print("WARNING: %r" % exc)
         return graph3d

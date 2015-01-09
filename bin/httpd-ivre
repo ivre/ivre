@@ -53,7 +53,7 @@ class IvreRequestHandler(CGIHTTPRequestHandler):
             path = os.path.basename(path).lower().replace(':', '/')
             if '.' not in os.path.basename(path):
                 path += '.txt'
-            print os.path.join(DOKUWIKIDIR, path)
+            print(os.path.join(DOKUWIKIDIR, path))
             return os.path.join(DOKUWIKIDIR, path)
         while path.startswith('/'):
             path = path[1:]
@@ -97,5 +97,5 @@ def main():
     httpd.serve_forever()
 
 if __name__ == '__main__':
-    print __doc__
+    print(__doc__)
     main()

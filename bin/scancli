@@ -510,8 +510,8 @@ def main():
             else:
                 indent = None
             for h in x:
-                print json.dumps(h, indent=indent,
-                                 default=db.db.nmap.serialize)
+                print(json.dumps(h, indent=indent,
+                                 default=db.db.nmap.serialize))
     elif args.short:
         def displayfunction(x):
             for h in x.distinct('addr'):

@@ -135,10 +135,10 @@ if __name__ == '__main__':
     for a in args.ip:
         if a.isdigit():
             a = int(a)
-        print a
+        print(a)
         for i in [ivre.db.db.data.country_byip(a),
                   ivre.db.db.data.as_byip(a),
                   ivre.db.db.data.location_byip(a)]:
             if i:
                 for f in i:
-                    print '    ', f, i[f]
+                    print('    ', f, i[f])
