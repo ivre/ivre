@@ -95,7 +95,7 @@ def main():
                 needports=args.port, gettoarchive=gettoarchive
         ):
             count += 1
-    print "%d results imported." % count
+    print("Result(s) from %d files imported." % count)
 
 if __name__ == '__main__':
     main()

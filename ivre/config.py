@@ -75,8 +75,9 @@ def get_config_file(paths=None):
         if os.path.isfile(path):
             yield path
 
-for f in get_config_file():
-    execfile(f)
+for fname in get_config_file():
+    with open(fname) as fdesc:
+        exec(compile(fdesc.read(), fname, 'exec'))
 
 if GEOIP_PATH is None:
     GEOIP_PATH = utils.guess_prefix('geoip')

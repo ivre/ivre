@@ -45,7 +45,7 @@ if __name__ == '__main__':
                                    ['passive-ssl', 'active-ssl',
                                     'active-ssh',
                                     'filter='])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
         sys.exit(-1)
     for o, a in opts:

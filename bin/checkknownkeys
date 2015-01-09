@@ -40,11 +40,11 @@ def check_ssh_keys():
     for k in ivre.keys.SSHKey().get_hashes():
         if k['hash'] in KNOWN_KEYS:
             svcs = "" % ()
-            print 'SERVICE %s:%d has key %s listed as %r' % (
+            print('SERVICE %s:%d has key %s listed as %r' % (
                 ivre.utils.int2ip(k['host']),
                 k['port'],
                 k['hash'].encode('hex'),
-                KNOWN_KEYS[k['hash']])
+                KNOWN_KEYS[k['hash']]))
 
 if __name__ == '__main__':
     read_known_keys('DebianWeakKeys', 'dsa',

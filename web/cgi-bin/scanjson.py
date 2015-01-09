@@ -29,9 +29,9 @@ try:
     import urllib
     import datetime
 except Exception as exc:
-    print 'Content-Type: application/javascript\r\n\r'
-    print 'alert("ERROR: import error.");'
-    sys.stderr.write("Import error: %s (%r).\n" % (exc.message, exc))
+    print('Content-Type: application/javascript\r\n\r')
+    print('alert("ERROR: import error.");')
+    sys.stderr.write("Import error: %s (%r).\n" % (str(exc), exc))
     sys.exit(0)
 
 try:
@@ -40,7 +40,7 @@ try:
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
     sys.stdout.write('alert("ERROR: could not import ivre.")')
-    sys.stderr.write("IVRE: cannot import ivre: %s (%r).\n" % (exc.message,
+    sys.stderr.write("IVRE: cannot import ivre: %s (%r).\n" % (str(exc),
                                                                exc))
     sys.exit(0)
 
@@ -95,7 +95,7 @@ try:
             else:
                 query.append([q[0], q[1]])
 except Exception as exc:
-    sys.stderr.write('IVRE: warning: %s (%r)\n' % (exc.message, exc))
+    sys.stderr.write('IVRE: warning: %s (%r)\n' % (str(exc), exc))
 
 callback = None
 count = None
