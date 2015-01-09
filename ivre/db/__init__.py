@@ -289,7 +289,7 @@ class DBNmap(DB):
             content_handler = self.content_handler(fname, **kargs)
         except Exception as exc:
             sys.stderr.write("WARNING: %s [%r] [fname=%s]\n" % (
-                exc.message, exc, fname))
+                str(exc), exc, fname))
         else:
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
@@ -629,8 +629,8 @@ class DBAgent(DB):
         master = self.get_master(masterid)
         localpath = tempfile.mkdtemp(prefix="", dir=master['path'])
         for dirname in ["input"] + [os.path.join("remote", dname)
-                                    for dname in "input", "cur",
-                                    "output"]:
+                                    for dname in ["input", "cur",
+                                                  "output"]]:
             utils.makedirs(os.path.join(localpath, dirname))
         agent = {
             "host": host,
