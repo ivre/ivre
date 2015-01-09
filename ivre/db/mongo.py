@@ -1566,7 +1566,7 @@ setting values according to the keyword arguments.
                     count += 1
                     if count >= config.BULK_UPSERTS_MAXSIZE:
                         if config.DEBUG:
-                            print "MongoDB bulk upsert: %d" % count
+                            print("MongoDB bulk upsert: %d" % count)
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
                                    .initialize_unordered_bulk_op()
@@ -1575,7 +1575,7 @@ setting values according to the keyword arguments.
             pass
         if count > 0:
             if config.DEBUG:
-                print "MongoDB bulk upsert: %d (final)" % count
+                print("MongoDB bulk upsert: %d (final)" % count)
             bulk.execute()
 
     def insert_or_update_mix(self, spec, getinfos=None):
