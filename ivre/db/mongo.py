@@ -40,6 +40,11 @@ try:
 except NameError:
     pass
 
+try:
+    range = xrange
+except NameError:
+    pass
+
 
 class MongoDB(DB):
 
