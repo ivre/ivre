@@ -440,7 +440,7 @@ def target_from_args(args):
         else:
             zmap_prescan_opts = shlex.split(args.zmap_prescan_opts)
         if '-b' not in zmap_prescan_opts:
-            zmap_prescan_opts += ['-b', '/dev/null']
+            zmap_prescan_opts += ['-b', os.devnull]
         return TargetZMapPreScan(
             target,
             port=args.zmap_prescan_port,

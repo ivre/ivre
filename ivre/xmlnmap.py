@@ -28,9 +28,9 @@ This sub-module contains the parser for nmap's XML output files.
 from ivre import utils
 
 from xml.sax.handler import ContentHandler, EntityResolver
-import hashlib
 import datetime
 import sys
+import os
 import re
 
 # Scripts that mix elem/table tags with and without key attributes,
@@ -163,7 +163,7 @@ class NoExtResolver(EntityResolver):
     """
 
     def resolveEntity(self, *_):
-        return '/dev/null'
+        return 'file://%s' % os.devnull
 
 
 class NmapHandler(ContentHandler):
