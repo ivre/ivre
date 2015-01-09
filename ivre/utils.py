@@ -47,6 +47,11 @@ MAXVALLEN = 1000
 
 REGEXP_T = type(re.compile(''))
 
+try:
+    range = xrange
+except NameError:
+    pass
+
 
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are
@@ -152,7 +157,7 @@ def range2nets(rng):
 def get_domains(name):
     """Generates the upper domains from a domain name."""
     name = name.split('.')
-    return ('.'.join(name[i:]) for i in xrange(len(name)))
+    return ('.'.join(name[i:]) for i in range(len(name)))
 
 
 def str2regexp(string):
@@ -245,8 +250,8 @@ def nmapspec2ports(string):
     result = set()
     for ports in string.split(','):
         if '-' in ports:
-            ports = map(int, ports.split('-', 1))
-            result = result.union(xrange(ports[0], ports[1] + 1))
+            ports = [int(port) for port in ports.split('-', 1)]
+            result = result.union(range(ports[0], ports[1] + 1))
         else:
             result.add(int(ports))
     return result

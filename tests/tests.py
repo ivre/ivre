@@ -28,6 +28,18 @@ import random
 from cStringIO import StringIO
 from contextlib import contextmanager
 import coverage
+from functools import reduce
+
+
+def prepare_config():
+    """This function, used before importing ivre.db, will make IVRE
+    use the same parameters as usual with a different database.
+
+    """
+    for param in (x for x in dir(ivre.config) if x.startswith('DB_')):
+        delattr(ivre.config, param)
+    ivre.config.DB = MONGODB
+>>>>>>> Python 2 / 3 compatibility builtins fixes
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -729,7 +741,7 @@ class IvreTests(unittest.TestCase):
                 if n % (f + 2) == 0: return False
                 f += 6
             return True
-        for _ in xrange(3):
+        for _ in range(3):
             nbr = random.randint(2, 1000)
             factors = list(ivre.mathutils.factors(nbr))
             self.assertTrue(all(is_prime(x) for x in factors))
