@@ -28,6 +28,7 @@ This sub-module contains the parser for nmap's XML output files.
 from ivre import utils
 
 from xml.sax.handler import ContentHandler, EntityResolver
+import hashlib
 import datetime
 import sys
 import os
