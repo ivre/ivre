@@ -46,6 +46,7 @@ import uuid
 from six import iteritems
 from functools import reduce
 
+from six import iteritems
 from functools import reduce
 
 # tests: I don't want to depend on cluster for now
