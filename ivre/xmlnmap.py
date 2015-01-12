@@ -288,7 +288,7 @@ class NmapHandler(ContentHandler):
                                  "(got %r)\n" % self._curextraports)
             self._curextraports = {attrs['state']: [int(attrs['count']), {}]}
         elif name == 'extrareasons' and self._curextraports is not None:
-            self._curextraports[self._curextraports.keys()[0]][1][
+            self._curextraports[list(self._curextraports)[0]][1][
                 attrs['reason']] = int(attrs['count'])
         elif name == 'port':
             if self._curport is not None:
