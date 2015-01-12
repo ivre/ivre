@@ -30,9 +30,11 @@ import socket
 import datetime
 import re
 import os
+import sys
 import shutil
 import errno
 import stat
+import hashlib
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -46,6 +48,16 @@ import stat
 MAXVALLEN = 1000
 
 REGEXP_T = type(re.compile(''))
+DEFAULT_REGEXP_FLAGS = re.compile("").flags
+
+BASE_TYPES = [str, int, float,
+              datetime.datetime, REGEXP_T]
+try:
+    BASE_TYPES.append(unicode)
+except NameError:
+    pass
+if bytes is not str:
+    BASE_TYPES.append(bytes)
 
 try:
     range = xrange
@@ -182,7 +194,7 @@ def regexp2pattern(string):
     and some flags, suitable for use with re.compile(), combined with
     another pattern before. Usefull, for example, if you want to
     create a regexp like '^ *Set-Cookie: *[name]=[value]' where name
-    and value are regexp.
+    and value are regexps.
 
     """
     if type(string) is REGEXP_T:
@@ -204,7 +216,7 @@ def regexp2pattern(string):
             string += ".*"
         return string, flags
     else:
-        return re.escape(string), 0
+        return re.escape(string), DEFAULT_REGEXP_FLAGS
 
 
 def str2list(string):
@@ -286,8 +298,7 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return type(elt) in [str, int, float, unicode,
-                         datetime.datetime, REGEXP_T]
+    return type(elt) in BASE_TYPES
 
 
 def diff(doc1, doc2):
@@ -415,3 +426,28 @@ class FakeArgparserParent(object):
 
         """
         self.args.append((args, kargs))
+
+
+if sys.version_info[0] == 3:
+    PYTHON3 = True
+    import codecs
+
+    def hash_value(value, hashtype="sha1"):
+        return hashlib.new(
+            hashtype,
+            value.encode()  if type(value) is str else value
+        )
+
+    def base64_decode(value):
+        return codecs.decode(
+            value.encode() if type(value) is str else value,
+            "base64"
+        )
+else:
+    PYTHON3 = False
+
+    def hash_value(value, hashtype="sha1"):
+        return hashlib.new(hashtype, value)
+
+    def base64_decode(value):
+        return value.decode("base64")
