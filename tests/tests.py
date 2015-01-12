@@ -25,7 +25,10 @@ import os
 import sys
 import errno
 import random
-from cStringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 from contextlib import contextmanager
 import coverage
 from functools import reduce
@@ -783,6 +786,8 @@ if __name__ == '__main__':
     import ivre.utils
     import ivre.mathutils
     import ivre.passive
+    if not hasattr(IvreTests, "assertItemsEqual"):
+        IvreTests.assertItemsEqual = IvreTests.assertCountEqual
     unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )

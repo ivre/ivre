@@ -31,8 +31,11 @@ import sys
 import socket
 import re
 import struct
-import urlparse
 import urllib
+try:
+    import urlparse
+except ImportError:
+    from urllib import parse as urlparse
 import xml.sax
 import os
 import subprocess
