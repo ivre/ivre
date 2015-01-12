@@ -476,48 +476,47 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchldapanon()).count()
         self.check_value("nmap_ldapanon_count", count)
 
-        categories = ivre.db.db.nmap.topvalues("category")
-        category = categories.next()
+        categories = list(ivre.db.db.nmap.topvalues("category"))
+        category = categories[0]
         self.assertEqual(category["_id"], "TEST")
         self.assertEqual(category["count"], hosts_count)
-        with self.assertRaises(StopIteration):
-            categories.next()
+        self.assertEqual(len(categories), 1)
         self.check_value(
             "nmap_topsrv",
-            ivre.db.db.nmap.topvalues("service").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("service"))[0]['_id'])
         self.check_value(
             "nmap_topsrv_80",
-            ivre.db.db.nmap.topvalues("service:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("service:80"))[0]['_id'])
         self.check_value(
             "nmap_topprobedsrv",
-            ivre.db.db.nmap.topvalues("probedservice").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("probedservice"))[0]['_id'])
         self.check_value(
             "nmap_topprobedsrv_80",
-            ivre.db.db.nmap.topvalues("probedservice:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("probedservice:80"))[0]['_id'])
         self.check_value(
             "nmap_topprod",
-            ivre.db.db.nmap.topvalues("product").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("product"))[0]['_id'])
         self.check_value(
             "nmap_topprod_80",
-            ivre.db.db.nmap.topvalues("product:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("product:80"))[0]['_id'])
         self.check_value(
             "nmap_topdevtype",
-            ivre.db.db.nmap.topvalues("devicetype").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("devicetype"))[0]['_id'])
         self.check_value(
             "nmap_topdevtype_80",
-            ivre.db.db.nmap.topvalues("devicetype:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("devicetype:80"))[0]['_id'])
         self.check_value(
             "nmap_topdomain",
-            ivre.db.db.nmap.topvalues("domains").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("domains"))[0]['_id'])
         self.check_value(
             "nmap_topdomains_1",
-            ivre.db.db.nmap.topvalues("domains:1").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("domains:1"))[0]['_id'])
         self.check_value(
             "nmap_tophop",
-            ivre.db.db.nmap.topvalues("hop").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("hop"))[0]['_id'])
         self.check_value(
             "nmap_tophop_10+",
-            ivre.db.db.nmap.topvalues("hop>10").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("hop>10"))[0]['_id'])
 
         cov.stop()
         cov.save()
