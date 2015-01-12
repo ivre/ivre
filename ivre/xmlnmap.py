@@ -188,7 +188,8 @@ class NmapHandler(ContentHandler):
         self._curtablepath = []
         self._curhostnames = None
         with open(fname) as fdesc:
-            self._filehash = hashlib.sha256(fdesc.read()).hexdigest()
+            self._filehash = utils.hash_value(fdesc.read(),
+                                              "sha256").hexdigest()
         print("READING %r (%r)" % (fname, self._filehash))
         if self._isscanpresent():
             raise Exception('Scan already present in Database.')

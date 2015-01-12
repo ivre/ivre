@@ -664,14 +664,15 @@ class IvreTests(unittest.TestCase):
         # String utils
         teststr = "TEST STRING -./*'"
         self.assertEqual(ivre.utils.regexp2pattern(teststr),
-                         (re.escape(teststr), 0))
+                         (re.escape(teststr),
+                          ivre.utils.DEFAULT_REGEXP_FLAGS))
         self.assertEqual(
             ivre.utils.regexp2pattern(
                 re.compile('^' + re.escape(teststr) + '$')),
-            (re.escape(teststr), 0))
+            (re.escape(teststr), ivre.utils.DEFAULT_REGEXP_FLAGS))
         self.assertEqual(
             ivre.utils.regexp2pattern(re.compile(re.escape(teststr))),
-            ('.*' + re.escape(teststr) + '.*', 0))
+            ('.*' + re.escape(teststr) + '.*', ivre.utils.DEFAULT_REGEXP_FLAGS))
         self.assertEqual(ivre.utils.str2list(teststr), teststr)
         teststr = "1,2|3"
         self.assertItemsEqual(ivre.utils.str2list(teststr),

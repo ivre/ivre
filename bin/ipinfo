@@ -185,8 +185,9 @@ def disp_recs_explain(flt):
 
 if __name__ == '__main__':
     import sys
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
+    if not ivre.utils.PYTHON3:
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
     import os
     import datetime
     baseflt = {}
