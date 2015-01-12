@@ -41,6 +41,7 @@ import tempfile
 import pickle
 import uuid
 
+from six import iteritems
 from functools import reduce
 
 # tests: I don't want to depend on cluster for now
@@ -1023,7 +1024,7 @@ class MetaDB(object):
             pass
         if urls is None:
             urls = {}
-        for datatype, dbtypes in self.db_types.iteritems():
+        for datatype, dbtypes in iteritems(self.db_types):
             specificurl = urls.get(datatype, url)
             if specificurl is not None:
                 (spurlscheme,

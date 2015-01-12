@@ -35,6 +35,8 @@ import json
 import re
 import datetime
 
+from six import iteritems
+
 try:
     range = xrange
 except NameError:
@@ -131,18 +133,18 @@ class MongoDB(DB):
         return cursor.distinct(fieldname)
 
     def create_indexes(self):
-        for colname, indexes in self.indexes.iteritems():
+        for colname, indexes in iteritems(self.indexes):
             for index in indexes:
                 self.db[colname].create_index(index)
-        for colname, indexes in self.specialindexes.iteritems():
+        for colname, indexes in iteritems(self.specialindexes):
             for index in indexes:
                 self.db[colname].create_index(index[0], **index[1])
 
     def ensure_indexes(self):
-        for colname, indexes in self.indexes.iteritems():
+        for colname, indexes in iteritems(self.indexes):
             for index in indexes:
                 self.db[colname].ensure_index(index)
-        for colname, indexes in self.specialindexes.iteritems():
+        for colname, indexes in iteritems(self.specialindexes):
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
@@ -735,7 +737,7 @@ have no effect if it is not expected)."""
             args['forest_dns'] = args.pop('forest')
         # Build the query. Do *not* iterate here since we are
         # modifying the dictionary
-        for key in args.keys():
+        for key in list(args):
             args['smb-os-discovery.%s' % key] = args.pop(key)
         args['id'] = 'smb-os-discovery'
         return {
@@ -1877,7 +1879,7 @@ class MongoDBData(MongoDB, DBData):
             )
         self.db[self.colname_country_codes].insert(
             {'country_code': code, 'name': name}
-            for code, name in self.country_codes.iteritems()
+            for code, name in iteritems(self.country_codes)
         )
         self.country_codes = None
 
