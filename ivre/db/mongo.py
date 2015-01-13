@@ -59,6 +59,7 @@ class MongoDB(DB):
             self.maxtime = None
         self.indexes = {}
         self.specialindexes = {}
+        self.hint_indexes = {}
 
     def set_limits(self, cur):
         if self.maxscan is not None:
@@ -66,6 +67,15 @@ class MongoDB(DB):
         if self.maxtime is not None:
             cur.max_time_ms(self.maxtime)
         return cur
+
+    def get_hint(self, spec):
+        """Given a query spec, return an appropriate index in a form
+        suitable to be passed to Cursor.hint().
+
+        """
+        for fieldname, hint in self.hint_indexes.iteritems():
+            if fieldname in spec:
+                return hint
 
     @property
     def db(self):
@@ -1435,6 +1445,18 @@ class MongoDBPassive(MongoDB, DBPassive):
                  {'unique': True}),
             ],
         }
+        try:
+            from collections import OrderedDict
+        except ImportError:
+            self.hint_indexes = {
+                "addr": [("addr", 1), ("recontype", 1), ("port", 1)],
+                "targetval": [("targetval", 1)],
+            }
+        else:
+            self.hint_indexes = OrderedDict([
+                ["addr", [("addr", 1), ("recontype", 1), ("port", 1)]],
+                ["targetval", [("targetval", 1)]],
+            ])
 
     def init(self):
         """Initializes the "passive" columns, i.e., drops the columns, and
@@ -1482,13 +1504,22 @@ setting values according to the keyword arguments.
             self.set_data(spec['addr'])
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
-        current = self.get_one(spec, fields=[])
+        if spec is None:
+            return
+        hint = self.get_hint(spec)
+        current = self.get(spec, fields=[])
+        if hint is not None:
+            current.hint(hint)
+        try:
+            current = current[0]
+        except IndexError:
+            current = None
         updatespec = {
             '$inc': {'count': 1},
             '$min': {'firstseen': timestamp},
             '$max': {'lastseen': timestamp},
         }
-        if current:
+        if current is not None:
             self.db[self.colname_passive].update(
                 {'_id': current['_id']},
                 updatespec,
@@ -1542,12 +1573,10 @@ setting values according to the keyword arguments.
                         count = 0
         except IOError:
             pass
-        try:
+        if count > 0:
             if config.DEBUG:
                 print "MongoDB bulk upsert: %d (final)" % count
             bulk.execute()
-        except pymongo.errors.InvalidOperation:
-            pass
 
     def insert_or_update_mix(self, spec, getinfos=None):
         """Updates the first record matching "spec" (without
