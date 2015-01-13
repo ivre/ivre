@@ -40,13 +40,6 @@ try:
 except NameError:
     pass
 
-from six import iteritems
-
-try:
-    range = xrange
-except NameError:
-    pass
-
 
 class MongoDB(DB):
 
