@@ -34,6 +34,7 @@ import urllib
 import os.path
 import sys
 import functools
+from six import iteritems
 
 URLS = {
     # 'GeoIPCountry.dat':
@@ -140,7 +141,7 @@ PARSERS = [
 
 def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
-    for fname, url in URLS.iteritems():
+    for fname, url in iteritems(URLS):
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))

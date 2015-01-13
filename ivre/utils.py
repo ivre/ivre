@@ -35,6 +35,7 @@ import shutil
 import errno
 import stat
 import hashlib
+from six import iteritems
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -354,7 +355,7 @@ def fields2csv_head(fields, prefix=''):
 
     """
     line = []
-    for field, subfields in fields.iteritems():
+    for field, subfields in iteritems(fields):
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
@@ -369,7 +370,7 @@ def doc2csv(doc, fields, nastr="NA"):
 
     """
     lines = [[]]
-    for field, subfields in fields.iteritems():
+    for field, subfields in iteritems(fields):
         if subfields is True:
             value = doc.get(field)
             if type(value) is list:
