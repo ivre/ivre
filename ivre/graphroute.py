@@ -26,6 +26,8 @@ This sub-module builds graphs of traceroute results.
 """
 from ivre import utils
 
+from six import iteritems
+
 # to build graphs with rtgraph3d
 try:
     import dbus
@@ -73,7 +75,7 @@ def writedotgraph(graph, out):
     out.write('digraph traceroute {\n')
     nodes = set()
     edges = set()
-    for node, node_edges in graph.iteritems():
+    for node, node_edges in iteritems(graph):
         if node not in nodes:
             out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
             nodes.add(node)
@@ -99,7 +101,7 @@ if HAVE_DBUS:
         graph3d = dbus.Interface(control, "org.secdev.rtgraph3d.command")
         if reset_world:
             graph3d.reset_world()
-        for node, node_edges in graph.iteritems():
+        for node, node_edges in iteritems(graph):
             for destnode in node_edges:
                 if destnode == node:
                     continue

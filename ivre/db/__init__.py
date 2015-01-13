@@ -43,7 +43,6 @@ import shutil
 import tempfile
 import pickle
 import uuid
-
 from six import iteritems
 from functools import reduce
 

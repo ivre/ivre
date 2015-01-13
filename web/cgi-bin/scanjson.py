@@ -49,16 +49,16 @@ try:
 except ImportError:
     scanjsonconfig = None
 
-for configval, defaultvalue in {
-        'ALLOWED_REFERERS': ['http://localhost/'],
-        'MAXRESULTS': None,
-        'INIT_QUERIES': {},
-        'DEFAULT_INIT_QUERY': db.nmap.flt_empty,
-        'WARN_DOTS_COUNT': 20000,
-        'skip': 0,
-        'limit': 10,
-        'get_notepad_pages': None,
-}.iteritems():
+for configval, defaultvalue in [
+        ('ALLOWED_REFERERS', ['http://localhost/']),
+        ('MAXRESULTS', None),
+        ('INIT_QUERIES', {}),
+        ('DEFAULT_INIT_QUERY', db.nmap.flt_empty),
+        ('WARN_DOTS_COUNT', 20000),
+        ('skip', 0),
+        ('limit', 10),
+        ('get_notepad_pages', None),
+]:
     try:
         globals()[configval] = getattr(scanjsonconfig, configval)
     except AttributeError:
