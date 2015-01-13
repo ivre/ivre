@@ -31,10 +31,8 @@ from ivre import utils, xmlnmap, config
 import pymongo
 import bson
 import json
-
 import re
 import datetime
-
 from six import iteritems
 
 try:
@@ -80,7 +78,7 @@ class MongoDB(DB):
         suitable to be passed to Cursor.hint().
 
         """
-        for fieldname, hint in self.hint_indexes.iteritems():
+        for fieldname, hint in iteritems(self.hint_indexes):
             if fieldname in spec:
                 return hint
 
