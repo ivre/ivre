@@ -13,7 +13,8 @@ IVRE.
 ## Dependencies ##
 
 To run IVRE tests you will need
-[coverage.py](http://nedbatchelder.com/code/coverage/).
+[coverage.py](http://nedbatchelder.com/code/coverage/). Under debian,
+run `apt-get install python-coverage` (and/or `python3-coverage`).
 
 ## Test case ##
 
@@ -47,9 +48,12 @@ place your samples there (the PCAP files must have the extension
 `.pcap`, and the Nmap XML result files must have the extension
 `.xml`).
 
-Then, run `./run`. The first run will create a `samples/results` file
-with the expected values for some results. The runs after will use
-those values to check if something has been broken.
+Then, run `python ./tests.py` (optionally replace `python` by the
+alternative interpreter you want to use, e.g., `python3`; note that
+[coverage.py](#Dependencies) must be installed for this
+interpreter). The first run will create a `samples/results` file with
+the expected values for some results. The next runs will use those
+values to check if something has been broken.
 
 For this reason, it is important to:
 

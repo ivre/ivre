@@ -27,16 +27,7 @@ import errno
 import random
 from cStringIO import StringIO
 from contextlib import contextmanager
-
-
-def prepare_config():
-    """This function, used before importing ivre.db, will make IVRE
-    use the same parameters as usual with a different database.
-
-    """
-    for param in (x for x in dir(ivre.config) if x.startswith('DB_')):
-        delattr(ivre.config, param)
-    ivre.config.DB = MONGODB
+import coverage
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -49,6 +40,36 @@ def capture(function, *args, **kwargs):
     sys.stderr.seek(0)
     yield result, sys.stdout.read(), sys.stderr.read()
     sys.stdout, sys.stderr = out, err
+
+def run_iter(cmd, interp=None, stdin=None):
+    if interp is None:
+        interp = []
+    return subprocess.Popen(interp + cmd, stdin=stdin,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+
+def run_cmd(cmd, interp=None, stdin=None):
+    proc = run_iter(cmd, interp=interp, stdin=stdin)
+    out, err = proc.communicate()
+    return proc.returncode, out, err
+
+def coverage_init():
+    return run_cmd(COVERAGE + ["erase"])
+
+def coverage_run(cmd, stdin=None):
+    return run_cmd(cmd, interp=COVERAGE + ["run", "-a"], stdin=stdin)
+
+def coverage_run_iter(cmd, stdin=None):
+    return run_iter(cmd, interp=COVERAGE + ["run", "-a"], stdin=stdin)
+
+def coverage_report():
+    return run_cmd(COVERAGE + ["html", "--omit=tests*", "--omit=/usr/*"])
+
+def init_links():
+    os.mkdir("bin")
+    for binary in ["ipinfo", "nmap2db", "scancli"]:
+        os.symlink("../../bin/%s" % binary, "bin/%s.py" % binary)
+    os.symlink("../../ivre", "bin/ivre")
 
 
 class IvreTests(unittest.TestCase):
@@ -66,7 +87,6 @@ class IvreTests(unittest.TestCase):
         self.new_results = set()
 
     def tearDown(self):
-        ivre.db.db.nmap.db.connection.drop_database('testivre')
         ivre.utils.cleandir("logs")
         ivre.utils.cleandir(".state")
         if self.new_results:
@@ -98,30 +118,32 @@ class IvreTests(unittest.TestCase):
     def test_nmap(self):
 
         # Init DB
-        self.assertEqual(ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty).count(), 0)
-        self.assertIsNone(ivre.db.db.nmap.init())
-        self.assertIsNone(ivre.db.db.nmap.ensure_indexes())
-        self.assertEqual(ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty).count(), 0)
+        self.assertEqual(RUN(["./bin/scancli.py", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["./bin/scancli.py", "--init"],
+                              stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(["./bin/scancli.py", "--count"])[1], "0\n")
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
+        host_counter_test = 0
         host_stored = re.compile("^HOST STORED: ", re.M)
+        host_stored_test = re.compile("^{[0-9]+:", re.M)
         for fname in self.nmap_files:
-            with capture(ivre.db.db.nmap.store_scan, fname,
-                         categories=["TEST"],
-                         source="SOURCE",
-                         needports=True) as (res, out, _):
-                self.assertTrue(res)
-                for _ in host_stored.finditer(out):
-                    host_counter += 1
-            with capture(ivre.db.DBNmap().store_scan, fname,
-                         categories=["TEST"],
-                         source="SOURCE",
-                         needports=True) as (res, _, _):
-                self.assertTrue(res)
+            res, out, _ = RUN(["./bin/nmap2db.py", "--port",
+                               "-c", "TEST", "-s", "SOURCE", fname])
+            self.assertEqual(res, 0)
+            host_counter += sum(1 for _ in host_stored.finditer(out))
+            res, out, _ = RUN(["./bin/nmap2db.py", "--port", "--test",
+                               "-c", "TEST", "-s", "SOURCE", fname])
+            self.assertEqual(res, 0)
+            host_counter_test += sum(
+                1 for _ in host_stored_test.finditer(out)
+            )
+        self.assertEqual(host_counter, host_counter_test)
 
+        cov = coverage.coverage()
+        cov.load()
+        cov.start()
         # Insertion with scans already in DB
         for fname in self.nmap_files:
             with capture(ivre.db.db.nmap.store_scan, fname,
@@ -483,16 +505,18 @@ class IvreTests(unittest.TestCase):
             "nmap_tophop_10+",
             ivre.db.db.nmap.topvalues("hop>10").next()['_id'])
 
+        cov.stop()
+        cov.save()
+        self.assertEqual(RUN(["./bin/scancli.py", "--init"],
+                              stdin=open(os.devnull))[0], 0)
+
     def test_passive(self):
 
         # Init DB
-        self.assertEqual(ivre.db.db.passive.get(
-            ivre.db.db.passive.flt_empty).count(), 0)
-        self.assertIsNone(ivre.db.db.passive.init())
-        self.assertIsNone(ivre.db.db.passive.ensure_indexes())
-        self.assertEqual(
-            ivre.db.db.passive.get(
-                ivre.db.db.passive.flt_empty).count(), 0)
+        self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["./bin/ipinfo.py", "--init"],
+                              stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
 
         # p0f insertion
         for fname in self.pcap_files:
@@ -648,6 +672,9 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.passive.flt_empty).count()
         self.assertEqual(count + new_count, total_count)
 
+        self.assertEqual(RUN(["./bin/ipinfo.py", "--init"],
+                              stdin=open(os.devnull))[0], 0)
+
     def test_utils(self):
         """Functions that have not yet been tested"""
 
@@ -707,7 +734,7 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
 def parse_args():
-    global MONGODB, SAMPLES
+    global SAMPLES
     try:
         import argparse
         parser = argparse.ArgumentParser(
@@ -723,19 +750,26 @@ def parse_args():
         parser.add_argument = parser.add_option
     parser.add_argument('--samples', metavar='DIR',
                         default="./samples/")
-    parser.add_argument('--mongodb', metavar='URL',
-                        default="mongodb:///testivre")
     args = parser.parse_args()
-    MONGODB, SAMPLES = args.mongodb, args.samples
+    SAMPLES = args.samples
     sys.argv = [sys.argv[0]]
 
 if __name__ == '__main__':
-    MONGODB, SAMPLES = None, None
+    SAMPLES = None
+    COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
+    RUN = coverage_run
+    RUN_ITER = coverage_run_iter
     parse_args()
+    coverage_init()
+    init_links()
+    sys.path = ["bin/"] + sys.path
     import ivre.config
-    prepare_config()
     import ivre.db
     import ivre.utils
     import ivre.mathutils
     import ivre.passive
-    unittest.main(verbosity=2)
+    unittest.TextTestRunner(verbosity=2).run(
+        unittest.TestLoader().loadTestsFromTestCase(IvreTests),
+    )
+    coverage_report()
+    ivre.utils.cleandir("bin")
