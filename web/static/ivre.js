@@ -2214,8 +2214,7 @@ function load() {
     s.onload = function() {
 	var hostcount = count_displayed_hosts(),
 	limit = getparam('limit'),
-	skip = getparam('skip'),
-	maxres = skip + hostcount;
+	skip = getparam('skip');
 	if(limit === undefined)
 	    limit = config.dflt.limit;
 	else
@@ -2227,6 +2226,7 @@ function load() {
 	    if(skip < 0)
 		setparam('skip', config.dflt.skip, true);
 	}
+	var maxres = skip + hostcount;
 	set_display_mode(getparam('display'));
 	if(maxres !== skip) {
 	    set_display_bounds(skip + 1, maxres);
