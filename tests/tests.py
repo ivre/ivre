@@ -55,7 +55,10 @@ def run_iter(cmd, interp=None, stdin=None):
 def run_cmd(cmd, interp=None, stdin=None):
     proc = run_iter(cmd, interp=interp, stdin=stdin)
     out, err = proc.communicate()
-    return proc.returncode, out, err
+    if ivre.utils.PYTHON3:
+        return proc.returncode, out.decode(), err.decode()
+    else:
+        return proc.returncode, out, err
 
 def coverage_init():
     return run_cmd(COVERAGE + ["erase"])
@@ -779,7 +782,6 @@ if __name__ == '__main__':
     RUN = coverage_run
     RUN_ITER = coverage_run_iter
     parse_args()
-    coverage_init()
     init_links()
     sys.path = ["bin/"] + sys.path
     import ivre.config
@@ -789,6 +791,7 @@ if __name__ == '__main__':
     import ivre.passive
     if not hasattr(IvreTests, "assertItemsEqual"):
         IvreTests.assertItemsEqual = IvreTests.assertCountEqual
+    coverage_init()
     unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
