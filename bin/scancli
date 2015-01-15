@@ -19,8 +19,6 @@
 from ivre import utils, db, graphroute, config
 
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
 import os
 try:
     from collections import OrderedDict
@@ -634,6 +632,7 @@ def main():
     sys.exit(0)
 
 if __name__ == '__main__':
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
+    if not utils.PYTHON3:
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
     main()
