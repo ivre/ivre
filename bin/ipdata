@@ -24,11 +24,13 @@ AS number and country information.
 import ivre.db
 import ivre.geoiputils
 import ivre.config
+import ivre.utils
 
 if __name__ == '__main__':
     import sys
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
+    if not ivre.utils.PYTHON3:
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
     import os
     try:
         import argparse
