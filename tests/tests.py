@@ -63,7 +63,9 @@ def coverage_run_iter(cmd, stdin=None):
     return run_iter(cmd, interp=COVERAGE + ["run", "-a"], stdin=stdin)
 
 def coverage_report():
-    return run_cmd(COVERAGE + ["html", "--omit=tests*", "--omit=/usr/*"])
+    cov = coverage.coverage()
+    cov.load()
+    cov.html_report(omit=['tests*', '/usr/*'])
 
 def init_links():
     os.mkdir("bin")
