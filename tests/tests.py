@@ -127,37 +127,46 @@ class IvreTests(unittest.TestCase):
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
+        scan_counter = 0
         host_counter_test = 0
+        scan_warning = 0
         host_stored = re.compile("^HOST STORED: ", re.M)
+        scan_stored = re.compile("^SCAN STORED: ", re.M)
         host_stored_test = re.compile("^{[0-9]+:", re.M)
+        scan_duplicate = re.compile("^WARNING: Scan already present in Database. ", re.M)
         for fname in self.nmap_files:
+            # Insertion in DB
             res, out, _ = RUN(["./bin/nmap2db.py", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(out))
+            scan_counter += sum(1 for _ in scan_stored.finditer(out))
+            # Insertion test (== parsing only)
             res, out, _ = RUN(["./bin/nmap2db.py", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter_test += sum(
                 1 for _ in host_stored_test.finditer(out)
             )
+            # Duplicate insertion
+            res, _, err = RUN(["./bin/nmap2db.py", "--port",
+                               "-c", "TEST", "-s", "SOURCE", fname])
+            self.assertEqual(res, 0)
+            scan_warning += sum(
+                1 for _ in scan_duplicate.finditer(err)
+            )
+
         self.assertEqual(host_counter, host_counter_test)
+        self.assertGreaterEqual(scan_counter, host_counter)
+        self.assertEqual(scan_counter, scan_warning)
 
-        cov = coverage.coverage()
-        cov.load()
-        cov.start()
-        # Insertion with scans already in DB
-        for fname in self.nmap_files:
-            with capture(ivre.db.db.nmap.store_scan, fname,
-                         categories=["TEST"],
-                         source="SOURCE",
-                         needports=True) as (res, _, _):
-                self.assertFalse(res)
+        res, out, _ = RUN(["./bin/scancli.py", "--count"])
+        self.assertEqual(res, 0)
+        hosts_count = int(out)
+        res, out, _ = RUN(["./bin/scancli.py", "--count", "--archives"])
+        self.assertEqual(res, 0)
+        archives_count = int(out)
 
-        hosts_count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty).count()
-        archives_count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty, archive=True).count()
         # Is the test case OK?
         self.assertGreater(hosts_count, 0)
         self.check_value("nmap_get_count", hosts_count)
@@ -166,6 +175,10 @@ class IvreTests(unittest.TestCase):
         # Counting results
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
+
+        cov = coverage.coverage()
+        cov.load()
+        cov.start()
 
         # Filters
         addr = ivre.db.db.nmap.get(
