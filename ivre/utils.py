@@ -65,11 +65,6 @@ try:
 except NameError:
     pass
 
-try:
-    range = xrange
-except NameError:
-    pass
-
 
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are
