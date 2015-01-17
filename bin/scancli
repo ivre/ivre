@@ -479,8 +479,6 @@ def main():
 
     hostfilter = db.db.nmap.parse_args(args)
     sortkeys = []
-    limit = None
-    skip = None
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -618,18 +616,14 @@ def main():
         sortkeys = [(field.startswith('~') and field[1:] or field,
                      field.startswith('~') and -1 or 1)
                     for field in args.sort]
-    if args.limit is not None:
-        limit = args.limit
-    if args.skip is not None:
-        skip = args.skip
 
     cursor = db.db.nmap.get(hostfilter, archive=args.archives)
     if sortkeys:
         cursor = cursor.sort(sortkeys)
-    if limit is not None:
-        cursor = cursor.limit(limit)
-    if skip is not None:
-        cursor = cursor.skip(skip)
+    if args.limit is not None:
+        cursor = cursor.limit(args.limit)
+    if args.skip is not None:
+        cursor = cursor.skip(args.skip)
     displayfunction(cursor)
     sys.exit(0)
 
