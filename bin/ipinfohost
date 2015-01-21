@@ -72,7 +72,7 @@ if __name__ == '__main__':
                                        # subdomains
                                        "sub"
                                    ])
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
         sys.exit(-1)
     for o, a in opts:
