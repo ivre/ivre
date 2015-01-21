@@ -2087,9 +2087,11 @@ function set_tooltip_filter(elt) {
 	    content = HELP[key];
 	    if(elt.getAttribute('data-title') !== content.title) {
 		set_tooltip(elt, content);
-		if(elt.value.length < key.length) {
-		    elt.value = key;
-		}
+	    }
+	    if(elt.value.length < key.length) {
+		var start = elt.value.length;
+		elt.value = key;
+		elt.selectionStart = start;
 	    }
 	    return;
 	}
@@ -2109,9 +2111,11 @@ function set_tooltip_filter(elt) {
 	    if(elt.getAttribute('data-title') !== content.title ||
 	       elt.getAttribute('data-content') !== content.content) {
 		set_tooltip(elt, content);
-		if(elt.value.length < key.length) {
-		    elt.value = key;
-		}
+	    }
+	    if(elt.value.length < key.length) {
+		var start = elt.value.length;
+		elt.value = key;
+		elt.selectionStart = start;
 	    }
 	    return;
 	}
