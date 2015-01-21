@@ -31,7 +31,7 @@
     <tr ng-repeat="summary in host.port_summary | orderBy: 'status'">
       <td>
 	<span>
-	  {{summary.count}} ports
+	  {{summary.count}} port{{summary.count > 1 && "s" || ""}}
 	</span>
       </td>
       <td>
@@ -59,7 +59,7 @@
      ng-class="{'result-hidden-part': !host.fulldisplay}">
   <!-- extraports -->
   <dd ng-repeat="(epstatus, epvalues) in host.extraports">
-    {{epvalues[0]}} ports
+    {{epvalues[0]}} port{{epvalues[0] > 1 && "s" || ""}}
     <span class="label label-status"
 	  ng-class="class_from_port_status(epstatus)">
       {{epstatus | uppercase}}
