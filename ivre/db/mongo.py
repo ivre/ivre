@@ -1002,8 +1002,13 @@ have no effect if it is not expected)."""
                 {"$project": {"ports.port": 1, "ports.state_state": 1}},
                 # if the host has no ports attribute, we create an empty list
                 {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
-                # we use $redact instead of $match to keep an empty
-                # list when no port matches
+                # We use $redact instead of $match to keep an empty
+                # list when no port matches.
+                #
+                # The firts "$cond" help us make the difference
+                # between main document ($ports exists in that case)
+                # and a nested document ($ports does not exist in that
+                # case). The second only keeps ports we are interested in.
                 {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
                                                                    None]},
                                                       None]},
@@ -1021,16 +1026,25 @@ have no effect if it is not expected)."""
             ]
             field = "portlist"
         elif field.startswith('countports:'):
-            # specialproj = {"_id": 0, "ports.port": 1,
-            #                "ports.state_state": 1}
-            # specialflt = [
-            #     {"$match": {"ports.state_state":
-            #                 field.split(':', 1)[1]}},
-            #     {"$project": {"ports.port": 1}},
-            #     {"$group": {"_id": "$ports.port",
-            #                 "countports": {"$sum": 1}}},
-            # ]
-            # field = "countports"
+            specialproj = {"_id": 0,
+                           "ports.state_state": 1}
+            specialflt = [
+                {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
+                # See "portlist:".
+                {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
+                                                                   None]},
+                                                      None]},
+                                       "then": {
+                                           "$cond": {
+                                               "if": {"$eq": [
+                                                   "$state_state",
+                                                   field.split(':', 1)[1]]},
+                                               "then": "$$KEEP",
+                                               "else": "$$PRUNE"}},
+                                       "else": "$$DESCEND"}}},
+                {"$project": {"countports": {"$size": "$ports"}}},
+            ]
+            field = "countports"
             pass
         elif field == "service":
             flt = self.flt_and(flt, self.searchopenport())

@@ -1768,7 +1768,7 @@ ivreWebUi
 	    // ports
 	    "port", "port:open", "port:closed", "port:filtered",
 	    // countports / portlist
-	    //"countports:open", "countports:filtered", "countports:closed",
+	    "countports:open", "countports:filtered", "countports:closed",
 	    "portlist:open", "portlist:closed", "portlist:filtered",
 	    // service, products, etc. [:port]
 	    "service", "service:",
