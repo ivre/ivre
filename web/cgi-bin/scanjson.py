@@ -344,7 +344,7 @@ for q in query:
             **{q[0][4:]: ivre.utils.str2regexp(q[1])})
         )
     elif nq == 'torcert':
-        flt = db.nmap.flt_and(flt, db.nmap.searchtorcert_active())
+        flt = db.nmap.flt_and(flt, db.nmap.searchtorcert())
     elif q[0] == 'webfiles':
         flt = db.nmap.flt_and(flt, db.nmap.searchwebfiles())
     elif q[0] == "webmin":
