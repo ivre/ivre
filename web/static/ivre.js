@@ -2082,17 +2082,27 @@ function set_tooltip_filter(elt) {
 			elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
 	    }
 	);
+	var oldval = elt.getAttribute("oldval");
+	if(oldval === null)
+	    oldval = "";
 	if(matching_keys.length == 1) {
 	    key = matching_keys[0];
 	    content = HELP[key];
 	    if(elt.getAttribute('data-title') !== content.title) {
 		set_tooltip(elt, content);
 	    }
-	    if(elt.value.length < key.length) {
+	    if(oldval.length < elt.value.length &&
+	       elt.value.substr(0, oldval.length) === oldval &&
+	       elt.value.length < key.length) {
 		var start = elt.value.length;
+		oldval = elt.value;
 		elt.value = key;
 		elt.selectionStart = start;
 	    }
+	    else {
+		oldval = elt.value;
+	    }
+	    elt.setAttribute("oldval", oldval);
 	    return;
 	}
 	if(matching_keys.length >= 2) {
@@ -2112,13 +2122,21 @@ function set_tooltip_filter(elt) {
 	       elt.getAttribute('data-content') !== content.content) {
 		set_tooltip(elt, content);
 	    }
-	    if(elt.value.length < key.length) {
+	    if(oldval.length < elt.value.length &&
+	       elt.value.substr(0, oldval.length) === oldval &&
+	       elt.value.length < key.length) {
 		var start = elt.value.length;
+		oldval = elt.value
 		elt.value = key;
 		elt.selectionStart = start;
 	    }
+	    else {
+		oldval = elt.value;
+	    }
+	    elt.setAttribute("oldval", oldval);
 	    return;
 	}
+	elt.setAttribute("oldval", elt.value);
 	if(elt.value.match(/^!?[0-9\.\/]*$/)) {
 	    if(elt.value.indexOf('/') !== -1)
 		content = HELP["net:"];
@@ -2132,6 +2150,7 @@ function set_tooltip_filter(elt) {
 	    return;
 	}
     }
+    elt.setAttribute("oldval", elt.value);
     if(elt.hasAttribute('data-title'))
 	remove_tooltip(elt);
 }
