@@ -1341,6 +1341,16 @@ have no effect if it is not expected)."""
             flt = self.flt_and(
                 flt,
                 self.searchport(port=port, protocol=proto))
+        if args.not_port is not None:
+            port = args.not_port.replace('_', '/')
+            if '/' in port:
+                proto, port = port.split('/', 1)
+            else:
+                proto = 'tcp'
+            port = int(port)
+            flt = self.flt_and(
+                flt,
+                self.searchport(port=port, protocol=proto, neg=True))
         if args.openport:
             flt = self.flt_and(flt, self.searchopenport())
         if args.no_openport:

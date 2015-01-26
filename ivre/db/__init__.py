@@ -252,6 +252,7 @@ class DBNmap(DB):
         self.argparser.add_argument('--net', metavar='IP/MASK')
         self.argparser.add_argument('--hop', metavar='IP')
         self.argparser.add_argument('--port', metavar='PORT')
+        self.argparser.add_argument('--not-port', metavar='PORT')
         self.argparser.add_argument('--openport', action='store_true')
         self.argparser.add_argument('--no-openport', action='store_true')
         self.argparser.add_argument('--service', metavar='SVC')
