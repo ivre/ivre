@@ -422,6 +422,56 @@ have no effect if it is not expected)."""
                 {'scanid': scanid}, archive=archive).count() == 0:
             self.db[colname_scans].remove(spec_or_id=scanid)
 
+    def archive(self, host):
+        """Archives a given host record. Also archives the
+        corresponding scan and removes the scan from the "not
+        archived" scan collection if not there is no host left in the
+        "not archived" host collumn.
+
+        """
+        if self.db[self.colname_hosts].find_one({"_id": host['_id']}) is None:
+            if config.DEBUG:
+                print("WARNING: cannot archive: host %s does not exist"
+                      " in %r" % (host['_id'], self.colname_hosts))
+        # store the host in the archive hosts collection
+        self.db[self.colname_oldhosts].insert(host)
+        if config.DEBUG:
+            print "HOST ARCHIVED: %s in %r" % (
+                host['_id'],
+                self.colname_oldhosts,
+            )
+        # remove the host from the (not archived) hosts collection
+        self.db[self.colname_hosts].remove(spec_or_id=host['_id'])
+        if config.DEBUG:
+            print "HOST REMOVED: %s from %r" % (
+                host['_id'],
+                self.colname_hosts,
+            )
+        scanid = host.get('scanid')
+        if scanid is not None:
+            scan = self.db[self.colname_scans].find_one({'_id': scanid})
+            if scan is not None:
+                # store the scan in the archive scans collection if it
+                # is not there yet
+                if self.db[self.colname_oldscans].find_one(
+                        {'_id': scanid}) is None:
+                    self.db[self.colname_oldscans].insert(scan)
+                    if config.DEBUG:
+                        print "SCAN ARCHIVED: %s in %r" % (
+                            scanid,
+                            self.colname_oldscans,
+                        )
+                # remove the scan from the (not archived) scans
+                # collection if there is no more hosts related to this
+                # scan in the hosts collection
+                if self.db[self.colname_hosts].find_one({'scanid': scanid}) is None:
+                    self.db[self.colname_scans].remove(spec_or_id=scanid)
+                    if config.DEBUG:
+                        print "SCAN REMOVED: %s in %r" % (
+                            scanid,
+                            self.colname_scans,
+                        )
+
     def get_mean_open_ports(self, flt, archive=False):
         """This method returns for a specific query `flt` a list of
         dictionary objects whose keys are `id` and `mean`; the value

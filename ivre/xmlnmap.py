@@ -547,10 +547,6 @@ class Nmap2Mongo(NmapHandler):
         # rename this class as Nmap2DB
         self._collection = self._db.nmap.db[self._db.nmap.colname_hosts]
         self._scancollection = self._db.nmap.db[self._db.nmap.colname_scans]
-        self._archivescollection = self._db.nmap.db[
-            self._db.nmap.colname_oldhosts]
-        self._archivesscancollection = self._db.nmap.db[
-            self._db.nmap.colname_oldscans]
         if gettoarchive is None:
             self._gettoarchive = lambda c, a, s: []
         else:
@@ -575,37 +571,9 @@ class Nmap2Mongo(NmapHandler):
             host['source'] = self.source
         for rec in self._gettoarchive(self._collection, host['addr'],
                                       self.source):
-            self._archiverecord(rec)
+            self._db.nmap.archive(rec)
         ident = self._collection.insert(host)
         print "HOST STORED: %r in %r" % (ident, self._collection)
-
-    def _archiverecord(self, host):
-        """Archives a given host record. Also archives the
-        corresponding scan and removes the scan from the "not
-        archived" scan collection if not there is no host left in the
-        "not archived" host collumn.
-
-        """
-        # store the host in the archive hosts collection
-        self._archivescollection.insert(host)
-        print "HOST ARCHIVED: %r in %r" % (host['_id'],
-                                           self._archivescollection)
-        scanid = host['scanid']
-        # store the scan in the archive scans collection if it is not there yet
-        if self._archivesscancollection.find_one(
-                {'_id': host['scanid']}) is None:
-            self._archivesscancollection.insert(
-                self._scancollection.find({'_id': scanid})[0])
-            print "SCAN ARCHIVED: %r in %r" % (scanid,
-                                               self._archivesscancollection)
-        # remove the host from the hosts collection
-        self._collection.remove(spec_or_id=host['_id'])
-        print "HOST REMOVED: %r from %r" % (host['_id'], self._collection)
-        # remove the scan from the scans collection if there is no
-        # more hosts related to this scan in the hosts collection
-        if self._collection.find({'scanid': scanid}).count() == 0:
-            self._scancollection.remove(spec_or_id=scanid)
-            print "SCAN REMOVED: %r from %r" % (scanid, self._scancollection)
 
     def _storescan(self):
         res = self._scancollection.insert(self._curscan)
