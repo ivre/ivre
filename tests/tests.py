@@ -108,7 +108,7 @@ class IvreTests(unittest.TestCase):
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
-            if fname.endswith('.xml')
+            if fname.endswith('.xml') or fname.endswith('.json')
         ]
         cls.pcap_files = [
             os.path.join(root, fname)
@@ -133,7 +133,7 @@ class IvreTests(unittest.TestCase):
         host_stored = re.compile("^HOST STORED: ", re.M)
         scan_stored = re.compile("^SCAN STORED: ", re.M)
         host_stored_test = re.compile("^{[0-9]+:", re.M)
-        scan_duplicate = re.compile("^WARNING: Scan already present in Database. ", re.M)
+        scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
             res, out, _ = RUN(["./bin/nmap2db.py", "--port",
@@ -779,6 +779,7 @@ if __name__ == '__main__':
     init_links()
     sys.path = ["bin/"] + sys.path
     import ivre.config
+    ivre.config.DEBUG = True
     import ivre.db
     import ivre.utils
     import ivre.mathutils

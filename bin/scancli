@@ -439,6 +439,10 @@ def main():
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
+    parser.add_argument('--move-to-archives', action='store_true',
+                        help='ARCHIVE the matched results instead of '
+                        'displaying them (i.e., move the results to '
+                        'the archive collections).')
     if USING_ORDEREDDICT:
         parser.add_argument('--csv', metavar='TYPE',
                             help='Output result as a CSV file. Supported '
@@ -568,6 +572,10 @@ def main():
         def displayfunction(x):
             for h in x:
                 db.db.nmap.remove(h, archive=args.archives)
+    elif args.move_to_archives:
+        def displayfunction(x):
+            for h in x:
+                db.db.nmap.archive(h)
     elif USING_ORDEREDDICT and args.csv is not None:
         fields = {
             "ports": OrderedDict([

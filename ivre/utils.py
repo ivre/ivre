@@ -33,6 +33,7 @@ import os
 import shutil
 import errno
 import stat
+import hashlib
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -393,6 +394,14 @@ def doc2csv(doc, fields, nastr="NA"):
                                                 subfields,
                                                 nastr=nastr)]
     return lines
+
+def hash_file(fname, hashtype="sha1"):
+    """Compute a hash of data from a given file"""
+    result = hashlib.new(hashtype)
+    with open(fname) as fdesc:
+        for data in iter(lambda: fdesc.read(1048576), ""):
+            result.update(data)
+        return result
 
 
 class FakeArgparserParent(object):

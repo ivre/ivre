@@ -28,7 +28,6 @@ This sub-module contains the parser for nmap's XML output files.
 from ivre import utils
 
 from xml.sax.handler import ContentHandler, EntityResolver
-import hashlib
 import datetime
 import sys
 import os
@@ -174,7 +173,7 @@ class NmapHandler(ContentHandler):
 
     """
 
-    def __init__(self, fname, needports=False, **_):
+    def __init__(self, fname, filehash, needports=False, **_):
         ContentHandler.__init__(self)
         self._needports = needports
         self._curscan = None
@@ -187,11 +186,8 @@ class NmapHandler(ContentHandler):
         self._curtable = {}
         self._curtablepath = []
         self._curhostnames = None
-        with open(fname) as fdesc:
-            self._filehash = hashlib.sha256(fdesc.read()).hexdigest()
+        self._filehash = filehash
         print "READING %r (%r)" % (fname, self._filehash)
-        if self._isscanpresent():
-            raise Exception('Scan already present in Database.')
 
     def _addhost(self, _):
         """Subclasses may store host (first argument) here."""
@@ -204,13 +200,6 @@ class NmapHandler(ContentHandler):
     def _addscaninfo(self, _):
         """Subclasses may add scan information (first argument) to
         self._curscan here.
-
-        """
-        pass
-
-    def _isscanpresent(self):
-        """Subclasses may check whether a scan is already present in
-        the database here.
 
         """
         pass
@@ -533,8 +522,8 @@ class Nmap2Mongo(NmapHandler):
 
     """Specific handler for MongoDB backend."""
 
-    def __init__(self, fname, needports=False, categories=None,
-                 source=None, gettoarchive=None, add_addr_infos=True):
+    def __init__(self, fname, categories=None, source=None,
+                 gettoarchive=None, add_addr_infos=True, **kargs):
         from ivre import db
         self._db = db.db
         if categories is None:
@@ -551,10 +540,9 @@ class Nmap2Mongo(NmapHandler):
             self._gettoarchive = lambda c, a, s: []
         else:
             self._gettoarchive = gettoarchive
-        NmapHandler.__init__(self, fname, needports=needports,
-                             categories=categories, source=source,
-                             gettoarchive=gettoarchive,
-                             add_addr_infos=add_addr_infos)
+        NmapHandler.__init__(self, fname, categories=categories,
+                             source=source, gettoarchive=gettoarchive,
+                             add_addr_infos=add_addr_infos, **kargs)
 
     def _addhost(self, host):
         if self.categories:
@@ -587,6 +575,3 @@ class Nmap2Mongo(NmapHandler):
             self._curscan['scaninfos'].append(i)
         else:
             self._curscan['scaninfos'] = [i]
-
-    def _isscanpresent(self):
-        return self._scancollection.find({'_id': self._filehash}).count() > 0

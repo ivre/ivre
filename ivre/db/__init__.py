@@ -40,6 +40,8 @@ import shutil
 import tempfile
 import pickle
 import uuid
+import json
+import datetime
 
 # tests: I don't want to depend on cluster for now
 try:
@@ -275,10 +277,34 @@ class DBNmap(DB):
         self.argparser.add_argument('--sshkey')
         self.argparser.add_argument('--archives', action='store_true')
 
+    def is_scan_present(self, _):
+        return False
+
     def store_scan(self, fname, **kargs):
-        """This method parses a scan result, displays a JSON version
-        of the result, and return True if everything went fine, False
-        otherwise.
+        """This method opens a scan result, and calls the appropriate
+        store_scan_* method to parse (and store) the scan result.
+
+        """
+        scanid = utils.hash_file(fname, hashtype="sha256").hexdigest()
+        if self.is_scan_present(scanid):
+            if config.DEBUG:
+                sys.stderr.write("WARNING: Scan already present in Database"
+                                 " (%r)." % fname)
+            return False
+        with open(fname) as fdesc:
+            fchar = fdesc.read(1)
+            try:
+                return {
+                    '<': self.store_scan_xml,
+                    '{': self.store_scan_json,
+                }[fchar](fname, filehash=scanid, **kargs)
+            except KeyError:
+                raise ValueError("Unknown file type %s" % fname)
+
+    def store_scan_xml(self, fname, **kargs):
+        """This method parses an XML scan result, displays a JSON
+        version of the result, and return True if everything went
+        fine, False otherwise.
 
         In backend-specific subclasses, this method stores the result
         instead of displaying it, thanks to the `content_handler`
@@ -298,6 +324,53 @@ class DBNmap(DB):
             content_handler.outputresults()
             return True
         return False
+
+    def store_scan_json(self, fname, filehash=None, needports=False,
+                        categories=None, source=None,
+                        gettoarchive=None, add_addr_infos=True):
+        """This method parses a JSON scan result as exported using
+        `scancli --json > file`, displays the parsing result, and
+        return True if everything went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        """
+        with open(fname) as fdesc:
+            for line in fdesc:
+                host = json.loads(line)
+                for fname in ["starttime", "endtime"]:
+                    host[fname] = datetime.datetime.strptime(
+                        host[fname], "%Y-%m-%d %H:%M:%S"
+                    )
+                for fname in ["_id"]:
+                    if fname in host:
+                        del host[fname]
+                host["scanid"] = filehash
+                if categories is not None:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                if add_addr_infos:
+                    host['infos'] = {}
+                    if self.globaldb is not None:
+                        for func in [self.globaldb.data.country_byip,
+                                     self.globaldb.data.as_byip,
+                                     self.globaldb.data.location_byip]:
+                            data = func(host['addr'])
+                            if data:
+                                host['infos'].update(data)
+                self.archive_from_func(host, gettoarchive)
+                if not needports or 'ports' in host:
+                    self.store_host(host)
+        return True
+
+    def store_host(self, host):
+        print host
+
+    def archive_from_func(self, _ig1, _ig2):
+        pass
 
     def get_mean_open_ports(self, flt, archive=False):
         """This method returns for a specific query `flt` a list of

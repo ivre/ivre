@@ -400,6 +400,16 @@ have no effect if it is not expected)."""
         ]
         return col.aggregate(pipeline)['result']
 
+    def is_scan_present(self, scanid):
+        for colname in [self.colname_scans, self.colname_oldscans]:
+            if self.db[colname].find_one({"_id": scanid},
+                                         fields=[]) is not None:
+                return True
+        return False
+
+    def store_host(self, host):
+        self.db[self.colname_hosts].insert(host)
+
     def remove(self, host, archive=False):
         """Removes the host "host" from the active (the old one if
         "archive" is set to True) column. "host" must be the host
@@ -464,13 +474,21 @@ have no effect if it is not expected)."""
                 # remove the scan from the (not archived) scans
                 # collection if there is no more hosts related to this
                 # scan in the hosts collection
-                if self.db[self.colname_hosts].find_one({'scanid': scanid}) is None:
+                if self.db[self.colname_hosts].find_one(
+                        {'scanid': scanid}) is None:
                     self.db[self.colname_scans].remove(spec_or_id=scanid)
                     if config.DEBUG:
                         print "SCAN REMOVED: %s in %r" % (
                             scanid,
                             self.colname_scans,
                         )
+
+    def archive_from_func(self, host, gettoarchive):
+        if gettoarchive is None:
+            return
+        for rec in gettoarchive(self.db[self.colname_hosts],
+                                host['addr'], host['source']):
+            self.archive(rec)
 
     def get_mean_open_ports(self, flt, archive=False):
         """This method returns for a specific query `flt` a list of
@@ -1392,15 +1410,16 @@ have no effect if it is not expected)."""
                 flt,
                 self.searchport(port=port, protocol=proto))
         if args.not_port is not None:
-            port = args.not_port.replace('_', '/')
-            if '/' in port:
-                proto, port = port.split('/', 1)
+            not_port = args.not_port.replace('_', '/')
+            if '/' in not_port:
+                not_proto, not_port = not_port.split('/', 1)
             else:
-                proto = 'tcp'
-            port = int(port)
+                not_proto = 'tcp'
+            not_port = int(not_port)
             flt = self.flt_and(
                 flt,
-                self.searchport(port=port, protocol=proto, neg=True))
+                self.searchport(port=not_port, protocol=not_proto,
+                                neg=True))
         if args.openport:
             flt = self.flt_and(flt, self.searchopenport())
         if args.no_openport:
