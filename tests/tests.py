@@ -25,9 +25,13 @@ import os
 import sys
 import errno
 import random
-from cStringIO import StringIO
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 from contextlib import contextmanager
 import coverage
+from functools import reduce
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -51,7 +55,10 @@ def run_iter(cmd, interp=None, stdin=None):
 def run_cmd(cmd, interp=None, stdin=None):
     proc = run_iter(cmd, interp=interp, stdin=stdin)
     out, err = proc.communicate()
-    return proc.returncode, out, err
+    if ivre.utils.PYTHON3:
+        return proc.returncode, out.decode(), err.decode()
+    else:
+        return proc.returncode, out, err
 
 def coverage_init():
     return run_cmd(COVERAGE + ["erase"])
@@ -477,48 +484,47 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchldapanon()).count()
         self.check_value("nmap_ldapanon_count", count)
 
-        categories = ivre.db.db.nmap.topvalues("category")
-        category = categories.next()
+        categories = list(ivre.db.db.nmap.topvalues("category"))
+        category = categories[0]
         self.assertEqual(category["_id"], "TEST")
         self.assertEqual(category["count"], hosts_count)
-        with self.assertRaises(StopIteration):
-            categories.next()
+        self.assertEqual(len(categories), 1)
         self.check_value(
             "nmap_topsrv",
-            ivre.db.db.nmap.topvalues("service").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("service"))[0]['_id'])
         self.check_value(
             "nmap_topsrv_80",
-            ivre.db.db.nmap.topvalues("service:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("service:80"))[0]['_id'])
         self.check_value(
             "nmap_topprobedsrv",
-            ivre.db.db.nmap.topvalues("probedservice").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("probedservice"))[0]['_id'])
         self.check_value(
             "nmap_topprobedsrv_80",
-            ivre.db.db.nmap.topvalues("probedservice:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("probedservice:80"))[0]['_id'])
         self.check_value(
             "nmap_topprod",
-            ivre.db.db.nmap.topvalues("product").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("product"))[0]['_id'])
         self.check_value(
             "nmap_topprod_80",
-            ivre.db.db.nmap.topvalues("product:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("product:80"))[0]['_id'])
         self.check_value(
             "nmap_topdevtype",
-            ivre.db.db.nmap.topvalues("devicetype").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("devicetype"))[0]['_id'])
         self.check_value(
             "nmap_topdevtype_80",
-            ivre.db.db.nmap.topvalues("devicetype:80").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("devicetype:80"))[0]['_id'])
         self.check_value(
             "nmap_topdomain",
-            ivre.db.db.nmap.topvalues("domains").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("domains"))[0]['_id'])
         self.check_value(
             "nmap_topdomains_1",
-            ivre.db.db.nmap.topvalues("domains:1").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("domains:1"))[0]['_id'])
         self.check_value(
             "nmap_tophop",
-            ivre.db.db.nmap.topvalues("hop").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("hop"))[0]['_id'])
         self.check_value(
             "nmap_tophop_10+",
-            ivre.db.db.nmap.topvalues("hop>10").next()['_id'])
+            list(ivre.db.db.nmap.topvalues("hop>10"))[0]['_id'])
 
         cov.stop()
         cov.save()
@@ -703,14 +709,15 @@ class IvreTests(unittest.TestCase):
         # String utils
         teststr = "TEST STRING -./*'"
         self.assertEqual(ivre.utils.regexp2pattern(teststr),
-                         (re.escape(teststr), 0))
+                         (re.escape(teststr),
+                          ivre.utils.DEFAULT_REGEXP_FLAGS))
         self.assertEqual(
             ivre.utils.regexp2pattern(
                 re.compile('^' + re.escape(teststr) + '$')),
-            (re.escape(teststr), 0))
+            (re.escape(teststr), ivre.utils.DEFAULT_REGEXP_FLAGS))
         self.assertEqual(
             ivre.utils.regexp2pattern(re.compile(re.escape(teststr))),
-            ('.*' + re.escape(teststr) + '.*', 0))
+            ('.*' + re.escape(teststr) + '.*', ivre.utils.DEFAULT_REGEXP_FLAGS))
         self.assertEqual(ivre.utils.str2list(teststr), teststr)
         teststr = "1,2|3"
         self.assertItemsEqual(ivre.utils.str2list(teststr),
@@ -742,7 +749,7 @@ class IvreTests(unittest.TestCase):
                 if n % (f + 2) == 0: return False
                 f += 6
             return True
-        for _ in xrange(3):
+        for _ in range(3):
             nbr = random.randint(2, 1000)
             factors = list(ivre.mathutils.factors(nbr))
             self.assertTrue(all(is_prime(x) for x in factors))
@@ -775,7 +782,6 @@ if __name__ == '__main__':
     RUN = coverage_run
     RUN_ITER = coverage_run_iter
     parse_args()
-    coverage_init()
     init_links()
     sys.path = ["bin/"] + sys.path
     import ivre.config
@@ -783,6 +789,9 @@ if __name__ == '__main__':
     import ivre.utils
     import ivre.mathutils
     import ivre.passive
+    if not hasattr(IvreTests, "assertItemsEqual"):
+        IvreTests.assertItemsEqual = IvreTests.assertCountEqual
+    coverage_init()
     unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )

@@ -188,8 +188,9 @@ class NmapHandler(ContentHandler):
         self._curtablepath = []
         self._curhostnames = None
         with open(fname) as fdesc:
-            self._filehash = hashlib.sha256(fdesc.read()).hexdigest()
-        print "READING %r (%r)" % (fname, self._filehash)
+            self._filehash = utils.hash_value(fdesc.read(),
+                                              "sha256").hexdigest()
+        print("READING %r (%r)" % (fname, self._filehash))
         if self._isscanpresent():
             raise Exception('Scan already present in Database.')
 
@@ -288,7 +289,7 @@ class NmapHandler(ContentHandler):
                                  "(got %r)\n" % self._curextraports)
             self._curextraports = {attrs['state']: [int(attrs['count']), {}]}
         elif name == 'extrareasons' and self._curextraports is not None:
-            self._curextraports[self._curextraports.keys()[0]][1][
+            self._curextraports[list(self._curextraports)[0]][1][
                 attrs['reason']] = int(attrs['count'])
         elif name == 'port':
             if self._curport is not None:
@@ -526,7 +527,7 @@ class Nmap2Txt(NmapHandler):
         self._db[host['addr']] = host
 
     def outputresults(self):
-        print self._db
+        print(self._db)
 
 
 class Nmap2Mongo(NmapHandler):
@@ -577,7 +578,7 @@ class Nmap2Mongo(NmapHandler):
                                       self.source):
             self._archiverecord(rec)
         ident = self._collection.insert(host)
-        print "HOST STORED: %r in %r" % (ident, self._collection)
+        print("HOST STORED: %r in %r" % (ident, self._collection))
 
     def _archiverecord(self, host):
         """Archives a given host record. Also archives the
@@ -588,28 +589,28 @@ class Nmap2Mongo(NmapHandler):
         """
         # store the host in the archive hosts collection
         self._archivescollection.insert(host)
-        print "HOST ARCHIVED: %r in %r" % (host['_id'],
-                                           self._archivescollection)
+        print("HOST ARCHIVED: %r in %r" % (host['_id'],
+                                           self._archivescollection))
         scanid = host['scanid']
         # store the scan in the archive scans collection if it is not there yet
         if self._archivesscancollection.find_one(
                 {'_id': host['scanid']}) is None:
             self._archivesscancollection.insert(
                 self._scancollection.find({'_id': scanid})[0])
-            print "SCAN ARCHIVED: %r in %r" % (scanid,
-                                               self._archivesscancollection)
+            print("SCAN ARCHIVED: %r in %r" % (scanid,
+                                               self._archivesscancollection))
         # remove the host from the hosts collection
         self._collection.remove(spec_or_id=host['_id'])
-        print "HOST REMOVED: %r from %r" % (host['_id'], self._collection)
+        print("HOST REMOVED: %r from %r" % (host['_id'], self._collection))
         # remove the scan from the scans collection if there is no
         # more hosts related to this scan in the hosts collection
         if self._collection.find({'scanid': scanid}).count() == 0:
             self._scancollection.remove(spec_or_id=scanid)
-            print "SCAN REMOVED: %r from %r" % (scanid, self._scancollection)
+            print("SCAN REMOVED: %r from %r" % (scanid, self._scancollection))
 
     def _storescan(self):
         res = self._scancollection.insert(self._curscan)
-        print "SCAN STORED: %r in %r" % (res, self._scancollection)
+        print("SCAN STORED: %r in %r" % (res, self._scancollection))
         return res
 
     def _addscaninfo(self, i):

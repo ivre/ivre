@@ -31,9 +31,14 @@ from ivre import utils, xmlnmap, config
 import pymongo
 import bson
 import json
-
 import re
 import datetime
+from six import iteritems
+
+try:
+    range = xrange
+except NameError:
+    pass
 
 
 class MongoDB(DB):
@@ -73,7 +78,7 @@ class MongoDB(DB):
         suitable to be passed to Cursor.hint().
 
         """
-        for fieldname, hint in self.hint_indexes.iteritems():
+        for fieldname, hint in iteritems(self.hint_indexes):
             if fieldname in spec:
                 return hint
 
@@ -126,18 +131,18 @@ class MongoDB(DB):
         return cursor.distinct(fieldname)
 
     def create_indexes(self):
-        for colname, indexes in self.indexes.iteritems():
+        for colname, indexes in iteritems(self.indexes):
             for index in indexes:
                 self.db[colname].create_index(index)
-        for colname, indexes in self.specialindexes.iteritems():
+        for colname, indexes in iteritems(self.specialindexes):
             for index in indexes:
                 self.db[colname].create_index(index[0], **index[1])
 
     def ensure_indexes(self):
-        for colname, indexes in self.indexes.iteritems():
+        for colname, indexes in iteritems(self.indexes):
             for index in indexes:
                 self.db[colname].ensure_index(index)
-        for colname, indexes in self.specialindexes.iteritems():
+        for colname, indexes in iteritems(self.specialindexes):
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
@@ -171,7 +176,7 @@ class MongoDB(DB):
         # hack to allow nested values as field
         # see <http://stackoverflow.com/questions/13708857/
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
-        for i in xrange(field.count('.'), -1, -1):
+        for i in range(field.count('.'), -1, -1):
             subfield = field.rsplit('.', i)[0]
             if subfield in self.needunwind:
                 pipeline += [{"$unwind": "$" + subfield}]
@@ -730,7 +735,7 @@ have no effect if it is not expected)."""
             args['forest_dns'] = args.pop('forest')
         # Build the query. Do *not* iterate here since we are
         # modifying the dictionary
-        for key in args.keys():
+        for key in list(args):
             args['smb-os-discovery.%s' % key] = args.pop(key)
         args['id'] = 'smb-os-discovery'
         return {
@@ -1590,7 +1595,7 @@ setting values according to the keyword arguments.
                     count += 1
                     if count >= config.BULK_UPSERTS_MAXSIZE:
                         if config.DEBUG:
-                            print "MongoDB bulk upsert: %d" % count
+                            print("MongoDB bulk upsert: %d" % count)
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
                                    .initialize_unordered_bulk_op()
@@ -1599,7 +1604,7 @@ setting values according to the keyword arguments.
             pass
         if count > 0:
             if config.DEBUG:
-                print "MongoDB bulk upsert: %d (final)" % count
+                print("MongoDB bulk upsert: %d (final)" % count)
             bulk.execute()
 
     def insert_or_update_mix(self, spec, getinfos=None):
@@ -1896,7 +1901,7 @@ class MongoDBData(MongoDB, DBData):
             )
         self.db[self.colname_country_codes].insert(
             {'country_code': code, 'name': name}
-            for code, name in self.country_codes.iteritems()
+            for code, name in iteritems(self.country_codes)
         )
         self.country_codes = None
 

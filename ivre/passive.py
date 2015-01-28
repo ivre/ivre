@@ -27,7 +27,6 @@ This sub-module contains functions used for passive recon.
 from ivre import utils
 
 import re
-import hashlib
 import subprocess
 
 # p0f specific
@@ -56,6 +55,7 @@ P0F_DIST = re.compile('distance ([0-9]+),')
 
 
 def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
+    line = line.decode()
     line = [line.split(' - ')[0]] + line.split(' - ')[1].split(' -> ')
     if line[1].startswith('UNKNOWN '):
         sig = line[1][line[1].index('UNKNOWN ') + 8:][1:-1].split(':')[:6]
@@ -133,10 +133,12 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # original value in full[original column name].
     if len(spec['value']) > utils.MAXVALLEN:
         spec['fullvalue'] = spec['value']
-        spec['value'] = hashlib.sha1(spec['fullvalue']).hexdigest()
+        spec['value'] = utils.hash_value(spec['fullvalue'],
+                                         hashtype="sha1").hexdigest()
     if 'targetval' in spec and len(spec['targetval']) > utils.MAXVALLEN:
         spec['fulltargetval'] = spec['targetval']
-        spec['targetval'] = hashlib.sha1(spec['fulltargetval']).hexdigest()
+        spec['targetval'] = utils.hash_value(spec['fulltargetval'],
+                                             hashtype="sha1").hexdigest()
     return spec
 
 
@@ -246,19 +248,23 @@ def _getinfos_cert(spec):
     """
     infos = {}
     fullinfos = {}
-    try:
-        cert = spec.get('fullvalue', spec['value']).decode('base64')
-    except Exception:
-        return {}
+    cert = utils.base64_decode(spec.get('fullvalue', spec['value']))
     for hashtype in ['md5', 'sha1']:
-        infos['%shash' % hashtype] = hashlib.new(hashtype, cert).hexdigest()
+        infos['%shash' % hashtype] = utils.hash_value(
+            cert, hashtype=hashtype).hexdigest()
     proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
                              '-inform', 'DER'], stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE)
     proc.stdin.write(cert)
     proc.stdin.close()
+    output = proc.stdout.read()
+    if utils.PYTHON3:
+        output = output.decode()
     try:
-        newinfos = _CERTINFOS.search(proc.stdout.read()).groupdict()
+        newinfos = _CERTINFOS.search(output).groupdict()
+    except AttributeError:
+        pass
+    else:
         newfullinfos = {}
         for field in newinfos:
             if len(newinfos[field]) > utils.MAXVALLEN:
@@ -266,8 +272,6 @@ def _getinfos_cert(spec):
                 newinfos[field] = newinfos[field][:utils.MAXVALLEN]
         infos.update(newinfos)
         fullinfos.update(newfullinfos)
-    except Exception:
-        pass
     res = {}
     if infos:
         res['infos'] = infos

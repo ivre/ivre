@@ -34,6 +34,7 @@ import urllib
 import os.path
 import sys
 import functools
+from six import iteritems
 
 URLS = {
     # 'GeoIPCountry.dat':
@@ -140,7 +141,7 @@ PARSERS = [
 
 def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
-    for fname, url in URLS.iteritems():
+    for fname, url in iteritems(URLS):
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
@@ -168,8 +169,8 @@ def parseline_country(line):
     try:
         return int(line[2]), int(line[3]), line[4]
     except Exception as exc:
-        print exc
-        print line
+        print(exc)
+        print(line)
         raise exc
 
 
@@ -183,8 +184,8 @@ def parseline_city(line):
         elif line[0].startswith('startIpNum,'):
             return None, None, None
         else:
-            print exc
-            print line
+            print(exc)
+            print(line)
             raise exc
 
 
@@ -202,8 +203,8 @@ def parseline_asnum(line, withcomment=False):
         else:
             raise Exception('asnum %r should start with AS' % asnum)
     except Exception as exc:
-        print exc
-        print line
+        print(exc)
+        print(line)
         raise exc
     if withcomment:
         return int(line[0]), int(line[1]), asnum, ascomment
@@ -215,8 +216,8 @@ def parseline_routable(line):
     try:
         return int(line[2]), int(line[3]), True
     except Exception as exc:
-        print exc
-        print line
+        print(exc)
+        print(line)
         raise exc
 
 
@@ -394,15 +395,15 @@ def list_ips_by_data(datafile, parseline, data,
                         if maxnbr < 0:
                             curaddrs = curaddrs[:maxnbr]
                     for addr in curaddrs:
-                        print addr
+                        print(addr)
                     if maxnbr is not None and maxnbr <= 0:
                         return
                 elif listcidrs:
                     for net in utils.range2nets((start, stop)):
-                        print net
+                        print(net)
                 else:
-                    print "%s - %s" % (utils.int2ip(start),
-                                       utils.int2ip(stop))
+                    print("%s - %s" % (utils.int2ip(start),
+                                       utils.int2ip(stop)))
 
 
 list_ips_by_country = functools.partial(

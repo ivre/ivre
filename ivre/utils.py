@@ -30,9 +30,12 @@ import socket
 import datetime
 import re
 import os
+import sys
 import shutil
 import errno
 import stat
+import hashlib
+from six import iteritems
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -46,6 +49,21 @@ import stat
 MAXVALLEN = 1000
 
 REGEXP_T = type(re.compile(''))
+DEFAULT_REGEXP_FLAGS = re.compile("").flags
+
+BASE_TYPES = [str, int, float,
+              datetime.datetime, REGEXP_T]
+try:
+    BASE_TYPES.append(unicode)
+except NameError:
+    pass
+if bytes is not str:
+    BASE_TYPES.append(bytes)
+
+try:
+    range = xrange
+except NameError:
+    pass
 
 
 def guess_prefix(directory=None):
@@ -106,7 +124,7 @@ def int2mask(mask):
     From scapy:utils.py:itom(x).
 
     """
-    return (0xffffffff00000000L >> mask) & 0xffffffffL
+    return (0xffffffff00000000 >> mask) & 0xffffffff
 
 
 def net2range(network):
@@ -152,7 +170,7 @@ def range2nets(rng):
 def get_domains(name):
     """Generates the upper domains from a domain name."""
     name = name.split('.')
-    return ('.'.join(name[i:]) for i in xrange(len(name)))
+    return ('.'.join(name[i:]) for i in range(len(name)))
 
 
 def str2regexp(string):
@@ -177,7 +195,7 @@ def regexp2pattern(string):
     and some flags, suitable for use with re.compile(), combined with
     another pattern before. Usefull, for example, if you want to
     create a regexp like '^ *Set-Cookie: *[name]=[value]' where name
-    and value are regexp.
+    and value are regexps.
 
     """
     if type(string) is REGEXP_T:
@@ -199,7 +217,7 @@ def regexp2pattern(string):
             string += ".*"
         return string, flags
     else:
-        return re.escape(string), 0
+        return re.escape(string), DEFAULT_REGEXP_FLAGS
 
 
 def str2list(string):
@@ -245,8 +263,8 @@ def nmapspec2ports(string):
     result = set()
     for ports in string.split(','):
         if '-' in ports:
-            ports = map(int, ports.split('-', 1))
-            result = result.union(xrange(ports[0], ports[1] + 1))
+            ports = [int(port) for port in ports.split('-', 1)]
+            result = result.union(range(ports[0], ports[1] + 1))
         else:
             result.add(int(ports))
     return result
@@ -281,8 +299,7 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return type(elt) in [str, int, float, unicode,
-                         datetime.datetime, REGEXP_T]
+    return type(elt) in BASE_TYPES
 
 
 def diff(doc1, doc2):
@@ -328,7 +345,7 @@ def diff(doc1, doc2):
                 res[key][kkey] = True
             for kkey in kkeys1.intersection(kkeys2):
                 pass
-                # print kkey
+                # print(kkey)
     return res
 
 
@@ -338,7 +355,7 @@ def fields2csv_head(fields, prefix=''):
 
     """
     line = []
-    for field, subfields in fields.iteritems():
+    for field, subfields in iteritems(fields):
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
@@ -353,7 +370,7 @@ def doc2csv(doc, fields, nastr="NA"):
 
     """
     lines = [[]]
-    for field, subfields in fields.iteritems():
+    for field, subfields in iteritems(fields):
         if subfields is True:
             value = doc.get(field)
             if type(value) is list:
@@ -410,3 +427,28 @@ class FakeArgparserParent(object):
 
         """
         self.args.append((args, kargs))
+
+
+if sys.version_info[0] == 3:
+    PYTHON3 = True
+    import codecs
+
+    def hash_value(value, hashtype="sha1"):
+        return hashlib.new(
+            hashtype,
+            value.encode()  if type(value) is str else value
+        )
+
+    def base64_decode(value):
+        return codecs.decode(
+            value.encode() if type(value) is str else value,
+            "base64"
+        )
+else:
+    PYTHON3 = False
+
+    def hash_value(value, hashtype="sha1"):
+        return hashlib.new(hashtype, value)
+
+    def base64_decode(value):
+        return value.decode("base64")

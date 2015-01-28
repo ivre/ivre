@@ -19,8 +19,6 @@
 from ivre import utils, db, graphroute, config
 
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
 import os
 try:
     from collections import OrderedDict
@@ -508,8 +506,8 @@ def main():
             else:
                 indent = None
             for h in x:
-                print json.dumps(h, indent=indent,
-                                 default=db.db.nmap.serialize)
+                print(json.dumps(h, indent=indent,
+                                 default=db.db.nmap.serialize))
     elif args.short:
         def displayfunction(x):
             for h in x.distinct('addr'):
@@ -628,6 +626,7 @@ def main():
     sys.exit(0)
 
 if __name__ == '__main__':
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
+    if not utils.PYTHON3:
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
     main()
