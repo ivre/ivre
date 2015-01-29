@@ -289,7 +289,7 @@ class DBNmap(DB):
         if self.is_scan_present(scanid):
             if config.DEBUG:
                 sys.stderr.write("WARNING: Scan already present in Database"
-                                 " (%r)." % fname)
+                                 " (%r).\n" % fname)
             return False
         with open(fname) as fdesc:
             fchar = fdesc.read(1)
