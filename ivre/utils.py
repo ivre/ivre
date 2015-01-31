@@ -34,6 +34,8 @@ import shutil
 import errno
 import stat
 import hashlib
+import gzip
+import bz2
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -395,10 +397,20 @@ def doc2csv(doc, fields, nastr="NA"):
                                                 nastr=nastr)]
     return lines
 
+def open_file(fname):
+    """Returns an open file-like object, working with gzip or bzip2
+    compressed files.
+
+    """
+    return {
+        "bz2": bz2.BZ2File,
+        "gz": gzip.open,
+    }.get(os.path.basename(fname).split('.')[-1], open)(fname)
+
 def hash_file(fname, hashtype="sha1"):
     """Compute a hash of data from a given file"""
     result = hashlib.new(hashtype)
-    with open(fname) as fdesc:
+    with open_file(fname) as fdesc:
         for data in iter(lambda: fdesc.read(1048576), ""):
             result.update(data)
         return result

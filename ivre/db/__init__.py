@@ -291,7 +291,7 @@ class DBNmap(DB):
                 sys.stderr.write("WARNING: Scan already present in Database"
                                  " (%r).\n" % fname)
             return False
-        with open(fname) as fdesc:
+        with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
             try:
                 return {
@@ -320,7 +320,7 @@ class DBNmap(DB):
         else:
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
-            parser.parse(fname)
+            parser.parse(utils.open_file(fname))
             content_handler.outputresults()
             return True
         return False
@@ -337,7 +337,7 @@ class DBNmap(DB):
         method.
 
         """
-        with open(fname) as fdesc:
+        with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = json.loads(line)
                 for fname in ["starttime", "endtime"]:
