@@ -1432,9 +1432,10 @@ have no effect if it is not expected)."""
             if ':' in args.script:
                 flt = self.flt_and(
                     flt,
-                    self.searchscriptidout(map(utils.str2regexp,
-                                               args.script.split(':', 1)))
+                    self.searchscriptidout(*map(utils.str2regexp,
+                                                args.script.split(':', 1)))
                 )
+            else:
                 flt = self.flt_and(
                     flt,
                     self.searchscriptid(utils.str2regexp(args.script))
