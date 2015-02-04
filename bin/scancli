@@ -512,6 +512,7 @@ def main():
             else:
                 indent = None
             for h in x:
+                del(h['scanid'])
                 print json.dumps(h, indent=indent,
                                  default=db.db.nmap.serialize)
     elif args.short:
