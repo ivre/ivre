@@ -148,7 +148,7 @@ var HELP = {
 	"content": "Look for MS-SQL servers with an empty password for the <code>sa</code> account.",
     },
     "mysqlemptypwd": {
-	"title": "mssqlemptypwd",
+	"title": "mysqlemptypwd",
 	"content": "Look for MySQL servers with an empty password for the <code>root</code> account.",
     },
     "owa": {
