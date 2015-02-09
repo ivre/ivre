@@ -327,7 +327,8 @@ class DBNmap(DB):
 
     def store_scan_json(self, fname, filehash=None, needports=False,
                         categories=None, source=None,
-                        gettoarchive=None, add_addr_infos=True):
+                        gettoarchive=None, add_addr_infos=True,
+                        force_info=False):
         """This method parses a JSON scan result as exported using
         `scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -352,15 +353,16 @@ class DBNmap(DB):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
-                if add_addr_infos:
+                if add_addr_infos and self.globaldb is not None and (
+                        force_info or 'infos' not in host or not host['infos']
+                ):
                     host['infos'] = {}
-                    if self.globaldb is not None:
-                        for func in [self.globaldb.data.country_byip,
-                                     self.globaldb.data.as_byip,
-                                     self.globaldb.data.location_byip]:
-                            data = func(host['addr'])
-                            if data:
-                                host['infos'].update(data)
+                    for func in [self.globaldb.data.country_byip,
+                                 self.globaldb.data.as_byip,
+                                 self.globaldb.data.location_byip]:
+                        data = func(host['addr'])
+                        if data:
+                            host['infos'].update(data)
                 self.archive_from_func(host, gettoarchive)
                 if not needports or 'ports' in host:
                     self.store_host(host)

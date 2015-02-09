@@ -64,6 +64,9 @@ def main():
     parser.add_argument('--archive-same-host-and-source', action='store_true',
                         help='Archive results with both the same host and'
                         ' source (this is the default).')
+    parser.add_argument('--force-info', action='store_true',
+                        help='Force information (AS, country, city, etc.)'
+                        ' renewal (only useful with JSON format)')
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='Import all files from given directories.')
     args = parser.parse_args()
@@ -92,7 +95,8 @@ def main():
         if database.store_scan(
                 scan,
                 categories=categories, source=args.source,
-                needports=args.port, gettoarchive=gettoarchive
+                needports=args.port, gettoarchive=gettoarchive,
+                force_info=args.force_info,
         ):
             count += 1
     print "%d results imported." % count
