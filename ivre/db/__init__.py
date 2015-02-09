@@ -338,6 +338,8 @@ class DBNmap(DB):
         method.
 
         """
+        if categories is None:
+            categories = []
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = json.loads(line)
@@ -349,7 +351,7 @@ class DBNmap(DB):
                     if fname in host:
                         del host[fname]
                 host["scanid"] = filehash
-                if categories is not None:
+                if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source

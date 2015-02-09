@@ -70,10 +70,9 @@ def main():
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='Import all files from given directories.')
     args = parser.parse_args()
-    categories = []
     source = None
     database = ivre.db.db.nmap
-    categories = args.categories.split(',')
+    categories = args.categories.split(',') if args.categories else []
     if args.test:
         database = ivre.db.DBNmap()
     if args.never_archive:
