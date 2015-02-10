@@ -408,10 +408,14 @@ have no effect if it is not expected)."""
         if url == "field":
             return port.get('screendata')
 
-    def setscreenshot(self, host, port, data, archives=False,
-                      overwrite=False):
+    def setscreenshot(self, host, port, data, protocol='tcp',
+                      archives=False, overwrite=False):
         """Sets the content of a port's screenshot."""
-        port = [p for p in host['ports'] if p['port'] == port][0]
+        try:
+            port = [p for p in host.get('ports', [])
+                    if p['port'] == port and p['protocol'] == protocol][0]
+        except IndexError:
+            raise KeyError("Port %s/%d does not exist" % (protocol, port))
         if 'screenshot' in port and not overwrite:
             return
         port['screenshot'] = "field"
@@ -420,12 +424,13 @@ have no effect if it is not expected)."""
             self.colname_oldhosts if archives else self.colname_hosts
         ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
 
-    def removescreenshot(self, host, port=None, archives=False):
+    def removescreenshot(self, host, port=None, protocol='tcp',
+                         archives=False):
         """Removes screenshots"""
         changed = False
-        ports = host.get('ports')
-        for p in ports:
-            if port is None or p['port'] == port:
+        for p in host.get('ports', []):
+            if port is None or (p['port'] == port and
+                                p['protocol'] == protocol):
                 if 'screenshot' in p:
                     if p['screenshot'] == "field":
                         if 'screendata' in p:
@@ -1029,7 +1034,7 @@ have no effect if it is not expected)."""
         )
 
     @staticmethod
-    def searchscreenshot(port=None, neg=False):
+    def searchscreenshot(port=None, protocol='tcp', neg=False):
         """Filter results with (without, when `neg == True`) a
         screenshot (on a specific `port` if specified).
 
@@ -1038,6 +1043,7 @@ have no effect if it is not expected)."""
             return {'ports.screenshot': {'$exists': not neg}}
         return {'ports': {
             '$elemMatch': {'port': port,
+                           'protocol': protocol,
                            'screenshot': {'$exists': not neg}}
         }}
 
