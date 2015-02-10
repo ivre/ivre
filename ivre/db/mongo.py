@@ -356,6 +356,16 @@ class MongoDBNmap(MongoDB, DBNmap):
                 [('source', pymongo.ASCENDING)],
             ],
         }
+        self.specialindexes = {
+            self.colname_hosts: [
+                ([('ports.screenshot', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ],
+            self.colname_oldhosts: [
+                ([('ports.screenshot', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ],
+        }
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -389,6 +399,43 @@ have no effect if it is not expected)."""
                 {'_id': scanid}, **kargs)
         return self.db[self.colname_scans].find_one(
             {'_id': scanid}, **kargs)
+
+    def getscreenshot(self, port):
+        """Returns the content of a port's screenshot."""
+        url = port.get('screenshot')
+        if url is None:
+            return None
+        if url == "field":
+            return port.get('screendata')
+
+    def setscreenshot(self, host, port, data, archives=False,
+                      overwrite=False):
+        """Sets the content of a port's screenshot."""
+        port = [p for p in host['ports'] if p['port'] == port][0]
+        if 'screenshot' in port and not overwrite:
+            return
+        port['screenshot'] = "field"
+        port['screendata'] = bson.Binary(data)
+        self.db[
+            self.colname_oldhosts if archives else self.colname_hosts
+        ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
+
+    def removescreenshot(self, host, port=None, archives=False):
+        """Removes screenshots"""
+        changed = False
+        ports = host.get('ports')
+        for p in ports:
+            if port is None or p['port'] == port:
+                if 'screenshot' in p:
+                    if p['screenshot'] == "field":
+                        if 'screendata' in p:
+                            del p['screendata']
+                    del p['screenshot']
+                    changed = True
+        if changed:
+            self.db[
+                self.colname_oldhosts if archives else self.colname_hosts
+            ].update({"_id": host["_id"]}, {"$set": {'ports': host['ports']}})
 
     def getlocations(self, flt, archive=False):
         col = self.db[self.colname_oldhosts if archive else self.colname_hosts]
@@ -980,6 +1027,19 @@ have no effect if it is not expected)."""
             # This is not
             {'traces.hops.host': hop},
         )
+
+    @staticmethod
+    def searchscreenshot(port=None, neg=False):
+        """Filter results with (without, when `neg == True`) a
+        screenshot (on a specific `port` if specified).
+
+        """
+        if port is None:
+            return {'ports.screenshot': {'$exists': not neg}}
+        return {'ports': {
+            '$elemMatch': {'port': port,
+                           'screenshot': {'$exists': not neg}}
+        }}
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, archive=False,
