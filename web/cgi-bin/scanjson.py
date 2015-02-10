@@ -396,6 +396,12 @@ for q in query:
         flt = db.nmap.flt_and(flt,
                               db.nmap.searchport(port, protocol=proto,
                                                  state=nq))
+    elif nq == "screenshot":
+        if q[1] is None:
+            flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(neg=neg))
+        else:
+            flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                port=int(q[1]), neg=neg))
     elif nq == 'display':
         # ignore this parameter
         pass
@@ -584,6 +590,9 @@ for r in result:
     for f in ['starttime', 'endtime']:
         if f in r:
             r[f] = int(r[f].strftime('%s'))
+    for port in r.get('ports', []):
+        if 'screendata' in port:
+            port['screendata'] = port['screendata'].encode('base64')
     if 'traces' in r:
         for k in r['traces']:
             k['hops'].sort(key=lambda x: x['ttl'])

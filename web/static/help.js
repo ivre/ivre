@@ -262,6 +262,10 @@ var HELP = {
 	"title": "<b>(!)</b>openport",
 	"content": "Look for hosts with at least one open port.",
     },
+    "screenshot": {
+	"title": "<b>(!)</b>screenshot<b>(:[port number])</b>",
+	"content": "Search results with at least one screenshot.",
+    },
     "notes": {
 	"title": "notes",
 	"content": "Search results with an associated note.",
@@ -287,6 +291,10 @@ var HELP = {
     "display:script:": {
 	"title": "display:script:<b>[script id]</b>",
 	"content": "Display only a particular script output.",
+    },
+    "display:screenshot": {
+	"title": "display:screenshot",
+	"content": "Display only screenshots.",
     },
 };
 

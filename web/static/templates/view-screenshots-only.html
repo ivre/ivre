@@ -6,7 +6,7 @@
   under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
- 
+
   IVRE is distributed in the hope that it will be useful, but WITHOUT
   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
@@ -16,22 +16,15 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<a class="clickable"
-   ng-click="setparam(port.protocol + '/' + port.port)"
-   >{{port.protocol}}/{{port.port}}</a>
-<span class="label label-status"
-      ng-class="class_from_port_status(port.state_state)">
-  {{port.state_state | uppercase}}
-</span>
-<span class="dtnormal" title="ttl: {{port.state_reason_ttl}}">
-  {{port.state_reason}}
-</span>
-<span class="dtnormal result-url" title="URL">
-  <code>
-    {{url_from_port(port, host.addr)}}
-  </code>
-</span>
-<img ng-if="port.screenshot == 'field'"
-     src="data:image/jpeg;base64,{{port.screendata}}"
-     class="screenshot"
-     alt="Screenshot for port {{port.port}}"/>
+<div class="result-container"
+     ng-repeat="host in results"
+     >
+  <div host-summary=""></div>
+  <div class="full">
+    <!-- ports w/ scripts, etc. -->
+    <dt ng-repeat="port in host.ports | orderBy:['protocol','port']"
+        ng-if="port.screenshot">
+      <div port-summary=""></div>
+    </dt>
+  </div>
+</div>
