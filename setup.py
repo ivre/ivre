@@ -78,6 +78,7 @@ setup(
           'web/static/templates/menu.html',
           'web/static/templates/progressbar.html',
           'web/static/templates/view-hosts.html',
+          'web/static/templates/view-screenshots-only.html',
           'web/static/templates/view-scripts-only.html',
           'web/static/templates/subview-host-summary.html',
           'web/static/templates/subview-port-summary.html',

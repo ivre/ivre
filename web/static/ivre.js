@@ -1933,6 +1933,11 @@ ivreWebUi
 	    templateUrl: 'templates/view-scripts-only.html'
 	};
     })
+    .directive('displayScreenshot', function() {
+	return {
+	    templateUrl: 'templates/view-screenshots-only.html'
+	};
+    })
     .directive('hostSummary', function() {
 	return {
 	    templateUrl: 'templates/subview-host-summary.html'
@@ -2077,7 +2082,8 @@ function set_tooltip_filter(elt) {
        (elt.value.length > 1 || "!-".indexOf(elt.value[0]) === -1)) {
 	var matching_keys = Object.keys(HELP).filter(
 	    function(key) {
-		return (':/'.indexOf(key.slice(-1)) === -1 ?
+		return ((':/'.indexOf(key.slice(-1)) === -1
+			 && key !== 'screenshot') ?
 			elt.value === key.substr(0, elt.value.length) :
 			elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
 	    }

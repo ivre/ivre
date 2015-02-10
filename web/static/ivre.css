@@ -117,8 +117,8 @@ form {
 }
 
 .summary > table > tbody > tr > td {
-  padding-right: 10px;
-  white-space: nowrap;
+    padding-right: 10px;
+    white-space: nowrap;
 }
 
 .dtnormal {
@@ -148,9 +148,9 @@ form {
 }
 
 .brush .extent {
-  stroke: #000;
-  fill-opacity: .125;
-  shape-rendering: crispEdges;
+    stroke: #000;
+    fill-opacity: .125;
+    shape-rendering: crispEdges;
 }
 
 .clickable {
@@ -163,4 +163,10 @@ form {
 
 .popover {
     max-width: 500px;
+}
+
+.screenshot {
+    border: 1px solid rgba(0, 0, 0, 0.5);
+    margin: 1%;
+    max-width: 98%;
 }
