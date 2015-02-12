@@ -513,6 +513,10 @@ def main():
                 indent = None
             for h in x:
                 del(h['scanid'])
+                for port in h.get('ports', []):
+                    if 'screendata' in port:
+                        port['screendata'] = port['screendata'].encode(
+                            'base64')
                 print json.dumps(h, indent=indent,
                                  default=db.db.nmap.serialize)
     elif args.short:

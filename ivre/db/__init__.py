@@ -342,11 +342,7 @@ class DBNmap(DB):
             categories = []
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
-                host = json.loads(line)
-                for fname in ["starttime", "endtime"]:
-                    host[fname] = datetime.datetime.strptime(
-                        host[fname], "%Y-%m-%d %H:%M:%S"
-                    )
+                host = self.json2dbrec(json.loads(line))
                 for fname in ["_id"]:
                     if fname in host:
                         del host[fname]
@@ -369,6 +365,10 @@ class DBNmap(DB):
                 if not needports or 'ports' in host:
                     self.store_host(host)
         return True
+
+    @staticmethod
+    def json2dbrec(host):
+        raise NotImplementedError
 
     def store_host(self, host):
         print host

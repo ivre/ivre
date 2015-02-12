@@ -626,6 +626,20 @@ have no effect if it is not expected)."""
         ].aggregate(aggr)['result']
 
     @staticmethod
+    def json2dbrec(host):
+        for fname in ["starttime", "endtime"]:
+            if fname in host:
+                host[fname] = datetime.datetime.strptime(
+                    host[fname], "%Y-%m-%d %H:%M:%S"
+                )
+        for port in host.get('ports', []):
+            if 'screendata' in port:
+                port['screendata'] = bson.Binary(
+                    port['screendata'].decode('base64')
+                )
+        return host
+
+    @staticmethod
     def searchdomain(name, neg=False):
         if neg:
             if type(name) is utils.REGEXP_T:
