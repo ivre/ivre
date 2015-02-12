@@ -1477,6 +1477,8 @@ have no effect if it is not expected)."""
             )
         if args.net is not None:
             flt = self.flt_and(flt, self.searchnet(args.net))
+        if args.range is not None:
+            flt = self.flt_and(flt, self.searchrange(*args.range))
         if args.hop is not None:
             flt = self.flt_and(flt, self.searchhop(args.hop))
         if args.port is not None:
