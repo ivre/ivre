@@ -399,9 +399,16 @@ for q in query:
     elif nq == "screenshot":
         if q[1] is None:
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(neg=neg))
-        else:
+        elif q[1].isdigit():
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
                 port=int(q[1]), neg=neg))
+        elif q[1].startswith('tcp/') or q[1].startswith('udp/'):
+            q[1] = q[1].split('/', 1)
+            flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                port=int(q[1][1]), protocol=q[0], neg=neg))
+        else:
+            flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                service=q[1], neg=neg))
     elif nq == 'display':
         # ignore this parameter
         pass

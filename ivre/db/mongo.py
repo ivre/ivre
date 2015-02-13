@@ -1048,16 +1048,28 @@ have no effect if it is not expected)."""
         )
 
     @staticmethod
-    def searchscreenshot(port=None, protocol='tcp', neg=False):
+    def searchscreenshot(port=None, protocol='tcp', service=None, neg=False):
         """Filter results with (without, when `neg == True`) a
         screenshot (on a specific `port` if specified).
 
         """
-        if port is None:
+        if port is None and service is None:
             return {'ports.screenshot': {'$exists': not neg}}
+        if port is None:
+            return {'ports': {
+                '$elemMatch': {'service_name': service,
+                               'screenshot': {'$exists': not neg}}
+            }}
+        if service is None:
+            return {'ports': {
+                '$elemMatch': {'port': port,
+                               'protocol': protocol,
+                               'screenshot': {'$exists': not neg}}
+            }}
         return {'ports': {
             '$elemMatch': {'port': port,
                            'protocol': protocol,
+                           'service_name': service,
                            'screenshot': {'$exists': not neg}}
         }}
 
