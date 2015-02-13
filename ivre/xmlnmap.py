@@ -46,7 +46,6 @@ IGNORE_SCRIPTS = {
     'mcafee-epo-agent': set(['ePO Agent not found']),
     'ftp-bounce': set(['no banner']),
     'telnet-encryption': set(['\n  ERROR: Failed to send packet: TIMEOUT']),
-    'ssh-hostkey': set(['\n']),
     'http-mobileversion-checker': set(['No mobile version detected.']),
     'http-referer-checker': set(["Couldn't find any cross-domain scripts."]),
     'http-default-accounts': set([
@@ -73,14 +72,23 @@ IGNORE_SCRIPTS = {
         '\n  ERROR: Failed to connect to AJP server',
     ]),
     'giop-info': set(['  \n  ERROR: Failed to read Packet.GIOP']),
-    'rsync-list-modules': set(['\n  ERROR: Failed to '
-                               'connect to rsync server']),
+    'rsync-list-modules': set([
+        '\n  ERROR: Failed to connect to rsync server',
+        '\n  ERROR: Failed to retrieve a list of modules',
+    ]),
     'sip-methods': set(['ERROR: Failed to connect to the SIP server.']),
+    'sip-call-spoof': set(['ERROR: Failed to connect to the SIP server.']),
     'rpcap-info': set(['\n  ERROR: EOF']),
+    'rmi-dumpregistry': set(['Registry listing failed (Handshake failed)']),
+    'voldemort-info': set(['\n  ERROR: Unsupported protocol']),
     'irc-botnet-channels': set(['\n  ERROR: EOF\n']),
-    'bitcoin-getaddr': set(['\n  ERROR: Failed to extract version '
-                            'information']),
+    'bitcoin-getaddr': set([
+        '\n  ERROR: Failed to extract address information',
+        '\n  ERROR: Failed to extract version information',
+    ]),
     'bitcoin-info': set(['\n  ERROR: Failed to extract version information']),
+    'drda-info': set(['The response contained no EXCSATRD']),
+    'rdp-enum-encryption': set(['Received unhandled packet']),
     'ldap-search': set(['ERROR: Failed to bind as the anonymous user']),
     # host scripts
     'firewalk': set(['None found']),
@@ -107,6 +115,9 @@ IGNORE_SCRIPTS_REGEXP = {
     'ms-sql-hasdbaccess': MSSQL_ERROR,
     'ms-sql-query': MSSQL_ERROR,
     'ms-sql-tables': MSSQL_ERROR,
+    'irc-botnet-channels': re.compile(
+        "^" + re.escape("\n  ERROR: Closing Link: ")
+    ),
 }
 
 IGNORE_SCRIPT_OUTPUTS = set([
@@ -114,6 +125,8 @@ IGNORE_SCRIPT_OUTPUTS = set([
     'false',
     'TIMEOUT',
     'ERROR',
+    '\n',
+    '\r\n',
 ])
 
 IGNORE_SCRIPT_OUTPUTS_REGEXP = set([
