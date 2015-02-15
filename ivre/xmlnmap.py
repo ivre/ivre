@@ -118,6 +118,15 @@ IGNORE_SCRIPTS_REGEXP = {
     'irc-botnet-channels': re.compile(
         "^" + re.escape("\n  ERROR: Closing Link: ")
     ),
+    'http-php-version': re.compile(
+        '^(Logo query returned unknown hash [0-9a-f]{32}\\\n'
+        'Credits query returned unknown hash [0-9a-f]{32}|'
+        '(Logo|Credits) query returned unknown hash '
+        '[0-9a-f]{32})$'
+    ),
+    'p2p-conficker': re.compile(
+        re.escape('Host is CLEAN or ports are blocked')
+    ),
 }
 
 IGNORE_SCRIPT_OUTPUTS = set([
