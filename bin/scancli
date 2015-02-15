@@ -411,6 +411,9 @@ def main():
                         help='Output only IP addresses, one per line.')
     parser.add_argument('--json', action='store_true',
                         help='Output results as JSON documents.')
+    parser.add_argument('--no-screenshots', action='store_true',
+                        help='When used with --json, do not output '
+                        'screenshots data.')
     parser.add_argument('--honeyd', action='store_true',
                         help='Output results as a honeyd config file.')
     parser.add_argument('--nmap-xml', action='store_true',
@@ -514,7 +517,11 @@ def main():
             for h in x:
                 del(h['scanid'])
                 for port in h.get('ports', []):
-                    if 'screendata' in port:
+                    if args.no_screenshots:
+                        for fname in ['screenshot', 'screendata']:
+                            if fname in port:
+                                del port[fname]
+                    elif 'screendata' in port:
                         port['screendata'] = port['screendata'].encode(
                             'base64')
                 print json.dumps(h, indent=indent,
