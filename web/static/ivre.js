@@ -2143,7 +2143,7 @@ function set_tooltip_filter(elt) {
 	    return;
 	}
 	elt.setAttribute("oldval", elt.value);
-	if(elt.value.match(/^!?[0-9\.\/]*$/)) {
+	if(elt.value.match(/^!?[0-9\.\/\,]*$/)) {
 	    if(elt.value.indexOf('/') !== -1)
 		content = HELP["net:"];
 	    else if(elt.value.indexOf('.') !== -1)

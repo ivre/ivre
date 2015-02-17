@@ -251,8 +251,8 @@ var HELP = {
 	"content": "Look for results with a hostname within a matching domain name in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
     },
     "tcp/": {
-	"title": "<b>(!)[port number]</b> or <b>(!)</b>tcp/<b>[port number]</b>",
-	"content": "Look for results with the specified TCP port open.",
+	"title": "<b>(!)[port number](,[port number](,...))</b> or <b>(!)</b>tcp/<b>[port number]</b>",
+	"content": "Look for results with the specified TCP port(s) open.",
     },
     "udp/": {
 	"title": "<b>(!)</b>udp/<b>[port number]</b>",
