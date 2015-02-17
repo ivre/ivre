@@ -796,14 +796,25 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("' + field.substr(5) + '", "' + x + '");';
 	};
     }
-    else if(field.substr(0, 7) === 'service') {
+    else if(field === 'service') {
 	preparefilter = function(x) {
 	    return 'setparam("service", "' + x + '");';
 	};
     }
-    else if(field.substr(0, 13) === 'probedservice') {
+    else if(field.substr(0, 8) === 'service:') {
+	preparefilter = function(x) {
+	    return 'setparam("service", "' + x + ':' + field.substr(8) + '");';
+	};
+    }
+    else if(field === 'probedservice') {
 	preparefilter = function(x) {
 	    return 'setparam("probedservice", "' + x + '");';
+	};
+    }
+    else if(field.substr(0, 14) === 'probedservice:') {
+	preparefilter = function(x) {
+	    return 'setparam("probedservice", "' + x + ':' +
+		field.substr(14) + '");';
 	};
     }
     else if(field.substr(0, 7) === 'product') {
