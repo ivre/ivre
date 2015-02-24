@@ -250,7 +250,7 @@ class NmapHandler(ContentHandler):
                 self._curhost[attr] = attrs[attr]
             for field in ['starttime', 'endtime']:
                 if field in self._curhost:
-                    self._curhost[field] = datetime.datetime.fromtimestamp(
+                    self._curhost[field] = datetime.datetime.utcfromtimestamp(
                         int(self._curhost[field])
                     )
         elif name == 'address' and self._curhost is not None:
