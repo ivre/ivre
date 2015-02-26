@@ -139,19 +139,64 @@ class PassiveSSLKey(Key):
 
 
 class SSHKey(Key):
-    regexp_key = re.compile('(?:^|\n)(?P<len>[0-9]+) '
-                            '(?P<hash>(?:[0-9a-f]{2}:)*[0-9a-f]{2}) '
-                            '\\((?P<type>[^\\)]*)\\)\nssh-(?P<keytype>[^ ]+) '
-                            '+(?P<key>[A-Za-z0-9/+=]+)')
-    regexp_hash = re.compile('^(?P<len>[0-9]+) '
-                             '(?P<hash>(?:[0-9a-f]{2}:)*[0-9a-f]{2}) '
-                             '\\((?P<type>[^\\)]*)\\)$', re.M)
+    keytype = None
     scriptid = 'ssh-hostkey'
 
+    def filter(self, i):
+        if self.keytype is None:
+            return True
+        else:
+            return 'type' in i and i['type'] == 'ssh-%s' % self.keytype
+
+    def get_cond(self, condtype):
+        if self.keytype is None:
+            return db.nmap.flt_and(
+                self.cond,
+                db.nmap.searchscriptid(self.scriptid),
+                {'ports.scripts.ssh-hostkey.%s' % condtype: {'$exists': True}},
+            )
+        return db.nmap.flt_and(
+            self.cond,
+            db.nmap.searchscriptid(self.scriptid),
+            {'ports.scripts.ssh-hostkey': {'$elemMatch': {
+                condtype: {'$exists': True},
+                'type': 'ssh-%s' % self.keytype,
+            }}},
+        )
+
+    def cond_key(self):
+        return self.get_cond("key")
+
+    def cond_hash(self):
+        return self.get_cond("fingerprint")
+
+    def get(self, cond):
+        cur = db.nmap.get(cond, timeout=False)
+        for host in cur:
+            for port in host['ports']:
+                for script in port.get('scripts', []):
+                    if script['id'] == self.scriptid:
+                        for i in script.get(self.scriptid, []):
+                            i['host'] = host['addr']
+                            i['port'] = port['port']
+                            if self.filter(i):
+                                i = self.extract_key(i)
+                                yield i
+
     def extract_key(self, i):
-        if 'hash' in i:
-            i['hash'] = i['hash'].replace(':', '').decode('hex')
+        if i.get('type', '').startswith('ssh-'):
+            i['type'] = i['type'][4:]
+        if i.get('bits', '').isdigit():
+            i['len'] = int(i.pop('bits'))
+        if 'fingerprint' in i:
+            i['hash'] = i.pop('fingerprint').decode('hex')
         return i
+
+    def get_keys(self):
+        return self.get(self.cond_key())
+
+    def get_hashes(self):
+        return self.get(self.cond_hash())
 
     @staticmethod
     def extract_key_data(data):
@@ -162,16 +207,13 @@ class SSHKey(Key):
 
 
 class SSHRSAKey(SSHKey):
-
-    @staticmethod
-    def filter(i):
-        return i['type'].lower() == 'rsa'
+    keytype = 'rsa'
 
     def extract_key(self, i):
         i = SSHKey.extract_key(self, i)
         if 'key' in i:
             _, exponent, modulus = self.extract_key_data(
-                i['key'].decode('base64'))
+                i['key'].decode('base64').decode('base64'))
             i['modulus'] = int(modulus.encode('hex'), 16)
             i['exponent'] = int(exponent.encode('hex'), 16)
             del i['key']
