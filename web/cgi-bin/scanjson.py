@@ -279,27 +279,35 @@ for q in query:
         if len(v) == 1:
             flt = db.nmap.flt_and(
                 flt,
-                db.nmap.searchscriptid(
-                    ivre.utils.str2regexp(v[0])))
+                db.nmap.searchscript(name=ivre.utils.str2regexp(v[0])),
+            )
         else:
             flt = db.nmap.flt_and(
                 flt,
-                db.nmap.searchscriptidout(
-                    ivre.utils.str2regexp(v[0]),
-                    ivre.utils.str2regexp(v[1])))
+                db.nmap.searchscript(
+                    name=ivre.utils.str2regexp(v[0]),
+                    output=ivre.utils.str2regexp(v[1]),
+                ),
+            )
     elif q[0] == "hostscript":
         v = q[1].split(':', 1)
         if len(v) == 1:
             flt = db.nmap.flt_and(
                 flt,
-                db.nmap.searchhostscriptid(
-                    ivre.utils.str2regexp(v[0])))
+                db.nmap.searchscript(
+                    host=True,
+                    name=ivre.utils.str2regexp(v[0]),
+                ),
+            )
         else:
             flt = db.nmap.flt_and(
                 flt,
-                db.nmap.searchhostscriptidout(
-                    ivre.utils.str2regexp(v[0]),
-                    ivre.utils.str2regexp(v[1])))
+                db.nmap.searchscript(
+                    host=True,
+                    name=ivre.utils.str2regexp(v[0]),
+                    output=ivre.utils.str2regexp(v[1]),
+                )
+            )
     # results of scripts or version scans
     elif q[0] == "anonftp":
         flt = db.nmap.flt_and(flt, db.nmap.searchftpanon())

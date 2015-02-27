@@ -46,14 +46,14 @@ class Key(object):
     def cond_key(self):
         return db.nmap.flt_and(
             self.cond,
-            db.nmap.searchscriptidout(self.scriptid,
-                                      self.regexp_key))
+            db.nmap.searchscript(name=self.scriptid,
+                                 output=self.regexp_key))
 
     def cond_hash(self):
         return db.nmap.flt_and(
             self.cond,
-            db.nmap.searchscriptidout(self.scriptid,
-                                      self.regexp_hash))
+            db.nmap.searchscript(name=self.scriptid,
+                                 output=self.regexp_hash))
 
     def extract_key(self, i):
         return i
@@ -152,12 +152,12 @@ class SSHKey(Key):
         if self.keytype is None:
             return db.nmap.flt_and(
                 self.cond,
-                db.nmap.searchscriptid(self.scriptid),
+                db.nmap.searchscript(name=self.scriptid),
                 {'ports.scripts.ssh-hostkey.%s' % condtype: {'$exists': True}},
             )
         return db.nmap.flt_and(
             self.cond,
-            db.nmap.searchscriptid(self.scriptid),
+            db.nmap.searchscript(name=self.scriptid),
             {'ports.scripts.ssh-hostkey': {'$elemMatch': {
                 condtype: {'$exists': True},
                 'type': 'ssh-%s' % self.keytype,

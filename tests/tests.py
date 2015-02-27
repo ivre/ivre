@@ -283,7 +283,7 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(result.count(), addr_range_count)
 
         result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchscriptid("http-robots.txt"))
+            ivre.db.db.nmap.searchscript(name="http-robots.txt"))
         # Test case OK?
         count = result.count()
         self.assertGreater(count, 0)
@@ -291,14 +291,15 @@ class IvreTests(unittest.TestCase):
 
         addr = result[0]['addr']
         result = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_and(
-            ivre.db.db.nmap.searchscriptid("http-robots.txt"),
+            ivre.db.db.nmap.searchscript(name="http-robots.txt"),
             ivre.db.db.nmap.searchhost(addr),
         ))
         self.assertEqual(result.count(), 1)
         count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchscriptidout(
-                "http-robots.txt",
-                ivre.utils.str2regexp("/cgi-bin"))).count()
+            ivre.db.db.nmap.searchscript(
+                name="http-robots.txt",
+                output=ivre.utils.str2regexp("/cgi-bin"),
+            )).count()
         self.assertGreater(count, 0)
         self.check_value("nmap_robots.txt_cgi_count", count)
 

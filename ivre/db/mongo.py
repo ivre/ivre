@@ -240,7 +240,7 @@ class MongoDB(DB):
 
     @staticmethod
     def flt_or(*args):
-        return {'$or': args}
+        return {'$or': args} if len(args) > 1 else args[0]
 
     @staticmethod
     def searchid(idval, neg=False):
@@ -894,15 +894,17 @@ have no effect if it is not expected)."""
     def searchfile(self, fname):
         if type(fname) is not utils.REGEXP_T:
             fname = re.compile(re.escape(fname))
-        return self.searchscriptidout(
-            {'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
-                     'http-vlcstreamer-ls', 'nfs-ls', 'smb-ls']},
-            fname)
+        return self.searchscript(
+            name={'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
+                          'http-vlcstreamer-ls', 'nfs-ls', 'smb-ls']},
+            output=fname,
+        )
 
     def searchhttptitle(self, title):
-        return self.searchscriptidout(
-            {'$in': ['http-title', 'html-title']},
-            title)
+        return self.searchscript(
+            name={'$in': ['http-title', 'html-title']},
+            output=title,
+        )
 
     @staticmethod
     def searchservicescript(srv, port=None):
@@ -1385,7 +1387,7 @@ have no effect if it is not expected)."""
             field = "ports.service_devicetype"
         elif field.startswith('smb.'):
             flt = self.flt_and(
-                flt, self.searchhostscriptid('smb-os-discovery')
+                flt, self.searchscript(host=True, name='smb-os-discovery')
             )
             if field == 'smb.dnsdomain':
                 field = 'scripts.smb-os-discovery.domain_dns'
@@ -1539,20 +1541,21 @@ have no effect if it is not expected)."""
                 self.searchservicescript(utils.str2regexp(args.service)))
         if args.script is not None:
             if ':' in args.script:
-                flt = self.flt_and(
-                    flt,
-                    self.searchscriptidout(*map(utils.str2regexp,
-                                                args.script.split(':', 1)))
-                )
+                name, output = (utils.str2regexp(string) for
+                                string in args.script.split(':', 1))
             else:
-                flt = self.flt_and(
-                    flt,
-                    self.searchscriptid(utils.str2regexp(args.script))
-                )
+                name, output = utils.str2regexp(args.script), None
+            flt = self.flt_and(flt, self.searchscript(name=name,
+                                                      output=output))
         if args.hostscript is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchhostscript(utils.str2regexp(args.hostscript)))
+            if ':' in args.hostscript:
+                name, output = (utils.str2regexp(string) for
+                                string in args.hostscript.split(':', 1))
+            else:
+                name, output = utils.str2regexp(args.hostscript), None
+            flt = self.flt_and(flt, self.searchscript(host=True,
+                                                      name=name,
+                                                      output=output))
         if args.svchostname is not None:
             flt = self.flt_and(
                 flt,
