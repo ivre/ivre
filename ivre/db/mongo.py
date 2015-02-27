@@ -818,7 +818,10 @@ have no effect if it is not expected)."""
         if output is not None:
             req['output'] = output
         if values is not None:
-            req['values'] = values
+            if name is None:
+                raise TypeError(".searchscript() needs a `name` arg "
+                                "when using a `values` arg")
+            req[name] = values
         if not req:
             return {key: {"$exists": True}}
         if len(req) == 1:
