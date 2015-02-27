@@ -807,29 +807,49 @@ have no effect if it is not expected)."""
         return {'ports': {'$elemMatch': flt}}
 
     @staticmethod
-    def searchscriptidout(name, output):
-        """Search a particular content in the scripts names and
+    def searchscript(host=False, name=None, output=None, values=None):
+        """Search a particular content in the scripts results.
+
+        """
+        key = "scripts" if host else "ports.scripts"
+        req = {}
+        if name is not None:
+            req['id'] = name
+        if output is not None:
+            req['output'] = output
+        if values is not None:
+            req['values'] = values
+        if not req:
+            return {key: {"$exists": True}}
+        if len(req) == 1:
+            field, value = req.items()[0]
+            return {"%s.%s" % (key, field): value}
+        return {key: {"$elemMatch": req}}
+
+    def searchscriptidout(self, name, output):
+        """DEPRECATED: use .searchscript() instead.
+
+        Search a particular content in the scripts names and
         outputs.
 
         """
-        return {
-            'ports.scripts': {'$elemMatch': {
-                'id': name,
-                'output': output
-            }}}
+        return self.searchscript(name=name, output=output)
 
-    @staticmethod
-    def searchscriptid(name):
-        """Search a script name."""
-        return {'ports.scripts.id': name}
+    def searchscriptid(self, name):
+        """DEPRECATED: use .searchscript() instead.
 
-    @staticmethod
-    def searchscriptoutput(expr):
-        """Search a particular content in the scripts names and
-        outputs.
+        Search a script name.
 
         """
-        return {'ports.scripts.output': expr}
+        return self.searchscript(name=name)
+
+    def searchscriptoutput(self, expr):
+        """DEPRECATED: use .searchscript() instead.
+
+        Search a particular content in the scripts outputs.
+
+        """
+        return self.searchscript(output=expr)
 
     @staticmethod
     def searchsvchostname(srv):
@@ -917,22 +937,17 @@ have no effect if it is not expected)."""
                     ]
                 }}}
 
-    @staticmethod
-    def searchhostscript(txt):
-        return {'scripts.output': txt}
+    def searchhostscript(self, txt):
+        """DEPRECATED: use .searchscript() instead."""
+        return self.searchscript(host=True, output=txt)
 
-    @staticmethod
-    def searchhostscriptid(name):
-        return {'scripts.id': name}
+    def searchhostscriptid(self, name):
+        """DEPRECATED: use .searchscript() instead."""
+        return self.searchscript(host=True, name=name)
 
-    @staticmethod
-    def searchhostscriptidout(name, out):
-        return {
-            'scripts': {
-                '$elemMatch': {
-                    'id': name,
-                    'output': out
-                }}}
+    def searchhostscriptidout(self, name, out):
+        """DEPRECATED: use .searchscript() instead."""
+        return self.searchscript(host=True, name=name, output=out)
 
     @staticmethod
     def searchos(txt):
