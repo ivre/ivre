@@ -821,7 +821,8 @@ have no effect if it is not expected)."""
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            req[name] = values
+            for field, value in values.iteritems():
+                req["%s.%s" % (name, field)] = value
         if not req:
             return {key: {"$exists": True}}
         if len(req) == 1:
