@@ -19,275 +19,257 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 This module implement tools to look for (public) keys in the database.
+
 """
 
 from ivre.db import db
+from ivre.utils import int2ip
 
+from collections import namedtuple
 import re
-import struct
 import subprocess
-from Crypto.Hash import MD5
+import struct
+from Crypto.PublicKey import RSA
+
+Key = namedtuple("key", ["ip", "port", "service", "type", "size",
+                         "key", "md5"])
+
+class DBKey(object):
+    """Base class for a key lookup tool"""
+
+    def __init__(self, dbc, baseflt=None):
+        self.dbc = dbc
+        self.baseflt = self.dbc.flt_empty if baseflt is None else baseflt
+
+    @property
+    def cond(self):
+        return self.dbc.flt_and(self.baseflt, self.fltkey)
+
+    def __iter__(self):
+        return (key
+                for record in self.dbc.get(self.cond)
+                for key in self.getkeys(record))
 
 
-class Key(object):
-    scriptid = None
-    regexp_key = None
-    regexp_hash = None
+class NmapKey(DBKey):
+    """Base class for a key lookup tool specialized for the active
+    (Nmap) DB.
 
-    def __init__(self, cond=None):
-        if cond is None:
-            self.cond = {}
-        else:
-            self.cond = cond
+    """
 
-    def cond_key(self):
-        return db.nmap.flt_and(
-            self.cond,
-            db.nmap.searchscript(name=self.scriptid,
-                                 output=self.regexp_key))
+    def __init__(self, baseflt=None):
+        DBKey.__init__(self, db.nmap, baseflt=baseflt)
 
-    def cond_hash(self):
-        return db.nmap.flt_and(
-            self.cond,
-            db.nmap.searchscript(name=self.scriptid,
-                                 output=self.regexp_hash))
-
-    def extract_key(self, i):
-        return i
-
-    @staticmethod
-    def filter(_):
-        return True
-
-    @staticmethod
-    def count(cond):
-        return db.nmap.get(cond).count()
-
-    def count_keys(self):
-        return self.count(self.cond_key())
-
-    def count_hashes(self):
-        return self.count(self.cond_hash())
-
-    def get(self, cond, regexp):
-        cur = db.nmap.get(cond, timeout=False)
-        for host in cur:
-            for port in host['ports']:
-                if not 'scripts' in port:
-                    continue
-                for script in port['scripts']:
-                    if script['id'] == self.scriptid:
-                        for i in regexp.finditer(script['output']):
-                            i = i.groupdict()
-                            i['host'] = host['addr']
-                            i['port'] = port['port']
-                            if self.filter(i):
-                                i = self.extract_key(i)
-                                yield i
-
-    def get_keys(self):
-        return self.get(self.cond_key(), self.regexp_key)
-
-    def get_hashes(self):
-        return self.get(self.cond_hash(), self.regexp_hash)
+    def getscripts(self, host):
+        for port in host.get('ports', []):
+            try:
+                script = (s for s in port.get('scripts', [])
+                          if s['id'] == self.scriptid).next()
+            except StopIteration:
+                continue
+            yield {"port": port["port"], "script": script}
 
 
-class PassiveSSLKey(Key):
-    def __init__(self, cond=None):
-        Key.__init__(self, cond=cond)
-        self.cond_hash = self.cond_key
+class PassiveKey(DBKey):
+    """Base class for a key lookup tool specialized for the passive
+    (Bro) DB.
 
-    def cond_key(self):
-        return db.passive.flt_and(
-            self.cond,
-            db.passive.searchcert())
+    """
+    def __init__(self, baseflt=None):
+        DBKey.__init__(self, db.passive, baseflt=baseflt)
 
-    @staticmethod
-    def count(cond):
-        return db.passive.get(cond).count()
-
-    def count_keys(self):
-        return self.count(self.cond_key())
-
-    def count_hashes(self):
-        return self.count(self.cond_hash())
-
-    def get(self, cond):
-        cur = db.passive.get(cond, timeout=False)
-        for record in cur:
-            i = {
-                'host': record['addr'],
-                'port': record['port'],
-            }
-            if 'fullvalue' in record:
-                i['cert'] = record['fullvalue']
-            else:
-                i['cert'] = record['value']
-            # here we cannot test .filter() before .extract_key()...
-            i = self.extract_key(i)
-            if self.filter(i):
-                yield i
-
-    def get_keys(self):
-        return self.get(self.cond_key())
-
-    def get_hashes(self):
-        return self.get(self.cond_hash())
-
-
-class SSHKey(Key):
-    keytype = None
-    scriptid = 'ssh-hostkey'
-
-    def filter(self, i):
-        if self.keytype is None:
-            return True
-        else:
-            return 'type' in i and i['type'] == 'ssh-%s' % self.keytype
-
-    def get_cond(self, condtype):
-        if self.keytype is None:
-            return db.nmap.flt_and(
-                self.cond,
-                db.nmap.searchscript(name=self.scriptid),
-                {'ports.scripts.ssh-hostkey.%s' % condtype: {'$exists': True}},
-            )
-        return db.nmap.flt_and(
-            self.cond,
-            db.nmap.searchscript(name=self.scriptid),
-            {'ports.scripts.ssh-hostkey': {'$elemMatch': {
-                condtype: {'$exists': True},
-                'type': 'ssh-%s' % self.keytype,
-            }}},
+    def getkeys(self, record):
+        certtext = self._pem2key(record['fullvalue']
+                                 if 'fullvalue' in record
+                                 else record['value'])
+        if certtext is None:
+            return
+        yield Key(int2ip(record['addr']), record["port"], "ssl",
+                  certtext['type'], int(certtext['len']),
+                  RSA.construct((
+                      long(self.modulus_badchars.sub(
+                          "", certtext['modulus']), 16
+                       ),
+                      long(certtext['exponent']),
+                  )),
+                  record['infos']['md5hash'].decode('hex')
         )
 
-    def cond_key(self):
-        return self.get_cond("key")
 
-    def cond_hash(self):
-        return self.get_cond("fingerprint")
+class SSLKey(object):
+    """Base class for a key lookup tool specialized for the Keys from
+    SSL certificates.
 
-    def get(self, cond):
-        cur = db.nmap.get(cond, timeout=False)
-        for host in cur:
-            for port in host['ports']:
-                for script in port.get('scripts', []):
-                    if script['id'] == self.scriptid:
-                        for i in script.get(self.scriptid, []):
-                            i['host'] = host['addr']
-                            i['port'] = port['port']
-                            if self.filter(i):
-                                i = self.extract_key(i)
-                                yield i
+    """
 
-    def extract_key(self, i):
-        if i.get('type', '').startswith('ssh-'):
-            i['type'] = i['type'][4:]
-        if i.get('bits', '').isdigit():
-            i['len'] = int(i.pop('bits'))
-        if 'fingerprint' in i:
-            i['hash'] = i.pop('fingerprint').decode('hex')
-        return i
+    def __init__(self):
+        self.pem_borders = re.compile('^-*(BEGIN|END) CERTIFICATE-*$', re.M)
+        self.modulus_badchars = re.compile('[ :\n]+')
 
-    def get_keys(self):
-        return self.get(self.cond_key())
+    def read_pem(self, pem):
+        pem = self.pem_borders.sub("", pem).replace('\n', '').decode('base64')
+        proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+                                 '-inform', 'DER'], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
+        proc.stdin.write(pem)
+        proc.stdin.close()
+        return proc.stdout.read()
 
-    def get_hashes(self):
-        return self.get(self.cond_hash())
+    def _pem2key(self, pem):
+        pem = self.read_pem(pem)
+        certtext = self.keyincert.search(pem)
+        return None if certtext is None else certtext.groupdict()
+
+
+class SSLNmapKey(NmapKey, SSLKey):
+    """Base class for the keys from SSL certificates within the active
+    (Nmap) DB.
+
+    """
+
+    def __init__(self, baseflt=None):
+        NmapKey.__init__(self, baseflt=baseflt)
+        SSLKey.__init__(self)
+        self.scriptid = "ssl-cert"
+
+    @property
+    def fltkey(self):
+        return self.dbc.searchscript(
+            name=self.scriptid,
+            values={'pem': re.compile('^-* *BEGIN CERTIFICATE'),
+                    'pubkey.type': self.keytype},
+        )
+
+    def getkeys(self, host):
+        for script in self.getscripts(host):
+            yield Key(int2ip(host['addr']), script["port"], "ssl",
+                      script["script"][self.scriptid]['pubkey']['type'],
+                      script["script"][self.scriptid]['pubkey']['bits'],
+                      self.pem2key(script["script"][self.scriptid]['pem']),
+                      script["script"][self.scriptid]['md5'].decode('hex'))
+
+
+class SSLPassiveKey(PassiveKey, SSLKey):
+    """Base class for the keys from SSL certificates within the passive
+    (Bro) DB.
+
+    """
+
+    def __init__(self, baseflt=None):
+        PassiveKey.__init__(self, baseflt=baseflt)
+        SSLKey.__init__(self)
+
+    @property
+    def fltkey(self):
+        return {'source': 'cert',
+                'recontype': 'SSL_SERVER',
+                'infos.pubkeyalgo': '%sEncryption' % self.keytype}
+
+
+class SSHNmapKey(NmapKey):
+    """Base class for the SSH keys within the active (Nmap) DB."""
+
+    def __init__(self, baseflt=None):
+        NmapKey.__init__(self, baseflt=baseflt)
+        self.scriptid = "ssh-hostkey"
+
+    @property
+    def fltkey(self):
+        return self.dbc.searchscript(
+            name=self.scriptid,
+            values={'key': re.compile('^[a-zA-Z0-9/+]+={0,2}$'),
+                    'type': 'ssh-%s' % self.keytype},
+        )
+
+    def getkeys(self, host):
+        for script in self.getscripts(host):
+            for key in script['script'][self.scriptid]:
+                if key['type'][4:] == self.keytype:
+                    yield Key(
+                        int2ip(host['addr']), script["port"], "ssh",
+                        key['type'][4:],
+                        int(key['bits']),
+                        self.data2key(
+                            key['key'].decode('base64').decode('base64')
+                        ),
+                        key['fingerprint'].decode('hex'))
 
     @staticmethod
-    def extract_key_data(data):
+    def _data2key(data):
         while data:
             length = struct.unpack('>I', data[:4])[0]
             yield data[4:4 + length]
             data = data[4 + length:]
 
 
-class SSHRSAKey(SSHKey):
-    keytype = 'rsa'
+class RSAKey(object):
+    """Base class for the RSA Keys.
 
-    def extract_key(self, i):
-        i = SSHKey.extract_key(self, i)
-        if 'key' in i:
-            _, exponent, modulus = self.extract_key_data(
-                i['key'].decode('base64').decode('base64'))
-            i['modulus'] = int(modulus.encode('hex'), 16)
-            i['exponent'] = int(exponent.encode('hex'), 16)
-            del i['key']
-        return i
+    """
 
+    def __init__(self):
+        self.keyincert = re.compile('\n *Issuer: (?P<issuer>.*)'
+                                    '\n(?:.*\n)* *Subject: (?P<subject>.*)'
+                                    '\n(?:.*\n)* *Public Key Algorithm:'
+                                    ' (?P<type>.*)Encryption'
+                                    '\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
+                                    '\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+                                    '\n\\ *Exponent: (?P<exponent>[0-9]+) ')
+        self.keytype = 'rsa'
 
-class SSLKey(Key):
-    regexp_key = re.compile('\nPublic Key type: (?P<type>[^\n]*)'
-                            '\nPublic Key bits: (?P<len>[0-9]+)\n.*'
-                            '\nMD5: +(?P<hash>(?:[0-9a-f]{4} ){7}[0-9a-f]{4})'
-                            '\n.*\n-----BEGIN CERTIFICATE-----'
-                            '(?P<cert>[A-Za-z0-9/+=\n]+)'
-                            '-----END CERTIFICATE-----\n', re.S)
-    regexp_hash = re.compile('\nPublic Key type: (?P<type>[^\n]*)'
-                             '\nPublic Key bits: (?P<len>[0-9]+)\n.*'
-                             '\nMD5: +(?P<hash>(?:[0-9a-f]{4} ){7}[0-9a-f]{4})'
-                             '\n', re.S)
-    scriptid = 'ssl-cert'
+    def _pem2key(self, pem):
+        raise NotImplementedError
 
-    def extract_key(self, i):
-        if 'hash' in i:
-            i['hash'] = i['hash'].replace(' ', '').decode('hex')
-        elif 'cert' in i:
-            i['hash'] = MD5.new(
-                i['cert'].replace('\n', '').decode('base64')
-            ).hexdigest()
-        return i
+    def pem2key(self, pem):
+        certtext = self._pem2key(pem)
+        return None if certtext is None else RSA.construct((
+            long(self.modulus_badchars.sub("", certtext['modulus']), 16),
+            long(certtext['exponent']),
+        ))
 
+    def _data2key(self, data):
+        raise NotImplementedError
 
-class SSLRSAKey(SSLKey):
-    regexp_keyincert = re.compile('\n *Issuer: (?P<issuer>.*)'
-                                  '\n(?:.*\n)* *Subject: (?P<subject>.*)'
-                                  '\n(?:.*\n)* *Public Key Algorithm:'
-                                  ' (?P<type>.*)Encryption'
-                                  '\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
-                                  '\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
-                                  '\n\\ *Exponent: (?P<exponent>[0-9]+) ')
-
-    @staticmethod
-    def filter(i):
-        return 'type' in i and i['type'] == 'rsa'
-
-    def extract_key(self, i):
-        i = SSLKey.extract_key(self, i)
-        if 'cert' in i:
-            proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
-                                     '-inform', 'DER'], stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE)
-            proc.stdin.write(i['cert'].replace('\n', '').decode('base64'))
-            proc.stdin.close()
-            certtext = proc.stdout.read()
-            try:
-                i.update(self.regexp_keyincert.search(certtext).groupdict())
-            except AttributeError:
-                pass
-            else:
-                i['modulus'] = int(re.sub('[ :\n]', '', i['modulus']), 16)
-                i['exponent'] = int(i['exponent'])
-            if 'len' in i and type(i['len']) is str:
-                i['len'] = int(i['len'])
-            del i['cert']
-        return i
+    def data2key(self, data):
+        data = self._data2key(data)
+        _, exp, mod = (data.next(),
+                       long(data.next().encode('hex'), 16),
+                       long(data.next().encode('hex'), 16))
+        return RSA.construct((mod, exp))
 
 
-class PassiveSSLRSAKey(PassiveSSLKey, SSLRSAKey):
+class SSLRsaNmapKey(SSLNmapKey, RSAKey):
+    """Tool for the RSA Keys from SSL certificates within the active
+    (Nmap) DB.
 
-    def cond_key(self):
-        return db.passive.flt_and(
-            db.passive.flt_and(self.cond,
-                               db.passive.searchcert()),
-            db.passive.searchval('infos.pubkeyalgo', 'rsaEncryption'))
+    """
 
-    def extract_key(self, i):
-        if 'value' in i:
-            i['cert'] = i['value']
-            del i['value']
-        return SSLRSAKey.extract_key(self, i)
+    def __init__(self, baseflt=None):
+        SSLNmapKey.__init__(self, baseflt=baseflt)
+        RSAKey.__init__(self)
+
+
+class SSHRsaNmapKey(SSHNmapKey, RSAKey):
+    """Tool for the RSA Keys from SSH services within the active
+    (Nmap) DB.
+
+    """
+
+    def __init__(self, baseflt=None):
+        SSHNmapKey.__init__(self, baseflt=baseflt)
+        RSAKey.__init__(self)
+
+
+class SSLRsaPassiveKey(SSLPassiveKey, RSAKey):
+    """Tool for the RSA Keys from SSL certificates within the passive
+    (Bro) DB.
+
+    """
+
+    def __init__(self, baseflt=None):
+        SSLPassiveKey.__init__(self, baseflt=baseflt)
+        RSAKey.__init__(self)
+

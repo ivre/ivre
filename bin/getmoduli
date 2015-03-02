@@ -38,7 +38,6 @@ if __name__ == '__main__':
     # backends
     flt = ivre.db.db.nmap.flt_empty
     bases = set()
-    progress = None
     try:
         opts, args = getopt.getopt(sys.argv[1:],
                                    "p:f:",
@@ -54,39 +53,27 @@ if __name__ == '__main__':
             # different backends
             flt = ivre.db.db.nmap.str2flt(a)
         elif o == '--passive-ssl':
-            bases.add(ivre.keys.PassiveSSLRSAKey)
+            bases.add(ivre.keys.SSLRsaPassiveKey)
         elif o == '--active-ssl':
-            bases.add(ivre.keys.SSLRSAKey)
+            bases.add(ivre.keys.SSLRsaNmapKey)
         elif o == '--active-ssh':
-            bases.add(ivre.keys.SSHRSAKey)
-        elif o in ['-p', '--progress']:
-            progress = int(a)
-            if progress == 0:
-                progress = 1
+            bases.add(ivre.keys.SSHRsaNmapKey)
         else:
             sys.stderr.write(
                 '%r %r not undestood (this is probably a bug).\n' % (o, a))
             sys.exit(-1)
     moduli = {}
-    i = 0
     if not bases:
-        bases = set([ivre.keys.PassiveSSLRSAKey,
-                     ivre.keys.SSLRSAKey,
-                     ivre.keys.SSHRSAKey])
-    for a in bases:
-        for k in a(cond=flt).get_keys():
-            if 'modulus' in k:
-                m = k['modulus']
-                h = (ivre.utils.int2ip(k['host']), k['port'])
-                # if 'subject' in k and 'issuer' in k:
-                #    h = (k['subject'], k['issuer'])
-                if m not in moduli:
-                    moduli[m] = set([h])
-                    i += 1
-                    if progress is not None and i % progress == 0:
-                        sys.stderr.write("Got %d moduli.\r" % i)
-                elif h not in moduli[m]:
-                    moduli[m].add(h)
-    sys.stderr.write("Got %d moduli. Completed !\n" % i)
-    for m in moduli:
-        sys.stdout.write('%x %d %r\n' % (m, len(moduli[m]), moduli[m]))
+        bases = [
+            ivre.keys.SSLRsaPassiveKey,
+            ivre.keys.SSLRsaNmapKey,
+            ivre.keys.SSHRsaNmapKey,
+        ]
+    for base in bases:
+        for key in base():
+            moduli.setdefault(key.key.n,
+                              set()).add((key.ip, key.port, key.service))
+    for mod in moduli:
+        sys.stdout.write('%x %d %s\n' % (mod, len(moduli[mod]),
+                                         ','.join("%s:%d" % (rec[0], rec[1])
+                                                  for rec in moduli[mod])))
