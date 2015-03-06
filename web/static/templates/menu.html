@@ -32,7 +32,8 @@
     <li><a class="clickable" onclick="setparam('nfs', undefined, true, true); setparam('display', 'script:nfs-ls', true);">NFS</a></li>
     <li><a class="clickable" onclick="setparam('nis');">NIS / YP</a></li>
     <li><a class="clickable" onclick="setparam('x11srv');">X11</a></li>
-    <li><a class="clickable" onclick="setparam('x11open');">X11 (open)</a></li>
+    <li><a class="clickable" onclick="setparam('x11open');"
+	   >&nbsp;<i class="icon-chevron-right"></i> open</a></li>
   </ul>
 </li>
 
@@ -44,8 +45,11 @@
   <ul class="dropdown-menu">
     <li><a class="clickable" onclick="setparam('xp445');">XP / 445</a></li>
     <li><a class="clickable"
-	   onclick="setparam('hostscript', 'smb-enum-shares:/WRITE/', false, true); setparam('display', 'script:smb-enum-shares', true);"
-	   >Writable shares</a></li>
+	   onclick="setparam('smbshare', undefined, true, true); setparam('display', 'script:smb-enum-shares', true);"
+	   >SMB shares</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('smbshare', 'w', true, true); setparam('display', 'script:smb-enum-shares', true);"
+	   >&nbsp;<i class="icon-chevron-right"></i> writable</a></li>
     <li><a class="clickable"
 	   onclick="setparam('mssqlemptypwd');"
 	   >MS-SQL empty password</li></a>
@@ -129,7 +133,7 @@
 	   onclick="setparam('devicetype', 'webcam');">Webcam</a></li>
     <li><a class="clickable"
 	   onclick="setparam('geovision');"
-	   ><i class="icon-chevron-right"></i> GeoVision</a></li>
+	   >&nbsp;<i class="icon-chevron-right"></i> GeoVision</a></li>
     <li><a class="clickable"
 	   onclick="setparam('netdev');">Network devices</a></li>
     <li><a class="clickable"
