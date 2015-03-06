@@ -1279,6 +1279,10 @@ function add_param_objects(p, pp) {
     else if (p.substr(0, 7) === 'cookie:')
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'http-headers:/Set-Cookie: ' + p.substr(7) + '=/']);
+    else if (p.substr(0, 8) === 'smbshare' && (p.length === 8 ||
+					       p.substr(8, 1) === ':'))
+	add_param_object(parametersobjunalias, 'hostscript',
+			 [b, 'smb-enum-shares:/READ|WRITE|STYPE_DISKTREE/']);
     else if (p.substr(0, 4) === 'smb.') {
 	/*
 	 * smb.* filters are very specific: they rely on the
@@ -2094,7 +2098,8 @@ function set_tooltip_filter(elt) {
 	var matching_keys = Object.keys(HELP).filter(
 	    function(key) {
 		return ((':/'.indexOf(key.slice(-1)) === -1
-			 && key !== 'screenshot') ?
+			 && key !== 'screenshot'
+			 && key !== 'smbshare') ?
 			elt.value === key.substr(0, elt.value.length) :
 			elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
 	    }

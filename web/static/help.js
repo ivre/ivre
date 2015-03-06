@@ -191,6 +191,10 @@ var HELP = {
 	"title": "smb.workgroup:[NetBIOS]",
 	"content": "Search results with SMB service in a specific workgroup (NetBIOS).",
     },
+    "smbshare": {
+	"title": "smbshare<b>(:[access mode])</b>",
+	"content": "Search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).",
+    },
     "sshkey:": {
 	"title": "sshkey:<b>[fingerprint or base64]</b>",
 	"content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
