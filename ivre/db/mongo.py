@@ -308,6 +308,7 @@ class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
     needunwind = ["categories", "ports", "ports.scripts", "scripts",
+                  "scripts.smb-enum-shares.shares",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains"]
@@ -903,6 +904,35 @@ have no effect if it is not expected)."""
                           'http-vlcstreamer-ls', 'nfs-ls', 'smb-ls']},
             output=fname,
         )
+
+    def searchsmbshares(self, access='', hidden=None):
+        """Filter SMB shares with anonymous `access` (default: either
+        read or write, accepted values 'r', 'w', 'rw').
+
+        If `hidden` is set to `True`, look for hidden shares, for
+        non-hidden if set to `False` and for both if set to `None`
+        (this is the default).
+
+        """
+        access = {
+            '': re.compile('^(READ|WRITE)'),
+            'r': re.compile('^READ(/|$)'),
+            'w': re.compile('(^|/)WRITE$'),
+            'rw': 'READ/WRITE',
+            'wr': 'READ/WRITE',
+        }[access.lower()]
+        share_type = {
+            None: re.compile('^STYPE_DISKTREE(_HIDDEN)?'),
+            True: 'STYPE_DISKTREE_HIDDEN',
+            False: 'STYPE_DISKTREE',
+        }[hidden]
+        return self.searchscript(
+            name='smb-enum-shares',
+            values={'shares': {'$elemMatch': {
+                'Anonymous access': access,
+                'Type': share_type,
+            }}},
+            host=True)
 
     def searchhttptitle(self, title):
         return self.searchscript(
