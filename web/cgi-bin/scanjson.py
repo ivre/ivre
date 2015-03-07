@@ -351,6 +351,11 @@ for q in query:
         flt = db.nmap.flt_and(flt, db.nmap.searchsmb(
             **{q[0][4:]: ivre.utils.str2regexp(q[1])})
         )
+    elif q[0] == 'smbshare':
+        flt = db.nmap.flt_and(
+            flt,
+            db.nmap.searchsmbshares(access="" if q[1] is None else q[1]),
+        )
     elif nq == 'torcert':
         flt = db.nmap.flt_and(flt, db.nmap.searchtorcert())
     elif q[0] == 'webfiles':

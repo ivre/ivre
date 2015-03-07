@@ -42,6 +42,27 @@ ADD_TABLE_ELEMS = {
     re.compile('^ *DEVICE IDENTIFICATION: *(?P<deviceid>.*?) *$', re.M),
 }
 
+def change_smb_enum_shares(table):
+    """Adapt structured data from script smb-enum-shares so that it is
+    easy to query when inserted in DB.
+
+    """
+    if not table:
+        return table
+    result = {}
+    for field in ["account_used", "note"]:
+        if field in table:
+            result[field] = table.pop(field)
+    result["shares"] = []
+    for key, value in table.iteritems():
+        value.update({"Share": key})
+        result["shares"].append(value)
+    return result
+
+CHANGE_TABLE_ELEMS = {
+    'smb-enum-shares': change_smb_enum_shares,
+}
+
 IGNORE_SCRIPTS = {
     'mcafee-epo-agent': set(['ePO Agent not found']),
     'ftp-bounce': set(['no banner']),
@@ -468,11 +489,13 @@ class NmapHandler(ContentHandler):
                 if self._curtablepath:
                     sys.stderr.write("WARNING, self._curtablepath should be "
                                      "empty, got [%r]\n" % self._curtablepath)
+                if infokey in CHANGE_TABLE_ELEMS:
+                    self._curtable = CHANGE_TABLE_ELEMS[infokey](self._curtable)
                 self._curscript[infokey] = self._curtable
                 self._curtable = {}
             elif infokey != 'infos' and infokey in ADD_TABLE_ELEMS:
                 infos = ADD_TABLE_ELEMS[infokey]
-                if type(infos) is utils.REGEXP_T:
+                if isinstance(infos, utils.REGEXP_T):
                     infos = infos.search(self._curscript.get('output', ''))
                     if infos is not None:
                         infosdict = infos.groupdict()
