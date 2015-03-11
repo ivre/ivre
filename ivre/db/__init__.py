@@ -707,8 +707,8 @@ class DBAgent(DB):
         if not remotepath.endswith('/'):
             remotepath += '/'
         if source is None:
-            source = ("" if host is None
-                      else "%s:" % host) + remotepath
+            source = (remotepath if host is None
+                      else "%s:%s" % (host, remotepath))
         master = self.get_master(masterid)
         localpath = tempfile.mkdtemp(prefix="", dir=master['path'])
         for dirname in ["input"] + [os.path.join("remote", dname)
