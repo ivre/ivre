@@ -26,6 +26,7 @@ STOREDOWN="true"
 INDIR=./input/
 CURDIR=./cur/
 OUTDIR=./output/
+ERRORDIR=./error/
 
 filter () {
     # This basic filter strips out comments, but one can add here more
@@ -43,7 +44,7 @@ if [ "$TERM" != "screen" ] ; then
     exit 0
 fi
 
-mkdir -p "$INDIR" "$CURDIR" "$OUTDIR"
+mkdir -p "$INDIR" "$CURDIR" "$OUTDIR" "$ERRORDIR"
 
 if [ -z "$INTHREAD" ] ; then
     screen -X setenv INTHREAD 1
@@ -63,17 +64,18 @@ while true ; do
     if ! mv "$INDIR/$fname" "$CURDIR/" ; then
 	continue
     fi
-    if ! (filter < "$CURDIR/$fname" | scan > "$CURDIR/$fname.xml") ; then
-	rm -f "$CURDIR/$fname.xml"
+    if ! (filter < "$CURDIR/$fname" | scan | bzip2 > "$CURDIR/$fname.xml.bz2") ; then
+	mv "$CURDIR/$fname.xml.bz2" "$ERRORDIR/$fname-`date +%s`.xml.bz2"
+	cp "$CURDIR/$fname" "$ERRORDIR/$fname-`date +%s`"
 	mv "$CURDIR/$fname" "$INDIR/"
 	$SLEEP
     else
-	if [ "$STOREDOWN" = "false" ] &&
-	    grep -q -F '<status state="down"' "$CURDIR/$fname.xml" ; then
-	    rm -f "$CURDIR/$fname.xml" "$CURDIR/$fname"
+	if [ "$STOREDOWN" = "true" ] ||
+	    bzgrep -q -F '<status state="up"' "$CURDIR/$fname.xml.bz2" ; then
+	    mv "$CURDIR/$fname.xml.bz2" "$OUTDIR"
 	else
-	    mv "$CURDIR/$fname.xml" "$OUTDIR"
-	    rm -f "$CURDIR/$fname"
+	    rm -f "$CURDIR/$fname.xml.bz2"
 	fi
+	rm -f "$CURDIR/$fname"
     fi
 done
