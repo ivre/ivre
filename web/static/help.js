@@ -266,6 +266,10 @@ var HELP = {
 	"title": "<b>(!)</b>openport",
 	"content": "Look for hosts with at least one open port.",
     },
+    "otheropenport:": {
+	"title": "otheropenport:<b>[port number](,[port number](,...))</b>",
+	"content": "Look for hosts with at least one open port other than those listed.",
+    },
     "screenshot": {
 	"title": "<b>(!)</b>screenshot<b>(:[port number])</b>",
 	"content": "Search results with at least one screenshot.",

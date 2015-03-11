@@ -409,6 +409,9 @@ for q in query:
         flt = db.nmap.flt_and(flt,
                               db.nmap.searchport(port, protocol=proto,
                                                  state=nq))
+    elif nq == 'otheropenport':
+        flt = db.nmap.flt_and(
+            flt, db.nmap.searchportsother(map(int, q[1].split(','))))
     elif nq == "screenshot":
         if q[1] is None:
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(neg=neg))
