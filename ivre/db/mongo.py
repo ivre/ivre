@@ -763,6 +763,14 @@ have no effect if it is not expected)."""
             'state_state': state
         }}}
 
+    def searchportsother(self, ports, protocol='tcp', state='open'):
+        """Filters records with at least one port other than those
+        listed in `ports` with state `state`.
+
+        """
+        return self.searchport({'$nin': ports}, protocol=protocol,
+                               state=state)
+
     def searchports(self, ports, protocol='tcp', state='open', neg=False):
         return self.flt_and(*(self.searchport(p, protocol=protocol,
                                               state=state, neg=neg)
