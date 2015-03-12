@@ -33,8 +33,11 @@ has been installed), run (from the folder where you want to store your
 data):
 
     $ mkdir -m 1777 var_lib_mongodb var_log_mongodb ivre-share
-	$ cp [path to ivre source]/docker/Vagrantfile .
-	$ vagrant up --no-parallel
+    # For people using selinux enforced, you need to run
+    $ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb var_log_mongodb ivre-share
+    
+    $ cp [path to ivre source]/docker/Vagrantfile .
+    $ vagrant up --no-parallel
 
 The `--no-parallel` option prevents Vagrant from starting the
 `ivreweb` container before the `ivredb` is ready.
