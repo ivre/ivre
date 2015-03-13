@@ -19,6 +19,9 @@ With the ''%%Vagrantfile%%'' as it is provided, the TCP port 80 of your host wil
 To use the ''%%Vagrantfile%%'' located in the ''%%docker/%%'' directory of the source tree (or the ''%%[PREFIX]/share/ivre/docker/%%'' directory when IVRE has been installed), run (from the folder where you want to store your data):
 
 <code>$ mkdir -m 1777 var_lib_mongodb var_log_mongodb ivre-share
+# For people using selinux enforced, you need to run
+$ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb var_log_mongodb ivre-share
+
 $ cp [path to ivre source]/docker/Vagrantfile .
 $ vagrant up --no-parallel</code>
 The ''%%--no-parallel%%'' option prevents Vagrant from starting the ''%%ivreweb%%'' container before the ''%%ivredb%%'' is ready.
