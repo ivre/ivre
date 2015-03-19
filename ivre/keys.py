@@ -188,13 +188,16 @@ class SSHNmapKey(NmapKey):
         for script in self.getscripts(host):
             for key in script['script'][self.scriptid]:
                 if key['type'][4:] == self.keytype:
+                    data = key['key'].decode('base64')
+                    # Handle bug (in Nmap?) where data gets encoded
+                    # twice.
+                    if data[0] != '\x00':
+                        data = data.decode('base64')
                     yield Key(
                         int2ip(host['addr']), script["port"], "ssh",
                         key['type'][4:],
                         int(key['bits']),
-                        self.data2key(
-                            key['key'].decode('base64').decode('base64')
-                        ),
+                        self.data2key(data),
                         key['fingerprint'].decode('hex'))
 
     @staticmethod
