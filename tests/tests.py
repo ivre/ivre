@@ -104,18 +104,19 @@ class IvreTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.nmap_files = [
+        cls.nmap_files = (
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.xml') or fname.endswith('.json')
-        ]
-        cls.pcap_files = [
+            or fname.endswith('.xml.bz2') or fname.endswith('.json.bz2')
+        )
+        cls.pcap_files = (
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.pcap')
-        ]
+        )
 
     def test_nmap(self):
 
@@ -534,7 +535,12 @@ class IvreTests(unittest.TestCase):
                               stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
 
-        # p0f insertion
+        # p0f & Bro insertion
+        ivre.utils.makedirs("logs")
+        broenv = os.environ.copy()
+        broenv["LOG_ROTATE"] = "60"
+        broenv["LOG_PATH"] = "logs/passiverecon"
+
         for fname in self.pcap_files:
             for mode in ivre.passive.P0F_MODES.values():
                 p0fprocess = subprocess.Popen(
@@ -551,20 +557,14 @@ class IvreTests(unittest.TestCase):
                     self.assertIsNone(
                         ivre.db.db.passive.insert_or_update(
                             timestamp, spec))
-
-        # Bro insertion
-        ivre.utils.makedirs("logs")
-        for fname in self.pcap_files:
-            env = os.environ.copy()
-            env["LOG_ROTATE"] = "60"
-            env["LOG_PATH"] = "logs/passiverecon"
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
                  os.path.join(
                      ivre.utils.guess_prefix('passiverecon'),
                      'passiverecon.bro')],
-                env=env)
+                env=broenv)
             broprocess.wait()
+
         for root, _, files in os.walk("logs"):
             for fname in files:
                 with open(os.path.join(root, fname)) as fdesc:
