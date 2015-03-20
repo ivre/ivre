@@ -369,7 +369,7 @@ class DBNmap(DB):
 
     @staticmethod
     def json2dbrec(host):
-        raise NotImplementedError
+        return host
 
     def store_host(self, host):
         print host
