@@ -14,12 +14,18 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-# This is for anti-CSRF check. Set this to None to disable the
-# check. But you probably don't want that.
-ALLOWED_REFERERS = [
-    'http://localhost/',
-    'http://localhost/index.html'
-]
+# This is for anti-CSRF check.
+#
+# Set this to False to disable the check (but you probably don't want
+# that), let this to its default (None) value to let IVRE guess the
+# correct base URL, or set this to a list of accepted values for the
+# Referer header.
+#
+# ALLOWED_REFERERS = [
+#     'http://localhost/',
+#     'http://localhost/index.html'
+# ]
+
 # MAXRESULTS = None
 
 # Initial queries. Use it for access control

@@ -50,7 +50,7 @@ except ImportError:
     scanjsonconfig = None
 
 for configval, defaultvalue in {
-        'ALLOWED_REFERERS': ['http://localhost/'],
+        'ALLOWED_REFERERS': None,
         'MAXRESULTS': None,
         'INIT_QUERIES': {},
         'DEFAULT_INIT_QUERY': db.nmap.flt_empty,
@@ -64,13 +64,32 @@ for configval, defaultvalue in {
     except AttributeError:
         globals()[configval] = defaultvalue
 
-# the anti-CSRF check
-if ALLOWED_REFERERS is not None and \
-   os.getenv('HTTP_REFERER') not in ALLOWED_REFERERS:
-    sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
-    sys.stdout.write('alert("ERROR: invalid Referer header.");\n')
-    sys.stderr.write("IVRE: invalid Referer header.\n")
-    sys.exit(0)
+def check_referer():
+    """This function implements an anti-CSRF check based on the
+    Referer: header.
+
+    It returns None if the Referer: has a correct value and exits
+    otherwise, preventing the program from being executed.
+
+    """
+    if ALLOWED_REFERERS is False:
+        return
+    referer = os.getenv('HTTP_REFERER', '')
+    if ALLOWED_REFERERS is None:
+        base_url = '%s://%s/' % (
+            'https' if os.getenv('SSL_PROTOCOL') else 'http',
+            os.getenv('HTTP_HOST', ''),
+        )
+        referer_ok = referer.startswith(base_url)
+    else:
+        referer_ok = referer in ALLOWED_REFERERS
+    if not referer_ok:
+        sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
+        sys.stdout.write('alert("ERROR: invalid Referer header.");\n')
+        sys.stderr.write("IVRE: invalid Referer header.\n")
+        sys.exit(0)
+
+check_referer()
 
 # headers
 sys.stdout.write("Content-Type: application/json\r\n\r\n")
