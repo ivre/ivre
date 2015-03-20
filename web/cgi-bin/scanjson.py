@@ -29,7 +29,7 @@ try:
     import urllib
     import datetime
 except Exception as exc:
-    print 'Content-Type: application/javascript\r\n\r'
+    print 'Content-Type: application/javascript\r\n\r\n'
     print 'alert("ERROR: import error.");'
     sys.stderr.write("Import error: %s (%r).\n" % (exc.message, exc))
     sys.exit(0)
