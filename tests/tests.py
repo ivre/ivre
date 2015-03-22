@@ -27,7 +27,6 @@ import errno
 import random
 from cStringIO import StringIO
 from contextlib import contextmanager
-import coverage
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -52,6 +51,12 @@ def run_cmd(cmd, interp=None, stdin=None):
     proc = run_iter(cmd, interp=interp, stdin=stdin)
     out, err = proc.communicate()
     return proc.returncode, out, err
+
+def python_run(cmd, stdin=None):
+    return run_cmd(cmd, interp=[sys.executable], stdin=stdin)
+
+def python_run_iter(cmd, stdin=None):
+    return run_iter(cmd, interp=[sys.executable], stdin=stdin)
 
 def coverage_init():
     return run_cmd(COVERAGE + ["erase"])
@@ -179,9 +184,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
-        cov = coverage.coverage()
-        cov.load()
-        cov.start()
+        if USE_COVERAGE:
+            cov = coverage.coverage()
+            cov.load()
+            cov.start()
 
         # Filters
         addr = ivre.db.db.nmap.get(
@@ -524,8 +530,10 @@ class IvreTests(unittest.TestCase):
             "nmap_tophop_10+",
             ivre.db.db.nmap.topvalues("hop>10").next()['_id'])
 
-        cov.stop()
-        cov.save()
+        if USE_COVERAGE:
+            cov.stop()
+            cov.save()
+
         self.assertEqual(RUN(["./bin/scancli.py", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
@@ -758,7 +766,7 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
 def parse_args():
-    global SAMPLES
+    global SAMPLES, USE_COVERAGE
     try:
         import argparse
         parser = argparse.ArgumentParser(
@@ -774,17 +782,15 @@ def parse_args():
         parser.add_argument = parser.add_option
     parser.add_argument('--samples', metavar='DIR',
                         default="./samples/")
+    parser.add_argument('--coverage', action="store_true")
     args = parser.parse_args()
     SAMPLES = args.samples
+    USE_COVERAGE = args.coverage
     sys.argv = [sys.argv[0]]
 
 if __name__ == '__main__':
     SAMPLES = None
-    COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
-    RUN = coverage_run
-    RUN_ITER = coverage_run_iter
     parse_args()
-    coverage_init()
     init_links()
     sys.path = ["bin/"] + sys.path
     import ivre.config
@@ -793,8 +799,18 @@ if __name__ == '__main__':
     import ivre.utils
     import ivre.mathutils
     import ivre.passive
+    if USE_COVERAGE:
+        import coverage
+        COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
+        RUN = coverage_run
+        RUN_ITER = coverage_run_iter
+        coverage_init()
+    else:
+        RUN = python_run
+        RUN_ITER = python_run_iter
     unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
-    coverage_report()
+    if USE_COVERAGE:
+        coverage_report()
     ivre.utils.cleandir("bin")
