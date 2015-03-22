@@ -32,6 +32,7 @@ import datetime
 import sys
 import os
 import re
+import json
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -232,8 +233,8 @@ class NmapHandler(ContentHandler):
         self._filehash = filehash
         print "READING %r (%r)" % (fname, self._filehash)
 
-    def _addhost(self, _):
-        """Subclasses may store host (first argument) here."""
+    def _addhost(self):
+        """Subclasses may store self._curhost here."""
         pass
 
     def _storescan(self):
@@ -453,7 +454,7 @@ class NmapHandler(ContentHandler):
         elif name == 'host':
             if self._curhost['state'] == 'up' and ('ports' in self._curhost
                                                    or not self._needports):
-                self._addhost(self._curhost)
+                self._addhost()
             self._curhost = None
         elif name == 'hostnames':
             self._curhost['hostnames'] = self._curhostnames
@@ -552,15 +553,15 @@ class Nmap2Txt(NmapHandler):
     """Simple "test" handler, outputs resulting JSON as text."""
 
     def __init__(self, fname, needports=False, **kargs):
-        self._db = {}
+        self._db = []
         NmapHandler.__init__(self, fname, needports=needports,
                              **kargs)
 
-    def _addhost(self, host):
-        self._db[host['addr']] = host
+    def _addhost(self):
+        self._db.append(self._curhost)
 
     def outputresults(self):
-        print self._db
+        print json.dumps(self._db, default=utils.serialize)
 
 
 class Nmap2Mongo(NmapHandler):
@@ -589,29 +590,25 @@ class Nmap2Mongo(NmapHandler):
                              source=source, gettoarchive=gettoarchive,
                              add_addr_infos=add_addr_infos, **kargs)
 
-    def _addhost(self, host):
+    def _addhost(self):
         if self.categories:
-            host['categories'] = self.categories[:]
+            self._curhost['categories'] = self.categories[:]
         if self._add_addr_infos:
-            host['infos'] = {}
+            self._curhost['infos'] = {}
             for func in [self._db.data.country_byip,
                          self._db.data.as_byip,
                          self._db.data.location_byip]:
-                data = func(host['addr'])
+                data = func(self._curhost['addr'])
                 if data:
-                    host['infos'].update(data)
+                    self._curhost['infos'].update(data)
         if self.source:
-            host['source'] = self.source
-        for rec in self._gettoarchive(self._collection, host['addr'],
-                                      self.source):
-            self._db.nmap.archive(rec)
-        ident = self._collection.insert(host)
-        print "HOST STORED: %r in %r" % (ident, self._collection)
+            self._curhost['source'] = self.source
+        self._db.nmap.archive_from_func(self._curhost, self._gettoarchive)
+        self._db.nmap.store_host(self._curhost)
 
     def _storescan(self):
-        res = self._scancollection.insert(self._curscan)
-        print "SCAN STORED: %r in %r" % (res, self._scancollection)
-        return res
+        ident = self._db.nmap.store_scan_doc(self._curscan)
+        return ident
 
     def _addscaninfo(self, i):
         if 'numservices' in i:

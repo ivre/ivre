@@ -133,7 +133,11 @@ class IvreTests(unittest.TestCase):
         scan_warning = 0
         host_stored = re.compile("^HOST STORED: ", re.M)
         scan_stored = re.compile("^SCAN STORED: ", re.M)
-        host_stored_test = re.compile("^{[0-9]+:", re.M)
+        def host_stored_test(line):
+            try:
+                return len(json.loads(line))
+            except ValueError:
+                return 0
         scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
@@ -146,9 +150,8 @@ class IvreTests(unittest.TestCase):
             res, out, _ = RUN(["./bin/nmap2db.py", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
-            host_counter_test += sum(
-                1 for _ in host_stored_test.finditer(out)
-            )
+            host_counter_test += sum(host_stored_test(line)
+                                     for line in out.splitlines())
             # Duplicate insertion
             res, _, err = RUN(["./bin/nmap2db.py", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
@@ -158,7 +161,6 @@ class IvreTests(unittest.TestCase):
             )
 
         self.assertEqual(host_counter, host_counter_test)
-        self.assertGreaterEqual(scan_counter, host_counter)
         self.assertEqual(scan_counter, scan_warning)
 
         res, out, _ = RUN(["./bin/scancli.py", "--count"])
@@ -598,9 +600,15 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(result.count(), 0)
 
         addrrange = sorted(
-            x.get('addr') for x in
-            ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)[:2]
+            x for x in ivre.db.db.passive.get(
+                ivre.db.db.passive.flt_empty).distinct('addr')
+            if type(x) in [int, long] and x != 0
         )
+        self.assertGreaterEqual(len(addrrange), 2)
+        if len(addrrange) < 4:
+            addrrange = [addrrange[0], addrrange[-1]]
+        else:
+            addrrange = [addrrange[1], addrrange[-2]]
         result = ivre.db.db.passive.get(
             ivre.db.db.passive.searchrange(*addrrange))
         self.assertGreaterEqual(result.count(), 2)

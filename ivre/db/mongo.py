@@ -104,18 +104,9 @@ class MongoDB(DB):
 
     @staticmethod
     def serialize(obj):
-        if type(obj) is utils.REGEXP_T:
-            return '/%s/%s' % (
-                obj.pattern,
-                ''.join(x.lower() for x in 'ILMSXU'
-                        if getattr(re, x) & obj.flags),
-                )
-        if type(obj) is datetime.datetime:
-            return str(obj)
         if type(obj) is bson.ObjectId:
             return obj.binary.encode('hex')
-        raise TypeError("Don't know what to do with %r (%r)" % (
-            obj, type(obj)))
+        return DB.serialize(obj)
 
     def explain(self, cursor, indent=None):
         return json.dumps(cursor.explain(), indent=indent,
@@ -461,7 +452,14 @@ have no effect if it is not expected)."""
         return False
 
     def store_host(self, host):
-        self.db[self.colname_hosts].insert(host)
+        ident = self.db[self.colname_hosts].insert(host)
+        print "HOST STORED: %r in %r" % (ident, self.colname_hosts)
+        return ident
+
+    def store_scan_doc(self, scan):
+        ident = self.db[self.colname_scans].insert(scan)
+        print "SCAN STORED: %r in %r" % (ident, self.colname_scans)
+        return ident
 
     def remove(self, host, archive=False):
         """Removes the host "host" from the active (the old one if
@@ -540,7 +538,7 @@ have no effect if it is not expected)."""
         if gettoarchive is None:
             return
         for rec in gettoarchive(self.db[self.colname_hosts],
-                                host['addr'], host['source']):
+                                host['addr'], host.get('source')):
             self.archive(rec)
 
     def get_mean_open_ports(self, flt, archive=False):

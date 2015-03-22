@@ -415,6 +415,20 @@ def hash_file(fname, hashtype="sha1"):
             result.update(data)
         return result
 
+def serialize(obj):
+    """Return a JSON-compatible representation for `obj`"""
+    if type(obj) is REGEXP_T:
+        return '/%s/%s' % (
+            obj.pattern,
+            ''.join(x.lower() for x in 'ILMSXU'
+                    if getattr(re, x) & obj.flags),
+            )
+    if type(obj) is datetime.datetime:
+        return str(obj)
+    raise TypeError("Don't know what to do with %r (%r)" % (
+        obj, type(obj)))
+
+
 
 class FakeArgparserParent(object):
     """This is a stub to implement a parent-like behavior when
