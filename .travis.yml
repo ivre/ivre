@@ -7,9 +7,19 @@ install:
   - pip install .
   - pip install -r requirements.txt
 
-services: mongodb
+# We need MongoDB 2.6
+# https://github.com/travis-ci/travis-ci/issues/2246
+#services: mongodb
 
 before_script:
+  # install MongoDB and start it
+  - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
+  - echo 'deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen' | sudo tee /etc/apt/sources.list.d/mongodb.list > /dev/null
+  - sudo apt-get -q update && sudo apt-get -qy install mongodb-org
+  - /usr/bin/mongod -f /etc/mongod.conf &
+  # Wait for MongoDB
+  # https://github.com/travis-ci/travis-ci/issues/2246#issuecomment-51685471
+  - until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
   # init DB
   - ipinfo --init < /dev/null
   - scancli --init < /dev/null
