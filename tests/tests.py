@@ -808,9 +808,10 @@ if __name__ == '__main__':
     else:
         RUN = python_run
         RUN_ITER = python_run_iter
-    unittest.TextTestRunner(verbosity=2).run(
+    result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
     if USE_COVERAGE:
         coverage_report()
     ivre.utils.cleandir("bin")
+    sys.exit(len(result.failures) + len(result.errors))
