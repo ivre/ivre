@@ -27,6 +27,7 @@ import errno
 import random
 from cStringIO import StringIO
 from contextlib import contextmanager
+from distutils.spawn import find_executable as which
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -41,9 +42,9 @@ def capture(function, *args, **kwargs):
     sys.stdout, sys.stderr = out, err
 
 def run_iter(cmd, interp=None, stdin=None):
-    if interp is None:
-        interp = []
-    return subprocess.Popen(interp + cmd, stdin=stdin,
+    if interp is not None:
+        cmd = interp + [which(cmd[0])] + cmd[1:]
+    return subprocess.Popen(cmd, stdin=stdin,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
 
@@ -71,12 +72,6 @@ def coverage_report():
     cov = coverage.coverage()
     cov.load()
     cov.html_report(omit=['tests*', '/usr/*'])
-
-def init_links():
-    os.mkdir("bin")
-    for binary in ["ipinfo", "nmap2db", "scancli"]:
-        os.symlink("../../bin/%s" % binary, "bin/%s.py" % binary)
-    os.symlink("../../ivre", "bin/ivre")
 
 
 class IvreTests(unittest.TestCase):
@@ -126,10 +121,10 @@ class IvreTests(unittest.TestCase):
     def test_nmap(self):
 
         # Init DB
-        self.assertEqual(RUN(["./bin/scancli.py", "--count"])[1], "0\n")
-        self.assertEqual(RUN(["./bin/scancli.py", "--init"],
+        self.assertEqual(RUN(["scancli", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["./bin/scancli.py", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["scancli", "--count"])[1], "0\n")
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
@@ -146,19 +141,19 @@ class IvreTests(unittest.TestCase):
         scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
-            res, out, _ = RUN(["./bin/nmap2db.py", "--port",
+            res, out, _ = RUN(["nmap2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(out))
             scan_counter += sum(1 for _ in scan_stored.finditer(out))
             # Insertion test (== parsing only)
-            res, out, _ = RUN(["./bin/nmap2db.py", "--port", "--test",
+            res, out, _ = RUN(["nmap2db", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter_test += sum(host_stored_test(line)
                                      for line in out.splitlines())
             # Duplicate insertion
-            res, _, err = RUN(["./bin/nmap2db.py", "--port",
+            res, _, err = RUN(["nmap2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             scan_warning += sum(
@@ -168,10 +163,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
 
-        res, out, _ = RUN(["./bin/scancli.py", "--count"])
+        res, out, _ = RUN(["scancli", "--count"])
         self.assertEqual(res, 0)
         hosts_count = int(out)
-        res, out, _ = RUN(["./bin/scancli.py", "--count", "--archives"])
+        res, out, _ = RUN(["scancli", "--count", "--archives"])
         self.assertEqual(res, 0)
         archives_count = int(out)
 
@@ -534,16 +529,16 @@ class IvreTests(unittest.TestCase):
             cov.stop()
             cov.save()
 
-        self.assertEqual(RUN(["./bin/scancli.py", "--init"],
+        self.assertEqual(RUN(["scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
     def test_passive(self):
 
         # Init DB
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--init"],
+        self.assertEqual(RUN(["ipinfo", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ipinfo", "--count"])[1], "0\n")
 
         # p0f & Bro insertion
         ivre.utils.makedirs("logs")
@@ -704,7 +699,7 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.passive.flt_empty).count()
         self.assertEqual(count + new_count, total_count)
 
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--init"],
+        self.assertEqual(RUN(["ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
     def test_utils(self):
@@ -791,14 +786,15 @@ def parse_args():
 if __name__ == '__main__':
     SAMPLES = None
     parse_args()
-    init_links()
-    sys.path = ["bin/"] + sys.path
     import ivre.config
-    ivre.config.DEBUG = True
     import ivre.db
     import ivre.utils
     import ivre.mathutils
     import ivre.passive
+    if not ivre.config.DEBUG:
+        sys.stderr.write("You *must* have the DEBUG config value set to "
+                         "True to run the tests.\n")
+        sys.exit(-1)
     if USE_COVERAGE:
         import coverage
         COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
@@ -813,5 +809,4 @@ if __name__ == '__main__':
     )
     if USE_COVERAGE:
         coverage_report()
-    ivre.utils.cleandir("bin")
     sys.exit(len(result.failures) + len(result.errors))
