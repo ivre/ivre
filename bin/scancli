@@ -113,6 +113,7 @@ def displayhost(dic, showscripts=True, showtraceroute=True, showos=True,
         for s in dic['scripts']:
             if 'output' not in s:
                 out.write('\t\t' + s['id'] + ':\n')
+            else:
                 o = [x.strip() for x in s['output'].split('\n') if x]
                 if len(o) == 0:
                     out.write('\t\t' + s['id'] + ':\n')
