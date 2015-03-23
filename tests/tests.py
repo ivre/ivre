@@ -27,7 +27,7 @@ import errno
 import random
 from cStringIO import StringIO
 from contextlib import contextmanager
-import coverage
+from distutils.spawn import find_executable as which
 
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
@@ -42,9 +42,9 @@ def capture(function, *args, **kwargs):
     sys.stdout, sys.stderr = out, err
 
 def run_iter(cmd, interp=None, stdin=None):
-    if interp is None:
-        interp = []
-    return subprocess.Popen(interp + cmd, stdin=stdin,
+    if interp is not None:
+        cmd = interp + [which(cmd[0])] + cmd[1:]
+    return subprocess.Popen(cmd, stdin=stdin,
                             stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
 
@@ -52,6 +52,12 @@ def run_cmd(cmd, interp=None, stdin=None):
     proc = run_iter(cmd, interp=interp, stdin=stdin)
     out, err = proc.communicate()
     return proc.returncode, out, err
+
+def python_run(cmd, stdin=None):
+    return run_cmd(cmd, interp=[sys.executable], stdin=stdin)
+
+def python_run_iter(cmd, stdin=None):
+    return run_iter(cmd, interp=[sys.executable], stdin=stdin)
 
 def coverage_init():
     return run_cmd(COVERAGE + ["erase"])
@@ -66,12 +72,6 @@ def coverage_report():
     cov = coverage.coverage()
     cov.load()
     cov.html_report(omit=['tests*', '/usr/*'])
-
-def init_links():
-    os.mkdir("bin")
-    for binary in ["ipinfo", "nmap2db", "scancli"]:
-        os.symlink("../../bin/%s" % binary, "bin/%s.py" % binary)
-    os.symlink("../../ivre", "bin/ivre")
 
 
 class IvreTests(unittest.TestCase):
@@ -104,26 +104,27 @@ class IvreTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.nmap_files = [
+        cls.nmap_files = (
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.xml') or fname.endswith('.json')
-        ]
-        cls.pcap_files = [
+            or fname.endswith('.xml.bz2') or fname.endswith('.json.bz2')
+        )
+        cls.pcap_files = (
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.pcap')
-        ]
+        )
 
     def test_nmap(self):
 
         # Init DB
-        self.assertEqual(RUN(["./bin/scancli.py", "--count"])[1], "0\n")
-        self.assertEqual(RUN(["./bin/scancli.py", "--init"],
+        self.assertEqual(RUN(["scancli", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["./bin/scancli.py", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["scancli", "--count"])[1], "0\n")
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
@@ -132,24 +133,27 @@ class IvreTests(unittest.TestCase):
         scan_warning = 0
         host_stored = re.compile("^HOST STORED: ", re.M)
         scan_stored = re.compile("^SCAN STORED: ", re.M)
-        host_stored_test = re.compile("^{[0-9]+:", re.M)
+        def host_stored_test(line):
+            try:
+                return len(json.loads(line))
+            except ValueError:
+                return 0
         scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
-            res, out, _ = RUN(["./bin/nmap2db.py", "--port",
+            res, out, _ = RUN(["nmap2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(out))
             scan_counter += sum(1 for _ in scan_stored.finditer(out))
             # Insertion test (== parsing only)
-            res, out, _ = RUN(["./bin/nmap2db.py", "--port", "--test",
+            res, out, _ = RUN(["nmap2db", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
-            host_counter_test += sum(
-                1 for _ in host_stored_test.finditer(out)
-            )
+            host_counter_test += sum(host_stored_test(line)
+                                     for line in out.splitlines())
             # Duplicate insertion
-            res, _, err = RUN(["./bin/nmap2db.py", "--port",
+            res, _, err = RUN(["nmap2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             scan_warning += sum(
@@ -157,13 +161,12 @@ class IvreTests(unittest.TestCase):
             )
 
         self.assertEqual(host_counter, host_counter_test)
-        self.assertGreaterEqual(scan_counter, host_counter)
         self.assertEqual(scan_counter, scan_warning)
 
-        res, out, _ = RUN(["./bin/scancli.py", "--count"])
+        res, out, _ = RUN(["scancli", "--count"])
         self.assertEqual(res, 0)
         hosts_count = int(out)
-        res, out, _ = RUN(["./bin/scancli.py", "--count", "--archives"])
+        res, out, _ = RUN(["scancli", "--count", "--archives"])
         self.assertEqual(res, 0)
         archives_count = int(out)
 
@@ -176,9 +179,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
-        cov = coverage.coverage()
-        cov.load()
-        cov.start()
+        if USE_COVERAGE:
+            cov = coverage.coverage()
+            cov.load()
+            cov.start()
 
         # Filters
         addr = ivre.db.db.nmap.get(
@@ -521,20 +525,27 @@ class IvreTests(unittest.TestCase):
             "nmap_tophop_10+",
             ivre.db.db.nmap.topvalues("hop>10").next()['_id'])
 
-        cov.stop()
-        cov.save()
-        self.assertEqual(RUN(["./bin/scancli.py", "--init"],
+        if USE_COVERAGE:
+            cov.stop()
+            cov.save()
+
+        self.assertEqual(RUN(["scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
     def test_passive(self):
 
         # Init DB
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--init"],
+        self.assertEqual(RUN(["ipinfo", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ipinfo", "--count"])[1], "0\n")
 
-        # p0f insertion
+        # p0f & Bro insertion
+        ivre.utils.makedirs("logs")
+        broenv = os.environ.copy()
+        broenv["LOG_ROTATE"] = "60"
+        broenv["LOG_PATH"] = "logs/passiverecon"
+
         for fname in self.pcap_files:
             for mode in ivre.passive.P0F_MODES.values():
                 p0fprocess = subprocess.Popen(
@@ -551,20 +562,14 @@ class IvreTests(unittest.TestCase):
                     self.assertIsNone(
                         ivre.db.db.passive.insert_or_update(
                             timestamp, spec))
-
-        # Bro insertion
-        ivre.utils.makedirs("logs")
-        for fname in self.pcap_files:
-            env = os.environ.copy()
-            env["LOG_ROTATE"] = "60"
-            env["LOG_PATH"] = "logs/passiverecon"
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
                  os.path.join(
                      ivre.utils.guess_prefix('passiverecon'),
                      'passiverecon.bro')],
-                env=env)
+                env=broenv)
             broprocess.wait()
+
         for root, _, files in os.walk("logs"):
             for fname in files:
                 with open(os.path.join(root, fname)) as fdesc:
@@ -598,9 +603,15 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(result.count(), 0)
 
         addrrange = sorted(
-            x.get('addr') for x in
-            ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)[:2]
+            x for x in ivre.db.db.passive.get(
+                ivre.db.db.passive.flt_empty).distinct('addr')
+            if type(x) in [int, long] and x != 0
         )
+        self.assertGreaterEqual(len(addrrange), 2)
+        if len(addrrange) < 4:
+            addrrange = [addrrange[0], addrrange[-1]]
+        else:
+            addrrange = [addrrange[1], addrrange[-2]]
         result = ivre.db.db.passive.get(
             ivre.db.db.passive.searchrange(*addrrange))
         self.assertGreaterEqual(result.count(), 2)
@@ -688,7 +699,7 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.passive.flt_empty).count()
         self.assertEqual(count + new_count, total_count)
 
-        self.assertEqual(RUN(["./bin/ipinfo.py", "--init"],
+        self.assertEqual(RUN(["ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
     def test_utils(self):
@@ -750,7 +761,7 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
 def parse_args():
-    global SAMPLES
+    global SAMPLES, USE_COVERAGE
     try:
         import argparse
         parser = argparse.ArgumentParser(
@@ -766,27 +777,36 @@ def parse_args():
         parser.add_argument = parser.add_option
     parser.add_argument('--samples', metavar='DIR',
                         default="./samples/")
+    parser.add_argument('--coverage', action="store_true")
     args = parser.parse_args()
     SAMPLES = args.samples
+    USE_COVERAGE = args.coverage
     sys.argv = [sys.argv[0]]
 
 if __name__ == '__main__':
     SAMPLES = None
-    COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
-    RUN = coverage_run
-    RUN_ITER = coverage_run_iter
     parse_args()
-    coverage_init()
-    init_links()
-    sys.path = ["bin/"] + sys.path
     import ivre.config
-    ivre.config.DEBUG = True
     import ivre.db
     import ivre.utils
     import ivre.mathutils
     import ivre.passive
-    unittest.TextTestRunner(verbosity=2).run(
+    if not ivre.config.DEBUG:
+        sys.stderr.write("You *must* have the DEBUG config value set to "
+                         "True to run the tests.\n")
+        sys.exit(-1)
+    if USE_COVERAGE:
+        import coverage
+        COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
+        RUN = coverage_run
+        RUN_ITER = coverage_run_iter
+        coverage_init()
+    else:
+        RUN = python_run
+        RUN_ITER = python_run_iter
+    result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
-    coverage_report()
-    ivre.utils.cleandir("bin")
+    if USE_COVERAGE:
+        coverage_report()
+    sys.exit(len(result.failures) + len(result.errors))

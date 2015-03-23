@@ -222,6 +222,10 @@ class DB(object):
                 lambda x, y: abs(x['mean'] - y['mean'])
                 )
 
+    @staticmethod
+    def serialize(obj):
+        return utils.serialize(obj)
+
 
 class DBNmap(DB):
 
@@ -362,17 +366,21 @@ class DBNmap(DB):
                         data = func(host['addr'])
                         if data:
                             host['infos'].update(data)
-                self.archive_from_func(host, gettoarchive)
                 if not needports or 'ports' in host:
+                    self.archive_from_func(host, gettoarchive)
                     self.store_host(host)
+            self.store_scan_doc({'_id': filehash})
         return True
 
     @staticmethod
     def json2dbrec(host):
-        raise NotImplementedError
+        return host
 
     def store_host(self, host):
-        print host
+        print json.dumps([host])
+
+    def store_scan_doc(self, scan):
+        pass
 
     def archive_from_func(self, _ig1, _ig2):
         pass

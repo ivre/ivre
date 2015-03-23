@@ -1,0 +1,41 @@
+language: python
+
+python:
+  - 2.7
+
+install:
+  - pip install .
+  - pip install -r requirements.txt
+
+# We need MongoDB 2.6
+# https://github.com/travis-ci/travis-ci/issues/2246
+#services: mongodb
+
+before_script:
+  # install MongoDB and start it
+  - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
+  - echo 'deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen' | sudo tee /etc/apt/sources.list.d/mongodb.list > /dev/null
+  - sudo apt-get -q update && sudo apt-get -qy install mongodb-org
+  - /usr/bin/mongod -f /etc/mongod.conf &
+  # Wait for MongoDB
+  # https://github.com/travis-ci/travis-ci/issues/2246#issuecomment-51685471
+  - until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
+  # init DB
+  - ipinfo --init < /dev/null
+  - scancli --init < /dev/null
+  - ipdata --init < /dev/null
+  - echo "DEBUG = True" > ~/.ivre.conf
+  # install p0f & Bro (.tar file built from docker image)
+  - sudo apt-get -q update && sudo apt-get -qy install p0f
+  - wget http://pierre.droids-corp.org/p0rn/bro-2.3.2_ubuntu-12.04.tar.bz2 -O - | (cd / && sudo tar jxf -)
+  # get samples
+  - mkdir tests/samples
+  ## Nmap Internet-wide Modbus scan (JSON format)
+  - wget -O tests/samples/Nmap-Modbus-IPv4.json.bz2 http://pierre.droids-corp.org/p0rn/Nmap-Modbus-IPv4.json.bz2 # JSON files w/ Nmap scan results
+  ## PCAP files from the Wireshark project
+  - wget -O tests/samples/http.pcap "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=http.cap"
+  - wget -O tests/samples/telnet-raw.pcap "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap"
+  - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
+  - for file in telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file" ; done
+
+script: cd tests/ && PATH=/usr/local/bro/bin:$PATH python tests.py
