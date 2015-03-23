@@ -1,8 +1,8 @@
+[![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
+
 This file is part of IVRE.
 
 Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
-[![Build Status](https://travis-ci.org/cea-sec/ivre.svg?branch=feature-travis-tests)](https://travis-ci.org/cea-sec/ivre)
 
 # What is it? #
 
