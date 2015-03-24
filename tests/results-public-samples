@@ -1,0 +1,76 @@
+# This file is part of IVRE.
+#
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+#
+# This file contains expected results for IVRE's tests run with public
+# data. It is intended for use within the Travis CI platform with
+# files downloaded during the "before_script" phase. The following
+# files must be downloaded (and, for some of them, saved with a proper
+# extension, see file .travis.yml):
+#
+## http://pierre.droids-corp.org/p0rn/Nmap-Modbus-IPv4.json.bz2
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=http.cap
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=nb6-startup.pcap
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=nb6-http.pcap
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=nb6-telephone.pcap
+## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=nb6-hotspot.pcap
+
+nmap_netdev_count = 1364
+nmap_webcam_count = 178
+nmap_topprod = [u'telnet', u'Linux telnetd']
+nmap_phpmyadmin_count = 0
+nmap_not_80_443_count = 4415
+nmap_topsrv = u'tcpwrapped'
+nmap_openport_count = 12159
+nmap_nis_count = 1
+nmap_topdomain = u'net'
+nmap_webmin_count = 0
+nmap_80_443_count = 1013
+nmap_httpauth_count = 0
+nmap_robots.txt_count = 365
+nmap_ldapanon_count = 0
+nmap_vncauthbypass_count = 0
+nmap_x11access_count = 0
+nmap_80_count = 7214
+nmap_robots.txt_cgi_count = 17
+nmap_owa_count = 12
+nmap_http_title_count = 7352
+nmap_torcert_count = 0
+nmap_x11_count = 97
+nmap_topprobedsrv = u'tcpwrapped'
+nmap_topprod_80 = [u'http', u'thttpd']
+nmap_nfs_count = 5
+nmap_ssh_count = 1398
+nmap_mssql_emptypwd_count = 0
+nmap_topdevtype = u'WAP'
+nmap_get_count = 12160
+nmap_topsrv_80 = u'http'
+nmap_tophop = '65.49.10.217'
+nmap_xp445_count = 27
+nmap_phonedev_count = 56
+nmap_get_archives_count = 0
+nmap_anonftp_count = 207
+nmap_topdevtype_80 = u'power-misc'
+nmap_not_domain_com_count = 10617
+nmap_vsftpbackdoor_count = 6
+nmap_mysql_emptypwd_count = 0
+nmap_domain_com_count = 1542
+nmap_topprobedsrv_80 = u'http'
+nmap_topdomains_1 = u'net'
+nmap_webfiles_count = 25
+nmap_geovision_count = 33
+nmap_trace_hostname_count = 12159
+nmap_not_domain_com_or_net_count = 8146
+nmap_tophop_10+ = '212.252.168.207'
+passive_count = 103
+passive_torcert_count = 0
+passive_javaua_count = 0
+passive_popauth_count = 0
+passive_cert_google = 0
+passive_basicauth_count = 0
+passive_httpauth_count = 0
+passive_ftpauth_count = 0
+passive_cert_microsoft = 0

@@ -30,6 +30,7 @@ before_script:
   - wget http://pierre.droids-corp.org/p0rn/bro-2.3.2_ubuntu-12.04.tar.bz2 -O - | (cd / && sudo tar jxf -)
   # get samples
   - mkdir tests/samples
+  - cp tests/results-public-samples tests/samples/results
   ## Nmap Internet-wide Modbus scan (JSON format)
   - wget -O tests/samples/Nmap-Modbus-IPv4.json.bz2 http://pierre.droids-corp.org/p0rn/Nmap-Modbus-IPv4.json.bz2 # JSON files w/ Nmap scan results
   ## PCAP files from the Wireshark project
