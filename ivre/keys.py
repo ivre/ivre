@@ -91,12 +91,9 @@ class PassiveKey(DBKey):
                   certtext['type'], int(certtext['len']),
                   RSA.construct((
                       long(self.modulus_badchars.sub(
-                          "", certtext['modulus']), 16
-                       ),
-                      long(certtext['exponent']),
-                  )),
-                  record['infos']['md5hash'].decode('hex')
-        )
+                          "", certtext['modulus']), 16),
+                      long(certtext['exponent']))),
+                  record['infos']['md5hash'].decode('hex'))
 
 
 class SSLKey(object):
