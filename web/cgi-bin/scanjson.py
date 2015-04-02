@@ -76,10 +76,20 @@ def check_referer():
         return
     referer = os.getenv('HTTP_REFERER', '')
     if ALLOWED_REFERERS is None:
-        base_url = '%s://%s/' % (
-            'https' if os.getenv('SSL_PROTOCOL') else 'http',
-            os.getenv('HTTP_HOST', ''),
-        )
+        host = os.getenv('HTTP_HOST')
+        ssl = os.getenv('SSL_PROTOCOL')
+        if host is None:
+            # In case the server does not provide the environment
+            # variable HTTP_HOST, which is the case for at least the
+            # test Web server included with IVRE (httpd-ivre,
+            # implemented using Python BaseHTTPServer and
+            # CGIHTTPServer modules, see
+            # https://bugs.python.org/issue10486).
+            host = os.getenv('SERVER_NAME', '')
+            port = os.getenv('SERVER_PORT', '')
+            if (ssl and port != '443') or ((not ssl) and port != '80'):
+                host = '%s:%s' % (host, port)
+        base_url = '%s://%s/' % ('https' if ssl else 'http', host)
         referer_ok = referer.startswith(base_url)
     else:
         referer_ok = referer in ALLOWED_REFERERS
