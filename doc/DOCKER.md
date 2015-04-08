@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
+Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # What is Docker? #
 
@@ -33,7 +33,7 @@ has been installed), run (from the folder where you want to store your
 data):
 
     $ mkdir -m 1777 var_lib_mongodb var_log_mongodb ivre-share
-    # For people using selinux enforced, you need to run
+    $ # For people using SELinux enforced, you need to run
     $ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb var_log_mongodb ivre-share
     
     $ cp [path to ivre source]/docker/Vagrantfile .
@@ -109,6 +109,20 @@ that the version of IVRE on PyPI is not always up-to-date. From the
 
     $ docker pull debian:testing
     $ docker build -t ivre/base base-pip
+
+### Alternative build for the web image using Apache ###
+
+To use Apache (rather than Nginx) for the `ivre/web` image, simply
+run:
+
+    $ docker pull debian:testing
+    $ docker build -t ivre/web web-apache
+
+Unlike the default `ivre/web` image, this image uses the Debian
+package to install Dokuwiki (the Debian package for Dokuwiki can only
+be used with Apache and the default `ivre/web` image uses Nginx). This
+can explain some differences one could experience between the two
+images.
 
 ## Running ##
 
