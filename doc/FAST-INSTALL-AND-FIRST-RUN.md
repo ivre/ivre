@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
+Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 This file describes the steps to install [IVRE](README.md), run the
 first scans and add the results to the database with all components
@@ -38,6 +38,7 @@ You might also want to adapt it to your needs, architecture, etc.
 
     $ sudo -s
     # cd /var/www/html ## or depending on your version /var/www
+    # rm index.html
     # ln -s /usr/local/share/ivre/web/static/* .
     # cd /usr/lib/cgi-bin
     # ln -s /usr/local/share/ivre/web/cgi-bin/scanjson.py

@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
 This file describes the steps to install [[doc:README|IVRE]], run the first scans and add the results to the database with all components (scanner, web server, database server) on the same (Debian or Ubuntu) machine.
 
@@ -21,6 +21,7 @@ $ sudo python setup.py install</code>
 
 <code>$ sudo -s
 # cd /var/www/html ## or depending on your version /var/www
+# rm index.html
 # ln -s /usr/local/share/ivre/web/static/* .
 # cd /usr/lib/cgi-bin
 # ln -s /usr/local/share/ivre/web/cgi-bin/scanjson.py
