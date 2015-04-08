@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ RUN apt-get -qy install patch && \
     apt-get -qy --purge autoremove patch
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc
 RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png
-ADD ivre-scanjsonconfig.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py
+RUN cp usr/local/share/ivre/web/cgi-bin/scanjsonconfig-sample.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py
 RUN touch usr/local/share/ivre/web/static/config.js
 
 # Configure Dokuwiki
