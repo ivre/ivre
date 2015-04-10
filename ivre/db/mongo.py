@@ -752,7 +752,7 @@ have no effect if it is not expected)."""
                         'protocol': protocol,
                         'state_state': {'$ne': state}
                     }}},
-                    {'ports': {'$not': {'$elemMatch': {'port': port}}}}
+                    {'ports.port': {'$ne': port}},
                 ]
             }
         return {'ports': {'$elemMatch': {
