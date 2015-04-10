@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -752,7 +752,7 @@ have no effect if it is not expected)."""
                         'protocol': protocol,
                         'state_state': {'$ne': state}
                     }}},
-                    {'ports': {'$not': {'$elemMatch': {'port': port}}}}
+                    {'ports.port': {'$ne': port}},
                 ]
             }
         return {'ports': {'$elemMatch': {
@@ -1077,12 +1077,24 @@ have no effect if it is not expected)."""
         return {'endtime': {'$gte': start}, 'starttime': {'$lte': stop}}
 
     @staticmethod
-    def searchhop(hop, neg=False):
+    def searchhop(hop, ttl=None, neg=False):
         try:
             hop = utils.ip2int(hop)
         except (TypeError, utils.socket.error):
             pass
-        return {'traces.hops.ipaddr': {'$ne': hop} if neg else hop}
+        if ttl is None:
+            return {'traces.hops.ipaddr': {'$ne': hop} if neg else hop}
+        if neg:
+            return {
+                '$or': [
+                    {'traces.hops': {'$elemMatch': {
+                        'ttl': ttl,
+                        'ipaddr': {'$ne': hop},
+                    }}},
+                    {'traces.hops.ttl': {'$ne': ttl}},
+                ]
+            }
+        return {'traces.hops': {'$elemMatch': {'ipaddr': hop, 'ttl': ttl}}}
 
     @staticmethod
     def searchhopdomain(hop, neg=False):

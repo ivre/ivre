@@ -413,8 +413,14 @@ for q in query:
         flt = db.nmap.flt_and(flt, db.nmap.searchphonedev())
     # traceroute
     elif nq == 'hop':
-        flt = db.nmap.flt_and(flt,
-                              db.nmap.searchhop(q[1], neg=neg))
+        if ':' in q[1]:
+            hop, ttl = q[1].split(':', 1)
+            flt = db.nmap.flt_and(flt,
+                                  db.nmap.searchhop(hop, ttl=int(ttl),
+                                                    neg=neg))
+        else:
+            flt = db.nmap.flt_and(flt,
+                                  db.nmap.searchhop(q[1], neg=neg))
     elif nq == 'hopname':
         flt = db.nmap.flt_and(flt,
                               db.nmap.searchhopname(q[1], neg=neg))
