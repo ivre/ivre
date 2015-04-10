@@ -243,7 +243,7 @@ var HELP = {
     },
     /* traceroute */
     "hop:": {
-	"title": "<b>(!)</b>hop:<b>[IP address]</b>",
+	"title": "<b>(!)</b>hop:<b>[IP address](:[TTL])</b>",
 	"content": "Look for results with the specified IP address in the Traceroute result.",
     },
     "hopname:": {
