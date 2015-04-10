@@ -853,11 +853,15 @@ function build_chart(chart, field, dataset) {
 	    };
 	}
     }
-    else if(field.substr(0,3) === 'hop' && (field[3] === undefined ||
-					    ':>'.indexOf(field[3]) !== -1)) {
-	preparefilter = function(x) {
-	    return 'setparam("hop", "' + x + '");';
-	};
+    else if(field.substr(0,3) === 'hop') {
+	if(field[3] === ':')
+	    preparefilter = function(x) {
+		return 'setparam("hop", "' + x + '", ' + field.substr(4) + ');';
+	    };
+	else
+	    preparefilter = function(x) {
+		return 'setparam("hop", "' + x + '");';
+	    };
     }
     else if(field.substr(0,7) === 'domains' && (field[7] === undefined ||
 						field[7] === ':')) {
