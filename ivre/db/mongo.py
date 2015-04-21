@@ -1277,6 +1277,13 @@ have no effect if it is not expected)."""
             pass
         elif field == "service":
             flt = self.flt_and(flt, self.searchopenport())
+            specialproj = {"_id": 0,
+                           "ports.state_state": 1,
+                           "ports.service_name": 1}
+            specialflt = [
+                {"$match": {"ports.state_state": "open"}},
+                {"$project": {"ports.service_name": 1}}
+            ]
             field = "ports.service_name"
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
