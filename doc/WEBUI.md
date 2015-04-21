@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
+Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # Introduction #
 
@@ -52,14 +52,14 @@ displayed in the rightest part of the screen.
     - `country`, `city`, `as`
     - `domains`, `domains:[level]`
     - `hop`, `hop:[number]`
-    - `port`, `port:[open/closed/filtered]`,
+    - `port`, `port:[open/closed/filtered]`, `port:[service]`
       `portlist:[open/closed/filtered]`
     - `service`, `service:[port]`, `probedservice`,
       `probedservice:[port]`, `product`, `product:[port]`,
       `version`, `version:[port]`
     - `devicetype`, `devicetype:[port]`
     - `ports.scripts.id`, `scripts.id`
-    - `script:[scriptname]`, `portscript:[scriptname]` (like `port:`),
+    - `script:[scriptname]`, `portscript:[scriptname]` (like `script:`),
       `hostscript:[scriptname]`
     - `smb.os`, `smb.lanmanager`, `smb.domain`, `smb.dnsdomain`,
       `smb.forest`, `smb.workgroup`
