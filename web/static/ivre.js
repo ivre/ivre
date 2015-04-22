@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -792,9 +792,21 @@ function build_chart(chart, field, dataset) {
 	};
     }
     else if(field.substr(0, 5) === 'port:') {
-	preparefilter = function(x) {
-	    return 'setparam("' + field.substr(5) + '", "' + x + '");';
-	};
+	var info = field.substr(5);
+	switch(info) {
+	case "open":
+	case "filtered":
+	case "closed":
+	    preparefilter = function(x) {
+		return 'setparam("' + info + '", "' + x + '");';
+	    };
+	    break;
+	default:
+	    preparefilter = function(x) {
+		return 'setparam("service", "' + info + ':' + x + '");';
+	    };
+	    break;
+	}
     }
     else if(field === 'service') {
 	preparefilter = function(x) {

@@ -1151,7 +1151,7 @@ have no effect if it is not expected)."""
         top values for a given field or pseudo-field. Pseudo-fields are:
           - category / asnum / country
           - port
-          - port:open / :closed / :filtered
+          - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
           - countports:open / :closed / :filtered
           - service / service:<portnbr>
@@ -1217,14 +1217,19 @@ have no effect if it is not expected)."""
         elif field == "port":
             field = "ports.port"
         elif field.startswith("port:"):
-            state = field.split(':', 1)[1]
-            flt = self.flt_and(flt, {'ports.state_state': state})
-            specialproj = {"_id": 0, "ports.port": 1, "ports.state_state": 1}
-            specialflt = [
-                {"$match": {"ports.state_state": state}},
-                {"$project": {"ports.port": 1}}
-            ]
+            info = field.split(':', 1)[1]
+            flt_field = "ports.%s" % (
+                "state_state"
+                if info in ['open', 'filtered', 'closed'] else
+                "service_name"
+            )
             field = "ports.port"
+            flt = self.flt_and(flt, {flt_field: info})
+            specialproj = {"_id": 0, field: 1, flt_field: 1}
+            specialflt = [
+                {"$match": {flt_field: info}},
+                {"$project": {field: 1}}
+            ]
         elif field.startswith("portlist:"):
             specialproj = {"ports.port": 1, "ports.state_state": 1}
             specialflt = [
@@ -1277,6 +1282,13 @@ have no effect if it is not expected)."""
             pass
         elif field == "service":
             flt = self.flt_and(flt, self.searchopenport())
+            specialproj = {"_id": 0,
+                           "ports.state_state": 1,
+                           "ports.service_name": 1}
+            specialflt = [
+                {"$match": {"ports.state_state": "open"}},
+                {"$project": {"ports.service_name": 1}}
+            ]
             field = "ports.service_name"
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
