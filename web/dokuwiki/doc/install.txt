@@ -63,13 +63,13 @@ $ ipdata --import-all --dont-feed-ipdata-cols</code>
 
 Once IVRE has been installed, to also install the web interface, you have to copy or symlink IVRE files to your web server directories, or configure your web server to use IVRE files directly.
 
-The files the web server should serve statically are located in ''%%[PREFIX]/share/ivre/web/static%%'', the folder the web server should serve as CGI is located in ''%%[PREFIX]/share/ivre/web/cgi-bin%%'', and the (optional) folders to use as Dokuwiki content are located in ''%%[PREFIX]/share/ivre/dokuwiki/doc%%'' and ''%%[PREFIX]/share/ivre/dokuwiki/media%%'' (make sure your dokuwiki has been configured with proper server-side URL rewriting).
+The files the web server should serve statically are located in ''%%[PREFIX]/share/ivre/web/static%%'', the folder the web server should serve as CGI is located in ''%%[PREFIX]/share/ivre/web/cgi-bin%%'', and the (optional) folders to use as Dokuwiki content are located in ''%%[PREFIX]/share/ivre/dokuwiki/doc%%'' and ''%%[PREFIX]/share/ivre/dokuwiki/media%%''. Make sure your Dokuwiki has been configured with server-side URL rewriting; this means using proper rewrite in your Web server configuration (with ''%%mod_rewrite%%'' when using Apache; you can use the provided ''%%Dockerfile%%''s as examples on how to configure Apache or Nginx) and adding ''%%$conf['userewrite'] = 1%%'' in your Dokuwiki config file.
 
 You may want to change some values, by creating the files ''%%[PREFIX]/share/ivre/web/cgi-bin/scanjsonconfig.py%%'' and ''%%[PREFIX]/share/ivre/web/static/config.js%%'' based on the ''%%-sample%%'' files you'll find in the same directories.
 
-On a typical Debian/Ubuntu installation, these files should be copied or (sym)linked at these locations:
+On a typical Debian/Ubuntu installation with Apache and Dokuwiki installed with the distribution packages, these files should be copied or (sym)linked at these locations:
 
-  * ''%%[PREFIX]/share/ivre/web/static/*%%'' -> ''%%/var/www%%''
+  * ''%%[PREFIX]/share/ivre/web/static/*%%'' -> ''%%/var/www%%'' or ''%%/var/www/html%%''
   * ''%%[PREFIX]/share/ivre/web/cgi-bin/scanjson.py%%'' -> ''%%/usr/lib/cgi-bin/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/doc%%''  -> ''%%/var/lib/dokuwiki/data/pages/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/logo.png%%''  -> ''%%/var/lib/dokuwiki/data/media/wiki/%%''
