@@ -40,6 +40,14 @@ SCHEMA_VERSION = 2
 # which is not supported for now
 IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2'])
 
+ALIASES_TABLE_ELEMS = {
+    # ls unified output (ls NSE module)
+    "afp-ls": "ls",
+    "http-ls": "ls",
+    "nfs-ls": "ls",
+    "smb-ls": "ls",
+}
+
 ADD_TABLE_ELEMS = {
     'modbus-discover':
     re.compile('^ *DEVICE IDENTIFICATION: *(?P<deviceid>.*?) *$', re.M),
@@ -540,6 +548,7 @@ class NmapHandler(ContentHandler):
                 self._curtable = {}
                 return
             infokey = self._curscript.get('id', 'infos')
+            infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
             if self._curtable:
                 if self._curtablepath:
                     sys.stderr.write("WARNING, self._curtablepath should be "
