@@ -458,6 +458,15 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('cpes.version', pymongo.ASCENDING),
                 ],
                  {"sparse": True}),
+                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.scripts.ls.volumes.files.filename',
+                   pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                 {"sparse": True}),
             ],
             self.colname_oldhosts: [
                 ([
@@ -1283,13 +1292,27 @@ have no effect if it is not expected)."""
             'scripts': {'$elemMatch': args}
         }
 
+    def searchfilels(self, fname):
+        """Search shared files from a file name (either a string or a
+        regexp), only from scripts using the "ls" NSE module.
+
+        """
+        return self.flt_or(
+            {"ports.scripts.ls.volumes.files.filename": fname},
+            {"scripts.ls.volumes.files.filename": fname},
+        )
+
     def searchfile(self, fname):
-        if type(fname) is not utils.REGEXP_T:
-            fname = re.compile(re.escape(fname))
-        return self.searchscript(
-            name={'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
-                          'http-vlcstreamer-ls', 'nfs-ls', 'smb-ls']},
-            output=fname,
+        """Search shared files from a file name (either a string or a
+        regexp).
+
+        """
+        return self.flt_or(
+            self.searchscript(
+                name={'$in': ['ftp-anon', 'gopher-ls', 'http-vlcstreamer-ls']},
+                output=(fname if type(fname) is utils.REGEXP_T else
+                        re.compile(re.escape(fname)))),
+            *self.searchfilels(fname)["$or"]
         )
 
     def searchsmbshares(self, access='', hidden=None):
