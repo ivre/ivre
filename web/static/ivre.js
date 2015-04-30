@@ -1599,6 +1599,33 @@ function get_scope(controller) {
 	)).scope();
 }
 
+// Popover directive
+
+ivreWebUi.directive('popover', function(){
+    return {
+        restrict: 'A',
+        link: function(scope, element, attrs){
+            $(element).click(function(){
+                e.lement.preventDefault();
+            });
+            $(element).hover(function(){
+                // on mouseenter
+                $(element).popover('show').on("mouseleave", function () {
+                var _this = this;
+                todo = function () {
+                    if (!$(".popover:hover").length) {
+                        $(_this).popover("hide");
+                    } else {
+                        setTimeout(todo, 100);
+                    }
+                };
+                setTimeout(todo, 10);
+            });
+            }, function(){});
+        }
+    };
+});
+
 // The Web UI display controller
 
 ivreWebUi
@@ -1959,9 +1986,9 @@ ivreWebUi
         cpes = host.cpes;
         n_cpes = {};
         type2str = {
-            'h': 'Hardware',
+            'h': 'Hw',
             'o': 'OS',
-            'a': 'Application',
+            'a': 'App',
         };
         my_setdefault = function(d, key) {
             if(!("data" in d)) {
@@ -1985,6 +2012,8 @@ ivreWebUi
             comp_d.origins || (comp_d.origins = []);
             comp_d.origins = comp_d.origins.concat(cpe.origins);
             comp_d.value = cpe.value;
+            comp_d.tooltitle = cpe.value;
+            comp_d.toolcontent = cpe.origins.join('<br/>');
         }
         host.n_cpes = n_cpes;
         return host.n_cpes;
