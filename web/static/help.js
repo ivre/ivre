@@ -183,7 +183,7 @@ var HELP_FILTERS = {
 	    "content": "Look for HTTP servers setting a specific cookie.",
 	},
 	"file:": {
-	    "title": "file:<b>[pattern or regexp]</b>",
+	    "title": "file:<b>([scrtipt id](,[script id](,...)):)[pattern or regexp]</b>",
 	    "content": "Look for a pattern in the shared files (FTP, SMB, ...).",
 	},
 	"geovision": {
