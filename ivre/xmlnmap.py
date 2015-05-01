@@ -597,7 +597,7 @@ class NmapHandler(ContentHandler):
         if self._curport is not None:
             if self._curscript is not None and 'id' in self._curscript:
                 # Should not happen, but handle the case anyway
-                path = 'ports{port:%s, scripts.id:%s'\
+                path = 'ports{port:%s, scripts.id:%s}'\
                         % (self._curport['port'], self._curscript['id'])
             else:
                 path = 'ports.port:%s' % self._curport['port']
