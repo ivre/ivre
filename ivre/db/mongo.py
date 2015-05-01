@@ -1292,28 +1292,69 @@ have no effect if it is not expected)."""
             'scripts': {'$elemMatch': args}
         }
 
-    def searchfilels(self, fname):
+    def searchfilels(self, fname, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp), only from scripts using the "ls" NSE module.
 
         """
-        return self.flt_or(
-            {"ports.scripts.ls.volumes.files.filename": fname},
-            {"scripts.ls.volumes.files.filename": fname},
-        )
+        if scripts is None:
+            return self.flt_or(
+                {"ports.scripts.ls.volumes.files.filename": fname},
+                {"scripts.ls.volumes.files.filename": fname},
+            )
+        if isinstance(scripts, str) or isinstance(scripts, unicode):
+            scripts = [scripts]
+        base = {"$elemMatch": {"ls.volumes.files.filename": fname}}
+        keys = {}
+        for script in scripts:
+            for key in self.ls_scripts.get(script,
+                                           ["ports.scripts", "scripts"]):
+                keys.setdefault(key, set()).add(script)
+        result = [
+            {key: {"$elemMatch": {
+                "id": {"$in": ids} if len(ids) > 1 else ids.pop(),
+                "ls.volumes.files.filename": fname}}}
+            for key, ids in keys.iteritems()
+        ]
+        return result[0] if len(result) == 1 else {"$or": result}
 
-    def searchfile(self, fname):
+    def searchfile(self, fname, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp).
 
         """
-        return self.flt_or(
-            self.searchscript(
-                name={'$in': ['ftp-anon', 'gopher-ls', 'http-vlcstreamer-ls']},
+        if scripts is None:
+            return self.flt_or(
+                self.searchscript(
+                    name={'$in': ['ftp-anon', 'gopher-ls',
+                                  'http-vlcstreamer-ls']},
+                    output=(fname if type(fname) is utils.REGEXP_T else
+                            re.compile(re.escape(fname)))),
+                *self.searchfilels(fname)["$or"]
+            )
+        if isinstance(scripts, str) or isinstance(scripts, unicode):
+            scripts = [scripts]
+        # separate scripts depending on whether they use the "ls"
+        # module for their output or not
+        scripts_ls, scripts_nols = set(), set()
+        for script in scripts:
+            if script in self.ls_scripts:
+                scripts_ls.add(script)
+            else:
+                scripts_nols.add(script)
+        if scripts_ls:
+            result = self.searchfilels(fname, scripts=scripts_ls)
+            result = result.get("$or", [result])
+        else:
+            result = []
+        if scripts_nols:
+            result.append(self.searchscript(
+                name=({'$in': scripts_nols if len(scripts_nols) > 1
+                       else scripts_nols.pop()}),
                 output=(fname if type(fname) is utils.REGEXP_T else
-                        re.compile(re.escape(fname)))),
-            *self.searchfilels(fname)["$or"]
-        )
+                        re.compile(re.escape(fname)))
+            ))
+        return result[0] if len(result) == 1 else {"$or": result}
 
     def searchsmbshares(self, access='', hidden=None):
         """Filter SMB shares with given `access` (default: either read
