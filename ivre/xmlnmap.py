@@ -202,19 +202,19 @@ def ignore_script(script):
 def cpe2dict(cpe_str):
     """Helper function to parse CPEs. This is a very partial/simple parser."""
     # Remove prefix
-    if len(cpe_str) < 5 or cpe_str[:5] != "cpe:/":
+    if not cpe_str.startswith("cpe:/"):
         sys.stderr.write("WARNING, invalid cpe format (%s)\n" % cpe_str)
         return {"value": cpe_str}
     cpe_body = cpe_str[5:]
     parts = cpe_body.split(":", 3)
-    l = len(parts)
-    if l < 2:
+    nparts = len(parts)
+    if nparts < 2:
         sys.stderr.write("WARNING, invalid cpe format (%s)\n" % cpe_str)
         return {"value": cpe_str}
     cpe_type = parts[0]
     cpe_vend = parts[1]
-    cpe_prod = parts[2] if l > 2 else ""
-    cpe_comp = parts[3] if l > 3 else ""
+    cpe_prod = parts[2] if nparts > 2 else ""
+    cpe_comp = parts[3] if nparts > 3 else ""
 
     ret = {
         "type": cpe_type,
