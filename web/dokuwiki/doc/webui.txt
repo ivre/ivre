@@ -98,7 +98,7 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%authhttp%%'' look for HTTP servers with authentication and a default (e.g., ''%%admin%%''/''%%admin%%'') login/password working. The Nmap script seems to get a lot a false positives.
   * ''%%banner:%%'' look for a specific banner of a service.
   * ''%%cookie:%%'' look for HTTP servers setting a specific cookie.
-  * ''%%file:%%'' look for a pattern in the shared files (FTP, SMB, ...).
+  * ''%%file:[pattern]%%'', ''%%file:[scriptid]:[pattern]%%'', ''%%file:[scriptid],[scriptid],...:[pattern]%%'' look for a pattern in the shared files (FTP, SMB, ...).
   * ''%%geovision%%'' look for GeoVision web-cams.
   * ''%%httptitle:%%'' look for a specific HTML title value of the homepage of a web site.
   * ''%%nfs%%'' look for NFS servers.
@@ -115,6 +115,7 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%smb.os:[OS]%%'' search results with SMB service with a specific OS.
   * ''%%smb.server:[NetBIOS]%%'' search results with SMB service in a specific host name (NetBIOS).
   * ''%%smb.workgroup:[NetBIOS]%%'' search results with SMB service in a specific workgroup (NetBIOS).
+  * ''%%smbshare%%'', ''%%smbshare:[access mode]%%'' search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).
   * ''%%sshkey:%%'' look for a particular SSH key.
   * ''%%torcert%%'' look for Tor certificates.
   * ''%%webfiles%%'' look for "typical" web files in the shared folders.
@@ -127,11 +128,12 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%netdev%%'', ''%%networkdevice%%'' look for network devices (firewalls, routers, ...).
   * ''%%phonedev%%'' look for telephony devices.
   * ''%%cpe(:[type](:[vendor](:[product](:[version]))))%%'' look for a given cpe. Each field can be a /regex/.
-  * ''%%[!]hop:%%'' look for a particular IP address in the traceroute results.
+  * ''%%[!]hop:[IP]%%'', ''%%[!]hop:[IP]:[TTL]%%'' look for a particular IP address in the traceroute results.
   * ''%%[!]hopname:%%'' look for a matching hostname in the traceroute results.
   * ''%%[!]hopdomain:%%'' look for a hostname within a matching domain name in the traceroute results.
   * ''%%[!]tcp/[port number]%%'', ''%%[!]udp/[port number]%%'', look for an open TCP or UDP port (using ''%%[!][port number]%%'' directly is equivalent to ''%%[!]tcp/[port number]%%'').
   * ''%%[!]openport%%'' look for hosts with at least one open port.
+  * ''%%otheropenport:[port number]%%'', ''%%otheropenport:[port number],[port number],...%%'' look for hosts with at least one open port other than those specified.
   * ''%%notes%%'' search results with an associated note.
 
 ==== Sort ====

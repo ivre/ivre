@@ -161,7 +161,9 @@ single or double quotes.
     seems to get a lot a false positives.
   - `banner:` look for a specific banner of a service.
   - `cookie:` look for HTTP servers setting a specific cookie.
-  - `file:` look for a pattern in the shared files (FTP, SMB, ...).
+  - `file:[pattern]`, `file:[scriptid]:[pattern]`,
+    `file:[scriptid],[scriptid],...:[pattern]` look for a pattern in
+    the shared files (FTP, SMB, ...).
   - `geovision` look for GeoVision web-cams.
   - `httptitle:` look for a specific HTML title value of the homepage
     of a web site.
@@ -187,6 +189,9 @@ single or double quotes.
     specific host name (NetBIOS).
   - `smb.workgroup:[NetBIOS]` search results with SMB service in a
     specific workgroup (NetBIOS).
+  - `smbshare`, `smbshare:[access mode]` search results with SMB
+    shares with anonymous access. Access can be 'r', 'w' or 'rw'
+    (default is read or write).
   - `sshkey:` look for a particular SSH key.
   - `torcert` look for Tor certificates.
   - `webfiles` look for "typical" web files in the shared folders.
@@ -200,8 +205,8 @@ single or double quotes.
     routers, ...).
   - `phonedev` look for telephony devices.
   - `cpe(:[type](:[vendor](:[product](:[version]))))` look for a given cpe. Each field can be a /regex/.
-  - `[!]hop:` look for a particular IP address in the traceroute
-    results.
+  - `[!]hop:[IP]`, `[!]hop:[IP]:[TTL]` look for a particular IP
+    address in the traceroute results.
   - `[!]hopname:` look for a matching hostname in the traceroute
     results.
   - `[!]hopdomain:` look for a hostname within a matching domain name
@@ -210,6 +215,9 @@ single or double quotes.
     TCP or UDP port (using `[!][port number]` directly is equivalent
     to `[!]tcp/[port number]`).
   - `[!]openport` look for hosts with at least one open port.
+  - `otheropenport:[port number]`,
+    `otheropenport:[port number],[port number],...` look for hosts
+    with at least one open port other than those specified.
   - `notes` search results with an associated note.
 
 ### Sort ###
