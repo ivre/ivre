@@ -1142,6 +1142,32 @@ have no effect if it is not expected)."""
                            'screenshot': {'$exists': not neg}}
         }}
 
+    @staticmethod
+    def searchcpe(value=None, type=None, vendor=None, product=None,
+                  components=None):
+        """Look for a CPE by value (original cpe string), type (a, o or h),
+        vendor, product or components (the part after the column following
+        the product). No argument will just check for cpe existence.
+
+        """
+        if all(arg is None
+               for arg in [value, type, vendor, product, components]):
+            return {"cpes": {"$exists": True}}
+
+        flt = {}
+        fields = [
+            ("value", value),
+            ("type", type),
+            ("vendor", vendor),
+            ("product", product),
+            ("components", components),
+        ]
+
+        for (field_name, field_val) in fields:
+            if field_val is not None:
+                flt["cpes." + field_name] = field_val
+        return flt
+
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, archive=False,
                   aggrflt=None, specialproj=None, specialflt=None,

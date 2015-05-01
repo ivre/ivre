@@ -202,6 +202,7 @@ single or double quotes.
   - `netdev`, `networkdevice` look for network devices (firewalls,
     routers, ...).
   - `phonedev` look for telephony devices.
+  - `cpe:` look for a given cpe.
   - `[!]hop:` look for a particular IP address in the traceroute
     results.
   - `[!]hopname:` look for a matching hostname in the traceroute
