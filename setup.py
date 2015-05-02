@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -78,6 +78,7 @@ setup(
          ['web/static/templates/filters.html',
           'web/static/templates/menu.html',
           'web/static/templates/progressbar.html',
+          'web/static/templates/view-cpes-only.html',
           'web/static/templates/view-hosts.html',
           'web/static/templates/view-screenshots-only.html',
           'web/static/templates/view-scripts-only.html',

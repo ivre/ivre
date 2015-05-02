@@ -225,5 +225,7 @@ single or double quotes.
 ### Display ###
 
   - `display:host` set the default display mode.
+  - `display:cpe` only display CPEs.
   - `display:script:[scriptid]` only display a particular script
     output.
+  - `display:screenshot` only display screenshots.
