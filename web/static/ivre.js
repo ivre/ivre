@@ -2037,6 +2037,11 @@ ivreWebUi
 	    templateUrl: 'templates/view-screenshots-only.html'
 	};
     })
+    .directive('displayCpe', function() {
+	return {
+	    templateUrl: 'templates/view-cpes-only.html'
+	};
+    })
     .directive('hostSummary', function() {
 	return {
 	    templateUrl: 'templates/subview-host-summary.html'
