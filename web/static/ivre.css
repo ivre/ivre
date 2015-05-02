@@ -170,3 +170,17 @@ form {
     margin: 1%;
     max-width: 98%;
 }
+
+.result-cpe-item {
+    border: 1px solid #ccc;
+    padding: 0px 5px;
+    margin: -1px 0px -1px -6px;
+    background-color: #F5F5F5;
+    word-break: break-all;
+    word-wrap: break-word;
+}
+
+.result-cpe {
+    margin: 5px 0px;
+}
+

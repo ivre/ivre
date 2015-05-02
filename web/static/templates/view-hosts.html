@@ -123,5 +123,34 @@
       accuracy = {{osclass.accuracy}}
     </div>
   </dd>
-</div>
+  <dt class="result-cpe" ng-if="host.cpes">
+    CPE (Common Platform Enumeration)
+  </dt>
+  <div class="container-fluid" ng-if="host.cpes">
+    <div class="row-fluid result-cpe-item" ng-repeat="type in get_reshaped_cpes(host).data">
+      <div class="span1">{{type.name}}</div>
+      <div class="span11">
+        <div class="row-fluid result-cpe-item" ng-repeat="vendor in type.data">
+          <div class="span3"><i ng-if="!vendor.name">Empty</i>{{vendor.name}}</div>
+          <div class="span9">
+            <div class="row-fluid result-cpe-item" ng-repeat="product in vendor.data">
+              <div class="span7"><i ng-if="!product.name">Empty</i>{{product.name}}</div>
+              <div class="span5">
+                <div class="row-fluid result-cpe-item" ng-repeat="comp in product.data">
+                  <div class="span12">
+                    <a
+                     data-html="true"
+                     data-title="{{comp.tooltitle}}"
+                     data-content="{{comp.toolcontent}}"
+                     popover>
+                      <i ng-if="!comp.name">Empty</i>{{comp.name}}</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -199,6 +199,33 @@ def ignore_script(script):
     return False
 
 
+def cpe2dict(cpe_str):
+    """Helper function to parse CPEs. This is a very partial/simple parser."""
+    # Remove prefix
+    if not cpe_str.startswith("cpe:/"):
+        sys.stderr.write("WARNING, invalid cpe format (%s)\n" % cpe_str)
+        return {"value": cpe_str}
+    cpe_body = cpe_str[5:]
+    parts = cpe_body.split(":", 3)
+    nparts = len(parts)
+    if nparts < 2:
+        sys.stderr.write("WARNING, invalid cpe format (%s)\n" % cpe_str)
+        return {"value": cpe_str}
+    cpe_type = parts[0]
+    cpe_vend = parts[1]
+    cpe_prod = parts[2] if nparts > 2 else ""
+    cpe_comp = parts[3] if nparts > 3 else ""
+
+    ret = {
+        "type": cpe_type,
+        "vendor": cpe_vend,
+        "product": cpe_prod,
+        "components": cpe_comp,
+        "value": cpe_str,
+    }
+    return ret
+
+
 class NoExtResolver(EntityResolver):
 
     """A simple EntityResolver that will prevent any external
@@ -232,6 +259,12 @@ class NmapHandler(ContentHandler):
         self._curhostnames = None
         self._filehash = filehash
         print "READING %r (%r)" % (fname, self._filehash)
+
+    def _pre_addhost(self):
+        """Executed before _addhost for host object post-treatment"""
+        if 'cpes' in self._curhost:
+            cpes = self._curhost['cpes']
+            self._curhost['cpes'] = cpes.values()
 
     def _addhost(self):
         """Subclasses may store self._curhost here."""
@@ -446,6 +479,9 @@ class NmapHandler(ContentHandler):
                 attrsdict['domains'] = list(
                     utils.get_domains(attrsdict['host']))
             self._curtrace['hops'].append(attrsdict)
+        elif name == 'cpe':
+            # start recording
+            self._curdata = ''
 
     def endElement(self, name):
         if name == 'nmaprun':
@@ -454,6 +490,7 @@ class NmapHandler(ContentHandler):
         elif name == 'host':
             if self._curhost['state'] == 'up' and ('ports' in self._curhost
                                                    or not self._needports):
+                self._pre_addhost()
                 self._addhost()
             self._curhost = None
         elif name == 'hostnames':
@@ -533,6 +570,8 @@ class NmapHandler(ContentHandler):
                     lastlevel.append(self._curdata)
                 else:
                     lastlevel[k] = self._curdata
+                if k == 'cpe':
+                    self._add_cpe_to_host()
                 # stop recording characters
                 self._curdata = None
             self._curtablepath.pop()
@@ -542,6 +581,49 @@ class NmapHandler(ContentHandler):
             else:
                 self._curhost['traces'].append(self._curtrace)
             self._curtrace = None
+        elif name == 'cpe':
+            self._add_cpe_to_host()
+
+    def _add_cpe_to_host(self):
+        """Adds the cpe in self._curdata to the host-wide cpe list, taking
+        port/script/osmatch context into account.
+
+        """
+        cpe = self._curdata
+        self._curdata = None
+        path = None
+
+        # What is the path to reach this CPE?
+        if self._curport is not None:
+            if self._curscript is not None and 'id' in self._curscript:
+                # Should not happen, but handle the case anyway
+                path = 'ports{port:%s, scripts.id:%s}'\
+                        % (self._curport['port'], self._curscript['id'])
+            else:
+                path = 'ports.port:%s' % self._curport['port']
+            self._curport.setdefault('cpes', []).append(cpe)
+
+        elif self._curscript is not None and 'id' in self._curscript:
+            # Host-wide script
+            path = 'scripts.id:%s' % self._curscript['id']
+
+        elif 'os' in self._curhost and\
+                self._curhost['os'].get('osmatch', []): # Host-wide
+            lastosmatch = self._curhost['os']['osmatch'][-1]
+            line = lastosmatch['line']
+            path = "os.osmatch.line:%s" % line
+            lastosmatch.setdefault('cpes', []).append(cpe)
+
+        # CPEs are indexed in a dictionnary to agglomerate origins,
+        # but this dict is replaced with its values() in _pre_addhost.
+        cpes = self._curhost.setdefault('cpes', {})
+        if cpe not in cpes:
+            cpeobj = cpe2dict(cpe)
+            cpes[cpe] = cpeobj
+        else:
+            cpeobj = cpes[cpe]
+        cpeobj.setdefault('origins', []).append(path)
+
 
     def characters(self, content):
         if self._curdata is not None:
