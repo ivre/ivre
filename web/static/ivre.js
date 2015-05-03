@@ -1605,9 +1605,6 @@ ivreWebUi.directive('popover', function(){
     return {
         restrict: 'A',
         link: function(scope, element, attrs){
-            $(element).click(function(){
-                e.lement.preventDefault();
-            });
             $(element).hover(function(){
                 // on mouseenter
                 $(element).popover('show').on("mouseleave", function () {
@@ -1993,19 +1990,19 @@ ivreWebUi
         my_setdefault = function(d, key) {
             if(!("data" in d)) {
                 d.data = {};
-                d.expand = false;
             }
             if(key in d.data) {
                 return d.data[key];
             } else {
-                d.data[key] = {"name":key, "expand": false, "data": {}};
+                d.data[key] = {"name":key, "data": {}};
                 return d.data[key];
             }
         }
         for(var i in cpes) {
             cpe = cpes[i];
             type = type2str[cpe.type] || "Unknown";
-            type_d = my_setdefault(n_cpes, type);
+            type_d = my_setdefault(n_cpes, cpe.type);
+            type_d.pretty_name = type;
             vend_d = my_setdefault(type_d, cpe.vendor);
             prod_d = my_setdefault(vend_d, cpe.product);
             comp_d = my_setdefault(prod_d, cpe.components);
@@ -2018,9 +2015,22 @@ ivreWebUi
         host.n_cpes = n_cpes;
         return host.n_cpes;
     };
-    $scope.toggle_expand = function(treenode) {
-        treenode.expand = !treenode.expand;
-    };
+    $scope.set_cpe_param = function(type, vendor, product, components) {
+        query = [];
+        if(type) {
+            query.push("type=" + type.name);
+        }
+        if(vendor) {
+            query.push("vendor=" + vendor.name);
+        }
+        if(product) {
+            query.push("product=" + product.name);
+        }
+        if(components) {
+            query.push("components=" + components.name);
+        }
+        $scope.setparam("cpe", query.join(','));
+    }
     })
     .directive('displayHost', function() {
 	return {
