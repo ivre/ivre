@@ -474,8 +474,12 @@ for q in query:
                     field, value = cpe_arg.split("=", 1)
                     if field not in allowed_fields:
                         continue
+                    if field == "type":
+                        field = "cpe_type"
                     cpe_kwargs[field] = ivre.utils.str2regexp(value)
         flt = db.nmap.flt_and(flt, db.nmap.searchcpe(**cpe_kwargs))
+        else:
+            flt = db.nmap.flt_and(flt, db.nmap.searchcpe())
     elif nq == 'display':
         # ignore this parameter
         pass
