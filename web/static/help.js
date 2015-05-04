@@ -241,6 +241,11 @@ var HELP = {
 	"title": "phonedev",
 	"content": "Look for phone devices (e.g., PBX, VoIP devices, phones, etc.).",
     },
+    /* CPEs */
+    "cpe": {
+	"title": "cpe<b>(:[type](:[vendor](:[product](:[version]))))</b>",
+	"content": "Looks for CPEs matching an expression. Providing no value will match all the hosts that have CPE information. The fields <b>type</b>, <b>vendor</b>, <b>product</b> and <b>version</b> can be strings or /regexps/. <br/> <i>Ex:</i> o://:linux_kernel or a:apache:http_server:2.2.9",
+    },
     /* traceroute */
     "hop:": {
 	"title": "<b>(!)</b>hop:<b>[IP address](:[TTL])</b>",

@@ -130,6 +130,7 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%devtype:%%'', ''%%devicetype:%%'' look for a type of devices.
   * ''%%netdev%%'', ''%%networkdevice%%'' look for network devices (firewalls, routers, ...).
   * ''%%phonedev%%'' look for telephony devices.
+  * ''%%cpe(:[type](:[vendor](:[product](:[version]))))%%'' look for a given cpe. Each field can be a /regex/.
   * ''%%[!]hop:%%'' look for a particular IP address in the traceroute results.
   * ''%%[!]hopname:%%'' look for a matching hostname in the traceroute results.
   * ''%%[!]hopdomain:%%'' look for a hostname within a matching domain name in the traceroute results.

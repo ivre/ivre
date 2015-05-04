@@ -460,6 +460,15 @@ for q in query:
         else:
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
                 service=q[1], neg=neg))
+    elif nq == "cpe":
+        if q[1]:
+            cpe_kwargs = {}
+            cpe_fields = ["cpe_type", "vendor", "product", "version"]
+            for field, cpe_arg in zip(cpe_fields, q[1].split(':', 3)):
+                cpe_kwargs[field] = ivre.utils.str2regexp(cpe_arg)
+            flt = db.nmap.flt_and(flt, db.nmap.searchcpe(**cpe_kwargs))
+        else:
+            flt = db.nmap.flt_and(flt, db.nmap.searchcpe())
     elif nq == 'display':
         # ignore this parameter
         pass

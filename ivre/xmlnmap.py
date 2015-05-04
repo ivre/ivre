@@ -200,28 +200,30 @@ def ignore_script(script):
 
 
 def cpe2dict(cpe_str):
-    """Helper function to parse CPEs. This is a very partial/simple parser."""
+    """Helper function to parse CPEs. This is a very partial/simple parser.
+
+    Raises:
+        ValueError if the cpe string is not parsable.
+
+    """
     # Remove prefix
     if not cpe_str.startswith("cpe:/"):
-        sys.stderr.write("WARNING, invalid cpe format (%s)\n" % cpe_str)
-        return {"value": cpe_str}
+        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
     cpe_body = cpe_str[5:]
     parts = cpe_body.split(":", 3)
     nparts = len(parts)
     if nparts < 2:
-        sys.stderr.write("WARNING, invalid cpe format (%s)\n" % cpe_str)
-        return {"value": cpe_str}
+        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
     cpe_type = parts[0]
     cpe_vend = parts[1]
     cpe_prod = parts[2] if nparts > 2 else ""
-    cpe_comp = parts[3] if nparts > 3 else ""
+    cpe_vers = parts[3] if nparts > 3 else ""
 
     ret = {
         "type": cpe_type,
         "vendor": cpe_vend,
         "product": cpe_prod,
-        "components": cpe_comp,
-        "value": cpe_str,
+        "version": cpe_vers,
     }
     return ret
 
@@ -601,7 +603,6 @@ class NmapHandler(ContentHandler):
                         % (self._curport['port'], self._curscript['id'])
             else:
                 path = 'ports.port:%s' % self._curport['port']
-            self._curport.setdefault('cpes', []).append(cpe)
 
         elif self._curscript is not None and 'id' in self._curscript:
             # Host-wide script
@@ -612,13 +613,16 @@ class NmapHandler(ContentHandler):
             lastosmatch = self._curhost['os']['osmatch'][-1]
             line = lastosmatch['line']
             path = "os.osmatch.line:%s" % line
-            lastosmatch.setdefault('cpes', []).append(cpe)
 
         # CPEs are indexed in a dictionnary to agglomerate origins,
         # but this dict is replaced with its values() in _pre_addhost.
         cpes = self._curhost.setdefault('cpes', {})
         if cpe not in cpes:
-            cpeobj = cpe2dict(cpe)
+            try:
+                cpeobj = cpe2dict(cpe)
+            except ValueError:
+                sys.stderr.write("WARNING, invalid cpe format (%s)" % cpe)
+                return
             cpes[cpe] = cpeobj
         else:
             cpeobj = cpes[cpe]

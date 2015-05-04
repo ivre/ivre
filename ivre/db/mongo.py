@@ -352,6 +352,13 @@ class MongoDBNmap(MongoDB, DBNmap):
             self.colname_hosts: [
                 ([('ports.screenshot', pymongo.ASCENDING)],
                  {"sparse": True}),
+                ([
+                    ('cpes.type', pymongo.ASCENDING),
+                    ('cpes.vendor', pymongo.ASCENDING),
+                    ('cpes.product', pymongo.ASCENDING),
+                    ('cpes.version', pymongo.ASCENDING),
+                 ],
+                 {"sparse": True}),
             ],
             self.colname_oldhosts: [
                 ([('ports.screenshot', pymongo.ASCENDING)],
@@ -1141,6 +1148,30 @@ have no effect if it is not expected)."""
                            'service_name': service,
                            'screenshot': {'$exists': not neg}}
         }}
+
+    @staticmethod
+    def searchcpe(cpe_type=None, vendor=None, product=None, version=None):
+        """Look for a CPE by type (a, o or h), vendor, product or version (the
+        part after the column following the product). No argument will just
+        check for cpe existence.
+
+        """
+        fields = [
+            ("type", cpe_type),
+            ("vendor", vendor),
+            ("product", product),
+            ("version", version),
+        ]
+        flt = dict((field, value) for field, value in fields
+                                  if value is not None)
+        nflt = len(flt)
+        if nflt == 0:
+            return {"cpes": {"$exists": True}}
+        elif nflt == 1:
+            field, value = flt.popitem()
+            return {"cpes.%s" % field: value}
+        else:
+            return {"cpes": {"$elemMatch": flt}}
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, archive=False,
