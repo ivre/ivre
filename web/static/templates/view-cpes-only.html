@@ -78,16 +78,16 @@
               </div>
               <div class="span5">
                 <div class="row-fluid result-cpe-item"
-                     ng-repeat="comp in product.data">
+                     ng-repeat="version in product.data">
                   <div class="span12">
                     <a
                      data-html="true"
-                     data-title="{{comp.tooltitle}}"
-                     data-content="{{comp.toolcontent}}"
+                     data-title="{{version.tooltitle}}"
+                     data-content="{{version.toolcontent}}"
                      class="clickable"
-                     ng-click="set_cpe_param(type, vendor, product, comp)"
+                     ng-click="set_cpe_param(type, vendor, product, version)"
                      popover>
-                      <i ng-if="!comp.name">Empty</i>{{comp.name}}</a>
+                      <i ng-if="!version.name">Empty</i>{{version.name}}</a>
                   </div>
                 </div>
               </div>

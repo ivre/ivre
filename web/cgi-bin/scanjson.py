@@ -464,7 +464,7 @@ for q in query:
         if q[1]:
             cpe_kwargs = {}
             allowed_fields = set(["value", "cpe_type", "vendor", "product",
-                                  "components"])
+                                  "version"])
             for cpe_arg in q[1].split(','):
                 field, value = cpe_arg.split("=", 1) if "=" in cpe_arg\
                                                      else ("value", cpe_arg)

@@ -202,7 +202,7 @@ single or double quotes.
   - `netdev`, `networkdevice` look for network devices (firewalls,
     routers, ...).
   - `phonedev` look for telephony devices.
-  - `cpe:[value] | cpe:[field=value](, ...)` look for a given cpe, by value or by field (type, vendor, component or product).
+  - `cpe:[value] | cpe:[field=value](, ...)` look for a given cpe, by value or by field (type, vendor, product or version).
   - `[!]hop:` look for a particular IP address in the traceroute
     results.
   - `[!]hopname:` look for a matching hostname in the traceroute

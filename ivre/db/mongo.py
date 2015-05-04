@@ -1144,9 +1144,9 @@ have no effect if it is not expected)."""
 
     @staticmethod
     def searchcpe(value=None, cpe_type=None, vendor=None, product=None,
-                  components=None):
+                  version=None):
         """Look for a CPE by value (original cpe string), type (a, o or h),
-        vendor, product or components (the part after the column following
+        vendor, product or version (the part after the column following
         the product). No argument will just check for cpe existence.
 
         """
@@ -1155,7 +1155,7 @@ have no effect if it is not expected)."""
             ("type", cpe_type),
             ("vendor", vendor),
             ("product", product),
-            ("components", components),
+            ("version", version),
         ]
         flt = dict((field, value) for field, value in fields
                                   if value is not None)

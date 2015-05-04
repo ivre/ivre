@@ -214,13 +214,13 @@ def cpe2dict(cpe_str):
     cpe_type = parts[0]
     cpe_vend = parts[1]
     cpe_prod = parts[2] if nparts > 2 else ""
-    cpe_comp = parts[3] if nparts > 3 else ""
+    cpe_vers = parts[3] if nparts > 3 else ""
 
     ret = {
         "type": cpe_type,
         "vendor": cpe_vend,
         "product": cpe_prod,
-        "components": cpe_comp,
+        "version": cpe_vers,
         "value": cpe_str,
     }
     return ret

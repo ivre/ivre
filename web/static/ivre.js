@@ -2005,7 +2005,7 @@ ivreWebUi
             type_d.pretty_name = type;
             vend_d = my_setdefault(type_d, cpe.vendor);
             prod_d = my_setdefault(vend_d, cpe.product);
-            comp_d = my_setdefault(prod_d, cpe.components);
+            comp_d = my_setdefault(prod_d, cpe.version);
             comp_d.origins || (comp_d.origins = []);
             comp_d.origins = comp_d.origins.concat(cpe.origins);
             comp_d.value = cpe.value;
@@ -2015,7 +2015,7 @@ ivreWebUi
         host.n_cpes = n_cpes;
         return host.n_cpes;
     };
-    $scope.set_cpe_param = function(type, vendor, product, components) {
+    $scope.set_cpe_param = function(type, vendor, product, version) {
         query = [];
         if(type) {
             query.push("type=" + type.name);
@@ -2026,8 +2026,8 @@ ivreWebUi
         if(product) {
             query.push("product=" + product.name);
         }
-        if(components) {
-            query.push("components=" + components.name);
+        if(version) {
+            query.push("version=" + version.name);
         }
         $scope.setparam("cpe", query.join(','));
     }

@@ -244,7 +244,7 @@ var HELP = {
     /* CPEs */
     "cpe": {
 	"title": "cpe:<b>[value]</b> or cpe:<b>[field]=[value]</b>(, ...)",
-	"content": "Looks for CPEs matching value (which can be a /regex/). Providing no value will match all the hosts that have CPE information. The <b>field</b> can be: 'type' (a, o or h), 'vendor', 'product' or 'components', and <b>value</b> can be a /regex/.",
+	"content": "Looks for CPEs matching value (which can be a /regex/). Providing no value will match all the hosts that have CPE information. The <b>field</b> can be: 'type' (a, o or h), 'vendor', 'product' or 'version', and <b>value</b> can be a /regex/.",
     },
     /* traceroute */
     "hop:": {
