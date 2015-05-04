@@ -302,7 +302,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "scripts.smb-enum-shares.shares",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
-                  "hostnames.domains"]
+                  "hostnames.domains", "cpes"]
 
     def __init__(self, host, dbname,
                  colname_scans="scans", colname_hosts="hosts",
@@ -1188,6 +1188,7 @@ have no effect if it is not expected)."""
           - service / service:<portnbr>
           - probedservice / probedservice:<portnbr>
           - product / product:<portnbr>
+          - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
           - devicetype / devicetype:<portnbr>
           - [port]script:<scriptid> / hostscript:<scriptid>
           - hop
@@ -1468,6 +1469,52 @@ have no effect if it is not expected)."""
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
                                     '_id': x['_id'].split('###')}
+        elif field.startswith("cpe"):
+            try:
+                field, cpeflt = field.split(":", 1)
+                cpeflt = cpeflt.split(':', 3)
+            except ValueError:
+                cpeflt = []
+            try:
+                field = field.split(".", 1)[1]
+            except IndexError:
+                field = "version"
+            fields = ["type", "vendor", "product", "version"]
+            if field not in fields:
+                try:
+                    field = fields[int(field) - 1]
+                except (IndexError, ValueError):
+                    field = "version"
+            cpeflt = zip(fields, (utils.str2regexp(value) for value in cpeflt))
+            # We need two different filters because we need two
+            # different $match in the pipeline. The first one occurs
+            # before the $unwind operation, so we need an $elemMatch
+            # when we filter against more than one value, while the
+            # second one occurs after, so an $elemMatch would fail.
+            cpeflt1 = self.searchcpe(**dict(
+                ("cpe_type" if key == "type" else key, value)
+                for key, value in cpeflt
+            ))
+            cpeflt2 = dict(("cpes.%s" % key, value) for key, value in cpeflt)
+            # We need to keep enough cpes.* fields for the projection
+            # *and* for our filter
+            fields = fields[:max(fields.index(field), len(cpeflt)) + 1]
+            flt = self.flt_and(flt, cpeflt1)
+            specialproj = dict(("cpes.%s" % fname, 1) for fname in fields)
+            specialproj["_id"] = 0
+            concat = ["$cpes.%s" % fields[0]]
+            # Now we only keep what the user wanted
+            for fname in fields[1:fields.index(field) + 1]:
+                concat.append(":")
+                concat.append("$cpes.%s" % fname)
+            specialflt = []
+            if cpeflt2:
+                specialflt.append({"$match": cpeflt2})
+            specialflt.append(
+                {"$project": {"cpes.%s" % field: {"$concat": concat}}})
+            field = "cpes.%s" % field
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split(':', 3)}
         elif field == 'devicetype':
             field = "ports.service_devicetype"
         elif field.startswith('devicetype:'):

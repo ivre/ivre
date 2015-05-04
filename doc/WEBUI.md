@@ -57,6 +57,11 @@ displayed in the rightest part of the screen.
     - `service`, `service:[port]`, `probedservice`,
       `probedservice:[port]`, `product`, `product:[port]`,
       `version`, `version:[port]`
+    - `cpe`, `cpe.[type/vendor/product/version]`, `cpe:[cpe spec]`,
+      `cpe.[type/vendor/product/version]:[cpe spec]` (examples:
+      `cpe.product:a:microsoft` will show top product names in CPEs
+      from vendor `microsoft`, `cpe.vendor:o:/^m/` will show top
+      vendor names in CPEs that start with an `m`)
     - `devicetype`, `devicetype:[port]`
     - `ports.scripts.id`, `scripts.id`
     - `script:[scriptname]`, `portscript:[scriptname]` (like `script:`),
