@@ -1143,15 +1143,13 @@ have no effect if it is not expected)."""
         }}
 
     @staticmethod
-    def searchcpe(value=None, cpe_type=None, vendor=None, product=None,
-                  version=None):
-        """Look for a CPE by value (original cpe string), type (a, o or h),
-        vendor, product or version (the part after the column following
-        the product). No argument will just check for cpe existence.
+    def searchcpe(cpe_type=None, vendor=None, product=None, version=None):
+        """Look for a CPE by type (a, o or h), vendor, product or version (the
+        part after the column following the product). No argument will just
+        check for cpe existence.
 
         """
         fields = [
-            ("value", value),
             ("type", cpe_type),
             ("vendor", vendor),
             ("product", product),
