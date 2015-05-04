@@ -352,6 +352,13 @@ class MongoDBNmap(MongoDB, DBNmap):
             self.colname_hosts: [
                 ([('ports.screenshot', pymongo.ASCENDING)],
                  {"sparse": True}),
+                ([
+                    ('cpes.type', pymongo.ASCENDING),
+                    ('cpes.vendor', pymongo.ASCENDING),
+                    ('cpes.product', pymongo.ASCENDING),
+                    ('cpes.version', pymongo.ASCENDING),
+                 ],
+                 {"sparse": True}),
             ],
             self.colname_oldhosts: [
                 ([('ports.screenshot', pymongo.ASCENDING)],
