@@ -243,8 +243,8 @@ var HELP = {
     },
     /* CPEs */
     "cpe": {
-	"title": "cpe:<b>[value]</b> or cpe:<b>[field]=[value]</b>(, ...)",
-	"content": "Looks for CPEs matching value (which can be a /regex/). Providing no value will match all the hosts that have CPE information. The <b>field</b> can be: 'type' (a, o or h), 'vendor', 'product' or 'version', and <b>value</b> can be a /regex/.",
+	"title": "cpe<b>(:[type](:[vendor](:[product](:[version]))))</b>",
+	"content": "Looks for CPEs matching an expression. Providing no value will match all the hosts that have CPE information. The fields <b>type</b>, <b>vendor</b>, <b>product</b> and <b>version</b> can be strings or /regexps/. <br/> <i>Ex:</i> o://:linux_kernel or a:apache:http_server:2.2.9",
     },
     /* traceroute */
     "hop:": {

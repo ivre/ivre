@@ -463,15 +463,9 @@ for q in query:
     elif nq == "cpe":
         if q[1]:
             cpe_kwargs = {}
-            allowed_fields = set(["cpe_type", "vendor", "product", "version"])
-            for cpe_arg in q[1].split(','):
-                if '=' not in cpe_arg:
-                    continue
-                field, value = cpe_arg.split("=", 1)
-                if field == "type":
-                    field = "cpe_type"
-                if field in allowed_fields:
-                    cpe_kwargs[field] = ivre.utils.str2regexp(value)
+            cpe_fields = ["cpe_type", "vendor", "product", "version"]
+            for field, cpe_arg in zip(cpe_fields, q[1].split(':', 3)):
+                cpe_kwargs[field] = ivre.utils.str2regexp(cpe_arg)
             flt = db.nmap.flt_and(flt, db.nmap.searchcpe(**cpe_kwargs))
         else:
             flt = db.nmap.flt_and(flt, db.nmap.searchcpe())

@@ -1994,7 +1994,7 @@ ivreWebUi
             if(key in d.data) {
                 return d.data[key];
             } else {
-                d.data[key] = {"name":key, "data": {}};
+                d.data[key] = {"name": key, "data": {}};
                 return d.data[key];
             }
         }
@@ -2008,8 +2008,9 @@ ivreWebUi
             comp_d = my_setdefault(prod_d, cpe.version);
             comp_d.origins || (comp_d.origins = []);
             comp_d.origins = comp_d.origins.concat(cpe.origins);
-            comp_d.value = cpe.value;
-            comp_d.tooltitle = cpe.value;
+            comp_d.tooltitle = "cpe:/" +
+                               [cpe.type, cpe.vendor, cpe.product, cpe.version]
+                               .join(":").replace(/:+$/, "");
             comp_d.toolcontent = cpe.origins.join('<br/>');
         }
         host.n_cpes = n_cpes;
@@ -2017,19 +2018,15 @@ ivreWebUi
     };
     $scope.set_cpe_param = function(type, vendor, product, version) {
         query = [];
-        if(type) {
-            query.push("type=" + type.name);
+        parts = [type, vendor, product, version];
+        for(var i in parts) {
+            if(parts[i] && !!parts[i].name) {
+                query.push(parts[i].name);
+            } else {
+                break;
+            }
         }
-        if(vendor) {
-            query.push("vendor=" + vendor.name);
-        }
-        if(product) {
-            query.push("product=" + product.name);
-        }
-        if(version) {
-            query.push("version=" + version.name);
-        }
-        $scope.setparam("cpe", query.join(','));
+        $scope.setparam("cpe", query.join(':'));
     }
     })
     .directive('displayHost', function() {
