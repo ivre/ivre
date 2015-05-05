@@ -8,6 +8,17 @@ Follow the [[http://docs.mongodb.org/manual/installation/|documentation from Mon
 
 ====== IVRE ======
 
+===== Dependencies =====
+
+If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]].
+
+If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro]] and [[http://lcamtuf.coredump.cx/p0f/|p0f]].
+
+To install IVRE, you'll need [[http://www.python.org/|Python]] 2, version 2.6 minimum (prefer 2.7), with the following modules:
+
+  * [[http://www.pycrypto.org/|Crypto]]
+  * [[http://api.mongodb.org/python/|pymongo]] version 2, 2.7.2 minimum.
+
 ===== Installation =====
 
 The installation of [[doc:README|IVRE]] itself can be done by:

@@ -12,6 +12,21 @@ distribution.
 
 # IVRE #
 
+## Dependencies ##
+
+If you plan to run scans from a machine, install
+[Nmap](http://nmap.org/) and optionally [ZMap](https://zmap.io/).
+
+If you plan to analyze PCAP file on a machine, install
+[Bro](http://www.bro.org/) and [p0f](http://lcamtuf.coredump.cx/p0f/).
+
+To install IVRE, you'll need [Python](http://www.python.org/) 2,
+version 2.6 minimum (prefer 2.7), with the following modules:
+
+  * [Crypto](http://www.pycrypto.org/)
+  * [pymongo](http://api.mongodb.org/python/) version 2, 2.7.2
+    minimum.
+
 ## Installation ##
 
 The installation of [IVRE](README.md) itself can be done by:
