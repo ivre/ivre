@@ -1,2 +1,2 @@
-pymongo==2.7.2
+pymongo>=2.7.2,<3.0.0
 Crypto
