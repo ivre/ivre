@@ -528,7 +528,19 @@ function set_display_mode(mode) {
 	mode = "host"; // default
     scope.$apply(function() { 
 	if(mode.substr(0, 7) === "script:") {
-	    args = mode.substr(7).split(",");
+	    args = mode.substr(7).split(',').reduce(function(accu, value) {
+		switch(value) {
+		case "":
+		    return accu;
+		case "ls":
+		    return accu.concat([
+			"afp-ls", "ftp-anon", "http-ls", "nfs-ls", "smb-ls",
+			"gopher-ls", "http-vlcstreamer-ls",
+		    ]);
+		default:
+		    return accu.concat([value]);
+		}
+	    }, []);
 	    mode = "script";
 	}
 	scope.display_mode_args = args;
