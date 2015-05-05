@@ -865,7 +865,15 @@ function build_chart(chart, field, dataset) {
 	    };
 	}
     }
-    else if(field.substr(0,3) === 'hop') {
+    else if(field.substr(0, 3) === 'cpe') {
+	prepareoutput = function(x) {
+	    return x.join(":");
+	};
+	preparefilter = function(x) {
+	    return 'setparam("cpe", "' + x.join(":") + '")';
+	};
+    }
+    else if(field.substr(0, 3) === 'hop') {
 	if(field[3] === ':')
 	    preparefilter = function(x) {
 		return 'setparam("hop", "' + x + '", ' + field.substr(4) + ');';
@@ -875,8 +883,8 @@ function build_chart(chart, field, dataset) {
 		return 'setparam("hop", "' + x + '");';
 	    };
     }
-    else if(field.substr(0,7) === 'domains' && (field[7] === undefined ||
-						field[7] === ':')) {
+    else if(field.substr(0, 7) === 'domains' && (field[7] === undefined ||
+						 field[7] === ':')) {
 	preparefilter = function(x) {
 	    return 'setparam("domain", "' + x + '");';
 	};
@@ -1831,6 +1839,9 @@ ivreWebUi
 	    "product", "product:",
 	    "version", "version:",
 	    "devicetype", "devicetype:",
+	    // cpes
+	    "cpe", "cpe:", "cpe.type", "cpe.type:", "cpe.vendor", "cpe.vendor:",
+	    "cpe.product", "cpe.product:", "cpe.version", "cpe.version:",
 	    // scripts
 	    "ports.scripts.id", "scripts.id",
 	    "script:", "portscript:", "hostscript:",
