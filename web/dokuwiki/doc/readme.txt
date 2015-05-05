@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
 ====== What is it? ======
 
@@ -156,4 +156,10 @@ If you don't like beer, a good scotch or any other good alcoholic beverage will 
 Code contributions (pull-requests) are of course welcome!
 
 The project needs scan results and capture files that can be provided as examples. If you can contribute some samples, or if you want to contribute some samples and would need some help to do so, or if you can provide a server to run scans, please contact the author.
+
+====== Contact ======
+
+For both support and contribution, the [[https://github.com/cea-sec/ivre|repository]] on Github should be used: feel free to create a new issue or a pull request!
+
+You can also try to use the e-mail ''%%ivre%%'' on the domain ''%%droids-corp.org%%'', or to join the IRC chan [[irc://irc.freenode.net/%23ivre|#ivre]] on [[https://freenode.net/|Freenode]].
 

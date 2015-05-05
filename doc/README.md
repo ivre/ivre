@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
+Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # What is it? #
 
@@ -239,3 +239,14 @@ The project needs scan results and capture files that can be provided
 as examples. If you can contribute some samples, or if you want to
 contribute some samples and would need some help to do so, or if you
 can provide a server to run scans, please contact the author.
+
+# Contact #
+
+For both support and contribution, the
+[repository](https://github.com/cea-sec/ivre) on Github should be
+used: feel free to create a new issue or a pull request!
+
+You can also try to use the e-mail `ivre` on the domain
+`droids-corp.org`, or to join the IRC chan
+[#ivre](irc://irc.freenode.net/%23ivre) on
+[Freenode](https://freenode.net/).
