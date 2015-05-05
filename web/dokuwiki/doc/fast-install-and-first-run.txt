@@ -4,7 +4,7 @@ Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
 This file describes the steps to install [[doc:README|IVRE]], run the first scans and add the results to the database with all components (scanner, web server, database server) on the same (Debian or Ubuntu) machine.
 
-Please note that, depending on your distribution, the versions of some softwares might not be recent enought, particularly for MongoDB (version 2.6 minimum) and pymongo (version 2.7.2 minimum; see [[doc:README|README]] to know which versions can be used with IVRE). If that's the case, you will have to install those softwares on you own, refering to their documentation (see [[http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/|MongoDB on Debian]] or [[http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/|MongoDB on Ubuntu]] and [[https://pypi.python.org/pypi/pymongo/|pymongo]]), instead of ''%%apt-get%%''-ting them.
+Please note that, depending on your distribution, the versions of some softwares might not be recent enough, particularly for MongoDB (version 2.6 minimum) and pymongo (version 2.7.2 minimum; see [[doc:README|README]] to know which versions can be used with IVRE). If that's the case, you will have to install those softwares on you own, refering to their documentation (see [[http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/|MongoDB on Debian]] or [[http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/|MongoDB on Ubuntu]] and [[https://pypi.python.org/pypi/pymongo/|pymongo]]), instead of ''%%apt-get%%''-ting them.
 
 You might also want to adapt it to your needs, architecture, etc.
 
@@ -48,7 +48,7 @@ $ ipinfo --init
 This will remove any passive information in your database. Process ? [y/N] y
 $ ipdata --init
 This will remove any country/AS information in your database. Process ? [y/N] y
-$ runscans-agentdb --init
+$ sudo runscans-agentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 $ sudo ipdata --download
 $ ipdata --import-all --dont-feed-ipdata-cols</code>

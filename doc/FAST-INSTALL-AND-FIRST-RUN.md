@@ -8,7 +8,7 @@ first scans and add the results to the database with all components
 machine.
 
 Please note that, depending on your distribution, the versions of some
-softwares might not be recent enought, particularly for MongoDB
+softwares might not be recent enough, particularly for MongoDB
 (version 2.6 minimum) and pymongo (version 2.7.2 minimum; see
 [README](README.md) to know which versions can be used with IVRE). If
 that's the case, you will have to install those softwares on you own,
@@ -69,7 +69,7 @@ button to check if everything works.
     This will remove any passive information in your database. Process ? [y/N] y
     $ ipdata --init
     This will remove any country/AS information in your database. Process ? [y/N] y
-    $ runscans-agentdb --init
+    $ sudo runscans-agentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
     $ sudo ipdata --download
     $ ipdata --import-all --dont-feed-ipdata-cols
