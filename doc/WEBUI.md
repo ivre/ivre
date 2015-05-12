@@ -41,8 +41,8 @@ within the whole results set.
 The second part allows to add, modify or remove filter, sort or
 display commands.
 
-The second part allows to explore the results by generating graphs
-displayed in the rightest part of the screen.
+The third part allows to explore the results by generating graphs
+displayed in the rightmost part of the screen.
 
   - The first field displays a graph with the 15 most common values of
     a variable in the filtered results. This can be slow when the
@@ -91,7 +91,7 @@ displays a summary for the host. Long-clicking a result frame toggles
 between the summary display and the full display for the result.
 
 The pencil icon in the upper-right corner opens the notepad page for
-the current host (see below) in the rightest part of the screen.
+the current host (see below) in the rightmost part of the screen.
 
 Each blue element in the results can be clicked to add a filter.
 
