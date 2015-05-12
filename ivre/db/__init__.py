@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains functions to interact with the
 database.
@@ -299,12 +299,13 @@ class DBNmap(DB):
         with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
             try:
-                return {
+                store_scan_function = {
                     '<': self.store_scan_xml,
                     '{': self.store_scan_json,
-                }[fchar](fname, filehash=scanid, **kargs)
+                }[fchar]
             except KeyError:
                 raise ValueError("Unknown file type %s" % fname)
+            return store_scan_function(fname, filehash=scanid, **kargs)
 
     def store_scan_xml(self, fname, **kargs):
         """This method parses an XML scan result, displays a JSON
@@ -330,10 +331,40 @@ class DBNmap(DB):
             return True
         return False
 
+    @staticmethod
+    def merge_host_docs(rec1, rec2):
+        raise NotImplementedError
+
+    def merge_host(self, host):
+        """Attempt to merge `host` with an existing record.
+
+        Return `True` if another record for the same address (and
+        source if `host['source'] exists`) has been found, merged and
+        the resulting document inserted in the database, `False`
+        otherwise (in that case, it is the caller's responsibility to
+        add `host` to the database if necessary).
+
+        """
+        try:
+            flt = self.searchhost(host['addr'])
+            if host.get("source"):
+                flt = self.flt_and(
+                    flt,
+                    self.searchsource(host["source"]),
+                )
+            rec = self.get(flt)[0]
+        except IndexError:
+            # "Merge" mode but no record for that host, let's add
+            # the result normally
+            return False
+        self.store_host(self.merge_host_docs(rec, host))
+        self.remove(rec)
+        return True
+
     def store_scan_json(self, fname, filehash=None, needports=False,
                         categories=None, source=None,
                         gettoarchive=None, add_addr_infos=True,
-                        force_info=False):
+                        force_info=False, merge=False):
         """This method parses a JSON scan result as exported using
         `scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -367,6 +398,8 @@ class DBNmap(DB):
                         if data:
                             host['infos'].update(data)
                 if not needports or 'ports' in host:
+                    if merge and self.merge_host(host):
+                        return True
                     self.archive_from_func(host, gettoarchive)
                     self.store_host(host)
             self.store_scan_doc({'_id': filehash})
@@ -384,6 +417,9 @@ class DBNmap(DB):
 
     def archive_from_func(self, _ig1, _ig2):
         pass
+
+    def remove(self, host, archive=False):
+        raise NotImplementedError
 
     def get_mean_open_ports(self, flt, archive=False):
         """This method returns for a specific query `flt` a list of
@@ -532,6 +568,14 @@ class DBNmap(DB):
 
     def searchwebcam(self):
         return self.searchdevicetype('webcam')
+
+    @staticmethod
+    def searchhost(addr, neg=False):
+        raise NotImplementedError
+
+    @staticmethod
+    def searchsource(src, neg=False):
+        raise NotImplementedError
 
     @staticmethod
     def searchscript(host=False, name=None, output=None, values=None):

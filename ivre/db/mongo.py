@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains functions to interact with the
 MongoDB databases.
@@ -357,7 +357,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('cpes.vendor', pymongo.ASCENDING),
                     ('cpes.product', pymongo.ASCENDING),
                     ('cpes.version', pymongo.ASCENDING),
-                 ],
+                ],
                  {"sparse": True}),
             ],
             self.colname_oldhosts: [
@@ -391,6 +391,15 @@ have no effect if it is not expected)."""
         else:
             cur = self.db[self.colname_hosts].find(flt, **kargs)
         return self.set_limits(cur)
+
+    @staticmethod
+    def getscanids(host):
+        scanids = host.get('scanid')
+        if scanids is None:
+            return []
+        if isinstance(scanids, list):
+            return scanids
+        return [scanids]
 
     def getscan(self, scanid, archive=False, **kargs):
         if archive:
@@ -468,6 +477,81 @@ have no effect if it is not expected)."""
         print "SCAN STORED: %r in %r" % (ident, self.colname_scans)
         return ident
 
+    def merge_host_docs(self, rec1, rec2):
+        """Merge two host records and return the result. Unmergeable /
+        hard-to-merge fields are lost (e.g., extraports).
+
+        """
+        rec = {}
+        # When we have different values, we will use the one from the
+        # most recent scan, rec2
+        if rec1["starttime"] > rec2["starttime"]:
+            rec1, rec2 = rec2, rec1
+        scanid = set()
+        for record in [rec1, rec2]:
+            scanid.update(self.getscanids(record))
+        if scanid:
+            if len(scanid) == 1:
+                rec["scanid"] = scanid.pop()
+            else:
+                rec["scanid"] = list(scanid)
+        rec["starttime"] = min(rec1["starttime"], rec2["starttime"])
+        rec["endtime"] = max(rec1["endtime"], rec2["endtime"])
+        rec["state"] = ("up" if "up" in [rec1["state"], rec2["state"]]
+                        else rec2["state"])
+        rec["categories"] = list(
+            set(rec1.get("categories", [])).union(
+                rec2.get("categories", []))
+        )
+        for field in ["addr", "source", "os"]:
+            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
+            if not rec[field]:
+                del rec[field]
+        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
+        rec["infos"] = {}
+        for record in [rec1, rec2]:
+            rec["infos"].update(record.get("infos", {}))
+        # We want to make sure of (type, name) unicity
+        hostnames = dict(((h['type'], h['name']), h.get('domains'))
+                         for h in (rec1.get("hostnames", [])
+                                   + rec2.get("hostnames", [])))
+        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
+                            for h, d in hostnames.iteritems()]
+        scripts = dict((script["id"], script)
+                       for script in rec1.get("scripts", []))
+        scripts.update((script["id"], script)
+                       for script in rec2.get("scripts", []))
+        rec["scripts"] = scripts.values()
+        ports = dict((port["port"], port.copy())
+                     for port in rec2.get("ports", []))
+        for port in rec1.get("ports"):
+            if port['port'] in ports:
+                curport = ports[port['port']]
+                if 'scripts' in curport:
+                    curport['scripts'] = curport['scripts'][:]
+                else:
+                    curport['scripts'] = []
+                present_scripts = set(
+                    script['id'] for script in curport['scripts']
+                )
+                for script in port.get("scripts", []):
+                    if script['id'] not in present_scripts:
+                        curport['scripts'].append(script)
+                if not curport['scripts']:
+                    del curport['scripts']
+                if port.get('service_method') == 'probed' and \
+                   curport.get('service_method') != 'probed':
+                    for key in port:
+                        if key.startswith("service_"):
+                            curport[key] = port[key]
+            else:
+                ports[port['port']] = port
+        rec["ports"] = ports.values()
+        for field in ["traces", "infos", "scripts", "ports"]:
+            if not rec[field]:
+                del rec[field]
+        return rec
+
     def remove(self, host, archive=False):
         """Removes the host "host" from the active (the old one if
         "archive" is set to True) column. "host" must be the host
@@ -485,10 +569,9 @@ have no effect if it is not expected)."""
             colname_hosts = self.colname_hosts
             colname_scans = self.colname_scans
         self.db[colname_hosts].remove(spec_or_id=host['_id'])
-        scanid = host.get('scanid')
-        if scanid is not None and self.get(
-                {'scanid': scanid}, archive=archive).count() == 0:
-            self.db[colname_scans].remove(spec_or_id=scanid)
+        for scanid in self.getscanids(host):
+            if self.get({'scanid': scanid}, archive=archive).count() == 0:
+                self.db[colname_scans].remove(spec_or_id=scanid)
 
     def archive(self, host):
         """Archives a given host record. Also archives the
@@ -515,8 +598,7 @@ have no effect if it is not expected)."""
                 host['_id'],
                 self.colname_hosts,
             )
-        scanid = host.get('scanid')
-        if scanid is not None:
+        for scanid in self.getscanids(host):
             scan = self.db[self.colname_scans].find_one({'_id': scanid})
             if scan is not None:
                 # store the scan in the archive scans collection if it
@@ -1162,8 +1244,9 @@ have no effect if it is not expected)."""
             ("product", product),
             ("version", version),
         ]
-        flt = dict((field, value) for field, value in fields
-                                  if value is not None)
+        flt = dict((field, value)
+                   for field, value in fields
+                   if value is not None)
         nflt = len(flt)
         if nflt == 0:
             return {"cpes": {"$exists": True}}

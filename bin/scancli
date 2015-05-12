@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ def displayhost(dic, showscripts=True, showtraceroute=True, showos=True,
         h += " (%s)" % '/'.join(x['name'] for x in dic['hostnames'])
     if 'source' in dic:
         h += ' from %s' % dic['source']
-    if 'categories' in dic:
+    if 'categories' in dic and dic['categories']:
         h += ' (%s)' % ', '.join(dic['categories'])
     if 'state' in dic:
         h += ' (%s' % dic['state']
@@ -282,11 +282,15 @@ def display_xml_preamble(out=sys.stdout):
 
 
 def display_xml_host(h, out=sys.stdout, archive=False):
-    scan = db.db.nmap.getscan(h['scanid'], archive=archive)
-    if 'scaninfos' in scan and scan['scaninfos']:
-        for k in scan['scaninfos'][0]:
-            scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
-        del scan['scaninfos']
+    if isinstance(h['scanid'], list):
+        # meaningless when multiple scans have been merged
+        scan = {}
+    else:
+        scan = db.db.nmap.getscan(h['scanid'], archive=archive)
+        if 'scaninfos' in scan and scan['scaninfos']:
+            for k in scan['scaninfos'][0]:
+                scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
+                del scan['scaninfos']
     for k in ['version', 'start', 'startstr', 'args', 'scanner',
               'xmloutputversion', 'scaninfo.type', 'scaninfo.protocol',
               'scaninfo.numservices', 'scaninfo.services']:

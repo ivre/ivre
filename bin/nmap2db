@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -64,6 +64,11 @@ def main():
     parser.add_argument('--archive-same-host-and-source', action='store_true',
                         help='Archive results with both the same host and'
                         ' source (this is the default).')
+    parser.add_argument('--merge', action='store_true', help='Merge '
+                        'result with previous scan result for same host '
+                        'and source. Useful to use multiple partial '
+                        'scan results (e.g., one with -p 80, another '
+                        'with -p 21).')
     parser.add_argument('--force-info', action='store_true',
                         help='Force information (AS, country, city, etc.)'
                         ' renewal (only useful with JSON format)')
@@ -95,7 +100,7 @@ def main():
                 scan,
                 categories=categories, source=args.source,
                 needports=args.port, gettoarchive=gettoarchive,
-                force_info=args.force_info,
+                force_info=args.force_info, merge=args.merge,
         ):
             count += 1
     print "%d results imported." % count
