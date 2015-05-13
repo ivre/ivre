@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the parser for nmap's XML output files.
 
@@ -655,7 +655,8 @@ class Nmap2Mongo(NmapHandler):
     """Specific handler for MongoDB backend."""
 
     def __init__(self, fname, categories=None, source=None,
-                 gettoarchive=None, add_addr_infos=True, **kargs):
+                 gettoarchive=None, add_addr_infos=True, merge=False,
+                 **kargs):
         from ivre import db
         self._db = db.db
         if categories is None:
@@ -672,9 +673,11 @@ class Nmap2Mongo(NmapHandler):
             self._gettoarchive = lambda c, a, s: []
         else:
             self._gettoarchive = gettoarchive
+        self.merge = merge
         NmapHandler.__init__(self, fname, categories=categories,
                              source=source, gettoarchive=gettoarchive,
-                             add_addr_infos=add_addr_infos, **kargs)
+                             add_addr_infos=add_addr_infos, merge=merge,
+                             **kargs)
 
     def _addhost(self):
         if self.categories:
@@ -689,6 +692,8 @@ class Nmap2Mongo(NmapHandler):
                     self._curhost['infos'].update(data)
         if self.source:
             self._curhost['source'] = self.source
+        if self.merge and self._db.nmap.merge_host(self._curhost):
+            return
         self._db.nmap.archive_from_func(self._curhost, self._gettoarchive)
         self._db.nmap.store_host(self._curhost)
 
