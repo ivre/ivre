@@ -456,7 +456,7 @@ for q in query:
         elif q[1].startswith('tcp/') or q[1].startswith('udp/'):
             q[1] = q[1].split('/', 1)
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
-                port=int(q[1][1]), protocol=q[0], neg=neg))
+                port=int(q[1][1]), protocol=q[1][0], neg=neg))
         else:
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
                 service=q[1], neg=neg))
