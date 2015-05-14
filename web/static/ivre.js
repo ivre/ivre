@@ -873,6 +873,11 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("cpe", "' + x.join(":") + '")';
 	};
     }
+    else if(field === 'screenwords') {
+	preparefilter = function(x) {
+	    return 'setparam("screenwords", "' + x + '")';
+	};
+    }
     else if(field.substr(0, 3) === 'hop') {
 	if(field[3] === ':')
 	    preparefilter = function(x) {
@@ -1858,6 +1863,8 @@ ivreWebUi
 	    // enip (portscript enip-info)
 	    "enip.vendor", "enip.product", "enip.serial", "enip.devtype",
 	    "enip.prodcode", "enip.rev", "enip.ip",
+	    // screenwords (words from screenshots)
+	    "screenwords",
 	];
 	$scope.topvalues = topvalues;
 	for(var i in topvalues) {

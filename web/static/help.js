@@ -276,8 +276,12 @@ var HELP = {
 	"content": "Look for hosts with at least one open port other than those listed.",
     },
     "screenshot": {
-	"title": "<b>(!)</b>screenshot<b>(:[port number])</b>",
+	"title": "<b>(!)</b>screenshot<b>(:[port or service])</b>",
 	"content": "Search results with at least one screenshot.",
+    },
+    "screenwords": {
+	"title": "<b>(!)</b>screenwords<b>(:[word](,[word](,...))(:[port or service]))</b>",
+	"content": "Search results with at least one screenshot containing the provided word(s).",
     },
     "notes": {
 	"title": "notes",

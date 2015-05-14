@@ -34,6 +34,7 @@ import json
 
 import re
 import datetime
+import subprocess
 
 
 class MongoDB(DB):
@@ -299,7 +300,7 @@ class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
     needunwind = ["categories", "ports", "ports.scripts", "scripts",
-                  "scripts.smb-enum-shares.shares",
+                  "ports.screenwords", "scripts.smb-enum-shares.shares",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
@@ -350,7 +351,10 @@ class MongoDBNmap(MongoDB, DBNmap):
         }
         self.specialindexes = {
             self.colname_hosts: [
-                ([('ports.screenshot', pymongo.ASCENDING)],
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ],
                  {"sparse": True}),
                 ([
                     ('cpes.type', pymongo.ASCENDING),
@@ -361,7 +365,10 @@ class MongoDBNmap(MongoDB, DBNmap):
                  {"sparse": True}),
             ],
             self.colname_oldhosts: [
-                ([('ports.screenshot', pymongo.ASCENDING)],
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ],
                  {"sparse": True}),
             ],
         }
@@ -428,6 +435,33 @@ have no effect if it is not expected)."""
             return
         port['screenshot'] = "field"
         port['screendata'] = bson.Binary(data)
+        if config.TESSERACT_CMD is not None:
+            proc = subprocess.Popen([config.TESSERACT_CMD, "stdin", "stdout"],
+                                    stdin=subprocess.PIPE,
+                                    stdout=subprocess.PIPE)
+            proc.stdin.write(data)
+            proc.stdin.close()
+            words = set()
+            port['screenwords'] = []
+            size = utils.MAXVALLEN
+            for line in proc.stdout:
+                if size == 0:
+                    break
+                for word in line.split():
+                    if word not in words:
+                        if len(word) <= size:
+                            words.add(word)
+                            port['screenwords'].append(word)
+                            size -= len(word)
+                        else:
+                            # When we meet the first word that would
+                            # make port['screenwords'] too big, we
+                            # stop immediately. This choice has been
+                            # made to limit the time spent here.
+                            size = 0
+                            break
+            if not port['screenwords']:
+                del port['screenwords']
         self.db[
             self.colname_oldhosts if archives else self.colname_hosts
         ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
@@ -443,6 +477,8 @@ have no effect if it is not expected)."""
                     if p['screenshot'] == "field":
                         if 'screendata' in p:
                             del p['screendata']
+                    if 'screenwords' in p:
+                        del p['screenwords']
                     del p['screenshot']
                     changed = True
         if changed:
@@ -1206,30 +1242,40 @@ have no effect if it is not expected)."""
         )
 
     @staticmethod
-    def searchscreenshot(port=None, protocol='tcp', service=None, neg=False):
+    def searchscreenshot(port=None, protocol='tcp', service=None, words=None,
+                         neg=False):
         """Filter results with (without, when `neg == True`) a
         screenshot (on a specific `port` if specified).
 
+        `words` can be specified as a string, a regular expression, a
+        boolean, or as a list and is/are matched against the OCR
+        results. When `words` is specified and `neg == True`, the
+        result will filter results **with** a screenshot **without**
+        the word(s) in the OCR results.
+
         """
-        if port is None and service is None:
-            return {'ports.screenshot': {'$exists': not neg}}
-        if port is None:
-            return {'ports': {
-                '$elemMatch': {'service_name': service,
-                               'screenshot': {'$exists': not neg}}
-            }}
-        if service is None:
-            return {'ports': {
-                '$elemMatch': {'port': port,
-                               'protocol': protocol,
-                               'screenshot': {'$exists': not neg}}
-            }}
-        return {'ports': {
-            '$elemMatch': {'port': port,
-                           'protocol': protocol,
-                           'service_name': service,
-                           'screenshot': {'$exists': not neg}}
-        }}
+        result = {'ports': {'$elemMatch': {}}}
+        if words is None:
+            if port is None and service is None:
+                return {'ports.screenshot': {'$exists': not neg}}
+            result['ports']['$elemMatch']['screenshot'] = {'$exists': not neg}
+        else:
+            result['ports']['$elemMatch']['screenshot'] = {'$exists': True}
+            if isinstance(words, list):
+                words = {'$ne' if neg else '$all': words}
+            elif type(words) is utils.REGEXP_T:
+                words = {'$not': words} if neg else words
+            elif type(words) is bool:
+                words = {"$exists": words}
+            else:
+                words = {'$ne': words} if neg else words
+            result['ports']['$elemMatch']['screenwords'] = words
+        if port is not None:
+            result['ports']['$elemMatch']['port'] = port
+            result['ports']['$elemMatch']['protocol'] = protocol
+        if service is not None:
+            result['ports']['$elemMatch']['service_name'] = service
+        return result
 
     @staticmethod
     def searchcpe(cpe_type=None, vendor=None, product=None, version=None):
@@ -1274,6 +1320,9 @@ have no effect if it is not expected)."""
           - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
           - devicetype / devicetype:<portnbr>
           - [port]script:<scriptid> / hostscript:<scriptid>
+          - cert.* / smb.*
+          - modbus.* / s7.* / enip.*
+          - screenwords
           - hop
         """
         colname = self.colname_oldhosts if archive else self.colname_hosts
@@ -1672,6 +1721,8 @@ have no effect if it is not expected)."""
                 "ip": "Device IP",
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
+        elif field == 'screenwords':
+            field = 'ports.screenwords'
         elif field == 'hop':
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],

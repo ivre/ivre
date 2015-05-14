@@ -30,6 +30,7 @@ IVRE relies on:
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%httpd-ivre%%'')
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]])
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases
+  * optionally [[https://code.google.com/p/tesseract-ocr/|Tesseract]], if you plan to add screenshots to your Nmap scan results
   * optionally [[http://www.docker.com/|Docker]] & [[https://www.vagrantup.com/|Vagrant]] (version 1.6 minimum)
 
 IVRE comes with (refer to the [[doc:LICENSE-EXTERNAL|LICENSE-EXTERNAL]] file for the licenses):

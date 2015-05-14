@@ -55,6 +55,9 @@ IVRE relies on:
   * Maxmind [GeoIP](https://www.maxmind.com/en/geolocation_landing)
     free databases
 
+  * optionally [Tesseract](https://code.google.com/p/tesseract-ocr/),
+    if you plan to add screenshots to your Nmap scan results
+
   * optionally [Docker](http://www.docker.com/) &
     [Vagrant](https://www.vagrantup.com/) (version 1.6 minimum)
 
