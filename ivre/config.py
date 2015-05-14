@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module handles configuration values.
 
@@ -63,6 +63,7 @@ NMAP_SCRIPT_EXCLUDE = [
 ]
 NMAP_SCRIPT_FORCE = []
 NMAP_EXTRA_OPTIONS = None
+TESSERACT_CMD = "tesseract"
 
 
 def get_config_file(paths=None):

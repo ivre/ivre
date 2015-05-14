@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -456,10 +456,31 @@ for q in query:
         elif q[1].startswith('tcp/') or q[1].startswith('udp/'):
             q[1] = q[1].split('/', 1)
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
-                port=int(q[1][1]), protocol=q[0], neg=neg))
+                port=int(q[1][1]), protocol=q[1][0], neg=neg))
         else:
             flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
                 service=q[1], neg=neg))
+    elif nq == "screenwords":
+        if q[1] is None:
+            flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(words=not neg))
+        else:
+            params = q[1].split(':', 1)
+            words = (map(ivre.utils.str2regexp, params[0].split(','))
+                     if ',' in params[0] else ivre.utils.str2regexp(params[0]))
+            if len(params) == 1:
+                flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                    words=words, neg=neg))
+            elif params[1].isdigit():
+                flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                    port=int(q[1]), neg=neg, words=words))
+            elif params[1].startswith('tcp/') or params[1].startswith('udp/'):
+                params[1] = params[1].split('/', 1)
+                flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                    port=int(params[1][1]), protocol=params[1][0],
+                    neg=neg, words=words))
+            else:
+                flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
+                    service=q[1], neg=neg, words=words))
     elif nq == "cpe":
         if q[1]:
             cpe_kwargs = {}
