@@ -78,7 +78,7 @@ and an access to the Internet.
 You can also build the images from the provided `Dockerfile`s. For
 that, from the `docker/` directory, run:
 
-    $ docker pull debian:testing
+    $ docker pull debian:stable
     $ for img in agent base client db web ; do
     > docker build -t "ivre/$img" "$img"
     > done
@@ -96,7 +96,7 @@ run:
 
     $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
     $ cd docker
-    $ docker pull debian:testing
+    $ docker pull debian:stable
     $ docker build -t ivre/base base-local
 
 #### Using pip ####
@@ -107,7 +107,7 @@ Another way to create the `ivre/base` image is to use
 that the version of IVRE on PyPI is not always up-to-date. From the
 `docker/` directory, run:
 
-    $ docker pull debian:testing
+    $ docker pull debian:stable
     $ docker build -t ivre/base base-pip
 
 ### Alternative build for the web image using Apache ###
@@ -115,7 +115,7 @@ that the version of IVRE on PyPI is not always up-to-date. From the
 To use Apache (rather than Nginx) for the `ivre/web` image, simply
 run:
 
-    $ docker pull debian:testing
+    $ docker pull debian:stable
     $ docker build -t ivre/web web-apache
 
 Unlike the default `ivre/web` image, this image uses the Debian

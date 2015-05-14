@@ -51,7 +51,7 @@ You can either get the images from a repository on the Internet or build them. I
 
 You can also build the images from the provided ''%%Dockerfile%%''s. For that, from the ''%%docker/%%'' directory, run:
 
-<code>$ docker pull debian:testing
+<code>$ docker pull debian:stable
 $ for img in agent base client db web ; do
 > docker build -t "ivre/$img" "$img"
 > done</code>
@@ -65,19 +65,19 @@ It is also possible to build the ''%%ivre/base%%'' image without fetching the //
 
 <code>$ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
 $ cd docker
-$ docker pull debian:testing
+$ docker pull debian:stable
 $ docker build -t ivre/base base-local</code>
 === Using pip ===
 
 Another way to create the ''%%ivre/base%%'' image is to use [[https://pypi.python.org/pypi/pip|pip]] and thus get IVRE from [[https://pypi.python.org|PyPI]], the Python Package Index. Please note that the version of IVRE on PyPI is not always up-to-date. From the ''%%docker/%%'' directory, run:
 
-<code>$ docker pull debian:testing
+<code>$ docker pull debian:stable
 $ docker build -t ivre/base base-pip</code>
 ==== Alternative build for the web image using Apache ====
 
 To use Apache (rather than Nginx) for the ''%%ivre/web%%'' image, simply run:
 
-<code>$ docker pull debian:testing
+<code>$ docker pull debian:stable
 $ docker build -t ivre/web web-apache</code>
 Unlike the default ''%%ivre/web%%'' image, this image uses the Debian package to install Dokuwiki (the Debian package for Dokuwiki can only be used with Apache and the default ''%%ivre/web%%'' image uses Nginx). This can explain some differences one could experience between the two images.
 
