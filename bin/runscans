@@ -274,6 +274,7 @@ if __name__ == '__main__':
             description='Run massive nmap scans.',
             parents=[ivre.target.argparser,
                      ivre.nmapopt.argparser])
+        USING_ARGPARSE = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(
@@ -284,6 +285,7 @@ if __name__ == '__main__':
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
+        USING_ARGPARSE = False
     parser.add_argument('--output',
                         choices=['XML', 'XMLFull', 'XMLFork', 'Test',
                                  'Count', 'List', 'ListAll',
@@ -302,9 +304,14 @@ if __name__ == '__main__':
     parser.add_argument('--nmap-max-stack-size', metavar='TIME', type=int,
                         help="maximumt size (in bytes) of each nmap "
                         "process's stack")
-    parser.add_argument('--again', nargs='+',
-                        choices=['up', 'down', 'unknown', 'all'],
-                        help='select status of targets to scan again')
+    if USING_ARGPARSE:
+        parser.add_argument('--again', nargs='+',
+                            choices=['up', 'down', 'unknown', 'all'],
+                            help='select status of targets to scan again')
+    else:
+        parser.add_argument('--again',
+                            choices=['up', 'down', 'unknown', 'all'],
+                            help='select status of targets to scan again')
     args = parser.parse_args()
     if args.output == 'Count':
         if args.country is not None:
