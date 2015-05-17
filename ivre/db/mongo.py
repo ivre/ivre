@@ -797,13 +797,14 @@ have no effect if it is not expected)."""
 
     @staticmethod
     def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
         """
-        Filters (if `neg` == True, filters out) one particular country.
-        """
-        if type(country) not in [str, unicode] and hasattr(
-                country, '__iter__'):
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
             return {'infos.country_code':
-                    {'$nin' if neg else '$in': list(country)}}
+                    {'$nin' if neg else '$in': country}}
         return {'infos.country_code':
                 {'$ne': country} if neg else country}
 

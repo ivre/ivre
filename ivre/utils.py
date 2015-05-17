@@ -445,3 +445,35 @@ class FakeArgparserParent(object):
 
         """
         self.args.append((args, kargs))
+
+
+# Country aliases:
+#   - UK: GB
+#   - EU*: EU + 28 EU member states
+COUNTRY_ALIASES = {
+    "UK": "GB",
+    "EU*": [
+        "EU", "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI",
+        "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT",
+        "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "GB",
+    ],
+}
+
+def country_unalias(country):
+    """Takes either a country code (or an iterator of country codes)
+    and returns either a country code or a list of country codes.
+
+    Current aliases are:
+
+      - "UK": alias for "GB".
+
+      - "EU*": alias for a list containing "EU" (which is a code used
+        in Maxming GeoIP database) plus the list of the country codes
+        of the European Union member states.
+
+    """
+    if type(country) in [str, unicode]:
+        return COUNTRY_ALIASES.get(country, country)
+    if hasattr(country, '__iter__'):
+        return [country_unalias(country_elt) for country_elt in country]
+    return country
