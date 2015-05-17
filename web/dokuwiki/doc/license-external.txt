@@ -36,7 +36,9 @@ They are licensed under [[http://opensource.org/licenses/BSD-3-Clause|BSD licens
 
 Files under the ''%%web/static/fi%%'' directory come from the [[https://lipis.github.io/flag-icon-css/|flag-icon-css]] project.
 
-They are licensed under [[https://en.wikipedia.org/wiki/MIT_License|MIT license]].
+It includes the European flag from [[https://github.com/lipis/flag-icon-css/pull/71/|pull request]].
+
+These files are licensed under [[https://en.wikipedia.org/wiki/MIT_License|MIT license]].
 
 ===== Natural Earth =====
 

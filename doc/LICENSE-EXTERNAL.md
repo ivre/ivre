@@ -48,7 +48,10 @@ They are licensed under
 Files under the `web/static/fi` directory come from the
 [flag-icon-css](https://lipis.github.io/flag-icon-css/) project.
 
-They are licensed under [MIT
+It includes the European flag from [pull request
+#71](https://github.com/lipis/flag-icon-css/pull/71/).
+
+These files are licensed under [MIT
 license](https://en.wikipedia.org/wiki/MIT_License).
 
 
