@@ -34,7 +34,7 @@ setup(
     version='0.9',
     install_requires=[
         'pycrypto',
-        'pymongo>=2.7.2,<3.0.0',
+        'pymongo>=2.7.2',
     ],
     packages=['ivre', 'ivre/db'],
     scripts=['bin/getmoduli', 'bin/ipdata', 'bin/ipinfo', 'bin/ipinfohost',

@@ -17,7 +17,7 @@ If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro
 To install IVRE, you'll need [[http://www.python.org/|Python]] 2, version 2.6 minimum (prefer 2.7), with the following modules:
 
   * [[http://www.pycrypto.org/|Crypto]]
-  * [[http://api.mongodb.org/python/|pymongo]] version 2, 2.7.2 minimum.
+  * [[http://api.mongodb.org/python/|pymongo]] version 2.7.2 minimum.
 
 ===== Installation =====
 
