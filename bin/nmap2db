@@ -81,15 +81,17 @@ def main():
     if args.test:
         database = ivre.db.DBNmap()
     if args.never_archive:
-        def gettoarchive(collection, addr, source):
+        def gettoarchive(addr, source):
             return []
     elif args.archive:
-        def gettoarchive(collection, addr, source):
-            return collection.find({'addr': addr})
+        def gettoarchive(addr, source):
+            return database.get(database.searchhost(addr))
     else:  #args.archive_same_host_and_source
-        def gettoarchive(collection, addr, source):
-            return collection.find({'addr': addr,
-                                    'source': source})
+        def gettoarchive(addr, source):
+            return database.get(
+                database.flt_and(database.searchhost(addr),
+                                 database.searchsource(source))
+            )
     if args.recursive:
         scans = recursive_filelisting(args.scan)
     else:

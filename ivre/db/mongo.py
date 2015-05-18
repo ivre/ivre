@@ -99,6 +99,52 @@ class MongoDB(DB):
                                     " with 'username'")
             return self._db
 
+    @property
+    def find(self):
+        """Wrapper arount column .find() method, depending on pymongo
+        version.
+
+        """
+        try:
+            return self._find
+        except AttributeError:
+            if pymongo.version_tuple[0] > 2:
+                def _find(colname, *args, **kargs):
+                    if 'spec' in kargs:
+                        kargs['filter'] = kargs.pop('spec')
+                    if 'fields' in kargs:
+                        kargs['projection'] = kargs.pop('fields')
+                    return self.db[colname].find(*args, **kargs)
+                self._find = _find
+            else:
+                def _find(colname, *args, **kargs):
+                    return self.db[colname].find(*args, **kargs)
+                self._find = _find
+            return self._find
+
+    @property
+    def find_one(self):
+        """Wrapper arount collection .find_one() method, depending on
+        pymongo version.
+
+        """
+        try:
+            return self._find_one
+        except AttributeError:
+            if pymongo.version_tuple[0] > 2:
+                def _find_one(colname, *args, **kargs):
+                    if 'spec_or_id' in kargs:
+                        kargs['filter_or_id'] = kargs.pop('spec_or_id')
+                    if 'fields' in kargs:
+                        kargs['projection'] = kargs.pop('fields')
+                    return self.db[colname].find_one(*args, **kargs)
+                self._find_one = _find_one
+            else:
+                def _find_one(colname, *args, **kargs):
+                    return self.db[colname].find_one(*args, **kargs)
+                self._find_one = _find_one
+            return self._find_one
+
     @staticmethod
     def getid(record):
         return record['_id']
@@ -393,11 +439,11 @@ take a long time, depending on both the operations and the filter.
 Any keyword argument other than "archive" is passed to the .find()
 method of the Mongodb column object, without any validation (and might
 have no effect if it is not expected)."""
-        if archive:
-            cur = self.db[self.colname_oldhosts].find(flt, **kargs)
-        else:
-            cur = self.db[self.colname_hosts].find(flt, **kargs)
-        return self.set_limits(cur)
+        return self.set_limits(self.find(
+            self.colname_oldhosts if archive else self.colname_hosts,
+            flt,
+            **kargs
+        ))
 
     @staticmethod
     def getscanids(host):
@@ -409,11 +455,11 @@ have no effect if it is not expected)."""
         return [scanids]
 
     def getscan(self, scanid, archive=False, **kargs):
-        if archive:
-            return self.db[self.colname_oldscans].find_one(
-                {'_id': scanid}, **kargs)
-        return self.db[self.colname_scans].find_one(
-            {'_id': scanid}, **kargs)
+        return self.find_one(
+            self.colname_oldscans if archive else self.colname_scans,
+            {'_id': scanid},
+            **kargs
+        )
 
     def getscreenshot(self, port):
         """Returns the content of a port's screenshot."""
@@ -498,8 +544,8 @@ have no effect if it is not expected)."""
 
     def is_scan_present(self, scanid):
         for colname in [self.colname_scans, self.colname_oldscans]:
-            if self.db[colname].find_one({"_id": scanid},
-                                         fields=[]) is not None:
+            if self.find_one(colname, {"_id": scanid},
+                             fields=[]) is not None:
                 return True
         return False
 
@@ -616,7 +662,7 @@ have no effect if it is not expected)."""
         "not archived" host collumn.
 
         """
-        if self.db[self.colname_hosts].find_one({"_id": host['_id']}) is None:
+        if self.find_one(self.colname_hosts, {"_id": host['_id']}) is None:
             if config.DEBUG:
                 print("WARNING: cannot archive: host %s does not exist"
                       " in %r" % (host['_id'], self.colname_hosts))
@@ -635,12 +681,12 @@ have no effect if it is not expected)."""
                 self.colname_hosts,
             )
         for scanid in self.getscanids(host):
-            scan = self.db[self.colname_scans].find_one({'_id': scanid})
+            scan = self.find_one(self.colname_scans, {'_id': scanid})
             if scan is not None:
                 # store the scan in the archive scans collection if it
                 # is not there yet
-                if self.db[self.colname_oldscans].find_one(
-                        {'_id': scanid}) is None:
+                if self.find_one(self.colname_oldscans,
+                                 {'_id': scanid}) is None:
                     self.db[self.colname_oldscans].insert(scan)
                     if config.DEBUG:
                         print "SCAN ARCHIVED: %s in %r" % (
@@ -650,8 +696,8 @@ have no effect if it is not expected)."""
                 # remove the scan from the (not archived) scans
                 # collection if there is no more hosts related to this
                 # scan in the hosts collection
-                if self.db[self.colname_hosts].find_one(
-                        {'scanid': scanid}) is None:
+                if self.find_one(self.colname_hosts,
+                                 {'scanid': scanid}) is None:
                     self.db[self.colname_scans].remove(spec_or_id=scanid)
                     if config.DEBUG:
                         print "SCAN REMOVED: %s in %r" % (
@@ -662,8 +708,7 @@ have no effect if it is not expected)."""
     def archive_from_func(self, host, gettoarchive):
         if gettoarchive is None:
             return
-        for rec in gettoarchive(self.db[self.colname_hosts],
-                                host['addr'], host.get('source')):
+        for rec in gettoarchive(host['addr'], host.get('source')):
             self.archive(rec)
 
     def get_mean_open_ports(self, flt, archive=False):
@@ -1960,7 +2005,7 @@ Any keyword argument is passed to the .find() method of the Mongodb
 column object, without any validation (and might have no effect if it
 is not expected)."""
         return self.set_limits(
-            self.db[self.colname_passive].find(spec, **kargs))
+            self.find(self.colname_passive, spec, **kargs))
 
     def get_one(self, spec, **kargs):
         """Same function as get, except .find_one() method is called
@@ -1970,7 +2015,7 @@ returned.
 Unlike get(), this function might take a long time, depending
 on "spec" and the indexes set on colname_passive column."""
         # TODO: check limits
-        return self.db[self.colname_passive].find_one(spec, **kargs)
+        return self.find_one(self.colname_passive, spec, **kargs)
 
     def update(self, spec, **kargs):
         """Updates the first record matching "spec" in the "passive" column,
@@ -2204,16 +2249,18 @@ setting values according to the keyword arguments.
         return {field: {'$lt' if neg else '$gte': now - delta}}
 
     def knownip_bycountry(self, code):
-        return self.set_limits(self.db[self.colname_ipdata].find(
-            {'country_code': code})).distinct('addr')
+        return self.set_limits(self.find(self.colname_ipdata,
+                                         {'country_code': code}
+                                     )).distinct('addr')
 
     def knownip_byas(self, asnum):
         if type(asnum) is str:
             if asnum.startswith('AS'):
                 asnum = asnum[2:]
             asnum = int(asnum)
-        return self.set_limits(self.db[self.colname_ipdata].find(
-            {'as_num': asnum})).distinct('addr')
+        return self.set_limits(self.find(self.colname_ipdata,
+                                         {'as_num': asnum}
+                                     )).distinct('addr')
 
     def set_data(self, addr, force=False):
         """Sets IP information in colname_ipdata."""
@@ -2279,7 +2326,7 @@ setting values according to the keyword arguments.
 
     def get_data(self, addr):
         """Gets IP information in colname_ipdata."""
-        data = self.db[self.colname_ipdata].find_one({'addr': addr})
+        data = self.find_one(self.colname_ipdata, {'addr': addr})
         if data is not None:
             del data['_id']
         return data
@@ -2390,25 +2437,25 @@ class MongoDBData(MongoDB, DBData):
             )
 
     def country_name_by_code(self, code):
-        rec = self.db[self.colname_country_codes].find_one(
-            {'country_code': code},
-            fields=['name'])
+        rec = self.find_one(self.colname_country_codes,
+                            {'country_code': code},
+                            fields=['name'])
         if rec:
             return rec['name']
         return rec
 
     def country_codes_by_name(self, name):
         return self.set_limits(
-            self.db[self.colname_country_codes].find({
-                'name': name})).distinct('country_code')
+            self.find(self.colname_country_codes,
+                      {'name': name})).distinct('country_code')
 
     def find_data_byip(self, addr, column):
         try:
             addr = utils.ip2int(addr)
         except (TypeError, utils.socket.error):
             pass
-        rec = self.db[column].find_one({'start': {'$lte': addr}},
-                                       sort=[('start', -1)])
+        rec = self.find_one(column, {'start': {'$lte': addr}},
+                            sort=[('start', -1)])
         if rec and addr <= rec['stop']:
             del rec['_id'], rec['start'], rec['stop']
             return rec
@@ -2428,8 +2475,8 @@ class MongoDBData(MongoDB, DBData):
         return self.find_data_byip(addr, self.colname_geoip_city)
 
     def location_byid(self, locid):
-        rec = self.db[self.colname_city_locations].find_one(
-            {'location_id': locid})
+        rec = self.find_one(self.colname_city_locations,
+                            {'location_id': locid})
         if rec:
             del rec['_id'], rec['location_id']
         return rec
@@ -2454,9 +2501,9 @@ class MongoDBData(MongoDB, DBData):
         return [
             (x['start'], x['stop']) for x in
             self.set_limits(
-                self.db[self.colname_geoip_country].find(
-                    {'country_code': code},
-                    fields=['start', 'stop']))
+                self.find(self.colname_geoip_country,
+                          {'country_code': code},
+                          fields=['start', 'stop']))
         ]
 
     def ipranges_byas(self, asnum):
@@ -2467,9 +2514,9 @@ class MongoDBData(MongoDB, DBData):
         return [
             (x['start'], x['stop']) for x in
             self.set_limits(
-                self.db[self.colname_geoip_as].find(
-                    {'as_num': asnum},
-                    fields=['start', 'stop']))
+                self.find(self.colname_geoip_as,
+                          {'as_num': asnum},
+                          fields=['start', 'stop']))
         ]
 
 
@@ -2524,29 +2571,27 @@ class MongoDBAgent(MongoDB, DBAgent):
         return self.db[self.colname_agents].insert(agent)
 
     def get_agent(self, agentid):
-        return self.db[self.colname_agents].find_one({"_id": agentid})
+        return self.find(self.colname_agents, {"_id": agentid})
 
     def get_free_agents(self):
         return (x['_id'] for x in
                 self.set_limits(
-                    self.db[self.colname_agents].find(
-                        {"scan": None},
-                        fields=["_id"])))
+                    self.find(self.colname_agents,
+                              {"scan": None},
+                              fields=["_id"])))
 
     def get_agents_by_master(self, masterid):
         return (x['_id'] for x in
                 self.set_limits(
-                    self.db[self.colname_agents].find(
-                        {"master": masterid},
-                        fields=["_id"],
-                    )))
+                    self.find(self.colname_agents,
+                              {"master": masterid},
+                              fields=["_id"])))
 
     def get_agents(self):
         return (x['_id'] for x in
                 self.set_limits(
-                    self.db[self.colname_agents].find(
-                        fields=["_id"],
-                    )))
+                    self.find(self.colname_agents,
+                              fields=["_id"])))
 
     def assign_agent(self, agentid, scanid,
                      only_if_unassigned=False,
@@ -2588,7 +2633,7 @@ class MongoDBAgent(MongoDB, DBAgent):
         return self.db[self.colname_scans].insert(scan)
 
     def _get_scan(self, scanid):
-        return self.db[self.colname_scans].find_one({"_id": scanid})
+        return self.find_one(self.colname_scans, {"_id": scanid})
 
     def _lock_scan(self, scanid, oldlockid, newlockid):
         if oldlockid is not None:
@@ -2619,8 +2664,8 @@ class MongoDBAgent(MongoDB, DBAgent):
     def get_scans(self):
         return (x['_id'] for x in
                 self.set_limits(
-                    self.db[self.colname_scans].find(
-                        fields=["_id"])))
+                    self.find(self.colname_scans,
+                              fields=["_id"])))
 
     def _update_scan_target(self, scanid, target):
         return self.db[self.colname_scans].update(
@@ -2634,10 +2679,10 @@ class MongoDBAgent(MongoDB, DBAgent):
         return self.db[self.colname_masters].insert(master)
 
     def get_master(self, masterid):
-        return self.db[self.colname_masters].find_one({"_id": masterid})
+        return self.find_one(self.colname_masters, {"_id": masterid})
 
     def get_masters(self):
         return (x['_id'] for x in
                 self.set_limits(
-                    self.db[self.colname_masters].find(
-                        fields=["_id"])))
+                    self.find(self.colname_masters,
+                              fields=["_id"])))
