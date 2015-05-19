@@ -24,8 +24,7 @@ To install IVRE, you'll need [Python](http://www.python.org/) 2,
 version 2.6 minimum (prefer 2.7), with the following modules:
 
   * [Crypto](http://www.pycrypto.org/)
-  * [pymongo](http://api.mongodb.org/python/) version 2, 2.7.2
-    minimum.
+  * [pymongo](http://api.mongodb.org/python/) version 2.7.2 minimum.
 
 ## Installation ##
 

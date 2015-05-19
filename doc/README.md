@@ -34,7 +34,7 @@ IVRE relies on:
   * [Python](http://www.python.org/) 2, version 2.6 minimum
     * the [Crypto](http://www.pycrypto.org/) module
     * the [pymongo](http://api.mongodb.org/python/) module,
-      version 2, 2.7.2 minimum.
+      version 2.7.2 minimum.
 
   * [Nmap](http://nmap.org/) & [ZMap](https://zmap.io/)
 
