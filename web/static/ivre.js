@@ -791,6 +791,16 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("source", "' + x + '", true);';
 	};
     }
+    else if(field === 'script' || field === 'portscript') {
+	preparefilter = function(x) {
+	    return 'setparam("script", "' + x + '");';
+	};
+    }
+    else if(field === 'hostscript') {
+	preparefilter = function(x) {
+	    return 'setparam("hostscript", "' + x + '");';
+	};
+    }
     else if(field.substr(0, 5) === 'port:') {
 	var info = field.substr(5);
 	switch(info) {
@@ -1848,7 +1858,7 @@ ivreWebUi
 	    "cpe", "cpe:", "cpe.type", "cpe.type:", "cpe.vendor", "cpe.vendor:",
 	    "cpe.product", "cpe.product:", "cpe.version", "cpe.version:",
 	    // scripts
-	    "ports.scripts.id", "scripts.id",
+	    "script", "portscript", "hostscript",
 	    "script:", "portscript:", "hostscript:",
 	    // smb (hostscript smb-os-discovery)
 	    "smb.os", "smb.lanmanager",

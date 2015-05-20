@@ -1715,6 +1715,10 @@ have no effect if it is not expected)."""
                 field = 'scripts.smb-os-discovery.forest_dns'
             else:
                 field = 'scripts.smb-os-discovery.' + field[4:]
+        elif field in ["script", "portscript"]:
+            field = "ports.scripts.id"
+        elif field == "hostscript":
+            field = "scripts.id"
         elif (field.startswith('script:') or
               field.startswith('portscript:') or
               field.startswith('hostscript:')):
