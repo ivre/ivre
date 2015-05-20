@@ -63,7 +63,7 @@ displayed in the rightmost part of the screen.
       from vendor `microsoft`, `cpe.vendor:o:/^m/` will show top
       vendor names in CPEs that start with an `m`)
     - `devicetype`, `devicetype:[port]`
-    - `ports.scripts.id`, `scripts.id`
+    - `script`, `portscript` (like `script`), `hostscript`
     - `script:[scriptname]`, `portscript:[scriptname]` (like `script:`),
       `hostscript:[scriptname]`
     - `smb.os`, `smb.lanmanager`, `smb.domain`, `smb.dnsdomain`,
