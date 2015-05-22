@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -26,34 +26,8 @@
   <div host-summary=""></div>
 <!-- Next div is only displayed in summary mode-->
 <div class="summary"
-     ng-class="{'result-hidden-part': host.fulldisplay}">
-  <table>
-    <tr ng-repeat="summary in host.port_summary | orderBy: 'status'">
-      <td>
-	<span>
-	  {{summary.count}} port{{summary.count > 1 && "s" || ""}}
-	</span>
-      </td>
-      <td>
-	<span class="label label-status"
-	      ng-class="class_from_port_status(summary.status)">
-	  {{short_port_status(summary.status) | uppercase}}
-	</span>
-      </td>
-      <td>
-	<span ng-if="summary.type == 'extra'"
-	      ng-repeat="(reason, count) in summary.reasons">
-	  {{count}} {{reason}}<span ng-if="!$last">, </span></span>
-	<span ng-if="summary.type == 'ports'"
-	      ng-repeat="port in summary.ports | orderBy: ['protocol','port']"
-	      ><!--
-       --><a ng-click="setparam(port.protocol+'/'+port.port)" class="clickable">
-	    {{port.protocol}}/{{port.port}}</a><span ng-if="!$last">, </span>
-	</span>
-      </td>
-    </tr>
-  </table>
-</div>
+     ng-class="{'result-hidden-part': host.fulldisplay}"
+     ports-summary=""></div>
 <!-- Next div is only displayed in full mode-->
 <div class="full"
      ng-class="{'result-hidden-part': !host.fulldisplay}">
