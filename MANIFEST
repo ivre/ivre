@@ -343,6 +343,7 @@ web/static/templates/menu.html
 web/static/templates/progressbar.html
 web/static/templates/subview-host-summary.html
 web/static/templates/subview-port-summary.html
+web/static/templates/subview-ports-summary.html
 web/static/templates/subview-service-summary.html
 web/static/templates/view-cpes-only.html
 web/static/templates/view-hosts.html

@@ -84,6 +84,7 @@ setup(
           'web/static/templates/view-scripts-only.html',
           'web/static/templates/subview-host-summary.html',
           'web/static/templates/subview-port-summary.html',
+          'web/static/templates/subview-ports-summary.html',
           'web/static/templates/subview-service-summary.html']),
         # Bootstrap
         ('share/ivre/web/static/bs/css',

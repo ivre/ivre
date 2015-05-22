@@ -2087,6 +2087,11 @@ ivreWebUi
 	    templateUrl: 'templates/subview-port-summary.html'
 	};
     })
+    .directive('portsSummary', function() {
+	return {
+	    templateUrl: 'templates/subview-ports-summary.html'
+	};
+    })
     .directive('serviceSummary', function() {
 	return {
 	    templateUrl: 'templates/subview-service-summary.html'
