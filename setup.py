@@ -87,7 +87,12 @@ setup(
         # IVRE
         ('share/ivre/web/static/ivre',
          ['web/static/ivre/ivre.css',
-          'web/static/ivre/ivre.js']),
+          'web/static/ivre/controllers.js',
+          'web/static/ivre/graph.js',
+          'web/static/ivre/ivre.js',
+          'web/static/ivre/params.js',
+          'web/static/ivre/tooltip.js',
+          'web/static/ivre/utils.js']),
         # Bootstrap
         ('share/ivre/web/static/bs/css',
          ['web/static/bs/css/bootstrap.css',
