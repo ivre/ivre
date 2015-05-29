@@ -18,128 +18,130 @@
 
 /*********** Tooltip handling *********************/
 
-function common_prefix(strings) {
-    var result = "";
-    var i = 0;
-    var curchar;
-    if(strings.length === 0)
-	return result;
-    while(true) {
-	curchar = strings[0][i];
-	if(curchar === undefined) {
+var ToolTip = {
+    common_prefix: function (strings) {
+	var result = "";
+	var i = 0;
+	var curchar;
+	if(strings.length === 0)
 	    return result;
-	}
-	for(var j = 1; j < strings.length; j++)
-	    if(curchar !== strings[j][i])
+	while(true) {
+	    curchar = strings[0][i];
+	    if(curchar === undefined) {
 		return result;
-	result += curchar;
-	i++;
-    }
-    return result;
-}
-
-function set_tooltip_filter(elt) {
-    var key, content;
-    if(elt.value &&
-       (elt.value.length > 1 || "!-".indexOf(elt.value[0]) === -1)) {
-	var matching_keys = Object.keys(HELP).filter(
-	    function(key) {
-		return ((':/'.indexOf(key.slice(-1)) === -1
-			 && key !== 'screenshot'
-			 && key !== 'smbshare') ?
-			elt.value === key.substr(0, elt.value.length) :
-			elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
 	    }
-	);
-	var oldval = elt.getAttribute("oldval");
-	if(oldval === null)
-	    oldval = "";
-	if(matching_keys.length == 1) {
-	    key = matching_keys[0];
-	    content = HELP[key];
-	    if(elt.getAttribute('data-title') !== content.title) {
-		set_tooltip(elt, content);
-	    }
-	    if(oldval.length < elt.value.length &&
-	       elt.value.substr(0, oldval.length) === oldval &&
-	       elt.value.length < key.length) {
-		var start = elt.value.length;
-		oldval = elt.value;
-		elt.value = key;
-		elt.selectionStart = start;
-	    }
-	    else {
-		oldval = elt.value;
-	    }
-	    elt.setAttribute("oldval", oldval);
-	    return;
+	    for(var j = 1; j < strings.length; j++)
+		if(curchar !== strings[j][i])
+		    return result;
+	    result += curchar;
+	    i++;
 	}
-	if(matching_keys.length >= 2) {
-	    key = common_prefix(matching_keys);
-	    content = {
-		"title": "Possible commands",
-		"content": matching_keys.map(
-		    function(x) {
-			return x.substr(0, key.length) +
-			    "<b><span style=\"color: red;\">" +
-			    x.substr(key.length, 1) + "</span>" +
-			    x.substr(key.length + 1) + "</b>";
-		    }
-		).join("<br>"),
-	    };
-	    if(elt.getAttribute('data-title') !== content.title ||
-	       elt.getAttribute('data-content') !== content.content) {
-		set_tooltip(elt, content);
+	return result;
+    },
+
+    set_filter: function(elt) {
+	var key, content;
+	if(elt.value &&
+	   (elt.value.length > 1 || "!-".indexOf(elt.value[0]) === -1)) {
+	    var matching_keys = Object.keys(HELP).filter(
+		function(key) {
+		    return ((':/'.indexOf(key.slice(-1)) === -1
+			     && key !== 'screenshot'
+			     && key !== 'smbshare') ?
+			    elt.value === key.substr(0, elt.value.length) :
+			    elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
+		}
+	    );
+	    var oldval = elt.getAttribute("oldval");
+	    if(oldval === null)
+		oldval = "";
+	    if(matching_keys.length == 1) {
+		key = matching_keys[0];
+		content = HELP[key];
+		if(elt.getAttribute('data-title') !== content.title) {
+		    ToolTip.set(elt, content);
+		}
+		if(oldval.length < elt.value.length &&
+		   elt.value.substr(0, oldval.length) === oldval &&
+		   elt.value.length < key.length) {
+		    var start = elt.value.length;
+		    oldval = elt.value;
+		    elt.value = key;
+		    elt.selectionStart = start;
+		}
+		else {
+		    oldval = elt.value;
+		}
+		elt.setAttribute("oldval", oldval);
+		return;
 	    }
-	    if(oldval.length < elt.value.length &&
-	       elt.value.substr(0, oldval.length) === oldval &&
-	       elt.value.length < key.length) {
-		var start = elt.value.length;
-		oldval = elt.value
-		elt.value = key;
-		elt.selectionStart = start;
+	    if(matching_keys.length >= 2) {
+		key = ToolTip.common_prefix(matching_keys);
+		content = {
+		    "title": "Possible commands",
+		    "content": matching_keys.map(
+			function(x) {
+			    return x.substr(0, key.length) +
+				"<b><span style=\"color: red;\">" +
+				x.substr(key.length, 1) + "</span>" +
+				x.substr(key.length + 1) + "</b>";
+			}
+		    ).join("<br>"),
+		};
+		if(elt.getAttribute('data-title') !== content.title ||
+		   elt.getAttribute('data-content') !== content.content) {
+		    ToolTip.set(elt, content);
+		}
+		if(oldval.length < elt.value.length &&
+		   elt.value.substr(0, oldval.length) === oldval &&
+		   elt.value.length < key.length) {
+		    var start = elt.value.length;
+		    oldval = elt.value
+		    elt.value = key;
+		    elt.selectionStart = start;
+		}
+		else {
+		    oldval = elt.value;
+		}
+		elt.setAttribute("oldval", oldval);
+		return;
 	    }
-	    else {
-		oldval = elt.value;
+	    elt.setAttribute("oldval", elt.value);
+	    if(elt.value.match(/^!?[0-9\.\/\,]*$/)) {
+		if(elt.value.indexOf('/') !== -1)
+		    content = HELP["net:"];
+		else if(elt.value.indexOf('.') !== -1)
+		    content = HELP["host:"];
+		else
+		    content = HELP["tcp/"];
+		if(elt.getAttribute('data-title') !== content.title) {
+		    ToolTip.set(elt, content);
+		}
+		return;
 	    }
-	    elt.setAttribute("oldval", oldval);
-	    return;
 	}
 	elt.setAttribute("oldval", elt.value);
-	if(elt.value.match(/^!?[0-9\.\/\,]*$/)) {
-	    if(elt.value.indexOf('/') !== -1)
-		content = HELP["net:"];
-	    else if(elt.value.indexOf('.') !== -1)
-		content = HELP["host:"];
-	    else
-		content = HELP["tcp/"];
-	    if(elt.getAttribute('data-title') !== content.title) {
-		set_tooltip(elt, content);
-	    }
-	    return;
+	if(elt.hasAttribute('data-title'))
+	    ToolTip.remove(elt);
+    },
+
+    set: function(elt, content) {
+	ToolTip.remove(elt);
+	elt.setAttribute('data-title', content.title);
+	elt.setAttribute('data-content', content.content);
+	$('#' + elt.id).popover(content).popover('show');
+    },
+
+    remove: function(elt) {
+	elt.removeAttribute('data-title');
+	elt.removeAttribute('data-content');
+	$('#' + elt.id).popover('destroy');
+    },
+
+    remove_all: function(parentelt) {
+	var elements = parentelt.getElementsByTagName('input');
+	for(var i = 0; i < elements.length; i++) {
+	    ToolTip.remove(elements[i]);
 	}
-    }
-    elt.setAttribute("oldval", elt.value);
-    if(elt.hasAttribute('data-title'))
-	remove_tooltip(elt);
-}
-
-function set_tooltip(elt, content) {
-    remove_tooltip(elt);
-    elt.setAttribute('data-title', content.title);
-    elt.setAttribute('data-content', content.content);
-    $('#' + elt.id).popover(content).popover('show');
-}
-
-function remove_tooltip(elt) {
-    elt.removeAttribute('data-title');
-    elt.removeAttribute('data-content');
-    $('#' + elt.id).popover('destroy');
-}
-
-function remove_all_tooltips(parentelt) {
-    var elements = parentelt.getElementsByTagName('input');
-    for(var i = 0; i < elements.length; i++) {
-	remove_tooltip(elements[i]);
     }
 }
