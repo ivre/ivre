@@ -73,8 +73,13 @@ web/static/favicon-loading.gif
 web/static/favicon.png
 web/static/help.js
 web/static/index.html
-web/static/ivre.css
-web/static/ivre.js
+web/static/ivre/ivre.css
+web/static/ivre/ivre.js
+web/static/ivre/controllers.js
+web/static/ivre/graph.js
+web/static/ivre/params.js
+web/static/ivre/tooltip.js
+web/static/ivre/utils.js
 web/static/loading.gif
 web/static/logo.png
 web/static/world-110m.json
