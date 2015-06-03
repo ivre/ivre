@@ -20,7 +20,7 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get -q update
-RUN apt-get -qy install nmap screen
+RUN apt-get -qy install nmap screen bzip2
 
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/agent/agent \
     /usr/bin/agent
