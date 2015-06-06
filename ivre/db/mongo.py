@@ -487,6 +487,41 @@ have no effect if it is not expected)."""
             self.colname_oldhosts if archives else self.colname_hosts
         ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
 
+    def setscreenwords(self, host, port=None, protocol="tcp",
+                       archives=False, overwrite=False):
+        """Sets the `screenwords` attribute based on the screenshot
+        data.
+
+        """
+        if port is None:
+            if overwrite:
+                flt_cond = lambda p: 'screenshot' in p
+            else:
+                flt_cond = lambda p: ('screenshot' in p
+                                      and 'screenwords' not in p)
+        else:
+            if overwrite:
+                flt_cond = lambda p: ('screenshot' in p
+                                      and p.get('port') == port
+                                      and p.get('protocol') == protocol)
+            else:
+                flt_cond = lambda p: ('screenshot' in p
+                                      and 'screenwords' not in p
+                                      and p.get('port') == port
+                                      and p.get('protocol') == protocol)
+        updated = False
+        for port in host.get('ports', []):
+            if not flt_cond(port):
+                continue
+            screenwords = utils.screenwords(self.getscreenshot(port))
+            if screenwords is not None:
+                port['screenwords'] = screenwords
+                updated = True
+        if updated:
+            self.db[
+                self.colname_oldhosts if archives else self.colname_hosts
+            ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
+
     def removescreenshot(self, host, port=None, protocol='tcp',
                          archives=False):
         """Removes screenshots"""
