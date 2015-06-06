@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,9 +18,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """
-This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
-
 This sub-module contains functions that might be usefull to any other
 sub-module or script.
 """
@@ -32,10 +29,12 @@ import re
 import os
 import shutil
 import errno
-import stat
 import hashlib
 import gzip
 import bz2
+import subprocess
+
+from ivre import config
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -49,39 +48,6 @@ import bz2
 MAXVALLEN = 1000
 
 REGEXP_T = type(re.compile(''))
-
-
-def guess_prefix(directory=None):
-    """Attempts to find the base directory where IVRE components are
-    installed.
-
-    """
-    def check_candidate(path, directory=None):
-        """Auxilliary function that checks whether a particular
-        path is a good candidate.
-
-        """
-        candidate = os.path.join(path, 'share', 'ivre')
-        if directory is not None:
-            candidate = os.path.join(candidate, directory)
-        try:
-            if stat.S_ISDIR(os.stat(candidate).st_mode):
-                return candidate
-        except OSError:
-            pass
-    if __file__.startswith('/'):
-        path = '/'
-        # absolute path
-        for elt in __file__.split('/')[1:]:
-            if elt in ['lib', 'lib32', 'lib64']:
-                candidate = check_candidate(path, directory=directory)
-                if candidate is not None:
-                    return candidate
-            path = os.path.join(path, elt)
-    for path in ['/usr', '/usr/local', '/opt', '/opt/ivre']:
-        candidate = check_candidate(path, directory=directory)
-        if candidate is not None:
-            return candidate
 
 
 def ip2int(ipstr):
@@ -477,3 +443,33 @@ def country_unalias(country):
     if hasattr(country, '__iter__'):
         return [country_unalias(country_elt) for country_elt in country]
     return country
+
+def screenwords(imgdata):
+    """Takes an image and returns a list of the words seen by the OCR"""
+    if config.TESSERACT_CMD is not None:
+        proc = subprocess.Popen([config.TESSERACT_CMD, "stdin", "stdout"],
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
+        proc.stdin.write(imgdata)
+        proc.stdin.close()
+        words = set()
+        result = []
+        size = MAXVALLEN
+        for line in proc.stdout:
+            if size == 0:
+                break
+            for word in line.split():
+                if word not in words:
+                    if len(word) <= size:
+                        words.add(word)
+                        result.append(word)
+                        size -= len(word)
+                    else:
+                        # When we meet the first word that would make
+                        # result too big, we stop immediately. This
+                        # choice has been made to limit the time spent
+                        # here.
+                        size = 0
+                        break
+        if result:
+            return result

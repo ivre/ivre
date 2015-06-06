@@ -3,7 +3,7 @@
 
 # This program is part of IVRE.
 #
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -18,9 +18,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """
-This program is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
-
 This program runs a simple httpd server to provide an out-of-the-box
 access to the web user interface.
 
@@ -29,7 +26,7 @@ deployments should use "real" web servers (IVRE has been successfully
 tested with both Apache and Nginx).
 """
 
-from ivre import utils
+from ivre import config
 
 import os
 
@@ -87,9 +84,9 @@ def parse_args():
 def main():
     """This function is called when __name__ == "__main__"."""
     global BASEDIR, CGIDIR, DOKUWIKIDIR
-    BASEDIR = utils.guess_prefix(directory='web/static')
-    CGIDIR = utils.guess_prefix(directory='web/cgi-bin')
-    DOKUWIKIDIR = utils.guess_prefix(directory='dokuwiki')
+    BASEDIR = config.guess_prefix(directory='web/static')
+    CGIDIR = config.guess_prefix(directory='web/cgi-bin')
+    DOKUWIKIDIR = config.guess_prefix(directory='dokuwiki')
     if BASEDIR is None or CGIDIR is None or DOKUWIKIDIR is None:
         raise Exception('Cannot find where IVRE is installed')
     args = parse_args()

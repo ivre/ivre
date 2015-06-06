@@ -34,7 +34,6 @@ import json
 
 import re
 import datetime
-import subprocess
 
 
 class MongoDB(DB):
@@ -481,33 +480,9 @@ have no effect if it is not expected)."""
             return
         port['screenshot'] = "field"
         port['screendata'] = bson.Binary(data)
-        if config.TESSERACT_CMD is not None:
-            proc = subprocess.Popen([config.TESSERACT_CMD, "stdin", "stdout"],
-                                    stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE)
-            proc.stdin.write(data)
-            proc.stdin.close()
-            words = set()
-            port['screenwords'] = []
-            size = utils.MAXVALLEN
-            for line in proc.stdout:
-                if size == 0:
-                    break
-                for word in line.split():
-                    if word not in words:
-                        if len(word) <= size:
-                            words.add(word)
-                            port['screenwords'].append(word)
-                            size -= len(word)
-                        else:
-                            # When we meet the first word that would
-                            # make port['screenwords'] too big, we
-                            # stop immediately. This choice has been
-                            # made to limit the time spent here.
-                            size = 0
-                            break
-            if not port['screenwords']:
-                del port['screenwords']
+        screenwords = utils.screenwords(data)
+        if screenwords is not None:
+            port['screenwords'] = screenwords
         self.db[
             self.colname_oldhosts if archives else self.colname_hosts
         ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})

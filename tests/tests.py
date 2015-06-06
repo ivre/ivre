@@ -565,7 +565,7 @@ class IvreTests(unittest.TestCase):
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
                  os.path.join(
-                     ivre.utils.guess_prefix('passiverecon'),
+                     ivre.config.guess_prefix('passiverecon'),
                      'passiverecon.bro')],
                 env=broenv)
             broprocess.wait()
@@ -705,8 +705,8 @@ class IvreTests(unittest.TestCase):
     def test_utils(self):
         """Functions that have not yet been tested"""
 
-        self.assertIsNotNone(ivre.utils.guess_prefix())
-        self.assertIsNone(ivre.utils.guess_prefix("inexistant"))
+        self.assertIsNotNone(ivre.config.guess_prefix())
+        self.assertIsNone(ivre.config.guess_prefix("inexistant"))
 
         # IP addresses manipulation utils
         with self.assertRaises(ValueError):
