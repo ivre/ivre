@@ -460,7 +460,8 @@ have no effect if it is not expected)."""
             **kargs
         )
 
-    def getscreenshot(self, port):
+    @staticmethod
+    def getscreenshot(port):
         """Returns the content of a port's screenshot."""
         url = port.get('screenshot')
         if url is None:
