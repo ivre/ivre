@@ -1784,6 +1784,7 @@ have no effect if it is not expected)."""
             field = 'ports.scripts.enip-info.' + subfield
         elif field == 'screenwords':
             field = 'ports.screenwords'
+            flt = self.flt_and(flt, self.searchscreenshot(words=True))
         elif field == 'hop':
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
