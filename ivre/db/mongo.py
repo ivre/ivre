@@ -97,7 +97,7 @@ class MongoDB(DB):
 
     @property
     def find(self):
-        """Wrapper arount column .find() method, depending on pymongo
+        """Wrapper around column .find() method, depending on pymongo
         version.
 
         """
@@ -120,7 +120,7 @@ class MongoDB(DB):
 
     @property
     def find_one(self):
-        """Wrapper arount collection .find_one() method, depending on
+        """Wrapper around collection .find_one() method, depending on
         pymongo version.
 
         """
