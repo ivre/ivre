@@ -17,12 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+"""This sub-module contains functions to interact with the MongoDB
+databases.
 
-This sub-module contains functions to interact with the
-MongoDB databases.
 """
 
 from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
@@ -100,7 +97,7 @@ class MongoDB(DB):
 
     @property
     def find(self):
-        """Wrapper arount column .find() method, depending on pymongo
+        """Wrapper around column .find() method, depending on pymongo
         version.
 
         """
@@ -123,7 +120,7 @@ class MongoDB(DB):
 
     @property
     def find_one(self):
-        """Wrapper arount collection .find_one() method, depending on
+        """Wrapper around collection .find_one() method, depending on
         pymongo version.
 
         """
@@ -1393,6 +1390,7 @@ have no effect if it is not expected)."""
         if field == "category":
             field = "categories"
         elif field == "country":
+            flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
             field = "infos.country_code"
             outputproc = lambda x: {
                 'count': x['count'],
@@ -1416,12 +1414,10 @@ have no effect if it is not expected)."""
             outputproc = lambda x: {'count': x['count'],
                                     '_id': x['_id'].split('###')}
         elif field == "asnum":
+            flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             field = "infos.as_num"
         elif field == "as":
-            flt = self.flt_and(
-                flt,
-                {"infos.as_num": {"$exists": True}},
-            )
+            flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             specialproj = {
                 "_id": 0,
                 "as": {"$concat": [
@@ -1500,20 +1496,22 @@ have no effect if it is not expected)."""
                 {"$project": {"countports": {"$size": "$ports"}}},
             ]
             field = "countports"
-            pass
         elif field == "service":
-            flt = self.flt_and(flt, self.searchopenport())
+            flt = self.flt_and(flt, self.searchservice({'$exists': True}))
             specialproj = {"_id": 0,
                            "ports.state_state": 1,
                            "ports.service_name": 1}
             specialflt = [
                 {"$match": {"ports.state_state": "open"}},
-                {"$project": {"ports.service_name": 1}}
+                {"$project": {"ports.service_name": 1}},
             ]
             field = "ports.service_name"
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
-            flt = self.flt_and(flt, self.searchport(port))
+            flt = self.flt_and(
+                flt,
+                self.searchservice({'$exists': True}, port=port),
+            )
             specialproj = {"_id": 0, "ports.port": 1, "ports.service_name": 1}
             specialflt = [
                 {"$match": {"ports.port": port}},
@@ -1521,7 +1519,9 @@ have no effect if it is not expected)."""
             ]
             field = "ports.service_name"
         elif field == "probedservice":
-            flt = self.flt_and(flt, self.searchopenport())
+            flt = self.flt_and(
+                flt, self.searchservice({'$exists': True}, probed=True)
+            )
             specialproj = {"_id": 0,
                            "ports.service_name": 1,
                            "ports.service_method": 1}
@@ -1532,7 +1532,11 @@ have no effect if it is not expected)."""
             field = "ports.service_name"
         elif field.startswith("probedservice:"):
             port = int(field.split(':', 1)[1])
-            flt = self.flt_and(flt, self.searchport(port))
+            flt = self.flt_and(
+                flt,
+                self.searchservice({'$exists': True}, port=port,
+                                   probed=True),
+            )
             specialproj = {"_id": 0, "ports.port": 1,
                            "ports.service_name": 1,
                            "ports.service_method": 1}
@@ -1543,12 +1547,10 @@ have no effect if it is not expected)."""
             ]
             field = "ports.service_name"
         elif field == 'product':
-            flt = self.flt_and(
-                flt,
-                self.searchopenport(),
-                {"ports.service_name": {"$exists": True}},
-                {"ports.service_product": {"$exists": True}},
-            )
+            flt = self.flt_and(flt, self.searchproduct(
+                {'$exists': True},
+                service={'$exists': True},
+            ))
             specialproj = {
                 "_id": 0,
                 "ports.service_name": 1,
@@ -1569,12 +1571,11 @@ have no effect if it is not expected)."""
                                     '_id': x['_id'].split('###')}
         elif field.startswith('product:'):
             port = int(field.split(':', 1)[1])
-            flt = self.flt_and(
-                flt,
-                self.searchport(port),
-                {"ports.service_name": {"$exists": True}},
-                {"ports.service_product": {"$exists": True}},
-            )
+            flt = self.flt_and(flt, self.searchproduct(
+                {'$exists': True},
+                service={'$exists': True},
+                port=port,
+            ))
             specialproj = {
                 "_id": 0,
                 "ports.port": 1,
@@ -1596,13 +1597,11 @@ have no effect if it is not expected)."""
             outputproc = lambda x: {'count': x['count'],
                                     '_id': x['_id'].split('###')}
         elif field == 'version':
-            flt = self.flt_and(
-                flt,
-                self.searchopenport(),
-                {"ports.service_name": {"$exists": True}},
-                {"ports.service_product": {"$exists": True}},
-                {"ports.service_version": {"$exists": True}},
-            )
+            flt = self.flt_and(flt, self.searchproduct(
+                {'$exists': True},
+                service={'$exists': True},
+                version={'$exists': True},
+            ))
             specialproj = {
                 "_id": 0,
                 "ports.service_name": 1,
@@ -1627,13 +1626,12 @@ have no effect if it is not expected)."""
                                     '_id': x['_id'].split('###')}
         elif field.startswith('version:'):
             port = int(field.split(':', 1)[1])
-            flt = self.flt_and(
-                flt,
-                self.searchport(port),
-                {"ports.service_name": {"$exists": True}},
-                {"ports.service_product": {"$exists": True}},
-                {"ports.service_version": {"$exists": True}},
-            )
+            flt = self.flt_and(flt, self.searchproduct(
+                {'$exists': True},
+                service={'$exists': True},
+                version={'$exists': True},
+                port=port
+            ))
             specialproj = {
                 "_id": 0,
                 "ports.port": 1,
@@ -1727,17 +1725,29 @@ have no effect if it is not expected)."""
             else:
                 field = 'scripts.smb-os-discovery.' + field[4:]
         elif field in ["script", "portscript"]:
+            flt = self.flt_and(
+                flt, self.searchscript(name={"$exists": True})
+            )
             field = "ports.scripts.id"
         elif field == "hostscript":
+            flt = self.flt_and(
+                flt, self.searchscript(name={"$exists": True}, host=True)
+            )
             field = "scripts.id"
         elif (field.startswith('script:') or
               field.startswith('portscript:') or
               field.startswith('hostscript:')):
             scriptid = field.split(':', 1)[1]
+            flt = self.flt_and(
+                flt,
+                self.searchscript(name={"$exists": True},
+                                  host=field.startswith('hostscript:')),
+            )
             if ':' in scriptid:
                 base = 'ports.scripts'
                 port, scriptid = scriptid.split(':', 1)
                 port = int(port)
+                flt = self.flt_and(flt, self.searchport(port))
             else:
                 base = ("scripts"
                         if field.startswith('hostscript:')
@@ -1755,8 +1765,10 @@ have no effect if it is not expected)."""
             ]
             field = "%s.output" % base
         elif field == 'domains':
+            flt = self.flt_and(flt, self.searchdomain({'$exists': True}))
             field = 'hostnames.domains'
         elif field.startswith('domains:'):
+            flt = self.flt_and(flt, self.searchdomain({'$exists': True}))
             level = int(field[8:]) - 1
             field = 'hostnames.domains'
             aggrflt = {
