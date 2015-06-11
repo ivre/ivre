@@ -18,9 +18,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """
-This module is part of IVRE.
-Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
-
 This sub-module handles configuration values.
 
 It contains the (hard-coded) default values, which can be overwritten
@@ -28,9 +25,8 @@ by ~/.ivre.conf, /usr/local/etc/ivre.conf and/or /etc/ivre.conf.
 
 """
 
-from ivre import utils
-
 import os
+import stat
 
 # Default values:
 DB = "mongodb:///ivre"
@@ -79,8 +75,40 @@ def get_config_file(paths=None):
 for f in get_config_file():
     execfile(f)
 
+def guess_prefix(directory=None):
+    """Attempts to find the base directory where IVRE components are
+    installed.
+
+    """
+    def check_candidate(path, directory=None):
+        """Auxilliary function that checks whether a particular
+        path is a good candidate.
+
+        """
+        candidate = os.path.join(path, 'share', 'ivre')
+        if directory is not None:
+            candidate = os.path.join(candidate, directory)
+        try:
+            if stat.S_ISDIR(os.stat(candidate).st_mode):
+                return candidate
+        except OSError:
+            pass
+    if __file__.startswith('/'):
+        path = '/'
+        # absolute path
+        for elt in __file__.split('/')[1:]:
+            if elt in ['lib', 'lib32', 'lib64']:
+                candidate = check_candidate(path, directory=directory)
+                if candidate is not None:
+                    return candidate
+            path = os.path.join(path, elt)
+    for path in ['/usr', '/usr/local', '/opt', '/opt/ivre']:
+        candidate = check_candidate(path, directory=directory)
+        if candidate is not None:
+            return candidate
+
 if GEOIP_PATH is None:
-    GEOIP_PATH = utils.guess_prefix('geoip')
+    GEOIP_PATH = guess_prefix('geoip')
 
 if HONEYD_IVRE_SCRIPTS_PATH is None:
-    HONEYD_IVRE_SCRIPTS_PATH = utils.guess_prefix('honeyd')
+    HONEYD_IVRE_SCRIPTS_PATH = guess_prefix('honeyd')
