@@ -585,8 +585,7 @@ if onlyips or ipsports or timeline or coordinates or countopenports:
     elif coordinates:
         preamble = '{"type": "GeometryCollection", "geometries": ['
         postamble = ']}'
-        result = db.nmap.getlocations(flt,
-                                      archive=archive)
+        result = list(db.nmap.getlocations(flt, archive=archive))
         count = len(result)
         r2res = lambda r: {
             "type": "Point",

@@ -546,9 +546,8 @@ have no effect if it is not expected)."""
             {"$match": self.flt_and(flt, self.searchhaslocation())},
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
         ]
-        return col.aggregate(pipeline)['result']
+        return col.aggregate(pipeline, cursor={})
 
     def is_scan_present(self, scanid):
         for colname in [self.colname_scans, self.colname_oldscans]:
@@ -768,7 +767,7 @@ have no effect if it is not expected)."""
         return self.db[
             self.colname_oldhosts if archive
             else self.colname_hosts
-        ].aggregate(aggr)['result']
+        ].aggregate(aggr, cursor={})
 
     def group_by_port(self, flt, archive=False):
         """Work-in-progress function to get scan results grouped by
@@ -800,7 +799,7 @@ have no effect if it is not expected)."""
         return self.db[
             self.colname_oldhosts if archive
             else self.colname_hosts
-        ].aggregate(aggr)['result']
+        ].aggregate(aggr, cursor={})
 
     @staticmethod
     def json2dbrec(host):
