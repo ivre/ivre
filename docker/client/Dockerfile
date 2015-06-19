@@ -18,15 +18,15 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Tools
-RUN apt-get -qy install nmap p0f rsync screen ipython
+RUN apt-get -qy install nmap p0f rsync screen ipython openssl
 
 # Install bro
-ADD https://www.bro.org/downloads/release/bro-2.3.2.tar.gz ./bro-2.3.2.tar.gz
+ADD https://www.bro.org/downloads/release/bro-2.4.tar.gz ./bro-2.4.tar.gz
 RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev \
                         flex bison libpython2.7-dev swig && \
-    cd tmp/ && tar zxf ../bro-2.3.2.tar.gz && \
-    cd bro-2.3.2 && ./configure && make -j 4 && make install && \
-    cd / && rm -rf tmp/bro-2.3.2 bro-2.3.2.tar.gz && \
+    cd tmp/ && tar zxf ../bro-2.4.tar.gz && \
+    cd bro-2.4 && ./configure && make -j 4 && make install && \
+    cd / && rm -rf tmp/bro-2.4 bro-2.4.tar.gz && \
     apt-get -qy --purge autoremove build-essential cmake libssl-dev \
                         libpcap-dev flex bison libpython2.7-dev swig
 
