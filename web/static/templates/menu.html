@@ -19,28 +19,28 @@
 <!-- HELP -->
 <li>
   <a class="clickable" ng-click="togglenotes('doc:webui');">
-    <i class="icon-question-sign icon-white"></i> <b>HELP</b>
+    <i class="glyphicon glyphicon-question-sign white"></i> <b>HELP</b>
   </a>
 </li>
 
 <!-- Unix -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-heart icon-white"></i> Unix<b class="caret"></b>
+    <i class="glyphicon glyphicon-heart white"></i> Unix<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable" onclick="setparam('nfs', undefined, true, true); setparam('display', 'script:rpcinfo,nfs-showmount,nfs-ls', true);">NFS</a></li>
     <li><a class="clickable" onclick="setparam('nis');">NIS / YP</a></li>
     <li><a class="clickable" onclick="setparam('x11srv');">X11</a></li>
     <li><a class="clickable" onclick="setparam('x11open');"
-	   >&nbsp;<i class="icon-chevron-right"></i> open</a></li>
+	   >&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> open</a></li>
   </ul>
 </li>
 
 <!-- Windows -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-th-large icon-white"></i> Win<b class="caret"></b>
+    <i class="glyphicon glyphicon-th-large white"></i> Win<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable" onclick="setparam('xp445');">XP / 445</a></li>
@@ -49,7 +49,7 @@
 	   >SMB shares</a></li>
     <li><a class="clickable"
 	   onclick="setparam('smbshare', 'w', true, true); setparam('display', 'script:smb-enum-shares,smb-ls', true);"
-	   >&nbsp;<i class="icon-chevron-right"></i> writable</a></li>
+	   >&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> writable</a></li>
     <li><a class="clickable"
 	   onclick="setparam('mssqlemptypwd');"
 	   >MS-SQL empty password</li></a>
@@ -59,7 +59,7 @@
 <!-- Web -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-globe icon-white"></i> Web<b class="caret"></b>
+    <i class="glyphicon glyphicon-globe white"></i> Web<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable" onclick="setparam('authhttp');">HTTP Auth</a></li>
@@ -78,7 +78,7 @@
 <!-- Authentication -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-lock icon-white"></i> Auth<b class="caret"></b>
+    <i class="glyphicon glyphicon-lock white"></i> Auth<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable" onclick="setparam('authhttp');">HTTP Auth</a></li>
@@ -103,7 +103,7 @@
 <!-- Relay -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-share-alt icon-white"></i> Relay<b class="caret"></b>
+    <i class="glyphicon glyphicon-share-alt white"></i> Relay<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable"
@@ -126,14 +126,14 @@
 <!-- Fun -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-screenshot icon-white"></i> Fun<b class="caret"></b>
+    <i class="glyphicon glyphicon-screenshot white"></i> Fun<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable"
 	   onclick="setparam('devicetype', 'webcam');">Webcam</a></li>
     <li><a class="clickable"
 	   onclick="setparam('geovision');"
-	   >&nbsp;<i class="icon-chevron-right"></i> GeoVision</a></li>
+	   >&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> GeoVision</a></li>
     <li><a class="clickable"
 	   onclick="setparam('netdev');">Network devices</a></li>
     <li><a class="clickable"
@@ -146,44 +146,44 @@
 <!-- Sort -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-random icon-white"></i> Sort<b class="caret"></b>
+    <i class="glyphicon glyphicon-random white"></i> Sort<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable"
 	   onclick="unsetparam('sortby'); setparam('sortby', 'endtime');"
-	   ><i class="icon-arrow-down"></i>Date of scan</a></li>
+	   ><i class="glyphicon glyphicon-arrow-down"></i>Date of scan</a></li>
     <li><a class="clickable"
 	   onclick="unsetparam('sortby'); setparam('-sortby', 'endtime');"
-	   ><i class="icon-arrow-up"></i> Date of scan</a></li>
+	   ><i class="glyphicon glyphicon-arrow-up"></i> Date of scan</a></li>
     <li><a class="clickable"
 	   onclick="unsetparam('sortby'); setparam('sortby', 'addr');"
-	   ><i class="icon-arrow-down"></i> IP Address</a></li>
+	   ><i class="glyphicon glyphicon-arrow-down"></i> IP Address</a></li>
     <li><a class="clickable"
 	   onclick="unsetparam('sortby'); setparam('-sortby', 'addr');"
-	   ><i class="icon-arrow-up"></i> IP Address</a></li>
+	   ><i class="glyphicon glyphicon-arrow-up"></i> IP Address</a></li>
     <li>
       <a class="clickable"
 	 onclick="'archives' in parametersobj ? unsetparam('archives') : setparam('archives');"
-	 ><i class="icon-file"></i> Archives</a></li>
+	 ><i class="glyphicon glyphicon-file"></i> Archives</a></li>
   </ul>
 </li>
 
 <!-- Share -->
 <li class="dropdown">
   <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="icon-share icon-white"></i> Share<b class="caret"></b>
+    <i class="glyphicon glyphicon-share white"></i> Share<b class="caret"></b>
   </a>
   <ul class="dropdown-menu">
     <li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
-	<i class="icon-plus"></i> New tab
+	<i class="glyphicon glyphicon-plus"></i> New tab
     </a></li>
     <li><a id="share-bookmark" rel="sidebar"
 	   ng-href="{{get_href()}}" ng-title="{{get_title()}}"
 	   ng-click="add_bookmark()">
-	<i class="icon-star"></i> Bookmark
+	<i class="glyphicon glyphicon-star"></i> Bookmark
     </a></li>
     <li><a id="share-mail" ng-href="{{get_mail_href()}}">
-	<i class="icon-envelope"></i> Mail
+	<i class="glyphicon glyphicon-envelope"></i> Mail
     </a></li>
   </ul>
 </li>
