@@ -613,7 +613,7 @@ have no effect if it is not expected)."""
         rec["scripts"] = scripts.values()
         ports = dict((port["port"], port.copy())
                      for port in rec2.get("ports", []))
-        for port in rec1.get("ports"):
+        for port in rec1.get("ports", []):
             if port['port'] in ports:
                 curport = ports[port['port']]
                 if 'scripts' in curport:
