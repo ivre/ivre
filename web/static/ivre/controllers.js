@@ -321,13 +321,15 @@ ivreWebUi
 	    if($scope.display_mode_args.length === 0)
 		return true;
 	    return scripts
-		.map(function(x) {return x.id;})
-		.indexOf($scope.display_mode_args[0]) !== -1;
+		.filter(function(x) {
+		    return $scope.display_mode_args.indexOf(x.id) !== -1;
+		})
+		.length > 0;
 	};
 	$scope.script_display_mode_needed_script = function(scriptid) {
 	    if($scope.display_mode_args.length === 0)
 		return true;
-	    return scriptid === $scope.display_mode_args[0];
+	    return $scope.display_mode_args.indexOf(scriptid) !== -1;
 	};
 	$scope.set_timer_toggle_preview = function(event, host) {
 	    event = event || window.event;
@@ -573,7 +575,7 @@ function set_display_mode(mode) {
 	mode = "host"; // default
     scope.$apply(function() { 
 	if(mode.substr(0, 7) === "script:") {
-	    scope.display_mode_args = [mode.substr(7)];
+	    scope.display_mode_args = mode.substr(7).split(",");
 	    mode = "script";
 	}
 	scope.display_mode = mode;
