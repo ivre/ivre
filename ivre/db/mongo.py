@@ -1106,7 +1106,10 @@ have no effect if it is not expected)."""
             'wr': 'READ/WRITE',
         }[access.lower()]
         share_type = {
-            None: re.compile('^STYPE_DISKTREE(_HIDDEN)?'),
+            # None: re.compile('^STYPE_DISKTREE(_HIDDEN)?$'),
+            # None: accept share in unsure
+            None: {'$nin': ['STYPE_IPC_HIDDEN', 'Not a file share',
+                            'STYPE_IPC', 'STYPE_PRINTQ']},
             True: 'STYPE_DISKTREE_HIDDEN',
             False: 'STYPE_DISKTREE',
         }[hidden]
