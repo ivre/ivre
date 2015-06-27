@@ -1089,7 +1089,7 @@ have no effect if it is not expected)."""
             output=fname,
         )
 
-    def searchsmbshares(self, access='', hidden=None):
+    def searchsmbshares(self, access='', hidden=None, anonymous=False):
         """Filter SMB shares with anonymous `access` (default: either
         read or write, accepted values 'r', 'w', 'rw').
 
@@ -1106,14 +1106,18 @@ have no effect if it is not expected)."""
             'wr': 'READ/WRITE',
         }[access.lower()]
         share_type = {
-            None: re.compile('^STYPE_DISKTREE(_HIDDEN)?'),
+            # None: re.compile('^STYPE_DISKTREE(_HIDDEN)?$'),
+            # None: accept share in unsure
+            None: {'$nin': ['STYPE_IPC_HIDDEN', 'Not a file share',
+                            'STYPE_IPC', 'STYPE_PRINTQ']},
             True: 'STYPE_DISKTREE_HIDDEN',
             False: 'STYPE_DISKTREE',
         }[hidden]
         return self.searchscript(
             name='smb-enum-shares',
             values={'shares': {'$elemMatch': {
-                'Anonymous access': access,
+                '%s access' % ('Anonymous' if anonymous else 'Current user'):
+                access,
                 'Type': share_type,
             }}},
             host=True)
