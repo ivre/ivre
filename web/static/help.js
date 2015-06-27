@@ -305,9 +305,9 @@ var HELP = {
 	"title": "display:host",
 	"content": "Set the default display mode.",
     },
-    "display:script:": {
-	"title": "display:script:<b>[script id]</b>",
-	"content": "Display only a particular script output.",
+    "display:script": {
+	"title": "display:script(:<b>[script id](,[script id](,...))</b>)",
+	"content": "Display only script outputs. One or more scripts can be specified to only display those scripts' outputs.",
     },
     "display:screenshot": {
 	"title": "display:screenshot",
