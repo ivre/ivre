@@ -321,10 +321,9 @@ ivreWebUi
 	    if($scope.display_mode_args.length === 0)
 		return true;
 	    return scripts
-		.filter(function(x) {
+		.some(function(x) {
 		    return $scope.display_mode_args.indexOf(x.id) !== -1;
-		})
-		.length > 0;
+		});
 	};
 	$scope.script_display_mode_needed_script = function(scriptid) {
 	    if($scope.display_mode_args.length === 0)
