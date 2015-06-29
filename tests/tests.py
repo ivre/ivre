@@ -160,6 +160,9 @@ class IvreTests(unittest.TestCase):
                 1 for _ in scan_duplicate.finditer(err)
             )
 
+        RUN(["scancli", "--update-schema"])
+        RUN(["scancli", "--update-schema", "--archives"])
+
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
 

@@ -300,7 +300,7 @@ class NmapHandler(ContentHandler):
             if self._curhost is not None:
                 sys.stderr.write("WARNING, self._curhost should be None at "
                                  "this point (got %r)\n" % self._curhost)
-            self._curhost = {}
+            self._curhost = {"schema_version": 1}
             if self._curscan:
                 self._curhost['scanid'] = self._curscan['_id']
             for attr in attrs.keys():
@@ -492,6 +492,8 @@ class NmapHandler(ContentHandler):
         elif name == 'host':
             if self._curhost['state'] == 'up' and ('ports' in self._curhost
                                                    or not self._needports):
+                if 'openports' not in self._curhost:
+                    self._curhost['openports'] = {'count': 0}
                 self._pre_addhost()
                 self._addhost()
             self._curhost = None
@@ -505,10 +507,15 @@ class NmapHandler(ContentHandler):
                 self._curhost['extraports'].update(self._curextraports)
             self._curextraports = None
         elif name == 'port':
-            if 'ports' not in self._curhost:
-                self._curhost['ports'] = [self._curport]
-            else:
-                self._curhost['ports'].append(self._curport)
+            self._curhost.setdefault('ports', []).append(self._curport)
+            if self._curport.get("state_state") == 'open':
+                openports = self._curhost.setdefault('openports', {})
+                openports['count'] = openports.get('count', 0) + 1
+                protoopenports = openports.setdefault(
+                    self._curport['protocol'], {})
+                protoopenports['count'] = protoopenports.get('count', 0) + 1
+                protoopenports.setdefault('ports', []).append(
+                    self._curport['port'])
             self._curport = None
         elif name == 'script':
             if self._curport is not None:

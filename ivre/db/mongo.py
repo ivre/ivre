@@ -175,6 +175,21 @@ class MongoDB(DB):
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
+    def migrate_schema(self, colname, version):
+        """Process to schema migrations in column `colname` starting
+        from `version`.
+
+        """
+        while version in self.schema_migrations[colname]:
+            new_version, migration_function = self.schema_migrations[
+                colname][version]
+            for record in self.set_limits(self.find(
+                    colname, self.searchversion(version))):
+                update = migration_function(record)
+                if update is not None:
+                    self.db[colname].update({"_id": record["_id"]}, update)
+            version = new_version
+
     def _topvalues(self, colname, field, flt=None, topnbr=10,
                    sortby=None, limit=None, skip=None, least=False,
                    aggrflt=None, specialproj=None, specialflt=None,
@@ -285,6 +300,12 @@ class MongoDB(DB):
         return {"_id": {'$ne': idval} if neg else idval}
 
     @staticmethod
+    def searchversion(version):
+        """Filters documents based on their schema's version."""
+        return {"schema_version":
+                {"$exists": False} if version is None else version}
+
+    @staticmethod
     def searchhost(addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
@@ -361,6 +382,7 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.indexes = {
             self.colname_hosts: [
                 [('scanid', pymongo.ASCENDING)],
+                [('schema_version', pymongo.ASCENDING)],
                 [('addr', pymongo.ASCENDING)],
                 [('starttime', pymongo.ASCENDING)],
                 [('endtime', pymongo.ASCENDING)],
@@ -368,6 +390,9 @@ class MongoDBNmap(MongoDB, DBNmap):
                 [('categories', pymongo.ASCENDING)],
                 [('hostnames.domains', pymongo.ASCENDING)],
                 [('traces.hops.domains', pymongo.ASCENDING)],
+                [('openports.count', pymongo.ASCENDING)],
+                [('openports.tcp.ports', pymongo.ASCENDING)],
+                [('openports.udp.ports', pymongo.ASCENDING)],
                 [('ports.port', pymongo.ASCENDING)],
                 [('ports.state_state', pymongo.ASCENDING)],
                 [('ports.service_name', pymongo.ASCENDING)],
@@ -386,6 +411,7 @@ class MongoDBNmap(MongoDB, DBNmap):
             ],
             self.colname_oldhosts: [
                 [('scanid', pymongo.ASCENDING)],
+                [('schema_version', pymongo.ASCENDING)],
                 [('addr', pymongo.ASCENDING)],
                 [('starttime', pymongo.ASCENDING)],
                 [('source', pymongo.ASCENDING)],
@@ -393,6 +419,10 @@ class MongoDBNmap(MongoDB, DBNmap):
         }
         self.specialindexes = {
             self.colname_hosts: [
+                ([('openports.tcp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('openports.udp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
                 ([
                     ('ports.screenshot', pymongo.ASCENDING),
                     ('ports.screenwords', pymongo.ASCENDING),
@@ -414,6 +444,12 @@ class MongoDBNmap(MongoDB, DBNmap):
                  {"sparse": True}),
             ],
         }
+        self.schema_migrations = {
+            self.colname_hosts: {None: (1, self.migrate_schema_hosts_0_1)},
+        }
+        self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
+            self.colname_hosts].copy()
+
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -423,6 +459,32 @@ creates the default indexes."""
         self.db[self.colname_oldscans].drop()
         self.db[self.colname_oldhosts].drop()
         self.create_indexes()
+
+    @staticmethod
+    def migrate_schema_hosts_0_1(doc):
+        """Converts a record from version 0 (no "schema_version" key
+        in the document) to version 1 (`doc["schema_version"] ==
+        1`). Version 1 adds an "openports" nested document to ease
+        open ports based researches.
+
+        """
+        assert("schema_version" not in doc)
+        assert("openports" not in doc)
+        update = {"$set": {"schema_version": 1}}
+        if "ports" not in doc:
+            return update
+        openports = {}
+        for port in doc["ports"]:
+            openports.setdefault(port["protocol"], {}).setdefault(
+                "ports", []).append(port["port"])
+        for proto in openports.keys():
+            count = len(openports[proto]["ports"])
+            openports[proto]["count"] = count
+            openports["count"] = openports.get("count", 0) + count
+        if not openports:
+            openports["count"] = 0
+        update["$set"]["openports"] = openports
+        return update
 
     def get(self, flt, archive=False, **kargs):
         """Queries the active column (the old one if "archive" is set to True)
@@ -571,7 +633,14 @@ have no effect if it is not expected)."""
         hard-to-merge fields are lost (e.g., extraports).
 
         """
+        if rec1.get("schema_version") != rec2.get("schema_version"):
+            raise ValueError("Cannot merge host documents. "
+                             "Schema versions differ (%r != %r)" % (
+                                 rec1.get("schema_version"),
+                                 rec2.get("schema_version")))
         rec = {}
+        if "schema_version" in rec1:
+            rec["schema_version"] = rec1["schema_version"]
         # When we have different values, we will use the one from the
         # most recent scan, rec2
         if rec1["starttime"] > rec2["starttime"]:
@@ -611,11 +680,11 @@ have no effect if it is not expected)."""
         scripts.update((script["id"], script)
                        for script in rec2.get("scripts", []))
         rec["scripts"] = scripts.values()
-        ports = dict((port["port"], port.copy())
+        ports = dict(((port["protocol"], port["port"]), port.copy())
                      for port in rec2.get("ports", []))
         for port in rec1.get("ports", []):
-            if port['port'] in ports:
-                curport = ports[port['port']]
+            if (port['protocol'], port['port']) in ports:
+                curport = ports[(port['protocol'], port['port'])]
                 if 'scripts' in curport:
                     curport['scripts'] = curport['scripts'][:]
                 else:
@@ -634,8 +703,27 @@ have no effect if it is not expected)."""
                         if key.startswith("service_"):
                             curport[key] = port[key]
             else:
-                ports[port['port']] = port
+                ports[(port['protocol'], port['port'])] = port
         rec["ports"] = ports.values()
+        rec["openports"] = {}
+        for record in [rec1, rec2]:
+            for proto in record.get('openports', {}):
+                if proto == 'count':
+                    continue
+                rec['openports'].setdefault(
+                    proto, {}).setdefault(
+                        'ports', set()).update(
+                            record['openports'][proto]['ports'])
+        if rec['openports']:
+            for proto in rec['openports'].keys():
+                count = len(rec['openports'][proto]['ports'])
+                rec['openports'][proto]['count'] = count
+                rec['openports']['count'] = rec['openports'].get(
+                    'count', 0) + count
+                rec['openports'][proto]['ports'] = list(
+                    rec['openports'][proto]['ports'])
+        else:
+            rec['openports']["count"] = 0
         for field in ["traces", "infos", "scripts", "ports"]:
             if not rec[field]:
                 del rec[field]
@@ -922,6 +1010,9 @@ have no effect if it is not expected)."""
         find open ports.
 
         """
+        if state == "open":
+            return {"openports.%s.ports" % protocol:
+                    {'$ne': port} if neg else port}
         if neg:
             return {
                 '$or': [
@@ -944,10 +1035,17 @@ have no effect if it is not expected)."""
         listed in `ports` with state `state`.
 
         """
-        return self.searchport({'$nin': ports}, protocol=protocol,
-                               state=state)
+        return self.searchport(
+            {'$elemMatch': {'$nin': ports}} if state == 'open'
+            else {'$nin': ports},
+            protocol=protocol,
+            state=state,
+        )
 
     def searchports(self, ports, protocol='tcp', state='open', neg=False):
+        if state == "open" and not neg:
+            return self.searchport({'$all': ports}, state=state,
+                                   protocol=protocol, neg=neg)
         return self.flt_and(*(self.searchport(p, protocol=protocol,
                                               state=state, neg=neg)
                               for p in ports))
@@ -1480,25 +1578,29 @@ have no effect if it is not expected)."""
             ]
             field = "portlist"
         elif field.startswith('countports:'):
-            specialproj = {"_id": 0,
-                           "ports.state_state": 1}
-            specialflt = [
-                {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
-                # See "portlist:".
-                {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
-                                                                   None]},
-                                                      None]},
-                                       "then": {
-                                           "$cond": {
-                                               "if": {"$eq": [
-                                                   "$state_state",
-                                                   field.split(':', 1)[1]]},
-                                               "then": "$$KEEP",
-                                               "else": "$$PRUNE"}},
-                                       "else": "$$DESCEND"}}},
-                {"$project": {"countports": {"$size": "$ports"}}},
-            ]
-            field = "countports"
+            state = field.split(':', 1)[1]
+            if state == 'open':
+                field = "openports.count"
+            else:
+                specialproj = {"_id": 0,
+                               "ports.state_state": 1}
+                specialflt = [
+                    {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
+                    # See "portlist:".
+                    {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
+                                                                       None]},
+                                                          None]},
+                                           "then": {
+                                               "$cond": {
+                                                   "if": {"$eq": [
+                                                       "$state_state",
+                                                       state]},
+                                                   "then": "$$KEEP",
+                                                   "else": "$$PRUNE"}},
+                                           "else": "$$DESCEND"}}},
+                    {"$project": {"countports": {"$size": "$ports"}}},
+                ]
+                field = "countports"
         elif field == "service":
             flt = self.flt_and(flt, self.searchservice({'$exists': True}))
             specialproj = {"_id": 0,
