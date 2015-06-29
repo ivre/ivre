@@ -73,6 +73,7 @@ class DB(object):
 
     """
     globaldb = None
+    schema_migrations = {}
 
     # filters
 
@@ -110,6 +111,11 @@ class DB(object):
         subclass.
 
         """
+        raise NotImplementedError
+
+    @staticmethod
+    def searchversion(version):
+        """Filters documents based on their schema's version."""
         raise NotImplementedError
 
     def searchnet(self, net, neg=False):

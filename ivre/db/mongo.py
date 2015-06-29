@@ -175,6 +175,21 @@ class MongoDB(DB):
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
+    def migrate_schema(self, colname, version):
+        """Process to schema migrations in column `colname` starting
+        from `version`.
+
+        """
+        while version in self.schema_migrations[colname]:
+            new_version, migration_function = self.schema_migrations[
+                colname][version]
+            for record in self.set_limits(self.find(
+                    colname, self.searchversion(version))):
+                update = migration_function(record)
+                if update is not None:
+                    self.db[colname].update({"_id": record["_id"]}, update)
+            version = new_version
+
     def _topvalues(self, colname, field, flt=None, topnbr=10,
                    sortby=None, limit=None, skip=None, least=False,
                    aggrflt=None, specialproj=None, specialflt=None,
@@ -285,6 +300,12 @@ class MongoDB(DB):
         return {"_id": {'$ne': idval} if neg else idval}
 
     @staticmethod
+    def searchversion(version):
+        """Filters documents based on their schema's version."""
+        return {"schema_version":
+                {"$exists": False} if version is None else version}
+
+    @staticmethod
     def searchhost(addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
@@ -361,6 +382,7 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.indexes = {
             self.colname_hosts: [
                 [('scanid', pymongo.ASCENDING)],
+                [('schema_version', pymongo.ASCENDING)],
                 [('addr', pymongo.ASCENDING)],
                 [('starttime', pymongo.ASCENDING)],
                 [('endtime', pymongo.ASCENDING)],
@@ -386,6 +408,7 @@ class MongoDBNmap(MongoDB, DBNmap):
             ],
             self.colname_oldhosts: [
                 [('scanid', pymongo.ASCENDING)],
+                [('schema_version', pymongo.ASCENDING)],
                 [('addr', pymongo.ASCENDING)],
                 [('starttime', pymongo.ASCENDING)],
                 [('source', pymongo.ASCENDING)],
