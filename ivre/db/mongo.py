@@ -1010,6 +1010,9 @@ have no effect if it is not expected)."""
         find open ports.
 
         """
+        if state == "open":
+            return {"openports.%s.ports" % protocol:
+                    {'$ne': port} if neg else port}
         if neg:
             return {
                 '$or': [
@@ -1032,10 +1035,17 @@ have no effect if it is not expected)."""
         listed in `ports` with state `state`.
 
         """
-        return self.searchport({'$nin': ports}, protocol=protocol,
-                               state=state)
+        return self.searchport(
+            {'$elemMatch': {'$nin': ports}} if state == 'open'
+            else {'$nin': ports},
+            protocol=protocol,
+            state=state,
+        )
 
     def searchports(self, ports, protocol='tcp', state='open', neg=False):
+        if state == "open" and not neg:
+            return self.searchport({'$all': ports}, state=state,
+                                   protocol=protocol, neg=neg)
         return self.flt_and(*(self.searchport(p, protocol=protocol,
                                               state=state, neg=neg)
                               for p in ports))
@@ -1568,25 +1578,29 @@ have no effect if it is not expected)."""
             ]
             field = "portlist"
         elif field.startswith('countports:'):
-            specialproj = {"_id": 0,
-                           "ports.state_state": 1}
-            specialflt = [
-                {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
-                # See "portlist:".
-                {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
-                                                                   None]},
-                                                      None]},
-                                       "then": {
-                                           "$cond": {
-                                               "if": {"$eq": [
-                                                   "$state_state",
-                                                   field.split(':', 1)[1]]},
-                                               "then": "$$KEEP",
-                                               "else": "$$PRUNE"}},
-                                       "else": "$$DESCEND"}}},
-                {"$project": {"countports": {"$size": "$ports"}}},
-            ]
-            field = "countports"
+            state = field.split(':', 1)[1]
+            if state == 'open':
+                field = "openports.count"
+            else:
+                specialproj = {"_id": 0,
+                               "ports.state_state": 1}
+                specialflt = [
+                    {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
+                    # See "portlist:".
+                    {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
+                                                                       None]},
+                                                          None]},
+                                           "then": {
+                                               "$cond": {
+                                                   "if": {"$eq": [
+                                                       "$state_state",
+                                                       state]},
+                                                   "then": "$$KEEP",
+                                                   "else": "$$PRUNE"}},
+                                           "else": "$$DESCEND"}}},
+                    {"$project": {"countports": {"$size": "$ports"}}},
+                ]
+                field = "countports"
         elif field == "service":
             flt = self.flt_and(flt, self.searchservice({'$exists': True}))
             specialproj = {"_id": 0,
