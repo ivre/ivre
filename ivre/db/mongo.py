@@ -634,11 +634,11 @@ have no effect if it is not expected)."""
         scripts.update((script["id"], script)
                        for script in rec2.get("scripts", []))
         rec["scripts"] = scripts.values()
-        ports = dict((port["port"], port.copy())
+        ports = dict(((port["protocol"], port["port"]), port.copy())
                      for port in rec2.get("ports", []))
         for port in rec1.get("ports", []):
-            if port['port'] in ports:
-                curport = ports[port['port']]
+            if (port['protocol'], port['port']) in ports:
+                curport = ports[(port['protocol'], port['port'])]
                 if 'scripts' in curport:
                     curport['scripts'] = curport['scripts'][:]
                 else:
@@ -657,7 +657,7 @@ have no effect if it is not expected)."""
                         if key.startswith("service_"):
                             curport[key] = port[key]
             else:
-                ports[port['port']] = port
+                ports[(port['protocol'], port['port'])] = port
         rec["ports"] = ports.values()
         for field in ["traces", "infos", "scripts", "ports"]:
             if not rec[field]:
