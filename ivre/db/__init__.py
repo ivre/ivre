@@ -257,6 +257,7 @@ class DBNmap(DB):
             help='show only results from this(those) AS(es)')
         self.argparser.add_argument('--source', metavar='SRC',
                                     help='show only results from this source')
+        self.argparser.add_argument('--version', metavar="VERSION", type=int)
         self.argparser.add_argument('--timeago', metavar='SECONDS', type=int)
         self.argparser.add_argument('--host', metavar='IP')
         self.argparser.add_argument('--hostname')

@@ -451,6 +451,10 @@ def main():
                         help='ARCHIVE the matched results instead of '
                         'displaying them (i.e., move the results to '
                         'the archive collections).')
+    parser.add_argument('--update-schema', action='store_true',
+                        help='update (host) schema. Use with --version to '
+                        'specify your current version and run twice, once '
+                        'with --archive.')
     if USING_ORDEREDDICT:
         parser.add_argument('--csv', metavar='TYPE',
                             help='Output result as a CSV file. Supported '
@@ -642,15 +646,21 @@ def main():
                      field.startswith('~') and -1 or 1)
                     for field in args.sort]
 
-    cursor = db.db.nmap.get(hostfilter, archive=args.archives)
-    if sortkeys:
-        cursor = cursor.sort(sortkeys)
-    if args.limit is not None:
-        cursor = cursor.limit(args.limit)
-    if args.skip is not None:
-        cursor = cursor.skip(args.skip)
-    displayfunction(cursor)
-    sys.exit(0)
+    if args.update_schema:
+        db.db.nmap.migrate_schema(
+            db.db.nmap.colname_oldhosts if args.archives
+            else db.db.nmap.colname_hosts, args.version
+        )
+    else:
+        cursor = db.db.nmap.get(hostfilter, archive=args.archives)
+        if sortkeys:
+            cursor = cursor.sort(sortkeys)
+        if args.limit is not None:
+            cursor = cursor.limit(args.limit)
+        if args.skip is not None:
+            cursor = cursor.skip(args.skip)
+        displayfunction(cursor)
+        sys.exit(0)
 
 if __name__ == '__main__':
     reload(sys)

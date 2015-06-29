@@ -390,6 +390,9 @@ class MongoDBNmap(MongoDB, DBNmap):
                 [('categories', pymongo.ASCENDING)],
                 [('hostnames.domains', pymongo.ASCENDING)],
                 [('traces.hops.domains', pymongo.ASCENDING)],
+                [('openports.count', pymongo.ASCENDING)],
+                [('openports.tcp.ports', pymongo.ASCENDING)],
+                [('openports.udp.ports', pymongo.ASCENDING)],
                 [('ports.port', pymongo.ASCENDING)],
                 [('ports.state_state', pymongo.ASCENDING)],
                 [('ports.service_name', pymongo.ASCENDING)],
@@ -416,6 +419,10 @@ class MongoDBNmap(MongoDB, DBNmap):
         }
         self.specialindexes = {
             self.colname_hosts: [
+                ([('openports.tcp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('openports.udp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
                 ([
                     ('ports.screenshot', pymongo.ASCENDING),
                     ('ports.screenwords', pymongo.ASCENDING),
@@ -437,6 +444,12 @@ class MongoDBNmap(MongoDB, DBNmap):
                  {"sparse": True}),
             ],
         }
+        self.schema_migrations = {
+            self.colname_hosts: {None: (1, self.migrate_schema_hosts_0_1)},
+        }
+        self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
+            self.colname_hosts].copy()
+
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -446,6 +459,32 @@ creates the default indexes."""
         self.db[self.colname_oldscans].drop()
         self.db[self.colname_oldhosts].drop()
         self.create_indexes()
+
+    @staticmethod
+    def migrate_schema_hosts_0_1(doc):
+        """Converts a record from version 0 (no "schema_version" key
+        in the document) to version 1 (`doc["schema_version"] ==
+        1`). Version 1 adds an "openports" nested document to ease
+        open ports based researches.
+
+        """
+        assert("schema_version" not in doc)
+        assert("openports" not in doc)
+        update = {"$set": {"schema_version": 1}}
+        if "ports" not in doc:
+            return update
+        openports = {}
+        for port in doc["ports"]:
+            openports.setdefault(port["protocol"], {}).setdefault(
+                "ports", []).append(port["port"])
+        for proto in openports.keys():
+            count = len(openports[proto]["ports"])
+            openports[proto]["count"] = count
+            openports["count"] = openports.get("count", 0) + count
+        if not openports:
+            openports["count"] = 0
+        update["$set"]["openports"] = openports
+        return update
 
     def get(self, flt, archive=False, **kargs):
         """Queries the active column (the old one if "archive" is set to True)
@@ -594,7 +633,14 @@ have no effect if it is not expected)."""
         hard-to-merge fields are lost (e.g., extraports).
 
         """
+        if rec1.get("schema_version") != rec2.get("schema_version"):
+            raise ValueError("Cannot merge host documents. "
+                             "Schema versions differ (%r != %r)" % (
+                                 rec1.get("schema_version"),
+                                 rec2.get("schema_version")))
         rec = {}
+        if "schema_version" in rec1:
+            rec["schema_version"] = rec1["schema_version"]
         # When we have different values, we will use the one from the
         # most recent scan, rec2
         if rec1["starttime"] > rec2["starttime"]:
@@ -659,6 +705,25 @@ have no effect if it is not expected)."""
             else:
                 ports[(port['protocol'], port['port'])] = port
         rec["ports"] = ports.values()
+        rec["openports"] = {}
+        for record in [rec1, rec2]:
+            for proto in record.get('openports', {}):
+                if proto == 'count':
+                    continue
+                rec['openports'].setdefault(
+                    proto, {}).setdefault(
+                        'ports', set()).update(
+                            record['openports'][proto]['ports'])
+        if rec['openports']:
+            for proto in rec['openports'].keys():
+                count = len(rec['openports'][proto]['ports'])
+                rec['openports'][proto]['count'] = count
+                rec['openports']['count'] = rec['openports'].get(
+                    'count', 0) + count
+                rec['openports'][proto]['ports'] = list(
+                    rec['openports'][proto]['ports'])
+        else:
+            rec['openports']["count"] = 0
         for field in ["traces", "infos", "scripts", "ports"]:
             if not rec[field]:
                 del rec[field]
