@@ -263,7 +263,7 @@ class DBNmap(DB):
         self.argparser.add_argument('--hostname')
         self.argparser.add_argument('--domain')
         self.argparser.add_argument('--net', metavar='IP/MASK')
-        self.argparser.add_argument('--range', metavar='START STOP', nargs=2)
+        self.argparser.add_argument('--range', metavar='IP', nargs=2)
         self.argparser.add_argument('--hop', metavar='IP')
         self.argparser.add_argument('--port', metavar='PORT')
         self.argparser.add_argument('--not-port', metavar='PORT')
