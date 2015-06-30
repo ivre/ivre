@@ -336,3 +336,45 @@ for(var key in HELP) {
 	HELP["-" + key] = HELP[key];
     }
 }
+
+
+/* Top values */
+
+HELP_TOPVALUES = [
+    "category", "source",
+    "domains", "domains:", "hop", "hop:",
+    // infos
+    "country", "city", "as",
+    // ports
+    "port", "port:open", "port:closed", "port:filtered",
+    // countports / portlist
+    "countports:open", "countports:filtered", "countports:closed",
+    "portlist:open", "portlist:closed", "portlist:filtered",
+    // service, products, etc. [:port]
+    "service", "service:",
+    "probedservice", "probedservice:",
+    "product", "product:",
+    "version", "version:",
+    "devicetype", "devicetype:",
+    // cpes
+    "cpe", "cpe:", "cpe.type", "cpe.type:", "cpe.vendor", "cpe.vendor:",
+    "cpe.product", "cpe.product:", "cpe.version", "cpe.version:",
+    // scripts
+    "script", "portscript", "hostscript",
+    "script:", "portscript:", "hostscript:",
+    // smb (hostscript smb-os-discovery)
+    "smb.os", "smb.lanmanager",
+    "smb.domain", "smb.dnsdomain",
+    "smb.forest", "smb.workgroup",
+    // cert (portscript ssl-cert)
+    "cert.issuer", "cert.subject",
+    // modbus (portscript modbus-discover)
+    "modbus.deviceid",
+    // s7 (portscript s7-info)
+    "s7.Module", "s7.Version", "s7.Module Type",
+    // enip (portscript enip-info)
+    "enip.vendor", "enip.product", "enip.serial", "enip.devtype",
+    "enip.prodcode", "enip.rev", "enip.ip",
+    // screenwords (words from screenshots)
+    "screenwords",
+];

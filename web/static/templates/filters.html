@@ -67,11 +67,16 @@
 <li>
   <form id="explore"
 	onsubmit="build_top_chart(this);">
-    <input type="text" placeholder="Top values"
+    <input type="text"
+	   placeholder="Top values"
 	   class="form-control input-medium"
-	   data-provide="typeahead"
-	   data-items="6"
-	   data-source="{{topvalues}}"
+	   oninput="ToolTip.set_topvalues(this);"
+	   onfocus="ToolTip.set_topvalues(this);"
+	   onblur="ToolTip.remove(this);"
+	   id="topvalues-input"
+	   data-toggle="tooltip"
+	   data-trigger="manual"
+	   data-html="true"
 	   />
   </form>
 </li>

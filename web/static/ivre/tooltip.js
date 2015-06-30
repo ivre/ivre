@@ -39,6 +39,78 @@ var ToolTip = {
 	return result;
     },
 
+    set_topvalues: function(elt) {
+	if (!(elt.value))
+	    return;
+
+	// Prefix detection
+	var asked, prefix = "";
+	if (elt.value.length > 1 && "!-".indexOf(elt.value[0]) !== -1) {
+	    prefix = elt.value[0];
+	    asked = elt.value.substr(1);
+	} else {
+	    asked = elt.value;
+	}
+
+	// Match available commands
+	if (asked.length >= 1) {
+	    var matching_keys = HELP_TOPVALUES.filter(
+		function(key) {
+		    return (asked.substr(0, key.length) === key.substr(0, asked.length));
+		}
+	    );
+	    // Get last answer
+	    var oldval = elt.getAttribute("oldval");
+	    if(oldval === null)
+		oldval = "";
+
+	    if(matching_keys.length >= 1) {
+		// Some command match
+
+		if(matching_keys.length == 1) {
+		    // One result: auto-completion
+
+		    key = matching_keys[0];
+		    content = {
+			"title": "Help",
+			"content": key
+		    };
+
+		} else {
+		    // Multiple results: display help
+		    key = ToolTip.common_prefix(matching_keys);
+		    content = {
+			"title": "Possible commands",
+			"content": matching_keys.map(
+			function(x) {
+			    return x.substr(0, key.length) +
+				"<b><span style=\"color: red;\">" +
+				x.substr(key.length, 1) + "</span>" +
+				x.substr(key.length + 1) + "</b>";
+			}).join("<br>"),
+		    };
+		}
+
+		if(elt.getAttribute('data-content') !== content.content) {
+			ToolTip.set(elt, content);
+		    }
+		if(oldval.length < elt.value.length &&
+		   elt.value.substr(0, oldval.length) === oldval &&
+		   elt.value.length < key.length) {
+		    var start = elt.value.length;
+		    elt.value = prefix + key;
+		    elt.selectionStart = start;
+		}
+		elt.setAttribute("oldval", elt.value);
+		return;
+	    }
+
+	}
+	if (elt.hasAttribute('data-title'))
+	    ToolTip.remove(elt);
+	elt.setAttribute("oldval", elt.value);
+    },
+
     set_filter: function(elt) {
 	var key, content;
 	if(elt.value &&
