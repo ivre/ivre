@@ -182,6 +182,28 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
+        res, out, _ = RUN(["scancli", "--count", "--countports", "20", "20"])
+        self.assertEqual(res, 0)
+        portsnb_20 = int(out)
+        self.check_value("nmap_20_ports", portsnb_20)
+
+        res, out, _ = RUN(["scancli", "--count", "--no-countports", "20", "20"])
+        self.assertEqual(res, 0)
+        portsnb_not_20 = int(out)
+
+        self.assertEqual(portsnb_20 + portsnb_not_20, host_counter)
+
+        res, out, _ = RUN(["scancli", "--count", "--countports", "10", "100"])
+        self.assertEqual(res, 0)
+        portsnb_10_100 = int(out)
+        self.check_value("nmap_10-100_ports", portsnb_10_100)
+
+        res, out, _ = RUN(["scancli", "--count", "--no-countports", "10", "100"])
+        self.assertEqual(res, 0)
+        portsnb_not_10_100 = int(out)
+
+        self.assertEqual(portsnb_10_100 + portsnb_not_10_100, host_counter)
+
         if USE_COVERAGE:
             cov = coverage.coverage()
             cov.load()

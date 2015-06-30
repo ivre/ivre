@@ -1056,6 +1056,25 @@ have no effect if it is not expected)."""
             for port in ports]}}
 
     @staticmethod
+    def searchcountopenports(minn=None, maxn=None, neg=False):
+        "Filters records with open port number between minn and maxn"
+        assert(minn is not None or maxn is not None)
+        flt = []
+        if minn == maxn:
+            return {'openports.count': {'$ne': minn} if neg else minn}
+        if minn is not None:
+            flt.append({'$lt' if neg else '$gte': minn})
+        if maxn is not None:
+            flt.append({'$gt' if neg else '$lte': maxn})
+        if len(flt) == 1:
+            return {'openports.count': flt[0]}
+        if neg:
+            return {'$or': [{'openports.count': cond} for cond in flt]}
+        # return {'openports.count':
+        #         dict(item for cond in flt for item in cond.iteritems())}
+        return {'openports.count': {'$lte':maxn, '$gte':minn}}
+
+    @staticmethod
     def searchopenport(neg=False):
         "Filters records with at least one open port."
         return {'ports.state_state': {'$nin': ['open']} if neg else 'open'}
@@ -1995,6 +2014,12 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchopenport())
         if args.no_openport:
             flt = self.flt_and(flt, self.searchopenport(neg=True))
+        if args.countports:
+            minn, maxn = int(args.countports[0]), int(args.countports[1])
+            flt = self.flt_and(flt,self.searchcountopenports(minn=minn, maxn=maxn))
+        if args.no_countports:
+            minn, maxn = int(args.no_countports[0]), int(args.no_countports[1])
+            flt = self.flt_and(flt,self.searchcountopenports(minn=minn, maxn=maxn, neg=True))
         if args.service is not None:
             flt = self.flt_and(
                 flt,

@@ -192,8 +192,16 @@ for q in query:
         flt = db.nmap.flt_and(flt, db.nmap.searchnet(q[1], neg=neg))
     elif nq == "range":
         flt = db.nmap.flt_and(flt, db.nmap.searchrange(
-            *q[1].replace('-', ',').split(','),
+            *q[1].replace('-', ',').split(',', 1),
             neg=neg))
+    elif nq == "countports":
+        vals = [int(val) for val in q[1].replace('-', ',').split(',', 1)]
+        if len(vals) == 1:
+            flt = db.nmap.flt_and(flt, db.nmap.searchcountopenports(
+                minn=vals[0], maxn=vals[0], neg=neg))
+        else:
+            flt = db.nmap.flt_and(flt, db.nmap.searchcountopenports(
+                minn=vals[0], maxn=vals[1], neg=neg))
     elif nq == "hostname":
         flt = db.nmap.flt_and(
             flt, db.nmap.searchhostname(ivre.utils.str2regexp(q[1]),
