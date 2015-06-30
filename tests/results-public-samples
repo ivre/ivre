@@ -10,7 +10,6 @@
 #
 ## http://pierre.droids-corp.org/p0rn/Nmap-Modbus-IPv4.json.bz2
 ## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=http.cap
-## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap
 ## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz
 ## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap
 ## https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=nb6-startup.pcap
@@ -65,6 +64,8 @@ nmap_geovision_count = 33
 nmap_trace_hostname_count = 12159
 nmap_not_domain_com_or_net_count = 8146
 nmap_tophop_10+ = '212.252.168.207'
+nmap_10-100_ports = 667
+nmap_20_ports = 6
 passive_count = 103
 passive_torcert_count = 0
 passive_javaua_count = 0
