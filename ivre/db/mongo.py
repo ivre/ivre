@@ -1055,6 +1055,18 @@ have no effect if it is not expected)."""
                             state=state, neg=neg)['ports']
             for port in ports]}}
 
+
+    @staticmethod
+    def searchcountopenports(min, max=65536, neg=False):
+        "Filters records with open port number between min and max"
+        if neg:
+            return {'$or': [
+                {'openports.count': {'$lt':min}},
+                {'openports.count': {'$gt':max}}
+            ]}
+        else:
+            return {'openports.count': {'$lte':max, '$gte':min}}
+
     @staticmethod
     def searchopenport(neg=False):
         "Filters records with at least one open port."
