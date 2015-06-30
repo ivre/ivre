@@ -51,8 +51,8 @@
       <div class="navbar-inner">
 	<div class="container">
 	  <!-- The logo + app name -->
-	  <img alt="DroidsCorp" src="logo.png" class="logo"/>
-	  <a href="#" class="navbar-brand">
+	  <img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
+	  <a href="#" class="navbar-brand visible-md visible-lg">
 	    IVRE
 	  </a>
 	  <!-- The menu -->
@@ -65,7 +65,7 @@
 
     <div class="container-fluid">
       <div class="row">
-	<div class="col-md-2 sidebar">
+	<div class="col-sm-12 col-md-2 sidebar">
 	  <ul class="nav panel-group">
 	    <ul class="nav"
 		ng-controller="IvreProgressCtrl"
@@ -78,7 +78,7 @@
 	    </ul>
 	  </ul>
 	</div>
-	<div id="results-container" class="col-md-5 col-md-offset-2"
+	<div id="results-container" class="col-sm-12 col-sm-offset-12 col-md-5 col-md-offset-2"
 	     ng-controller="IvreResultListCtrl"
 	     ng-switch="display_mode">
 	  <div ng-switch-when="script" display-script=""></div>
@@ -86,7 +86,7 @@
 	  <div ng-switch-when="cpe" display-cpe=""></div>
 	  <div ng-switch-default="host" display-host=""></div>
 	</div>
-	<div id="notes-container" class="col-md-5"
+	<div id="notes-container" class="col-sm-12 col-md-5"
 	     ng-controller="IvreAnalysisCtrl">
 	  <iframe id="notes" frameborder="0" height="99%" width="100%"
 		  ng-style="{'display': notes_display}"
