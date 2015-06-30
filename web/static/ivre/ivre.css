@@ -203,4 +203,5 @@ form {
 
 .label {
     display: inline-block;
+    padding: 0.4em 0.6em 0.3em;
 }
