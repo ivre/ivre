@@ -65,8 +65,8 @@
 
     <div class="container-fluid">
       <div class="row">
-	<div class="col-md-2">
-	  <ul class="nav panel-group sidebar">
+	<div class="col-md-2 sidebar">
+	  <ul class="nav panel-group">
 	    <ul class="nav"
 		ng-controller="IvreProgressCtrl"
 		ivre-progress-bar="">
@@ -78,7 +78,7 @@
 	    </ul>
 	  </ul>
 	</div>
-	<div id="results-container" class="col-md-5"
+	<div id="results-container" class="col-md-5 col-md-offset-2"
 	     ng-controller="IvreResultListCtrl"
 	     ng-switch="display_mode">
 	  <div ng-switch-when="script" display-script=""></div>
