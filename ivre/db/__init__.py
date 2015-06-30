@@ -269,6 +269,12 @@ class DBNmap(DB):
         self.argparser.add_argument('--not-port', metavar='PORT')
         self.argparser.add_argument('--openport', action='store_true')
         self.argparser.add_argument('--no-openport', action='store_true')
+        self.argparser.add_argument('--countports', metavar='COUNT',
+                                    help='show only results with a number of open '
+                                    'ports within the provided range', nargs=2)
+        self.argparser.add_argument('--no-countports', metavar='COUNT',
+                                    help='show only results with a number of open '
+                                    'ports NOT within the provided range', nargs=2)
         self.argparser.add_argument('--service', metavar='SVC')
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
         self.argparser.add_argument('--hostscript', metavar='SCRIPT')
