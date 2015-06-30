@@ -264,11 +264,11 @@ function build_chart_map(chart, locs, fullworld) {
 	    .projection(projection);
 	world = topojson.feature(world, world.objects.world110m);
 	var locations = topojson.feature(locs, locs);
-	var maxcount = locations.features[0].properties.count;
-	var mincount = locations.features[locations.features.length - 1].properties.count;
 	var maxsize = 10, minsize = 1.2;
 	var radiusscale = d3.scale.linear()
-	    .domain([mincount, maxcount])
+	    .domain(d3.extent(locations.features, function(i) {
+		return i.properties.count;
+	    }))
 	    .range([minsize, maxsize]);
 
 	var dotgradient = vis.append("svg:defs")
