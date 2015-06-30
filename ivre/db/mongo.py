@@ -1046,9 +1046,14 @@ have no effect if it is not expected)."""
         if state == "open" and not neg:
             return self.searchport({'$all': ports}, state=state,
                                    protocol=protocol, neg=neg)
-        return self.flt_and(*(self.searchport(p, protocol=protocol,
-                                              state=state, neg=neg)
-                              for p in ports))
+        if neg:
+            return self.flt_and(*(self.searchport(p, protocol=protocol,
+                                                  state=state, neg=neg)
+                                  for p in ports))
+        return {'ports': {'$all': [
+            self.searchport(port, protocol=protocol,
+                            state=state, neg=neg)['ports']
+            for port in ports]}}
 
     @staticmethod
     def searchopenport(neg=False):
