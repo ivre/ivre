@@ -48,22 +48,20 @@
 
     <!-- The top navigation bar -->
     <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
-      <div class="navbar-inner">
-	<div class="container">
-	  <!-- The logo + app name -->
-	  <img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
-	  <a href="#" class="navbar-brand visible-md visible-lg">
-	    IVRE
-	  </a>
-	  <!-- The menu -->
-	  <ul class="nav navbar-nav"
-	      ng-controller="IvreMenuCtrl"
-	      ivre-menu=""></ul>
-	</div>
+      <div class="container">
+	<!-- The logo + app name -->
+	<img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
+	<a href="#" class="navbar-brand">
+	  IVRE
+	</a>
+	<!-- The menu -->
+	<ul class="nav navbar-nav"
+	    ng-controller="IvreMenuCtrl"
+	    ivre-menu=""></ul>
       </div>
     </div>
 
-    <div class="container-fluid">
+    <div class="container-fluid container-header">
       <div class="row">
 	<div class="col-sm-12 col-md-2 sidebar">
 	  <ul class="nav panel-group">
@@ -71,7 +69,7 @@
 		ng-controller="IvreProgressCtrl"
 		ivre-progress-bar="">
 	    </ul>
-            <li class="divider"></li>
+	    <hr />
 	    <ul class="nav"
 		ng-controller="IvreFilterListCtrl"
 		ivre-filters="">
