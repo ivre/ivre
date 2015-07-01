@@ -56,7 +56,7 @@ var ToolTip = {
 	if (asked.length >= 1) {
 	    var matching_keys = HELP_TOPVALUES.filter(
 		function(key) {
-		    return (asked.substr(0, key.length) === key.substr(0, asked.length));
+		    return (asked === key.substr(0, asked.length));
 		}
 	    );
 	    // Get last answer
@@ -91,9 +91,7 @@ var ToolTip = {
 		    };
 		}
 
-		if(elt.getAttribute('data-content') !== content.content) {
-			ToolTip.set(elt, content);
-		    }
+		ToolTip.set(elt, content);
 		if(oldval.length < elt.value.length &&
 		   elt.value.substr(0, oldval.length) === oldval &&
 		   elt.value.length < key.length) {
