@@ -22,6 +22,16 @@ The advertising slogans are:
 The names IVRE and DRUNK have been chosen as a tribute to "Le
 Taullier".
 
+# Overview #
+
+See [doc/SCREENSHOTS](doc/SCREENSHOTS.md) for an overview (of the Web
+interface). We also have a demonstration instance,
+[contact us](#contact) to get an access.
+
+A few
+[blog posts](http://pierre.droids-corp.org/blog/html/tags/ivre.html)
+have been written to show some features of IVRE.
+
 # Documentation #
 
 See [doc/README](doc/README.md) (and `doc/*` files) for more
