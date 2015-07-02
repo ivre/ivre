@@ -153,3 +153,14 @@ function changefav(href) {
 	document.head.removeChild(oldfav);
     document.head.appendChild(fav);
 }
+
+jQuery.fn.getBg = function() {
+    // Get the real computed background color (!= getComputedStyle)
+    return $(this).parents().filter(function() {
+
+	var color = $(this).css('background-color');
+
+	if(color != 'transparent' && color != 'rgba(0, 0, 0, 0)' && color != undefined) 
+	    return color;
+    }).css('background-color');
+};
