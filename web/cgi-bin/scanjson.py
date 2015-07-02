@@ -696,6 +696,7 @@ if unused:
 
 # sys.stdout.write('console.log("%r");\n' % flt)
 
+version_mismatch = {}
 for r in result:
     del(r['_id'])
     try:
@@ -720,3 +721,21 @@ for r in result:
         sys.stdout.write("%s(%s);\n" % (callback, json.dumps(r)))
     else:
         sys.stdout.write("%s;\n" % json.dumps(r))
+    check = db.nmap.cmp_schema_version_host(r)
+    if check:
+        version_mismatch[check] = version_mismatch.get(check, 0) + 1
+
+messages = {
+    -1: lambda count: "%d document%s displayed %s out-of-date. Please run the "
+    "following commands: 'scancli --ensure-indexes; scancli --update-schema; "
+    "scancli --update-schema --archives'"
+    "" % (count, 's' if count > 1 else '', 'are' if count > 1 else 'is'),
+    1: lambda count: '%d document%s displayed ha%s been inserted by '
+    'a more recent version of IVRE. Please update IVRE!'
+    '' % (count, 's' if count > 1 else '', 've' if count > 1 else 's'),
+}
+for mismatch, count in version_mismatch.iteritems():
+    message = messages[mismatch](count)
+    sys.stdout.write(alert("version-mismatch-%d" % (mismatch + 1) / 2,
+                           "warning", message))
+    sys.stderr.write('IVRE: WARNING: %r\n' % message)
