@@ -877,7 +877,10 @@ function build_chart(chart, field, dataset) {
 	.attr("transform", function(d, i) {
 	    return "translate(" + labelpad + "," + y(i) + ")";
 	});
-    
+
+    colorBg = $("#" + chart).getBg();
+    colorFg = getComputedStyle($("#" + chart)[0]).color;
+
     var bar = bars.append("svg:rect")
 	//.attr("fill", "steelblue")
 	.attr("fill", function(d, i) { return color[i % color.length]; })
@@ -903,12 +906,17 @@ function build_chart(chart, field, dataset) {
 	.attr("y", y.rangeBand() / 2)
 	.attr("dy", ".35em")
 	.attr("text-anchor", "end")
-	.text(function(d) {return d;});
+	.text(function(d) {return d;})
+	.attr("fill", colorFg);
     
     bars.append("svg:text")
 	.attr("x", function(d, i) {
 	    return x(d, i) + (x(d, i) < (w-10)/2 ? 10 : -10);
 	})
+	.attr("fill", function(d, i) {
+	    return x(d, i) < (w - 10) / 2 ? colorFg : colorBg;
+	})
+	.attr("font-weight", "bold")
 	.attr("y", y.rangeBand() / 2)
 	.attr("dy", ".35em")
 	.attr("text-anchor", function(d, i) {
