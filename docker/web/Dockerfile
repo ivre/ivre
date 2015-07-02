@@ -32,6 +32,7 @@ RUN apt-get -qy install patch && \
     apt-get -qy --purge autoremove patch
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc
 RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png
+RUN ln -s /usr/local/share/ivre/dokuwiki/media/doc var/www/dokuwiki/data/media/wiki/doc
 RUN cp usr/local/share/ivre/web/cgi-bin/scanjsonconfig-sample.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py
 RUN touch usr/local/share/ivre/web/static/config.js
 
