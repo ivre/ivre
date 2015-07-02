@@ -22,8 +22,13 @@ doc/INSTALL.md
 doc/LICENSE-EXTERNAL.md
 doc/LICENSE.md
 doc/README.md
+doc/SCREENSHOTS.md
 doc/TESTS.md
 doc/WEBUI.md
+doc/screenshots/webui-tooltip-topenipvendors.png
+doc/screenshots/webui-topproducts-80.png
+doc/screenshots/webui-screenshots-solar-world.png
+doc/screenshots/webui-home-heatmap.png
 docker/Vagrantfile
 docker/agent/Dockerfile
 docker/base/Dockerfile
@@ -65,6 +70,7 @@ web/dokuwiki/doc/install.txt
 web/dokuwiki/doc/license-external.txt
 web/dokuwiki/doc/license.txt
 web/dokuwiki/doc/readme.txt
+web/dokuwiki/doc/screenshots.txt
 web/dokuwiki/doc/tests.txt
 web/dokuwiki/doc/webui.txt
 web/dokuwiki/media/logo.png
