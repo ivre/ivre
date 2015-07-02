@@ -333,7 +333,7 @@ ivreWebUi
 	$scope.class_from_port_status = function(status) {
 	    switch(status) {
 	    case "open": return "label-success";
-	    case "closed": return "label-important";
+	    case "closed": return "label-danger";
 	    case "filtered": return "label-warning";
 	    }
 	};

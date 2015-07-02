@@ -100,7 +100,8 @@ setup(
         ('share/ivre/web/static/bs/js',
          ['web/static/bs/js/bootstrap.js']),
         ('share/ivre/web/static/bs/fonts',
-         ['web/static/bs/fonts/glyphicons-halflings-regular.woff']),
+         ['web/static/bs/fonts/glyphicons-halflings-regular.woff',
+          'web/static/bs/fonts/glyphicons-halflings-regular.woff2']),
         # jQuery
         ('share/ivre/web/static/jq',
          ['web/static/jq/jquery.js']),
