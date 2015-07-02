@@ -54,7 +54,7 @@ function add_download_button(div, title) {
 	title = "Graph";
     a.download = "IVRE-" + title + ".svg";
     a.href = "#";
-    a.innerHTML = '<button><i class="icon-download-alt"></i></button>';
+    a.innerHTML = '<button><i class="glyphicon glyphicon-download-alt"></i></button>';
     a.setAttribute("title", "Download");
     div.appendChild(a);
 }
@@ -341,7 +341,7 @@ function build_chart_map(chart, locs, fullworld) {
 	b.onclick = function() {
 	    build_ip_map();
 	};
-	b.innerHTML = '<i class="icon-zoom-in"></i>';
+	b.innerHTML = '<i class="glyphicon glyphicon-zoom-in"></i>';
 	b.setAttribute("title", "Adjust zoom");
     }
     else {
@@ -349,7 +349,7 @@ function build_chart_map(chart, locs, fullworld) {
 	b.onclick = function() {
 	    build_ip_map(true);
 	};
-	b.innerHTML = '<i class="icon-zoom-out"></i>';
+	b.innerHTML = '<i class="glyphicon glyphicon-zoom-out"></i>';
 	b.setAttribute("title", "Zoom out");
     }
     document.getElementById(chart).appendChild(b);

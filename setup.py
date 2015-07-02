@@ -96,15 +96,15 @@ setup(
         # Bootstrap
         ('share/ivre/web/static/bs/css',
          ['web/static/bs/css/bootstrap.css',
-          'web/static/bs/css/bootstrap-responsive.css']),
+          'web/static/bs/css/bootstrap.css.map']),
         ('share/ivre/web/static/bs/js',
          ['web/static/bs/js/bootstrap.js']),
+        ('share/ivre/web/static/bs/fonts',
+         ['web/static/bs/fonts/glyphicons-halflings-regular.woff',
+          'web/static/bs/fonts/glyphicons-halflings-regular.woff2']),
         # jQuery
         ('share/ivre/web/static/jq',
          ['web/static/jq/jquery.js']),
-        ('share/ivre/web/static/bs/img',
-         ['web/static/bs/img/glyphicons-halflings.png',
-          'web/static/bs/img/glyphicons-halflings-white.png']),
         # d3.js
         ('share/ivre/web/static/d3/js',
          ['web/static/d3/js/d3.v3.min.js',

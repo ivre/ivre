@@ -28,8 +28,30 @@ body {
     float: left;
 }
 
-.navbar .credits {
-    float: right;
+.navbar-nav > li > a {
+    padding-top:10px !important;
+    padding-bottom:10px !important;
+}
+
+.navbar-nav > li > .dropdown-menu {
+    margin-top: 5px !important;
+}
+
+.navbar {
+    min-height: 40px !important;
+}
+
+hr {
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+}
+
+.navbar-brand {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 20px;
+    min-height: 20px;
+    height: 20px;
 }
 
 .sidebar {
@@ -40,12 +62,12 @@ body {
     margin-bottom: 5px;
 }
 
-.sidebar .input-append {
+.sidebar .input-group {
      margin-bottom: 10px;
 }
 
 /* Progress bar not starting at the beginning */
-.progress .bar-empty {
+.progress-bar-empty {
     background-image: none;
     background: none;
     box-shadow: none;
@@ -184,3 +206,24 @@ form {
     margin: 5px 0px;
 }
 
+.glyphicon.white {
+    color: #fff;
+}
+
+.glyphicon.black {
+    color: #000000;
+}
+
+.sidebox-header {
+    font-size: 11px;
+    font-weight: bold;
+    line-height: 20px;
+    color: #999;
+    text-transform: uppercase;
+    text-shadow: 0px 1px 0px rgba(255, 255, 255, 0.5);
+}
+
+.label {
+    display: inline-block;
+    padding: 0.4em 0.6em 0.3em;
+}

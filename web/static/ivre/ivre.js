@@ -198,8 +198,6 @@ function load() {
     s.id = "resultsscript";
     s.src = config.cgibase + '?callback=add_host&q=' +
 	encodeURIComponent(query);
-    document.getElementById('results-container')
-	.setAttribute('class', 'span5');
     s.onload = function() {
 	var hostcount = count_displayed_hosts(),
 	limit = getparam('limit'),

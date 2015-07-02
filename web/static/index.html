@@ -22,7 +22,6 @@
 
   <head>
     <link rel="stylesheet" type="text/css" href="bs/css/bootstrap.css" />
-    <link rel="stylesheet" type="text/css" href="bs/css/bootstrap-responsive.css" />
     <link rel="stylesheet" type="text/css" href="fi/css/flag-icon.css" />
     <link rel="stylesheet" type="text/css" href="ivre/ivre.css" />
     <link rel="icon" type="image/png" id="favicon" href="favicon.png" />
@@ -49,37 +48,35 @@
 
     <!-- The top navigation bar -->
     <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
-      <div class="navbar-inner">
-        <div class="container">
-	  <!-- The logo + app name -->
-	  <img alt="DroidsCorp" src="logo.png" class="logo"/>
-	  <a href="#" class="brand">
-	    IVRE
-	  </a>
-	  <!-- The menu -->
-	  <ul class="nav"
-	      ng-controller="IvreMenuCtrl"
-	      ivre-menu=""></ul>
-	</div>
+      <div class="container">
+	<!-- The logo + app name -->
+	<img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
+	<a href="#" class="navbar-brand visible-md visible-lg">
+	  IVRE
+	</a>
+	<!-- The menu -->
+	<ul class="nav navbar-nav"
+	    ng-controller="IvreMenuCtrl"
+	    ivre-menu=""></ul>
       </div>
     </div>
 
     <div class="container-fluid">
-      <div class="row-fluid">
-	<div class="span2">
-	  <ul class="nav nav-list sidebar">
+      <div class="row">
+	<div class="col-sm-12 col-md-2 sidebar">
+	  <ul class="nav panel-group">
 	    <ul class="nav"
 		ng-controller="IvreProgressCtrl"
 		ivre-progress-bar="">
 	    </ul>
-            <li class="divider"></li>
+	    <hr />
 	    <ul class="nav"
 		ng-controller="IvreFilterListCtrl"
 		ivre-filters="">
 	    </ul>
 	  </ul>
 	</div>
-	<div id="results-container" class="span5"
+	<div id="results-container" class="col-sm-12 col-sm-offset-12 col-md-5 col-md-offset-2"
 	     ng-controller="IvreResultListCtrl"
 	     ng-switch="display_mode">
 	  <div ng-switch-when="script" display-script=""></div>
@@ -87,7 +84,7 @@
 	  <div ng-switch-when="cpe" display-cpe=""></div>
 	  <div ng-switch-default="host" display-host=""></div>
 	</div>
-	<div id="notes-container" class="span5"
+	<div id="notes-container" class="col-sm-12 col-md-5"
 	     ng-controller="IvreAnalysisCtrl">
 	  <iframe id="notes" frameborder="0" height="99%" width="100%"
 		  ng-style="{'display': notes_display}"

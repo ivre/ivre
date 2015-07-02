@@ -39,43 +39,50 @@ var ToolTip = {
 	return result;
     },
 
-    set_filter: function(elt) {
-	var key, content;
-	if(elt.value &&
-	   (elt.value.length > 1 || "!-".indexOf(elt.value[0]) === -1)) {
-	    var matching_keys = Object.keys(HELP).filter(
-		function(key) {
-		    return ((':/'.indexOf(key.slice(-1)) === -1
-			     && key !== 'screenshot'
-			     && key !== 'smbshare') ?
-			    elt.value === key.substr(0, elt.value.length) :
-			    elt.value.substr(0, key.length) === key.substr(0, elt.value.length));
-		}
-	    );
-	    var oldval = elt.getAttribute("oldval");
-	    if(oldval === null)
-		oldval = "";
-	    if(matching_keys.length == 1) {
-		key = matching_keys[0];
-		content = HELP[key];
-		if(elt.getAttribute('data-title') !== content.title) {
-		    ToolTip.set(elt, content);
-		}
-		if(oldval.length < elt.value.length &&
-		   elt.value.substr(0, oldval.length) === oldval &&
-		   elt.value.length < key.length) {
-		    var start = elt.value.length;
-		    oldval = elt.value;
-		    elt.value = key;
-		    elt.selectionStart = start;
-		}
-		else {
-		    oldval = elt.value;
-		}
-		elt.setAttribute("oldval", oldval);
+    handle: function(elt, HELP) {
+
+	// Prefix detection
+	if (!(elt.value) || (elt.value.length <= 1 && HELP.config.prefixs.indexOf(elt.value[0]) !== -1)) {
+	    ToolTip.remove(elt);
+	    elt.setAttribute("oldval", elt.value);
+	    return;
+	}
+	var asked = elt.value;
+
+	// Callbacks
+	for (cbid in HELP.callbacks) {
+	    if (!(HELP.callbacks[cbid](elt, HELP, ToolTip)))
 		return;
+	}
+
+	// Match available commands
+	var matching_keys = Object.keys(HELP.content).filter(
+	    function(key) {
+		// Suffix detection
+		if (HELP.config.suffixs.indexOf(key.substr(-1)) == -1)
+		    return (asked === key.substr(0, asked.length));
+		else
+		    return (asked.substr(0, key.length) === key.substr(0, asked.length));
 	    }
-	    if(matching_keys.length >= 2) {
+	);
+
+	// Get last answer
+	var oldval = elt.getAttribute("oldval");
+	if (oldval === null)
+	    oldval = "";
+
+	if (matching_keys.length >= 1) {
+	    // Some command match
+
+	    if(matching_keys.length == 1) {
+		// One result: auto-completion
+
+		key = matching_keys[0];
+		content = HELP.content[key];
+
+	    } else {
+		// Multiple results: display help
+
 		key = ToolTip.common_prefix(matching_keys);
 		content = {
 		    "title": "Possible commands",
@@ -85,55 +92,36 @@ var ToolTip = {
 				"<b><span style=\"color: red;\">" +
 				x.substr(key.length, 1) + "</span>" +
 				x.substr(key.length + 1) + "</b>";
-			}
-		    ).join("<br>"),
+			}).join("<br>"),
 		};
-		if(elt.getAttribute('data-title') !== content.title ||
-		   elt.getAttribute('data-content') !== content.content) {
-		    ToolTip.set(elt, content);
-		}
-		if(oldval.length < elt.value.length &&
-		   elt.value.substr(0, oldval.length) === oldval &&
-		   elt.value.length < key.length) {
-		    var start = elt.value.length;
-		    oldval = elt.value
-		    elt.value = key;
-		    elt.selectionStart = start;
-		}
-		else {
-		    oldval = elt.value;
-		}
-		elt.setAttribute("oldval", oldval);
-		return;
 	    }
-	    elt.setAttribute("oldval", elt.value);
-	    if(elt.value.match(/^!?[0-9\.\/\,]*$/)) {
-		if(elt.value.indexOf('/') !== -1)
-		    content = HELP["net:"];
-		else if(elt.value.indexOf('.') !== -1)
-		    content = HELP["host:"];
-		else
-		    content = HELP["tcp/"];
-		if(elt.getAttribute('data-title') !== content.title) {
-		    ToolTip.set(elt, content);
-		}
-		return;
+
+	    // Update view
+	    ToolTip.set(elt, content);
+	    if (oldval.length < asked.length &&
+	       asked.substr(0, oldval.length) === oldval &&
+	       asked.length < key.length) {
+		var start = asked.length;
+		elt.value = key;
+		elt.selectionStart = start;
 	    }
-	}
-	elt.setAttribute("oldval", elt.value);
-	if(elt.hasAttribute('data-title'))
+	} else {
 	    ToolTip.remove(elt);
+	}
+	elt.setAttribute("oldval", asked);
     },
 
     set: function(elt, content) {
-	ToolTip.remove(elt);
-	elt.setAttribute('data-title', content.title);
+	if (elt.getAttribute('data-content') == content.content &&
+	    elt.getAttribute('data-original-title') == content.title)
+	    return;
+	elt.setAttribute('data-original-title', content.title);
 	elt.setAttribute('data-content', content.content);
-	$('#' + elt.id).popover(content).popover('show');
+	$('#' + elt.id).popover('show');
     },
 
     remove: function(elt) {
-	elt.removeAttribute('data-title');
+	elt.removeAttribute('data-original-title');
 	elt.removeAttribute('data-content');
 	$('#' + elt.id).popover('destroy');
     },

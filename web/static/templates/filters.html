@@ -16,83 +16,86 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<li class="nav-header"><i class="icon-filter"></i> Filter</li>
-<form class="form-inline" onsubmit="ToolTip.remove_all(this); window.location.hash = Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' ');" id="filters">
+<li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> Filter</li>
+<form class="" onsubmit="ToolTip.remove_all(this); window.location.hash = Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' ');" id="filters">
   <li ng-repeat="filter in filters">
-    <div class="input-append">
-      <input class="input-medium"
+    <div class="input-group">
+      <input class="form-control input-medium"
 	     type="text"
 	     id="{{'filter' + filter.id}}"
 	     name="{{'filter' + filter.id}}"
-	     data-toggle="tooltip"
 	     data-trigger="manual"
 	     data-html="true"
 	     data-container="#navbar"
-	     oninput="ToolTip.set_filter(this);"
-	     onfocus="ToolTip.set_filter(this);"
+	     oninput="ToolTip.handle(this, HELP_FILTERS);"
+	     onfocus="ToolTip.handle(this, HELP_FILTERS);"
 	     onblur="ToolTip.remove(this);"
 	     ng-model="filter.value"
 	     placeholder="Add a criteria"/>
-      <span class="add-on clickable"
+      <span class="input-group-addon clickable"
 	    onclick="this.parentNode.getElementsByTagName('input')[0].value=''; this.parentNode.parentNode.parentNode.onsubmit();"
-	    ><i class="icon-remove"></i></span>
+	    ><i class="glyphicon glyphicon-remove"></i></span>
     </div>
   </li>
   <li>
-    <div class="input-append">
-      <input class="input-medium"
+    <div class="input-group">
+      <input class="form-control input-medium"
 	     type="text"
 	     id="filter-last"
 	     name="filter-last"
-	     data-toggle="tooltip"
 	     data-trigger="manual"
 	     data-html="true"
 	     data-container="#navbar"
-	     oninput="ToolTip.set_filter(this);"
-	     onfocus="ToolTip.set_filter(this);"
+	     oninput="ToolTip.handle(this, HELP_FILTERS);"
+	     onfocus="ToolTip.handle(this, HELP_FILTERS);"
 	     onblur="ToolTip.remove(this);"
 	     placeholder="Add a criteria"
 	     ng-model="lastfiltervalue"/>
-      <span class="add-on clickable"
+      <span class="input-group-addon clickable"
 	    onclick="document.getElementById('filter-last').value=''; document.getElementById('filter-last').focus();"
-	    ><i class="icon-remove"></i></span>
+	    ><i class="glyphicon glyphicon-remove"></i></span>
     </div>
     <input type="submit"
 	   tabindex="-1"
 	   style="position: absolute; left: -9999px; width: 1px; height: 1px;"/>
   </li>
 </form>
-<li class="divider"></li>
-<li class="nav-header"><i class="icon-search"></i> Explore</li>
+<hr />
+<li class="sidebox-header"><i class="glyphicon glyphicon-search black"></i> Explore</li>
 <li>
-  <form class="form-inline" id="explore"
+  <form id="explore"
 	onsubmit="build_top_chart(this);">
-    <input type="text" placeholder="Top values"
-	   class="input-medium"
-	   data-provide="typeahead"
-	   data-items="6"
-	   data-source="{{topvalues}}"
+    <input type="text"
+	   placeholder="Top values"
+	   class="form-control input-medium"
+	   oninput="ToolTip.handle(this, HELP_TOPVALUES);"
+	   onfocus="ToolTip.handle(this, HELP_TOPVALUES);"
+	   onblur="ToolTip.remove(this);"
+	   id="topvalues-input"
+	   data-trigger="manual"
+	   data-html="true"
+	   data-container="#navbar"
 	   />
   </form>
 </li>
 <li>
-  <div class="btn-group btn-group-vertical">
-    <button class="btn btn-with-input-medium"
+  <div class="btn-group-vertical" style="width:100%;" role="group">
+    <button class="btn btn-default"
 	    ng-click="build_ip_plane()"
 	    ng-class="{disabled: totalnbrres == undefined}"
 	    >Address space</button>
-    <button class="btn btn-with-input-medium"
+    <button class="btn btn-default"
 	    ng-click="build_ip_ports()"
 	    ng-class="{disabled: totalnbrres == undefined}"
 	    >IPs & Ports</button>
-    <button class="btn btn-with-input-medium"
+    <button class="btn btn-default"
 	    ng-click="build_ip_map()"
 	    >Map</button>
-    <button class="btn btn-with-input-medium"
+    <button class="btn btn-default"
 	    ng-click="build_ip_timeline()"
 	    ng-class="{disabled: totalnbrres == undefined}"
 	    >Timeline</button>
-    <button class="btn btn-with-input-medium"
+    <button class="btn btn-default"
 	    ng-click="build_ip_timeline(86400)"
 	    ng-class="{disabled: totalnbrres == undefined}"
 	    >Timeline (24h)</button>

@@ -16,323 +16,633 @@
  * along with IVRE. If not, see <http://www.gnu.org/licenses/>.
  */
 
-var HELP = {
-    /* filters */
-    "archives": {
-	"title": "<b>(!)</b>archives",
-	"content": "Look for archived results. <code>!archives</code> has no effect, since it is the default behavior.",
-    },
-    "host:": {
-	"title": "<b>(!)[IP address]</b> or <b>(!)</b>host:<b>[IP address]</b>",
-	"content": "Look for results for one specific IP address.",
-    },
-    "net:": {
-	"title": "<b>(!)[IP address / netmask]</b> or <b>(!)</b>net:<b>[IP address / netmask]</b>",
-	"content": "Look for results within a specific network (CIDR notation).",
-    },
-    "range:": {
-	"title": "<b>(!)</b>range:<b>[IP address]-[IP address]</b>",
-	"content": "Look for results within a specific IP range.",
-    },
-    "hostname:": {
-	"title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
-	"content": "Look for results with a matching hostname ([FQDN] can be specified as a string or a regexp).",
-    },
-    "domain:": {
-	"title": "<b>(!)</b>domain:<b>[FQDN]</b>",
-	"content": "Look for results with a hostname within a matching domain name ([FQDN] can be specified as a string or a regexp).",
-    },
-    "category:": {
-	"title": "<b>(!)</b>category:<b>[string or regexp]</b>",
-	"content": "Look for results tagged with a matching category.",
-    },
-    "country:": {
-	"title": "<b>(!)</b>country:<b>[two letters code]</b>",
-	"content": "Look for hosts located in a specific country.",
-    },
-    "city:": {
-	"title": "<b>(!)</b>city:<b>[string or regexp]</b>",
-	"content": "Look for hosts located in a specific city. <b>Use with a <code>country:</code> filter</b>.",
-    },
-    "asnum:": {
-	"title": "<b>(!)</b>asnum:<b>[number(,number(,...))]</b>",
-	"content": "Look for hosts assigned to a specific AS given its number. Coma-separated multiple values can be used. See also <code>asname:</code>.",
-    },
-    "asname:": {
-	"title": "<b>(!)</b>asname:<b>[string or regexp]</b>",
-	"content": "Look for hosts assigned to a specific AS given its name. See also <code>asnum:</code>.",
-    },
-    "source:": {
-	"title": "<b>(!)</b>source:<b>[name]</b>",
-	"content": "Look for results obtained from a specific source.",
-    },
-    "timerange:": {
-	"title": "<b>(!)</b>timerange:<b>[timestamp]-[timestamp]</b>",
-	"content": "Look for results within a specific time range.",
-    },
-    "timeago:": {
-	"title": "<b>(!)</b>timeago:<b>[time]</b>",
-	"content": "Look for results more recent than the specified value. Time can be specified in seconds (the default), minutes (add <b>m</b>), hours (add <b>h</b>), days (add <b>d</b>), or years (add <b>y</b>).",
-    },
-    "service:": {
-	"title": "service:<b>[service name](:[port number])</b>",
-	"content": "Look for a particular service, optionally on the specified port. [service name] can be either a string or a regular expression.<br>See also <code>probedservice:</code>.",
-    },
-    "probedservice:": {
-	"title": "probedservice:<b>[service name](:[port number])</b>",
-	"content": "Look for a particular service, discovered with a service probe, optionally on the specified port. [service name] can be either a string or a regular expression.",
-    },
-    "product:": {
-	"title": "product:<b>[service name]:[product name](:[port number])</b>",
-	"content": "Look for a particular service and product, optionally on the specified port. [service name] and [product name] can be either strings or regular expressions.",
-    },
-    "version:": {
-	"title": "version:<b>[service name]:[product name]:[version](:[port number])</b>",
-	"content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
-    },
-    "script:": {
-	"title": "script:<b>[script id](:[script output])</b> or portscript:<b>[script id](:[script output])</b>",
-	"content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
-    },
-    "hostscript:": {
-	"title": "hostscript:<b>[script id](:[script output])</b>",
-	"content": "Look for a host script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
-    },
-    /* results of scripts or version scans */
-    "anonftp": {
-	"title": "anonftp",
-	"content": "Look for FTP servers allowing anonymous access.",
-    },
-    "anonldap": {
-	"title": "anonldap",
-	"content": "Look for LDAP servers with anonymous bind working.",
-    },
-    "authbypassvnc": {
-	"title": "authbypassvnc",
-	"content": "Look for VNC servers with authentication that can be bypassed.",
-    },
-    "authhttp": {
-	"title": "authhttp",
-	"content": "Look for HTTP servers requiring authentication with default credentials working (the Nmap script seems to get a lot of false positives).",
-    },
-    "banner:": {
-	"title": "banner:<b>[string or regexp]</b>",
-	"content": "Look for content in service banners (as discovered by Nmap script &quot;banner&quot;).",
-    },
-    "cookie:": {
-	"title": "cookie:<b>[name]</b>",
-	"content": "Look for HTTP servers setting a specific cookie.",
-    },
-    "file:": {
-	"title": "file:<b>[pattern or regexp]</b>",
-	"content": "Look for a pattern in the shared files (FTP, SMB, ...).",
-    },
-    "geovision": {
-	"title": "geovision",
-	"content": "Look for Geovision webcams (see also <code>devtype:webcam</code>).",
-    },
-    "httptitle:": {
-	"title": "httptitle:<b>[string or regexp]</b>",
-	"content": "Look for results with a specific title on the root page of an HTTP server.",
-    },
-    "nfs": {
-	"title": "nfs",
-	"content": "Look for NFS servers",
-    },
-    "nis": {
-	"title": "<b>nis</b> or <b>yp</b>",
-	"content": "Look for NIS (YP) servers",
-    },
-    "mssqlemptypwd": {
-	"title": "mssqlemptypwd",
-	"content": "Look for MS-SQL servers with an empty password for the <code>sa</code> account.",
-    },
-    "mysqlemptypwd": {
-	"title": "mysqlemptypwd",
-	"content": "Look for MySQL servers with an empty password for the <code>root</code> account.",
-    },
-    "owa": {
-	"title": "owa",
-	"content": "Look for OWA (Outlook Web App) servers.",
-    },
-    "phpmyadmin": {
-	"title": "phpmyadmin",
-	"content": "Look for PHPMyAdmin servers.",
-    },
-    "smb.dnsdomain:": {
-	"title": "smb.dnsdomain:[FQDN]",
-	"content": "Search results with SMB service in a specific DNS domain.",
-    },
-    "smb.domain:": {
-	"title": "smb.domain:[NetBIOS]",
-	"content": "Search results with SMB service in a specific NetBIOS domain.",
-    },
-    "smb.fqdn:": {
-	"title": "smb.fqdn:[NetBIOS]",
-	"content": "Search results with SMB service in a specific host name (FQDN).",
-    },
-    "smb.forest:": {
-	"title": "smb.forest:[FQDN]",
-	"content": "Search results with SMB service in a specific forest (DNS name).",
-    },
-    "smb.lanmanager:": {
-	"title": "smb.lanmanager:[LAN Manager]",
-	"content": "Search results with SMB service with a specific LAN Manager.",
-    },
-    "smb.os:": {
-	"title": "smb.os:[OS]",
-	"content": "Search results with SMB service with a specific OS.",
-    },
-    "smb.server:": {
-	"title": "smb.server:[NetBIOS]",
-	"content": "Search results with SMB service in a specific host name (NetBIOS).",
-    },
-    "smb.workgroup:": {
-	"title": "smb.workgroup:[NetBIOS]",
-	"content": "Search results with SMB service in a specific workgroup (NetBIOS).",
-    },
-    "smbshare": {
-	"title": "smbshare<b>(:[access mode])</b>",
-	"content": "Search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).",
-    },
-    "sshkey:": {
-	"title": "sshkey:<b>[fingerprint or base64]</b>",
-	"content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
-    },
-    "torcert": {
-	"title": "torcert",
-	"content": "Look for Tor certificates.",
-    },
-    "webfiles": {
-	"title": "webfiles",
-	"content": "Look for &quot;typical&quot; Web files. See also <code>file:</code>.",
-    },
-    "webmin": {
-	"title": "webmin",
-	"content": "Look for Webmin servers.",
-    },
-    "x11open": {
-	"title": "x11open",
-	"content": "Look for open X11 servers.",
-    },
-    "x11srv": {
-	"title": "x11",
-	"content": "Look for X11 servers. See also <code>x11open</code>.",
-    },
-    "xp445": {
-	"title": "xp445",
-	"content": "Look for Windows XP machines with TCP/445 port open.",
-    },
-    /* OS fingerprint */
-    "os:": {
-	"title": "os:<b>[string or regexp]</b>",
-	"content": "Look for a specific OS, according to Nmap's fingerprint.",
-    },
-    /* device types */
-    "devtype:": {
-	"title": "<b>devtype:</b> or <b>devicetype:[string or regexp]</b>",
-	"content": "Look for a specific device type. See also <code>netdev</code>, <code>phonedev</code> and <code>geovision</code>.",
-    },
-    "netdev": {
-	"title": "netdev",
-	"content": "Look for network devices (e.g., bridges, routers, firewalls, etc.).",
-    },
-    "phonedev": {
-	"title": "phonedev",
-	"content": "Look for phone devices (e.g., PBX, VoIP devices, phones, etc.).",
-    },
-    /* CPEs */
-    "cpe": {
-	"title": "cpe<b>(:[type](:[vendor](:[product](:[version]))))</b>",
-	"content": "Looks for CPEs matching an expression. Providing no value will match all the hosts that have CPE information. The fields <b>type</b>, <b>vendor</b>, <b>product</b> and <b>version</b> can be strings or /regexps/. <br/> <i>Ex:</i> o://:linux_kernel or a:apache:http_server:2.2.9",
-    },
-    /* traceroute */
-    "hop:": {
-	"title": "<b>(!)</b>hop:<b>[IP address](:[TTL])</b>",
-	"content": "Look for results with the specified IP address in the Traceroute result.",
-    },
-    "hopname:": {
-	"title": "<b>(!)</b>hopname:<b>[FQDN]</b>",
-	"content": "Look for results with a matching hostname in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
-    },
-    "hopdomain:": {
-	"title": "<b>(!)</b>hopdomain:<b>[FQDN]</b>",
-	"content": "Look for results with a hostname within a matching domain name in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
-    },
-    "tcp/": {
-	"title": "<b>(!)[port number](,[port number](,...))</b> or <b>(!)</b>tcp/<b>[port number]</b>",
-	"content": "Look for results with the specified TCP port(s) open.",
-    },
-    "udp/": {
-	"title": "<b>(!)</b>udp/<b>[port number]</b>",
-	"content": "Look for results with the specified UDP port open.",
-    },
-    "openport": {
-	"title": "<b>(!)</b>openport",
-	"content": "Look for hosts with at least one open port.",
-    },
-    "countports:": {
-	"title": "<b>(!)</b>countports:<b>[count](-[count])</b>",
-	"content": "Loor for results with open port number within the specified range.",
-    },
-    "otheropenport:": {
-	"title": "otheropenport:<b>[port number](,[port number](,...))</b>",
-	"content": "Look for hosts with at least one open port other than those listed.",
-    },
-    "screenshot": {
-	"title": "<b>(!)</b>screenshot<b>(:[port or service])</b>",
-	"content": "Search results with at least one screenshot.",
-    },
-    "screenwords": {
-	"title": "<b>(!)</b>screenwords<b>(:[word](,[word](,...))(:[port or service]))</b>",
-	"content": "Search results with at least one screenshot containing the provided word(s).",
-    },
-    "notes": {
-	"title": "notes",
-	"content": "Search results with an associated note.",
-    },
-    /* sort */
-    "skip:": {
-	"title": "skip:<b>[count]</b>",
-	"content": "Skip [count] results.",
-    },
-    "limit:": {
-	"title": "limit:<b>[count]</b>",
-	"content": "Only display [count] results.",
-    },
-    "sortby:": {
-	"title": "<b>(!)</b>sortby:<b>[field name]</b>",
-	"content": "Sort according to values for [field name]. Be careful with this setting as consequences on the performances can be terrible when using non-indexed fields.",
-    },
-    /* display */
-    "display:host": {
-	"title": "display:host",
-	"content": "Set the default display mode.",
-    },
-    "display:script": {
-	"title": "display:script(:<b>[script id](,[script id](,...))</b>)",
-	"content": "Display only script outputs. One or more scripts can be specified to only display those scripts' outputs.",
-    },
-    "display:screenshot": {
-	"title": "display:screenshot",
-	"content": "Display only screenshots.",
-    },
-    "display:cpe": {
-	"title": "display:cpe",
-	"content": "Display only CPEs.",
+/************* Help methods ****************/
+
+function prepare(help) {
+    // Apply aliases
+    for (var key in help.aliases) {
+	help.content[key] = help.content[help.aliases[key]];
+    }
+
+    // Manage negation
+    for (var key in help.content) {
+	if(help.content[key].title.substr(0, 10) === '<b>(!)</b>') {
+	    help.content["!" + key] = help.content[key];
+	    help.content["-" + key] = help.content[key];
+	}
+    }
+};
+
+/************* Help content ****************/
+
+var HELP_FILTERS = {
+    config: {
+	"prefixs": "!-",
+	"suffixs": ":/",
+    },
+    callbacks: [
+	function(elt, HELP, ToolTip) {
+	    // Handle IP addresses
+	    if(elt.value.match(/^[!-]?[0-9\.\/\,]*$/)) {
+		if(elt.value.indexOf('/') !== -1)
+		    content = HELP.content["net:"];
+		else if(elt.value.indexOf('.') !== -1)
+		    content = HELP.content["host:"];
+		else
+		    content = HELP.content["tcp/"];
+		ToolTip.set(elt, content);
+		return false;
+	    } else {
+		return true;
+	    }
+	},
+    ],
+    aliases: {
+	"portscript:": "script:",
+	"yp": "nis",
+	"devicetype:": "devtype:",
+	"networkdevice": "netdev",
+    },
+    content: {
+	/* filters */
+	"archives": {
+	    "title": "<b>(!)</b>archives",
+	    "content": "Look for archived results. <code>!archives</code> has no effect, since it is the default behavior.",
+	},
+	"host:": {
+	    "title": "<b>(!)[IP address]</b> or <b>(!)</b>host:<b>[IP address]</b>",
+	    "content": "Look for results for one specific IP address.",
+	},
+	"net:": {
+	    "title": "<b>(!)[IP address / netmask]</b> or <b>(!)</b>net:<b>[IP address / netmask]</b>",
+	    "content": "Look for results within a specific network (CIDR notation).",
+	},
+	"range:": {
+	    "title": "<b>(!)</b>range:<b>[IP address]-[IP address]</b>",
+	    "content": "Look for results within a specific IP range.",
+	},
+	"hostname:": {
+	    "title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
+	    "content": "Look for results with a matching hostname ([FQDN] can be specified as a string or a regexp).",
+	},
+	"domain:": {
+	    "title": "<b>(!)</b>domain:<b>[FQDN]</b>",
+	    "content": "Look for results with a hostname within a matching domain name ([FQDN] can be specified as a string or a regexp).",
+	},
+	"category:": {
+	    "title": "<b>(!)</b>category:<b>[string or regexp]</b>",
+	    "content": "Look for results tagged with a matching category.",
+	},
+	"country:": {
+	    "title": "<b>(!)</b>country:<b>[two letters code]</b>",
+	    "content": "Look for hosts located in a specific country.",
+	},
+	"city:": {
+	    "title": "<b>(!)</b>city:<b>[string or regexp]</b>",
+	    "content": "Look for hosts located in a specific city. <b>Use with a <code>country:</code> filter</b>.",
+	},
+	"asnum:": {
+	    "title": "<b>(!)</b>asnum:<b>[number(,number(,...))]</b>",
+	    "content": "Look for hosts assigned to a specific AS given its number. Coma-separated multiple values can be used. See also <code>asname:</code>.",
+	},
+	"asname:": {
+	    "title": "<b>(!)</b>asname:<b>[string or regexp]</b>",
+	    "content": "Look for hosts assigned to a specific AS given its name. See also <code>asnum:</code>.",
+	},
+	"source:": {
+	    "title": "<b>(!)</b>source:<b>[name]</b>",
+	    "content": "Look for results obtained from a specific source.",
+	},
+	"timerange:": {
+	    "title": "<b>(!)</b>timerange:<b>[timestamp]-[timestamp]</b>",
+	    "content": "Look for results within a specific time range.",
+	},
+	"timeago:": {
+	    "title": "<b>(!)</b>timeago:<b>[time]</b>",
+	    "content": "Look for results more recent than the specified value. Time can be specified in seconds (the default), minutes (add <b>m</b>), hours (add <b>h</b>), days (add <b>d</b>), or years (add <b>y</b>).",
+	},
+	"service:": {
+	    "title": "service:<b>[service name](:[port number])</b>",
+	    "content": "Look for a particular service, optionally on the specified port. [service name] can be either a string or a regular expression.<br>See also <code>probedservice:</code>.",
+	},
+	"probedservice:": {
+	    "title": "probedservice:<b>[service name](:[port number])</b>",
+	    "content": "Look for a particular service, discovered with a service probe, optionally on the specified port. [service name] can be either a string or a regular expression.",
+	},
+	"product:": {
+	    "title": "product:<b>[service name]:[product name](:[port number])</b>",
+	    "content": "Look for a particular service and product, optionally on the specified port. [service name] and [product name] can be either strings or regular expressions.",
+	},
+	"version:": {
+	    "title": "version:<b>[service name]:[product name]:[version](:[port number])</b>",
+	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
+	},
+	"script:": {
+	    "title": "script:<b>[script id](:[script output])</b> or portscript:<b>[script id](:[script output])</b>",
+	    "content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
+	},
+	"hostscript:": {
+	    "title": "hostscript:<b>[script id](:[script output])</b>",
+	    "content": "Look for a host script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
+	},
+	/* results of scripts or version scans */
+	"anonftp": {
+	    "title": "anonftp",
+	    "content": "Look for FTP servers allowing anonymous access.",
+	},
+	"anonldap": {
+	    "title": "anonldap",
+	    "content": "Look for LDAP servers with anonymous bind working.",
+	},
+	"authbypassvnc": {
+	    "title": "authbypassvnc",
+	    "content": "Look for VNC servers with authentication that can be bypassed.",
+	},
+	"authhttp": {
+	    "title": "authhttp",
+	    "content": "Look for HTTP servers requiring authentication with default credentials working (the Nmap script seems to get a lot of false positives).",
+	},
+	"banner:": {
+	    "title": "banner:<b>[string or regexp]</b>",
+	    "content": "Look for content in service banners (as discovered by Nmap script &quot;banner&quot;).",
+	},
+	"cookie:": {
+	    "title": "cookie:<b>[name]</b>",
+	    "content": "Look for HTTP servers setting a specific cookie.",
+	},
+	"file:": {
+	    "title": "file:<b>[pattern or regexp]</b>",
+	    "content": "Look for a pattern in the shared files (FTP, SMB, ...).",
+	},
+	"geovision": {
+	    "title": "geovision",
+	    "content": "Look for Geovision webcams (see also <code>devtype:webcam</code>).",
+	},
+	"httptitle:": {
+	    "title": "httptitle:<b>[string or regexp]</b>",
+	    "content": "Look for results with a specific title on the root page of an HTTP server.",
+	},
+	"nfs": {
+	    "title": "nfs",
+	    "content": "Look for NFS servers",
+	},
+	"nis": {
+	    "title": "<b>nis</b> or <b>yp</b>",
+	    "content": "Look for NIS (YP) servers",
+	},
+	"mssqlemptypwd": {
+	    "title": "mssqlemptypwd",
+	    "content": "Look for MS-SQL servers with an empty password for the <code>sa</code> account.",
+	},
+	"mysqlemptypwd": {
+	    "title": "mysqlemptypwd",
+	    "content": "Look for MySQL servers with an empty password for the <code>root</code> account.",
+	},
+	"owa": {
+	    "title": "owa",
+	    "content": "Look for OWA (Outlook Web App) servers.",
+	},
+	"phpmyadmin": {
+	    "title": "phpmyadmin",
+	    "content": "Look for PHPMyAdmin servers.",
+	},
+	"smb.dnsdomain:": {
+	    "title": "smb.dnsdomain:[FQDN]",
+	    "content": "Search results with SMB service in a specific DNS domain.",
+	},
+	"smb.domain:": {
+	    "title": "smb.domain:[NetBIOS]",
+	    "content": "Search results with SMB service in a specific NetBIOS domain.",
+	},
+	"smb.fqdn:": {
+	    "title": "smb.fqdn:[NetBIOS]",
+	    "content": "Search results with SMB service in a specific host name (FQDN).",
+	},
+	"smb.forest:": {
+	    "title": "smb.forest:[FQDN]",
+	    "content": "Search results with SMB service in a specific forest (DNS name).",
+	},
+	"smb.lanmanager:": {
+	    "title": "smb.lanmanager:[LAN Manager]",
+	    "content": "Search results with SMB service with a specific LAN Manager.",
+	},
+	"smb.os:": {
+	    "title": "smb.os:[OS]",
+	    "content": "Search results with SMB service with a specific OS.",
+	},
+	"smb.server:": {
+	    "title": "smb.server:[NetBIOS]",
+	    "content": "Search results with SMB service in a specific host name (NetBIOS).",
+	},
+	"smb.workgroup:": {
+	    "title": "smb.workgroup:[NetBIOS]",
+	    "content": "Search results with SMB service in a specific workgroup (NetBIOS).",
+	},
+	"smbshare": {
+	    "title": "smbshare<b>(:[access mode])</b>",
+	    "content": "Search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).",
+	},
+	"sshkey:": {
+	    "title": "sshkey:<b>[fingerprint or base64]</b>",
+	    "content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
+	},
+	"torcert": {
+	    "title": "torcert",
+	    "content": "Look for Tor certificates.",
+	},
+	"webfiles": {
+	    "title": "webfiles",
+	    "content": "Look for &quot;typical&quot; Web files. See also <code>file:</code>.",
+	},
+	"webmin": {
+	    "title": "webmin",
+	    "content": "Look for Webmin servers.",
+	},
+	"x11open": {
+	    "title": "x11open",
+	    "content": "Look for open X11 servers.",
+	},
+	"x11srv": {
+	    "title": "x11",
+	    "content": "Look for X11 servers. See also <code>x11open</code>.",
+	},
+	"xp445": {
+	    "title": "xp445",
+	    "content": "Look for Windows XP machines with TCP/445 port open.",
+	},
+	/* OS fingerprint */
+	"os:": {
+	    "title": "os:<b>[string or regexp]</b>",
+	    "content": "Look for a specific OS, according to Nmap's fingerprint.",
+	},
+	/* device types */
+	"devtype:": {
+	    "title": "<b>devtype:</b> or <b>devicetype:[string or regexp]</b>",
+	    "content": "Look for a specific device type. See also <code>netdev</code>, <code>phonedev</code> and <code>geovision</code>.",
+	},
+	"netdev": {
+	    "title": "netdev",
+	    "content": "Look for network devices (e.g., bridges, routers, firewalls, etc.).",
+	},
+	"phonedev": {
+	    "title": "phonedev",
+	    "content": "Look for phone devices (e.g., PBX, VoIP devices, phones, etc.).",
+	},
+	/* CPEs */
+	"cpe": {
+	    "title": "cpe<b>(:[type](:[vendor](:[product](:[version]))))</b>",
+	    "content": "Looks for CPEs matching an expression. Providing no value will match all the hosts that have CPE information. The fields <b>type</b>, <b>vendor</b>, <b>product</b> and <b>version</b> can be strings or /regexps/. <br/> <i>Ex:</i> o://:linux_kernel or a:apache:http_server:2.2.9",
+	},
+	/* traceroute */
+	"hop:": {
+	    "title": "<b>(!)</b>hop:<b>[IP address](:[TTL])</b>",
+	    "content": "Look for results with the specified IP address in the Traceroute result.",
+	},
+	"hopname:": {
+	    "title": "<b>(!)</b>hopname:<b>[FQDN]</b>",
+	    "content": "Look for results with a matching hostname in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
+	},
+	"hopdomain:": {
+	    "title": "<b>(!)</b>hopdomain:<b>[FQDN]</b>",
+	    "content": "Look for results with a hostname within a matching domain name in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
+	},
+	"tcp/": {
+	    "title": "<b>(!)[port number](,[port number](,...))</b> or <b>(!)</b>tcp/<b>[port number]</b>",
+	    "content": "Look for results with the specified TCP port(s) open.",
+	},
+	"udp/": {
+	    "title": "<b>(!)</b>udp/<b>[port number]</b>",
+	    "content": "Look for results with the specified UDP port open.",
+	},
+	"openport": {
+	    "title": "<b>(!)</b>openport",
+	    "content": "Look for hosts with at least one open port.",
+	},
+	"countports:": {
+	    "title": "<b>(!)</b>countports:<b>[count](-[count])</b>",
+	    "content": "Loor for results with open port number within the specified range.",
+	},
+	"otheropenport:": {
+	    "title": "otheropenport:<b>[port number](,[port number](,...))</b>",
+	    "content": "Look for hosts with at least one open port other than those listed.",
+	},
+	"screenshot": {
+	    "title": "<b>(!)</b>screenshot<b>(:[port or service])</b>",
+	    "content": "Search results with at least one screenshot.",
+	},
+	"screenwords": {
+	    "title": "<b>(!)</b>screenwords<b>(:[word](,[word](,...))(:[port or service]))</b>",
+	    "content": "Search results with at least one screenshot containing the provided word(s).",
+	},
+	"notes": {
+	    "title": "notes",
+	    "content": "Search results with an associated note.",
+	},
+	/* sort */
+	"skip:": {
+	    "title": "skip:<b>[count]</b>",
+	    "content": "Skip [count] results.",
+	},
+	"limit:": {
+	    "title": "limit:<b>[count]</b>",
+	    "content": "Only display [count] results.",
+	},
+	"sortby:": {
+	    "title": "<b>(!)</b>sortby:<b>[field name]</b>",
+	    "content": "Sort according to values for [field name]. Be careful with this setting as consequences on the performances can be terrible when using non-indexed fields.",
+	},
+	/* display */
+	"display:host": {
+	    "title": "display:host",
+	    "content": "Set the default display mode.",
+	},
+	"display:script": {
+	    "title": "display:script(:<b>[script id](,[script id](,...))</b>)",
+	    "content": "Display only script outputs. One or more scripts can be specified to only display those scripts' outputs.",
+	},
+	"display:screenshot": {
+	    "title": "display:screenshot",
+	    "content": "Display only screenshots.",
+	},
+	"display:cpe": {
+	    "title": "display:cpe",
+	    "content": "Display only CPEs.",
+	},
     },
 };
 
-/* aliases */
-HELP['portscript:'] = HELP['script:'];
-HELP['yp'] = HELP['nis'];
-HELP['devicetype:'] = HELP['devtype:'];
-HELP['networkdevice'] = HELP['netdev'];
+prepare(HELP_FILTERS);
 
-/* negation */
-for(var key in HELP) {
-    if(HELP[key].title.substr(0, 10) === '<b>(!)</b>') {
-	HELP["!" + key] = HELP[key];
-	HELP["-" + key] = HELP[key];
+/* Top values */
+
+HELP_TOPVALUES = {
+    config: {
+	"prefixs": "!-",
+	"suffixs": "",
+    },
+    callbacks: [],
+    content: {
+	"cpe.type": {
+	    "content": "cpe.type",
+	    "title": "<b>(!)</b>cpe.type"
+	},
+	"probedservice": {
+	    "content": "probedservice",
+	    "title": "<b>(!)</b>probedservice"
+	},
+	"smb.forest": {
+	    "content": "smb.forest",
+	    "title": "<b>(!)</b>smb.forest"
+	},
+	"cpe.product": {
+	    "content": "cpe.product",
+	    "title": "<b>(!)</b>cpe.product"
+	},
+	"domains:": {
+	    "content": "domains:",
+	    "title": "<b>(!)</b>domains:"
+	},
+	"portlist:open": {
+	    "content": "portlist:open",
+	    "title": "<b>(!)</b>portlist:open"
+	},
+	"service:": {
+	    "content": "service:",
+	    "title": "<b>(!)</b>service:"
+	},
+	"as": {
+	    "content": "as",
+	    "title": "<b>(!)</b>as"
+	},
+	"smb.lanmanager": {
+	    "content": "smb.lanmanager",
+	    "title": "<b>(!)</b>smb.lanmanager"
+	},
+	"modbus.deviceid": {
+	    "content": "modbus.deviceid",
+	    "title": "<b>(!)</b>modbus.deviceid"
+	},
+	"cpe.type:": {
+	    "content": "cpe.type:",
+	    "title": "<b>(!)</b>cpe.type:"
+	},
+	"enip.ip": {
+	    "content": "enip.ip",
+	    "title": "<b>(!)</b>enip.ip"
+	},
+	"countports:closed": {
+	    "content": "countports:closed",
+	    "title": "<b>(!)</b>countports:closed"
+	},
+	"cpe.version": {
+	    "content": "cpe.version",
+	    "title": "<b>(!)</b>cpe.version"
+	},
+	"port": {
+	    "content": "port",
+	    "title": "<b>(!)</b>port"
+	},
+	"script:": {
+	    "content": "script:",
+	    "title": "<b>(!)</b>script:"
+	},
+	"category": {
+	    "content": "category",
+	    "title": "<b>(!)</b>category"
+	},
+	"city": {
+	    "content": "city",
+	    "title": "<b>(!)</b>city"
+	},
+	"screenwords": {
+	    "content": "screenwords",
+	    "title": "<b>(!)</b>screenwords"
+	},
+	"cpe.version:": {
+	    "content": "cpe.version:",
+	    "title": "<b>(!)</b>cpe.version:"
+	},
+	"service": {
+	    "content": "service",
+	    "title": "<b>(!)</b>service"
+	},
+	"script": {
+	    "content": "script",
+	    "title": "<b>(!)</b>script"
+	},
+	"devicetype:": {
+	    "content": "devicetype:",
+	    "title": "<b>(!)</b>devicetype:"
+	},
+	"portscript:": {
+	    "content": "portscript:",
+	    "title": "<b>(!)</b>portscript:"
+	},
+	"version:": {
+	    "content": "version:",
+	    "title": "<b>(!)</b>version:"
+	},
+	"smb.dnsdomain": {
+	    "content": "smb.dnsdomain",
+	    "title": "<b>(!)</b>smb.dnsdomain"
+	},
+	"source": {
+	    "content": "source",
+	    "title": "<b>(!)</b>source"
+	},
+	"s7.Module Type": {
+	    "content": "s7.Module Type",
+	    "title": "<b>(!)</b>s7.Module Type"
+	},
+	"version": {
+	    "content": "version",
+	    "title": "<b>(!)</b>version"
+	},
+	"portlist:filtered": {
+	    "content": "portlist:filtered",
+	    "title": "<b>(!)</b>portlist:filtered"
+	},
+	"hop": {
+	    "content": "hop",
+	    "title": "<b>(!)</b>hop"
+	},
+	"product:": {
+	    "content": "product:",
+	    "title": "<b>(!)</b>product:"
+	},
+	"portscript": {
+	    "content": "portscript",
+	    "title": "<b>(!)</b>portscript"
+	},
+	"s7.Module": {
+	    "content": "s7.Module",
+	    "title": "<b>(!)</b>s7.Module"
+	},
+	"countports:open": {
+	    "content": "countports:open",
+	    "title": "<b>(!)</b>countports:open"
+	},
+	"product": {
+	    "content": "product",
+	    "title": "<b>(!)</b>product"
+	},
+	"cpe.vendor": {
+	    "content": "cpe.vendor",
+	    "title": "<b>(!)</b>cpe.vendor"
+	},
+	"countports:filtered": {
+	    "content": "countports:filtered",
+	    "title": "<b>(!)</b>countports:filtered"
+	},
+	"cert.subject": {
+	    "content": "cert.subject",
+	    "title": "<b>(!)</b>cert.subject"
+	},
+	"smb.os": {
+	    "content": "smb.os",
+	    "title": "<b>(!)</b>smb.os"
+	},
+	"enip.prodcode": {
+	    "content": "enip.prodcode",
+	    "title": "<b>(!)</b>enip.prodcode"
+	},
+	"enip.rev": {
+	    "content": "enip.rev",
+	    "title": "<b>(!)</b>enip.rev"
+	},
+	"devicetype": {
+	    "content": "devicetype",
+	    "title": "<b>(!)</b>devicetype"
+	},
+	"probedservice:": {
+	    "content": "probedservice:",
+	    "title": "<b>(!)</b>probedservice:"
+	},
+	"hostscript:": {
+	    "content": "hostscript:",
+	    "title": "<b>(!)</b>hostscript:"
+	},
+	"cpe.vendor:": {
+	    "content": "cpe.vendor:",
+	    "title": "<b>(!)</b>cpe.vendor:"
+	},
+	"port:open": {
+	    "content": "port:open",
+	    "title": "<b>(!)</b>port:open"
+	},
+	"s7.Version": {
+	    "content": "s7.Version",
+	    "title": "<b>(!)</b>s7.Version"
+	},
+	"enip.devtype": {
+	    "content": "enip.devtype",
+	    "title": "<b>(!)</b>enip.devtype"
+	},
+	"hop:": {
+	    "content": "hop:",
+	    "title": "<b>(!)</b>hop:"
+	},
+	"enip.product": {
+	    "content": "enip.product",
+	    "title": "<b>(!)</b>enip.product"
+	},
+	"enip.vendor": {
+	    "content": "enip.vendor",
+	    "title": "<b>(!)</b>enip.vendor"
+	},
+	"port:closed": {
+	    "content": "port:closed",
+	    "title": "<b>(!)</b>port:closed"
+	},
+	"country": {
+	    "content": "country",
+	    "title": "<b>(!)</b>country"
+	},
+	"cpe": {
+	    "content": "cpe",
+	    "title": "<b>(!)</b>cpe"
+	},
+	"smb.workgroup": {
+	    "content": "smb.workgroup",
+	    "title": "<b>(!)</b>smb.workgroup"
+	},
+	"port:filtered": {
+	    "content": "port:filtered",
+	    "title": "<b>(!)</b>port:filtered"
+	},
+	"cpe:": {
+	    "content": "cpe:",
+	    "title": "<b>(!)</b>cpe:"
+	},
+	"cpe.product:": {
+	    "content": "cpe.product:",
+	    "title": "<b>(!)</b>cpe.product:"
+	},
+	"hostscript": {
+	    "content": "hostscript",
+	    "title": "<b>(!)</b>hostscript"
+	},
+	"domains": {
+	    "content": "domains",
+	    "title": "<b>(!)</b>domains"
+	},
+	"smb.domain": {
+	    "content": "smb.domain",
+	    "title": "<b>(!)</b>smb.domain"
+	},
+	"portlist:closed": {
+	    "content": "portlist:closed",
+	    "title": "<b>(!)</b>portlist:closed"
+	},
+	"enip.serial": {
+	    "content": "enip.serial",
+	    "title": "<b>(!)</b>enip.serial"
+	},
+	"cert.issuer": {
+	    "content": "cert.issuer",
+	    "title": "<b>(!)</b>cert.issuer"
+	}
     }
-}
+};
+
+prepare(HELP_TOPVALUES);

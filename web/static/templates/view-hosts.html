@@ -101,33 +101,33 @@
     CPE (Common Platform Enumeration)
   </dt>
   <div class="container-fluid" ng-if="host.cpes">
-    <div class="row-fluid result-cpe-item"
+    <div class="row result-cpe-item"
          ng-repeat="type in get_reshaped_cpes(host).data">
-      <div class="span1">
+      <div class="col-md-1">
         <a class="clickable" ng-click="set_cpe_param(type)">
           {{type.pretty_name}}
         </a>
       </div>
-      <div class="span11">
-        <div class="row-fluid result-cpe-item" ng-repeat="vendor in type.data">
-          <div class="span3">
+      <div class="col-md-11">
+        <div class="row result-cpe-item" ng-repeat="vendor in type.data">
+          <div class="col-md-3">
              <a class="clickable" ng-click="set_cpe_param(type, vendor)">
                <i ng-if="!vendor.name">Empty</i>{{vendor.name}}
              </a>
           </div>
-          <div class="span9">
-            <div class="row-fluid result-cpe-item"
+          <div class="col-md-9">
+            <div class="row result-cpe-item"
                  ng-repeat="product in vendor.data">
-              <div class="span7">
+              <div class="col-md-7">
                  <a class="clickable"
                     ng-click="set_cpe_param(type, vendor, product)">
                    <i ng-if="!product.name">Empty</i>{{product.name}}
                  </a>
               </div>
-              <div class="span5">
-                <div class="row-fluid result-cpe-item"
+              <div class="col-md-5">
+                <div class="row result-cpe-item"
                      ng-repeat="version in product.data">
-                  <div class="span12">
+                  <div class="col-md-12">
                     <a
                      data-html="true"
                      data-title="{{version.tooltitle}}"

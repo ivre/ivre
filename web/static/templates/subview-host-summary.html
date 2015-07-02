@@ -33,7 +33,7 @@
   </span>
   <span class="notebtn"
 	ng-click="togglenotes(host.addr)"
-	><i class="icon-pencil"></i></span>
+	><i class="glyphicon glyphicon-pencil"></i></span>
 </dt>
 <dd>
   <span ng-repeat="category in host.categories">
@@ -80,7 +80,7 @@
 </dd>
 <dd ng-if="host.state">
   <span class="label"
-	ng-class="{'label-success': host.state == 'up', 'label-important': host.state == 'down'}"
+	ng-class="{'label-success': host.state == 'up', 'label-danger': host.state == 'down'}"
 	>{{host.state | uppercase}}</span>
   <span ng-if="host.state_reason"> - {{host.state_reason}}</span>
   <span ng-if="host.starttime && host.endtime">
