@@ -190,6 +190,18 @@ class MongoDB(DB):
                     self.db[colname].update({"_id": record["_id"]}, update)
             version = new_version
 
+    def cmp_schema_version(self, colname, document):
+        """Returns 0 if the `document`'s schema version matches the
+        code's current version for `colname`, 1 if it is higher (you
+        need to update IVRE), and -1 if it is lower (you need to
+        call .migrate_schema()).
+
+        """
+        return cmp(
+            self.schema_latest_versions.get(colname, 0),
+            document.get("schema_version", 0),
+        )
+
     def _topvalues(self, colname, field, flt=None, topnbr=10,
                    sortby=None, limit=None, skip=None, least=False,
                    aggrflt=None, specialproj=None, specialflt=None,
@@ -449,6 +461,10 @@ class MongoDBNmap(MongoDB, DBNmap):
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
+        self.schema_latest_versions = {
+            self.colname_hosts: 1,
+            self.colname_oldhosts: 1,
+        }
 
 
     def init(self):
@@ -459,6 +475,22 @@ creates the default indexes."""
         self.db[self.colname_oldscans].drop()
         self.db[self.colname_oldhosts].drop()
         self.create_indexes()
+
+    def cmp_schema_version_host(self, host):
+        """Returns 0 if the `host`'s schema version matches the code's
+        current version, 1 if it is higher (you need to update IVRE),
+        and -1 if it is lower (you need to call .migrate_schema()).
+
+        """
+        return self.cmp_schema_version(self.colname_hosts, host)
+
+    def cmp_schema_version_scan(self, scan):
+        """Returns 0 if the `scan`'s schema version matches the code's
+        current version, 1 if it is higher (you need to update IVRE),
+        and -1 if it is lower (you need to call .migrate_schema()).
+
+        """
+        return self.cmp_schema_version(self.colname_scans, scan)
 
     @staticmethod
     def migrate_schema_hosts_0_1(doc):
