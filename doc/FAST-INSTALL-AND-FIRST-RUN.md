@@ -44,8 +44,9 @@ You might also want to adapt it to your needs, architecture, etc.
     # ln -s /usr/local/share/ivre/web/cgi-bin/scanjson.py
     # cd /var/lib/dokuwiki/data/pages
     # ln -s /usr/local/share/ivre/dokuwiki/doc
-    # cd /var/lib/dokuwiki/data/media/wiki
+    # cd /var/lib/dokuwiki/data/media
     # ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
+    # ln -s /usr/local/share/ivre/dokuwiki/media/doc
     # cd /usr/share/dokuwiki
     # patch -p0 < /usr/local/share/ivre/dokuwiki/backlinks.patch
     # cd /etc/apache2/mods-enabled

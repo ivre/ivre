@@ -149,7 +149,9 @@ or (sym)linked at these locations:
  - `[PREFIX]/share/ivre/dokuwiki/doc`
      -> `/var/lib/dokuwiki/data/pages/`
  - `[PREFIX]/share/ivre/dokuwiki/media/logo.png`
-     -> `/var/lib/dokuwiki/data/media/wiki/`
+     -> `/var/lib/dokuwiki/data/media/`
+ - `[PREFIX]/share/ivre/dokuwiki/media/doc`
+     -> `/var/lib/dokuwiki/data/media/`
 
 The values `skip` and `limit` from `scanjsonconfig.py` must match
 those in the `dflt` object in `config.js`.

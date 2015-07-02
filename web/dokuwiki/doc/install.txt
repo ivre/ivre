@@ -83,7 +83,8 @@ On a typical Debian/Ubuntu installation with Apache and Dokuwiki installed with 
   * ''%%[PREFIX]/share/ivre/web/static/*%%'' -> ''%%/var/www%%'' or ''%%/var/www/html%%''
   * ''%%[PREFIX]/share/ivre/web/cgi-bin/scanjson.py%%'' -> ''%%/usr/lib/cgi-bin/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/doc%%''  -> ''%%/var/lib/dokuwiki/data/pages/%%''
-  * ''%%[PREFIX]/share/ivre/dokuwiki/media/logo.png%%''  -> ''%%/var/lib/dokuwiki/data/media/wiki/%%''
+  * ''%%[PREFIX]/share/ivre/dokuwiki/media/logo.png%%''  -> ''%%/var/lib/dokuwiki/data/media/%%''
+  * ''%%[PREFIX]/share/ivre/dokuwiki/media/doc%%''  -> ''%%/var/lib/dokuwiki/data/media/%%''
 
 The values ''%%skip%%'' and ''%%limit%%'' from ''%%scanjsonconfig.py%%'' must match those in the ''%%dflt%%'' object in ''%%config.js%%''.
 
