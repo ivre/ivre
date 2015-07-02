@@ -113,15 +113,15 @@ var ToolTip = {
 
     set: function(elt, content) {
 	if (elt.getAttribute('data-content') == content.content &&
-	    elt.getAttribute('data-title') == content.title)
+	    elt.getAttribute('data-original-title') == content.title)
 	    return;
-	elt.setAttribute('data-title', content.title);
+	elt.setAttribute('data-original-title', content.title);
 	elt.setAttribute('data-content', content.content);
 	$('#' + elt.id).popover('show');
     },
 
     remove: function(elt) {
-	elt.removeAttribute('data-title');
+	elt.removeAttribute('data-original-title');
 	elt.removeAttribute('data-content');
 	$('#' + elt.id).popover('destroy');
     },
