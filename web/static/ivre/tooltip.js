@@ -49,6 +49,12 @@ var ToolTip = {
 	}
 	var asked = elt.value;
 
+	// Callbacks
+	for (cbid in HELP.callbacks) {
+	    if (!(HELP.callbacks[cbid](elt, HELP, ToolTip)))
+		return;
+	}
+
 	// Match available commands
 	var matching_keys = Object.keys(HELP.content).filter(
 	    function(key) {
@@ -97,18 +103,12 @@ var ToolTip = {
 	       asked.length < key.length) {
 		var start = asked.length;
 		elt.value = key;
-		asked = key;
 		elt.selectionStart = start;
 	    }
 	} else {
 	    ToolTip.remove(elt);
 	}
 	elt.setAttribute("oldval", asked);
-
-	// Callbacks
-	for (cbid in HELP.callbacks) {
-	    HELP.callbacks[cbid](elt, HELP, ToolTip);
-	}
     },
 
     set: function(elt, content) {

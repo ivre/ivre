@@ -51,6 +51,9 @@ var HELP_FILTERS = {
 		else
 		    content = HELP.content["tcp/"];
 		ToolTip.set(elt, content);
+		return false;
+	    } else {
+		return true;
 	    }
 	},
     ],
