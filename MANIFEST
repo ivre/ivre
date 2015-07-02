@@ -351,6 +351,7 @@ web/static/fi/flags/4x3/zw.svg
 web/static/jq/jquery.js
 web/static/templates/filters.html
 web/static/templates/menu.html
+web/static/templates/messages.html
 web/static/templates/progressbar.html
 web/static/templates/subview-host-summary.html
 web/static/templates/subview-port-summary.html

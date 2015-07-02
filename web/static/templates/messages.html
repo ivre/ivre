@@ -1,0 +1,7 @@
+<div ng-repeat="(ident, msg) in messages"
+     class="alert alert-{{colors[msg.level]}}">
+  <a class="close" ng-click="remove_message(ident)">&times;</a>
+  <span class="glyphicon {{signs[msg.level]}}" aria-hidden="true"></span>
+  <strong class="alert-level">{{msg.level | uppercase}}:</strong>
+  {{msg.content}}
+</div>

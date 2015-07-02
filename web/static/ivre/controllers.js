@@ -542,3 +542,41 @@ function set_display_mode(mode) {
 ivreWebUi
     .controller('IvreAnalysisCtrl', function ($scope) {
     });
+
+ivreWebUi
+    .controller('IvreMessagesCtrl', function ($scope) {
+	$scope.messages = {};
+	$scope.colors = {
+	    "ok": "success",
+	    "info": "info",
+	    "warning": "warning",
+	    "error": "danger",
+	};
+	$scope.signs = {
+	    "ok": "glyphicon-ok-sign",
+	    "info": "glyphicon-info-sign",
+	    "warning": "glyphicon-exclamation-sign",
+	    "error": "glyphicon-remove-sign",
+	};
+	$scope.remove_message = function(ident) {
+	    delete $scope.messages[ident];
+	    return false;
+	};
+    })
+    .directive('ivreMessages', function() {
+	return {
+	    templateUrl: 'templates/messages.html'
+	};
+    });
+
+function add_message(ident, level, content) {
+    var message;
+    if(content === undefined)
+	message = {"level": "info", "content": level};
+    else
+	message = {"level": level, "content": content};
+    var scope = get_scope('IvreMessagesCtrl');
+    scope.$apply(function() {
+	scope.messages[ident] = message;
+    });
+}

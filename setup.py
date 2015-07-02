@@ -75,6 +75,7 @@ setup(
         ('share/ivre/web/static/templates',
          ['web/static/templates/filters.html',
           'web/static/templates/menu.html',
+          'web/static/templates/messages.html',
           'web/static/templates/progressbar.html',
           'web/static/templates/view-cpes-only.html',
           'web/static/templates/view-hosts.html',
