@@ -32,8 +32,18 @@ body {
     padding-top:10px !important;
     padding-bottom:10px !important;
 }
+
+.navbar-nav > li > .dropdown-menu {
+    margin-top: 5px !important;
+}
+
 .navbar {
     min-height: 40px !important;
+}
+
+hr {
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
 }
 
 .navbar-brand {
@@ -216,8 +226,4 @@ form {
 .label {
     display: inline-block;
     padding: 0.4em 0.6em 0.3em;
-}
-
-.container-header {
-    padding-top: 10px;
 }
