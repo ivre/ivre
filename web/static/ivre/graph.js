@@ -16,6 +16,10 @@
  * along with IVRE. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/************* Graphing constants **************/
+
+MAPRATIO = 250 / 500;
+
 /************* Graphing utilities **************/
 
 
@@ -228,8 +232,8 @@ function build_chart_plane(chart, ips) {
 }
 
 function build_chart_map(chart, locs, fullworld) {
-    var w = 550,
-    h = 300;
+    var w = $('#' + chart).width(),
+    h = w * MAPRATIO;
 
     document.getElementById("chartstitle").innerHTML = "Map";
     var vis = d3.select("#"+chart).append("svg")
@@ -633,7 +637,7 @@ function build_chart_ports(chart, ips) {
 }
 
 function build_chart(chart, field, dataset) {
-    var w = 540,
+    var w = $("#" + chart).width() - 20,
     h = 30 * dataset.length,
     //labelpad = 60,
     labelpad = 10 + d3.max(dataset, function(t) {
