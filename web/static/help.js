@@ -16,12 +16,31 @@
  * along with IVRE. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/************* Help methods ****************/
+
+function prepare(help) {
+    // Apply aliases
+    for (var key in help.aliases) {
+	help.content[key] = help.content[help.aliases[key]];
+    }
+
+    // Manage negation
+    for (var key in help.content) {
+	if(help.content[key].title.substr(0, 10) === '<b>(!)</b>') {
+	    help.content["!" + key] = help.content[key];
+	    help.content["-" + key] = help.content[key];
+	}
+    }
+};
+
+/************* Help content ****************/
+
 var HELP_FILTERS = {
-    "config": {
+    config: {
 	"prefixs": "!-",
 	"suffixs": ":/",
     },
-    "callbacks": [
+    callbacks: [
 	function(elt, HELP, ToolTip) {
 	    // Handle IP addresses
 	    if(elt.value.match(/^!?[0-9\.\/\,]*$/)) {
@@ -35,7 +54,13 @@ var HELP_FILTERS = {
 	    }
 	},
     ],
-    "content": {
+    aliases: {
+	"portscript:": "script:",
+	"yp": "nis",
+	"devicetype:": "devtype:",
+	"networkdevice": "netdev",
+    },
+    content: {
 	/* filters */
 	"archives": {
 	    "title": "<b>(!)</b>archives",
@@ -343,19 +368,7 @@ var HELP_FILTERS = {
     },
 };
 
-/* aliases */
-HELP_FILTERS.content['portscript:'] = HELP_FILTERS.content['script:'];
-HELP_FILTERS.content['yp'] = HELP_FILTERS.content['nis'];
-HELP_FILTERS.content['devicetype:'] = HELP_FILTERS.content['devtype:'];
-HELP_FILTERS.content['networkdevice'] = HELP_FILTERS.content['netdev'];
-
-/* negation */
-for(var key in HELP_FILTERS.content) {
-    if(HELP_FILTERS.content[key].title.substr(0, 10) === '<b>(!)</b>') {
-	HELP_FILTERS.content["!" + key] = HELP_FILTERS.content[key];
-	HELP_FILTERS.content["-" + key] = HELP_FILTERS.content[key];
-    }
-}
+prepare(HELP_FILTERS);
 
 /* Top values */
 
@@ -629,10 +642,4 @@ HELP_TOPVALUES = {
     }
 };
 
-/* negation */
-for(var key in HELP_TOPVALUES.content) {
-    if(HELP_TOPVALUES.content[key].title.substr(0, 10) === '<b>(!)</b>') {
-	HELP_TOPVALUES.content["!" + key] = HELP_TOPVALUES.content[key];
-	HELP_TOPVALUES.content["-" + key] = HELP_TOPVALUES.content[key];
-    }
-}
+prepare(HELP_TOPVALUES);
