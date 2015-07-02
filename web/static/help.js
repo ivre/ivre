@@ -43,7 +43,7 @@ var HELP_FILTERS = {
     callbacks: [
 	function(elt, HELP, ToolTip) {
 	    // Handle IP addresses
-	    if(elt.value.match(/^!?[0-9\.\/\,]*$/)) {
+	    if(elt.value.match(/^[!-]?[0-9\.\/\,]*$/)) {
 		if(elt.value.indexOf('/') !== -1)
 		    content = HELP.content["net:"];
 		else if(elt.value.indexOf('.') !== -1)
