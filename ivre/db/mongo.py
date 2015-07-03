@@ -1628,9 +1628,7 @@ have no effect if it is not expected)."""
                                                "then": "$$KEEP",
                                                "else": "$$PRUNE"}},
                                        "else": "$$DESCEND"}}},
-                {"$project": {"portlist": {"$cond": [{"$eq": ["$ports", []]},
-                                                     [0],
-                                                     "$ports.port"]}}},
+                {"$project": {"portlist": "$ports.port"}},
             ]
             field = "portlist"
         elif field.startswith('countports:'):
