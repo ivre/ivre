@@ -470,12 +470,18 @@ for q in query:
             q[1] = q[1].replace('_', '/')
         if '/' in q[1]:
             proto, port = q[1].split('/')
-            port = int(port)
         else:
-            proto, port = "tcp", int(q[1])
-        flt = db.nmap.flt_and(flt,
-                              db.nmap.searchport(port, protocol=proto,
-                                                 state=nq))
+            proto, port = "tcp", q[1]
+        port = port.split(',')
+        if len(port) > 1:
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchports([int(p) for p in port], protocol=proto,
+                                    state=nq))
+        else:
+            flt = db.nmap.flt_and(flt,
+                                  db.nmap.searchport(int(port), protocol=proto,
+                                                     state=nq))
     elif nq == 'otheropenport':
         flt = db.nmap.flt_and(
             flt, db.nmap.searchportsother(map(int, q[1].split(','))))

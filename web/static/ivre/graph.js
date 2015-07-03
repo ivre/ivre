@@ -668,10 +668,18 @@ function build_chart(chart, field, dataset) {
     }
     else
 	neg = false;
-    if(field.substr(0, 9) === 'portlist:')
+    if(field.substr(0, 9) === 'portlist:') {
 	prepareoutput = function(x) {
 	    return (x.length === 1 && x[0] === 0) ? "None" : x.join(' / ');
 	};
+	if(field.substr(9) === 'open')
+	    preparefilter = function(x) {
+		if(x.length === 1 && x[0] === 0)
+		    return 'setparam("countports", "0", true);';
+		else
+		    return 'setparam("open", "' + x + '", true, true); setparam("countports", "' + x.length + '", true);';
+	    };
+    }
     else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
 	prepareoutput = function(x) {
 	    var attributes = {
@@ -774,6 +782,11 @@ function build_chart(chart, field, dataset) {
 	    };
 	    break;
 	}
+    }
+    else if(field === 'countports:open') {
+	preparefilter = function(x) {
+	    return 'setparam("countports", "' + x + '");';
+	};
     }
     else if(field === 'service') {
 	preparefilter = function(x) {
