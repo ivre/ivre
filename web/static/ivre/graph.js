@@ -670,11 +670,11 @@ function build_chart(chart, field, dataset) {
 	neg = false;
     if(field.substr(0, 9) === 'portlist:') {
 	prepareoutput = function(x) {
-	    return (x.length === 1 && x[0] === 0) ? "None" : x.join(' / ');
+	    return (x.length === 0) ? "None" : x.join(' / ');
 	};
 	if(field.substr(9) === 'open')
 	    preparefilter = function(x) {
-		if(x.length === 1 && x[0] === 0)
+		if(x.length === 0)
 		    return 'setparam("countports", "0", true);';
 		else
 		    return 'setparam("open", "' + x + '", true, true); setparam("countports", "' + x.length + '", true);';
