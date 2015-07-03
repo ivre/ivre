@@ -192,9 +192,9 @@ class MongoDB(DB):
 
     def cmp_schema_version(self, colname, document):
         """Returns 0 if the `document`'s schema version matches the
-        code's current version for `colname`, 1 if it is higher (you
-        need to update IVRE), and -1 if it is lower (you need to
-        call .migrate_schema()).
+        code's current version for `colname`, -1 if it is higher (you
+        need to update IVRE), and 1 if it is lower (you need to call
+        .migrate_schema()).
 
         """
         return cmp(
@@ -478,16 +478,16 @@ creates the default indexes."""
 
     def cmp_schema_version_host(self, host):
         """Returns 0 if the `host`'s schema version matches the code's
-        current version, 1 if it is higher (you need to update IVRE),
-        and -1 if it is lower (you need to call .migrate_schema()).
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema()).
 
         """
         return self.cmp_schema_version(self.colname_hosts, host)
 
     def cmp_schema_version_scan(self, scan):
         """Returns 0 if the `scan`'s schema version matches the code's
-        current version, 1 if it is higher (you need to update IVRE),
-        and -1 if it is lower (you need to call .migrate_schema()).
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema()).
 
         """
         return self.cmp_schema_version(self.colname_scans, scan)
