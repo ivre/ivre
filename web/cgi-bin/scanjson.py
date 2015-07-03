@@ -20,6 +20,12 @@
 # same directory than this CGI file and called scanjsonconfig.py. A
 # sample for this file is provided as scanjsonconfig-sample.py
 
+def alert(ident, level, message):
+    return ('try {add_message("%(ident)s", "%(level)s", "%(message)s");}\n'
+            'catch(err) {alert("%(levelup)s: %(message)s")};\n'
+            '' % {"ident": ident, "level": level, "levelup": level.upper(),
+                  "message": message.replace('"', '\\"')})
+
 try:
     import sys
     import json
@@ -30,8 +36,11 @@ try:
     import datetime
 except Exception as exc:
     print 'Content-Type: application/javascript\r\n\r\n'
-    print 'alert("ERROR: import error.");'
-    sys.stderr.write("Import error: %s (%r).\n" % (exc.message, exc))
+    print alert("import-module", "error",
+                "Import error. Check the server's logs!")
+    sys.stderr.write(
+        "IVRE: ERROR: import error [%s (%r)].\n" % (exc.message, exc)
+    )
     sys.exit(0)
 
 try:
@@ -39,9 +48,13 @@ try:
     from ivre.db import db
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
-    sys.stdout.write('alert("ERROR: could not import ivre.")')
-    sys.stderr.write("IVRE: cannot import ivre: %s (%r).\n" % (exc.message,
-                                                               exc))
+    sys.stdout.write(
+        alert("import-ivre", "error",
+              "Could not import ivre. Check the server's logs!")
+    )
+    sys.stderr.write(
+        "IVRE: ERROR: cannot import ivre [%s (%r)].\n" % (exc.message, exc)
+    )
     sys.exit(0)
 
 try:
@@ -95,8 +108,13 @@ def check_referer():
         referer_ok = referer in ALLOWED_REFERERS
     if not referer_ok:
         sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
-        sys.stdout.write('alert("ERROR: invalid Referer header.");\n')
-        sys.stderr.write("IVRE: invalid Referer header.\n")
+        sys.stdout.write(
+            alert("referer", "error",
+                  "Invalid Referer header. Check your configuration.")
+        )
+        sys.stderr.write(
+            "IVRE: ERROR: invalid Referer header [%r].\n" % referer
+        )
         sys.exit(0)
 
 check_referer()
@@ -124,7 +142,13 @@ try:
             else:
                 query.append([q[0], q[1]])
 except Exception as exc:
-    sys.stderr.write('IVRE: warning: %s (%r)\n' % (exc.message, exc))
+    sys.stdout.write(alert("param-parsing", "warning",
+                           "Parameter parsing error. Check the server's logs "
+                           "for more information."))
+    sys.stderr.write(
+        'IVRE: WARNING: parameter parsing error [%s (%r)]\n' % (exc.message,
+                                                                exc)
+    )
 
 callback = None
 count = None
@@ -663,19 +687,16 @@ if count is not None:
     exit(0)
 
 if unused:
-    sys.stdout.write(
-        'alert("WARNING: following option%s not understood: %s")\n' % (
-            's' if len(unused) > 1 else '',
-            ', '.join(unused),
-        ))
-    sys.stderr.write(
-        'IVRE: warning: option%s not understood: %s\n' % (
-            's' if len(unused) > 1 else '',
-            ', '.join(unused),
-    ))
+    msg = 'Option%s not understood: %s' % (
+        's' if len(unused) > 1 else '',
+        ', '.join(unused),
+    )
+    sys.stdout.write(alert("param-unused", "warning", msg))
+    sys.stderr.write('IVRE: WARNING: %r\n' % msg)
 
-# sys.stdout.write('alert("%r");\n' % flt)
+# sys.stdout.write('console.log("%r");\n' % flt)
 
+version_mismatch = {}
 for r in result:
     del(r['_id'])
     try:
@@ -700,3 +721,21 @@ for r in result:
         sys.stdout.write("%s(%s);\n" % (callback, json.dumps(r)))
     else:
         sys.stdout.write("%s;\n" % json.dumps(r))
+    check = db.nmap.cmp_schema_version_host(r)
+    if check:
+        version_mismatch[check] = version_mismatch.get(check, 0) + 1
+
+messages = {
+    -1: lambda count: "%d document%s displayed %s out-of-date. Please run the "
+    "following commands: 'scancli --ensure-indexes; scancli --update-schema; "
+    "scancli --update-schema --archives'"
+    "" % (count, 's' if count > 1 else '', 'are' if count > 1 else 'is'),
+    1: lambda count: '%d document%s displayed ha%s been inserted by '
+    'a more recent version of IVRE. Please update IVRE!'
+    '' % (count, 's' if count > 1 else '', 've' if count > 1 else 's'),
+}
+for mismatch, count in version_mismatch.iteritems():
+    message = messages[mismatch](count)
+    sys.stdout.write(alert("version-mismatch-%d" % (mismatch + 1) / 2,
+                           "warning", message))
+    sys.stderr.write('IVRE: WARNING: %r\n' % message)

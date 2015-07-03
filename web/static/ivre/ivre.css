@@ -227,3 +227,8 @@ form {
     display: inline-block;
     padding: 0.4em 0.6em 0.3em;
 }
+
+.alert-level {
+    margin-left: 1%;
+    margin-right: 1%;
+}
