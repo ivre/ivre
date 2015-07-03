@@ -736,6 +736,6 @@ messages = {
 }
 for mismatch, count in version_mismatch.iteritems():
     message = messages[mismatch](count)
-    sys.stdout.write(alert("version-mismatch-%d" % (mismatch + 1) / 2,
+    sys.stdout.write(alert("version-mismatch-%d" % ((mismatch + 1) / 2),
                            "warning", message))
     sys.stderr.write('IVRE: WARNING: %r\n' % message)
