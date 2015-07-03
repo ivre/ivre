@@ -150,17 +150,23 @@
   </a>
   <ul class="dropdown-menu">
     <li><a class="clickable"
-	   onclick="unsetparam('sortby'); setparam('sortby', 'endtime');"
-	   ><i class="glyphicon glyphicon-arrow-down"></i>Date of scan</a></li>
+	   onclick="setparam('sortby', 'endtime', true);"
+	   ><i class="glyphicon glyphicon-arrow-down"></i> Date of scan</a></li>
     <li><a class="clickable"
-	   onclick="unsetparam('sortby'); setparam('-sortby', 'endtime');"
+	   onclick="setparam('-sortby', 'endtime', true);"
 	   ><i class="glyphicon glyphicon-arrow-up"></i> Date of scan</a></li>
     <li><a class="clickable"
-	   onclick="unsetparam('sortby'); setparam('sortby', 'addr');"
+	   onclick="setparam('sortby', 'addr', true);"
 	   ><i class="glyphicon glyphicon-arrow-down"></i> IP Address</a></li>
     <li><a class="clickable"
-	   onclick="unsetparam('sortby'); setparam('-sortby', 'addr');"
+	   onclick="setparam('-sortby', 'addr', true);"
 	   ><i class="glyphicon glyphicon-arrow-up"></i> IP Address</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('sortby', 'openports.count', true);"
+	   ><i class="glyphicon glyphicon-arrow-down"></i> Open ports</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('-sortby', 'openports.count', true);"
+	   ><i class="glyphicon glyphicon-arrow-up"></i> Open ports</a></li>
     <li>
       <a class="clickable"
 	 onclick="'archives' in parametersobj ? unsetparam('archives') : setparam('archives');"
