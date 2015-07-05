@@ -139,8 +139,7 @@ setup(
          [os.path.join('doc/screenshots', x)
           for x in os.listdir('doc/screenshots')]),
         ('share/ivre/web/cgi-bin',
-         ['web/cgi-bin/scanjson.py',
-          'web/cgi-bin/scanjsonconfig-sample.py']),
+         ['web/cgi-bin/scanjson.py']),
         ('share/doc/ivre',
          ['doc/AGENT.md',
           'doc/DOCKER.md',

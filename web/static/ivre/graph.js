@@ -40,7 +40,7 @@ function build_top_chart(f) {
     s.src = config.cgibase + '?callback=' +
 	encodeURIComponent("(function(data){build_chart('chart1', '" +
 			   field + "', data);})") +
-	'&countfield='+field+'&countnbr=15&q=' +
+	'&action=topvalues:' + encodeURIComponent(field) + '&limit=15&q=' +
 	encodeURIComponent(query);
     c1.parentNode.appendChild(s);
 }

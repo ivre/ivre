@@ -331,7 +331,13 @@ class MongoDB(DB):
 
     @staticmethod
     def searchhosts(hosts, neg=False):
-        return {'addr': {'$nin' if neg else '$in': hosts}}
+        def convert(addr):
+            try:
+                return utils.ip2int(addr)
+            except (TypeError, utils.socket.error):
+                return addr
+        return {'addr': {'$nin' if neg else '$in': [convert(host)
+                                                    for host in hosts]}}
 
     @staticmethod
     def searchrange(start, stop, neg=False):

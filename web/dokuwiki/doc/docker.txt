@@ -105,7 +105,7 @@ The ''%%--publish 80:80%%'' option creates a redirection and makes the web serve
 If you want to use modified configuration files, you can use ''%%--volume%%''. For example:
 
 <code>$ docker run -d --name ivreweb --hostname ivreweb \
->        --volume "`pwd`/scanjsonconfig.py:/usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py"
+>        --volume "`pwd`/ivre.conf:/etc/ivre.conf"
 >        --volume "`pwd`/nginx-default-site:/etc/nginx/sites-available/default"
 >        --link ivredb:ivredb --publish 80:80 ivre/web</code>
 ==== A command line client ====
