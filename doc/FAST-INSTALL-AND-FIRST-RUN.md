@@ -52,7 +52,6 @@ You might also want to adapt it to your needs, architecture, etc.
     # cd /etc/apache2/mods-enabled
     # for m in cgi rewrite ; do [ -L $m.load ] || ln -s ../mods-available/$m.load ; done
     # cd /usr/local/share/ivre/web/cgi-bin
-    # cp scanjsonconfig-sample.py scanjsonconfig.py
     # sed -i 's/^\(\s*\)#Rewrite/\1Rewrite/' /etc/dokuwiki/apache.conf
     # service apache2 reload
     # exit

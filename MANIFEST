@@ -55,13 +55,13 @@ ivre/passive.py
 ivre/scanengine.py
 ivre/target.py
 ivre/utils.py
+ivre/webutils.py
 ivre/xmlnmap.py
 ivre/db/__init__.py
 ivre/db/mongo.py
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
 web/cgi-bin/scanjson.py
-web/cgi-bin/scanjsonconfig-sample.py
 web/dokuwiki/backlinks.patch
 web/dokuwiki/doc/agent.txt
 web/dokuwiki/doc/docker.txt

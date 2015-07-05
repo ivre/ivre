@@ -89,7 +89,7 @@ ivreWebUi
 		document.getElementById('charts').style.display = 'inline';
 		s = document.createElement('script');
 		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_plane('chart1', ips);})")+ '&countopenports=1&ipsasnumbers=1&q=' + encodeURIComponent(query);
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_plane('chart1', ips);})")+ '&action=countopenports&ipsasnumbers=1&q=' + encodeURIComponent(query);
 		c1.parentNode.appendChild(s);
 	    }
 	    else {
@@ -110,7 +110,7 @@ ivreWebUi
 		document.getElementById('charts').style.display = 'inline';
 		s = document.createElement('script');
 		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&timeline=1&ipsasnumbers=1&q=' + encodeURIComponent(query);
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&action=timeline&ipsasnumbers=1&q=' + encodeURIComponent(query);
 		if(modulo !== undefined)
 		    s.src += '&modulo=' + modulo;
 		c1.parentNode.appendChild(s);
@@ -132,7 +132,7 @@ ivreWebUi
 		document.getElementById('charts').style.display = 'inline';
 		s = document.createElement('script');
 		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&ipsports=1&ipsasnumbers=1&q=' + encodeURIComponent(query);
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&action=ipsports&ipsasnumbers=1&q=' + encodeURIComponent(query);
 		c1.parentNode.appendChild(s);
 	    }
 	    else {
@@ -150,7 +150,7 @@ function build_ip_map(fullworld) {
     document.getElementById('charts').style.display = 'inline';
     s = document.createElement('script');
     s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_map('chart1', ips, " + fullworld + ");})")+ '&coordinates=1&ipsasnumbers=1&q=' + encodeURIComponent(query);
+    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_map('chart1', ips, " + fullworld + ");})")+ '&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(query);
     c1.parentNode.appendChild(s);
 }
 

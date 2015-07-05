@@ -158,7 +158,7 @@ If you want to use modified configuration files, you can use
 `--volume`. For example:
 
     $ docker run -d --name ivreweb --hostname ivreweb \
-    >        --volume "`pwd`/scanjsonconfig.py:/usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py"
+    >        --volume "`pwd`/ivre.conf:/etc/ivre.conf"
     >        --volume "`pwd`/nginx-default-site:/etc/nginx/sites-available/default"
     >        --link ivredb:ivredb --publish 80:80 ivre/web
 

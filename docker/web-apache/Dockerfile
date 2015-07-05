@@ -27,7 +27,9 @@ RUN touch var/www/html/config.js
 RUN ln -s /usr/local/share/ivre/web/cgi-bin/scanjson.py usr/lib/cgi-bin
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/lib/dokuwiki/data/pages
 RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/lib/dokuwiki/data/media/wiki
-RUN cp usr/local/share/ivre/web/cgi-bin/scanjsonconfig-sample.py usr/local/share/ivre/web/cgi-bin/scanjsonconfig.py
+
+# Configure IVRE
+RUN echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
 
 # Patch Dokuwiki for backlinks to IVRE results
 RUN apt-get -qy install patch && \

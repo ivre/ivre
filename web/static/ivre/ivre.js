@@ -232,7 +232,7 @@ function load() {
 	    if(s) document.body.removeChild(s);
 	    s = document.createElement('script');
 	    s.id = "countscript";
-	    s.src = config.cgibase + '?callback=set_nbrres&count=&q=' +
+	    s.src = config.cgibase + '?callback=set_nbrres&action=count&q=' +
 		encodeURIComponent(query);
 	    document.body.appendChild(s);
 	}

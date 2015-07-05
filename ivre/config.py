@@ -38,6 +38,8 @@ DEBUG = False
 GEOIP_PATH = None
 HONEYD_IVRE_SCRIPTS_PATH = None
 AGENT_MASTER_PATH = "/var/lib/ivre/master"
+TESSERACT_CMD = "tesseract"
+
 NMAP_CMD = "nmap"
 NMAP_SCAN_TYPE = ['sS', 'A']
 NMAP_PING_TYPE = ['PS', 'PE']
@@ -59,7 +61,43 @@ NMAP_SCRIPT_EXCLUDE = [
 ]
 NMAP_SCRIPT_FORCE = []
 NMAP_EXTRA_OPTIONS = None
-TESSERACT_CMD = "tesseract"
+
+WEB_ALLOWED_REFERERS = None
+WEB_MAXRESULTS = None
+WEB_WARN_DOTS_COUNT= 20000
+WEB_GET_NOTEPAD_PAGES = None
+# if overwritten, these two values must match those in the config.js
+# config file config.dflt.skip and config.dflt.limit.
+WEB_SKIP = 0
+WEB_LIMIT = 10
+# access control disabled by default:
+WEB_INIT_QUERIES = {}
+WEB_DEFAULT_INIT_QUERY = None
+
+## Basic ACL example (to be put in /etc/ivre.conf):
+# from ivre.db import db
+# INIT_QUERIES = {
+#     'admin': db.nmap.flt_empty,
+#     'admin-site-a': db.nmap.searchcategory('site-a'),
+#     'admin-scanner-a': db.nmap.searchsource('scanner-a')
+# }
+# DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
+
+## More complex ACL example with realm handling (to be put in
+## /etc/ivre.conf)
+# class Users(object):
+#     def __init__(self, Users={}, Realms={}):
+#         self.Users = Users
+#         self.Realms = Realms
+#     def get(self, user, default):
+#         if type(user) is str and '@' in user:
+#             realm = user[user.index('@')+1:]
+#         else: realm = None
+#         return self.Users.get(user, self.Realms.get(realm, default))
+# from ivre.db import db
+# INIT_QUERIES = Users(Users={"admin": db.nmap.flt_empty},
+#                      Realms={"admin.sitea": db.nmap.searchcategory('sitea')})
+# DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
 
 
 def get_config_file(paths=None):
@@ -72,8 +110,8 @@ def get_config_file(paths=None):
         if os.path.isfile(path):
             yield path
 
-for f in get_config_file():
-    execfile(f)
+for fname in get_config_file():
+    execfile(fname)
 
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are

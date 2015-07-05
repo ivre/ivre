@@ -1,6 +1,6 @@
 This file is part of IVRE.
 
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
+Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
 
 # DB Server #
 
@@ -135,10 +135,9 @@ using Apache; you can use the provided `Dockerfile`s as examples on
 how to configure Apache or Nginx) and adding `$conf['userewrite'] = 1`
 in your Dokuwiki config file.
 
-You may want to change some values, by creating the files
-`[PREFIX]/share/ivre/web/cgi-bin/scanjsonconfig.py` and
+You may want to change some values, by creating the file
 `[PREFIX]/share/ivre/web/static/config.js` based on the `-sample`
-files you'll find in the same directories.
+file and by creating or modifying `/etc/ivre.conf`.
 
 On a typical Debian/Ubuntu installation with Apache and Dokuwiki
 installed with the distribution packages, these files should be copied
@@ -153,12 +152,9 @@ or (sym)linked at these locations:
  - `[PREFIX]/share/ivre/dokuwiki/media/doc`
      -> `/var/lib/dokuwiki/data/media/`
 
-The values `skip` and `limit` from `scanjsonconfig.py` must match
-those in the `dflt` object in `config.js`.
-
-If you access the web interface by another URL than the "standard"
-<http://localhost/>, then you have to set `ALLOWED_REFERERS` in
-`scanjsonconfig.py`
+The values `WEB_SKIP` and `WEB_LIMIT` from IVRE's configuration must
+match the values `skip` and `limit` in the `dflt` object in
+`config.js`.
 
 # Agent #
 
