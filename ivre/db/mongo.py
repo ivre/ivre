@@ -509,10 +509,8 @@ creates the default indexes."""
         assert("schema_version" not in doc)
         assert("openports" not in doc)
         update = {"$set": {"schema_version": 1}}
-        if "ports" not in doc:
-            return update
         openports = {}
-        for port in doc["ports"]:
+        for port in doc.get("ports", []):
             openports.setdefault(port["protocol"], {}).setdefault(
                 "ports", []).append(port["port"])
         for proto in openports.keys():
