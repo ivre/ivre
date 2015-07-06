@@ -510,7 +510,8 @@ def flt_from_query(query):
             else:
                 flt = db.nmap.flt_and(
                     flt,
-                    db.nmap.searchport(int(port), protocol=proto, state=param)
+                    db.nmap.searchport(int(port[0]), protocol=proto,
+                                       state=param)
                 )
         elif param == 'otheropenport':
             flt = db.nmap.flt_and(
