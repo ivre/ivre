@@ -346,7 +346,8 @@ class NmapHandler(ContentHandler):
             self._curhostnames.append(hostname)
         elif name == 'status' and self._curhost is not None:
             self._curhost['state'] = attrs['state']
-            self._curhost['state_reason'] = attrs['reason']
+            if 'reason' in attrs:
+                self._curhost['state_reason'] = attrs['reason']
             if 'reason_ttl' in attrs:
                 self._curhost['state_reason_ttl'] = int(attrs['reason_ttl'])
         elif name == 'extraports':
