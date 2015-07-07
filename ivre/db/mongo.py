@@ -202,10 +202,9 @@ class MongoDB(DB):
             document.get("schema_version", 0),
         )
 
-    def _topvalues(self, colname, field, flt=None, topnbr=10,
-                   sortby=None, limit=None, skip=None, least=False,
-                   aggrflt=None, specialproj=None, specialflt=None,
-                   outputproc=None):
+    def _topvalues(self, field, flt=None, topnbr=10, sortby=None,
+                   limit=None, skip=None, least=False, aggrflt=None,
+                   specialproj=None, specialflt=None, countfield=None):
         """This method makes use of the aggregation framework to
         produce top values for a given field.
 
@@ -226,7 +225,10 @@ class MongoDB(DB):
         if limit is not None:
             pipeline += [{"$limit": limit}]
         if specialproj is None:
-            pipeline += [{"$project": {"_id": 0, field: 1}}]
+            project = {"_id": 0, field: 1}
+            if countfield is not None:
+                project[countfield] = 1
+            pipeline += [{"$project": project}]
         else:
             pipeline += [{"$project": specialproj}]
         # hack to allow nested values as field
@@ -238,24 +240,25 @@ class MongoDB(DB):
                 pipeline += [{"$unwind": "$" + subfield}]
         pipeline += specialflt
         # next step for previous hack
-        pipeline += [{"$project": {"field": "$" + field}}]
+        project = {"field": "$%s" % field}
+        if countfield is not None:
+            project["count"] = "$%s" % countfield
+        pipeline += [{"$project": project}]
         if aggrflt:
             pipeline += [{"$match": aggrflt}]
         else:
             # avoid null results
             pipeline += [{"$match": {"field": {"$exists": True}}}]
-        pipeline += [{"$group": {"_id": "$field", "count": {"$sum": 1}}}]
+        pipeline += [{"$group": {"_id": "$field", "count": {
+            "$sum": 1 if countfield is None else "$count"
+        }}}]
         if least:
             pipeline += [{"$sort": {"count": 1}}]
         else:
             pipeline += [{"$sort": {"count": -1}}]
         if topnbr is not None:
             pipeline += [{"$limit": topnbr}]
-        cursor = self.set_limits(self.db[colname].aggregate(pipeline,
-                                                            cursor={}))
-        if outputproc is not None:
-            return (outputproc(res) for res in cursor)
-        return cursor
+        return pipeline
 
     # filters
     flt_empty = {}
@@ -1519,8 +1522,7 @@ have no effect if it is not expected)."""
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, archive=False,
-                  aggrflt=None, specialproj=None, specialflt=None,
-                  outputproc=None):
+                  aggrflt=None, specialproj=None, specialflt=None):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
@@ -1541,6 +1543,7 @@ have no effect if it is not expected)."""
           - hop
         """
         colname = self.colname_oldhosts if archive else self.colname_hosts
+        outputproc = None
         if flt is None:
             flt = self.flt_empty
         if aggrflt is None:
@@ -1980,12 +1983,17 @@ have no effect if it is not expected)."""
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
                                     '_id': utils.int2ip(x['_id'])}
-        return self._topvalues(
-            colname, field, flt=flt, topnbr=topnbr,
-            sortby=sortby, limit=limit, skip=skip, least=least,
-            aggrflt=aggrflt, specialproj=specialproj, specialflt=specialflt,
-            outputproc=outputproc
+        pipeline = self._topvalues(
+            field, flt=flt, topnbr=topnbr, sortby=sortby, limit=limit,
+            skip=skip, least=least, aggrflt=aggrflt,
+            specialproj=specialproj, specialflt=specialflt,
         )
+        cursor = self.set_limits(
+            self.db[colname].aggregate(pipeline, cursor={})
+        )
+        if outputproc is not None:
+            return (outputproc(res) for res in cursor)
+        return cursor
 
     def parse_args(self, args, flt=None):
         if flt is None:
@@ -2354,12 +2362,21 @@ setting values according to the keyword arguments.
     def remove(self, spec):
         self.db[self.colname_passive].remove(spec)
 
-    def topvalues(self, field, **kargs):
+    def topvalues(self, field, distinct=True, **kargs):
         """This method makes use of the aggregation framework to
         produce top values for a given field.
 
+        If `distinct` is True (default), the top values are computed
+        by distinct events. If it is False, they are computed based on
+        the "count" field.
+
         """
-        return self._topvalues(self.colname_passive, field, **kargs)
+        if not distinct:
+            kargs['countfield'] = 'count'
+        pipeline = self._topvalues(field, **kargs)
+        return self.set_limits(
+            self.db[self.colname_passive].aggregate(pipeline, cursor={})
+        )
 
     @staticmethod
     def searchsensor(sensor, neg=False):
