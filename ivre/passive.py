@@ -119,7 +119,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
                              'HTTP_CLIENT_HEADER_SERVER'] and \
         spec.get('source') in ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']:
-        if spec['value'].startswith('Digest'):
+        authtype = spec['value'].split(None, 1)[0]
+        if authtype == 'Digest ':
             try:
                 # we only keep relevant info
                 v = filter(DIGEST_AUTH_INFOS.match,
@@ -127,6 +128,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 spec['value'] = 'Digest ' + ','.join(v)
             except:
                 pass
+        elif authtype in ['Negotiate', 'OAuth']:
+            spec['value'] = authtype
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
     # so, we replace the value with its SHA1 hash and store the
