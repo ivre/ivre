@@ -682,7 +682,7 @@ have no effect if it is not expected)."""
             rec["schema_version"] = rec1["schema_version"]
         # When we have different values, we will use the one from the
         # most recent scan, rec2
-        if rec1["starttime"] > rec2["starttime"]:
+        if rec1.get("starttime") > rec2.get("starttime"):
             rec1, rec2 = rec2, rec1
         scanid = set()
         for record in [rec1, rec2]:
@@ -692,10 +692,12 @@ have no effect if it is not expected)."""
                 rec["scanid"] = scanid.pop()
             else:
                 rec["scanid"] = list(scanid)
-        rec["starttime"] = min(rec1["starttime"], rec2["starttime"])
-        rec["endtime"] = max(rec1["endtime"], rec2["endtime"])
-        rec["state"] = ("up" if "up" in [rec1["state"], rec2["state"]]
-                        else rec2["state"])
+        for fname, function in [("starttime", min), ("endtime", max)]:
+            try:
+                rec[fname] = function(rec[fname] for rec in [rec1, rec2]
+                                      if fname in rec)
+            except ValueError:
+                pass
         rec["categories"] = list(
             set(rec1.get("categories", [])).union(
                 rec2.get("categories", []))
