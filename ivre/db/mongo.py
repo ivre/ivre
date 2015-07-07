@@ -698,6 +698,11 @@ have no effect if it is not expected)."""
                                       if fname in rec)
             except ValueError:
                 pass
+        rec["state"] = ("up" if "up" in [rec.get("state")
+                                         for rec in [rec1, rec2]]
+                        else rec.get("state"))
+        if rec["state"] is None:
+            del rec["state"]
         rec["categories"] = list(
             set(rec1.get("categories", [])).union(
                 rec2.get("categories", []))
