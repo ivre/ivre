@@ -714,6 +714,21 @@ class IvreTests(unittest.TestCase):
                 )()).count()
             self.check_value("passive_%sauth_count" % auth_type, count)
 
+        # Top values
+        for distinct in [True, False]:
+            values = ivre.db.db.passive.topvalues(field="addr",
+                                                  distinct=distinct,
+                                                  topnbr=1).next()
+            self.check_value(
+                "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
+                values["_id"],
+            )
+            self.check_value(
+                "passive_top_addr_%sdistinct_count" % ("" if distinct
+                                                       else "not_"),
+                values["count"],
+            )
+
         # Delete
         flt = ivre.db.db.passive.searchcert()
         count = ivre.db.db.passive.get(flt).count()
