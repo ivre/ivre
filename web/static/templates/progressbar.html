@@ -39,28 +39,28 @@
 	 ></div>
   </div>
   <div class="btn-group">
-    <a class="btn"
-       ng-class="{disabled: at_start()}"
-       ng-click="goto_start()">
+    <button class="btn btn-default"
+	    ng-class="{disabled: at_start()}"
+	    ng-click="goto_start()">
       <i class="glyphicon glyphicon-fast-backward"></i>
-    </a>
-    <a class="btn"
-       ng-class="{disabled: at_start()}"
-       id="btn-nav-prev"
-       ng-click="go_back(10)">
+    </button>
+    <button class="btn btn-default"
+	    ng-class="{disabled: at_start()}"
+	    id="btn-nav-prev"
+	    ng-click="go_back(10)">
       <i class="glyphicon glyphicon-step-backward"></i>
-    </a>
-    <a class="btn"
+    </button>
+    <button class="btn btn-default"
        ng-class="{disabled: at_end()}"
        id="btn-nav-next"
        ng-click="go_forward(10)">
       <i class="glyphicon glyphicon-step-forward"></i>
-    </a>
-    <a class="btn"
-       ng-class="{disabled: at_end()}"
-       ng-click="goto_end()"
-       id="btn-nav-last">
+    </button>
+    <button class="btn btn-default"
+	    ng-class="{disabled: at_end()}"
+	    ng-click="goto_end()"
+	    id="btn-nav-last">
       <i class="glyphicon glyphicon-fast-forward"></i>
-    </a>
+    </button>
   </div>
 </li>
