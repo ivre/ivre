@@ -19,6 +19,7 @@
 /************* Graphing constants **************/
 
 MAPRATIO = 250 / 500;
+CHARTRATIO = 450 / 500;
 
 /************* Graphing utilities **************/
 
@@ -76,8 +77,10 @@ function heatmapColour(value) {
 }
 
 function build_chart_plane(chart, ips) {
-    var w = 500,
-    h = 450,
+    var real_w = $("#" + chart).width(),
+    real_h = real_w * CHARTRATIO,
+    w = real_w - 100,
+    h = real_h - 50,
     ipsint = ips.map(function(i) {
 	return [~~(i[0] / 65536), i[0] % 65536, i[1]];
     }),
@@ -111,8 +114,8 @@ function build_chart_plane(chart, ips) {
     
     var vis = d3.select("#"+chart)
 	.append("svg:svg")
-	.attr("width", w+70)
-	.attr("height", h+50)
+	.attr("width", real_w)
+	.attr("height", real_h)
 	.append("svg:g")
 	.attr("transform", "translate(40, 10)");
     
@@ -360,9 +363,10 @@ function build_chart_map(chart, locs, fullworld) {
 }
 
 function build_chart_timeline(chart, ips) {
-    //var w = 437.5, //500*57344./65536
-    var w = 450,
-    h = 450,
+    var real_w = $("#" + chart).width(),
+    real_h = real_w * CHARTRATIO,
+    w = real_w - 100,
+    h = real_h - 50,
     xmin = d3.min(ips, function(i) {return i[0];}),
     xmax = d3.max(ips, function(i) {return i[0];}),
     ymin = d3.min(ips, function(i) {return i[1];}),
@@ -399,8 +403,8 @@ function build_chart_timeline(chart, ips) {
     
     var vis = d3.select("#"+chart)
 	.append("svg:svg")
-	.attr("width", w+100)
-	.attr("height", h+50)
+	.attr("width", real_w)
+	.attr("height", real_h)
 	.append("svg:g")
 	.attr("transform", "translate(70, 10)");
 
@@ -504,8 +508,10 @@ function build_chart_timeline(chart, ips) {
 }
 
 function build_chart_ports(chart, ips) {
-    var w = 450,
-    h = 450,
+    var real_w = $("#" + chart).width(),
+    real_h = real_w * CHARTRATIO,
+    w = real_w - 100,
+    h = real_h - 50,
     xmin = d3.min(ips, function(i) {return i[0];}),
     xmax = d3.max(ips, function(i) {return i[0];}),
     x = d3.scale.linear()
@@ -527,8 +533,8 @@ function build_chart_ports(chart, ips) {
 
     var vis = d3.select("#"+chart)
 	.append("svg:svg")
-	.attr("width", w+100)
-	.attr("height", h+60)
+	.attr("width", real_w)
+	.attr("height", real_h)
 	.append("svg:g")
 	.attr("transform", "translate(70, 10)");
 
