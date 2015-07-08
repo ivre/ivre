@@ -59,7 +59,7 @@ function add_download_button(div, title) {
 	title = "Graph";
     a.download = "IVRE-" + title + ".svg";
     a.href = "#";
-    a.innerHTML = '<button><i class="glyphicon glyphicon-download-alt"></i></button>';
+    a.innerHTML = '<button><i class="glyphicon glyphicon-download-alt download"></i></button>';
     a.setAttribute("title", "Download");
     div.appendChild(a);
 }
