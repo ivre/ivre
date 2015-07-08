@@ -87,7 +87,6 @@ form {
 
 #notes-container {
     position: fixed;
-    right: 20px;
 }
 
 .result-container {
@@ -231,4 +230,8 @@ form {
 .alert-level {
     margin-left: 1%;
     margin-right: 1%;
+}
+
+.download {
+    color: black;
 }
