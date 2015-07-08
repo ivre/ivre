@@ -491,8 +491,10 @@ class NmapHandler(ContentHandler):
             self._storescan()
             self._curscan = None
         elif name == 'host':
-            if self._curhost['state'] == 'up' and ('ports' in self._curhost
-                                                   or not self._needports):
+            # masscan -oX output has no "state" tag
+            if self._curhost.get('state', 'up') == 'up' and (
+                    'ports' in self._curhost
+                    or not self._needports):
                 if 'openports' not in self._curhost:
                     self._curhost['openports'] = {'count': 0}
                 self._pre_addhost()
