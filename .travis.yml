@@ -1,9 +1,24 @@
+sudo: false
+env:
+  global:
+    - MONGODB_VERSION=2.6.10
+
 language: python
 
 python:
   - 2.7
 
 install:
+  # use MongoDB 2.6 without sudo
+  # https://gist.github.com/roidrage/14e45c24b5a134e1f165
+  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz
+  - tar xfz mongodb-linux-x86_64-$MONGODB_VERSION.tgz
+  - export PATH=`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH
+  - mkdir -p data/db
+  - mongod --dbpath=data/db >/dev/null 2>&1 &
+  # Wait for MongoDB
+  # https://github.com/travis-ci/travis-ci/issues/2246#issuecomment-51685471
+  - until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
   - pip install .
   - pip install -r requirements.txt
 
@@ -12,22 +27,17 @@ install:
 #services: mongodb
 
 before_script:
-  # install MongoDB and start it
-  - sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
-  - echo 'deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen' | sudo tee /etc/apt/sources.list.d/mongodb.list > /dev/null
-  - sudo apt-get -q update && sudo apt-get -qy install mongodb-org
-  - /usr/bin/mongod -f /etc/mongod.conf &
-  # Wait for MongoDB
-  # https://github.com/travis-ci/travis-ci/issues/2246#issuecomment-51685471
-  - until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
   # init DB
   - ipinfo --init < /dev/null
   - scancli --init < /dev/null
   - ipdata --init < /dev/null
   - echo "DEBUG = True" > ~/.ivre.conf
-  # install p0f & Bro (.tar file built from docker image)
-  - sudo apt-get -q update && sudo apt-get -qy install p0f
-  - wget http://pierre.droids-corp.org/p0rn/bro-2.3.2_ubuntu-12.04.tar.bz2 -O - | (cd / && sudo tar jxf -)
+  # install p0f & Bro (.tar files)
+  - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 ; do wget http://pierre.droids-corp.org/p0rn/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:$PATH"
+  - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib"
+  - export BROPATH=".:`pwd`/usr/local/bro/share/bro:`pwd`/usr/local/bro/share/bro/policy:`pwd`/usr/local/bro/share/bro/site"
+  - cp tools/etc/p0f/* tests/
   # get samples
   - mkdir tests/samples
   - cp tests/results-public-samples tests/samples/results
@@ -39,4 +49,4 @@ before_script:
   - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
   - for file in telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file" ; done
 
-script: cd tests/ && PATH=/usr/local/bro/bin:$PATH python tests.py
+script: cd tests/ && python tests.py
