@@ -49,7 +49,7 @@ To get a shell with the CLI tools and Python API, attach to the
 `ivreclient` container:
 
     $ docker attach ivreclient
-    ivre@fd983ba5e6fd:~$
+    root@fd983ba5e6fd:/#
 
 You can detach from the container (without stopping it) by using `C-p
 C-q` and attach to it again later with the same `docker attach
@@ -180,31 +180,31 @@ This gives a shell in the `ivreclient` container, and from there we
 can use IVRE's command line tools and Python API. For example, to
 initialize the database:
 
-    ivre@ivreclient:~$ ipinfo --init
+    root@ivreclient:/# ipinfo --init
     This will remove any passive information in your database. Process ? [y/N] y
-    ivre@ivreclient:~$ ipdata --init
+    root@ivreclient:/# ipdata --init
     This will remove any country/AS information in your database. Process ? [y/N] y
-    ivre@ivreclient:~$ scancli --init
+    root@ivreclient:/# scancli --init
     This will remove any scan result in your database. Process ? [y/N] y
-    ivre@ivreclient:~$ runscans-agentdb --init
+    root@ivreclient:/# runscans-agentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-    ivre@ivreclient:~$ ipdata --download --import-all --dont-feed-ipdata-cols
+    root@ivreclient:/# ipdata --download --import-all --dont-feed-ipdata-cols
     [...]
 
 The latest command will take a long time. Then we can integrate the
 Nmap results to the database:
 
-    ivre@ivreclient:~$ nmap2db -r -s MySource -c MyCategory /ivre-share
+    root@ivreclient:/# nmap2db -r -s MySource -c MyCategory /ivre-share
 
 You can then exit the shell (`C-d`), this will stop the
 container.
 
-    ivre@ivreclient:~$ exit
+    root@ivreclient:/# exit
 
 You can start the container again later by issuing:
 
     $ docker start -i ivreclient
-    ivre@ivreclient:~$
+    root@ivreclient:/#
 
 If you do not want to exit the shell but only detach from it, use `C-p
 C-q`. You can attach to it again later by issuing `docker attach
