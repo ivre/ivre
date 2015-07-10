@@ -30,12 +30,4 @@ RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev \
     apt-get -qy --purge autoremove build-essential cmake libssl-dev \
                         libpcap-dev flex bison libpython2.7-dev swig
 
-# Create user
-RUN groupadd -g 1000 ivre && \
-    useradd -g ivre -d /home/ivre -m -s /sbin/nologin -u 1000 ivre && \
-    mkdir /var/lib/ivre && \
-    chown ivre:ivre /var/lib/ivre /usr/local/share/ivre/geoip
-
-USER ivre
-ENV HOME /home/ivre
-WORKDIR /home/ivre
+RUN mkdir /var/lib/ivre
