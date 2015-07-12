@@ -655,7 +655,11 @@ function build_chart_ports(chart, ips) {
     add_download_button(document.getElementById(chart), "IPsPorts");
 }
 
-function build_chart(chart, field, dataset) {
+function build_chart(chart, field, dataset, colors) {
+
+    if (colors === undefined)
+	colors = [ "steelblue", "lightblue" ];
+
     var w = $("#" + chart).width() - 20,
     h = 30 * dataset.length,
     //labelpad = 60,
@@ -676,7 +680,7 @@ function build_chart(chart, field, dataset) {
 	.domain(d3.range(data.length))
 	.rangeBands([0, h], 0.2),
     //color = [ "grey", "lightgrey" ];
-    color = [ "steelblue", "lightblue" ],
+    color = colors,
     prepareoutput = function(x) {return x;},
     preparefilter = undefined,
     preparetitle = undefined,
