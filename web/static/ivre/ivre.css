@@ -133,10 +133,6 @@ form {
     margin-bottom: 10px;
 }
 
-.result-hidden-part {
-    display: none;
-}
-
 .summary > table > tbody > tr > td {
     padding-right: 10px;
     white-space: nowrap;
