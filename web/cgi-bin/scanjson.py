@@ -168,7 +168,10 @@ def main():
         sys.stdout.write(webutils.js_alert("param-unused", "warning", msg))
         sys.stderr.write('IVRE: WARNING: %r\n' % msg)
 
-    # sys.stdout.write('console.log("%r");\n' % flt)
+    if config.DEBUG:
+        msg = "filter: %r" % flt
+        sys.stdout.write(webutils.js_alert("filter", "info", msg))
+        sys.stderr.write('IVRE: INFO: %r\n' % msg)
 
     version_mismatch = {}
     for rec in result:
