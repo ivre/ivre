@@ -446,3 +446,30 @@ function compare_params(store, other, count) {
     }
     return true;
 }
+
+function load_params(){
+    parse_params();
+    if (getparam('skip') == config.dflt.skip) {
+	unsetparam('skip');
+	return false;
+    }
+    if (getparam('limit') == config.dflt.limit) {
+	unsetparam('limit');
+	return false;
+    }
+
+    clear_filters();
+
+    var ii = 0;
+    for(var i in parametersprotected) {
+	if (! (parametersprotected[i].substr(0,5) === "skip:" ||
+	       parametersprotected[i].substr(0,6) === "limit:")) {
+	    add_filter({
+		"id": ii,
+		"value": parametersprotected[i],
+	    });
+	    ii += 1;
+	}
+    }
+    return true;
+}
