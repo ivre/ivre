@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<!--
+    This file is part of IVRE.
+    Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+
+    IVRE is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    IVRE is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+    License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<html ng-app="ivreWebUi">
+
+  <head>
+    <link rel="stylesheet" type="text/css" href="bs/css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="fi/css/flag-icon.css" />
+    <link rel="stylesheet" type="text/css" href="ivre/ivre.css" />
+    <link rel="icon" type="image/png" id="favicon" href="favicon.png" />
+    <script type="text/javascript" src="jq/jquery.js"></script>
+    <script type="text/javascript" src="bs/js/bootstrap.js"></script>
+    <script type="text/javascript" src="d3/js/d3.v3.min.js"></script>
+    <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
+    <script type="text/javascript" src="an/js/angular.js"></script>
+    <script type="text/javascript">
+      config = {};
+    </script>
+    <script type="text/javascript" src="config.js"></script>
+    <script type="text/javascript" src="help.js"></script>
+    <script type="text/javascript" src="ivre/utils.js"></script>
+    <script type="text/javascript" src="ivre/graph.js"></script>
+    <script type="text/javascript" src="ivre/controllers.js"></script>
+    <script type="text/javascript" src="ivre/params.js"></script>
+    <script type="text/javascript" src="ivre/tooltip.js"></script>
+    <script type="text/javascript" src="ivre/ivre.js"></script>
+    <title>IVRE Web UI</title>
+  </head>
+
+  <body ng-controller="IvreReportCtrl" onload="load_params()">
+
+    <!-- The top navigation bar -->
+    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+	<!-- The logo + app name -->
+	<img alt="DroidsCorp" src="logo.png" class="logo"/>
+	<a href="#" class="navbar-brand">
+	  IVRE
+	</a>
+	<ul class="nav navbar-nav">
+	  <li><a href="#" onclick="document.location='index.html' + document.location.hash">
+	      <i class="glyphicon glyphicon-home"></i> <b>Home</b>
+	  </a></li>
+	  <li>
+	    <a class="clickable" ng-click="build_all();">
+	      <i class="glyphicon glyphicon-ok glyphicon-white"></i> <b>Build</b>
+	    </a>
+	  </li>
+	  <li>
+	    <a class="clickable" ng-click="toggleShowFilter();">
+	      <i class="glyphicon glyphicon-list glyphicon-white"></i> <b>Config</b>
+	    </a>
+	  </li>
+	  <!-- Droids Corp web site -->
+	  <li class="visible-lg">
+	    <a title="Droids Corporation"
+	       href="http://droids-corp.org/"
+	       target="_blank">
+	      droids-corp.org
+	    </a>
+	  </li>
+	</ul>
+      </div>
+    </div>
+
+    <!-- Configuration -->
+    <div class="container-fluid" ng-show="showfilter">
+      <div class="row">
+	<h2 class="page-header col-sm-10 col-sm-offset-1">Configuration</h2>
+	<div class="col-sm-2 col-sm-offset-1">
+	  <ul class="nav"
+	      ng-controller="IvreFilterListCtrl"
+	      ivre-filters-query="">
+	  </ul>
+	</div>
+	<div class="col-sm-7">
+	  <table class="table">
+	    <thead>
+	      <th>Type</th>
+	      <th>Parameters</th>
+	      <th>Text</th>
+	      <th>Actions</th>
+	    </thead>
+	    <tbody>
+	      <tr ng-repeat="element in elements" style="background-color: {{colors[element.color].bg}};color: {{colors[element.color].fg}};text-shadow:none;">
+		<td>{{element.type}}</td>
+		<td>{{element.parameters}}</td>
+		<td>{{element.text}}</td>
+		<td>
+		  <div class="btn-group" role="group">
+		    <button class="btn btn-default" ng-click="remove($index);"><i class="glyphicon glyphicon-remove"></i></button>
+		    <button class="btn btn-default"
+			    ng-disabled="$index == 0"
+			    ng-click="elements_swap($index, $index - 1)">
+		      <i class="glyphicon glyphicon-arrow-up"></i>
+		    </button>
+		    <button class="btn btn-default"
+			    ng-disabled="$index == (elements.length - 1)"
+			    ng-click="elements_swap($index, $index + 1)">
+		      <i class="glyphicon glyphicon-arrow-down"></i>
+		    </button>
+		  </div>
+		</td>
+	      </tr>
+	      <form class="input-group">
+		<tr>
+		  <td>
+		    <div class="btn-group">
+		      <button class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">{{cur_type}} <span class="caret"></span>
+		      </button>
+		      <ul class="dropdown-menu">
+			<li ng-repeat="type in types"><a class="clickable" ng-click="set_type(type)">{{type}}</a></li>
+		      </ul>
+		    </div>
+		  </td>
+		  <td>
+		    <input type="text"
+			   placeholder="Parameters"
+			   class="form-control input-medium"
+			   oninput="ToolTip.handle(this, HELP_TOPVALUES);"
+			   onfocus="ToolTip.handle(this, HELP_TOPVALUES);"
+			   onblur="ToolTip.remove(this);"
+			   id="topvalues-input"
+			   data-trigger="manual"
+			   data-html="true"
+			   data-container="#navbar"
+			   ng-model="cur_param"
+			   />
+		  </td>
+		  <td>
+		    <input class="form-control input-medium" type="text" placeholder="Title" ng-model="cur_title"/>
+		  </td>
+		  <td>
+		    <div class="btn-group">
+		      <button class="btn btn-default dropdown-toggle"
+			      style="background-color: {{colors[cur_color].bg}};color: {{colors[cur_color].fg}};text-shadow:none;"
+			      data-toggle="dropdown" aria-haspopup="true"
+			      aria-expanded="false">Color <span class="caret"></span>
+		      </button>
+		      <ul class="dropdown-menu">
+			<li ng-repeat="color in colors"
+			    style="background-color: {{colors[$index].bg}};">
+			  <a class="clickable" ng-click="set_color($index)"
+			     style="color: {{colors[$index].fg}};text-shadow:none;">Use it!</a>
+			</li>
+		      </ul>
+		    </div>
+		    <button class="btn btn-default" ng-click="add_element()"><i class="glyphicon glyphicon-plus"></i></button>
+		  </td>
+	      </form>
+	    </tbody>
+	  </table>
+	</div>
+	<div class="col-sm-1 btn-group-vertical" role="group">
+	  <button class="btn btn-info" ng-click="build_all();">
+	    <i class="glyphicon glyphicon-ok glyphicon-white"></i> <b>Build</b>
+	  </button>
+	  <button class="btn btn-success" ng-click="toggleShowFilter();">
+	    <i class="glyphicon glyphicon-list glyphicon-white"></i> <b>Hide</b>
+	  </button>
+	</div>
+      </div>
+    </div>
+
+
+    <!-- Effective report -->
+    <div class="jumbotron" style="text-align:center; margin-bottom:0px;">
+      <h3>IVRE Report</h3>
+      <p class="lead">
+	<span style="color:#C60F13;" ng-show="query == ''">Without</span>
+	<span ng-hide="query == ''">With</span>
+	filters <span style="color:#C60F13;">{{query}}</span></p>
+    </div>
+
+    <span id="chartstitle" style="display:none"></span>
+    <div class="row" ng-repeat="element in elements" style="background-color: {{colors[element.color].bg}};text-shadow:none;color: {{colors[element.color].fg}};">
+      <div ng-if="element.type === 'Map + Top-values'" id="chartmap{{$index + 1}}" class="col-sm-6" style="padding-top: 5px;">Waiting for build...</div>
+      <div class="" ng-class="{'Map + Top-values': 'col-sm-6', 'Top-values': 'col-sm-10 col-sm-offset-1'}[element.type]">
+	<h3 style="text-align:center;">{{element.text}}</h3>
+	<div id="chart{{$index + 1}}">Waiting for build...</div>
+      </div>
+    </div>
+
+  </body>
+</html>

@@ -65,6 +65,7 @@ setup(
           'docker/web-apache/doku-conf-local.php']),
         ('share/ivre/web/static',
          ['web/static/index.html',
+          'web/static/report.html',
           'web/static/help.js',
           'web/static/config-sample.js',
           'web/static/favicon-loading.gif',
