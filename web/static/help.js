@@ -242,9 +242,25 @@ var HELP_FILTERS = {
 	    "title": "smbshare<b>(:[access mode])</b>",
 	    "content": "Search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).",
 	},
-	"sshkey:": {
-	    "title": "sshkey:<b>[fingerprint or base64]</b>",
-	    "content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
+	"sshkey": {
+	    "title": "sshkey(:<b>[output of ssh-hostkey script])</b>",
+	    "content": "Look for hosts with SSH host keys reported by Nmap.",
+	},
+	"sshkey.type:": {
+	    "title": "sshkey.type:(<b>[key type])</b>",
+	    "content": "Look for hosts with at least one SSH host key of specified type.",
+	},
+	"sshkey.bits:": {
+	    "title": "sshkey.bits:(<b>[key length])</b>",
+	    "content": "Look for hosts with at least one SSH host key of specified length.",
+	},
+	"sshkey.fingerprint:": {
+	    "title": "sshkey.fingerprint:(<b>[fingerprint])</b>",
+	    "content": "Look for hosts with a specific SSH host key, given its fingerprint.",
+	},
+	"sshkey.key:": {
+	    "title": "sshkey.key:(<b>[base64 encoded key])</b>",
+	    "content": "Look for hosts with a specific SSH host key.",
 	},
 	"torcert": {
 	    "title": "torcert",
@@ -538,6 +554,22 @@ HELP_TOPVALUES = {
 	    "content": "cert.subject",
 	    "title": "<b>(!)</b>cert.subject"
 	},
+	"cert.issuer": {
+	    "content": "cert.issuer",
+	    "title": "<b>(!)</b>cert.issuer"
+	},
+	"sshkey.type": {
+	    "title": "<b>(!)</b>sshkey.type",
+	    "content": "Most common SSH host key types."
+	},
+	"sshkey.bits": {
+	    "title": "<b>(!)</b>sshkey.bits",
+	    "content": "Most common SSH host key lengths."
+	},
+	"sshkey.fingerprint": {
+	    "title": "<b>(!)</b>sshkey.fingerprint",
+	    "content": "Most common SSH host key fingerprints."
+	},
 	"smb.os": {
 	    "content": "smb.os",
 	    "title": "<b>(!)</b>smb.os"
@@ -638,10 +670,6 @@ HELP_TOPVALUES = {
 	    "content": "enip.serial",
 	    "title": "<b>(!)</b>enip.serial"
 	},
-	"cert.issuer": {
-	    "content": "cert.issuer",
-	    "title": "<b>(!)</b>cert.issuer"
-	}
     }
 };
 

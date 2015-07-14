@@ -293,7 +293,7 @@ class DBNmap(DB):
         self.argparser.add_argument('--vuln-boa', '--vuln-intersil',
                                     action='store_true')
         self.argparser.add_argument('--torcert', action='store_true')
-        self.argparser.add_argument('--sshkey')
+        self.argparser.add_argument('--sshkey', metavar="FINGERPRINT")
         self.argparser.add_argument('--archives', action='store_true')
 
     def is_scan_present(self, _):
@@ -470,11 +470,23 @@ class DBNmap(DB):
         #     result.append((self.getid(host), count * ports))
         # return result
 
-    def searchsshkey(self, key):
-        return self.searchscript(
-            name='ssh-hostkey',
-            output=re.compile(re.escape(key), flags=re.I),
-        )
+    def searchsshkey(self, fingerprint=None, key=None,
+                     keytype=None, bits=None, output=None):
+        """Search SSH host keys """
+        params = {"name": 'ssh-hostkey'}
+        if fingerprint is not None:
+            if type(fingerprint) is not utils.REGEXP_T:
+                fingerprint = fingerprint.replace(":", "").lower()
+            params.setdefault("values", {})['fingerprint'] = fingerprint
+        if key is not None:
+            params.setdefault("values", {})['key'] = key
+        if keytype is not None:
+            params.setdefault("values", {})['type'] = keytype
+        if bits is not None:
+            params.setdefault("values", {})['bits'] = bits
+        if output is not None:
+            params['output'] = output
+        return self.searchscript(**params)
 
     def searchx11access(self):
         return self.searchscript(name='x11-access',

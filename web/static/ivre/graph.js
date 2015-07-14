@@ -717,6 +717,19 @@ function build_chart(chart, field, dataset) {
 		x.replace(/\\x/g, '\\\\\\\\x') + '", true);';
 	};
     }
+    else if(field === 'sshkey.bits') {
+	prepareoutput = function(x) {
+	    return x.join(' / ');
+	};
+	preparefilter = function(x) {
+	    return 'setparam("sshkey.type", "' + x[0] + '", false, true); setparam("sshkey.bits", "' + x[1] + '");';
+	};
+    }
+    else if(field.substr(0, 7) === 'sshkey.') {
+	preparefilter = function(x) {
+	    return 'setparam("' + field + '", "' + x + '");';
+	};
+    }
     else if(field === 'devicetype') {
 	preparefilter = function(x) {
 	    return 'setparam("devtype", "' + x + '", true);';
