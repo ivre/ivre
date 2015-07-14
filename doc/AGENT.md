@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # Introduction #
 
 [IVRE](README.md) agent is meant to be run in an environment not
@@ -154,3 +150,9 @@ do).
 When all the targets have been sent to an agent, the agents get
 disassociated from the scan so that another scan can use them. You can
 check the scan evolution by issuing `runscans-agentdb --list-scans`.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

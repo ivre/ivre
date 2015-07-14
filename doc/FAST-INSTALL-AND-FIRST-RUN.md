@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 This file describes the steps to install [IVRE](README.md), run the
 first scans and add the results to the database with all components
 (scanner, web server, database server) on the same (Debian or Ubuntu)
@@ -121,3 +117,9 @@ scan, and is (sadly) much more reliable.
 
 Another way to run scans efficiently is to use an [agent](AGENT.md)
 and the `runscans-agent` command.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

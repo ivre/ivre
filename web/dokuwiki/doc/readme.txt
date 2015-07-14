@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
-
 ====== What is it? ======
 
 IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic Recon of UNKnown networks) is a network recon framework, including two modules for passive recon (one [[http://lcamtuf.coredump.cx/p0f/|p0f]]-based and one [[https://www.bro.org/|Bro]]-based) and one module for active recon (mostly [[http://nmap.org/|Nmap]]-based, with a bit of [[https://zmap.io/|ZMap]]).
@@ -163,4 +159,9 @@ The project needs scan results and capture files that can be provided as example
 For both support and contribution, the [[https://github.com/cea-sec/ivre|repository]] on Github should be used: feel free to create a new issue or a pull request!
 
 You can also try to use the e-mail ''%%ivre%%'' on the domain ''%%droids-corp.org%%'', or to join the IRC chan [[irc://irc.freenode.net/%23ivre|#ivre]] on [[https://freenode.net/|Freenode]].
+
+
+----
+
+This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

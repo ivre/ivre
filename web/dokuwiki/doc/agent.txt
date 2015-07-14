@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2014 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
-
 ====== Introduction ======
 
 [[doc:README|IVRE]] agent is meant to be run in an environment not totally controlled (e.g., during a pentest, on a machine you have just owned and want to use to do some network recon without installing IVRE).
@@ -110,4 +106,9 @@ For now, nothing has been sent to the agents. To really start the process, run:
 After some time, the first results get imported in the database (''%%READING [...]%%'', ''%%HOST STORED: [...]%%'', ''%%SCAN STORED: [...]%%''). You can stop the daemon at any time by ''%%(p)kill%%''-ing it (using ''%%CTRL+c%%'' will do).
 
 When all the targets have been sent to an agent, the agents get disassociated from the scan so that another scan can use them. You can check the scan evolution by issuing ''%%runscans-agentdb --list-scans%%''.
+
+
+----
+
+This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

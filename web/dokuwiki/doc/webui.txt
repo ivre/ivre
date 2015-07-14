@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
-
 ====== Introduction ======
 
 [[doc:README|IVRE]] (Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic Recon of UNKnown networks) is a network recon framework, including two modules for passive recon (one p0f-base and one bro-based) and one module for active recon (mostly nmap-based, with a bit of zmap).
@@ -151,4 +147,9 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%display:cpe%%'' only display CPEs.
   * ''%%display:script:[scriptid]%%'' only display a particular script output.
   * ''%%display:screenshot%%'' only display screenshots.
+
+
+----
+
+This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

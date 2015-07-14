@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
-
 ====== DB Server ======
 
 Follow the [[http://docs.mongodb.org/manual/installation/|documentation from MongoDB project]], depending on your distribution. It is recommended to install packages from the MongoDB project rather than the (possibly old) packages from your distribution.
@@ -97,4 +93,9 @@ The agent does not require IVRE to be installed. It is a script that needs to be
 The agent is only needed when you cannot install IVRE on the machine used to scan or when you want to use many machines to run one scan.
 
 It requires a POSIX environment, and the commands ''%%screen%%'', ''%%rsync%%'' and ''%%nmap%%'' (of course). See the [[doc:AGENT|AGENT]] file for more information about that.
+
+
+----
+
+This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

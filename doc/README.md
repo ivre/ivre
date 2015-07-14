@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # What is it? #
 
 IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK
@@ -253,3 +249,9 @@ You can also try to use the e-mail `ivre` on the domain
 `droids-corp.org`, or to join the IRC chan
 [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # What is Docker? #
 
 Docker is an open-source platform that automates the deployment of
@@ -209,3 +205,9 @@ You can start the container again later by issuing:
 If you do not want to exit the shell but only detach from it, use `C-p
 C-q`. You can attach to it again later by issuing `docker attach
 ivreclient`.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)
