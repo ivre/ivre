@@ -31,6 +31,13 @@ function prepare(help) {
 	    help.content["-" + key] = help.content[key];
 	}
     }
+
+    // Manage optional parameters
+    for (var key in help.content) {
+	if(help.content[key].title.indexOf("<b>(:") !== -1) {
+	    help.content[key + ":"] = help.content[key];
+	}
+    }
 };
 
 /************* Help content ****************/
