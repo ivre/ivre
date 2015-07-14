@@ -236,6 +236,11 @@ ivreWebUi
 	return {
 	    templateUrl: 'templates/filters.html'
 	};
+    })
+    .directive('ivreTopvalues', function() {
+	return {
+	    templateUrl: 'templates/topvalues.html'
+	};
     });
 
 function add_filter(filter) {

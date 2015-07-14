@@ -1,0 +1,58 @@
+<!--
+  This file is part of IVRE.
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+
+  IVRE is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  IVRE is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<li class="sidebox-header"><i class="glyphicon glyphicon-search black"></i> Explore</li>
+<li>
+  <form id="explore"
+	onsubmit="build_top_chart(this);">
+    <input type="text"
+	   placeholder="Top values"
+	   class="form-control input-medium"
+	   oninput="ToolTip.handle(this, HELP_TOPVALUES);"
+	   onfocus="ToolTip.handle(this, HELP_TOPVALUES);"
+	   onblur="ToolTip.remove(this);"
+	   id="topvalues-input"
+	   data-trigger="manual"
+	   data-html="true"
+	   data-container="#navbar"
+	   />
+  </form>
+</li>
+<li>
+  <div class="btn-group-vertical" style="width:100%;" role="group">
+    <button class="btn btn-default"
+	    ng-click="build_ip_plane()"
+	    ng-class="{disabled: totalnbrres == undefined}"
+	    >Address space</button>
+    <button class="btn btn-default"
+	    ng-click="build_ip_ports()"
+	    ng-class="{disabled: totalnbrres == undefined}"
+	    >IPs & Ports</button>
+    <button class="btn btn-default"
+	    ng-click="build_ip_map()"
+	    >Map</button>
+    <button class="btn btn-default"
+	    ng-click="build_ip_timeline()"
+	    ng-class="{disabled: totalnbrres == undefined}"
+	    >Timeline</button>
+    <button class="btn btn-default"
+	    ng-click="build_ip_timeline(86400)"
+	    ng-class="{disabled: totalnbrres == undefined}"
+	    >Timeline (24h)</button>
+  </div>
+</li>

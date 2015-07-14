@@ -85,7 +85,8 @@ setup(
           'web/static/templates/subview-host-summary.html',
           'web/static/templates/subview-port-summary.html',
           'web/static/templates/subview-ports-summary.html',
-          'web/static/templates/subview-service-summary.html']),
+          'web/static/templates/subview-service-summary.html',
+          'web/static/templates/topvalues.html']),
         # IVRE
         ('share/ivre/web/static/ivre',
          ['web/static/ivre/ivre.css',
