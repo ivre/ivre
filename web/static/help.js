@@ -243,7 +243,7 @@ var HELP_FILTERS = {
 	    "content": "Search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).",
 	},
 	"sshkey": {
-	    "title": "sshkey(:<b>[output of ssh-hostkey script])</b>",
+	    "title": "sshkey<b>(:[output of ssh-hostkey script])</b>",
 	    "content": "Look for hosts with SSH host keys reported by Nmap.",
 	},
 	"sshkey.type:": {
