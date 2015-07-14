@@ -2121,7 +2121,8 @@ have no effect if it is not expected)."""
         if args.torcert:
             flt = self.flt_and(flt, self.searchtorcert())
         if args.sshkey is not None:
-            flt = self.flt_and(flt, self.searchsshkey(args.sshkey))
+            flt = self.flt_and(flt, self.searchsshkey(
+                fingerprint=utils.str2regexp(args.sshkey)))
         return flt
 
 

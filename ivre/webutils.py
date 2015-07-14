@@ -433,7 +433,20 @@ def flt_from_query(query):
         elif not neg and param == 'mysqlemptypwd':
             flt = db.nmap.flt_and(flt, db.nmap.searchmysqlemptypwd())
         elif not neg and param == 'sshkey':
-            flt = db.nmap.flt_and(flt, db.nmap.searchsshkey(value))
+            if value:
+                flt = db.nmap.flt_and(flt, db.nmap.searchsshkey(
+                    output=utils.str2regexp(value)))
+            else:
+                flt = db.nmap.flt_and(flt, db.nmap.searchsshkey())
+        elif not neg and param.startswith('sshkey.'):
+            subfield = param.split('.', 1)[1]
+            if subfield in ['fingerprint', 'key', 'type', 'bits']:
+                if subfield == 'type':
+                    subfield = 'keytype'
+                flt = db.nmap.flt_and(flt, db.nmap.searchsshkey(
+                    **{subfield: utils.str2regexp(value)}))
+            else:
+                add_unused(neg, param, value)
         elif not neg and param == 'owa':
             flt = db.nmap.flt_and(flt, db.nmap.searchowa())
         elif param == 'phpmyadmin':

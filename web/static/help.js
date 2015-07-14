@@ -242,9 +242,25 @@ var HELP_FILTERS = {
 	    "title": "smbshare<b>(:[access mode])</b>",
 	    "content": "Search results with SMB shares with anonymous access. Access can be 'r', 'w' or 'rw' (default is read or write).",
 	},
-	"sshkey:": {
-	    "title": "sshkey:<b>[fingerprint or base64]</b>",
-	    "content": "Look for a particular SSH key, given (part of) its fingerprint or base64 encoded key.",
+	"sshkey": {
+	    "title": "sshkey(:<b>[output of ssh-hostkey script])</b>",
+	    "content": "Look for hosts with SSH host keys reported by Nmap.",
+	},
+	"sshkey.type:": {
+	    "title": "sshkey.type:(<b>[key type])</b>",
+	    "content": "Look for hosts with at least one SSH host key of specified type.",
+	},
+	"sshkey.bits:": {
+	    "title": "sshkey.bits:(<b>[key length])</b>",
+	    "content": "Look for hosts with at least one SSH host key of specified length.",
+	},
+	"sshkey.fingerprint:": {
+	    "title": "sshkey.fingerprint:(<b>[fingerprint])</b>",
+	    "content": "Look for hosts with a specific SSH host key, given its fingerprint.",
+	},
+	"sshkey.key:": {
+	    "title": "sshkey.key:(<b>[base64 encoded key])</b>",
+	    "content": "Look for hosts with a specific SSH host key.",
 	},
 	"torcert": {
 	    "title": "torcert",
