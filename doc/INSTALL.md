@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # DB Server #
 
 Follow the [documentation from MongoDB
@@ -170,3 +166,9 @@ used to scan or when you want to use many machines to run one scan.
 It requires a POSIX environment, and the commands `screen`, `rsync`
 and `nmap` (of course). See the [AGENT](AGENT.md) file for more
 information about that.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

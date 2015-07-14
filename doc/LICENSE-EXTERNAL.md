@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # Specific licenses for external files #
 
 The following files are distributed with IVRE but are **not** part of
@@ -68,3 +64,9 @@ the public domain.
 The files `web/dokuwiki/media/logo.png` and `web/static/logo.png` are the
 work of Olivier MATZ (Droids Corporation) and are released under the
 [CC BY-NC-ND license](http://creativecommons.org/licenses/by-nc-nd/3.0/).
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

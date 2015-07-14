@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2014 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # Why should I test IVRE? #
 
 The `tests` directory is mainly intended for people who want to
@@ -82,3 +78,9 @@ course, here are some reasons that can explain test failures:
   - Your samples do not match the minimum requirements detailed above.
   - A new feature has been added to IVRE and the new results are
     actually better than the stored ones.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

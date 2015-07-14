@@ -1,9 +1,5 @@
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
 
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # What is it? #
 
 IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK
@@ -24,12 +20,12 @@ Taullier".
 
 # Overview #
 
-See [doc/SCREENSHOTS](doc/SCREENSHOTS.md) for an overview (of the Web
-interface). We also have a demonstration instance,
-[contact us](#contact) to get an access.
+Have a look at the **[screenshot gallery](doc/SCREENSHOTS.md)** for an
+overview of the Web interface. We have a **demonstration instance**,
+just [contact us](#contact) to get an access.
 
 A few
-[blog posts](http://pierre.droids-corp.org/blog/html/tags/ivre.html)
+**[blog posts](http://pierre.droids-corp.org/blog/html/tags/ivre.html)**
 have been written to show some features of IVRE.
 
 # Documentation #
@@ -92,3 +88,8 @@ You can also try to use the e-mail `ivre` on the domain
 `droids-corp.org`, or to join the IRC chan
 [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr).

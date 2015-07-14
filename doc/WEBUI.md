@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr)
-
 # Introduction #
 
 [IVRE](README.md) (Instrument de veille sur les réseaux extérieurs) or
@@ -235,3 +231,9 @@ single or double quotes.
   - `display:script:[scriptid]` only display a particular script
     output.
   - `display:screenshot` only display screenshots.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2015
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

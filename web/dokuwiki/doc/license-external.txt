@@ -1,7 +1,3 @@
-This file is part of IVRE.
-
-Copyright 2011 - 2014 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
-
 ====== Specific licenses for external files ======
 
 The following files are distributed with IVRE but are **not** part of the project and therefore have their own copyright and licenses.
@@ -47,4 +43,9 @@ The file ''%%web/static/world-110m.json%%'' has been generated with the tools fr
 ===== Droids Corporation Logo =====
 
 The files ''%%web/dokuwiki/media/logo.png%%'' and ''%%web/static/logo.png%%'' are the work of Olivier MATZ (Droids Corporation) and are released under the [[http://creativecommons.org/licenses/by-nc-nd/3.0/|CC BY-NC-ND license]].
+
+
+----
+
+This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
