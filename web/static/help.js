@@ -554,6 +554,22 @@ HELP_TOPVALUES = {
 	    "content": "cert.subject",
 	    "title": "<b>(!)</b>cert.subject"
 	},
+	"cert.issuer": {
+	    "content": "cert.issuer",
+	    "title": "<b>(!)</b>cert.issuer"
+	},
+	"sshkey.type": {
+	    "title": "<b>(!)</b>sshkey.type",
+	    "content": "Most common SSH host key types."
+	},
+	"sshkey.bits": {
+	    "title": "<b>(!)</b>sshkey.bits",
+	    "content": "Most common SSH host key lengths."
+	},
+	"sshkey.fingerprint": {
+	    "title": "<b>(!)</b>sshkey.fingerprint",
+	    "content": "Most common SSH host key fingerprints."
+	},
 	"smb.os": {
 	    "content": "smb.os",
 	    "title": "<b>(!)</b>smb.os"
@@ -654,10 +670,6 @@ HELP_TOPVALUES = {
 	    "content": "enip.serial",
 	    "title": "<b>(!)</b>enip.serial"
 	},
-	"cert.issuer": {
-	    "content": "cert.issuer",
-	    "title": "<b>(!)</b>cert.issuer"
-	}
     }
 };
 

@@ -383,8 +383,10 @@ class MongoDB(DB):
 class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
-    needunwind = ["categories", "ports", "ports.scripts", "scripts",
-                  "ports.screenwords", "scripts.smb-enum-shares.shares",
+    needunwind = ["categories", "ports", "ports.scripts",
+                  "ports.scripts.ssh-hostkey", "scripts",
+                  "ports.screenwords",
+                  "scripts.smb-enum-shares.shares",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
@@ -1544,7 +1546,7 @@ have no effect if it is not expected)."""
           - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
           - devicetype / devicetype:<portnbr>
           - [port]script:<scriptid> / hostscript:<scriptid>
-          - cert.* / smb.*
+          - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - screenwords
           - hop
@@ -1949,6 +1951,25 @@ have no effect if it is not expected)."""
         elif field.startswith('cert.'):
             subfield = field[5:]
             field = 'ports.scripts.ssl-cert.' + subfield
+        elif field == 'sshkey.bits':
+            flt = self.flt_and(flt, self.searchsshkey())
+            specialproj = {"ports.scripts.ssh-hostkey.type": 1,
+                           "ports.scripts.ssh-hostkey.bits": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.ssh-hostkey.bits": {
+                    "$concat": [
+                        "$ports.scripts.ssh-hostkey.type",
+                        "###",
+                        "$ports.scripts.ssh-hostkey.bits",
+                    ]}}}]
+            field = "ports.scripts.ssh-hostkey.bits"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###')}
+        elif field.startswith('sshkey.'):
+            flt = self.flt_and(flt, self.searchsshkey())
+            subfield = field[7:]
+            field = 'ports.scripts.ssh-hostkey.' + subfield
         elif field.startswith('modbus.'):
             subfield = field[7:]
             field = 'ports.scripts.modbus-discover.' + subfield
