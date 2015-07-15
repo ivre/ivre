@@ -44,8 +44,8 @@ function prepare(help) {
 
 var HELP_FILTERS = {
     config: {
-	"prefixs": "!-",
-	"suffixs": ":/",
+	"prefixes": "!-",
+	"suffixes": ":/",
     },
     callbacks: [
 	function(elt, HELP, ToolTip) {
@@ -396,26 +396,57 @@ prepare(HELP_FILTERS);
 
 HELP_TOPVALUES = {
     config: {
-	"prefixs": "!-",
-	"suffixs": "",
+	"prefixes": "!-",
+	"suffixes": ":",
     },
     callbacks: [],
+    aliases: {
+	"cpe": "cpe.version",
+    },
     content: {
 	"cpe.type": {
-	    "content": "cpe.type",
-	    "title": "<b>(!)</b>cpe.type"
+	    "title": "<b>(!)</b>cpe.type<b>(:[type](:[vendor])(:[product](:[version])))</b>",
+	    "content": "CPE types (matching optional type / vendor / product / version filter).",
 	},
-	"smb.forest": {
-	    "content": "smb.forest",
-	    "title": "<b>(!)</b>smb.forest"
+	"cpe.vendor": {
+	    "title": "<b>(!)</b>cpe.vendor<b>(:[type](:[vendor])(:[product](:[version])))</b>",
+	    "content": "CPE vendors (matching optional type / vendor / product / version filter).",
 	},
 	"cpe.product": {
-	    "content": "cpe.product",
-	    "title": "<b>(!)</b>cpe.product"
+	    "title": "<b>(!)</b>cpe.product<b>(:[type](:[vendor])(:[product](:[version])))</b>",
+	    "content": "CPE products (matching optional type / vendor / product / version filter).",
 	},
-	"domains:": {
-	    "content": "domains:",
-	    "title": "<b>(!)</b>domains:"
+	"cpe.version": {
+	    "title": "<b>(!)</b>cpe.version<b>(:[type](:[vendor])(:[product](:[version])))</b> or <b>(!)</b>cpe<b>(:[...])",
+	    "content": "CPE versions (matching optional type / vendor / product / version filter).",
+	},
+	"smb.dnsdomain": {
+	    "title": "<b>(!)</b>smb.dnsdomain",
+	    "content": "SMB domains (DNS).",
+	},
+	"smb.domain": {
+	    "title": "<b>(!)</b>smb.domain",
+	    "content": "SMB domains.",
+	},
+	"smb.forest": {
+	    "title": "<b>(!)</b>smb.forest",
+	    "content": "SMB forests.",
+	},
+	"smb.workgroup": {
+	    "title": "<b>(!)</b>smb.workgroup",
+	    "content": "SMB workgroups.",
+	},
+	"smb.lanmanager": {
+	    "title": "<b>(!)</b>smb.lanmanager",
+	    "content": "SMB LAN Manager versions.",
+	},
+	"smb.os": {
+	    "title": "<b>(!)</b>smb.os",
+	    "content": "OS versions according to the SMB service.",
+	},
+	"domains": {
+	    "title": "<b>(!)</b>domains<b>(:[level])</b>:",
+	    "content": "DNS domains (optionally limited to the specified level).",
 	},
 	"portlist:open": {
 	    "content": "portlist:open",
@@ -429,17 +460,9 @@ HELP_TOPVALUES = {
 	    "content": "as",
 	    "title": "<b>(!)</b>as"
 	},
-	"smb.lanmanager": {
-	    "content": "smb.lanmanager",
-	    "title": "<b>(!)</b>smb.lanmanager"
-	},
 	"modbus.deviceid": {
 	    "content": "modbus.deviceid",
 	    "title": "<b>(!)</b>modbus.deviceid"
-	},
-	"cpe.type:": {
-	    "content": "cpe.type:",
-	    "title": "<b>(!)</b>cpe.type:"
 	},
 	"enip.ip": {
 	    "content": "enip.ip",
@@ -448,10 +471,6 @@ HELP_TOPVALUES = {
 	"countports:closed": {
 	    "content": "countports:closed",
 	    "title": "<b>(!)</b>countports:closed"
-	},
-	"cpe.version": {
-	    "content": "cpe.version",
-	    "title": "<b>(!)</b>cpe.version"
 	},
 	"port": {
 	    "content": "port",
@@ -473,10 +492,6 @@ HELP_TOPVALUES = {
 	    "content": "screenwords",
 	    "title": "<b>(!)</b>screenwords"
 	},
-	"cpe.version:": {
-	    "content": "cpe.version:",
-	    "title": "<b>(!)</b>cpe.version:"
-	},
 	"service": {
 	    "content": "service",
 	    "title": "<b>(!)</b>service"
@@ -496,10 +511,6 @@ HELP_TOPVALUES = {
 	"version:": {
 	    "content": "version:",
 	    "title": "<b>(!)</b>version:"
-	},
-	"smb.dnsdomain": {
-	    "content": "smb.dnsdomain",
-	    "title": "<b>(!)</b>smb.dnsdomain"
 	},
 	"source": {
 	    "content": "source",
@@ -541,10 +552,6 @@ HELP_TOPVALUES = {
 	    "content": "product",
 	    "title": "<b>(!)</b>product"
 	},
-	"cpe.vendor": {
-	    "content": "cpe.vendor",
-	    "title": "<b>(!)</b>cpe.vendor"
-	},
 	"countports:filtered": {
 	    "content": "countports:filtered",
 	    "title": "<b>(!)</b>countports:filtered"
@@ -569,10 +576,6 @@ HELP_TOPVALUES = {
 	    "title": "<b>(!)</b>sshkey.fingerprint",
 	    "content": "Most common SSH host key fingerprints."
 	},
-	"smb.os": {
-	    "content": "smb.os",
-	    "title": "<b>(!)</b>smb.os"
-	},
 	"enip.prodcode": {
 	    "content": "enip.prodcode",
 	    "title": "<b>(!)</b>enip.prodcode"
@@ -588,10 +591,6 @@ HELP_TOPVALUES = {
 	"hostscript:": {
 	    "content": "hostscript:",
 	    "title": "<b>(!)</b>hostscript:"
-	},
-	"cpe.vendor:": {
-	    "content": "cpe.vendor:",
-	    "title": "<b>(!)</b>cpe.vendor:"
 	},
 	"port:open": {
 	    "content": "port:open",
@@ -625,37 +624,13 @@ HELP_TOPVALUES = {
 	    "content": "country",
 	    "title": "<b>(!)</b>country"
 	},
-	"cpe": {
-	    "content": "cpe",
-	    "title": "<b>(!)</b>cpe"
-	},
-	"smb.workgroup": {
-	    "content": "smb.workgroup",
-	    "title": "<b>(!)</b>smb.workgroup"
-	},
 	"port:filtered": {
 	    "content": "port:filtered",
 	    "title": "<b>(!)</b>port:filtered"
 	},
-	"cpe:": {
-	    "content": "cpe:",
-	    "title": "<b>(!)</b>cpe:"
-	},
-	"cpe.product:": {
-	    "content": "cpe.product:",
-	    "title": "<b>(!)</b>cpe.product:"
-	},
 	"hostscript": {
 	    "content": "hostscript",
 	    "title": "<b>(!)</b>hostscript"
-	},
-	"domains": {
-	    "content": "domains",
-	    "title": "<b>(!)</b>domains"
-	},
-	"smb.domain": {
-	    "content": "smb.domain",
-	    "title": "<b>(!)</b>smb.domain"
 	},
 	"portlist:closed": {
 	    "content": "portlist:closed",

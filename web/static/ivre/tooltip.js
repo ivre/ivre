@@ -42,7 +42,7 @@ var ToolTip = {
     handle: function(elt, HELP) {
 
 	// Prefix detection
-	if (!(elt.value) || (elt.value.length <= 1 && HELP.config.prefixs.indexOf(elt.value[0]) !== -1)) {
+	if (!(elt.value) || (elt.value.length <= 1 && HELP.config.prefixes.indexOf(elt.value[0]) !== -1)) {
 	    ToolTip.remove(elt);
 	    elt.setAttribute("oldval", elt.value);
 	    return;
@@ -60,7 +60,7 @@ var ToolTip = {
 	var matching_keys = COMMANDS.filter(
 	    function(key) {
 		// Suffix detection
-		if (HELP.config.suffixs.indexOf(key.substr(-1)) == -1)
+		if (HELP.config.suffixes.indexOf(key.substr(-1)) == -1)
 		    return (asked === key.substr(0, asked.length));
 		else {
 		    if (COMMANDS.indexOf(key.substring(0, key.length - 1)) != -1 &&
