@@ -54,6 +54,15 @@ hr {
     height: 20px;
 }
 
+.navbar-ivre {
+    margin-left: 10%;
+}
+
+.navbar-link {
+    float: right !important;
+    margin-right: 10%;
+}
+
 .sidebar {
     position: fixed;
 }

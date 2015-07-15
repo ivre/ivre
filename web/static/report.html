@@ -47,53 +47,63 @@
   <body ng-controller="IvreReportCtrl" onload="load_params()">
 
     <!-- The top navigation bar -->
-    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
-      <div class="container">
-	<!-- The logo + app name -->
-	<img alt="DroidsCorp" src="logo.png" class="logo"/>
-	<a href="#" class="navbar-brand">
-	  IVRE
-	</a>
-	<ul class="nav navbar-nav">
-	  <li><a href="#" onclick="document.location='index.html' + document.location.hash">
-	      <i class="glyphicon glyphicon-home"></i> <b>Home</b>
-	  </a></li>
-	  <li>
-	    <a class="clickable" ng-click="build_all();">
-	      <i class="glyphicon glyphicon-ok glyphicon-white"></i> <b>Build</b>
-	    </a>
-	  </li>
-	  <li>
-	    <a class="clickable" ng-click="toggleShowFilter();">
-	      <i class="glyphicon glyphicon-list glyphicon-white"></i> <b>Config</b>
-	    </a>
-	  </li>
-	  <!-- Droids Corp web site -->
-	  <li class="visible-lg">
-	    <a title="Droids Corporation"
-	       href="http://droids-corp.org/"
-	       target="_blank">
-	      droids-corp.org
-	    </a>
-	  </li>
-	  <li><a href="#" onclick="document.location='index.html' + document.location.hash">
-	      <i class="glyphicon glyphicon-home"></i> <b>Home</b>
-	  </a></li>
-	</ul>
+    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
+      <div class="col-lg-3 col-sm-2">
+	<div class="navbar-ivre">
+	  <!-- The logo + app name -->
+	  <img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
+	  <a href="#" class="navbar-brand visible-md visible-lg">
+	    IVRE
+	  </a>
+	</div>
       </div>
+      <ul class="nav navbar-nav col-lg-7 col-sm-8">
+	<li><a href="#" onclick="document.location='index.html' + document.location.hash">
+	    <i class="glyphicon glyphicon-share-alt" style="direction:rtl;"></i> <b>Main</b>
+	</a></li>
+	<li>
+	  <a class="clickable" ng-click="toggleShowFilter();">
+	    <i class="glyphicon glyphicon-list glyphicon-white"></i> <b>Config</b>
+	  </a>
+	</li>
+	<li>
+	  <a class="clickable" ng-click="build_all();">
+	    <i class="glyphicon glyphicon-ok glyphicon-white"></i> <b>Build</b>
+	  </a>
+	</li>
+      </ul>
+      <ul class="nav navbar-nav col-lg-2">
+	<!-- Droids Corp web site -->
+	<li class="visible-lg navbar-link">
+	  <a title="Droids Corporation"
+	     href="http://droids-corp.org/"
+	     target="_blank">
+	    droids-corp.org
+	  </a>
+	</li>
+      </ul>
     </div>
 
     <!-- Configuration -->
-    <div class="container-fluid" ng-show="showfilter">
-      <div class="row">
-	<h2 class="page-header col-sm-10 col-sm-offset-1">Configuration</h2>
-	<div class="col-sm-2 col-sm-offset-1">
+    <div class="row" ng-show="showfilter">
+      <div class="page-header col-sm-10 col-sm-offset-1">
+	<h2 class="page-header">Configuration</h2>
+	<div class="col-sm-3">
 	  <ul class="nav"
 	      ng-controller="IvreFilterListCtrl"
 	      ivre-filters="">
 	  </ul>
+	  <li class="nav sidebox-header"><i class="glyphicon glyphicon-cog black"></i> Actions</li>
+	  <div class="btn-group-vertical" role="group" style="width:100%">
+	    <button class="btn btn-default" ng-click="build_all();">
+	      <i class="glyphicon glyphicon-ok glyphicon-white"></i> <b>Build</b>
+	    </button>
+	    <button class="btn btn-default" ng-click="toggleShowFilter();">
+	      <i class="glyphicon glyphicon-list glyphicon-white"></i> <b>Hide</b>
+	    </button>
+	  </div>
 	</div>
-	<div class="col-sm-7">
+	<div class="col-sm-9">
 	  <table class="table">
 	    <thead>
 	      <th>Type</th>
@@ -170,14 +180,6 @@
 	      </form>
 	    </tbody>
 	  </table>
-	</div>
-	<div class="col-sm-1 btn-group-vertical" role="group">
-	  <button class="btn btn-info" ng-click="build_all();">
-	    <i class="glyphicon glyphicon-ok glyphicon-white"></i> <b>Build</b>
-	  </button>
-	  <button class="btn btn-success" ng-click="toggleShowFilter();">
-	    <i class="glyphicon glyphicon-list glyphicon-white"></i> <b>Hide</b>
-	  </button>
 	</div>
       </div>
     </div>
