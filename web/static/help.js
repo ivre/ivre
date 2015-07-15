@@ -123,11 +123,7 @@ var HELP_FILTERS = {
 	},
 	"service:": {
 	    "title": "service:<b>[service name](:[port number])</b>",
-	    "content": "Look for a particular service, optionally on the specified port. [service name] can be either a string or a regular expression.<br>See also <code>probedservice:</code>.",
-	},
-	"probedservice:": {
-	    "title": "probedservice:<b>[service name](:[port number])</b>",
-	    "content": "Look for a particular service, discovered with a service probe, optionally on the specified port. [service name] can be either a string or a regular expression.",
+	    "content": "Look for a particular service, optionally on the specified port. [service name] can be either a string or a regular expression.",
 	},
 	"product:": {
 	    "title": "product:<b>[service name]:[product name](:[port number])</b>",
@@ -402,10 +398,6 @@ HELP_TOPVALUES = {
 	    "content": "cpe.type",
 	    "title": "<b>(!)</b>cpe.type"
 	},
-	"probedservice": {
-	    "content": "probedservice",
-	    "title": "<b>(!)</b>probedservice"
-	},
 	"smb.forest": {
 	    "content": "smb.forest",
 	    "title": "<b>(!)</b>smb.forest"
@@ -585,10 +577,6 @@ HELP_TOPVALUES = {
 	"devicetype": {
 	    "content": "devicetype",
 	    "title": "<b>(!)</b>devicetype"
-	},
-	"probedservice:": {
-	    "content": "probedservice:",
-	    "title": "<b>(!)</b>probedservice:"
 	},
 	"hostscript:": {
 	    "content": "hostscript:",

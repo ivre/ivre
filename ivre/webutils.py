@@ -313,18 +313,6 @@ def flt_from_query(query):
                 flt = db.nmap.flt_and(
                     flt,
                     db.nmap.searchservice(utils.str2regexp(value)))
-        elif not neg and param == "probedservice":
-            if ':' in value:
-                req, port = value.split(':', 1)
-                port = int(port)
-                flt = db.nmap.flt_and(
-                    flt,
-                    db.nmap.searchservice(
-                        utils.str2regexp(req), port=port, probed=True))
-            else:
-                flt = db.nmap.flt_and(
-                    flt,
-                    db.nmap.searchservice(utils.str2regexp(value), probed=True))
         elif not neg and param == "product" and ":" in value:
             product = value.split(':', 2)
             if len(product) == 2:
