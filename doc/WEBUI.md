@@ -50,8 +50,7 @@ displayed in the rightmost part of the screen.
     - `hop`, `hop:[number]`
     - `port`, `port:[open/closed/filtered]`, `port:[service]`
       `portlist:[open/closed/filtered]`
-    - `service`, `service:[port]`, `probedservice`,
-      `probedservice:[port]`, `product`, `product:[port]`,
+    - `service`, `service:[port]`, `product`, `product:[port]`,
       `version`, `version:[port]`
     - `cpe`, `cpe.[type/vendor/product/version]`, `cpe:[cpe spec]`,
       `cpe.[type/vendor/product/version]:[cpe spec]` (examples:
@@ -144,9 +143,6 @@ single or double quotes.
     (`m`), hours (`h`), days (`d`) or years (`y`).
   - `service:[expression]`, `service:[expression]:[port number]` look
     for an expression in the name of a service.
-  - `probedservice:[expression]`,
-    `probedservice:[expression]:[port number]` look for an expression
-    in the name of a service discovered with a service probe.
   - `product:[service]:[product]`,
     `product:[service]:[product]:[port number]` look for a product.
   - `version:[service]:[product]:[version]`,

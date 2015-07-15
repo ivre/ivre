@@ -33,7 +33,7 @@ The third part allows to explore the results by generating graphs displayed in t
     * ''%%domains%%'', ''%%domains:[level]%%''
     * ''%%hop%%'', ''%%hop:[number]%%''
     * ''%%port%%'', ''%%port:[open/closed/filtered]%%'', ''%%port:[service]%%''  ''%%portlist:[open/closed/filtered]%%''
-    * ''%%service%%'', ''%%service:[port]%%'', ''%%probedservice%%'',  ''%%probedservice:[port]%%'', ''%%product%%'', ''%%product:[port]%%'',  ''%%version%%'', ''%%version:[port]%%''
+    * ''%%service%%'', ''%%service:[port]%%'', ''%%product%%'', ''%%product:[port]%%'',  ''%%version%%'', ''%%version:[port]%%''
     * ''%%cpe%%'', ''%%cpe.[type/vendor/product/version]%%'', ''%%cpe:[cpe spec]%%'',  ''%%cpe.[type/vendor/product/version]:[cpe spec]%%'' (examples:  ''%%cpe.product:a:microsoft%%'' will show top product names in CPEs  from vendor ''%%microsoft%%'', ''%%cpe.vendor:o:/^m/%%'' will show top  vendor names in CPEs that start with an ''%%m%%'')
     * ''%%devicetype%%'', ''%%devicetype:[port]%%''
     * ''%%script%%'', ''%%portscript%%'' (like ''%%script%%''), ''%%hostscript%%''
@@ -88,7 +88,6 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%[!]timerange:[timestamp]-[timestamp]%%'' filter results within a specific time range.
   * ''%%[!]timeago:%%'' filter recent enough results; the value can be specified in seconds or with the appropriate suffix in minutes (''%%m%%''), hours (''%%h%%''), days (''%%d%%'') or years (''%%y%%'').
   * ''%%service:[expression]%%'', ''%%service:[expression]:[port number]%%'' look for an expression in the name of a service.
-  * ''%%probedservice:[expression]%%'', ''%%probedservice:[expression]:[port number]%%'' look for an expression in the name of a service discovered with a service probe.
   * ''%%product:[service]:[product]%%'', ''%%product:[service]:[product]:[port number]%%'' look for a product.
   * ''%%version:[service]:[product]:[version]%%'', ''%%product:[service]:[product]:[version]:[port number]%%'' look for a specific version of a product.
   * ''%%script:[scriptid]%%'', ''%%script:[scriptid]:[output]%%'' look for a specific (port) script (using ''%%portscript:%%'' is equivalent).
