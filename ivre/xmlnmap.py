@@ -379,6 +379,9 @@ class NmapHandler(ContentHandler):
                     except utils.socket.error:
                         pass
         elif name == 'service' and self._curport is not None:
+            if attrs.get("method") == "table":
+                # discard information from nmap-services
+                return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]
             for field in ['service_conf', 'service_rpcnum',
