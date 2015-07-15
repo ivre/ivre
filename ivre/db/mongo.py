@@ -468,13 +468,16 @@ class MongoDBNmap(MongoDB, DBNmap):
             ],
         }
         self.schema_migrations = {
-            self.colname_hosts: {None: (1, self.migrate_schema_hosts_0_1)},
+            self.colname_hosts: {
+                None: (1, self.migrate_schema_hosts_0_1),
+                1: (2, self.migrate_schema_hosts_1_2),
+            },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
         self.schema_latest_versions = {
-            self.colname_hosts: 1,
-            self.colname_oldhosts: 1,
+            self.colname_hosts: 2,
+            self.colname_oldhosts: 2,
         }
 
 
@@ -525,6 +528,26 @@ creates the default indexes."""
         if not openports:
             openports["count"] = 0
         update["$set"]["openports"] = openports
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_1_2(doc):
+        """Converts a record from version 1 to version 2. Version 2
+        discards service names when they have been found from
+        nmap-services file.
+
+        """
+        assert(doc["schema_version"] == 1)
+        update = {"$set": {"schema_version": 2}}
+        update_ports = False
+        for port in doc.get("ports", []):
+            if port.get("service_method") == "table":
+                update_ports = True
+                for key in port.keys():
+                    if key.startswith('service_'):
+                        del port[key]
+        if update_ports:
+            update["$set"]["ports"] = doc["ports"]
         return update
 
     def get(self, flt, archive=False, **kargs):
@@ -1128,28 +1151,25 @@ have no effect if it is not expected)."""
         return {'ports.state_state': {'$nin': ['open']} if neg else 'open'}
 
     @staticmethod
-    def searchservice(srv, port=None, probed=False):
+    def searchservice(srv, port=None, protocol=None):
         """Search an open port with a particular service."""
-        # service_method
-        res = {
-            'ports': {'$elemMatch': {
-                'state_state': 'open',
-                'service_name': srv,
-            }}}
+        flt = {'service_name': srv}
         if port is not None:
-            res['ports']['$elemMatch']['port'] = port
-        if probed:
-            res['ports']['$elemMatch']['service_method'] = 'probed'
-        return res
+            flt['port'] = port
+        if protocol is not None:
+            flt['protocol'] = protocol
+        if len(flt) == 1:
+            return {'ports.service_name': srv}
+        return {'ports': {'$elemMatch': flt}}
 
     @staticmethod
-    def searchproduct(product, version=None, service=None, port=None):
+    def searchproduct(product, version=None, service=None, port=None,
+                      protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        # service_method
         flt = {'service_product': product}
         if version is not None:
             flt['service_version'] = version
@@ -1157,6 +1177,8 @@ have no effect if it is not expected)."""
             flt['service_name'] = service
         if port is not None:
             flt['port'] = port
+        if protocol is not None:
+            flt['protocol'] = protocol
         if len(flt) == 1:
             return {'ports.service_product': product}
         return {'ports': {'$elemMatch': flt}}
@@ -1220,7 +1242,6 @@ have no effect if it is not expected)."""
             'ports': {
                 '$elemMatch': {
                     'service_name': 'http',
-                    'service_method': 'probed',
                     'service_product': 'MiniServ',
                     'service_extrainfo': {'$ne': 'Webmin httpd'},
                 }}}
@@ -1230,7 +1251,6 @@ have no effect if it is not expected)."""
         return {
             'ports': {'$elemMatch': {
                 'service_name': 'X11',
-                'service_method': 'probed',
                 'service_extrainfo': {'$ne': 'access denied'}
             }}}
 
@@ -1541,7 +1561,6 @@ have no effect if it is not expected)."""
           - portlist:open / :closed / :filtered
           - countports:open / :closed / :filtered
           - service / service:<portnbr>
-          - probedservice / probedservice:<portnbr>
           - product / product:<portnbr>
           - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
           - devicetype / devicetype:<portnbr>
@@ -1673,13 +1692,6 @@ have no effect if it is not expected)."""
                 field = "countports"
         elif field == "service":
             flt = self.flt_and(flt, self.searchservice({'$exists': True}))
-            specialproj = {"_id": 0,
-                           "ports.state_state": 1,
-                           "ports.service_name": 1}
-            specialflt = [
-                {"$match": {"ports.state_state": "open"}},
-                {"$project": {"ports.service_name": 1}},
-            ]
             field = "ports.service_name"
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
@@ -1690,34 +1702,6 @@ have no effect if it is not expected)."""
             specialproj = {"_id": 0, "ports.port": 1, "ports.service_name": 1}
             specialflt = [
                 {"$match": {"ports.port": port}},
-                {"$project": {"ports.service_name": 1}}
-            ]
-            field = "ports.service_name"
-        elif field == "probedservice":
-            flt = self.flt_and(
-                flt, self.searchservice({'$exists': True}, probed=True)
-            )
-            specialproj = {"_id": 0,
-                           "ports.service_name": 1,
-                           "ports.service_method": 1}
-            specialflt = [
-                {"$match": {"ports.service_method": "probed"}},
-                {"$project": {"ports.service_name": 1}}
-            ]
-            field = "ports.service_name"
-        elif field.startswith("probedservice:"):
-            port = int(field.split(':', 1)[1])
-            flt = self.flt_and(
-                flt,
-                self.searchservice({'$exists': True}, port=port,
-                                   probed=True),
-            )
-            specialproj = {"_id": 0, "ports.port": 1,
-                           "ports.service_name": 1,
-                           "ports.service_method": 1}
-            specialflt = [
-                {"$match": {"ports.port": port,
-                            "ports.service_method": "probed"}},
                 {"$project": {"ports.service_name": 1}}
             ]
             field = "ports.service_name"

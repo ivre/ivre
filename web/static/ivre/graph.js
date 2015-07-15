@@ -817,17 +817,6 @@ function build_chart(chart, field, dataset) {
 	    return 'setparam("service", "' + x + ':' + field.substr(8) + '");';
 	};
     }
-    else if(field === 'probedservice') {
-	preparefilter = function(x) {
-	    return 'setparam("probedservice", "' + x + '");';
-	};
-    }
-    else if(field.substr(0, 14) === 'probedservice:') {
-	preparefilter = function(x) {
-	    return 'setparam("probedservice", "' + x + ':' +
-		field.substr(14) + '");';
-	};
-    }
     else if(field.substr(0, 7) === 'product') {
 	prepareoutput = function(x) {
 	    return x[1];

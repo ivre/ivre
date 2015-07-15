@@ -520,12 +520,6 @@ class IvreTests(unittest.TestCase):
             "nmap_topsrv_80",
             ivre.db.db.nmap.topvalues("service:80").next()['_id'])
         self.check_value(
-            "nmap_topprobedsrv",
-            ivre.db.db.nmap.topvalues("probedservice").next()['_id'])
-        self.check_value(
-            "nmap_topprobedsrv_80",
-            ivre.db.db.nmap.topvalues("probedservice:80").next()['_id'])
-        self.check_value(
             "nmap_topprod",
             ivre.db.db.nmap.topvalues("product").next()['_id'])
         self.check_value(
