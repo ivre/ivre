@@ -56,13 +56,22 @@ var ToolTip = {
 	}
 
 	// Match available commands
-	var matching_keys = Object.keys(HELP.content).filter(
+	const COMMANDS = Object.keys(HELP.content)
+	var matching_keys = COMMANDS.filter(
 	    function(key) {
 		// Suffix detection
 		if (HELP.config.suffixs.indexOf(key.substr(-1)) == -1)
 		    return (asked === key.substr(0, asked.length));
-		else
+		else {
+		    if (COMMANDS.indexOf(key.substring(0, key.length - 1)) != -1 &&
+			(asked.length < key.length))
+			/* 'command' and 'command + suffix' are both available
+			 * -> only display the help / complete for 'command'
+			 */
+			return false;
+
 		    return (asked.substr(0, key.length) === key.substr(0, asked.length));
+		}
 	    }
 	);
 
