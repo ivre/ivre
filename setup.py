@@ -1,4 +1,4 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python
 
 # This file is part of IVRE.
 # Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
@@ -26,9 +26,8 @@ $ python setup.py build
 # python setup.py install
 """
 
-from setuptools import setup
-from os import listdir
-from os import path
+from distutils.core import setup
+import os
 
 setup(
     name='ivre',
@@ -118,8 +117,8 @@ setup(
         ('share/ivre/web/static/fi/css',
          ['web/static/fi/css/flag-icon.css']),
         ('share/ivre/web/static/fi/flags/4x3',
-         [path.join('web/static/fi/flags/4x3/', x)
-          for x in listdir('web/static/fi/flags/4x3/')]),
+         [os.path.join('web/static/fi/flags/4x3/', x)
+          for x in os.listdir('web/static/fi/flags/4x3/')]),
         # Dokuwiki
         ('share/ivre/dokuwiki',
          ['web/dokuwiki/backlinks.patch']),
@@ -137,8 +136,8 @@ setup(
         ('share/ivre/dokuwiki/media',
          ['web/dokuwiki/media/logo.png']),
         ('share/ivre/dokuwiki/media/doc/screenshots',
-         [path.join('doc/screenshots', x)
-          for x in listdir('doc/screenshots')]),
+         [os.path.join('doc/screenshots', x)
+          for x in os.listdir('doc/screenshots')]),
         ('share/ivre/web/cgi-bin',
          ['web/cgi-bin/scanjson.py']),
         ('share/doc/ivre',
