@@ -476,8 +476,8 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
         self.schema_latest_versions = {
-            self.colname_hosts: 2,
-            self.colname_oldhosts: 2,
+            self.colname_hosts: xmlnmap.SCHEMA_VERSION,
+            self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,
         }
 
 
