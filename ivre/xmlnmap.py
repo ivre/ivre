@@ -34,6 +34,8 @@ import os
 import re
 import json
 
+SCHEMA_VERSION = 2
+
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
 IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2'])
@@ -300,7 +302,7 @@ class NmapHandler(ContentHandler):
             if self._curhost is not None:
                 sys.stderr.write("WARNING, self._curhost should be None at "
                                  "this point (got %r)\n" % self._curhost)
-            self._curhost = {"schema_version": 1}
+            self._curhost = {"schema_version": SCHEMA_VERSION}
             if self._curscan:
                 self._curhost['scanid'] = self._curscan['_id']
             for attr in attrs.keys():
