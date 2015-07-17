@@ -141,20 +141,6 @@ ivreWebUi
 	};
     });
 
-function build_ip_map(fullworld) {
-    hideall();
-    var c1 = document.getElementById('chart1');
-    c1.innerHTML = "";
-    var s = document.getElementById('chart1script');
-    if(s) c1.parentNode.removeChild(s);
-    document.getElementById('charts').style.display = 'inline';
-    s = document.createElement('script');
-    s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_map('chart1', ips, " + fullworld + ");})")+ '&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(query);
-    c1.parentNode.appendChild(s);
-}
-
-
 // The menu controller
 
 ivreWebUi
@@ -249,6 +235,11 @@ ivreWebUi
     .directive('ivreFilters', function() {
 	return {
 	    templateUrl: 'templates/filters.html'
+	};
+    })
+    .directive('ivreTopvalues', function() {
+	return {
+	    templateUrl: 'templates/topvalues.html'
 	};
     });
 
@@ -580,3 +571,151 @@ function add_message(ident, level, content) {
 	scope.messages[ident] = message;
     });
 }
+
+ivreWebUi
+    .controller('IvreReportCtrl', function ($scope) {
+
+	/********** Common **********/
+
+	$scope.query = document.location.hash.substring(1);
+
+	/********** Display **********/
+
+	$scope.showfilter = true;
+	$scope.toggleShowFilter = function() {
+	    $scope.showfilter = $scope.showfilter === false ? true: false;
+	};
+
+	/********** Elements management **********/
+
+	$scope.colors = [{bg: "#FFFFFF",
+			  fg: "black"},
+			 {bg: "#CF5044",
+			  fg: "white"},
+			 {bg: "#5B9BD5",
+			  fg: "white"},
+			 {bg: "#73B348",
+			  fg: "white"},
+			 {bg: "#F37F31",
+			  fg: "white"},
+			 {bg: "#4674CA",
+			  fg: "white"},
+			];
+	$scope.types = ["Top-values", "Map + Top-values"];
+	/* Element:
+	   - type
+	   - parameters
+	   - text
+	   - color
+	*/
+	$scope.elements = [
+	    {"type": "Map + Top-values",
+	     "parameters": "country",
+	     "text": "Top countries",
+	     "color": 0},
+	    {"type": "Top-values",
+	     "parameters": "port:open",
+	     "text": "Top ports",
+	     "color": 1},
+	    {"type": "Top-values",
+	     "parameters": "as",
+	     "text": "Top AS",
+	     "color": 2}
+	];
+	$scope.remove = function(index) {
+	    $scope.elements.splice(index, 1);
+	};
+
+	$scope.elements_swap = function(id1, id2) {
+	    array_swap($scope.elements, id1, id2);
+	};
+
+	/********** New element handling **********/
+
+	$scope.cur_type = $scope.types[0];
+	$scope.cur_title = "";
+	$scope.cur_param = "";
+	$scope.cur_color = 1;
+	$scope.set_type = function(type) {
+	    $scope.cur_type = type;
+	    return false;
+	};
+	$scope.set_color = function(color) {
+	    $scope.cur_color= color;
+	    return false;
+	};
+	$scope.add_element = function() {
+	    $scope.elements.push({type: $scope.cur_type,
+				  parameters: $scope.cur_param,
+				  text: $scope.cur_title,
+				  color: $scope.cur_color});
+	    $scope.cur_type = $scope.types[0];
+	    $scope.cur_title = "";
+	    $scope.cur_param = "";
+	    $scope.cur_color = 1;
+	};
+
+	/********** Report building **********/
+
+	$scope.build_ip_map = function(nb) {
+	    var c1 = document.getElementById('chartmap' + nb);
+	    var fullworld = undefined;
+	    c1.innerHTML = "";
+	    var s = document.getElementById('chartmap' + nb + 'script');
+	    if(s) $(s).remove();
+	    s = document.createElement('script');
+	    s.id = 'chartmap' + nb + 'script';
+	    component = "(function(ips){build_chart_map('chartmap" + nb +
+		"', ips, " + fullworld + ");" +
+		"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); };" +
+		"to_remove = $.find('[title=\"Zoom out\"]'); for (var i in to_remove) { $(to_remove[i]).remove(); };" +
+		"})";
+	    s.src = config.cgibase + '?callback=' +
+		encodeURIComponent(component) +
+		'&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(query);
+	    c1.parentNode.appendChild(s);
+	};
+
+	$scope.build_top_value = function(field, nb, colors) {
+	    var c2 = document.getElementById('chart' + nb);
+	    c2.innerHTML = "";
+	    var s = document.getElementById('chart' + nb + 'script');
+	    if(s) $(s).remove();
+	    s = document.createElement('script');
+	    s.id = 'chart' + nb + 'script';
+
+	    // Use 10 top values, cause build_chart_map default H is 300,
+	    // build_chart is 30 * nb
+	    s.src = config.cgibase + '?callback=' +
+		encodeURIComponent("(function(data){build_chart('chart" + nb +
+				   "', '" +
+				   field + "', data, " + colors + ");" +
+				   "to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); }" +
+				   "})") +
+		'&action=topvalues:' + encodeURIComponent(field) + '&limit=10&q=' +
+		encodeURIComponent(query);
+	    c2.parentNode.appendChild(s);
+	};
+	$scope.build_all = function() {
+	    $scope.query = document.location.hash.substring(1);
+
+	    for (var elementid in $scope.elements) {
+		element = $scope.elements[elementid];
+		if (element.type === "Top-values") {
+		    bcolor = undefined;
+		    if ($scope.colors[element.color].fg === "white")
+			bcolor = '["white"]';
+		    $scope.build_top_value(element.parameters, parseInt(elementid) + 1,
+					   bcolor);
+		} else if (element.type === "Map + Top-values") {
+		    bcolor = undefined;
+		    if ($scope.colors[element.color].fg === "white")
+			bcolor = '["white"]';
+		    $scope.build_top_value(element.parameters, parseInt(elementid) + 1,
+					   bcolor);
+		    $scope.build_ip_map(parseInt(elementid) + 1);
+		}
+
+	    }
+	};
+    });

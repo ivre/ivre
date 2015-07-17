@@ -65,6 +65,7 @@ setup(
           'docker/web-apache/doku-conf-local.php']),
         ('share/ivre/web/static',
          ['web/static/index.html',
+          'web/static/report.html',
           'web/static/help.js',
           'web/static/config-sample.js',
           'web/static/favicon-loading.gif',
@@ -84,7 +85,8 @@ setup(
           'web/static/templates/subview-host-summary.html',
           'web/static/templates/subview-port-summary.html',
           'web/static/templates/subview-ports-summary.html',
-          'web/static/templates/subview-service-summary.html']),
+          'web/static/templates/subview-service-summary.html',
+          'web/static/templates/topvalues.html']),
         # IVRE
         ('share/ivre/web/static/ivre',
          ['web/static/ivre/ivre.css',

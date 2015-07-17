@@ -164,3 +164,10 @@ jQuery.fn.getBg = function() {
 	    return color;
     }).css('background-color');
 };
+
+function array_swap(arr, x, y) {
+    var tmp = arr[x];
+    arr[x] = arr[y];
+    arr[y] = tmp;
+    return arr;
+}

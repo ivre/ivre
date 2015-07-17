@@ -142,30 +142,8 @@ function port_summary(host, width) {
 /******* Main function *********/
 
 function load() {
-    parse_params();
-    if(getparam('skip') == config.dflt.skip) {
-	unsetparam('skip');
+    if (!(load_params()))
 	return;
-    }
-    if(getparam('limit') == config.dflt.limit) {
-	unsetparam('limit');
-	return;
-    }
-
-    clear_filters();
-
-    var ii = 0;
-    for(var i in parametersprotected) {
-	if (! (parametersprotected[i].substr(0,5) === "skip:" ||
-	       parametersprotected[i].substr(0,6) === "limit:")) {
-	    add_filter({
-		"id": ii,
-		"value": parametersprotected[i],
-	    });
-	    ii += 1;
-	}
-    }
-
     var need_update = ! compare_params(parametersobjunalias,
 				       prev_query,
 				       false);

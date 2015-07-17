@@ -47,18 +47,30 @@
   <body onload="load();" ng-controller="IvreMainCtrl">
 
     <!-- The top navigation bar -->
-    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
-      <div class="container">
-	<!-- The logo + app name -->
-	<img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
-	<a href="#" class="navbar-brand visible-md visible-lg">
-	  IVRE
-	</a>
-	<!-- The menu -->
-	<ul class="nav navbar-nav"
-	    ng-controller="IvreMenuCtrl"
-	    ivre-menu=""></ul>
+    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
+      <div class="col-lg-3 col-sm-2">
+	<div class="navbar-ivre">
+	  <!-- The logo + app name -->
+	  <img alt="DroidsCorp" src="logo.png" class="logo visible-lg"/>
+	  <a href="#" class="navbar-brand visible-md visible-lg">
+	    IVRE
+	  </a>
+	</div>
       </div>
+      <!-- The menu -->
+      <ul class="nav navbar-nav col-lg-7 col-sm-10"
+	  ng-controller="IvreMenuCtrl"
+	  ivre-menu=""></ul>
+      <ul class="nav navbar-nav visible-lg col-lg-2">
+	<!-- Droids Corp web site -->
+	<li class="navbar-link">
+	  <a title="Droids Corporation"
+	     href="http://droids-corp.org/"
+	     target="_blank">
+	    droids-corp.org
+	  </a>
+	</li>
+      </ul>
     </div>
 
     <div class="container-fluid">
@@ -71,8 +83,10 @@
 	    </ul>
 	    <hr />
 	    <ul class="nav"
-		ng-controller="IvreFilterListCtrl"
-		ivre-filters="">
+		ng-controller="IvreFilterListCtrl">
+	      <ivre-filters></ivre-filters>
+	      <hr />
+	      <ivre-topvalues></ivre-topvalues>
 	    </ul>
 	  </ul>
 	</div>
