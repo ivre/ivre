@@ -1279,9 +1279,9 @@ have no effect if it is not expected)."""
             output=fname,
         )
 
-    def searchsmbshares(self, access='', hidden=None, anonymous=False):
-        """Filter SMB shares with anonymous `access` (default: either
-        read or write, accepted values 'r', 'w', 'rw').
+    def searchsmbshares(self, access='', hidden=None):
+        """Filter SMB shares with given `access` (default: either read
+        or write, accepted values 'r', 'w', 'rw').
 
         If `hidden` is set to `True`, look for hidden shares, for
         non-hidden if set to `False` and for both if set to `None`
@@ -1306,9 +1306,12 @@ have no effect if it is not expected)."""
         return self.searchscript(
             name='smb-enum-shares',
             values={'shares': {'$elemMatch': {
-                '%s access' % ('Anonymous' if anonymous else 'Current user'):
-                access,
+                '$or': [
+                    {'%s access' % user: access} for user in ['Anonymous',
+                                                              'Current user']
+                ],
                 'Type': share_type,
+                'Share': {'$ne': 'IPC$'},
             }}},
             host=True)
 
