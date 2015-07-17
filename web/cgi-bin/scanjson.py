@@ -54,9 +54,17 @@ def main():
             least = True
         else:
             least = False
+        topnbr = 15
+        if ':' in field:
+            field, topnbr = field.rsplit(':', 1)
+            try:
+                topnbr = int(topnbr)
+            except ValueError:
+                field = '%s:%s' % (field, topnbr)
+                topnbr = 15
         series = [{"label": t['_id'], "value": t['count']} for t in
                   db.nmap.topvalues(field, flt=flt,
-                                    least=least, topnbr=limit,
+                                    least=least, topnbr=topnbr,
                                     archive=archive)]
         if callback is None:
             sys.stdout.write("%s;\n" % json.dumps(series))
