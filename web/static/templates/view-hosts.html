@@ -26,11 +26,11 @@
   <div host-summary=""></div>
 <!-- Next div is only displayed in summary mode-->
 <div class="summary"
-     ng-class="{'result-hidden-part': host.fulldisplay}"
+     ng-hide="host.fulldisplay"
      ports-summary=""></div>
 <!-- Next div is only displayed in full mode-->
 <div class="full"
-     ng-class="{'result-hidden-part': !host.fulldisplay}">
+     ng-if="host.fulldisplay">
   <!-- extraports -->
   <dd ng-repeat="(epstatus, epvalues) in host.extraports">
     {{epvalues[0]}} port{{epvalues[0] > 1 && "s" || ""}}
