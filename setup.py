@@ -72,6 +72,7 @@ setup(
           'web/static/favicon.png',
           'web/static/loading.gif',
           'web/static/logo.png',
+          'web/static/droids.png',
           'web/static/world-110m.json']),
         ('share/ivre/web/static/templates',
          ['web/static/templates/filters.html',
