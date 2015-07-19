@@ -22,7 +22,6 @@ body {
 }
 
 .navbar .logo {
-    margin-right: 20px;
     margin-top: 5px;
     max-height: 30px;
     float: left;
@@ -60,7 +59,7 @@ hr {
 
 .navbar-link {
     float: right !important;
-    margin-right: 10%;
+    margin-right: 20%;
 }
 
 .sidebar {
