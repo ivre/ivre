@@ -578,6 +578,7 @@ ivreWebUi
 	/********** Common **********/
 
 	$scope.query = document.location.hash.substring(1);
+	$scope.queryplural = parameters.length > 1;
 
 	/********** Display **********/
 
@@ -698,6 +699,7 @@ ivreWebUi
 	};
 	$scope.build_all = function() {
 	    $scope.query = document.location.hash.substring(1);
+	    $scope.queryplural = parameters.length > 1;
 
 	    for (var elementid in $scope.elements) {
 		element = $scope.elements[elementid];
