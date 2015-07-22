@@ -578,6 +578,7 @@ ivreWebUi
 	/********** Common **********/
 
 	$scope.query = document.location.hash.substring(1);
+	$scope.queryplural = parameters.length > 1;
 
 	/********** Display **********/
 
@@ -676,7 +677,7 @@ ivreWebUi
 	    c1.parentNode.appendChild(s);
 	};
 
-	$scope.build_top_value = function(field, nb, colors) {
+	$scope.build_top_value = function(field, nb, size, colors) {
 	    var c2 = document.getElementById('chart' + nb);
 	    c2.innerHTML = "";
 	    var s = document.getElementById('chart' + nb + 'script');
@@ -684,20 +685,19 @@ ivreWebUi
 	    s = document.createElement('script');
 	    s.id = 'chart' + nb + 'script';
 
-	    // Use 10 top values, cause build_chart_map default H is 300,
-	    // build_chart is 30 * nb
 	    s.src = config.cgibase + '?callback=' +
-		encodeURIComponent("(function(data){build_chart('chart" + nb +
-				   "', '" +
-				   field + "', data, " + colors + ");" +
-				   "to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); }" +
-				   "})") +
-		'&action=topvalues:' + encodeURIComponent(field) + '&limit=10&q=' +
+		encodeURIComponent(
+		    "(function(data){build_chart('chart" + nb + "', '" +
+			field + "', data, " + size + ", " + colors + ");" +
+			"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); }" +
+			"})") +
+		'&action=topvalues:' + encodeURIComponent(field) + ':10&q=' +
 		encodeURIComponent(query);
 	    c2.parentNode.appendChild(s);
 	};
 	$scope.build_all = function() {
 	    $scope.query = document.location.hash.substring(1);
+	    $scope.queryplural = parameters.length > 1;
 
 	    for (var elementid in $scope.elements) {
 		element = $scope.elements[elementid];
@@ -705,14 +705,16 @@ ivreWebUi
 		    bcolor = undefined;
 		    if ($scope.colors[element.color].fg === "white")
 			bcolor = '["white"]';
-		    $scope.build_top_value(element.parameters, parseInt(elementid) + 1,
-					   bcolor);
+		    $scope.build_top_value(element.parameters,
+					   parseInt(elementid) + 1,
+					   10, bcolor);
 		} else if (element.type === "Map + Top-values") {
 		    bcolor = undefined;
 		    if ($scope.colors[element.color].fg === "white")
 			bcolor = '["white"]';
-		    $scope.build_top_value(element.parameters, parseInt(elementid) + 1,
-					   bcolor);
+		    $scope.build_top_value(element.parameters,
+					   parseInt(elementid) + 1,
+					   6, bcolor);
 		    $scope.build_ip_map(parseInt(elementid) + 1);
 		}
 
