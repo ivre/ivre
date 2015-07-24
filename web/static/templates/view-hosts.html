@@ -32,23 +32,23 @@
 <div class="full"
      ng-if="host.fulldisplay">
   <!-- extraports -->
-  <dd ng-repeat="(epstatus, epvalues) in host.extraports">
+  <dd ng-repeat="(epstatus, epvalues) in ::host.extraports">
     {{::epvalues[0]}} port{{::epvalues[0] > 1 && "s" || ""}}
     <span class="label label-status"
-	  ng-class="class_from_port_status(epstatus)">
+	  ng-class="::class_from_port_status(epstatus)">
       {{::epstatus | uppercase}}
     </span>
   </dd>
   <!-- ports w/ scripts, etc. -->
-  <dt ng-repeat-start="port in host.ports | orderBy:['protocol','port']">
+  <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']">
     <div port-summary=""></div>
   </dt>
   <dd ng-repeat-end>
-    <div ng-if="port.service_name"
+    <div ng-if="::port.service_name"
 	 class="result-service"
 	 service-summary="">
     </div>
-    <div ng-repeat="script in port.scripts"
+    <div ng-repeat="script in ::port.scripts"
 	 ng-class="{highlight: wanted_script('port', script.id)}">
       {{::script.id}}
       <pre class="result-scripts-output"
@@ -58,8 +58,8 @@
   </dd>
   <!-- hostscripts, traceroute, etc. -->
   <dt class="result-host-scripts"
-      ng-if="host.scripts">Host scripts</dt>
-  <dd ng-repeat="script in host.scripts"
+      ng-if="::host.scripts">Host scripts</dt>
+  <dd ng-repeat="script in ::host.scripts"
       ng-class="{highlight: wanted_script('host', script.id)}">
     {{::script.id}}
     <pre class="result-scripts-output"
@@ -67,15 +67,15 @@
 	 script-output="host"/>
   </dd>
   <dt class="result-traceroute"
-      ng-if="host.traces">
+      ng-if="::host.traces">
     Traceroute{{::host.traces.length > 1 && "s" || ""}}
   </dt>
-  <dd ng-repeat="trace in host.traces"
+  <dd ng-repeat="trace in ::host.traces"
       ng-class="{highlight: wanted_trace(trace)}">
     using {{::trace.protocol}}{{::trace.port && ("/" + trace.port) || ""}}
     <div class="result-traceroute-hops"
 	 ng-class="{highlight: wanted_trace(trace)}"><table>
-	<tr ng-repeat="hop in trace.hops | orderBy:'ttl'"
+	<tr ng-repeat="hop in ::trace.hops | orderBy:'ttl'"
 	    ng-class="{'highlight-more': wanted_hop(hop.ipaddr)}"
 	    >
 	  <td>{{::hop.ttl}}</td>
@@ -87,10 +87,10 @@
 	</tr>
     </table></div>
   </dd>
-  <dt class="result-os" ng-if="host.os.osclass">
+  <dt class="result-os" ng-if="::host.os.osclass">
     OS Detection
   </dt>
-  <dd ng-repeat="osclass in host.os.osclass | orderBy:'accuracy':true">
+  <dd ng-repeat="osclass in ::host.os.osclass | orderBy:'accuracy':true">
     <div class="result-os-item">
       {{::osclass.type}} / {{::osclass.vendor}} /
       {{::osclass.osfamily}} {{::osclass.osgen}} /

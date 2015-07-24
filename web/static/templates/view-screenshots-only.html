@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@
   <div host-summary=""></div>
   <div class="full">
     <!-- ports w/ scripts, etc. -->
-    <dt ng-repeat="port in host.ports | orderBy:['protocol','port']"
-        ng-if="port.screenshot">
+    <dt ng-repeat="port in ::host.ports | orderBy:['protocol','port']"
+        ng-if="::port.screenshot">
       <div port-summary=""></div>
     </dt>
   </div>

@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@
 
 <dt>
   <a class="clickable"
-     ng-repeat="link in host.addr_links"
+     ng-repeat="link in ::host.addr_links"
      ng-click="setparam(link.net)"
-     >{{link.addrpart}}<span ng-if="!$last">.</span></a>
-  <span ng-if="host.hostnames_links">
-    (<span ng-repeat="hostnames in host.hostnames_links"><!--
+     >{{::link.addrpart}}<span ng-if="!$last">.</span></a>
+  <span ng-if="::host.hostnames_links">
+    (<span ng-repeat="hostnames in ::host.hostnames_links"><!--
     --><a class="clickable"
-	  ng-repeat="link in hostnames"
+	  ng-repeat="link in ::hostnames"
 	  ng-click="setparam(link.param, link.value)"
-	  >{{link.name}}<!--
+	  >{{::link.name}}<!--
       --><span ng-if="!$last">.</span><!--
       --></a><span ng-if="!$last"> / </span><!--
   --></span>)
@@ -36,55 +36,55 @@
 	><i class="glyphicon glyphicon-pencil"></i></span>
 </dt>
 <dd>
-  <span ng-repeat="category in host.categories">
+  <span ng-repeat="category in ::host.categories">
     <a class="category clickable"
        ng-click="setparam('category', category)"
        ng-class="{highlight: wanted_param('category', category)}">
-      {{category}}</a>
+      {{::category}}</a>
     <span ng-if="!$last">/</span>
   </span>
-  <span ng-if="host.infos || host.source">
-    <span ng-if="host.infos.country_code">
+  <span ng-if="::(host.infos || host.source)">
+    <span ng-if="::host.infos.country_code">
       /
       <a class="category clickable"
 	 ng-click="setparam('country', host.infos.country_code)"
 	 ng-class="{highlight: wanted_param('country', host.infos.country_code)}"
-	 ng-attr-title="{{host.infos.country_name}}">
+	 ng-attr-title="{{::host.infos.country_name}}">
 	<span
-	   class="flag-icon flag-icon-{{host.infos.country_code | lowercase}}"
+	   class="flag-icon flag-icon-{{::host.infos.country_code | lowercase}}"
 	   ></span>
-	{{host.infos.country_code}}
+	{{::host.infos.country_code}}
       </a>
-      <span ng-if="host.infos.city">
+      <span ng-if="::host.infos.city">
 	(<a class="category clickable"
 	    ng-click="setparam('country', host.infos.country_code, undefined, true); setparam('city', host.infos.city); "
 	    ng-class="{highlight: wanted_param('city', host.infos.city)}"
-	    >{{host.infos.city}}</a>)
+	    >{{::host.infos.city}}</a>)
       </span>
     </span>
-    <span ng-if="host.infos.as_num">
+    <span ng-if="::host.infos.as_num">
       /
       <a class="category clickable"
 	 ng-click="setparam('asnum', host.infos.as_num + '')"
 	 ng-class="{highlight: wanted_param('asnum', host.infos.as_num + '')}"
-	 ng-attr-title="{{host.infos.as_name}}"
-	 >AS{{host.infos.as_num}}</a>
+	 ng-attr-title="{{::host.infos.as_name}}"
+	 >AS{{::host.infos.as_num}}</a>
     </span>
-    <span ng-if="host.source">from
+    <span ng-if="::host.source">from
       <a class="category clickable"
 	 ng-click="setparam('source', host.source)"
 	 ng-class="{highlight: wanted_param('source', host.source)}"
-	 >{{host.source}}</a>
+	 >{{::host.source}}</a>
     </span>
   </span>
 </dd>
-<dd ng-if="host.state">
+<dd ng-if="::host.state">
   <span class="label"
 	ng-class="{'label-success': host.state == 'up', 'label-danger': host.state == 'down'}"
-	>{{host.state | uppercase}}</span>
-  <span ng-if="host.state_reason"> - {{host.state_reason}}</span>
-  <span ng-if="host.starttime && host.endtime">
-    - {{host.starttime | date:"yyyy-MM-dd HH:mm"}}
-    - {{host.endtime | date:"yyyy-MM-dd HH:mm"}}
+	>{{::host.state | uppercase}}</span>
+  <span ng-if="::host.state_reason"> - {{host.state_reason}}</span>
+  <span ng-if="::(host.starttime && host.endtime)">
+    - {{::host.starttime | date:"yyyy-MM-dd HH:mm"}}
+    - {{::host.endtime | date:"yyyy-MM-dd HH:mm"}}
   </span>
 </dd>
