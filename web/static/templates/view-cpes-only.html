@@ -21,55 +21,5 @@
      >
   <div host-summary=""></div>
   <div ports-summary=""></div>
-  <dt class="result-cpe" ng-if="host.cpes">
-    CPE (Common Platform Enumeration)
-  </dt>
-  <dd>
-    <div class="container-fluid" ng-if="host.cpes">
-      <div class="row result-cpe-item"
-           ng-repeat="type in get_reshaped_cpes(host).data">
-        <div class="col-md-1">
-          <a class="clickable" ng-click="set_cpe_param(type)">
-            {{type.pretty_name}}
-          </a>
-        </div>
-        <div class="col-md-11">
-          <div class="row result-cpe-item"
-               ng-repeat="vendor in type.data">
-            <div class="col-md-3">
-              <a class="clickable" ng-click="set_cpe_param(type, vendor)">
-                <i ng-if="!vendor.name">Empty</i>{{vendor.name}}
-              </a>
-            </div>
-            <div class="col-md-9">
-              <div class="row result-cpe-item"
-                   ng-repeat="product in vendor.data">
-                <div class="col-md-7">
-                  <a class="clickable"
-                     ng-click="set_cpe_param(type, vendor, product)">
-                    <i ng-if="!product.name">Empty</i>{{product.name}}
-                  </a>
-                </div>
-                <div class="col-md-5">
-                  <div class="row result-cpe-item"
-                       ng-repeat="version in product.data">
-                    <div class="col-md-12">
-                      <a
-                         data-html="true"
-                         data-title="{{version.tooltitle}}"
-                         data-content="{{version.toolcontent}}"
-                         class="clickable"
-                         ng-click="set_cpe_param(type, vendor, product, version)"
-                         popover>
-                        <i ng-if="!version.name">Empty</i>{{version.name}}</a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </dd>
+  <div ng-if="::host.cpes" cpes=""></div>
 </div>
