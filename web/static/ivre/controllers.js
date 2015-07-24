@@ -518,14 +518,15 @@ function count_displayed_hosts() {
 }
 
 function set_display_mode(mode) {
-    var scope = get_scope('IvreResultListCtrl');
+    var scope = get_scope('IvreResultListCtrl'), args = [];
     if(mode === undefined)
 	mode = "host"; // default
     scope.$apply(function() { 
 	if(mode.substr(0, 7) === "script:") {
-	    scope.display_mode_args = mode.substr(7).split(",");
+	    args = mode.substr(7).split(",");
 	    mode = "script";
 	}
+	scope.display_mode_args = args;
 	scope.display_mode = mode;
     });
 }
