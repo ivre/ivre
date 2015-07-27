@@ -17,7 +17,7 @@
 -->
 
 <table>
-  <tr ng-repeat="summary in host.port_summary | orderBy: 'status'">
+  <tr ng-repeat="summary in ::host.port_summary | orderBy: 'status'">
     <td>
       <span>
 	{{::summary.count}} port{{::summary.count > 1 && "s" || ""}}
@@ -30,11 +30,11 @@
       </span>
     </td>
     <td>
-      <span ng-if="summary.type == 'extra'"
-	    ng-repeat="(reason, count) in summary.reasons">
+      <span ng-if="::summary.type == 'extra'"
+	    ng-repeat="(reason, count) in ::summary.reasons">
 	{{::count}} {{::reason}}<span ng-if="!$last">, </span></span>
-      <span ng-if="summary.type == 'ports'"
-	    ng-repeat="port in summary.ports | orderBy: ['protocol','port']"
+      <span ng-if="::summary.type == 'ports'"
+	    ng-repeat="port in ::summary.ports | orderBy: ['protocol','port']"
 	    ><!--
      --><a ng-click="setparam(port.protocol+'/'+port.port)" class="clickable">
 	  {{::port.protocol}}/{{::port.port}}</a><span ng-if="!$last">, </span>

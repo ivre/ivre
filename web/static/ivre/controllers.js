@@ -365,32 +365,32 @@ ivreWebUi
     $scope.get_reshaped_cpes = function(host) {
         if(host.n_cpes)
             return host.n_cpes;
-        cpes = host.cpes;
-        n_cpes = {};
+        var cpes = host.cpes,
+        n_cpes = {},
         type2str = {
             'h': 'Hw',
             'o': 'OS',
             'a': 'App',
-        };
+        },
         my_setdefault = function(d, key) {
             if(!("data" in d)) {
                 d.data = {};
             }
-            if(key in d.data) {
-                return d.data[key];
-            } else {
+            if(!(key in d.data)) {
                 d.data[key] = {"name": key, "data": {}};
-                return d.data[key];
             }
-        }
+            return d.data[key];
+        };
         for(var i in cpes) {
-            cpe = cpes[i];
-            type = type2str[cpe.type] || "Unknown";
-            type_d = my_setdefault(n_cpes, cpe.type);
-            type_d.pretty_name = type;
-            vend_d = my_setdefault(type_d, cpe.vendor);
-            prod_d = my_setdefault(vend_d, cpe.product);
+            var cpe = cpes[i],
+            type_d = my_setdefault(n_cpes, cpe.type),
+            vend_d = my_setdefault(type_d, cpe.vendor),
+            prod_d = my_setdefault(vend_d, cpe.product),
             comp_d = my_setdefault(prod_d, cpe.version);
+            type_d.pretty_name = type2str[cpe.type] || "Unk";
+	    vend_d.pretty_name = cpe.vendor == "" ? "---" : cpe.vendor;
+	    prod_d.pretty_name = cpe.product == "" ? "---" : cpe.product;
+	    comp_d.pretty_name = cpe.version == "" ? "---" : cpe.version;
             comp_d.origins || (comp_d.origins = []);
             comp_d.origins = comp_d.origins.concat(cpe.origins);
             comp_d.tooltitle = "cpe:/" +
@@ -402,7 +402,7 @@ ivreWebUi
         return host.n_cpes;
     };
     $scope.set_cpe_param = function(type, vendor, product, version) {
-        query = [];
+        var query = [],
         parts = [type, vendor, product, version];
         for(var i in parts) {
             if(parts[i] && !!parts[i].name) {
@@ -452,6 +452,11 @@ ivreWebUi
     .directive('serviceSummary', function() {
 	return {
 	    templateUrl: 'templates/subview-service-summary.html'
+	};
+    })
+    .directive('cpes', function() {
+	return {
+	    templateUrl: 'templates/subview-cpes.html'
 	};
     })
     .directive('scriptOutput', function() {
@@ -518,14 +523,15 @@ function count_displayed_hosts() {
 }
 
 function set_display_mode(mode) {
-    var scope = get_scope('IvreResultListCtrl');
+    var scope = get_scope('IvreResultListCtrl'), args = [];
     if(mode === undefined)
 	mode = "host"; // default
     scope.$apply(function() { 
 	if(mode.substr(0, 7) === "script:") {
-	    scope.display_mode_args = mode.substr(7).split(",");
+	    args = mode.substr(7).split(",");
 	    mode = "script";
 	}
+	scope.display_mode_args = args;
 	scope.display_mode = mode;
     });
 }

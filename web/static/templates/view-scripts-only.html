@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -20,38 +20,38 @@
      ng-repeat="host in results"
      >
   <div host-summary=""></div>
-<div class="full">
-  <!-- ports w/ scripts, etc. -->
-  <dt ng-repeat-start="port in host.ports | orderBy:['protocol','port']"
-      ng-if="script_display_mode_needed_scripts_group(port.scripts)">
-    <div port-summary=""></div>
-  </dt>
-  <dd ng-repeat-end
-      ng-if="script_display_mode_needed_scripts_group(port.scripts)">
-    <div ng-if="port.service_name"
-	 class="result-service"
-	 service-summary="">
-    </div>
-    <div ng-repeat="script in port.scripts"
-	 ng-class="{highlight: wanted_script('port', script.id)}"
-	 ng-if="script_display_mode_needed_script(script.id)">
-      {{script.id}}
-      <pre class="result-scripts-output"
+  <div class="full">
+    <!-- ports w/ scripts, etc. -->
+    <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
+	ng-if="script_display_mode_needed_scripts_group(port.scripts)">
+      <div port-summary=""></div>
+    </dt>
+    <dd ng-repeat-end
+	ng-if="script_display_mode_needed_scripts_group(port.scripts)">
+      <div ng-if="::port.service_name"
+	   class="result-service"
+	   service-summary="">
+      </div>
+      <div ng-repeat="script in ::port.scripts"
 	   ng-class="{highlight: wanted_script('port', script.id)}"
-	   script-output="port"/>
-    </div>
-  </dd>
-  <!-- hostscripts -->
-  <dt class="result-host-scripts"
-      ng-if="script_display_mode_needed_scripts_group(host.scripts)"
-      >Host scripts</dt>
-  <dd ng-repeat="script in host.scripts"
-      ng-class="{highlight: wanted_script('host', script.id)}"
-      ng-if="script_display_mode_needed_script(script.id)">
-    {{script.id}}
-    <pre class="result-scripts-output"
-	 ng-class="{highlight: wanted_script('host', script.id)}"
-	 script-output="host"/>
-  </dd>
-</div>
+	   ng-if="script_display_mode_needed_script(script.id)">
+	{{::script.id}}
+	<pre class="result-scripts-output"
+	     ng-class="{highlight: wanted_script('port', script.id)}"
+	     script-output="port"/>
+      </div>
+    </dd>
+    <!-- hostscripts -->
+    <dt class="result-host-scripts"
+	ng-if="script_display_mode_needed_scripts_group(host.scripts)"
+	>Host scripts</dt>
+    <dd ng-repeat="script in ::host.scripts"
+	ng-class="{highlight: wanted_script('host', script.id)}"
+	ng-if="script_display_mode_needed_script(script.id)">
+      {{::script.id}}
+      <pre class="result-scripts-output"
+	   ng-class="{highlight: wanted_script('host', script.id)}"
+	   script-output="host"/>
+    </dd>
+  </div>
 </div>

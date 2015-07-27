@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -198,11 +198,16 @@ form {
 
 .result-cpe-item {
     border: 1px solid #ccc;
-    padding: 0px 5px;
-    margin: -1px 0px -1px -6px;
+    padding: 0px;
+    margin: -1px;
     background-color: #F5F5F5;
     word-break: break-all;
     word-wrap: break-word;
+}
+
+.result-cpe-item > [class^="col-"] {
+    padding-left: 5px;
+    padding-right: 0px;
 }
 
 .result-cpe {

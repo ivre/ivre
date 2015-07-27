@@ -32,25 +32,25 @@
 <div class="full"
      ng-if="host.fulldisplay">
   <!-- extraports -->
-  <dd ng-repeat="(epstatus, epvalues) in host.extraports">
-    {{epvalues[0]}} port{{epvalues[0] > 1 && "s" || ""}}
+  <dd ng-repeat="(epstatus, epvalues) in ::host.extraports">
+    {{::epvalues[0]}} port{{::epvalues[0] > 1 && "s" || ""}}
     <span class="label label-status"
-	  ng-class="class_from_port_status(epstatus)">
-      {{epstatus | uppercase}}
+	  ng-class="::class_from_port_status(epstatus)">
+      {{::epstatus | uppercase}}
     </span>
   </dd>
   <!-- ports w/ scripts, etc. -->
-  <dt ng-repeat-start="port in host.ports | orderBy:['protocol','port']">
+  <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']">
     <div port-summary=""></div>
   </dt>
   <dd ng-repeat-end>
-    <div ng-if="port.service_name"
+    <div ng-if="::port.service_name"
 	 class="result-service"
 	 service-summary="">
     </div>
-    <div ng-repeat="script in port.scripts"
+    <div ng-repeat="script in ::port.scripts"
 	 ng-class="{highlight: wanted_script('port', script.id)}">
-      {{script.id}}
+      {{::script.id}}
       <pre class="result-scripts-output"
 	   ng-class="{highlight: wanted_script('port', script.id)}"
 	   script-output="port"/>
@@ -58,91 +58,44 @@
   </dd>
   <!-- hostscripts, traceroute, etc. -->
   <dt class="result-host-scripts"
-      ng-if="host.scripts">Host scripts</dt>
-  <dd ng-repeat="script in host.scripts"
+      ng-if="::host.scripts">Host scripts</dt>
+  <dd ng-repeat="script in ::host.scripts"
       ng-class="{highlight: wanted_script('host', script.id)}">
-    {{script.id}}
+    {{::script.id}}
     <pre class="result-scripts-output"
 	 ng-class="{highlight: wanted_script('host', script.id)}"
 	 script-output="host"/>
   </dd>
   <dt class="result-traceroute"
-      ng-if="host.traces">
-    Traceroute{{host.traces.length > 1 && "s" || ""}}
+      ng-if="::host.traces">
+    Traceroute{{::host.traces.length > 1 && "s" || ""}}
   </dt>
-  <dd ng-repeat="trace in host.traces"
+  <dd ng-repeat="trace in ::host.traces"
       ng-class="{highlight: wanted_trace(trace)}">
-    using {{trace.protocol}}{{trace.port && ("/" + trace.port) || ""}}
+    using {{::trace.protocol}}{{::trace.port && ("/" + trace.port) || ""}}
     <div class="result-traceroute-hops"
 	 ng-class="{highlight: wanted_trace(trace)}"><table>
-	<tr ng-repeat="hop in trace.hops | orderBy:'ttl'"
+	<tr ng-repeat="hop in ::trace.hops | orderBy:'ttl'"
 	    ng-class="{'highlight-more': wanted_hop(hop.ipaddr)}"
 	    >
-	  <td>{{hop.ttl}}</td>
+	  <td>{{::hop.ttl}}</td>
 	  <td><a class="clickable"
 		 ng-click="setparam('hop', hop.ipaddr)"
-		 >{{hop.ipaddr}}</a>{{hop.host && (" (" + hop.host + ")") || ""}}</td>
+		 >{{::hop.ipaddr}}</a>{{::hop.host && (" (" + hop.host + ")") || ""}}</td>
 	  <td></td>
-	  <td>{{hop.rtt}}</td>
+	  <td>{{::hop.rtt}}</td>
 	</tr>
     </table></div>
   </dd>
-  <dt class="result-os" ng-if="host.os.osclass">
+  <dt class="result-os" ng-if="::host.os.osclass">
     OS Detection
   </dt>
-  <dd ng-repeat="osclass in host.os.osclass | orderBy:'accuracy':true">
+  <dd ng-repeat="osclass in ::host.os.osclass | orderBy:'accuracy':true">
     <div class="result-os-item">
-      {{osclass.type}} / {{osclass.vendor}} /
-      {{osclass.osfamily}} {{osclass.osgen}} /
-      accuracy = {{osclass.accuracy}}
+      {{::osclass.type}} / {{::osclass.vendor}} /
+      {{::osclass.osfamily}} {{::osclass.osgen}} /
+      accuracy = {{::osclass.accuracy}}
     </div>
   </dd>
-  <dt class="result-cpe" ng-if="host.cpes">
-    CPE (Common Platform Enumeration)
-  </dt>
-  <div class="container-fluid" ng-if="host.cpes">
-    <div class="row result-cpe-item"
-         ng-repeat="type in get_reshaped_cpes(host).data">
-      <div class="col-md-1">
-        <a class="clickable" ng-click="set_cpe_param(type)">
-          {{type.pretty_name}}
-        </a>
-      </div>
-      <div class="col-md-11">
-        <div class="row result-cpe-item" ng-repeat="vendor in type.data">
-          <div class="col-md-3">
-             <a class="clickable" ng-click="set_cpe_param(type, vendor)">
-               <i ng-if="!vendor.name">Empty</i>{{vendor.name}}
-             </a>
-          </div>
-          <div class="col-md-9">
-            <div class="row result-cpe-item"
-                 ng-repeat="product in vendor.data">
-              <div class="col-md-7">
-                 <a class="clickable"
-                    ng-click="set_cpe_param(type, vendor, product)">
-                   <i ng-if="!product.name">Empty</i>{{product.name}}
-                 </a>
-              </div>
-              <div class="col-md-5">
-                <div class="row result-cpe-item"
-                     ng-repeat="version in product.data">
-                  <div class="col-md-12">
-                    <a
-                     data-html="true"
-                     data-title="{{version.tooltitle}}"
-                     data-content="{{version.toolcontent}}"
-                     class="clickable"
-                     ng-click="set_cpe_param(type, vendor, product, version)"
-                     popover>
-                      <i ng-if="!version.name">Empty</i>{{version.name}}</a>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  <div ng-if="::host.cpes" cpes=""></div>
 </div>
