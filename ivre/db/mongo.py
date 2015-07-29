@@ -2041,6 +2041,10 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchsource(args.source))
         if args.timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.timeago))
+        if args.id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.id))
+        if args.no_id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
         if args.host is not None:
             flt = self.flt_and(flt, self.searchhost(args.host))
         if args.hostname is not None:
