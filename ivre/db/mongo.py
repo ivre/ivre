@@ -1127,6 +1127,19 @@ have no effect if it is not expected)."""
             for port in ports]}}
 
     @staticmethod
+    def searchobjectid(oid, neg=False):
+        """Filters records by their ObjectID.
+        `oid` can be a single or many (as a list or any iterable) object ID(s),
+        specified as strings or an `ObjectID`s."""
+        if isinstance(oid, (basestring, bson.objectid.ObjectId)):
+            oid = [bson.objectid.ObjectId(oid)]
+        else:
+            oid = [bson.objectid.ObjectId(elt) for elt in oid]
+        if len(oid) == 1:
+            return {'_id': {'$ne': oid[0]} if neg else oid[0]}
+        return {'_id': {'$nin' if neg else '$in': oid}}
+
+    @staticmethod
     def searchcountopenports(minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert(minn is not None or maxn is not None)
