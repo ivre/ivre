@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
+[![Code Climate](https://codeclimate.com/github/cea-sec/ivre/badges/gpa.svg)](https://codeclimate.com/github/cea-sec/ivre)
 
 # What is it? #
 
