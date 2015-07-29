@@ -245,6 +245,10 @@ def flt_from_query(query):
                 limit = min(limit, config.WEB_MAXRESULTS)
         elif param == "archives":
             archive = not neg
+        elif param == "id":
+            flt = db.nmap.flt_and(flt, db.nmap.searchobjectid(
+                value.replace('-', ',').split(','),
+                neg=neg))
         elif param == "host":
             flt = db.nmap.flt_and(flt, db.nmap.searchhost(value, neg=neg))
         elif param == "net":

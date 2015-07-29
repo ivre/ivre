@@ -76,6 +76,10 @@ var HELP_FILTERS = {
 	    "title": "<b>(!)</b>archives",
 	    "content": "Look for archived results. <code>!archives</code> has no effect, since it is the default behavior.",
 	},
+	"id:": {
+	    "title": "<b>(!)</b>id:<b>[object ID](,[object ID](,...))</b>",
+	    "content": "Look for results with a specific ObjectID.",
+	},
 	"host:": {
 	    "title": "<b>(!)[IP address]</b> or <b>(!)</b>host:<b>[IP address]</b>",
 	    "content": "Look for results for one specific IP address.",
