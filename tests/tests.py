@@ -182,6 +182,17 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
+        # Object ID
+        res, out, _ = RUN(["scancli", "--json", "--limit", "1"])
+        self.assertEqual(res, 0)
+        oid = json.loads(out)['_id']
+        res, out, _ = RUN(["scancli", "--count", "--id", oid])
+        self.assertEqual(res, 0)
+        self.assertEqual(int(out), 1)
+        res, out, _ = RUN(["scancli", "--count", "--no-id", oid])
+        self.assertEqual(res, 0)
+        self.assertEqual(int(out) + 1, hosts_count)
+
         res, out, _ = RUN(["scancli", "--count", "--countports", "20", "20"])
         self.assertEqual(res, 0)
         portsnb_20 = int(out)
@@ -211,7 +222,7 @@ class IvreTests(unittest.TestCase):
 
         # Filters
         addr = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty)[0].get('addr')
+            ivre.db.db.nmap.flt_empty, fields=["addr"])[0].get('addr')
         result = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr))
         self.assertEqual(result.count(), 1)
