@@ -242,8 +242,10 @@ class DBNmap(DB):
         try:
             import argparse
             self.argparser = argparse.ArgumentParser(add_help=False)
+            USING_ARGPARSE = True
         except ImportError:
             self.argparser = utils.FakeArgparserParent()
+            USING_ARGPARSE = False
         self.argparser.add_argument(
             '--category', metavar='CAT',
             help='show only results from this category')
@@ -260,6 +262,18 @@ class DBNmap(DB):
                                     help='show only results from this source')
         self.argparser.add_argument('--version', metavar="VERSION", type=int)
         self.argparser.add_argument('--timeago', metavar='SECONDS', type=int)
+        if USING_ARGPARSE:
+            self.argparser.add_argument('--id', metavar='ID', help='show only '
+                                        'results with this(those) ID(s)',
+                                        nargs='+')
+            self.argparser.add_argument('--no-id', metavar='ID', help='show '
+                                        'only results WITHOUT this(those) '
+                                        'ID(s)', nargs='+')
+        else:
+            self.argparser.add_argument('--id', metavar='ID', help='show only '
+                                        'results with this ID')
+            self.argparser.add_argument('--no-id', metavar='ID', help='show '
+                                        'only results WITHOUT this ID')
         self.argparser.add_argument('--host', metavar='IP')
         self.argparser.add_argument('--hostname')
         self.argparser.add_argument('--domain')
