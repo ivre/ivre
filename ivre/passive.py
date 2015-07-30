@@ -128,7 +128,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 spec['value'] = 'Digest ' + ','.join(v)
             except:
                 pass
-        elif authtype in ['Negotiate', 'OAuth']:
+        elif authtype in ['Negotiate', 'Kerberos', 'OAuth']:
             spec['value'] = authtype
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
