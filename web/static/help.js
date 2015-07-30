@@ -19,13 +19,14 @@
 /************* Help methods ****************/
 
 function prepare(help) {
+    var key;
     // Apply aliases
-    for (var key in help.aliases) {
+    for (key in help.aliases) {
 	help.content[key] = help.content[help.aliases[key]];
     }
 
     // Manage negation
-    for (var key in help.content) {
+    for (key in help.content) {
 	if(help.content[key].title.substr(0, 10) === '<b>(!)</b>') {
 	    help.content["!" + key] = help.content[key];
 	    help.content["-" + key] = help.content[key];
@@ -38,7 +39,7 @@ function prepare(help) {
 	    help.content[key + ":"] = help.content[key];
 	}
     }
-};
+}
 
 /************* Help content ****************/
 
@@ -51,12 +52,16 @@ var HELP_FILTERS = {
 	function(elt, HELP, ToolTip) {
 	    // Handle IP addresses
 	    if(elt.value.match(/^[!-]?[0-9\.\/\,]*$/)) {
-		if(elt.value.indexOf('/') !== -1)
+		var content;
+		if(elt.value.indexOf('/') !== -1) {
 		    content = HELP.content["net:"];
-		else if(elt.value.indexOf('.') !== -1)
+		}
+		else if(elt.value.indexOf('.') !== -1) {
 		    content = HELP.content["host:"];
-		else
+		}
+		else {
 		    content = HELP.content["tcp/"];
+		}
 		ToolTip.set(elt, content);
 		return false;
 	    } else {
@@ -398,7 +403,7 @@ prepare(HELP_FILTERS);
 
 /* Top values */
 
-HELP_TOPVALUES = {
+var HELP_TOPVALUES = {
     config: {
 	"prefixes": "!-",
 	"suffixes": ":",

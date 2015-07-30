@@ -25,4 +25,4 @@ var config = {
 	"limit": 10,
     },
     "warn_dots_count": 20000,
-}
+};

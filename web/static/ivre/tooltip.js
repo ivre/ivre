@@ -23,16 +23,19 @@ var ToolTip = {
 	var result = "";
 	var i = 0;
 	var curchar;
-	if(strings.length === 0)
+	if(strings.length === 0) {
 	    return result;
+	}
 	while(true) {
 	    curchar = strings[0][i];
 	    if(curchar === undefined) {
 		return result;
 	    }
-	    for(var j = 1; j < strings.length; j++)
-		if(curchar !== strings[j][i])
+	    for(var j = 1; j < strings.length; j++) {
+		if(curchar !== strings[j][i]) {
 		    return result;
+		}
+	    }
 	    result += curchar;
 	    i++;
 	}
@@ -50,26 +53,29 @@ var ToolTip = {
 	var asked = elt.value;
 
 	// Callbacks
-	for (cbid in HELP.callbacks) {
-	    if (!(HELP.callbacks[cbid](elt, HELP, ToolTip)))
+	for (var cbid in HELP.callbacks) {
+	    if (!(HELP.callbacks[cbid](elt, HELP, ToolTip))) {
 		return;
+	    }
 	}
 
 	// Match available commands
-	const COMMANDS = Object.keys(HELP.content)
+	const COMMANDS = Object.keys(HELP.content);
 	var matching_keys = COMMANDS.filter(
 	    function(key) {
 		// Suffix detection
-		if (HELP.config.suffixes.indexOf(key.substr(-1)) == -1)
+		if (HELP.config.suffixes.indexOf(key.substr(-1)) === -1) {
 		    return (asked === key.substr(0, asked.length));
+		}
 		else {
-		    if (COMMANDS.indexOf(key.substring(0, key.length - 1)) != -1 &&
-			(asked.length < key.length))
+		    if (COMMANDS.indexOf(
+			key.substring(0, key.length - 1)) !== -1 &&
+			(asked.length < key.length)) {
 			/* 'command' and 'command + suffix' are both available
 			 * -> only display the help / complete for 'command'
 			 */
 			return false;
-
+		    }
 		    return (asked.substr(0, key.length) === key.substr(0, asked.length));
 		}
 	    }
@@ -77,13 +83,14 @@ var ToolTip = {
 
 	// Get last answer
 	var oldval = elt.getAttribute("oldval");
-	if (oldval === null)
+	if (oldval === null) {
 	    oldval = "";
+	}
 
 	if (matching_keys.length >= 1) {
 	    // Some command match
 
-	    if(matching_keys.length == 1) {
+	    if(matching_keys.length === 1) {
 		// One result: auto-completion
 
 		key = matching_keys[0];
@@ -121,9 +128,10 @@ var ToolTip = {
     },
 
     set: function(elt, content) {
-	if (elt.getAttribute('data-content') == content.content &&
-	    elt.getAttribute('data-original-title') == content.title)
+	if (elt.getAttribute('data-content') === content.content &&
+	    elt.getAttribute('data-original-title') === content.title) {
 	    return;
+	}
 	elt.setAttribute('data-original-title', content.title);
 	elt.setAttribute('data-content', content.content);
 	$('#' + elt.id).popover('show');
@@ -141,4 +149,4 @@ var ToolTip = {
 	    ToolTip.remove(elements[i]);
 	}
     }
-}
+};
