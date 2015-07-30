@@ -1,6 +1,6 @@
 languages:
   JavaScript: true
-  Python: true
+  Python: false
 exclude_paths:
 - "web/static/an/*"
 - "web/static/bs/*"
