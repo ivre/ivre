@@ -1,9 +1,9 @@
 languages:
   JavaScript: true
-  Python: true
+  Python: false
 exclude_paths:
-- "web/static/an"
-- "web/static/bs"
-- "web/static/d3"
-- "web/static/fi"
-- "web/static/jq"
+- "web/static/an/*"
+- "web/static/bs/*"
+- "web/static/d3/*"
+- "web/static/fi/*"
+- "web/static/jq/*"
