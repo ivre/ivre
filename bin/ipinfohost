@@ -16,19 +16,28 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-import ivre.utils
-from ivre.db import db
 import re
 import time
+import struct
+
+import ivre.utils
+from ivre.db import db
 
 ipaddr = re.compile('^\d+\.\d+\.\d+\.\d+$')
+
+
+def convert_ip(addr):
+    try:
+        return ivre.utils.int2ip(addr)
+    except struct.error:
+        return addr
 
 
 def disp_rec(r):
     if 'addr' in r:
         if r['source'].startswith('PTR-'):
             print '%s PTR %s (%s, %s time%s, %s - %s)' % (
-                ivre.utils.int2ip(r['addr']),
+                convert_ip(r['addr']),
                 r['value'], r['source'][4:], r['count'],
                 r['count'] > 1 and 's' or '',
                 datetime.datetime.fromtimestamp(int(r['firstseen'])),
@@ -36,7 +45,7 @@ def disp_rec(r):
         elif r['source'].startswith('A-'):
             print '%s A %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
-                ivre.utils.int2ip(r['addr']),
+                convert_ip(r['addr']),
                 r['source'][2:], r['count'],
                 r['count'] > 1 and 's' or '',
                 datetime.datetime.fromtimestamp(int(r['firstseen'])),
