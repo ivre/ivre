@@ -22,9 +22,10 @@ Taullier".
 
 # Overview #
 
-Have a look at the **[screenshot gallery](doc/SCREENSHOTS.md)** for an
-overview of the Web interface. We have a **demonstration instance**,
-just [contact us](#contact) to get an access.
+Have a look at the [project homepage](http://iv.re/), and at the
+**[screenshot gallery](doc/SCREENSHOTS.md)** for an overview of the
+Web interface. We have a **demonstration instance**, just
+[contact us](#contact) to get an access.
 
 A few
 **[blog posts](http://pierre.droids-corp.org/blog/html/tags/ivre.html)**
@@ -86,9 +87,8 @@ For both support and contribution, the
 [repository](https://github.com/cea-sec/ivre) on Github should be
 used: feel free to create a new issue or a pull request!
 
-You can also try to use the e-mail `ivre` on the domain
-`droids-corp.org`, or to join the IRC chan
-[#ivre](irc://irc.freenode.net/%23ivre) on
+You can also try to use the e-mail `ivre` on the domain `iv.re`, or to
+join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
 
