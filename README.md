@@ -22,7 +22,7 @@ Taullier".
 
 # Overview #
 
-Have a look at the [project homepage](http://iv.re/), and at the
+Have a look at the [project homepage](https://iv.re/), and at the
 **[screenshot gallery](doc/SCREENSHOTS.md)** for an overview of the
 Web interface. We have a **demonstration instance**, just
 [contact us](#contact) to get an access.
