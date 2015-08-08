@@ -426,6 +426,9 @@ def main():
     parser.add_argument('--graphroute-dot', action='store_true',
                         help='Output a Graphviz "dot" file with traceroute '
                         'results.')
+    parser.add_argument('--graphroute-cluster', choices=['AS', 'Country'],
+                        help='Cluster IP according to the specified criteria'
+                        '(only for --graphroute-dot)')
     if graphroute.HAVE_DBUS:
         parser.add_argument('--graphroute-rtgraph3d', action='store_true',
                             help='Send traceroute results to rtgraph3d.')
@@ -569,7 +572,23 @@ def main():
                 include_target=args.graphroute_include_target,
             )
             if args.graphroute_dot:
-                graphroute.writedotgraph(graph, sys.stdout)
+                cluster = None
+                if args.graphroute_cluster == "AS":
+                    def cluster(ipaddr):
+                        res = db.db.data.as_byip(ipaddr)
+                        if res is None:
+                            return
+                        return (res['as_num'],
+                                "%(as_num)d\n[%(as_name)s]" % res)
+                elif args.graphroute_cluster == "Country":
+                    def cluster(ipaddr):
+                        res = db.db.data.country_byip(ipaddr)
+                        if res is None:
+                            return
+                        return (res['country_code'],
+                                "%(country_code)s - %(country_name)s" % res)
+                graphroute.writedotgraph(graph, sys.stdout,
+                                         cluster=cluster)
             elif graphroute.HAVE_DBUS and args.graphroute_rtgraph3d:
                 g = graphroute.display3dgraph(
                     graph,

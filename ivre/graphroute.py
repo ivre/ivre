@@ -70,26 +70,50 @@ def buildgraph(cursor, include_last_hop=False, include_target=False,
     return graph, entry_nodes
 
 
-def writedotgraph(graph, out):
+def writedotgraph(graph, out, cluster=None):
     """From a graph produced by buildgraph(), produces an output in
     the (Graphiz) Dot format.
+
+    `cluster`, if provided, should be a function receiving an IP
+    address (as an integer) and returning either a cluster the address
+    belongs to or None if the address do not belong to a cluster. The
+    `cluster` returned may be either a string or a tuple of two
+    strings (label, name).
 
     """
     out.write('digraph traceroute {\n')
     nodes = set()
     edges = set()
+    if cluster is None:
+        def _add_node(node):
+            if node not in nodes:
+                nodes.add(node)
+                out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+    else:
+        clusters = {}
+        def _add_node(node):
+            if node not in nodes:
+                nodes.add(node)
+                clusters.setdefault(cluster(node), set()).update([node])
     for node, node_edges in graph.iteritems():
-        if node not in nodes:
-            out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
-            nodes.add(node)
+        _add_node(node)
         for destnode in node_edges:
-            if destnode not in nodes:
-                out.write('\t%d [label="%s"];\n' % (destnode,
-                                                    utils.int2ip(destnode)))
-                nodes.add(destnode)
+            _add_node(destnode)
             if (node, destnode) not in edges:
                 out.write("\t%d -> %d;\n" % (node, destnode))
                 edges.add((node, destnode))
+    if cluster is not None:
+        if None in clusters:
+            for node in clusters.pop(None):
+                out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+        for clu, nodes in clusters.iteritems():
+            if isinstance(clu, basestring):
+                clu = (clu, clu)
+            out.write('\tsubgraph cluster_%s {\n' % clu[0])
+            out.write('\t\tlabel = "%s";\n' % clu[1])
+            for node in nodes:
+                out.write('\t\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+            out.write('\t}\n')
     out.write('}\n')
 
 if HAVE_DBUS:
