@@ -35,10 +35,16 @@ except ImportError:
     HAVE_DBUS = False
 
 
-def buildgraph(cursor, include_last_hop=False, include_target=False):
-    """Builds a graph (a dict object, {node: [dest nodes]}) from by
-    getting host documents from the database cursor (first argument),
-    including (or not) the last hop and the target (for each host).
+def buildgraph(cursor, include_last_hop=False, include_target=False,
+               only_connected=True):
+    """Builds a graph (a dict object, {node: [dest nodes]}) by getting
+    host documents from the database `cursor`, including (or not) the
+    last hop and the target (for each host).
+
+    If `only_connected` is True (which is the default) edges are only
+    considered between two consecutive hops. If it is False, edges
+    will be added between hops 1 and 3, for example, if hop 2 is not
+    present.
 
     """
     graph = {}
@@ -49,19 +55,18 @@ def buildgraph(cursor, include_last_hop=False, include_target=False):
         for trace in host['traces']:
             hops = trace['hops']
             hops.sort(key=lambda hop: hop['ttl'])
-            if hops == []:
+            if not hops:
                 continue
             entry_nodes.add(hops[0]['ipaddr'])
             if not include_last_hop and not include_target:
-                hops = hops[:-1]
+                if hops[-1]['ipaddr'] == host['addr']:
+                    hops.pop()
+                if not include_last_hop:
+                    hops.pop()
             for i, hop in enumerate(hops[1:]):
-                edges = graph.get(hops[i]['ipaddr'], set())
-                edges.add(hop['ipaddr'])
-                graph[hops[i]['ipaddr']] = edges
-            if include_target:
-                edges = graph.get(hops[-1]['ipaddr'], set())
-                edges.add(host['addr'])
-                graph[hops[-1]['ipaddr']] = edges
+                if (not only_connected) or (hop['ttl'] - hops[i]['ttl'] == 1):
+                    graph.setdefault(hops[i]['ipaddr'],
+                                     set()).update([hop['ipaddr']])
     return graph, entry_nodes
 
 
