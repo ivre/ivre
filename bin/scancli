@@ -569,8 +569,7 @@ def main():
                 include_target=args.graphroute_include_target,
             )
             if args.graphroute_dot:
-                from sys import stdout
-                graphroute.writedotgraph(graph, stdout)
+                graphroute.writedotgraph(graph, sys.stdout)
             elif graphroute.HAVE_DBUS and args.graphroute_rtgraph3d:
                 g = graphroute.display3dgraph(
                     graph,
