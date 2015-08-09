@@ -423,20 +423,24 @@ def main():
                         help='Output results as a honeyd config file.')
     parser.add_argument('--nmap-xml', action='store_true',
                         help='Output results as a nmap XML output file.')
-    parser.add_argument('--graphroute-dot', action='store_true',
-                        help='Output a Graphviz "dot" file with traceroute '
-                        'results.')
+    parser.add_argument(
+        '--graphroute',
+        choices=["dot", "rtgraph3d"] if graphroute.HAVE_DBUS else ["dot"],
+        help='Create a graph from traceroute results. '
+        'dot: output result as Graphviz "dot" format to stdout.'
+        '%s' % (" rtgraph3d: send results to rtgraph3d."
+                if graphroute.HAVE_DBUS else "")
+    )
+    parser.add_argument('--graphroute-cluster', choices=['AS', 'Country'],
+                        help='Cluster IP according to the specified criteria'
+                        '(only for --graphroute dot)')
     if graphroute.HAVE_DBUS:
-        parser.add_argument('--graphroute-rtgraph3d', action='store_true',
-                            help='Send traceroute results to rtgraph3d.')
         parser.add_argument('--graphroute-dont-reset', action='store_true',
                             help='Do NOT reset graph (only for '
-                                 '--graphroute-rtgraph3d)')
-    parser.add_argument('--graphroute-include-last-hop', action='store_true',
-                        help='Include the last hop to graphroute output.')
-    parser.add_argument('--graphroute-include-target', action='store_true',
-                        help='Include the target to graphroute output '
-                             '(implies --include-last-hop).')
+                                 '--graphroute rtgraph3d)')
+    parser.add_argument('--graphroute-include', choices=['last-hop', 'target'],
+                        help='How far should graphroute go? Default if to '
+                        'exclude the last hop and the target for each result.')
     parser.add_argument('--count', action='store_true',
                         help='Count matched results.')
     parser.add_argument('--explain', action='store_true',
@@ -560,18 +564,32 @@ def main():
             display_xml_preamble(out)
             for h in x:
                 display_xml_host(h, out=out, archive=args.archives)
-    elif args.graphroute_dot or (graphroute.HAVE_DBUS and
-                                 args.graphroute_rtgraph3d):
+    elif args.graphroute is not None:
         def displayfunction(cursor):
             graph, entry_nodes = graphroute.buildgraph(
                 cursor,
-                include_last_hop=args.graphroute_include_last_hop,
-                include_target=args.graphroute_include_target,
+                include_last_hop=args.graphroute_include == "last-hop",
+                include_target=args.graphroute_include == "target",
             )
-            if args.graphroute_dot:
-                from sys import stdout
-                graphroute.writedotgraph(graph, stdout)
-            elif graphroute.HAVE_DBUS and args.graphroute_rtgraph3d:
+            if args.graphroute == "dot":
+                cluster = None
+                if args.graphroute_cluster == "AS":
+                    def cluster(ipaddr):
+                        res = db.db.data.as_byip(ipaddr)
+                        if res is None:
+                            return
+                        return (res['as_num'],
+                                "%(as_num)d\n[%(as_name)s]" % res)
+                elif args.graphroute_cluster == "Country":
+                    def cluster(ipaddr):
+                        res = db.db.data.country_byip(ipaddr)
+                        if res is None:
+                            return
+                        return (res['country_code'],
+                                "%(country_code)s - %(country_name)s" % res)
+                graphroute.writedotgraph(graph, sys.stdout,
+                                         cluster=cluster)
+            elif args.graphroute == "rtgraph3d":
                 g = graphroute.display3dgraph(
                     graph,
                     reset_world=not args.graphroute_dont_reset
