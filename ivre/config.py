@@ -17,11 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This sub-module handles configuration values.
+"""This sub-module handles configuration values.
 
 It contains the (hard-coded) default values, which can be overwritten
-by ~/.ivre.conf, /usr/local/etc/ivre.conf and/or /etc/ivre.conf.
+by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
+/usr/local/etc/ivre.conf, /etc/ivre/ivre.conf and/or
+/etc/ivre.conf.
 
 """
 
@@ -104,7 +105,8 @@ def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""
     if paths is None:
         paths = [os.path.join(path, 'ivre.conf')
-                 for path in ['/etc', '/usr/local/etc']]
+                 for path in ['/etc', '/etc/ivre', '/usr/local/etc',
+                              '/usr/local/etc/ivre']]
         paths.append(os.path.join(os.path.expanduser('~'), '.ivre.conf'))
     for path in paths:
         if os.path.isfile(path):
