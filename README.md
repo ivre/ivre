@@ -22,7 +22,7 @@ Taullier".
 
 # Overview #
 
-Have a look at the [project homepage](https://iv.re/), and at the
+Have a look at the [project homepage](https://ivre.rocks/), and at the
 **[screenshot gallery](doc/SCREENSHOTS.md)** for an overview of the
 Web interface. We have a **demonstration instance**, just
 [contact us](#contact) to get an access.
@@ -87,7 +87,7 @@ For both support and contribution, the
 [repository](https://github.com/cea-sec/ivre) on Github should be
 used: feel free to create a new issue or a pull request!
 
-You can also try to use the e-mail `ivre` on the domain `iv.re`, or to
+You can also try to use the e-mail `ivre` on the domain `ivre.rocks`, or to
 join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
