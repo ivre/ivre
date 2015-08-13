@@ -87,8 +87,8 @@ For both support and contribution, the
 [repository](https://github.com/cea-sec/ivre) on Github should be
 used: feel free to create a new issue or a pull request!
 
-You can also try to use the e-mail `ivre` on the domain `ivre.rocks`, or to
-join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
+You can also try to use the e-mail `dev` on the domain `ivre.rocks`,
+or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
 
