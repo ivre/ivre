@@ -34,7 +34,7 @@ import os
 import re
 import json
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -48,9 +48,79 @@ ALIASES_TABLE_ELEMS = {
     "smb-ls": "ls",
 }
 
+def add_ls_data(script):
+    """This function calls the appropriate `add_*_data()` function to
+    convert output from scripts that do not include a structured
+    output to a structured output similar to the one provided by the
+    "ls" NSE module.
+
+    See https://nmap.org/nsedoc/lib/ls.html
+
+    """
+    def notimplemented(_):
+        raise NotImplementedError
+    return {
+        "smb-ls": add_smb_ls_data,
+    }.get(script['id'], notimplemented)(script)
+
+def add_smb_ls_data(script):
+    """This function converts output from smb-ls that do not include a
+    structured output to a structured output similar to the one
+    provided by the "ls" NSE module.
+
+    This function is not perfect but should do the job in most
+    cases.
+
+    """
+    assert(script["id"] == "smb-ls")
+    result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
+    state = 0 # outside a volume
+    cur_vol = None
+    for line in script["output"].splitlines():
+        line = line.lstrip()
+        if state == 0: # outside a volume
+            if line.startswith('Directory of '):
+                if cur_vol is not None:
+                    sys.stderr.write(
+                        "WARNING: cur_vol should be None here [got %r] "
+                        "[fname=%s]\n" % cur_vol
+                    )
+                cur_vol = {"volume": line[13:], "files": []}
+                state = 1 # listing
+            elif line:
+                sys.stderr.write(
+                    "WARNING: unexpected line [%r] outside a volume"
+                    "\n" % line
+                )
+        elif state == 1: # listing
+            if line == "Total Files Listed:":
+                state = 2 # total values
+            elif line:
+                date, time, size, fname = line.split(None, 3)
+                if size.isdigit():
+                    size = int(size)
+                    result["total"]["bytes"] += size
+                cur_vol["files"].append({"size": size, "filename": fname,
+                                         'time': "%s %s" % (date, time)})
+                result["total"]["files"] += 1
+        elif state == 2: # total values
+            if line:
+                # we do not use this data
+                pass
+            else:
+                state = 0 # outside a volume
+                result["volumes"].append(cur_vol)
+                cur_vol = None
+    if state != 0:
+        sys.stderr.write(
+            "WARNING: expected state == 0, got %r\n" % state
+        )
+    return result if result["volumes"] else None
+
 ADD_TABLE_ELEMS = {
     'modbus-discover':
     re.compile('^ *DEVICE IDENTIFICATION: *(?P<deviceid>.*?) *$', re.M),
+    'ls': add_ls_data,
 }
 
 def change_smb_enum_shares(table):
@@ -70,8 +140,24 @@ def change_smb_enum_shares(table):
         result["shares"].append(value)
     return result
 
+def change_ls(table):
+    """Adapt structured data from "ls" NSE module to convert some
+    fields to integers.
+
+    """
+    if 'total' in table:
+        for field in ['files', 'bytes']:
+            if field in table['total'] and table['total'][field].isdigit():
+                table['total'][field] = int(table['total'][field])
+    for volume in table.get('volumes', []):
+        for fileentry in volume.get('files', []):
+            if 'size' in fileentry and fileentry['size'].isdigit():
+                fileentry['size'] = int(fileentry['size'])
+    return table
+
 CHANGE_TABLE_ELEMS = {
     'smb-enum-shares': change_smb_enum_shares,
+    'ls': change_ls,
 }
 
 IGNORE_SCRIPTS = {
@@ -547,7 +633,7 @@ class NmapHandler(ContentHandler):
                                      "empty, got [%r]\n" % self._curtablepath)
                 self._curtable = {}
                 return
-            infokey = self._curscript.get('id', 'infos')
+            infokey = self._curscript.get('id', None)
             infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
             if self._curtable:
                 if self._curtablepath:
@@ -557,7 +643,7 @@ class NmapHandler(ContentHandler):
                     self._curtable = CHANGE_TABLE_ELEMS[infokey](self._curtable)
                 self._curscript[infokey] = self._curtable
                 self._curtable = {}
-            elif infokey != 'infos' and infokey in ADD_TABLE_ELEMS:
+            elif infokey in ADD_TABLE_ELEMS:
                 infos = ADD_TABLE_ELEMS[infokey]
                 if isinstance(infos, utils.REGEXP_T):
                     infos = infos.search(self._curscript.get('output', ''))

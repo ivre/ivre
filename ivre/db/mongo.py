@@ -480,6 +480,7 @@ class MongoDBNmap(MongoDB, DBNmap):
             self.colname_hosts: {
                 None: (1, self.migrate_schema_hosts_0_1),
                 1: (2, self.migrate_schema_hosts_1_2),
+                2: (3, self.migrate_schema_hosts_2_3),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -557,6 +558,37 @@ creates the default indexes."""
                         del port[key]
         if update_ports:
             update["$set"]["ports"] = doc["ports"]
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_2_3(doc):
+        """Converts a record from version 2 to version 3. Version 3
+        uses new Nmap structured data for scripts using the ls
+        library.
+
+        """
+        assert(doc["schema_version"] == 2)
+        update = {"$set": {"schema_version": 3}}
+        updated_ports = False
+        updated_scripts = False
+        migrate_scripts = set(["afp-ls", "nfs-ls", "smb-ls"])
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    data = xmlnmap.add_ls_data(script)
+                    if data is not None:
+                        script['ls'] = data
+                        updated_ports = True
+        for script in doc.get('scripts', []):
+            if script['id'] in migrate_scripts:
+                data = xmlnmap.add_ls_data(script)
+                if data is not None:
+                    script['ls'] = data
+                    updated_scripts = True
+        if updated_ports:
+            update["$set"]["ports"] = doc['ports']
+        if updated_scripts:
+            update["$set"]["scripts"] = doc['scripts']
         return update
 
     def get(self, flt, archive=False, **kargs):
