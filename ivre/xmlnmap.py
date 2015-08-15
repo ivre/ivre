@@ -57,10 +57,14 @@ def add_ls_data(script):
     See https://nmap.org/nsedoc/lib/ls.html
 
     """
-    def notimplemented(_):
+    def notimplemented(script):
+        sys.stderr.write(
+            "WARNING: migration not implemented for script %(id)r\n" % script
+        )
         raise NotImplementedError
     return {
         "smb-ls": add_smb_ls_data,
+        "nfs-ls": add_nfs_ls_data,
     }.get(script['id'], notimplemented)(script)
 
 def add_smb_ls_data(script):
@@ -111,6 +115,63 @@ def add_smb_ls_data(script):
                 state = 0 # outside a volume
                 result["volumes"].append(cur_vol)
                 cur_vol = None
+    if state != 0:
+        sys.stderr.write(
+            "WARNING: expected state == 0, got %r\n" % state
+        )
+    return result if result["volumes"] else None
+
+def add_nfs_ls_data(script):
+    """This function converts output from nfs-ls that do not include a
+    structured output to a structured output similar to the one
+    provided by the "ls" NSE module.
+
+    This function is not perfect but should do the job in most
+    cases.
+
+    """
+    assert(script["id"] == "nfs-ls")
+    result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
+    state = 0 # outside a volume
+    cur_vol = None
+    for line in script["output"].splitlines():
+        line = line.lstrip()
+        if state == 0: # outside a volume
+            if line.startswith('NFS Export: '):
+                if cur_vol is not None:
+                    sys.stderr.write(
+                        "WARNING: cur_vol should be None here [got %r] "
+                        "[fname=%s]\n" % cur_vol
+                    )
+                cur_vol = {"volume": line[12:], "files": []}
+                state = 1 # volume info
+            # We silently discard any other lines
+        elif state == 1: # volume info
+            if line.startswith('NFS '):
+                cur_vol.setdefault('info', []).append(
+                    line[4].lower() + line[5:])
+            elif line.startswith('PERMISSION'):
+                state = 2 # listing
+            # We silently discard any other lines
+        elif state == 2: # listing
+            if line:
+                permission, uid, gid, size, time, fname = line.split(None, 5)
+                if size.isdigit():
+                    size = int(size)
+                    result["total"]["bytes"] += size
+                cur_vol["files"].append({"permission": permission,
+                                         "uid": uid, "gid": gid,
+                                         "size": size, "time": time,
+                                         "filename": fname})
+                result["total"]["files"] += 1
+            else:
+                state = 0 # outsize a volume
+                result["volumes"].append(cur_vol)
+                cur_vol = None
+    if state == 2:
+        state = 0 # outsize a volume
+        result["volumes"].append(cur_vol)
+        cur_vol = None
     if state != 0:
         sys.stderr.write(
             "WARNING: expected state == 0, got %r\n" % state

@@ -25,6 +25,7 @@ databases.
 from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
 from ivre import utils, xmlnmap, config
 
+import sys
 import pymongo
 import bson
 import json
@@ -180,15 +181,23 @@ class MongoDB(DB):
         from `version`.
 
         """
+        failed = 0
         while version in self.schema_migrations[colname]:
             new_version, migration_function = self.schema_migrations[
                 colname][version]
             for record in self.set_limits(self.find(
                     colname, self.searchversion(version))):
-                update = migration_function(record)
-                if update is not None:
-                    self.db[colname].update({"_id": record["_id"]}, update)
+                try:
+                    update = migration_function(record)
+                except:
+                    failed += 1
+                else:
+                    if update is not None:
+                        self.db[colname].update({"_id": record["_id"]}, update)
             version = new_version
+        if failed:
+            sys.stderr.write("WARNING: failed to migrate %d documents"
+                             "\n" % failed)
 
     def cmp_schema_version(self, colname, document):
         """Returns 0 if the `document`'s schema version matches the
@@ -871,8 +880,10 @@ have no effect if it is not expected)."""
         """
         if self.find_one(self.colname_hosts, {"_id": host['_id']}) is None:
             if config.DEBUG:
-                print("WARNING: cannot archive: host %s does not exist"
-                      " in %r" % (host['_id'], self.colname_hosts))
+                sys.stderr.write(
+                    "WARNING: cannot archive: host %s does not exist"
+                    " in %r\n" % (host['_id'], self.colname_hosts)
+                )
         # store the host in the archive hosts collection
         self.db[self.colname_oldhosts].insert(host)
         if config.DEBUG:
