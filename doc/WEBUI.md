@@ -61,6 +61,8 @@ displayed in the rightmost part of the screen.
     - `script`, `portscript` (like `script`), `hostscript`
     - `script:[scriptname]`, `portscript:[scriptname]` (like `script:`),
       `hostscript:[scriptname]`
+    - `file` (or `file.filename`), `file.time`, `file.size`,
+      `file.uid`, `file.gid`, `file.permission`
     - `smb.os`, `smb.lanmanager`, `smb.domain`, `smb.dnsdomain`,
       `smb.forest`, `smb.workgroup`
     - `cert.issuer`, `cert.subject`

@@ -38,6 +38,7 @@ The third part allows to explore the results by generating graphs displayed in t
     * ''%%devicetype%%'', ''%%devicetype:[port]%%''
     * ''%%script%%'', ''%%portscript%%'' (like ''%%script%%''), ''%%hostscript%%''
     * ''%%script:[scriptname]%%'', ''%%portscript:[scriptname]%%'' (like ''%%script:%%''),  ''%%hostscript:[scriptname]%%''
+    * ''%%file%%'' (or ''%%file.filename%%''), ''%%file.time%%'', ''%%file.size%%'',  ''%%file.uid%%'', ''%%file.gid%%'', ''%%file.permission%%''
     * ''%%smb.os%%'', ''%%smb.lanmanager%%'', ''%%smb.domain%%'', ''%%smb.dnsdomain%%'',  ''%%smb.forest%%'', ''%%smb.workgroup%%''
     * ''%%cert.issuer%%'', ''%%cert.subject%%''
     * ''%%modbus.deviceid%%'', ''%%enip.vendor%%'', ''%%enip.product%%'', ''%%enip.serial%%'',  ''%%enip.devtype%%'', ''%%enip.prodcode%%'', ''%%enip.rev%%'', ''%%enip.ip%%''

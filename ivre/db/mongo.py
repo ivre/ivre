@@ -402,6 +402,9 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.ssh-hostkey", "scripts",
                   "ports.screenwords",
                   "scripts.smb-enum-shares.shares",
+                  "ports.scripts.ls.volumes",
+                  "ports.scripts.ls.volumes.files",
+                  "scripts.ls.volumes", "scripts.ls.volumes.files",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
@@ -1701,6 +1704,7 @@ have no effect if it is not expected)."""
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - screenwords
+          - file.*
           - hop
         """
         colname = self.colname_oldhosts if archive else self.colname_hosts
@@ -2105,6 +2109,12 @@ have no effect if it is not expected)."""
                 "ip": "Device IP",
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
+        elif field == 'file' or field.startswith('file.'):
+            # This will not work for nfs-ls when run as a host script
+            # or for smb-ls, until we mix host scripts and port
+            # scripts (next document version)
+            field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
+                                                           or 'filename')
         elif field == 'screenwords':
             field = 'ports.screenwords'
             flt = self.flt_and(flt, self.searchscreenshot(words=True))

@@ -411,6 +411,7 @@ var HELP_TOPVALUES = {
     callbacks: [],
     aliases: {
 	"cpe": "cpe.version",
+	"file": "file.filename",
     },
     content: {
 	"cpe.type": {
@@ -456,6 +457,30 @@ var HELP_TOPVALUES = {
 	"domains": {
 	    "title": "<b>(!)</b>domains<b>(:[level])</b>:",
 	    "content": "DNS domains (optionally limited to the specified level).",
+	},
+	"file.filename": {
+	    "title": "<b>(!)</b>file or <b>(!)</b>file.filename",
+	    "content": "Filenames from shared folders (AFP, SMB, NFS)."
+	},
+	"file.time": {
+	    "title": "<b>(!)</b>file.time",
+	    "content": "Timestamps from shared folders (AFP, SMB, NFS)."
+	},
+	"file.size": {
+	    "title": "<b>(!)</b>file.size",
+	    "content": "File sizes from shared folders (AFP, SMB, NFS)."
+	},
+	"file.uid": {
+	    "title": "<b>(!)</b>file.uid",
+	    "content": "File owners UID from shared folders (AFP, SMB, NFS)."
+	},
+	"file.gid": {
+	    "title": "<b>(!)</b>file.gid",
+	    "content": "File owners GID from shared folders (AFP, SMB, NFS)."
+	},
+	"file.permission": {
+	    "title": "<b>(!)</b>file.permission",
+	    "content": "File permissions from shared folders (AFP, SMB, NFS)."
 	},
 	"portlist:open": {
 	    "content": "portlist:open",
