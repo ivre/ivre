@@ -589,14 +589,14 @@ creates the default indexes."""
         update = {"$set": {"schema_version": 3}}
         updated_ports = False
         updated_scripts = False
-        migrate_scripts = set(["afp-ls", "nfs-ls", "smb-ls"])
+        migrate_scripts = set(["afp-ls", "nfs-ls", "smb-ls", "ftp-anon"])
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
                 if script['id'] in migrate_scripts:
                     if script['id'] in script:
                         script["ls"] = xmlnmap.change_ls(
                             script.pop(script['id']))
-                    else:
+                    elif "ls" not in script:
                         data = xmlnmap.add_ls_data(script)
                         if data is not None:
                             script['ls'] = data
@@ -1348,7 +1348,7 @@ have no effect if it is not expected)."""
             'scripts': {'$elemMatch': args}
         }
 
-    def searchfilels(self, fname, scripts=None):
+    def searchfile(self, fname, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp), only from scripts using the "ls" NSE module.
 
@@ -1372,44 +1372,6 @@ have no effect if it is not expected)."""
                 "ls.volumes.files.filename": fname}}}
             for key, ids in keys.iteritems()
         ]
-        return result[0] if len(result) == 1 else {"$or": result}
-
-    def searchfile(self, fname, scripts=None):
-        """Search shared files from a file name (either a string or a
-        regexp).
-
-        """
-        if scripts is None:
-            return self.flt_or(
-                self.searchscript(
-                    name={'$in': ['ftp-anon', 'gopher-ls',
-                                  'http-vlcstreamer-ls']},
-                    output=(fname if type(fname) is utils.REGEXP_T else
-                            re.compile(re.escape(fname)))),
-                *self.searchfilels(fname)["$or"]
-            )
-        if isinstance(scripts, str) or isinstance(scripts, unicode):
-            scripts = [scripts]
-        # separate scripts depending on whether they use the "ls"
-        # module for their output or not
-        scripts_ls, scripts_nols = set(), set()
-        for script in scripts:
-            if script in self.ls_scripts:
-                scripts_ls.add(script)
-            else:
-                scripts_nols.add(script)
-        if scripts_ls:
-            result = self.searchfilels(fname, scripts=scripts_ls)
-            result = result.get("$or", [result])
-        else:
-            result = []
-        if scripts_nols:
-            result.append(self.searchscript(
-                name=({'$in': scripts_nols if len(scripts_nols) > 1
-                       else scripts_nols.pop()}),
-                output=(fname if type(fname) is utils.REGEXP_T else
-                        re.compile(re.escape(fname)))
-            ))
         return result[0] if len(result) == 1 else {"$or": result}
 
     def searchsmbshares(self, access='', hidden=None):
@@ -2112,7 +2074,7 @@ have no effect if it is not expected)."""
         elif field == 'file' or field.startswith('file.'):
             # This will not work for nfs-ls when run as a host script
             # or for smb-ls, until we mix host scripts and port
-            # scripts (next document version)
+            # scripts (next document version I hope)
             field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
                                                            or 'filename')
         elif field == 'screenwords':

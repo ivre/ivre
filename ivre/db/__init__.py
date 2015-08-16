@@ -239,7 +239,7 @@ class DBNmap(DB):
     content_handler = xmlnmap.Nmap2Txt
     ls_scripts = {
         "afp-ls": ["ports.scripts"],
-        #"ftp-anon": ["ports.scripts"],
+        "ftp-anon": ["ports.scripts"],
         "http-ls": ["ports.scripts"],
         "nfs-ls": ["ports.scripts", "scripts"],
         "smb-ls": ["scripts"],

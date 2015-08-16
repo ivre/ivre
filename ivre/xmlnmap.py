@@ -46,6 +46,7 @@ ALIASES_TABLE_ELEMS = {
     "http-ls": "ls",
     "nfs-ls": "ls",
     "smb-ls": "ls",
+    "ftp-anon": "ls",
 }
 
 def add_ls_data(script):
@@ -66,6 +67,7 @@ def add_ls_data(script):
         "smb-ls": add_smb_ls_data,
         "nfs-ls": add_nfs_ls_data,
         "afp-ls": add_afp_ls_data,
+        "ftp-anon": add_ftp_anon_data,
     }.get(script['id'], notimplemented)(script)
 
 def add_smb_ls_data(script):
@@ -228,6 +230,68 @@ def add_afp_ls_data(script):
                 sys.stderr.write("WARNING: skip not understood line "
                                  "[%r]\n" % line)
     return result if result["volumes"] else None
+
+def add_ftp_anon_data(script):
+    """This function converts output from ftp-anon that do not include a
+    structured output to a structured output similar to the one
+    provided by the "ls" NSE module.
+
+    This function is not perfect but should do the job in most
+    cases.
+
+    Unlike the other add_*_data() functions related to the "ls" NSE
+    module, the ftp-anon is still not using the "ls" NSE module and
+    does not provide structured output. This is because the output of
+    the LIST FTP command is not standardized and is meant to be read
+    by humans.
+
+    """
+    # expressions that match lines, based on large data collection
+    subexprs = {
+        "user": '(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|'
+        '\\*|\\(\\?\\))',
+        "fname": '[A-Za-z0-9%s]+' % re.escape(" ?._@[](){}~#'&$%!+\\-/,|`="),
+        "perm": '[a-zA-Z\\?-]{10}',
+        "day": '[0-3]?[0-9]',
+        "year": "[0-9]{2,4}",
+        "month": "(?:[0-1]?[0-9]|[A-Z][a-z]{2}|[A-Z]{3})",
+        "time": "[0-9]{1,2}\\:[0-9]{2}(?:\\:[0-9]{1,2})?",
+        "windate": "[0-9]{2}-[0-9]{2}-[0-9]{2,4} +[0-9]{2}:[0-9]{2}(?:[AP]M)?",
+        "vxworksdate": "[A-Z][a-z]{2}-[0-9]{2}-[0-9]{2,4}\\s+"
+        "[0-9]{2}:[0-9]{2}:[0-9]{2}",
+    }
+    subexprs["date"] = "(?:%s)" % "|".join([
+        "%(month)s\\s+%(day)s\\s+(?:%(year)s|%(time)s)" % subexprs,
+        "%(day)s\\.\\s+%(month)s\\s+%(time)s" % subexprs,
+    ])
+    subexprs["fname"] = "%(fname)s(?:\\ \\-\\>\\ %(fname)s)?" % subexprs
+    exprs = re.compile("^(?:" + "|".join([
+        # unix
+        "(?P<unix_permission>%(perm)s)\\s+(?:[0-9]+\\s+)?"
+        "(?P<unix_uid>%(user)s)\\s+(?P<unix_gid>%(user)s)\\s+"
+        "(?P<unix_size>[0-9]+)\\s+(?P<unix_time>%(date)s)\\s+"
+        "(?P<unix_filename>%(fname)s)" % subexprs,
+        # windows
+        "(?P<win_time>%(windate)s)\\s+(?P<win_size>\\<DIR\\>|[0-9]+)\\s+"
+        "(?P<win_filename>%(fname)s)" % subexprs,
+        # vxworks
+        "\\s+(?P<vxw_size>[0-9]+)\\s+(?P<vxw_time>%(vxworksdate)s)\\s+"
+        "(?P<vxw_filename>%(fname)s)\\s+(?:\\<DIR\\>)?" % subexprs,
+    ]) + ")(?: \\[NSE: writeable\\])?$", re.MULTILINE)
+    result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
+    cur_vol = {"volume": "/", "files": []}
+    for fileentry in exprs.finditer(script["output"]):
+        fileentry = dict([key.split('_', 1)[1], value]
+                         for key, value in fileentry.groupdict().iteritems()
+                         if value is not None)
+        size = fileentry.get("size")
+        if size is not None and size.isdigit():
+            result["total"]["bytes"] += int(size)
+        result["total"]["files"] += 1
+        cur_vol["files"].append(fileentry)
+    if cur_vol["files"]:
+        result["volumes"].append(cur_vol)
+        return result
 
 ADD_TABLE_ELEMS = {
     'modbus-discover':
