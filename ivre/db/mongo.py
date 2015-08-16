@@ -189,7 +189,13 @@ class MongoDB(DB):
                     colname, self.searchversion(version))):
                 try:
                     update = migration_function(record)
-                except:
+                except Exception as exc:
+                    if config.DEBUG:
+                        sys.stderr.write(
+                            "WARNING: cannot migrate host %s [%s: %s]\n" % (
+                                record['_id'], exc.__class__.__name__,
+                                exc.message)
+                        )
                     failed += 1
                 else:
                     if update is not None:
@@ -584,10 +590,14 @@ creates the default indexes."""
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
                 if script['id'] in migrate_scripts:
-                    data = xmlnmap.add_ls_data(script)
-                    if data is not None:
-                        script['ls'] = data
-                        updated_ports = True
+                    if script['id'] in script:
+                        script["ls"] = xmlnmap.change_ls(
+                            script.pop(script['id']))
+                    else:
+                        data = xmlnmap.add_ls_data(script)
+                        if data is not None:
+                            script['ls'] = data
+                            updated_ports = True
         for script in doc.get('scripts', []):
             if script['id'] in migrate_scripts:
                 data = xmlnmap.add_ls_data(script)

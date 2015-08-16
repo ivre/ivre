@@ -65,6 +65,7 @@ def add_ls_data(script):
     return {
         "smb-ls": add_smb_ls_data,
         "nfs-ls": add_nfs_ls_data,
+        "afp-ls": add_afp_ls_data,
     }.get(script['id'], notimplemented)(script)
 
 def add_smb_ls_data(script):
@@ -176,6 +177,56 @@ def add_nfs_ls_data(script):
         sys.stderr.write(
             "WARNING: expected state == 0, got %r\n" % state
         )
+    return result if result["volumes"] else None
+
+def add_afp_ls_data(script):
+    """This function converts output from afp-ls that do not include a
+    structured output to a structured output similar to the one
+    provided by the "ls" NSE module.
+
+    This function is not perfect but should do the job in most
+    cases.
+
+    """
+    assert(script["id"] == "afp-ls")
+    result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
+    state = 0 # volumes / listings
+    cur_vol = None
+    for line in script["output"].splitlines():
+        if state == 0:
+            if line.startswith('    PERMISSION'):
+                pass
+            elif line.startswith('    '):
+                if cur_vol is None:
+                    sys.stderr.write("WARNING: skip file entry outside a "
+                                     "volume [%r]\n" % line[4:])
+                else:
+                    (permission, uid, gid, size, date, time,
+                     fname) = line[4:].split(None, 6)
+                    if size.isdigit():
+                        size = int(size)
+                        result["total"]["bytes"] += size
+                    cur_vol["files"].append({"permission": permission,
+                                             "uid": uid, "gid": gid,
+                                             "size": size, "filename": fname,
+                                             'time': "%s %s" % (date, time)})
+                    result["total"]["files"] += 1
+            elif line.startswith("  ERROR: "):
+                # skip error messages, same as when running without
+                # setting ls.errors=true
+                pass
+            elif line == "  ":
+                state = 1 # end of volumes
+            elif line.startswith("  "):
+                result["volumes"].append(cur_vol)
+                cur_vol = {"volume": line[2:], "files": []}
+        elif state == 1:
+            if line.startswith("  "):
+                result.setdefault("info", []).append(line[3].lower()
+                                                     + line[4:])
+            else:
+                sys.stderr.write("WARNING: skip not understood line "
+                                 "[%r]\n" % line)
     return result if result["volumes"] else None
 
 ADD_TABLE_ELEMS = {
