@@ -1280,11 +1280,10 @@ have no effect if it is not expected)."""
         return {'ports': {'$elemMatch': flt}}
 
     @staticmethod
-    def searchscript(host=False, name=None, output=None, values=None):
+    def searchscript(name=None, output=None, values=None):
         """Search a particular content in the scripts results.
 
         """
-        key = "scripts" if host else "ports.scripts"
         req = {}
         if name is not None:
             req['id'] = name
@@ -1295,13 +1294,14 @@ have no effect if it is not expected)."""
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             for field, value in values.iteritems():
-                req["%s.%s" % (name, field)] = value
+                req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
+                               field)] = value
         if not req:
-            return {key: {"$exists": True}}
+            return {"ports.scripts": {"$exists": True}}
         if len(req) == 1:
             field, value = req.items()[0]
-            return {"%s.%s" % (key, field): value}
-        return {key: {"$elemMatch": req}}
+            return {"ports.scripts.%s" % field: value}
+        return {"ports.scripts": {"$elemMatch": req}}
 
     @staticmethod
     def searchsvchostname(srv):
@@ -1401,7 +1401,7 @@ have no effect if it is not expected)."""
                 'Type': share_type,
                 'Share': {'$ne': 'IPC$'},
             }}},
-            host=True)
+        )
 
     def searchhttptitle(self, title):
         return self.searchscript(

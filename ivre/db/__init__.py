@@ -624,7 +624,7 @@ class DBNmap(DB):
         raise NotImplementedError
 
     @staticmethod
-    def searchscript(host=False, name=None, output=None, values=None):
+    def searchscript(name=None, output=None, values=None):
         raise NotImplementedError
 
     @staticmethod
