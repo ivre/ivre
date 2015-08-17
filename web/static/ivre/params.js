@@ -211,6 +211,7 @@ function add_param_objects(p, pp) {
     }
     else
 	b = true;
+    var aliases_ls = ['ftp-anon', 'afp-ls', 'nfs-ls', 'smb-ls', 'http-ls'];
 
     // aliases
     if (p.substr(0, 7) === "banner:")
@@ -219,9 +220,15 @@ function add_param_objects(p, pp) {
     else if (p.substr(0, 7) === "sshkey:")
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'ssh-hostkey:' + p.substr(7)]);
-    else if (p.substr(0, 5) === 'file:')
-	add_param_object(parametersobjunalias, 'script',
-			 [b, '/^(ftp-anon|afp-ls|gopher-ls|http-vlcstreamer-ls|nfs-ls|smb-ls)$/:' + p.substr(5)]);
+    else if (p.substr(0, 5) === 'file:') {
+	for (i = 0; i < aliases_ls.length; i++) {
+	    add_param_object(
+		parametersobjunalias, 'script',
+		[b, aliases_ls[i] + ':' +
+		 p.substr(5)]
+	    );
+	}
+    }
     else if (p.substr(0, 7) === 'cookie:')
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'http-headers:/Set-Cookie: ' + p.substr(7) + '=/']);
@@ -297,8 +304,11 @@ function add_param_objects(p, pp) {
 			 [b, 'ftp-anon:/^Anonymous FTP login allowed/']);
 	break;
     case 'authhttp':
-	add_param_object(parametersobjunalias, 'script',
-			 [b, '/^http-(auth|default-accounts)$/:/HTTP server may accept|credentials found/']);
+	for (i = 0; i < 2; i++) {
+	    add_param_object(parametersobjunalias, 'script',
+			     [b, ['http-auth', 'http-default-accounts'][i] +
+			      ':/HTTP server may accept|credentials found/']);
+	}
 	break;
     case 'authbypassvnc':
 	add_param_object(parametersobjunalias, 'script',
@@ -312,7 +322,9 @@ function add_param_objects(p, pp) {
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'mysql-empty-password:/account has empty password/']);
 	break;
-    // case 'x11srv': // TODO
+    case 'x11srv':
+	add_param_object(parametersobjunalias, 'service', [b, 'X11']);
+	break;
     case 'x11open':
 	add_param_object(parametersobjunalias, 'script',
 			 [b, 'x11-access:X server access is granted']);
@@ -325,8 +337,14 @@ function add_param_objects(p, pp) {
 			 [b, undefined]);
 	break;
     case 'webfiles':
-	add_param_object(parametersobjunalias, 'script',
-			 [b, '/^(ftp-anon|afp-ls|gopher-ls|http-vlcstreamer-ls|nfs-ls|smb-ls)$/:/vhost|www|web\.config|\.htaccess|\.([aj]sp|php|html?|js|css)/i']);
+	for (i = 0; i < aliases_ls.length; i++) {
+	    add_param_object(
+		parametersobjunalias, 'script',
+		[b, aliases_ls[i] +
+		 ':/vhost|www|web\.config|\.htaccess|' +
+		 '\.([aj]sp|php|html?|js|css)/i']
+	    );
+	}
 	break;
     case 'webmin':
 	add_param_object(parametersobjunalias, 'service', [b, 'Webmin']);
