@@ -183,10 +183,11 @@ class MongoDB(DB):
         """
         failed = 0
         while version in self.schema_migrations[colname]:
+            updated = False
             new_version, migration_function = self.schema_migrations[
                 colname][version]
-            for record in self.set_limits(self.find(
-                    colname, self.searchversion(version))):
+            # unlimited find()!
+            for record in self.find(colname, self.searchversion(version)):
                 try:
                     update = migration_function(record)
                 except Exception as exc:
@@ -199,7 +200,21 @@ class MongoDB(DB):
                     failed += 1
                 else:
                     if update is not None:
+                        updated = True
                         self.db[colname].update({"_id": record["_id"]}, update)
+            if updated:
+                for action, indexes in self.schema_migrations_indexes[
+                        colname].get(new_version, {}).iteritems():
+                    function = getattr(self.db[colname], "%s_index" % action)
+                    for idx in indexes:
+                        try:
+                            function(idx[0], **idx[1])
+                        except pymongo.errors.OperationFailure as exc:
+                            sys.stderr.write(
+                                "WARNING: cannot %s index %s [%s: %s]\n" % (
+                                    action, idx, exc.__class__.__name__,
+                                    exc.message)
+                            )
             version = new_version
         if failed:
             sys.stderr.write("WARNING: failed to migrate %d documents"
@@ -498,6 +513,13 @@ class MongoDBNmap(MongoDB, DBNmap):
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
+        self.schema_migrations_indexes[colname_hosts] = {
+            4: {"drop": [([('scripts.id', pymongo.ASCENDING)], {}),
+                         ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                          {}),
+                         ([('scripts.ls.volumes.files.filename',
+                            pymongo.ASCENDING)], {})]},
+        }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,
             self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,

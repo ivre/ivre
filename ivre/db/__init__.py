@@ -70,6 +70,7 @@ class DB(object):
     """
     globaldb = None
     schema_migrations = {}
+    schema_migrations_indexes = {}
     schema_latest_versions = {}
 
     # filters
