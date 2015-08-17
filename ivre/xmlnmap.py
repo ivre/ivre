@@ -286,7 +286,9 @@ def add_ftp_anon_data(script):
                          if value is not None)
         size = fileentry.get("size")
         if size is not None and size.isdigit():
-            result["total"]["bytes"] += int(size)
+            size = int(size)
+            fileentry["size"] = size
+            result["total"]["bytes"] += size
         result["total"]["files"] += 1
         cur_vol["files"].append(fileentry)
     if cur_vol["files"]:
