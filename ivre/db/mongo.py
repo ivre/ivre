@@ -1303,31 +1303,6 @@ have no effect if it is not expected)."""
             return {"%s.%s" % (key, field): value}
         return {key: {"$elemMatch": req}}
 
-    def searchscriptidout(self, name, output):
-        """DEPRECATED: use .searchscript() instead.
-
-        Search a particular content in the scripts names and
-        outputs.
-
-        """
-        return self.searchscript(name=name, output=output)
-
-    def searchscriptid(self, name):
-        """DEPRECATED: use .searchscript() instead.
-
-        Search a script name.
-
-        """
-        return self.searchscript(name=name)
-
-    def searchscriptoutput(self, expr):
-        """DEPRECATED: use .searchscript() instead.
-
-        Search a particular content in the scripts outputs.
-
-        """
-        return self.searchscript(output=expr)
-
     @staticmethod
     def searchsvchostname(srv):
         return {'ports.service_hostname': srv}
@@ -1466,18 +1441,6 @@ have no effect if it is not expected)."""
                         {'scripts.output': srv}
                     ]
                 }}}
-
-    def searchhostscript(self, txt):
-        """DEPRECATED: use .searchscript() instead."""
-        return self.searchscript(host=True, output=txt)
-
-    def searchhostscriptid(self, name):
-        """DEPRECATED: use .searchscript() instead."""
-        return self.searchscript(host=True, name=name)
-
-    def searchhostscriptidout(self, name, out):
-        """DEPRECATED: use .searchscript() instead."""
-        return self.searchscript(host=True, name=name, output=out)
 
     @staticmethod
     def searchos(txt):
