@@ -23,21 +23,21 @@
   <div class="full">
     <!-- ports w/ scripts, etc. -->
     <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
-	ng-if="script_display_mode_needed_scripts_group(port.scripts)">
+	ng-if="::port.port != 'host' && script_display_mode_needed_scripts_group(port.scripts)">
       <div port-summary=""></div>
     </dt>
     <dd ng-repeat-end
-	ng-if="script_display_mode_needed_scripts_group(port.scripts)">
+	ng-if="port.port != 'host' && script_display_mode_needed_scripts_group(port.scripts)">
       <div ng-if="::port.service_name"
 	   class="result-service"
 	   service-summary="">
       </div>
       <div ng-repeat="script in ::port.scripts"
-	   ng-class="{highlight: wanted_script('port', script.id)}"
+	   ng-class="{highlight: wanted_script(script.id)}"
 	   ng-if="script_display_mode_needed_script(script.id)">
 	{{::script.id}}
 	<pre class="result-scripts-output"
-	     ng-class="{highlight: wanted_script('port', script.id)}"
+	     ng-class="{highlight: wanted_script(script.id)}"
 	     script-output="port"/>
       </div>
     </dd>
@@ -46,11 +46,11 @@
 	ng-if="script_display_mode_needed_scripts_group(host.scripts)"
 	>Host scripts</dt>
     <dd ng-repeat="script in ::host.scripts"
-	ng-class="{highlight: wanted_script('host', script.id)}"
+	ng-class="{highlight: wanted_script(script.id)}"
 	ng-if="script_display_mode_needed_script(script.id)">
       {{::script.id}}
       <pre class="result-scripts-output"
-	   ng-class="{highlight: wanted_script('host', script.id)}"
+	   ng-class="{highlight: wanted_script(script.id)}"
 	   script-output="host"/>
     </dd>
   </div>

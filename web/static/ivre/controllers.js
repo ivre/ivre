@@ -315,11 +315,8 @@ ivreWebUi
 	$scope.wanted_hop = function(hop) {
 	    return wanted_hops.indexOf(hop) != -1;
 	};
-	$scope.wanted_script = function(type, value) {
-	    return value in {
-		"port": wanted_portscripts,
-		"host": wanted_hostscripts
-	    }[type];
+	$scope.wanted_script = function(value) {
+	    return value in wanted_scripts;
 	};
 	$scope.class_from_port_status = function(status) {
 	    switch(status) {
@@ -461,10 +458,7 @@ ivreWebUi
     })
     .directive('scriptOutput', function() {
 	return {"link": function(scope, element, attr) {
-	    var wanted = {
-		'port': wanted_portscripts,
-		'host': wanted_hostscripts
-	    }[attr.scriptOutput][scope.script.id];
+	    var wanted = wanted_scripts[scope.script.id];
 	    var output = scope.script.output
 		.split('\n')
 		.map(function(x) {return x.trim();})
@@ -472,7 +466,7 @@ ivreWebUi
 		.join('\n')
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;');
-	    if(scope.wanted_script(attr.scriptOutput, scope.script.id)) {
+	    if(scope.wanted_script(scope.script.id)) {
 		for(var i in wanted) {
 		    var expr = str2regexp(wanted[i]);
 		    output = output.replace(

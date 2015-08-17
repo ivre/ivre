@@ -183,10 +183,7 @@ function create_wanted_scripts() {
 	    }, {});
     }
 
-    wanted_portscripts = array2object(
-	getparamvalues("script", true)
-	    .concat(getparamvalues("portscript", true)));
-    wanted_hostscripts = array2object(getparamvalues("hostscript", true));
+    wanted_scripts = array2object(getparamvalues("script", true));
     wanted_hops = getparamvalues("hop")
 	.filter(function(x) {return x[0];})
 	.map(function(x) {return x[1];});

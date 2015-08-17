@@ -46,7 +46,7 @@ var parametersprotected = [];
 var parametersobj = {};
 var parametersobjunalias = {};
 var clicktimeout = null;
-var wanted_portscripts, wanted_hostscripts, wanted_hops;
+var wanted_scripts, wanted_hops;
 // the initial prev_query has to be an object and to be different than
 // any valid query
 var prev_query = {"thiswillneverexist": []};

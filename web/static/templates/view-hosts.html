@@ -41,7 +41,7 @@
   </dd>
   <!-- ports w/ scripts, etc. -->
   <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
-      ng-if="port.port !== 'host'">
+      ng-if="::port.port !== 'host'">
     <div port-summary=""></div>
   </dt>
   <dd ng-repeat-end ng-if="port.port !== 'host'">
@@ -50,10 +50,10 @@
 	 service-summary="">
     </div>
     <div ng-repeat="script in ::port.scripts"
-	 ng-class="{highlight: wanted_script('port', script.id)}">
+	 ng-class="{highlight: wanted_script(script.id)}">
       {{::script.id}}
       <pre class="result-scripts-output"
-	   ng-class="{highlight: wanted_script('port', script.id)}"
+	   ng-class="{highlight: wanted_script(script.id)}"
 	   script-output="port"/>
     </div>
   </dd>
@@ -61,10 +61,10 @@
   <dt class="result-host-scripts"
       ng-if="::host.scripts">Host scripts</dt>
   <dd ng-repeat="script in ::host.scripts"
-      ng-class="{highlight: wanted_script('host', script.id)}">
+      ng-class="{highlight: wanted_script(script.id)}">
     {{::script.id}}
     <pre class="result-scripts-output"
-	 ng-class="{highlight: wanted_script('host', script.id)}"
+	 ng-class="{highlight: wanted_script(script.id)}"
 	 script-output="host"/>
   </dd>
   <dt class="result-traceroute"
