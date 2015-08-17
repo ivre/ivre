@@ -399,12 +399,11 @@ class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
     needunwind = ["categories", "ports", "ports.scripts",
-                  "ports.scripts.ssh-hostkey", "scripts",
-                  "ports.screenwords",
-                  "scripts.smb-enum-shares.shares",
+                  "ports.scripts.ssh-hostkey",
+                  "ports.scripts.smb-enum-shares.shares",
                   "ports.scripts.ls.volumes",
                   "ports.scripts.ls.volumes.files",
-                  "scripts.ls.volumes", "scripts.ls.volumes.files",
+                  "ports.screenwords",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
@@ -438,7 +437,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 [('ports.state_state', pymongo.ASCENDING)],
                 [('ports.service_name', pymongo.ASCENDING)],
                 [('ports.scripts.id', pymongo.ASCENDING)],
-                [('scripts.id', pymongo.ASCENDING)],
                 [('infos.as_num', pymongo.ASCENDING)],
                 [
                     ('traces.hops.ipaddr', pymongo.ASCENDING),
@@ -480,10 +478,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                  {"sparse": True}),
                 ([('ports.scripts.ls.volumes.files.filename',
                    pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
                  {"sparse": True}),
             ],
             self.colname_oldhosts: [
