@@ -34,7 +34,7 @@ import os
 import re
 import json
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -849,6 +849,13 @@ class NmapHandler(ContentHandler):
                 # stop recording characters
                 self._curdata = None
             self._curtablepath.pop()
+        elif name == 'hostscript':
+            # "fake" port element, without a "protocol" key and with the
+            # magic value "host" for the "port" key.
+            self._curhost.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": self._curhost.pop('scripts')
+            })
         elif name == 'trace':
             self._curhost.setdefault('traces', []).append(self._curtrace)
             self._curtrace = None
