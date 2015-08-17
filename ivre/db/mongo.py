@@ -1153,6 +1153,8 @@ have no effect if it is not expected)."""
         find open ports.
 
         """
+        if port == "host":
+            return {'ports.port': {'$ne': "host"} if neg else "host"}
         if state == "open":
             return {"openports.%s.ports" % protocol:
                     {'$ne': port} if neg else port}
