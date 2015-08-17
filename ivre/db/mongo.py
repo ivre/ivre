@@ -2075,6 +2075,7 @@ have no effect if it is not expected)."""
             # This will not work for nfs-ls when run as a host script
             # or for smb-ls, until we mix host scripts and port
             # scripts (next document version I hope)
+            flt = self.flt_and(flt, self.searchfile({"$exists": True}))
             field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
                                                            or 'filename')
         elif field == 'screenwords':
