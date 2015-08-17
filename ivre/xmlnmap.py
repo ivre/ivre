@@ -264,13 +264,13 @@ def add_ftp_anon_data(script):
         "%(month)s\\s+%(day)s\\s+(?:%(year)s|%(time)s)" % subexprs,
         "%(day)s\\.\\s+%(month)s\\s+%(time)s" % subexprs,
     ])
-    subexprs["fname"] = "%(fname)s(?:\\ \\-\\>\\ %(fname)s)?" % subexprs
     exprs = re.compile("^(?:" + "|".join([
         # unix
         "(?P<unix_permission>%(perm)s)\\s+(?:[0-9]+\\s+)?"
         "(?P<unix_uid>%(user)s)\\s+(?P<unix_gid>%(user)s)\\s+"
         "(?P<unix_size>[0-9]+)\\s+(?P<unix_time>%(date)s)\\s+"
-        "(?P<unix_filename>%(fname)s)" % subexprs,
+        "(?P<unix_filename>%(fname)s)(?:\\ \\-\\>\\ "
+        "(?P<unix_linktarget>%(fname)s))?" % subexprs,
         # windows
         "(?P<win_time>%(windate)s)\\s+(?P<win_size>\\<DIR\\>|[0-9]+)\\s+"
         "(?P<win_filename>%(fname)s)" % subexprs,
