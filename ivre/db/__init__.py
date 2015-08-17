@@ -299,7 +299,6 @@ class DBNmap(DB):
                                     'ports NOT within the provided range', nargs=2)
         self.argparser.add_argument('--service', metavar='SVC')
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
-        self.argparser.add_argument('--hostscript', metavar='SCRIPT')
         self.argparser.add_argument('--svchostname')
         self.argparser.add_argument('--os')
         self.argparser.add_argument('--anonftp', action='store_true')

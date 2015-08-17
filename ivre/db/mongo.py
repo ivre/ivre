@@ -2177,15 +2177,6 @@ have no effect if it is not expected)."""
                 name, output = utils.str2regexp(args.script), None
             flt = self.flt_and(flt, self.searchscript(name=name,
                                                       output=output))
-        if args.hostscript is not None:
-            if ':' in args.hostscript:
-                name, output = (utils.str2regexp(string) for
-                                string in args.hostscript.split(':', 1))
-            else:
-                name, output = utils.str2regexp(args.hostscript), None
-            flt = self.flt_and(flt, self.searchscript(host=True,
-                                                      name=name,
-                                                      output=output))
         if args.svchostname is not None:
             flt = self.flt_and(
                 flt,
