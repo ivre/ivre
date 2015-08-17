@@ -499,6 +499,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 None: (1, self.migrate_schema_hosts_0_1),
                 1: (2, self.migrate_schema_hosts_1_2),
                 2: (3, self.migrate_schema_hosts_2_3),
+                3: (4, self.migrate_schema_hosts_3_4),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -611,6 +612,23 @@ creates the default indexes."""
             update["$set"]["ports"] = doc['ports']
         if updated_scripts:
             update["$set"]["scripts"] = doc['scripts']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_3_4(doc):
+        """Converts a record from version 3 to version 4. Version 4
+        creates a "fake" port entry to store host scripts.
+
+        """
+        assert(doc["schema_version"] == 3)
+        update = {"$set": {"schema_version": 4}}
+        if 'scripts' in doc:
+            doc.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": doc.pop('scripts'),
+            })
+            update["$set"]["ports"] = doc["ports"]
+            update["$unset"] = {"scripts": True}
         return update
 
     def get(self, flt, archive=False, **kargs):
