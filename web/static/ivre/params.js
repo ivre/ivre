@@ -231,7 +231,7 @@ function add_param_objects(p, pp) {
 			 [b, 'http-headers:/Set-Cookie: ' + p.substr(7) + '=/']);
     else if (p.substr(0, 8) === 'smbshare' && (p.length === 8 ||
 					       p.substr(8, 1) === ':'))
-	add_param_object(parametersobjunalias, 'hostscript',
+	add_param_object(parametersobjunalias, 'script',
 			 [b, 'smb-enum-shares:/READ|WRITE|STYPE_DISKTREE/']);
     else if (p.substr(0, 4) === 'smb.') {
 	/*
@@ -250,37 +250,37 @@ function add_param_objects(p, pp) {
 	switch(subfield) {
 	case 'os':
 	case 'lanmanager':
-	    add_param_object(parametersobjunalias, 'hostscript',
+	    add_param_object(parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
 	    break;
 	case 'server':
 	    add_param_object(
-		parametersobjunalias, 'hostscript',
+		parametersobjunalias, 'script',
 		[b, 'smb-os-discovery:/^NetBIOS computer name: .*$/m']
 	    );
 	    break;
 	case 'workgroup':
-	    add_param_object(parametersobjunalias, 'hostscript',
+	    add_param_object(parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery:/^Workgroup: .*$/m']);
 	    break;
 	case 'date':
-	    add_param_object(parametersobjunalias, 'hostscript',
+	    add_param_object(parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery:/^System time: .*$/m']);
 	    break;
 	case 'domain_dns':
 	    add_param_object(
-		parametersobjunalias, 'hostscript',
+		parametersobjunalias, 'script',
 		[b, 'smb-os-discovery:/^Domain name: .*$/m']
 	    );
 	    break;
 	case 'fqdn':
 	    add_param_object(
-		parametersobjunalias, 'hostscript',
+		parametersobjunalias, 'script',
 		[b, 'smb-os-discovery:/^FQDN: .*$/m']
 	    );
 	    break;
 	default:
-	    add_param_object(parametersobjunalias, 'hostscript',
+	    add_param_object(parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery']);
 	}
     }
@@ -328,7 +328,7 @@ function add_param_objects(p, pp) {
 	break;
     case 'xp445':
 	/* same as smb.os + tcp port 445*/
-	add_param_object(parametersobjunalias, 'hostscript',
+	add_param_object(parametersobjunalias, 'script',
 			 [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
 	add_param_object(parametersobjunalias, 'tcp/445',
 			 [b, undefined]);

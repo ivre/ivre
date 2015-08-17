@@ -357,7 +357,7 @@ def flt_from_query(query):
                         port=int(product[3])
                     )
                 )
-        elif not neg and param in ["script", "portscript"]:
+        elif not neg and param == "script":
             value = value.split(':', 1)
             if len(value) == 1:
                 flt = db.nmap.flt_and(
@@ -371,25 +371,6 @@ def flt_from_query(query):
                         name=utils.str2regexp(value[0]),
                         output=utils.str2regexp(value[1]),
                     ),
-                )
-        elif not neg and param == "hostscript":
-            value = value.split(':', 1)
-            if len(value) == 1:
-                flt = db.nmap.flt_and(
-                    flt,
-                    db.nmap.searchscript(
-                        host=True,
-                        name=utils.str2regexp(value[0]),
-                    ),
-                )
-            else:
-                flt = db.nmap.flt_and(
-                    flt,
-                    db.nmap.searchscript(
-                        host=True,
-                        name=utils.str2regexp(value[0]),
-                        output=utils.str2regexp(value[1]),
-                    )
                 )
         # results of scripts or version scans
         elif not neg and param == "anonftp":
