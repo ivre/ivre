@@ -1329,7 +1329,7 @@ have no effect if it is not expected)."""
             args['smb-os-discovery.%s' % key] = args.pop(key)
         args['id'] = 'smb-os-discovery'
         return {
-            'scripts': {'$elemMatch': args}
+            'ports.scripts': {'$elemMatch': args}
         }
 
     def searchfile(self, fname, scripts=None):
@@ -1938,11 +1938,11 @@ have no effect if it is not expected)."""
                 flt, self.searchscript(name='smb-os-discovery')
             )
             if field == 'smb.dnsdomain':
-                field = 'scripts.smb-os-discovery.domain_dns'
+                field = 'ports.scripts.smb-os-discovery.domain_dns'
             elif field == 'smb.forest':
-                field = 'scripts.smb-os-discovery.forest_dns'
+                field = 'ports.scripts.smb-os-discovery.forest_dns'
             else:
-                field = 'scripts.smb-os-discovery.' + field[4:]
+                field = 'ports.scripts.smb-os-discovery.' + field[4:]
         elif field == "script":
             flt = self.flt_and(
                 flt, self.searchscript(name={"$exists": True})
