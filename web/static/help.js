@@ -70,7 +70,6 @@ var HELP_FILTERS = {
 	},
     ],
     aliases: {
-	"portscript:": "script:",
 	"yp": "nis",
 	"devicetype:": "devtype:",
 	"networkdevice": "netdev",
@@ -150,12 +149,8 @@ var HELP_FILTERS = {
 	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
 	},
 	"script:": {
-	    "title": "script:<b>[script id](:[script output])</b> or portscript:<b>[script id](:[script output])</b>",
+	    "title": "script:<b>[script id](:[script output])</b>",
 	    "content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
-	},
-	"hostscript:": {
-	    "title": "hostscript:<b>[script id](:[script output])</b>",
-	    "content": "Look for a host script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
 	},
 	/* results of scripts or version scans */
 	"anonftp": {
@@ -538,10 +533,6 @@ var HELP_TOPVALUES = {
 	    "content": "devicetype:",
 	    "title": "<b>(!)</b>devicetype:"
 	},
-	"portscript:": {
-	    "content": "portscript:",
-	    "title": "<b>(!)</b>portscript:"
-	},
 	"version:": {
 	    "content": "version:",
 	    "title": "<b>(!)</b>version:"
@@ -569,10 +560,6 @@ var HELP_TOPVALUES = {
 	"product:": {
 	    "content": "product:",
 	    "title": "<b>(!)</b>product:"
-	},
-	"portscript": {
-	    "content": "portscript",
-	    "title": "<b>(!)</b>portscript"
 	},
 	"s7.Module": {
 	    "content": "s7.Module",
@@ -622,10 +609,6 @@ var HELP_TOPVALUES = {
 	    "content": "devicetype",
 	    "title": "<b>(!)</b>devicetype"
 	},
-	"hostscript:": {
-	    "content": "hostscript:",
-	    "title": "<b>(!)</b>hostscript:"
-	},
 	"port:open": {
 	    "content": "port:open",
 	    "title": "<b>(!)</b>port:open"
@@ -661,10 +644,6 @@ var HELP_TOPVALUES = {
 	"port:filtered": {
 	    "content": "port:filtered",
 	    "title": "<b>(!)</b>port:filtered"
-	},
-	"hostscript": {
-	    "content": "hostscript",
-	    "title": "<b>(!)</b>hostscript"
 	},
 	"portlist:closed": {
 	    "content": "portlist:closed",

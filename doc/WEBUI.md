@@ -58,9 +58,8 @@ displayed in the rightmost part of the screen.
       from vendor `microsoft`, `cpe.vendor:o:/^m/` will show top
       vendor names in CPEs that start with an `m`)
     - `devicetype`, `devicetype:[port]`
-    - `script`, `portscript` (like `script`), `hostscript`
-    - `script:[scriptname]`, `portscript:[scriptname]` (like `script:`),
-      `hostscript:[scriptname]`
+    - `script`
+    - `script:[scriptname]`
     - `file` (or `file.filename`), `file.time`, `file.size`,
       `file.uid`, `file.gid`, `file.permission`
     - `smb.os`, `smb.lanmanager`, `smb.domain`, `smb.dnsdomain`,
@@ -111,7 +110,7 @@ parameter.
 When a parameter is required the full value must be specified, or when
 appropriate, a regular expression can be used, with the
 `/[expression]/[flags]` syntax (e.g.:
-`hostscript:smb-enum-shares:/WRITE/`).
+`script:smb-enum-shares:/WRITE/`).
 
 If your command includes spaces, you need to protect it by using
 single or double quotes.
@@ -151,9 +150,7 @@ single or double quotes.
     `product:[service]:[product]:[version]:[port number]` look for a
     specific version of a product.
   - `script:[scriptid]`, `script:[scriptid]:[output]` look for a
-    specific (port) script (using `portscript:` is equivalent).
-  - `hostscript:[scriptid]`, `hostscript:[scriptid]:[output]` look for
-    a specific host script.
+    specific script.
   - `anonftp` filter results with anonymous FTP allowed.
   - `anonldap` look for LDAP servers with anonymous bind working.
   - `authbypassvnc` look for VNC servers with authentication that can
