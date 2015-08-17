@@ -25,6 +25,7 @@ databases.
 from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
 from ivre import utils, xmlnmap, config
 
+import sys
 import pymongo
 import bson
 import json
@@ -180,15 +181,29 @@ class MongoDB(DB):
         from `version`.
 
         """
+        failed = 0
         while version in self.schema_migrations[colname]:
             new_version, migration_function = self.schema_migrations[
                 colname][version]
             for record in self.set_limits(self.find(
                     colname, self.searchversion(version))):
-                update = migration_function(record)
-                if update is not None:
-                    self.db[colname].update({"_id": record["_id"]}, update)
+                try:
+                    update = migration_function(record)
+                except Exception as exc:
+                    if config.DEBUG:
+                        sys.stderr.write(
+                            "WARNING: cannot migrate host %s [%s: %s]\n" % (
+                                record['_id'], exc.__class__.__name__,
+                                exc.message)
+                        )
+                    failed += 1
+                else:
+                    if update is not None:
+                        self.db[colname].update({"_id": record["_id"]}, update)
             version = new_version
+        if failed:
+            sys.stderr.write("WARNING: failed to migrate %d documents"
+                             "\n" % failed)
 
     def cmp_schema_version(self, colname, document):
         """Returns 0 if the `document`'s schema version matches the
@@ -387,6 +402,9 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.ssh-hostkey", "scripts",
                   "ports.screenwords",
                   "scripts.smb-enum-shares.shares",
+                  "ports.scripts.ls.volumes",
+                  "ports.scripts.ls.volumes.files",
+                  "scripts.ls.volumes", "scripts.ls.volumes.files",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
@@ -458,6 +476,15 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('cpes.version', pymongo.ASCENDING),
                 ],
                  {"sparse": True}),
+                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.scripts.ls.volumes.files.filename',
+                   pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                 {"sparse": True}),
             ],
             self.colname_oldhosts: [
                 ([
@@ -471,6 +498,7 @@ class MongoDBNmap(MongoDB, DBNmap):
             self.colname_hosts: {
                 None: (1, self.migrate_schema_hosts_0_1),
                 1: (2, self.migrate_schema_hosts_1_2),
+                2: (3, self.migrate_schema_hosts_2_3),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -548,6 +576,41 @@ creates the default indexes."""
                         del port[key]
         if update_ports:
             update["$set"]["ports"] = doc["ports"]
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_2_3(doc):
+        """Converts a record from version 2 to version 3. Version 3
+        uses new Nmap structured data for scripts using the ls
+        library.
+
+        """
+        assert(doc["schema_version"] == 2)
+        update = {"$set": {"schema_version": 3}}
+        updated_ports = False
+        updated_scripts = False
+        migrate_scripts = set(["afp-ls", "nfs-ls", "smb-ls", "ftp-anon"])
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    if script['id'] in script:
+                        script["ls"] = xmlnmap.change_ls(
+                            script.pop(script['id']))
+                    elif "ls" not in script:
+                        data = xmlnmap.add_ls_data(script)
+                        if data is not None:
+                            script['ls'] = data
+                            updated_ports = True
+        for script in doc.get('scripts', []):
+            if script['id'] in migrate_scripts:
+                data = xmlnmap.add_ls_data(script)
+                if data is not None:
+                    script['ls'] = data
+                    updated_scripts = True
+        if updated_ports:
+            update["$set"]["ports"] = doc['ports']
+        if updated_scripts:
+            update["$set"]["scripts"] = doc['scripts']
         return update
 
     def get(self, flt, archive=False, **kargs):
@@ -830,8 +893,10 @@ have no effect if it is not expected)."""
         """
         if self.find_one(self.colname_hosts, {"_id": host['_id']}) is None:
             if config.DEBUG:
-                print("WARNING: cannot archive: host %s does not exist"
-                      " in %r" % (host['_id'], self.colname_hosts))
+                sys.stderr.write(
+                    "WARNING: cannot archive: host %s does not exist"
+                    " in %r\n" % (host['_id'], self.colname_hosts)
+                )
         # store the host in the archive hosts collection
         self.db[self.colname_oldhosts].insert(host)
         if config.DEBUG:
@@ -1283,14 +1348,31 @@ have no effect if it is not expected)."""
             'scripts': {'$elemMatch': args}
         }
 
-    def searchfile(self, fname):
-        if type(fname) is not utils.REGEXP_T:
-            fname = re.compile(re.escape(fname))
-        return self.searchscript(
-            name={'$in': ['ftp-anon', 'afp-ls', 'gopher-ls',
-                          'http-vlcstreamer-ls', 'nfs-ls', 'smb-ls']},
-            output=fname,
-        )
+    def searchfile(self, fname, scripts=None):
+        """Search shared files from a file name (either a string or a
+        regexp), only from scripts using the "ls" NSE module.
+
+        """
+        if scripts is None:
+            return self.flt_or(
+                {"ports.scripts.ls.volumes.files.filename": fname},
+                {"scripts.ls.volumes.files.filename": fname},
+            )
+        if isinstance(scripts, str) or isinstance(scripts, unicode):
+            scripts = [scripts]
+        base = {"$elemMatch": {"ls.volumes.files.filename": fname}}
+        keys = {}
+        for script in scripts:
+            for key in self.ls_scripts.get(script,
+                                           ["ports.scripts", "scripts"]):
+                keys.setdefault(key, set()).add(script)
+        result = [
+            {key: {"$elemMatch": {
+                "id": {"$in": ids} if len(ids) > 1 else ids.pop(),
+                "ls.volumes.files.filename": fname}}}
+            for key, ids in keys.iteritems()
+        ]
+        return result[0] if len(result) == 1 else {"$or": result}
 
     def searchsmbshares(self, access='', hidden=None):
         """Filter SMB shares with given `access` (default: either read
@@ -1584,6 +1666,7 @@ have no effect if it is not expected)."""
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - screenwords
+          - file.*
           - hop
         """
         colname = self.colname_oldhosts if archive else self.colname_hosts
@@ -1988,6 +2071,12 @@ have no effect if it is not expected)."""
                 "ip": "Device IP",
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
+        elif field == 'file' or field.startswith('file.'):
+            # This will not work for nfs-ls when run as a host script
+            # or for smb-ls, until we mix host scripts and port
+            # scripts (next document version I hope)
+            field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
+                                                           or 'filename')
         elif field == 'screenwords':
             field = 'ports.screenwords'
             flt = self.flt_and(flt, self.searchscreenshot(words=True))
