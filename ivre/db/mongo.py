@@ -1634,7 +1634,8 @@ have no effect if it is not expected)."""
           - product / product:<portnbr>
           - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
           - devicetype / devicetype:<portnbr>
-          - [port]script:<scriptid> / hostscript:<scriptid>
+          - script:<scriptid> / script:<port>:<scriptid>
+            / script:host:<scriptid>
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - screenwords
@@ -1946,7 +1947,7 @@ have no effect if it is not expected)."""
             field = "ports.service_devicetype"
         elif field.startswith('smb.'):
             flt = self.flt_and(
-                flt, self.searchscript(host=True, name='smb-os-discovery')
+                flt, self.searchscript(name='smb-os-discovery')
             )
             if field == 'smb.dnsdomain':
                 field = 'scripts.smb-os-discovery.domain_dns'
@@ -1954,46 +1955,33 @@ have no effect if it is not expected)."""
                 field = 'scripts.smb-os-discovery.forest_dns'
             else:
                 field = 'scripts.smb-os-discovery.' + field[4:]
-        elif field in ["script", "portscript"]:
+        elif field == "script":
             flt = self.flt_and(
                 flt, self.searchscript(name={"$exists": True})
             )
             field = "ports.scripts.id"
-        elif field == "hostscript":
-            flt = self.flt_and(
-                flt, self.searchscript(name={"$exists": True}, host=True)
-            )
-            field = "scripts.id"
-        elif (field.startswith('script:') or
-              field.startswith('portscript:') or
-              field.startswith('hostscript:')):
+        elif field.startswith('script:'):
             scriptid = field.split(':', 1)[1]
-            flt = self.flt_and(
-                flt,
-                self.searchscript(name={"$exists": True},
-                                  host=field.startswith('hostscript:')),
-            )
+            flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
             if ':' in scriptid:
-                base = 'ports.scripts'
                 port, scriptid = scriptid.split(':', 1)
-                port = int(port)
+                if port.isdigit():
+                    port = int(port)
                 flt = self.flt_and(flt, self.searchport(port))
             else:
-                base = ("scripts"
-                        if field.startswith('hostscript:')
-                        else "ports.scripts")
                 port, scriptid = None, field.split(':', 1)[1]
-            specialproj = {"_id": 0, "%s.id" % base: 1, "%s.output" % base: 1}
+            specialproj = {"_id": 0, "ports.scripts.id": 1,
+                           "ports.scripts.output": 1}
             if port is not None:
                 specialproj.update({'ports.port': 1})
             specialflt = [
-                {"$match": ({"%s.id" % base: scriptid}
+                {"$match": ({"ports.scripts.id": scriptid}
                             if port is None else
                             {"ports.scripts.id": scriptid,
                              "ports.port": port})},
-                {"$project": {"%s.output" % base: 1}}
+                {"$project": {"ports.scripts.output": 1}}
             ]
-            field = "%s.output" % base
+            field = "ports.scripts.output"
         elif field == 'domains':
             flt = self.flt_and(flt, self.searchdomain({'$exists': True}))
             field = 'hostnames.domains'
@@ -2044,9 +2032,6 @@ have no effect if it is not expected)."""
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
         elif field == 'file' or field.startswith('file.'):
-            # This will not work for nfs-ls when run as a host script
-            # or for smb-ls, until we mix host scripts and port
-            # scripts (next document version I hope)
             flt = self.flt_and(flt, self.searchfile({"$exists": True}))
             field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
                                                            or 'filename')
