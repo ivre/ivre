@@ -1338,25 +1338,13 @@ have no effect if it is not expected)."""
 
         """
         if scripts is None:
-            return self.flt_or(
-                {"ports.scripts.ls.volumes.files.filename": fname},
-                {"scripts.ls.volumes.files.filename": fname},
-            )
-        if isinstance(scripts, str) or isinstance(scripts, unicode):
+            return {"ports.scripts.ls.volumes.files.filename": fname}
+        if isinstance(scripts, basestring):
             scripts = [scripts]
-        base = {"$elemMatch": {"ls.volumes.files.filename": fname}}
-        keys = {}
-        for script in scripts:
-            for key in self.ls_scripts.get(script,
-                                           ["ports.scripts", "scripts"]):
-                keys.setdefault(key, set()).add(script)
-        result = [
-            {key: {"$elemMatch": {
-                "id": {"$in": ids} if len(ids) > 1 else ids.pop(),
-                "ls.volumes.files.filename": fname}}}
-            for key, ids in keys.iteritems()
-        ]
-        return result[0] if len(result) == 1 else {"$or": result}
+        return {"ports.scripts": {"$elemMatch": {
+            "id": scripts.pop() if len(scripts) == 1 else {"$in": scripts},
+            "ls.volumes.files.filename": fname
+        }}}
 
     def searchsmbshares(self, access='', hidden=None):
         """Filter SMB shares with given `access` (default: either read

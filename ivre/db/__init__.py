@@ -17,12 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
-
-This sub-module contains functions to interact with the
-database.
+"""This sub-module contains functions to interact with the
+database backends.
 """
 
 from ivre import config, utils, xmlnmap
@@ -237,13 +233,6 @@ class DB(object):
 class DBNmap(DB):
 
     content_handler = xmlnmap.Nmap2Txt
-    ls_scripts = {
-        "afp-ls": ["ports.scripts"],
-        "ftp-anon": ["ports.scripts"],
-        "http-ls": ["ports.scripts"],
-        "nfs-ls": ["ports.scripts", "scripts"],
-        "smb-ls": ["scripts"],
-    }
 
     def __init__(self):
         try:
