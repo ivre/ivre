@@ -727,7 +727,7 @@ have no effect if it is not expected)."""
         changed = False
         for p in host.get('ports', []):
             if port is None or (p['port'] == port and
-                                p['protocol'] == protocol):
+                                p.get('protocol') == protocol):
                 if 'screenshot' in p:
                     if p['screenshot'] == "field":
                         if 'screendata' in p:
@@ -821,16 +821,11 @@ have no effect if it is not expected)."""
                                    + rec2.get("hostnames", [])))
         rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
                             for h, d in hostnames.iteritems()]
-        scripts = dict((script["id"], script)
-                       for script in rec1.get("scripts", []))
-        scripts.update((script["id"], script)
-                       for script in rec2.get("scripts", []))
-        rec["scripts"] = scripts.values()
-        ports = dict(((port["protocol"], port["port"]), port.copy())
+        ports = dict(((port.get("protocol"), port["port"]), port.copy())
                      for port in rec2.get("ports", []))
         for port in rec1.get("ports", []):
-            if (port['protocol'], port['port']) in ports:
-                curport = ports[(port['protocol'], port['port'])]
+            if (port.get('protocol'), port['port']) in ports:
+                curport = ports[(port.get('protocol'), port['port'])]
                 if 'scripts' in curport:
                     curport['scripts'] = curport['scripts'][:]
                 else:
@@ -849,7 +844,7 @@ have no effect if it is not expected)."""
                         if key.startswith("service_"):
                             curport[key] = port[key]
             else:
-                ports[(port['protocol'], port['port'])] = port
+                ports[(port.get('protocol'), port['port'])] = port
         rec["ports"] = ports.values()
         rec["openports"] = {}
         for record in [rec1, rec2]:
@@ -870,7 +865,7 @@ have no effect if it is not expected)."""
                     rec['openports'][proto]['ports'])
         else:
             rec['openports']["count"] = 0
-        for field in ["traces", "infos", "scripts", "ports"]:
+        for field in ["traces", "infos", "ports"]:
             if not rec[field]:
                 del rec[field]
         return rec
