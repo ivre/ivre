@@ -246,6 +246,7 @@ def add_ftp_anon_data(script):
     by humans.
 
     """
+    assert(script["id"] == "ftp-anon")
     # expressions that match lines, based on large data collection
     subexprs = {
         "user": '(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|'
