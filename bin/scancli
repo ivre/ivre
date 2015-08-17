@@ -70,8 +70,11 @@ def displayhost(dic, showscripts=True, showtraceroute=True, showos=True,
                                               for kk in d[k][1].keys()])))
     if 'ports' in dic:
         d = dic['ports']
-        d.sort(key=lambda x: (x['protocol'], x['port']))
+        d.sort(key=lambda x: (x.get('protocol'), x['port']))
         for k in d:
+            if k.get('port') == 'host':
+                dic['scripts'] = k['scripts']
+                continue
             reason = ""
             if 'state_reason' in k:
                 reason = " (%s" % k['state_reason']
@@ -90,7 +93,7 @@ def displayhost(dic, showscripts=True, showtraceroute=True, showos=True,
                     if kk in k:
                         srv += ' %s' % k[kk]
             out.write("\t%-10s%-8s%-22s%s\n" %
-                      ('%s/%d' % (k['protocol'], k['port']),
+                      ('%s/%d' % (k.get('protocol'), k['port']),
                        k['state_state'], reason, srv))
             if showscripts and 'scripts' in k:
                 for s in k['scripts']:
