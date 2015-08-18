@@ -183,10 +183,11 @@ class MongoDB(DB):
         """
         failed = 0
         while version in self.schema_migrations[colname]:
+            updated = False
             new_version, migration_function = self.schema_migrations[
                 colname][version]
-            for record in self.set_limits(self.find(
-                    colname, self.searchversion(version))):
+            # unlimited find()!
+            for record in self.find(colname, self.searchversion(version)):
                 try:
                     update = migration_function(record)
                 except Exception as exc:
@@ -199,7 +200,21 @@ class MongoDB(DB):
                     failed += 1
                 else:
                     if update is not None:
+                        updated = True
                         self.db[colname].update({"_id": record["_id"]}, update)
+            if updated:
+                for action, indexes in self.schema_migrations_indexes[
+                        colname].get(new_version, {}).iteritems():
+                    function = getattr(self.db[colname], "%s_index" % action)
+                    for idx in indexes:
+                        try:
+                            function(idx[0], **idx[1])
+                        except pymongo.errors.OperationFailure as exc:
+                            sys.stderr.write(
+                                "WARNING: cannot %s index %s [%s: %s]\n" % (
+                                    action, idx, exc.__class__.__name__,
+                                    exc.message)
+                            )
             version = new_version
         if failed:
             sys.stderr.write("WARNING: failed to migrate %d documents"
@@ -399,12 +414,11 @@ class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
     needunwind = ["categories", "ports", "ports.scripts",
-                  "ports.scripts.ssh-hostkey", "scripts",
-                  "ports.screenwords",
-                  "scripts.smb-enum-shares.shares",
+                  "ports.scripts.ssh-hostkey",
+                  "ports.scripts.smb-enum-shares.shares",
                   "ports.scripts.ls.volumes",
                   "ports.scripts.ls.volumes.files",
-                  "scripts.ls.volumes", "scripts.ls.volumes.files",
+                  "ports.screenwords",
                   "extraports.filtered", "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
@@ -438,7 +452,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 [('ports.state_state', pymongo.ASCENDING)],
                 [('ports.service_name', pymongo.ASCENDING)],
                 [('ports.scripts.id', pymongo.ASCENDING)],
-                [('scripts.id', pymongo.ASCENDING)],
                 [('infos.as_num', pymongo.ASCENDING)],
                 [
                     ('traces.hops.ipaddr', pymongo.ASCENDING),
@@ -481,10 +494,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('ports.scripts.ls.volumes.files.filename',
                    pymongo.ASCENDING)],
                  {"sparse": True}),
-                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
-                 {"sparse": True}),
             ],
             self.colname_oldhosts: [
                 ([
@@ -499,10 +508,18 @@ class MongoDBNmap(MongoDB, DBNmap):
                 None: (1, self.migrate_schema_hosts_0_1),
                 1: (2, self.migrate_schema_hosts_1_2),
                 2: (3, self.migrate_schema_hosts_2_3),
+                3: (4, self.migrate_schema_hosts_3_4),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
+        self.schema_migrations_indexes[colname_hosts] = {
+            4: {"drop": [([('scripts.id', pymongo.ASCENDING)], {}),
+                         ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                          {}),
+                         ([('scripts.ls.volumes.files.filename',
+                            pymongo.ASCENDING)], {})]},
+        }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,
             self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,
@@ -613,6 +630,23 @@ creates the default indexes."""
             update["$set"]["scripts"] = doc['scripts']
         return update
 
+    @staticmethod
+    def migrate_schema_hosts_3_4(doc):
+        """Converts a record from version 3 to version 4. Version 4
+        creates a "fake" port entry to store host scripts.
+
+        """
+        assert(doc["schema_version"] == 3)
+        update = {"$set": {"schema_version": 4}}
+        if 'scripts' in doc:
+            doc.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": doc.pop('scripts'),
+            })
+            update["$set"]["ports"] = doc["ports"]
+            update["$unset"] = {"scripts": True}
+        return update
+
     def get(self, flt, archive=False, **kargs):
         """Queries the active column (the old one if "archive" is set to True)
 with the provided filter "flt", and returns a MongoDB cursor.
@@ -715,7 +749,7 @@ have no effect if it is not expected)."""
         changed = False
         for p in host.get('ports', []):
             if port is None or (p['port'] == port and
-                                p['protocol'] == protocol):
+                                p.get('protocol') == protocol):
                 if 'screenshot' in p:
                     if p['screenshot'] == "field":
                         if 'screendata' in p:
@@ -809,16 +843,11 @@ have no effect if it is not expected)."""
                                    + rec2.get("hostnames", [])))
         rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
                             for h, d in hostnames.iteritems()]
-        scripts = dict((script["id"], script)
-                       for script in rec1.get("scripts", []))
-        scripts.update((script["id"], script)
-                       for script in rec2.get("scripts", []))
-        rec["scripts"] = scripts.values()
-        ports = dict(((port["protocol"], port["port"]), port.copy())
+        ports = dict(((port.get("protocol"), port["port"]), port.copy())
                      for port in rec2.get("ports", []))
         for port in rec1.get("ports", []):
-            if (port['protocol'], port['port']) in ports:
-                curport = ports[(port['protocol'], port['port'])]
+            if (port.get('protocol'), port['port']) in ports:
+                curport = ports[(port.get('protocol'), port['port'])]
                 if 'scripts' in curport:
                     curport['scripts'] = curport['scripts'][:]
                 else:
@@ -837,7 +866,7 @@ have no effect if it is not expected)."""
                         if key.startswith("service_"):
                             curport[key] = port[key]
             else:
-                ports[(port['protocol'], port['port'])] = port
+                ports[(port.get('protocol'), port['port'])] = port
         rec["ports"] = ports.values()
         rec["openports"] = {}
         for record in [rec1, rec2]:
@@ -858,7 +887,7 @@ have no effect if it is not expected)."""
                     rec['openports'][proto]['ports'])
         else:
             rec['openports']["count"] = 0
-        for field in ["traces", "infos", "scripts", "ports"]:
+        for field in ["traces", "infos", "ports"]:
             if not rec[field]:
                 del rec[field]
         return rec
@@ -1146,6 +1175,8 @@ have no effect if it is not expected)."""
         find open ports.
 
         """
+        if port == "host":
+            return {'ports.port': {'$ne': "host"} if neg else "host"}
         if state == "open":
             return {"openports.%s.ports" % protocol:
                     {'$ne': port} if neg else port}
@@ -1262,11 +1293,10 @@ have no effect if it is not expected)."""
         return {'ports': {'$elemMatch': flt}}
 
     @staticmethod
-    def searchscript(host=False, name=None, output=None, values=None):
+    def searchscript(name=None, output=None, values=None):
         """Search a particular content in the scripts results.
 
         """
-        key = "scripts" if host else "ports.scripts"
         req = {}
         if name is not None:
             req['id'] = name
@@ -1277,38 +1307,14 @@ have no effect if it is not expected)."""
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             for field, value in values.iteritems():
-                req["%s.%s" % (name, field)] = value
+                req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
+                               field)] = value
         if not req:
-            return {key: {"$exists": True}}
+            return {"ports.scripts": {"$exists": True}}
         if len(req) == 1:
             field, value = req.items()[0]
-            return {"%s.%s" % (key, field): value}
-        return {key: {"$elemMatch": req}}
-
-    def searchscriptidout(self, name, output):
-        """DEPRECATED: use .searchscript() instead.
-
-        Search a particular content in the scripts names and
-        outputs.
-
-        """
-        return self.searchscript(name=name, output=output)
-
-    def searchscriptid(self, name):
-        """DEPRECATED: use .searchscript() instead.
-
-        Search a script name.
-
-        """
-        return self.searchscript(name=name)
-
-    def searchscriptoutput(self, expr):
-        """DEPRECATED: use .searchscript() instead.
-
-        Search a particular content in the scripts outputs.
-
-        """
-        return self.searchscript(output=expr)
+            return {"ports.scripts.%s" % field: value}
+        return {"ports.scripts": {"$elemMatch": req}}
 
     @staticmethod
     def searchsvchostname(srv):
@@ -1345,34 +1351,24 @@ have no effect if it is not expected)."""
             args['smb-os-discovery.%s' % key] = args.pop(key)
         args['id'] = 'smb-os-discovery'
         return {
-            'scripts': {'$elemMatch': args}
+            'ports.scripts': {'$elemMatch': args}
         }
 
-    def searchfile(self, fname, scripts=None):
+    def searchfile(self, fname=None, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp), only from scripts using the "ls" NSE module.
 
         """
+        if fname is None:
+            fname = {"$exists": True}
         if scripts is None:
-            return self.flt_or(
-                {"ports.scripts.ls.volumes.files.filename": fname},
-                {"scripts.ls.volumes.files.filename": fname},
-            )
-        if isinstance(scripts, str) or isinstance(scripts, unicode):
+            return {"ports.scripts.ls.volumes.files.filename": fname}
+        if isinstance(scripts, basestring):
             scripts = [scripts]
-        base = {"$elemMatch": {"ls.volumes.files.filename": fname}}
-        keys = {}
-        for script in scripts:
-            for key in self.ls_scripts.get(script,
-                                           ["ports.scripts", "scripts"]):
-                keys.setdefault(key, set()).add(script)
-        result = [
-            {key: {"$elemMatch": {
-                "id": {"$in": ids} if len(ids) > 1 else ids.pop(),
-                "ls.volumes.files.filename": fname}}}
-            for key, ids in keys.iteritems()
-        ]
-        return result[0] if len(result) == 1 else {"$or": result}
+        return {"ports.scripts": {"$elemMatch": {
+            "id": scripts.pop() if len(scripts) == 1 else {"$in": scripts},
+            "ls.volumes.files.filename": fname
+        }}}
 
     def searchsmbshares(self, access='', hidden=None):
         """Filter SMB shares with given `access` (default: either read
@@ -1408,7 +1404,7 @@ have no effect if it is not expected)."""
                 'Type': share_type,
                 'Share': {'$ne': 'IPC$'},
             }}},
-            host=True)
+        )
 
     def searchhttptitle(self, title):
         return self.searchscript(
@@ -1448,18 +1444,6 @@ have no effect if it is not expected)."""
                         {'scripts.output': srv}
                     ]
                 }}}
-
-    def searchhostscript(self, txt):
-        """DEPRECATED: use .searchscript() instead."""
-        return self.searchscript(host=True, output=txt)
-
-    def searchhostscriptid(self, name):
-        """DEPRECATED: use .searchscript() instead."""
-        return self.searchscript(host=True, name=name)
-
-    def searchhostscriptidout(self, name, out):
-        """DEPRECATED: use .searchscript() instead."""
-        return self.searchscript(host=True, name=name, output=out)
 
     @staticmethod
     def searchos(txt):
@@ -1662,7 +1646,8 @@ have no effect if it is not expected)."""
           - product / product:<portnbr>
           - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
           - devicetype / devicetype:<portnbr>
-          - [port]script:<scriptid> / hostscript:<scriptid>
+          - script:<scriptid> / script:<port>:<scriptid>
+            / script:host:<scriptid>
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - screenwords
@@ -1974,54 +1959,41 @@ have no effect if it is not expected)."""
             field = "ports.service_devicetype"
         elif field.startswith('smb.'):
             flt = self.flt_and(
-                flt, self.searchscript(host=True, name='smb-os-discovery')
+                flt, self.searchscript(name='smb-os-discovery')
             )
             if field == 'smb.dnsdomain':
-                field = 'scripts.smb-os-discovery.domain_dns'
+                field = 'ports.scripts.smb-os-discovery.domain_dns'
             elif field == 'smb.forest':
-                field = 'scripts.smb-os-discovery.forest_dns'
+                field = 'ports.scripts.smb-os-discovery.forest_dns'
             else:
-                field = 'scripts.smb-os-discovery.' + field[4:]
-        elif field in ["script", "portscript"]:
+                field = 'ports.scripts.smb-os-discovery.' + field[4:]
+        elif field == "script":
             flt = self.flt_and(
                 flt, self.searchscript(name={"$exists": True})
             )
             field = "ports.scripts.id"
-        elif field == "hostscript":
-            flt = self.flt_and(
-                flt, self.searchscript(name={"$exists": True}, host=True)
-            )
-            field = "scripts.id"
-        elif (field.startswith('script:') or
-              field.startswith('portscript:') or
-              field.startswith('hostscript:')):
+        elif field.startswith('script:'):
             scriptid = field.split(':', 1)[1]
-            flt = self.flt_and(
-                flt,
-                self.searchscript(name={"$exists": True},
-                                  host=field.startswith('hostscript:')),
-            )
+            flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
             if ':' in scriptid:
-                base = 'ports.scripts'
                 port, scriptid = scriptid.split(':', 1)
-                port = int(port)
+                if port.isdigit():
+                    port = int(port)
                 flt = self.flt_and(flt, self.searchport(port))
             else:
-                base = ("scripts"
-                        if field.startswith('hostscript:')
-                        else "ports.scripts")
                 port, scriptid = None, field.split(':', 1)[1]
-            specialproj = {"_id": 0, "%s.id" % base: 1, "%s.output" % base: 1}
+            specialproj = {"_id": 0, "ports.scripts.id": 1,
+                           "ports.scripts.output": 1}
             if port is not None:
                 specialproj.update({'ports.port': 1})
             specialflt = [
-                {"$match": ({"%s.id" % base: scriptid}
+                {"$match": ({"ports.scripts.id": scriptid}
                             if port is None else
                             {"ports.scripts.id": scriptid,
                              "ports.port": port})},
-                {"$project": {"%s.output" % base: 1}}
+                {"$project": {"ports.scripts.output": 1}}
             ]
-            field = "%s.output" % base
+            field = "ports.scripts.output"
         elif field == 'domains':
             flt = self.flt_and(flt, self.searchdomain({'$exists': True}))
             field = 'hostnames.domains'
@@ -2072,10 +2044,7 @@ have no effect if it is not expected)."""
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
         elif field == 'file' or field.startswith('file.'):
-            # This will not work for nfs-ls when run as a host script
-            # or for smb-ls, until we mix host scripts and port
-            # scripts (next document version I hope)
-            flt = self.flt_and(flt, self.searchfile({"$exists": True}))
+            flt = self.flt_and(flt, self.searchfile())
             field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
                                                            or 'filename')
         elif field == 'screenwords':
@@ -2195,15 +2164,6 @@ have no effect if it is not expected)."""
             else:
                 name, output = utils.str2regexp(args.script), None
             flt = self.flt_and(flt, self.searchscript(name=name,
-                                                      output=output))
-        if args.hostscript is not None:
-            if ':' in args.hostscript:
-                name, output = (utils.str2regexp(string) for
-                                string in args.hostscript.split(':', 1))
-            else:
-                name, output = utils.str2regexp(args.hostscript), None
-            flt = self.flt_and(flt, self.searchscript(host=True,
-                                                      name=name,
                                                       output=output))
         if args.svchostname is not None:
             flt = self.flt_and(

@@ -34,7 +34,7 @@ import os
 import re
 import json
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -246,6 +246,7 @@ def add_ftp_anon_data(script):
     by humans.
 
     """
+    assert(script["id"] == "ftp-anon")
     # expressions that match lines, based on large data collection
     subexprs = {
         "user": '(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|'
@@ -586,18 +587,9 @@ class NmapHandler(ContentHandler):
                     )
         elif name == 'address' and self._curhost is not None:
             if attrs['addrtype'] != 'ipv4':
-                if 'addresses' not in self._curhost:
-                    self._curhost['addresses'] = {
-                        attrs['addrtype']: [attrs['addr']]
-                    }
-                elif attrs['addrtype'] not in self._curhost:
-                    self._curhost['addresses'].update({
-                        attrs['addrtype']: [attrs['addr']]
-                    })
-                else:
-                    addresses = self._curhost['addresses'][attrs['addrtype']]
-                    addresses.append(attrs['addr'])
-                    self._curhost['addresses'][attrs['addrtype']] = addresses
+                self._curhost.setdefault(
+                    'addresses', {}).setdefault(
+                        attrs['addrtype'], []).append(attrs['addr'])
             else:
                 try:
                     self._curhost['addr'] = utils.ip2int(attrs['addr'])
@@ -723,10 +715,7 @@ class NmapHandler(ContentHandler):
                 'state': attrs['state'],
             }
         elif name in ['osclass', 'osmatch'] and 'os' in self._curhost:
-            if name not in self._curhost['os']:
-                self._curhost['os'][name] = [dict(attrs)]
-            else:
-                self._curhost['os'][name].append(dict(attrs))
+            self._curhost['os'].setdefault(name, []).append(dict(attrs))
         elif name == 'osfingerprint' and 'os' in self._curhost:
             self._curhost['os']['fingerprint'] = attrs['fingerprint']
         elif name == 'trace':
@@ -781,10 +770,8 @@ class NmapHandler(ContentHandler):
             self._curhost['hostnames'] = self._curhostnames
             self._curhostnames = None
         elif name == 'extraports':
-            if 'extraports' not in self._curhost:
-                self._curhost['extraports'] = self._curextraports
-            else:
-                self._curhost['extraports'].update(self._curextraports)
+            self._curhost.setdefault(
+                'extraports', {}).update(self._curextraports)
             self._curextraports = None
         elif name == 'port':
             self._curhost.setdefault('ports', []).append(self._curport)
@@ -840,10 +827,7 @@ class NmapHandler(ContentHandler):
             if ignore_script(self._curscript):
                 self._curscript = None
                 return
-            if 'scripts' not in current:
-                current['scripts'] = [self._curscript]
-            else:
-                current['scripts'].append(self._curscript)
+            current.setdefault('scripts', []).append(self._curscript)
             self._curscript = None
         elif name in ['table', 'elem']:
             if self._curscript.get('id') in IGNORE_TABLE_ELEMS:
@@ -865,11 +849,15 @@ class NmapHandler(ContentHandler):
                 # stop recording characters
                 self._curdata = None
             self._curtablepath.pop()
+        elif name == 'hostscript':
+            # "fake" port element, without a "protocol" key and with the
+            # magic value "host" for the "port" key.
+            self._curhost.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": self._curhost.pop('scripts')
+            })
         elif name == 'trace':
-            if 'traces' not in self._curhost:
-                self._curhost['traces'] = [self._curtrace]
-            else:
-                self._curhost['traces'].append(self._curtrace)
+            self._curhost.setdefault('traces', []).append(self._curtrace)
             self._curtrace = None
         elif name == 'cpe':
             self._add_cpe_to_host()

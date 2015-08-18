@@ -792,14 +792,9 @@ function build_chart(chart, field, dataset, size, colors) {
 	    return 'setparam("source", "' + x + '", true);';
 	};
     }
-    else if(field === 'script' || field === 'portscript') {
+    else if(field === 'script') {
 	preparefilter = function(x) {
 	    return 'setparam("script", "' + x + '");';
-	};
-    }
-    else if(field === 'hostscript') {
-	preparefilter = function(x) {
-	    return 'setparam("hostscript", "' + x + '");';
 	};
     }
     else if(field.substr(0, 5) === 'port:') {

@@ -36,8 +36,8 @@ The third part allows to explore the results by generating graphs displayed in t
     * ''%%service%%'', ''%%service:[port]%%'', ''%%product%%'', ''%%product:[port]%%'',  ''%%version%%'', ''%%version:[port]%%''
     * ''%%cpe%%'', ''%%cpe.[type/vendor/product/version]%%'', ''%%cpe:[cpe spec]%%'',  ''%%cpe.[type/vendor/product/version]:[cpe spec]%%'' (examples:  ''%%cpe.product:a:microsoft%%'' will show top product names in CPEs  from vendor ''%%microsoft%%'', ''%%cpe.vendor:o:/^m/%%'' will show top  vendor names in CPEs that start with an ''%%m%%'')
     * ''%%devicetype%%'', ''%%devicetype:[port]%%''
-    * ''%%script%%'', ''%%portscript%%'' (like ''%%script%%''), ''%%hostscript%%''
-    * ''%%script:[scriptname]%%'', ''%%portscript:[scriptname]%%'' (like ''%%script:%%''),  ''%%hostscript:[scriptname]%%''
+    * ''%%script%%''
+    * ''%%script:[scriptname]%%''
     * ''%%file%%'' (or ''%%file.filename%%''), ''%%file.time%%'', ''%%file.size%%'',  ''%%file.uid%%'', ''%%file.gid%%'', ''%%file.permission%%''
     * ''%%smb.os%%'', ''%%smb.lanmanager%%'', ''%%smb.domain%%'', ''%%smb.dnsdomain%%'',  ''%%smb.forest%%'', ''%%smb.workgroup%%''
     * ''%%cert.issuer%%'', ''%%cert.subject%%''
@@ -66,7 +66,7 @@ The commands can be entered in the input boxes in the second part of the left si
 
 In the following list, a ''%%[!]%%'' before the command shows it can be used negatively, and a ''%%:%%'' after the command indicates it requires a parameter.
 
-When a parameter is required the full value must be specified, or when appropriate, a regular expression can be used, with the ''%%/[expression]/[flags]%%'' syntax (e.g.: ''%%hostscript:smb-enum-shares:/WRITE/%%'').
+When a parameter is required the full value must be specified, or when appropriate, a regular expression can be used, with the ''%%/[expression]/[flags]%%'' syntax (e.g.: ''%%script:smb-enum-shares:/WRITE/%%'').
 
 If your command includes spaces, you need to protect it by using single or double quotes.
 
@@ -91,15 +91,14 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%service:[expression]%%'', ''%%service:[expression]:[port number]%%'' look for an expression in the name of a service.
   * ''%%product:[service]:[product]%%'', ''%%product:[service]:[product]:[port number]%%'' look for a product.
   * ''%%version:[service]:[product]:[version]%%'', ''%%product:[service]:[product]:[version]:[port number]%%'' look for a specific version of a product.
-  * ''%%script:[scriptid]%%'', ''%%script:[scriptid]:[output]%%'' look for a specific (port) script (using ''%%portscript:%%'' is equivalent).
-  * ''%%hostscript:[scriptid]%%'', ''%%hostscript:[scriptid]:[output]%%'' look for a specific host script.
+  * ''%%script:[scriptid]%%'', ''%%script:[scriptid]:[output]%%'' look for a specific script.
   * ''%%anonftp%%'' filter results with anonymous FTP allowed.
   * ''%%anonldap%%'' look for LDAP servers with anonymous bind working.
   * ''%%authbypassvnc%%'' look for VNC servers with authentication that can be bypassed.
   * ''%%authhttp%%'' look for HTTP servers with authentication and a default (e.g., ''%%admin%%''/''%%admin%%'') login/password working. The Nmap script seems to get a lot a false positives.
   * ''%%banner:%%'' look for a specific banner of a service.
   * ''%%cookie:%%'' look for HTTP servers setting a specific cookie.
-  * ''%%file:[pattern]%%'', ''%%file:[scriptid]:[pattern]%%'', ''%%file:[scriptid],[scriptid],...:[pattern]%%'' look for a pattern in the shared files (FTP, SMB, ...).
+  * ''%%file%%'', ''%%file:[pattern]%%'', ''%%file:[scriptid]:[pattern]%%'', ''%%file:[scriptid],[scriptid],...:[pattern]%%'' look for a pattern in the shared files (FTP, SMB, ...).
   * ''%%geovision%%'' look for GeoVision web-cams.
   * ''%%httptitle:%%'' look for a specific HTML title value of the homepage of a web site.
   * ''%%nfs%%'' look for NFS servers.
