@@ -36,6 +36,9 @@ import datetime
 
 class MongoDB(DB):
 
+    schema_migrations = {}
+    schema_migrations_indexes = {}
+    schema_latest_versions = {}
     needunwind = []
 
     def __init__(self, host, dbname,
@@ -56,7 +59,6 @@ class MongoDB(DB):
         except TypeError:
             self.maxtime = None
         self.indexes = {}
-        self.specialindexes = {}
         self.hint_indexes = {}
 
     def set_limits(self, cur):
@@ -163,16 +165,10 @@ class MongoDB(DB):
     def create_indexes(self):
         for colname, indexes in self.indexes.iteritems():
             for index in indexes:
-                self.db[colname].create_index(index)
-        for colname, indexes in self.specialindexes.iteritems():
-            for index in indexes:
                 self.db[colname].create_index(index[0], **index[1])
 
     def ensure_indexes(self):
         for colname, indexes in self.indexes.iteritems():
-            for index in indexes:
-                self.db[colname].ensure_index(index)
-        for colname, indexes in self.specialindexes.iteritems():
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
@@ -436,52 +432,46 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.colname_oldhosts = colname_oldhosts
         self.indexes = {
             self.colname_hosts: [
-                [('scanid', pymongo.ASCENDING)],
-                [('schema_version', pymongo.ASCENDING)],
-                [('addr', pymongo.ASCENDING)],
-                [('starttime', pymongo.ASCENDING)],
-                [('endtime', pymongo.ASCENDING)],
-                [('source', pymongo.ASCENDING)],
-                [('categories', pymongo.ASCENDING)],
-                [('hostnames.domains', pymongo.ASCENDING)],
-                [('traces.hops.domains', pymongo.ASCENDING)],
-                [('openports.count', pymongo.ASCENDING)],
-                [('openports.tcp.ports', pymongo.ASCENDING)],
-                [('openports.udp.ports', pymongo.ASCENDING)],
-                [('ports.port', pymongo.ASCENDING)],
-                [('ports.state_state', pymongo.ASCENDING)],
-                [('ports.service_name', pymongo.ASCENDING)],
-                [('ports.scripts.id', pymongo.ASCENDING)],
-                [('infos.as_num', pymongo.ASCENDING)],
-                [
-                    ('traces.hops.ipaddr', pymongo.ASCENDING),
-                    ('traces.hops.ttl', pymongo.ASCENDING),
-                ],
-                [
-                    ('infos.country_code', pymongo.ASCENDING),
-                    ('infos.city', pymongo.ASCENDING),
-                ],
-                [('infos.loc', pymongo.GEOSPHERE)],
-            ],
-            self.colname_oldhosts: [
-                [('scanid', pymongo.ASCENDING)],
-                [('schema_version', pymongo.ASCENDING)],
-                [('addr', pymongo.ASCENDING)],
-                [('starttime', pymongo.ASCENDING)],
-                [('source', pymongo.ASCENDING)],
-            ],
-        }
-        self.specialindexes = {
-            self.colname_hosts: [
+                ([('scanid', pymongo.ASCENDING)], {}),
+                ([('schema_version', pymongo.ASCENDING)], {}),
+                ([('addr', pymongo.ASCENDING)], {}),
+                ([('starttime', pymongo.ASCENDING)], {}),
+                ([('endtime', pymongo.ASCENDING)], {}),
+                ([('source', pymongo.ASCENDING)], {}),
+                ([('categories', pymongo.ASCENDING)], {}),
+                ([('hostnames.domains', pymongo.ASCENDING)], {}),
+                ([('traces.hops.domains', pymongo.ASCENDING)], {}),
+                ([('openports.count', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.ports', pymongo.ASCENDING)], {}),
                 ([('openports.tcp.count', pymongo.ASCENDING)],
                  {"sparse": True}),
+                ([('openports.udp.ports', pymongo.ASCENDING)], {}),
                 ([('openports.udp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.port', pymongo.ASCENDING)], {}),
+                ([('ports.state_state', pymongo.ASCENDING)], {}),
+                ([('ports.service_name', pymongo.ASCENDING)], {}),
+                ([('ports.scripts.id', pymongo.ASCENDING)], {}),
+                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.scripts.ls.volumes.files.filename',
+                   pymongo.ASCENDING)],
                  {"sparse": True}),
                 ([
                     ('ports.screenshot', pymongo.ASCENDING),
                     ('ports.screenwords', pymongo.ASCENDING),
                 ],
                  {"sparse": True}),
+                ([('infos.as_num', pymongo.ASCENDING)], {}),
+                ([
+                    ('traces.hops.ipaddr', pymongo.ASCENDING),
+                    ('traces.hops.ttl', pymongo.ASCENDING),
+                ], {}),
+                ([
+                    ('infos.country_code', pymongo.ASCENDING),
+                    ('infos.city', pymongo.ASCENDING),
+                ], {}),
+                ([('infos.loc', pymongo.GEOSPHERE)], {}),
                 ([
                     ('cpes.type', pymongo.ASCENDING),
                     ('cpes.vendor', pymongo.ASCENDING),
@@ -489,18 +479,13 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('cpes.version', pymongo.ASCENDING),
                 ],
                  {"sparse": True}),
-                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ([('ports.scripts.ls.volumes.files.filename',
-                   pymongo.ASCENDING)],
-                 {"sparse": True}),
             ],
             self.colname_oldhosts: [
-                ([
-                    ('ports.screenshot', pymongo.ASCENDING),
-                    ('ports.screenwords', pymongo.ASCENDING),
-                ],
-                 {"sparse": True}),
+                ([('scanid', pymongo.ASCENDING)], {}),
+                ([('schema_version', pymongo.ASCENDING)], {}),
+                ([('addr', pymongo.ASCENDING)], {}),
+                ([('starttime', pymongo.ASCENDING)], {}),
+                ([('source', pymongo.ASCENDING)], {}),
             ],
         }
         self.schema_migrations = {
@@ -514,11 +499,42 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
         self.schema_migrations_indexes[colname_hosts] = {
-            4: {"drop": [([('scripts.id', pymongo.ASCENDING)], {}),
-                         ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                          {}),
-                         ([('scripts.ls.volumes.files.filename',
-                            pymongo.ASCENDING)], {})]},
+            1: {"ensure": [
+                ([('schema_version', pymongo.ASCENDING)], {}),
+                ([('openports.count', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.ports', pymongo.ASCENDING)], {}),
+                ([('openports.udp.ports', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('openports.udp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ]},
+            3: {"ensure": [
+                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ## let's skip these ones since we are going to drop
+                ## them right after that
+                # ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                #  {"sparse": True}),
+                # ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                #  {"sparse": True}),
+            ]},
+            4: {"drop": [
+                ([('scripts.id', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)], {}),
+            ]},
+        }
+        self.schema_migrations_indexes[colname_oldhosts] = {
+            1: {"ensure": [([('schema_version', pymongo.ASCENDING)], {})]},
+            4: {"drop": [
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ], {}),
+                ]}
         }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,
@@ -2213,27 +2229,18 @@ class MongoDBPassive(MongoDB, DBPassive):
         self.colname_ipdata = colname_ipdata
         self.indexes = {
             self.colname_passive: [
-                [('port', pymongo.ASCENDING)],
-                [('value', pymongo.ASCENDING)],
-                [('targetval', pymongo.ASCENDING)],
-                [('recontype', pymongo.ASCENDING)],
-                [('firstseen', pymongo.ASCENDING)],
-                [('lastseen', pymongo.ASCENDING)],
-                [('sensor', pymongo.ASCENDING)],
-                [
+                ([('port', pymongo.ASCENDING)], {}),
+                ([('value', pymongo.ASCENDING)], {}),
+                ([('targetval', pymongo.ASCENDING)], {}),
+                ([('recontype', pymongo.ASCENDING)], {}),
+                ([('firstseen', pymongo.ASCENDING)], {}),
+                ([('lastseen', pymongo.ASCENDING)], {}),
+                ([('sensor', pymongo.ASCENDING)], {}),
+                ([
                     ('addr', pymongo.ASCENDING),
                     ('recontype', pymongo.ASCENDING),
                     ('port', pymongo.ASCENDING),
-                ],
-            ],
-            self.colname_ipdata: [
-                [('country_code', pymongo.ASCENDING)],
-                [('location_id', pymongo.ASCENDING)],
-                [('as_num', pymongo.ASCENDING)],
-            ],
-        }
-        self.specialindexes = {
-            self.colname_passive: [
+                ], {}),
                 # HTTP Auth basic
                 ([('infos.username', pymongo.ASCENDING)],
                  {"sparse": True}),
@@ -2257,6 +2264,9 @@ class MongoDBPassive(MongoDB, DBPassive):
                  {"sparse": True}),
             ],
             self.colname_ipdata: [
+                ([('country_code', pymongo.ASCENDING)], {}),
+                ([('location_id', pymongo.ASCENDING)], {}),
+                ([('as_num', pymongo.ASCENDING)], {}),
                 ([('addr', pymongo.ASCENDING)],
                  {'unique': True}),
             ],
@@ -2650,26 +2660,24 @@ class MongoDBData(MongoDB, DBData):
         self.colname_city_locations = colname_city_locations
         self.indexes = {
             self.colname_geoip_country: [
-                [('start', pymongo.ASCENDING)],
-                [('country_code', pymongo.ASCENDING)],
+                ([('start', pymongo.ASCENDING)], {}),
+                ([('country_code', pymongo.ASCENDING)], {}),
             ],
             self.colname_geoip_as: [
-                [('start', pymongo.ASCENDING)],
-                [('as_num', pymongo.ASCENDING)],
+                ([('start', pymongo.ASCENDING)], {}),
+                ([('as_num', pymongo.ASCENDING)], {}),
             ],
             self.colname_geoip_city: [
-                [('start', pymongo.ASCENDING)],
-                [('location_id', pymongo.ASCENDING)],
+                ([('start', pymongo.ASCENDING)], {}),
+                ([('location_id', pymongo.ASCENDING)], {}),
             ],
             self.colname_city_locations: [
-                [('location_id', pymongo.ASCENDING)],
-                [('country_code', pymongo.ASCENDING)],
-                [('region_code', pymongo.ASCENDING)],
-                [('city', pymongo.ASCENDING)],
-                [('loc', pymongo.GEOSPHERE)],
+                ([('location_id', pymongo.ASCENDING)], {}),
+                ([('country_code', pymongo.ASCENDING)], {}),
+                ([('region_code', pymongo.ASCENDING)], {}),
+                ([('city', pymongo.ASCENDING)], {}),
+                ([('loc', pymongo.GEOSPHERE)], {}),
             ],
-        }
-        self.specialindexes = {
             self.colname_country_codes: [
                 ([('country_code', pymongo.ASCENDING)],
                  {'unique': True}),
@@ -2832,18 +2840,18 @@ class MongoDBAgent(MongoDB, DBAgent):
         self.colname_masters = colname_masters
         self.indexes = {
             self.colname_agents: [
-                [('host', pymongo.ASCENDING)],
-                [('path.remote', pymongo.ASCENDING)],
-                [('path.local', pymongo.ASCENDING)],
-                [('master', pymongo.ASCENDING)],
-                [('scan', pymongo.ASCENDING)],
+                ([('host', pymongo.ASCENDING)], {}),
+                ([('path.remote', pymongo.ASCENDING)], {}),
+                ([('path.local', pymongo.ASCENDING)], {}),
+                ([('master', pymongo.ASCENDING)], {}),
+                ([('scan', pymongo.ASCENDING)], {}),
             ],
             self.colname_scans: [
-                [('agents', pymongo.ASCENDING)],
+                ([('agents', pymongo.ASCENDING)], {}),
             ],
             self.colname_masters: [
-                [('hostname', pymongo.ASCENDING),
-                 ('path', pymongo.ASCENDING)],
+                ([('hostname', pymongo.ASCENDING),
+                 ('path', pymongo.ASCENDING)], {}),
             ],
         }
 
