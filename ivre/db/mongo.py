@@ -36,6 +36,9 @@ import datetime
 
 class MongoDB(DB):
 
+    schema_migrations = {}
+    schema_migrations_indexes = {}
+    schema_latest_versions = {}
     needunwind = []
 
     def __init__(self, host, dbname,
