@@ -160,7 +160,7 @@ single or double quotes.
     seems to get a lot a false positives.
   - `banner:` look for a specific banner of a service.
   - `cookie:` look for HTTP servers setting a specific cookie.
-  - `file:[pattern]`, `file:[scriptid]:[pattern]`,
+  - `file`, `file:[pattern]`, `file:[scriptid]:[pattern]`,
     `file:[scriptid],[scriptid],...:[pattern]` look for a pattern in
     the shared files (FTP, SMB, ...).
   - `geovision` look for GeoVision web-cams.

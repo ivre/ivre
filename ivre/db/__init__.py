@@ -157,11 +157,11 @@ class DB(object):
         execution by finding backdoors/shells/vulnerabilities.
 
         """
-        return self.searchfile(re.compile(
+        return self.searchfile(fname=re.compile(
             'vhost|www|web\\.config|\\.htaccess|\\.([aj]sp|php|html?|js|css)',
             re.I))
 
-    def searchfile(self, fname):
+    def searchfile(self, fname=None, scripts=None):
         """Finds shared files or directories from a name or a
         pattern.
 

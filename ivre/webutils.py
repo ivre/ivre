@@ -388,16 +388,17 @@ def flt_from_query(query):
         elif param == 'cookie':
             flt = db.nmap.flt_and(flt, db.nmap.searchcookie(value))
         elif param == 'file':
-            value = value.split(':', 1)
-            if len(value) == 1:
-                flt = db.nmap.flt_and(
-                    flt, db.nmap.searchfile(utils.str2regexp(value[0]))
-                )
+            if value is None:
+                flt = db.nmap.flt_and(flt, db.nmap.searchfile())
             else:
-                flt = db.nmap.flt_and(
-                    flt, db.nmap.searchfile(utils.str2regexp(value[1]),
-                                            scripts=value[0].split(','))
-                )
+                value = value.split(':', 1)
+                if len(value) == 1:
+                    flt = db.nmap.flt_and(flt, db.nmap.searchfile(
+                        fname=utils.str2regexp(value[0])))
+                else:
+                    flt = db.nmap.flt_and(flt, db.nmap.searchfile(
+                        fname=utils.str2regexp(value[1]),
+                        scripts=value[0].split(',')))
         elif not neg and param == 'geovision':
             flt = db.nmap.flt_and(flt, db.nmap.searchgeovision())
         elif param == 'httptitle':

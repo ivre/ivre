@@ -1354,11 +1354,13 @@ have no effect if it is not expected)."""
             'ports.scripts': {'$elemMatch': args}
         }
 
-    def searchfile(self, fname, scripts=None):
+    def searchfile(self, fname=None, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp), only from scripts using the "ls" NSE module.
 
         """
+        if fname is None:
+            fname = {"$exists": True}
         if scripts is None:
             return {"ports.scripts.ls.volumes.files.filename": fname}
         if isinstance(scripts, basestring):
@@ -2042,7 +2044,7 @@ have no effect if it is not expected)."""
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
         elif field == 'file' or field.startswith('file.'):
-            flt = self.flt_and(flt, self.searchfile({"$exists": True}))
+            flt = self.flt_and(flt, self.searchfile())
             field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
                                                            or 'filename')
         elif field == 'screenwords':
