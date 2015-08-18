@@ -496,11 +496,42 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
             self.colname_hosts].copy()
         self.schema_migrations_indexes[colname_hosts] = {
-            4: {"drop": [([('scripts.id', pymongo.ASCENDING)], {}),
-                         ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                          {}),
-                         ([('scripts.ls.volumes.files.filename',
-                            pymongo.ASCENDING)], {})]},
+            1: {"ensure": [
+                ([('schema_version', pymongo.ASCENDING)], {}),
+                ([('openports.count', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.ports', pymongo.ASCENDING)], {}),
+                ([('openports.udp.ports', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('openports.udp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ]},
+            3: {"ensure": [
+                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ## let's skip these ones since we are going to drop
+                ## them right after that
+                # ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                #  {"sparse": True}),
+                # ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                #  {"sparse": True}),
+            ]},
+            4: {"drop": [
+                ([('scripts.id', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)], {}),
+            ]},
+        }
+        self.schema_migrations_indexes[colname_oldhosts] = {
+            1: {"ensure": [([('schema_version', pymongo.ASCENDING)], {})]},
+            4: {"drop": [
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ], {}),
+                ]}
         }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,

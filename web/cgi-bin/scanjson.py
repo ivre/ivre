@@ -212,9 +212,9 @@ def main():
 
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
-                          "the following commands: 'scancli --ensure-indexes; "
-                          "scancli --update-schema; scancli --update-schema "
-                          "--archives'" % (count, 's' if count > 1 else '',
+                          "the following commands: 'scancli --update-schema; "
+                          "scancli --update-schema --archives'"
+                          "" % (count, 's' if count > 1 else '',
                                            'are' if count > 1 else 'is')),
         -1: lambda count: ('%d document%s displayed ha%s been inserted by '
                            'a more recent version of IVRE. Please update '
