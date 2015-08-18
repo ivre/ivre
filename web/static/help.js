@@ -454,27 +454,27 @@ var HELP_TOPVALUES = {
 	    "content": "DNS domains (optionally limited to the specified level).",
 	},
 	"file.filename": {
-	    "title": "<b>(!)</b>file or <b>(!)</b>file.filename",
+	    "title": "<b>(!)</b>file<b>(:[script id](,[script id](,[...])))</b> or <b>(!)</b>file.filename<b>([...])</b>",
 	    "content": "Filenames from shared folders (AFP, SMB, NFS)."
 	},
 	"file.time": {
-	    "title": "<b>(!)</b>file.time",
+	    "title": "<b>(!)</b>file.time<b>(:[script id](,[script id](,[...])))</b>",
 	    "content": "Timestamps from shared folders (AFP, SMB, NFS)."
 	},
 	"file.size": {
-	    "title": "<b>(!)</b>file.size",
+	    "title": "<b>(!)</b>file.size<b>(:[script id](,[script id](,[...])))</b>",
 	    "content": "File sizes from shared folders (AFP, SMB, NFS)."
 	},
 	"file.uid": {
-	    "title": "<b>(!)</b>file.uid",
+	    "title": "<b>(!)</b>file.uid<b>(:[script id](,[script id](,[...])))</b>",
 	    "content": "File owners UID from shared folders (AFP, SMB, NFS)."
 	},
 	"file.gid": {
-	    "title": "<b>(!)</b>file.gid",
+	    "title": "<b>(!)</b>file.gid<b>(:[script id](,[script id](,[...])))</b>",
 	    "content": "File owners GID from shared folders (AFP, SMB, NFS)."
 	},
 	"file.permission": {
-	    "title": "<b>(!)</b>file.permission",
+	    "title": "<b>(!)</b>file.permission<b>(:[script id](,[script id](,[...])))</b>",
 	    "content": "File permissions from shared folders (AFP, SMB, NFS)."
 	},
 	"portlist:open": {
