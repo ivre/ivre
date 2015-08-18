@@ -68,6 +68,7 @@ def add_ls_data(script):
         "nfs-ls": add_nfs_ls_data,
         "afp-ls": add_afp_ls_data,
         "ftp-anon": add_ftp_anon_data,
+        # http-ls has used the "ls" module since the beginning
     }.get(script['id'], notimplemented)(script)
 
 def add_smb_ls_data(script):

@@ -529,7 +529,6 @@ function set_display_mode(mode) {
 		case "ls":
 		    return accu.concat([
 			"afp-ls", "ftp-anon", "http-ls", "nfs-ls", "smb-ls",
-			"gopher-ls", "http-vlcstreamer-ls",
 		    ]);
 		default:
 		    return accu.concat([value]);
