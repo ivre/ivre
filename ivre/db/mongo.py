@@ -1667,7 +1667,7 @@ have no effect if it is not expected)."""
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - screenwords
-          - file.*
+          - file.* / file.*:scriptid
           - hop
         """
         colname = self.colname_oldhosts if archive else self.colname_hosts
@@ -2059,10 +2059,25 @@ have no effect if it is not expected)."""
                 "ip": "Device IP",
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
-        elif field == 'file' or field.startswith('file.'):
-            flt = self.flt_and(flt, self.searchfile())
+        elif (field == 'file' or field.startswith('file:')
+              or field.startswith('file.')):
+            if ":" in field:
+                field, scripts = field.split(':', 1)
+                scripts = scripts.split(',')
+            else:
+                scripts = None
+            flt = self.flt_and(flt, self.searchfile(scripts=scripts))
             field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
                                                            or 'filename')
+            if scripts is not None:
+                specialproj = {"_id": 0, field: 1, 'ports.scripts.id': 1}
+                # We need two different filters here (see `cpeflt`
+                # above).
+                specialflt = [
+                    {"$match": {"ports.scripts.id":
+                                flt['ports.scripts']['$elemMatch']['id']}},
+                    #{"$project": {field: 1}},
+                ]
         elif field == 'screenwords':
             field = 'ports.screenwords'
             flt = self.flt_and(flt, self.searchscreenshot(words=True))
