@@ -622,7 +622,9 @@ creates the default indexes."""
         update = {"$set": {"schema_version": 3}}
         updated_ports = False
         updated_scripts = False
-        migrate_scripts = set(["afp-ls", "nfs-ls", "smb-ls", "ftp-anon"])
+        migrate_scripts = set([
+            "afp-ls", "nfs-ls", "smb-ls", "ftp-anon", "http-ls"
+        ])
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
                 if script['id'] in migrate_scripts:
