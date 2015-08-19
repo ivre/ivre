@@ -585,8 +585,9 @@ creates the default indexes."""
         openports = {}
         for port in doc.get("ports", []):
             # populate openports
-            openports.setdefault(port["protocol"], {}).setdefault(
-                "ports", []).append(port["port"])
+            if port.get('state_state') == 'open':
+                openports.setdefault(port["protocol"], {}).setdefault(
+                    "ports", []).append(port["port"])
             # create the screenwords attribute
             if 'screenshot' in port and 'screenwords' not in port:
                 screenwords = utils.screenwords(self.getscreenshot(port))
