@@ -500,6 +500,10 @@ class MongoDBNmap(MongoDB, DBNmap):
             self.colname_hosts].copy()
         self.schema_migrations_indexes[colname_hosts] = {
             1: {"ensure": [
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ], {"sparse": True}),
                 ([('schema_version', pymongo.ASCENDING)], {}),
                 ([('openports.count', pymongo.ASCENDING)], {}),
                 ([('openports.tcp.ports', pymongo.ASCENDING)], {}),
@@ -567,8 +571,7 @@ creates the default indexes."""
         """
         return self.cmp_schema_version(self.colname_scans, scan)
 
-    @staticmethod
-    def migrate_schema_hosts_0_1(doc):
+    def migrate_schema_hosts_0_1(self, doc):
         """Converts a record from version 0 (no "schema_version" key
         in the document) to version 1 (`doc["schema_version"] ==
         1`). Version 1 adds an "openports" nested document to ease
@@ -578,16 +581,26 @@ creates the default indexes."""
         assert("schema_version" not in doc)
         assert("openports" not in doc)
         update = {"$set": {"schema_version": 1}}
+        updated_ports = False
         openports = {}
         for port in doc.get("ports", []):
+            # populate openports
             openports.setdefault(port["protocol"], {}).setdefault(
                 "ports", []).append(port["port"])
+            # create the screenwords attribute
+            if 'screenshot' in port and 'screenwords' not in port:
+                screenwords = utils.screenwords(self.getscreenshot(port))
+                if screenwords is not None:
+                    port['screenwords'] = screenwords
+                    updated_ports = True
         for proto in openports.keys():
             count = len(openports[proto]["ports"])
             openports[proto]["count"] = count
             openports["count"] = openports.get("count", 0) + count
         if not openports:
             openports["count"] = 0
+        if updated_ports:
+            update["$set"]["ports"] = doc["ports"]
         update["$set"]["openports"] = openports
         return update
 
