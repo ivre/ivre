@@ -451,6 +451,10 @@ def main():
     parser.add_argument('--distinct', metavar='FIELD',
                         help='Output only unique FIELD part of the '
                         'results, one per line.')
+    parser.add_argument('--top', metavar='FIELD / ~FIELD',
+                        help='Output most common (least common: ~) values for '
+                        'FIELD, by default 10, use --limit to change that, '
+                        '--limit 0 means unlimited.')
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
@@ -521,6 +525,21 @@ def main():
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.db.nmap.ensure_indexes()
+        sys.exit(0)
+    if args.top is not None:
+        field, least = ((args.top[1:], True)
+                        if args.top[:1] in '!-~' else
+                        (args.top, False))
+        topnbr = {0: None, None: 10}.get(args.limit, args.limit)
+        for entry in db.db.nmap.topvalues(field, flt=hostfilter,
+                                          topnbr=topnbr,
+                                          archive=args.archives):
+            if isinstance(entry['_id'], list):
+                if entry['_id']:
+                    entry['_id'] = ' / '.join(str(elt) for elt in entry['_id'])
+                else:
+                    entry['_id'] = "None"
+            print "%(_id)s: %(count)d" % entry
         sys.exit(0)
     if args.json:
         import json
