@@ -603,10 +603,8 @@ def main():
         def displayfunction(x):
             out.write(str(x.count()) + '\n')
     elif args.distinct is not None:
-        distinctfield = args.distinct
-
         def displayfunction(x):
-            out.write(', '.join(map(str, x.distinct(distinctfield))) + '\n')
+            out.write('\n'.join(map(str, x.distinct(args.distinct))) + '\n')
     elif args.explain:
         def displayfunction(x):
             out.write(db.db.nmap.explain(x, indent=4) + '\n')
