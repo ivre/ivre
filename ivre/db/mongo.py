@@ -1143,7 +1143,17 @@ have no effect if it is not expected)."""
         if neg:
             if type(cat) is utils.REGEXP_T:
                 return {'categories': {'$not': cat}}
+            if isinstance(cat, list):
+                if len(cat) == 1:
+                    cat = cat[0]
+                else:
+                    return {'categories': {'$nin': cat}}
             return {'categories': {'$ne': cat}}
+        if isinstance(cat, list):
+            if len(cat) == 1:
+                cat = cat[0]
+            else:
+                return {'categories': {'$in': cat}}
         return {'categories': cat}
 
     @staticmethod
@@ -2147,7 +2157,8 @@ have no effect if it is not expected)."""
         if flt is None:
             flt = self.flt_empty
         if args.category is not None:
-            flt = self.flt_and(flt, self.searchcategory(args.category))
+            flt = self.flt_and(flt, self.searchcategory(
+                utils.str2list(args.category)))
         if args.country is not None:
             flt = self.flt_and(flt, self.searchcountry(
                 utils.str2list(args.country)))
