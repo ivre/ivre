@@ -21,7 +21,7 @@ IVRE relies on:
     * the [[http://www.pycrypto.org/|Crypto]] module
     * the [[http://api.mongodb.org/python/|pymongo]] module,  version 2.7.2 minimum.
   * [[http://nmap.org/|Nmap]] & [[https://zmap.io/|ZMap]]
-  * [[http://www.bro.org/|Bro]] (version 2.3) & [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3)
+  * [[http://www.bro.org/|Bro]] (version 2.3 minimum) & [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3)
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%httpd-ivre%%'')
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]])
@@ -50,16 +50,22 @@ The following steps will show some examples of **passive** network recon with IV
 You need to run bro (2.3 minimum) with the option ''%%-b%%'' and the location of the ''%%passiverecon.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run:
 
 <code># mkdir logs
-# bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -i eth0</code>
+# LOG_PATH=logs/passiverecon \
+> bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -i eth0</code>
 If you want to run it on the ''%%capture%%'' file (''%%capture%%'' needs to a PCAP file), run:
 
 <code>$ mkdir logs
-$ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture</code>
+$ LOG_PATH=logs/passiverecon \
+> bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture</code>
 This will produce log files in the ''%%logs%%'' directory. You need to run a ''%%passivereconworker%%'' to process these files. You can try:
 
 <code>$ passivereconworker --directory=logs</code>
 This program will not stop by itself. You can (''%%p%%'')''%%kill%%'' it, it will stop gently (as soon as it has finished to process the current file).
 
+You can also send the data from ''%%bro%%'' to the database without using intermediate files:
+
+<code>$ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro [option] \
+> | passiverecon2db</code>
 ===== Using p0f =====
 
 To start filling your database with information from the ''%%eth0%%'' interface, you just need to run (''%%passiverecon%%'' is just a sensor name here):

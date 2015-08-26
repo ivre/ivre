@@ -34,7 +34,7 @@ IVRE relies on:
 
   * [Nmap](http://nmap.org/) & [ZMap](https://zmap.io/)
 
-  * [Bro](http://www.bro.org/) (version 2.3) &
+  * [Bro](http://www.bro.org/) (version 2.3 minimum) &
     [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
     with version 3)
 
@@ -90,13 +90,15 @@ location of the `passiverecon.bro` file. If you want to run it on the
 `eth0` interface, for example, run:
 
     # mkdir logs
-    # bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -i eth0
+    # LOG_PATH=logs/passiverecon \
+    > bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -i eth0
 
 If you want to run it on the `capture` file (`capture` needs to a PCAP
 file), run:
 
     $ mkdir logs
-    $ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture
+    $ LOG_PATH=logs/passiverecon \
+    > bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture
 
 This will produce log files in the `logs` directory. You need to run a
 `passivereconworker` to process these files. You can try:
@@ -105,6 +107,12 @@ This will produce log files in the `logs` directory. You need to run a
 
 This program will not stop by itself. You can (`p`)`kill` it, it will
 stop gently (as soon as it has finished to process the current file).
+
+You can also send the data from `bro` to the database without using
+intermediate files:
+
+    $ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro [option] \
+    > | passiverecon2db
 
 ## Using p0f ##
 
