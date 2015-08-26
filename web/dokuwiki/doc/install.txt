@@ -8,7 +8,7 @@ Follow the [[http://docs.mongodb.org/manual/installation/|documentation from Mon
 
 If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]].
 
-If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro]] and [[http://lcamtuf.coredump.cx/p0f/|p0f]].
+If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro]] (version 2.3) and [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3).
 
 To install IVRE, you'll need [[http://www.python.org/|Python]] 2, version 2.6 minimum (prefer 2.7), with the following modules:
 
