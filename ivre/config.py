@@ -77,28 +77,31 @@ WEB_DEFAULT_INIT_QUERY = None
 
 ## Basic ACL example (to be put in /etc/ivre.conf):
 # from ivre.db import db
-# INIT_QUERIES = {
+# WEB_INIT_QUERIES = {
 #     'admin': db.nmap.flt_empty,
 #     'admin-site-a': db.nmap.searchcategory('site-a'),
 #     'admin-scanner-a': db.nmap.searchsource('scanner-a')
 # }
-# DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
+# WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
 
 ## More complex ACL example with realm handling (to be put in
 ## /etc/ivre.conf)
+# from ivre.db import db
 # class Users(object):
-#     def __init__(self, Users={}, Realms={}):
-#         self.Users = Users
-#         self.Realms = Realms
+#     def __init__(self, users={}, realms={}):
+#         self.users = users
+#         self.realms = realms
 #     def get(self, user, default):
 #         if type(user) is str and '@' in user:
 #             realm = user[user.index('@')+1:]
 #         else: realm = None
-#         return self.Users.get(user, self.Realms.get(realm, default))
+#         return self.users.get(user, self.realms.get(realm, default))
 # from ivre.db import db
-# INIT_QUERIES = Users(Users={"admin": db.nmap.flt_empty},
-#                      Realms={"admin.sitea": db.nmap.searchcategory('sitea')})
-# DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
+# WEB_INIT_QUERIES = Users(
+#     users={"admin": db.nmap.flt_empty},
+#     realms={"admin.sitea": db.nmap.searchcategory('sitea')}
+# )
+# WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
 
 
 def get_config_file(paths=None):
