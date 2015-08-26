@@ -22,8 +22,6 @@ import json
 try:
     from ivre import utils, webutils, config
     from ivre.db import db
-    if config.WEB_DEFAULT_INIT_QUERY is None:
-        config.WEB_DEFAULT_INIT_QUERY = db.nmap.flt_empty
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
     sys.stdout.write(
