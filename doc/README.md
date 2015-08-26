@@ -34,7 +34,9 @@ IVRE relies on:
 
   * [Nmap](http://nmap.org/) & [ZMap](https://zmap.io/)
 
-  * [Bro](http://www.bro.org/) & [p0f](http://lcamtuf.coredump.cx/p0f/)
+  * [Bro](http://www.bro.org/) (version 2.3) &
+    [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
+    with version 3)
 
   * [MongoDB](http://www.mongodb.org/), version 2.6 minimum
 
