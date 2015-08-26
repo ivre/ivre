@@ -62,6 +62,7 @@ ivre/db/mongo.py
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
 web/cgi-bin/scanjson.py
+web/cgi-bin/scanupload.py
 web/dokuwiki/backlinks.patch
 web/dokuwiki/doc/agent.txt
 web/dokuwiki/doc/docker.txt
@@ -80,6 +81,8 @@ web/static/favicon-loading.gif
 web/static/favicon.png
 web/static/help.js
 web/static/index.html
+web/static/report.html
+web/static/upload.html
 web/static/ivre/ivre.css
 web/static/ivre/ivre.js
 web/static/ivre/controllers.js

@@ -140,6 +140,8 @@
 	   onclick="setparam('phonedev');">Telephony systems</a></li>
     <li><a class="clickable"
 	   onclick="setparam('screenshot', undefined, true, true); setparam('display', 'screenshot', true);">Screenshots</a></li>
+    <li><a class="clickable"
+	   onclick="setparam('file', undefined, true, true); setparam('display', 'script:ls', true);">Shared files</a></li>
   </ul>
 </li>
 
@@ -195,4 +197,11 @@
 	<i class="glyphicon glyphicon-th-list "></i> Report
     </a></li>
   </ul>
+</li>
+
+<!-- Upload -->
+<li ng-if="::uploadok">
+  <a class="clickable" href="upload.html" title="Upload scan results">
+    <i class="glyphicon glyphicon-upload white"></i> Upload
+  </a>
 </li>

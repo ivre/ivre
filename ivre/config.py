@@ -73,33 +73,35 @@ WEB_SKIP = 0
 WEB_LIMIT = 10
 # access control disabled by default:
 WEB_INIT_QUERIES = {}
+# Warning: None means no access control, and is equivalent to "full"
 WEB_DEFAULT_INIT_QUERY = None
+# upload disabled by default
+WEB_UPLOAD_OK = False
+# Is this a public server? This setting affects result uploading and
+# access control
+## When this is set to True:
+### 1. The user will, by default, only access to results that are either
+###    in the "Shared" category or that he has uploaded.
+### 2. The upload page, if enabled, is modified to explain that
+WEB_PUBLIC_SRV = False
+# Feed with a random value, like `openssl rand -base64 42`.
+# *Mandatory* when WEB_PUBLIC_SRV == True
+WEB_SECRET = None
 
-## Basic ACL example (to be put in /etc/ivre.conf):
-# from ivre.db import db
-# INIT_QUERIES = {
-#     'admin': db.nmap.flt_empty,
-#     'admin-site-a': db.nmap.searchcategory('site-a'),
-#     'admin-scanner-a': db.nmap.searchsource('scanner-a')
+## Basic ACL example
+# WEB_INIT_QUERIES = {
+#     'admin': 'full',
+#     'admin-site-a': 'category:site-a',
+#     'admin-scanner-a': 'source:scanner-a',
 # }
-# DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
+# WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
-## More complex ACL example with realm handling (to be put in
-## /etc/ivre.conf)
-# class Users(object):
-#     def __init__(self, Users={}, Realms={}):
-#         self.Users = Users
-#         self.Realms = Realms
-#     def get(self, user, default):
-#         if type(user) is str and '@' in user:
-#             realm = user[user.index('@')+1:]
-#         else: realm = None
-#         return self.Users.get(user, self.Realms.get(realm, default))
-# from ivre.db import db
-# INIT_QUERIES = Users(Users={"admin": db.nmap.flt_empty},
-#                      Realms={"admin.sitea": db.nmap.searchcategory('sitea')})
-# DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
-
+## More complex ACL example with realm handling
+# WEB_INIT_QUERIES = {
+#     "admin": 'full',
+#     "@admin.sitea": 'category:sitea',
+# )
+# WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
 def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""

@@ -813,12 +813,18 @@ have no effect if it is not expected)."""
 
     def store_host(self, host):
         ident = self.db[self.colname_hosts].insert(host)
-        print "HOST STORED: %r in %r" % (ident, self.colname_hosts)
+        if config.DEBUG:
+            sys.stderr.write(
+                "HOST STORED: %r in %r\n" % (ident, self.colname_hosts)
+            )
         return ident
 
     def store_scan_doc(self, scan):
         ident = self.db[self.colname_scans].insert(scan)
-        print "SCAN STORED: %r in %r" % (ident, self.colname_scans)
+        if config.DEBUG:
+            sys.stderr.write(
+                "SCAN STORED: %r in %r\n" % (ident, self.colname_scans)
+            )
         return ident
 
     def merge_host_docs(self, rec1, rec2):
@@ -961,16 +967,20 @@ have no effect if it is not expected)."""
         # store the host in the archive hosts collection
         self.db[self.colname_oldhosts].insert(host)
         if config.DEBUG:
-            print "HOST ARCHIVED: %s in %r" % (
-                host['_id'],
-                self.colname_oldhosts,
+            sys.stderr.write(
+                "HOST ARCHIVED: %s in %r\n" % (
+                    host['_id'],
+                    self.colname_oldhosts,
+                )
             )
         # remove the host from the (not archived) hosts collection
         self.db[self.colname_hosts].remove(spec_or_id=host['_id'])
         if config.DEBUG:
-            print "HOST REMOVED: %s from %r" % (
-                host['_id'],
-                self.colname_hosts,
+            sys.stderr.write(
+                "HOST REMOVED: %s from %r\n" % (
+                    host['_id'],
+                    self.colname_hosts,
+                )
             )
         for scanid in self.getscanids(host):
             scan = self.find_one(self.colname_scans, {'_id': scanid})
@@ -981,9 +991,11 @@ have no effect if it is not expected)."""
                                  {'_id': scanid}) is None:
                     self.db[self.colname_oldscans].insert(scan)
                     if config.DEBUG:
-                        print "SCAN ARCHIVED: %s in %r" % (
-                            scanid,
-                            self.colname_oldscans,
+                        sys.stderr.write(
+                            "SCAN ARCHIVED: %s in %r\n" % (
+                                scanid,
+                                self.colname_oldscans,
+                            )
                         )
                 # remove the scan from the (not archived) scans
                 # collection if there is no more hosts related to this
@@ -992,9 +1004,11 @@ have no effect if it is not expected)."""
                                  {'scanid': scanid}) is None:
                     self.db[self.colname_scans].remove(spec_or_id=scanid)
                     if config.DEBUG:
-                        print "SCAN REMOVED: %s in %r" % (
-                            scanid,
-                            self.colname_scans,
+                        sys.stderr.write(
+                            "SCAN REMOVED: %s in %r" % (
+                                scanid,
+                                self.colname_scans,
+                            )
                         )
 
     def archive_from_func(self, host, gettoarchive):
@@ -1129,7 +1143,17 @@ have no effect if it is not expected)."""
         if neg:
             if type(cat) is utils.REGEXP_T:
                 return {'categories': {'$not': cat}}
+            if isinstance(cat, list):
+                if len(cat) == 1:
+                    cat = cat[0]
+                else:
+                    return {'categories': {'$nin': cat}}
             return {'categories': {'$ne': cat}}
+        if isinstance(cat, list):
+            if len(cat) == 1:
+                cat = cat[0]
+            else:
+                return {'categories': {'$in': cat}}
         return {'categories': cat}
 
     @staticmethod
@@ -2133,7 +2157,8 @@ have no effect if it is not expected)."""
         if flt is None:
             flt = self.flt_empty
         if args.category is not None:
-            flt = self.flt_and(flt, self.searchcategory(args.category))
+            flt = self.flt_and(flt, self.searchcategory(
+                utils.str2list(args.category)))
         if args.country is not None:
             flt = self.flt_and(flt, self.searchcountry(
                 utils.str2list(args.country)))
@@ -2423,7 +2448,9 @@ setting values according to the keyword arguments.
                     count += 1
                     if count >= config.BULK_UPSERTS_MAXSIZE:
                         if config.DEBUG:
-                            print "MongoDB bulk upsert: %d" % count
+                            sys.stderr.write(
+                                "MongoDB bulk upsert: %d\n" % count
+                            )
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
                                    .initialize_unordered_bulk_op()
@@ -2432,7 +2459,7 @@ setting values according to the keyword arguments.
             pass
         if count > 0:
             if config.DEBUG:
-                print "MongoDB bulk upsert: %d (final)" % count
+                sys.stderr.write("MongoDB bulk upsert: %d (final)\n" % count)
             bulk.execute()
 
     def insert_or_update_mix(self, spec, getinfos=None):

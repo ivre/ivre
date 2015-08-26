@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+
+<!--
+    This file is part of IVRE.
+    Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+
+    IVRE is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    IVRE is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+    License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+  -->
+
+<html ng-app="ivreWebUi">
+
+  <head>
+    <link rel="stylesheet" type="text/css" href="bs/css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="fi/css/flag-icon.css" />
+    <link rel="stylesheet" type="text/css" href="ivre/ivre.css" />
+    <link rel="icon" type="image/png" id="favicon" href="favicon.png" />
+    <script type="text/javascript" src="jq/jquery.js"></script>
+    <script type="text/javascript" src="bs/js/bootstrap.js"></script>
+    <script type="text/javascript" src="d3/js/d3.v3.min.js"></script>
+    <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
+    <script type="text/javascript" src="an/js/angular.js"></script>
+    <script type="text/javascript">
+      config = {};
+    </script>
+    <script type="text/javascript" src="config.js"></script>
+    <script type="text/javascript" src="help.js"></script>
+    <script type="text/javascript" src="ivre/utils.js"></script>
+    <script type="text/javascript" src="ivre/graph.js"></script>
+    <script type="text/javascript" src="ivre/controllers.js"></script>
+    <script type="text/javascript" src="ivre/params.js"></script>
+    <script type="text/javascript" src="ivre/tooltip.js"></script>
+    <script type="text/javascript" src="ivre/ivre.js"></script>
+    <title>IVRE Web UI</title>
+  </head>
+
+  <body ng-controller="IvreUploadCtrl" style="padding-top: 10px">
+    <div class="row">
+      <div class="col-xs-10 col-xs-offset-1" ng-class="{hidden: !uploadok}">
+	<form class="form-horizontal" id="upload"
+	      enctype="multipart/form-data"
+	      method="post">
+	  <input type="hidden" id="uploadReferer" name="referer">
+	  <div class="form-group"
+	       ng-class="{'has-error': error_files}">
+	    <label for="uploadResult"
+		   class="col-sm-2 control-label">Results</label>
+	    <div class="col-sm-10">
+	      <!-- onchange VS ng-change:
+		   http://stackoverflow.com/a/17923521/3223422 -->
+	      <input type="file" id="uploadResult" multiple
+		     name="result"
+		     onchange="angular.element(this).scope().checkfiles(this);">
+	      <p class="help-block">You can upload XML results from
+	      Nmap (<code>-oX</code>) or JSON results
+	      from <code>scancli --json</code>. Files can be
+	      compressed with bzip2 or gzip.</p>
+	    </div>
+	  </div>
+	  <div class="form-group">
+	    <label for="uploadCategories"
+		   class="col-sm-2 control-label">Categories</label>
+	    <div class="col-sm-10">
+	      <input type="text" class="form-control"
+		     name="categories"
+		     id="uploadCategories"
+		     placeholder="Comma-separated categories">
+	      <p class="help-block">Categories are arbitrary strings
+		that can be used to define your scan (targets, type of
+		scan, etc.).</p>
+	      <p class="help-block">Example: <code>Country-XX,Standard</code>,
+		or <code>AS-12345,Fast</code>.</p>
+	      <p class="help-block" ng-class="{hidden: !publicsrv}">If you
+		are authenticated, your username will be set as a
+		category in addition to thoses specified. If you
+		decide to share those results with other users of this
+		instance (see below), the category "Shared" will be
+		set in addition to thoses specified (and if you
+		include a category "Shared", the results will be
+		available to other users of this instance, regardless
+		of "Make the results public").</p>
+	    </div>
+	  </div>
+	  <div class="form-group"
+	       ng-class="{'has-error': error_source}">
+	    <label for="uploadSource"
+		   class="col-sm-2 control-label">Source</label>
+	    <div class="col-sm-10">
+	      <input type="text" class="form-control"
+		     id="uploadSource"
+		     name="source"
+		     placeholder="Source"
+		     ng-model="source">
+	      <p class="help-block">The source is an arbitrary string
+		that can be used to define from where you have run the
+		scan (Network, etc.).<b> This field is mandatory.</b></p>
+	      <p class="help-block">Example: <code>Provider-Scanner0</code>,
+		or <code>ISP-192.168.0.1</code>.</p>
+	    </div>
+	  </div>
+	  <div class="form-group"  ng-class="{hidden: !publicsrv}">
+	    <div class="col-sm-10 col-sm-offset-2">
+	      <div class="checkbox">
+		<label>
+		  <input type="checkbox" name="public" id="uploadPublic"> Share these results
+		</label>
+		<p class="help-block">By checking this, you will make the
+		  uploaded scan results available to other users <b>of this
+		    instance</b>.</p>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="form-group"
+	       ng-class="{hidden: !publicsrv, 'has-error': error_agreed}">
+	    <div class="col-sm-10 col-sm-offset-2">
+	      <div class="checkbox">
+		<p>This is a public instance. If you have not checked
+		  "Share these results", we will do our best to keep
+		  your results safe, <b>but we can offer no
+		  guarantee. For this reason, you should only upload
+		  non-sensitive results.</b></p>
+		<label>
+		  <input type="checkbox" id="uploadAgreed"
+			 ng-model="agreed"><b>I have
+		  read and I agree.</b>
+		</label>
+	      </div>
+	    </div>
+	  </div>
+	  <div class="form-group">
+	    <div class="col-sm-10 col-sm-offset-2">
+	      <button type="submit" class="btn btn-success"
+		      style="pointer-events: auto;"
+		      ng-class="{'disabled': ! ready()}"
+		      ng-click="upload()">
+		<i class="glyphicon glyphicon-upload"></i> Upload
+	      </button>
+	    </div>
+	  </div>
+	</form>
+      </div>
+      <div class="col-xs-10 col-xs-offset-1" ng-if="::!uploadok">
+	<h1>
+	  This instance do not authorize uploads <small>(this is the
+	    default)</small>
+	</h1>
+	<p class="lead">To change this, set:
+	  <ul>
+	    <li><code>WEB_UPLOAD_OK</code> to <code>True</code>
+	      in <code>ivre.conf</code></li>
+	    <li><code>config.uploadok</code> to <code>true</code>
+	      in <code>config.js</code></li>
+	  </ul>
+	</p>
+      </div>
+    </div>
+  </body>
+</html>

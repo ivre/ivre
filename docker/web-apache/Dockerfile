@@ -24,7 +24,7 @@ RUN apt-get -qy install apache2 dokuwiki
 RUN rm var/www/html/index.html
 RUN ln -s /usr/local/share/ivre/web/static/* var/www/html
 RUN touch var/www/html/config.js
-RUN ln -s /usr/local/share/ivre/web/cgi-bin/scanjson.py usr/lib/cgi-bin
+RUN ln -s /usr/local/share/ivre/web/cgi-bin/* usr/lib/cgi-bin
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/lib/dokuwiki/data/pages
 RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/lib/dokuwiki/data/media/wiki
 

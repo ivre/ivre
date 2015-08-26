@@ -141,11 +141,11 @@ class IvreTests(unittest.TestCase):
         scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
-            res, out, _ = RUN(["nmap2db", "--port",
+            res, _, err = RUN(["nmap2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
-            host_counter += sum(1 for _ in host_stored.finditer(out))
-            scan_counter += sum(1 for _ in scan_stored.finditer(out))
+            host_counter += sum(1 for _ in host_stored.finditer(err))
+            scan_counter += sum(1 for _ in scan_stored.finditer(err))
             # Insertion test (== parsing only)
             res, out, _ = RUN(["nmap2db", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])
