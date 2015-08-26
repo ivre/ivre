@@ -29,6 +29,7 @@ import functools
 import shlex
 import re
 import urllib
+from Crypto.Hash.HMAC import HMAC
 try:
     import MySQLdb
     HAVE_MYSQL = True
@@ -194,12 +195,28 @@ def query_from_params(params):
         sys.exit(0)
 
 
+def get_user():
+    """Return the connected user.
+
+    """
+    return os.getenv('REMOTE_USER')
+
+
+def get_anonymized_user():
+    """Return the HMAC value of the current user authenticated with
+    the HMAC secret.
+
+    """
+    return HMAC(key=config.WEB_SECRET,
+                msg=get_user()).digest()[:9].encode('base64').rstrip()
+
+
 def get_init_flt():
     """Return a filter corresponding to the current user's
     privileges.
 
     """
-    return config.WEB_INIT_QUERIES.get(os.getenv('REMOTE_USER'),
+    return config.WEB_INIT_QUERIES.get(get_user(),
                                        config.WEB_DEFAULT_INIT_QUERY)
 
 
