@@ -25,7 +25,7 @@ This sub-module contains the parser for nmap's XML output files.
 
 """
 
-from ivre import utils
+from ivre import utils, config
 
 from xml.sax.handler import ContentHandler, EntityResolver
 import datetime
@@ -536,7 +536,8 @@ class NmapHandler(ContentHandler):
         self._curtablepath = []
         self._curhostnames = None
         self._filehash = filehash
-        print "READING %r (%r)" % (fname, self._filehash)
+        if config.DEBUG:
+            sys.stderr.write("READING %r (%r)" % (fname, self._filehash))
 
     def _pre_addhost(self):
         """Executed before _addhost for host object post-treatment"""
