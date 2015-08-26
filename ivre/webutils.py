@@ -211,13 +211,37 @@ def get_anonymized_user():
                 msg=get_user()).digest()[:9].encode('base64').rstrip()
 
 
+QUERIES = {
+    'full': lambda: db.nmap.flt_empty,
+    'noaccess': lambda: db.nmap.searchid(0),
+    'category': lambda cat: db.nmap.searchcategory(cat.split(',')),
+}
+
+def _parse_query(query):
+    if query is None:
+        query = 'full'
+    query = query.split(':')
+    return QUERIES[query[0]](*query[1:])
+
+DEFAULT_INIT_QUERY = _parse_query(config.WEB_DEFAULT_INIT_QUERY)
+INIT_QUERIES = dict([key, _parse_query(value)]
+                    for key, value in config.WEB_INIT_QUERIES.iteritems())
+
 def get_init_flt():
     """Return a filter corresponding to the current user's
     privileges.
 
     """
-    return config.WEB_INIT_QUERIES.get(get_user(),
-                                       config.WEB_DEFAULT_INIT_QUERY)
+    user = get_user()
+    if user in INIT_QUERIES:
+        return INIT_QUERIES[user]
+    if isinstance(user, basestring) and '@' in user:
+        realm = user[user.index('@'):]
+        if realm in INIT_QUERIES:
+            return INIT_QUERIES[realm]
+    if config.WEB_PUBLIC_SRV:
+        return db.nmap.searchcategory(["Shared", get_anonymized_user()])
+    return DEFAULT_INIT_QUERY
 
 
 def flt_from_query(query):

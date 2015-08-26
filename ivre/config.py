@@ -73,54 +73,35 @@ WEB_SKIP = 0
 WEB_LIMIT = 10
 # access control disabled by default:
 WEB_INIT_QUERIES = {}
+# Warning: None means no access control, and is equivalent to "full"
 WEB_DEFAULT_INIT_QUERY = None
+# upload disabled by default
 WEB_UPLOAD_OK = False
+# Is this a public server? This setting affects result uploading and
+# access control
+## When this is set to True:
+### 1. The user will, by default, only access to results that are either
+###    in the "Shared" category or that he has uploaded.
+### 2. The upload page, if enabled, is modified to explain that
 WEB_PUBLIC_SRV = False
 # Feed with a random value, like `openssl rand -base64 42`.
 # *Mandatory* when WEB_PUBLIC_SRV == True
 WEB_SECRET = None
 
-## Basic ACL example (to be put in /etc/ivre.conf):
-# from ivre.db import db
+## Basic ACL example
 # WEB_INIT_QUERIES = {
-#     'admin': db.nmap.flt_empty,
-#     'admin-site-a': db.nmap.searchcategory('site-a'),
-#     'admin-scanner-a': db.nmap.searchsource('scanner-a')
+#     'admin': 'full',
+#     'admin-site-a': 'category:site-a',
+#     'admin-scanner-a': 'source:scanner-a',
 # }
-# WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
+# WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
-## More complex ACL example with realm handling (to be put in
-## /etc/ivre.conf)
-# from ivre.db import db
-# class Users(object):
-#     def __init__(self, users={}, realms={}):
-#         self.users = users
-#         self.realms = realms
-#     def get(self, user, default):
-#         if type(user) is str and '@' in user:
-#             realm = user[user.index('@')+1:]
-#         else: realm = None
-#         return self.users.get(user, self.realms.get(realm, default))
-# from ivre.db import db
-# WEB_INIT_QUERIES = Users(
-#     users={"admin": db.nmap.flt_empty},
-#     realms={"admin.sitea": db.nmap.searchcategory('sitea')}
+## More complex ACL example with realm handling
+# WEB_INIT_QUERIES = {
+#     "admin": 'full',
+#     "@admin.sitea": 'category:sitea',
 # )
-# WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
-
-## Configuration to use when WEB_PUBLIC_SRV == True (to be put in
-## /etc/ivre.conf)
-# from ivre.db import db
-# from ivre.webutils import get_anonymized_user
-# class Users(object):
-#     def get(self, user, default):
-#         try:
-#             return db.nmap.searchcategory({"$in": ["Shared",
-#                                                    get_anonymized_user()]})
-#         except:
-#             return default
-# WEB_INIT_QUERIES = Users()
-# WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
+# WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
 def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""
