@@ -31,8 +31,8 @@ server {
     location ~ ^/cgi-bin/scan(json|upload)\.py$ {
         root /usr/local/share/ivre/web/;
         fastcgi_pass unix:/var/run/fcgiwrap.socket;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param REMOTE_USER $remote_user;
+        include fastcgi.conf;
     }
 
     location ~ ^/dokuwiki/.*\.php$ {
@@ -40,8 +40,8 @@ server {
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
         fastcgi_pass unix:/var/run/php5-fpm.sock;
         fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PHP_AUTH_USER $remote_user;
+        include fastcgi.conf;
     }
 
     location /dokuwiki/ {
