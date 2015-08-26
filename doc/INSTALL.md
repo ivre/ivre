@@ -14,7 +14,7 @@ If you plan to run scans from a machine, install
 [Nmap](http://nmap.org/) and optionally [ZMap](https://zmap.io/).
 
 If you plan to analyze PCAP file on a machine, install
-[Bro](http://www.bro.org/) (version 2.3) and
+[Bro](http://www.bro.org/) (version 2.3 minimum) and
 [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work with
 version 3).
 
