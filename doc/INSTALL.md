@@ -142,7 +142,7 @@ installed with the distribution packages, these files should be copied
 or (sym)linked at these locations:
 
  - `[PREFIX]/share/ivre/web/static/*` -> `/var/www` or `/var/www/html`
- - `[PREFIX]/share/ivre/web/cgi-bin/scanjson.py` -> `/usr/lib/cgi-bin/`
+ - `[PREFIX]/share/ivre/web/cgi-bin/*` -> `/usr/lib/cgi-bin/`
  - `[PREFIX]/share/ivre/dokuwiki/doc`
      -> `/var/lib/dokuwiki/data/pages/`
  - `[PREFIX]/share/ivre/dokuwiki/media/logo.png`

@@ -145,6 +145,7 @@ ivreWebUi
 
 ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
+	$scope.uploadok = config.uploadok;
 	$scope.get_href = function() {return document.location.href;};
 	$scope.get_title = function() {return document.title;};
 	$scope.add_bookmark = function() {
@@ -731,4 +732,41 @@ ivreWebUi
 
 	    }
 	};
+    });
+
+ivreWebUi
+    .controller('IvreUploadCtrl', function ($scope) {
+	$scope.publicsrv = config.publicsrv;
+	$scope.uploadok = config.uploadok;
+	$scope.files = undefined;
+	$scope.error_files = false;
+	$scope.error_source = false;
+	$scope.error_agreed = false;
+	$scope.checkfiles = function(elt) {
+	    $scope.$apply(function() {
+		$scope.files = elt.value;
+	    });
+	};
+	$scope.ready = function() {
+	    return ((!config.publicsrv || $scope.agreed) &&
+		    $scope.source && $scope.source.length > 0 &&
+		    $scope.files && $scope.files.length > 0);
+	};
+	$scope.check = function() {
+	    $scope.error_files = !$scope.files || $scope.files.length === 0;
+	    $scope.error_agreed = config.publicsrv && !$scope.agreed;
+	    $scope.error_source = !$scope.source || $scope.source.length === 0;
+	    return (!($scope.error_files || $scope.error_agreed ||
+		     $scope.error_source))
+	}
+	$scope.upload = function() {
+	    if($scope.check()) {
+		$("#uploadReferer")
+		    .attr("value", document.referrer);
+		$("#upload")
+		    .attr("action",
+			  config.cgibase.replace(/json.py/, "upload.py"))
+		    .submit();
+	    }
+	}
     });

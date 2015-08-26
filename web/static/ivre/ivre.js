@@ -27,6 +27,8 @@ function setdefaultconfig() {
 	    "limit": 10,
 	},
 	"warn_dots_count": 20000,
+	"publicsrv": false,
+	"uploadok": false,
     };
 
     for(var k in defaultconfig) {

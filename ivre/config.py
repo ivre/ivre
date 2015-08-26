@@ -74,6 +74,11 @@ WEB_LIMIT = 10
 # access control disabled by default:
 WEB_INIT_QUERIES = {}
 WEB_DEFAULT_INIT_QUERY = None
+WEB_UPLOAD_OK = False
+WEB_PUBLIC_SRV = False
+# Feed with a random value, like `openssl rand -base64 42`.
+# *Mandatory* when WEB_PUBLIC_SRV == True
+WEB_SECRET = None
 
 ## Basic ACL example (to be put in /etc/ivre.conf):
 # from ivre.db import db
@@ -103,6 +108,19 @@ WEB_DEFAULT_INIT_QUERY = None
 # )
 # WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
 
+## Configuration to use when WEB_PUBLIC_SRV == True (to be put in
+## /etc/ivre.conf)
+# from ivre.db import db
+# from ivre.webutils import get_anonymized_user
+# class Users(object):
+#     def get(self, user, default):
+#         try:
+#             return db.nmap.searchcategory({"$in": ["Shared",
+#                                                    get_anonymized_user()]})
+#         except:
+#             return default
+# WEB_INIT_QUERIES = Users()
+# WEB_DEFAULT_INIT_QUERY = db.nmap.searchhost('inexistant')
 
 def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""

@@ -37,7 +37,7 @@ You might also want to adapt it to your needs, architecture, etc.
     # rm index.html
     # ln -s /usr/local/share/ivre/web/static/* .
     # cd /usr/lib/cgi-bin
-    # ln -s /usr/local/share/ivre/web/cgi-bin/scanjson.py
+    # ln -s /usr/local/share/ivre/web/cgi-bin/* .
     # cd /var/lib/dokuwiki/data/pages
     # ln -s /usr/local/share/ivre/dokuwiki/doc
     # cd /var/lib/dokuwiki/data/media

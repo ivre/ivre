@@ -66,6 +66,7 @@ setup(
         ('share/ivre/web/static',
          ['web/static/index.html',
           'web/static/report.html',
+          'web/static/upload.html',
           'web/static/help.js',
           'web/static/config-sample.js',
           'web/static/favicon-loading.gif',
@@ -143,7 +144,8 @@ setup(
          [os.path.join('doc/screenshots', x)
           for x in os.listdir('doc/screenshots')]),
         ('share/ivre/web/cgi-bin',
-         ['web/cgi-bin/scanjson.py']),
+         ['web/cgi-bin/scanjson.py',
+          'web/cgi-bin/scanupload.py']),
         ('share/doc/ivre',
          ['doc/AGENT.md',
           'doc/DOCKER.md',

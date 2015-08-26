@@ -28,10 +28,11 @@ server {
         try_files $uri $uri/ =404;
     }
 
-    location /cgi-bin/scanjson.py {
+    location ~ ^/cgi-bin/scan(json|upload)\.py$ {
+        root /usr/local/share/ivre/web/;
         fastcgi_pass unix:/var/run/fcgiwrap.socket;
-        fastcgi_param SCRIPT_FILENAME /usr/local/share/ivre/web/cgi-bin/scanjson.py;
         include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
 
     location ~ ^/dokuwiki/.*\.php$ {
