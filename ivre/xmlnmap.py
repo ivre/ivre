@@ -33,6 +33,7 @@ import sys
 import os
 import re
 import json
+import bson
 
 SCHEMA_VERSION = 4
 
@@ -47,6 +48,16 @@ ALIASES_TABLE_ELEMS = {
     "nfs-ls": "ls",
     "smb-ls": "ls",
     "ftp-anon": "ls",
+}
+
+HTTP_SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
+
+def http_screenshot_extract(script):
+    fname = HTTP_SCREENSHOT_PATTERN.search(script['output'])
+    return None if fname is None else fname.groups()[0]
+
+SCREENSHOTS_SCRIPTS = {
+    "http-screenshot": http_screenshot_extract,
 }
 
 def add_ls_data(script):
@@ -397,6 +408,8 @@ IGNORE_SCRIPTS = {
                        'SMB: ERROR: Server disconnected the connection']),
 }
 
+IGNORE_SCRIPTS_IDS = set(["http-screenshot"])
+
 MSSQL_ERROR = re.compile('^ *(ERROR: )?('
                          'No login credentials|'
                          'TCP: Socket connection failed, Named Pipes: '
@@ -459,6 +472,8 @@ def ignore_script(script):
     """
     sid = script.get('id')
     output = script.get('output')
+    if sid in IGNORE_SCRIPTS_IDS:
+        return True
     if output in IGNORE_SCRIPTS.get(sid, []):
         return True
     if output in IGNORE_SCRIPT_OUTPUTS:
@@ -535,9 +550,18 @@ class NmapHandler(ContentHandler):
         self._curtable = {}
         self._curtablepath = []
         self._curhostnames = None
+        self._fname = fname
         self._filehash = filehash
         if config.DEBUG:
             sys.stderr.write("READING %r (%r)" % (fname, self._filehash))
+
+    @staticmethod
+    def _to_binary(data):
+        """Prepare binary data. Subclasses may want to do some kind
+        of conversion here.
+
+        """
+        return data
 
     def _pre_addhost(self):
         """Executed before _addhost for host object post-treatment"""
@@ -826,6 +850,19 @@ class NmapHandler(ContentHandler):
                     infos = infos(self._curscript)
                     if infos is not None:
                         self._curscript[infokey] = infos
+            if self._curscript['id'] in SCREENSHOTS_SCRIPTS:
+                fname = SCREENSHOTS_SCRIPTS[self._curscript['id']](
+                    self._curscript
+                )
+                if fname is not None:
+                    current['screenshot'] = "field"
+                    with open(os.path.join(
+                            os.path.dirname(self._fname), fname)) as fdesc:
+                        data = fdesc.read()
+                    current['screendata'] = self._to_binary(data)
+                    screenwords = utils.screenwords(data)
+                    if screenwords is not None:
+                        current['screenwords'] = screenwords
             if ignore_script(self._curscript):
                 self._curscript = None
                 return
@@ -921,6 +958,10 @@ class Nmap2Txt(NmapHandler):
         NmapHandler.__init__(self, fname, needports=needports,
                              **kargs)
 
+    @staticmethod
+    def _to_binary(data):
+        return data.encode('base64').replace('\n', '')
+
     def _addhost(self):
         self._db.append(self._curhost)
 
@@ -956,6 +997,10 @@ class Nmap2Mongo(NmapHandler):
                              source=source, gettoarchive=gettoarchive,
                              add_addr_infos=add_addr_infos, merge=merge,
                              **kargs)
+
+    @staticmethod
+    def _to_binary(data):
+        return bson.Binary(data)
 
     def _addhost(self):
         if self.categories:
