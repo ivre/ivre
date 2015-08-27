@@ -18,7 +18,13 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Tools
-RUN apt-get -qy install nmap p0f rsync screen ipython openssl
+RUN apt-get -qy install nmap p0f rsync screen ipython openssl wkhtmltopdf xvfb
+
+# http-screenshot Nmap script
+ADD https://github.com/SpiderLabs/Nmap-Tools/raw/master/NSE/http-screenshot.nse usr/share/nmap/scripts/
+RUN sed -i 's#cmd = "wkhtmltoimage-i386#cmd = "xvfb-run --server-args=\\"-screen 0, 1024x768x24\\" wkhtmltoimage#; s#if ret then#if os.rename(filename, filename) then#' usr/share/nmap/scripts/http-screenshot.nse
+RUN nmap --script-updatedb
+
 
 # Install bro
 ADD https://www.bro.org/downloads/release/bro-2.4.tar.gz ./bro-2.4.tar.gz
