@@ -41,27 +41,41 @@ HONEYD_IVRE_SCRIPTS_PATH = None
 AGENT_MASTER_PATH = "/var/lib/ivre/master"
 TESSERACT_CMD = "tesseract"
 
-NMAP_CMD = "nmap"
-NMAP_SCAN_TYPE = ['sS', 'A']
-NMAP_PING_TYPE = ['PS', 'PE']
-NMAP_VERBOSITY = 2
-NMAP_RESOLVE_LEVEL = 1
-NMAP_PORTSPEC = "normal"
-NMAP_OPT_PORTS = {
-    'fast': ['-F'],
-    'normal': [],
-    'more': ['--top-ports', '2000'],
-    'all': ['-p', '-'],
+# Default Nmap scan template, see below how to add templates:
+NMAP_SCAN_TEMPLATES = {
+    "default": {
+        ## Commented values are default values and to not need to be
+        ## specified
+        #"nmap": "nmap",
+        #"pings": "SE",
+        #"scans": "SV",
+        #"osdetect": True,
+        #"traceroute": True,
+        #"resolve": 1,
+        #"verbosity": 2,
+        #"ports": None,
+        "host_timeout": "15m", # default value: None
+        "scripts_categories": ['default', 'discovery',
+                               'auth'], # default value: None
+        "scripts_exclude": ['broadcast', 'brute', 'dos',
+                            'exploit', 'external', 'fuzzer',
+                            'intrusive'], # default value: None
+        #"scripts_force": None,
+        #"extra_options": None,
+    }
 }
-NMAP_HOST_TIMEOUT = "15m"
-NMAP_SCRIPT_CATEGORIES = ['default', 'discovery', 'auth']
-NMAP_SCRIPT_EXCLUDE = [
-    # Categories we don't want
-    'broadcast', 'brute', 'dos', 'exploit', 'external', 'fuzzer',
-    'intrusive',
-]
-NMAP_SCRIPT_FORCE = []
-NMAP_EXTRA_OPTIONS = None
+
+## Example: to define an "aggressive" template that "inherits" from
+## the default template and runs more scripts with a more important
+## host timeout value, add the following lines to your ivre.conf,
+## uncommented of course.
+# NMAP_SCAN_TEMPLATES["aggressive"] = NMAP_SCAN_TEMPLATES["default"].copy()
+# NMAP_SCAN_TEMPLATES["aggressive"].update({
+#     "host_timeout": "30m",
+#     "scripts_categories": ['default', 'discovery', 'auth', 'brute',
+#                            'exploit', 'intrusive'],
+#     "scripts_exclude": ['broadcast', 'external']
+# })
 
 WEB_ALLOWED_REFERERS = None
 WEB_MAXRESULTS = None
