@@ -463,6 +463,21 @@ IGNORE_SCRIPT_OUTPUTS_REGEXP = set([
     re.compile('^ *(SMB|ERROR):.*TIMEOUT', re.MULTILINE)
 ])
 
+MASSCAN_SERVICES_NMAP_SCRIPTS = {
+    "http": "http-headers",
+    "title": "http-title",
+}
+
+MASSCAN_SERVICES_NMAP_SERVICES = {
+    "http": "http",
+}
+
+MASSCAN_ENCODING = re.compile(re.escape("\\x") + "([0-9a-f]{2})")
+
+def _masscan_decode(match):
+    char = match.groups()[0].decode('hex')
+    return (char if (32 <= ord(char) <= 126 or char in "\t\r\n")
+            else match.group())
 
 def ignore_script(script):
     """Predicate that decides whether an Nmap script should be ignored
@@ -552,6 +567,7 @@ class NmapHandler(ContentHandler):
         self._curhostnames = None
         self._fname = fname
         self._filehash = filehash
+        self.scanner = "nmap"
         if config.DEBUG:
             sys.stderr.write("READING %r (%r)" % (fname, self._filehash))
 
@@ -592,8 +608,9 @@ class NmapHandler(ContentHandler):
         if name == 'nmaprun':
             if self._curscan is not None:
                 sys.stderr.write("WARNING, self._curscan should be None at "
-                                 "this point(got %r)\n" % self._curscan)
+                                 "this point (got %r)\n" % self._curscan)
             self._curscan = dict(attrs)
+            self.scanner = self._curscan.get("scanner", self.scanner)
             self._curscan['_id'] = self._filehash
         elif name == 'scaninfo' and self._curscan is not None:
             self._addscaninfo(dict(attrs))
@@ -673,6 +690,21 @@ class NmapHandler(ContentHandler):
         elif name == 'service' and self._curport is not None:
             if attrs.get("method") == "table":
                 # discard information from nmap-services
+                return
+            if self.scanner == "masscan":
+                # create fake scripts from masscan "service" tags
+                self._curport.setdefault('scripts', []).append({
+                    "id": MASSCAN_SERVICES_NMAP_SCRIPTS.get(attrs['name'],
+                                                            attrs['name']),
+                    "output": MASSCAN_ENCODING.sub(
+                        _masscan_decode,
+                        attrs["banner"],
+                    )
+                })
+                # get service name
+                service = MASSCAN_SERVICES_NMAP_SERVICES.get(attrs['name'])
+                if service is not None:
+                    self._curport['service_name'] = service
                 return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]
