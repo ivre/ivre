@@ -19,12 +19,12 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module is responsible for generating Nmap options.
 """
 
-from ivre import config, utils
+from ivre import config
 
 import shlex
 
@@ -33,6 +33,7 @@ try:
     argparser = argparse.ArgumentParser(add_help=False)
     USING_ARGPARSE = True
 except ImportError:
+    from ivre import utils
     argparser = utils.FakeArgparserParent()
     USING_ARGPARSE = False
 
