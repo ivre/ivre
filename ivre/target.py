@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,9 +18,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """
-This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
-
 This sub-module contains objects and functions to manipulate target
 lists.
 """
@@ -345,7 +342,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
             except utils.socket.error:
                 pass
 
-    def __init__(self, target, ports=None, nmap_opts=None):
+    def __init__(self, target, nmap='nmap', ports=None, nmap_opts=None):
         self.srctarget = target
         self.infos = target.infos
         if ports is None:
@@ -358,8 +355,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         # TODO: use -iL and feed target randomly when needed, w/o
         # using a temporary file
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
-        nmap_opts = [config.NMAP_CMD, '-iL', self.tmpfile.name, '-oG',
-                     '-'] + nmap_opts
+        nmap_opts = [nmap, '-iL', self.tmpfile.name, '-oG', '-'] + nmap_opts
         for start, count in target.targets.ranges.itervalues():
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
