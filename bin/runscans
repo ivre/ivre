@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,9 +18,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """
-This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
-
 This program runs scans and produces output files importable with
 nmap2db.
 """
@@ -29,6 +26,7 @@ import subprocess
 import resource
 import multiprocessing
 import shlex
+import pipes
 import shutil
 import select
 import re
@@ -289,7 +287,8 @@ if __name__ == '__main__':
     parser.add_argument('--output',
                         choices=['XML', 'XMLFull', 'XMLFork', 'Test',
                                  'Count', 'List', 'ListAll',
-                                 'ListAllRand', 'ListCIDRs'],
+                                 'ListAllRand', 'ListCIDRs',
+                                 'CommandLine'],
                         default='XML',
                         help='select output method for scan results')
     parser.add_argument('--processes', metavar='COUNT', type=int, default=30,
@@ -313,6 +312,12 @@ if __name__ == '__main__':
                             choices=['up', 'down', 'unknown', 'all'],
                             help='select status of targets to scan again')
     args = parser.parse_args()
+    if args.output == 'CommandLine':
+        print "Command line to run a scan with template %s" % args.nmap_template
+        print "   ",
+        print " ".join(pipes.quote(elt) for elt in
+                       ivre.nmapopt.build_nmap_options(args))
+        exit(0)
     if args.output == 'Count':
         if args.country is not None:
             print '%s has %d IPs.' % (
