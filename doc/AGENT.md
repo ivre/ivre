@@ -34,8 +34,16 @@ data directory.
 
 Make sure the needed binaries are in the `PATH` environment variable
 (including `nmap` and `screen`), adapt if needed the variables at the
-beginning of the script (particularly `NMAPOPTS` and `THREADS`). Then
-just run the `agent` script.
+beginning of the script, particularly `NMAPOPTS`, `NMAPSCRIPTS` and
+`THREADS`.
+
+Values for `NMAPOPTS` and `NMAPSCRIPTS` cause scans similar to those
+run by `runscans` by default (with IVRE's default template). To get
+options from other templates, run `runscans --nmap-template
+aggressive` (for example) and copy the corresponding values in the
+`agent` script.
+
+Then just run the `agent` script.
 
 The script will start `screen`, and you can just detach by using (if
 you have the default key bindings): `C-a d`.
