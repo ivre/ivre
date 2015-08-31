@@ -611,6 +611,10 @@ class NmapHandler(ContentHandler):
                                  "this point (got %r)\n" % self._curscan)
             self._curscan = dict(attrs)
             self.scanner = self._curscan.get("scanner", self.scanner)
+            if self.scanner == "masscan":
+                # We need to force "merge" mode due to the nature of
+                # Masscan results
+                self.merge = True
             self._curscan['_id'] = self._filehash
         elif name == 'scaninfo' and self._curscan is not None:
             self._addscaninfo(dict(attrs))
