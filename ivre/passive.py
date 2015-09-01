@@ -24,11 +24,12 @@ Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
 This sub-module contains functions used for passive recon.
 """
 
-from ivre import utils
+from ivre import utils, config
 
 import re
 import hashlib
 import subprocess
+import sys
 
 # p0f specific
 
@@ -95,6 +96,32 @@ SYMANTEC_UA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
 DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
 
 
+def _split_digest_auth(data):
+    """This function handles (Proxy-)Authorization: Digest values"""
+    values = []
+    curdata = []
+    state = 0 # state init
+    for char in data:
+        if state == 0:
+            if char == ',':
+                values.append(''.join(curdata).strip())
+                curdata = []
+            else:
+                if char == '"':
+                    state = 1 # inside " "
+                curdata.append(char)
+        elif state == 1:
+            if char == '"':
+                state = 0
+            curdata.append(char)
+    values.append(''.join(curdata).strip())
+    if state == 1 and config.DEBUG:
+        sys.stderr.write(
+            "IVRE: WARNING: could not parse Digest auth data [%r]" % data
+        )
+    return values
+
+
 def _prepare_rec(spec, ignorenets, neverignore):
     # First of all, let's see if we are supposed to ignore this spec,
     # and if so, do so.
@@ -120,15 +147,15 @@ def _prepare_rec(spec, ignorenets, neverignore):
         spec.get('source') in ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']:
         authtype = spec['value'].split(None, 1)[0]
-        if authtype == 'Digest ':
+        if authtype.lower() == 'digest':
             try:
                 # we only keep relevant info
                 v = filter(DIGEST_AUTH_INFOS.match,
-                           spec['value'][6:].lstrip().split(','))
-                spec['value'] = 'Digest ' + ','.join(v)
+                           _split_digest_auth(spec['value'][6:].strip()))
+                spec['value'] = '%s %s' % (authtype, ','.join(v))
             except:
                 pass
-        elif authtype in ['Negotiate', 'Kerberos', 'OAuth']:
+        elif authtype.lower() in ['negotiate', 'kerberos', 'oauth']:
             spec['value'] = authtype
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
@@ -181,18 +208,30 @@ def _getinfos_http_client_authorization(spec):
     infos = {}
     fullinfos = {}
     data = spec.get('fullvalue', spec['value']).split(None, 1)
-    if data[0].strip().lower() == 'basic' and data[1:]:
-        try:
-            infos['username'], infos['password'] = ''.join(data[1].strip())\
-                                                     .decode('base64')\
-                                                     .decode('latin-1')\
-                                                     .split(':', 1)
-            for field in ['username', 'password']:
-                if len(infos[field]) > utils.MAXVALLEN:
-                    fullinfos[field] = infos[field]
-                    infos[field] = infos[field][:utils.MAXVALLEN]
-        except Exception:
-            pass
+    if data[1:]:
+        if data[0].lower() == 'basic':
+            try:
+                infos['username'], infos['password'] = ''.join(data[1].strip())\
+                                                         .decode('base64')\
+                                                         .decode('latin-1')\
+                                                         .split(':', 1)
+                for field in ['username', 'password']:
+                    if len(infos[field]) > utils.MAXVALLEN:
+                        fullinfos[field] = infos[field]
+                        infos[field] = infos[field][:utils.MAXVALLEN]
+            except Exception:
+                pass
+        elif data[0].lower() == 'digest':
+            try:
+                infos = dict(
+                    value.split('=', 1) if '=' in value else [value, None]
+                    for value in _split_digest_auth(data[1].strip())
+                )
+                for key, value in infos.items():
+                    if value.startswith('"') and value.endswith('"'):
+                        infos[key] = value[1:-1]
+            except Exception:
+                pass
     res = {}
     if infos:
         res['infos'] = infos
