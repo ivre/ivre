@@ -38,7 +38,7 @@ setup(
     ],
     packages=['ivre', 'ivre/db'],
     scripts=['bin/getmoduli', 'bin/ipdata', 'bin/ipinfo', 'bin/ipinfohost',
-             'bin/httpd-ivre', 'bin/nmap2db', 'bin/p0f2db',
+             'bin/httpd-ivre', 'bin/nmap2db', 'bin/p0f2db', 'bin/analysercli',
              'bin/passiverecon2db', 'bin/passivereconworker',
              'bin/runscans', 'bin/runscans-agent', 'bin/runscans-agentdb',
              'bin/plotdb', 'bin/scancli', 'bin/scanstatus'],
