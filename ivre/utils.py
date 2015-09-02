@@ -27,12 +27,21 @@ import socket
 import datetime
 import re
 import os
+import sys
 import shutil
 import errno
 import hashlib
 import gzip
 import bz2
 import subprocess
+from cStringIO import StringIO
+try:
+    import PIL.Image
+    import PIL.ImageChops
+    USE_PIL = True
+except ImportError:
+    USE_PIL = False
+
 
 from ivre import config
 
@@ -473,3 +482,39 @@ def screenwords(imgdata):
                         break
         if result:
             return result
+
+if USE_PIL:
+    def trim_image(imgdata, tolerance=1, minborder=10):
+        """Trims the image, `tolerancean` is an integer from 0 (not
+        tolerant, trims region with the exact same color) to 255
+        (too tolerant, will trim the whole image).
+
+        """
+        img = PIL.Image.open(StringIO(imgdata))
+        bkg = PIL.Image.new(img.mode, img.size, img.getpixel((0,0)))
+        diff = PIL.ImageChops.difference(img, bkg)
+        if tolerance:
+            diff = PIL.ImageChops.add(diff, diff, 2.0, -tolerance)
+        bbox = diff.getbbox()
+        if bbox:
+            newbbox = (max(bbox[0] - minborder, 0),
+                       max(bbox[1] - minborder, 0),
+                       img.size[0] - max(img.size[0] - bbox[2] - minborder, 0),
+                       img.size[1] - max(img.size[1] - bbox[3] - minborder, 0))
+            if newbbox != (0, 0, img.size[0], img.size[1]):
+                out = StringIO()
+                img.crop(newbbox).save(out, format='jpeg')
+                out.seek(0)
+                return out.read()
+            else:
+                # Image does not need to be modified
+                return True
+        # Image no longer exist after trim
+        return False
+else:
+    def trim_image(imgdata, _tolerance=1, _minborder=10):
+        """Stub function used when PIL cannot be found"""
+        if config.DEBUG:
+            sys.stdout.write('WARNING: Python PIL not found, '
+                             'screenshots will not be trimmed')
+        return imgdata
