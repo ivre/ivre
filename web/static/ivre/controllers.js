@@ -165,10 +165,18 @@ ivreWebUi
 		'&body=' +
 		encodeURIComponent(document.location.href);
 	};
+	$scope.eval_action = function(string) {
+	    // Eval action 'string' in the current context
+	    eval(string);
+	};
     })
     .directive('ivreMenu', function() {
+	var linkFunction = function(scope, elements, attributes) {
+	    scope.MENU = MENUS[attributes["ivreMenu"]];
+	}
 	return {
-	    templateUrl: 'templates/menu.html'
+	    templateUrl: 'templates/menu.html',
+	    link: linkFunction,
 	};
     });
 

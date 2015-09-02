@@ -98,7 +98,8 @@ setup(
           'web/static/ivre/ivre.js',
           'web/static/ivre/params.js',
           'web/static/ivre/tooltip.js',
-          'web/static/ivre/utils.js']),
+          'web/static/ivre/utils.js',
+          'web/static/ivre/menu.js']),
         # Bootstrap
         ('share/ivre/web/static/bs/css',
          ['web/static/bs/css/bootstrap.css',
