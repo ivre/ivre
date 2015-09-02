@@ -31,8 +31,13 @@ IVRE relies on:
     * the [Crypto](http://www.pycrypto.org/) module
     * the [pymongo](http://api.mongodb.org/python/) module,
       version 2.7.2 minimum.
+    * optionally [PIL](http://www.pythonware.com/products/pil/), to
+      trim screenshots.
 
-  * [Nmap](http://nmap.org/) & [ZMap](https://zmap.io/)
+  * [Nmap](http://nmap.org/)
+
+  * optionnaly [ZMap](https://zmap.io/) and/or
+    [Masscan](https://github.com/robertdavidgraham/masscan)
 
   * [Bro](http://www.bro.org/) (version 2.3 minimum) &
     [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
@@ -53,7 +58,7 @@ IVRE relies on:
   * Maxmind [GeoIP](https://www.maxmind.com/en/geolocation_landing)
     free databases
 
-  * optionally [Tesseract](https://code.google.com/p/tesseract-ocr/),
+  * optionally [Tesseract](https://github.com/tesseract-ocr/tesseract),
     if you plan to add screenshots to your Nmap scan results
 
   * optionally [Docker](http://www.docker.com/) &

@@ -20,13 +20,15 @@ IVRE relies on:
   * [[http://www.python.org/|Python]] 2, version 2.6 minimum
     * the [[http://www.pycrypto.org/|Crypto]] module
     * the [[http://api.mongodb.org/python/|pymongo]] module,  version 2.7.2 minimum.
-  * [[http://nmap.org/|Nmap]] & [[https://zmap.io/|ZMap]]
+    * optionally [[http://www.pythonware.com/products/pil/|PIL]], to  trim screenshots.
+  * [[http://nmap.org/|Nmap]]
+  * optionnaly [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
   * [[http://www.bro.org/|Bro]] (version 2.3 minimum) & [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3)
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%httpd-ivre%%'')
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]])
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases
-  * optionally [[https://code.google.com/p/tesseract-ocr/|Tesseract]], if you plan to add screenshots to your Nmap scan results
+  * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]], if you plan to add screenshots to your Nmap scan results
   * optionally [[http://www.docker.com/|Docker]] & [[https://www.vagrantup.com/|Vagrant]] (version 1.6 minimum)
 
 IVRE comes with (refer to the [[doc:LICENSE-EXTERNAL|LICENSE-EXTERNAL]] file for the licenses):

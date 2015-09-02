@@ -732,6 +732,13 @@ have no effect if it is not expected)."""
         if 'screenshot' in port and not overwrite:
             return
         port['screenshot'] = "field"
+        trim_result = utils.trim_image(data)
+        if trim_result is False:
+            # Image no longer exists after trim
+            return
+        elif trim_result is not True:
+            # Image has been trimmed
+            data = trim_result
         port['screendata'] = bson.Binary(data)
         screenwords = utils.screenwords(data)
         if screenwords is not None:

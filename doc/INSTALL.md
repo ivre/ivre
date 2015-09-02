@@ -11,7 +11,10 @@ distribution.
 ## Dependencies ##
 
 If you plan to run scans from a machine, install
-[Nmap](http://nmap.org/) and optionally [ZMap](https://zmap.io/).
+[Nmap](http://nmap.org/) and optionally [ZMap](https://zmap.io/) and
+[Masscan](https://github.com/robertdavidgraham/masscan). If you want
+to integrate screenshots, install
+[Tesseract](https://github.com/tesseract-ocr/tesseract).
 
 If you plan to analyze PCAP file on a machine, install
 [Bro](http://www.bro.org/) (version 2.3 minimum) and
@@ -23,6 +26,8 @@ version 2.6 minimum (prefer 2.7), with the following modules:
 
   * [Crypto](http://www.pycrypto.org/)
   * [pymongo](http://api.mongodb.org/python/) version 2.7.2 minimum.
+  * [PIL](http://www.pythonware.com/products/pil/) optional, to trim
+    screenshots.
 
 ## Installation ##
 
