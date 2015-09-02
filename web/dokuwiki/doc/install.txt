@@ -6,7 +6,7 @@ Follow the [[http://docs.mongodb.org/manual/installation/|documentation from Mon
 
 ===== Dependencies =====
 
-If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]].
+If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]] and [[https://github.com/robertdavidgraham/masscan|Masscan]]. If you want to integrate screenshots, install [[https://github.com/tesseract-ocr/tesseract|Tesseract]].
 
 If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro]] (version 2.3 minimum) and [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3).
 
@@ -14,6 +14,7 @@ To install IVRE, you'll need [[http://www.python.org/|Python]] 2, version 2.6 mi
 
   * [[http://www.pycrypto.org/|Crypto]]
   * [[http://api.mongodb.org/python/|pymongo]] version 2.7.2 minimum.
+  * [[http://www.pythonware.com/products/pil/|PIL]] optional, to trim screenshots.
 
 ===== Installation =====
 
