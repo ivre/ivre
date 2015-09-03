@@ -79,12 +79,12 @@ web/static/config-sample.js
 web/static/droids.png
 web/static/favicon-loading.gif
 web/static/favicon.png
-web/static/help.js
 web/static/index.html
 web/static/report.html
 web/static/upload.html
 web/static/ivre/ivre.css
 web/static/ivre/ivre.js
+web/static/ivre/content.js
 web/static/ivre/controllers.js
 web/static/ivre/graph.js
 web/static/ivre/params.js
