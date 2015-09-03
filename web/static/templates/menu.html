@@ -16,54 +16,82 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<li ng-repeat="item1 in MENU.items" class="dropdown">
-  <a ng-class="{'dropdown-toggle': item1.items != undefined}" class="clickable"
-     data-toggle="dropdown" ng-click="eval_action(item1.action)">
-    <i ng-if="item1.icon" class="glyphicon glyphicon-{{item1.icon}} white"></i>
-    <span ng-class="{'menu-single': item1.items == undefined}">
-      {{item1.title}}
-    </span>
-    <b ng-if="item1.items" class="caret"></b>
-  </a>
-  <ul ng-if="item1.items" class="dropdown-menu">
-    <li ng-repeat="item2 in item1.items">
-      <a class="clickable" ng-click="eval_action(item2.action)" ng-attr-id="{{item2.attr.id}}">
-	<i ng-if="item2.icon" class="glyphicon glyphicon-{{item2.icon}}"></i>
-	{{item2.title}}
+<!-- The top navigation bar -->
+<div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
+  <div class="col-lg-2 col-sm-1">
+    <div class="navbar-ivre">
+      <!-- The logo + app name -->
+      <a href="#"><img alt="Logo" src="logo.png" class="logo"/></a>
+      <a href="#" class="navbar-brand visible-lg">
+	IVRE
       </a>
-      <a ng-repeat="item3 in item2.items" class="clickable" ng-click="eval_action(item3.action)">
-	&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> {{item3.title}}
+    </div>
+  </div>
+
+  <!-- The menu -->
+  <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11">
+
+    <li ng-repeat="item1 in MENU.items" class="dropdown">
+      <a ng-class="{'dropdown-toggle': item1.items != undefined}" class="clickable"
+	 data-toggle="dropdown" ng-click="eval_action(item1.action)">
+	<i ng-if="item1.icon" class="glyphicon glyphicon-{{item1.icon}} white"></i>
+	<span ng-class="{'menu-single': item1.items == undefined}">
+	  {{item1.title}}
+	</span>
+	<b ng-if="item1.items" class="caret"></b>
+      </a>
+      <ul ng-if="item1.items" class="dropdown-menu">
+	<li ng-repeat="item2 in item1.items">
+	  <a class="clickable" ng-click="eval_action(item2.action)" ng-attr-id="{{item2.attr.id}}">
+	    <i ng-if="item2.icon" class="glyphicon glyphicon-{{item2.icon}}"></i>
+	    {{item2.title}}
+	  </a>
+	  <a ng-repeat="item3 in item2.items" class="clickable" ng-click="eval_action(item3.action)">
+	    &nbsp;<i class="glyphicon glyphicon-chevron-right"></i> {{item3.title}}
+	  </a>
+	</li>
+      </ul>
+    </li>
+
+    <!-- Share -->
+    <li ng-if="MENU.share" class="dropdown">
+      <a class="dropdown-toggle clickable" data-toggle="dropdown">
+	<i class="glyphicon glyphicon-share white"></i> Share<b class="caret"></b>
+      </a>
+      <ul class="dropdown-menu">
+	<li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
+	    <i class="glyphicon glyphicon-plus"></i> New tab
+	</a></li>
+	<li><a id="share-bookmark" rel="sidebar"
+	       ng-href="{{get_href()}}" ng-title="{{get_title()}}"
+	       ng-click="add_bookmark()">
+	    <i class="glyphicon glyphicon-star"></i> Bookmark
+	</a></li>
+	<li><a id="share-mail" ng-href="{{get_mail_href()}}">
+	    <i class="glyphicon glyphicon-envelope"></i> Mail
+	</a></li>
+	<li><a href="#" onclick="document.location='report.html' + document.location.hash">
+	    <i class="glyphicon glyphicon-th-list "></i> Report
+	</a></li>
+      </ul>
+    </li>
+
+    <!-- Upload -->
+    <li ng-if="::uploadok">
+      <a class="clickable" href="upload.html" title="Upload scan results">
+	<i class="glyphicon glyphicon-upload white"></i> Upload
       </a>
     </li>
-  </ul>
-</li>
 
-<!-- Share -->
-<li ng-if="MENU.share" class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-share white"></i> Share<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
-	<i class="glyphicon glyphicon-plus"></i> New tab
-    </a></li>
-    <li><a id="share-bookmark" rel="sidebar"
-	   ng-href="{{get_href()}}" ng-title="{{get_title()}}"
-	   ng-click="add_bookmark()">
-	<i class="glyphicon glyphicon-star"></i> Bookmark
-    </a></li>
-    <li><a id="share-mail" ng-href="{{get_mail_href()}}">
-	<i class="glyphicon glyphicon-envelope"></i> Mail
-    </a></li>
-    <li><a href="#" onclick="document.location='report.html' + document.location.hash">
-	<i class="glyphicon glyphicon-th-list "></i> Report
-    </a></li>
   </ul>
-</li>
 
-<!-- Upload -->
-<li ng-if="::uploadok">
-  <a class="clickable" href="upload.html" title="Upload scan results">
-    <i class="glyphicon glyphicon-upload white"></i> Upload
-  </a>
-</li>
+  <!-- Droids Corp web site -->
+  <ul class="nav navbar-nav col-lg-1 col-md-1 visible-lg visible-md">
+    <a title="Droids Corporation"
+       href="http://droids-corp.org/"
+       target="_blank"
+       class="navbar-link">
+      <img alt="Droids Corp" src="droids.png" class="logo"/>
+    </a>
+  </ul>
+</div>

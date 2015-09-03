@@ -47,30 +47,9 @@
 
   <body ng-controller="IvreReportCtrl" onload="load_params()">
 
-    <!-- The top navigation bar -->
-    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
-      <div class="col-lg-2 col-sm-1">
-	<div class="navbar-ivre">
-	  <!-- The logo + app name -->
-          <a href="#"><img alt="Logo" src="logo.png" class="logo"/></a>
-          <a href="#" class="navbar-brand visible-lg">
-	    IVRE
-	  </a>
-	</div>
-      </div>
-      <!-- The menu -->
-      <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11"
-	  ng-controller="IvreMenuCtrl"
-	  ivre-menu="report"></ul>
-      <ul class="nav navbar-nav col-lg-1 col-md-1 visible-lg visible-md">
-	<!-- Droids Corp web site -->
-	<a title="Droids Corporation"
-	   href="http://droids-corp.org/"
-	   target="_blank"
-           class="navbar-link">
-	  <img alt="Droids Corp" src="droids.png" class="logo"/>
-	</a>
-      </ul>
+    <!-- Menu -->
+    <div ng-controller="IvreMenuCtrl"
+	 ivre-menu="report">
     </div>
 
     <!-- Configuration -->
