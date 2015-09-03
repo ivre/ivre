@@ -248,14 +248,3 @@ form {
 .menu-single {
     font-weight: bold;
 }
-
-.menu-sublist {
-    list-style: none;
-    margin-left : 0;
-    padding-left: 1em;
-    text-indent: 0.5em;
-}
-
-.menu-sublist > li > .clickable {
-    color: #333;
-}

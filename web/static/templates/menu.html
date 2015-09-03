@@ -31,13 +31,9 @@
 	<i ng-if="item2.icon" class="glyphicon glyphicon-{{item2.icon}}"></i>
 	{{item2.title}}
       </a>
-      <ul ng-if="item2.items" class="menu-sublist">
-	<li ng-repeat="item3 in item2.items">
-	  <a class="clickable" ng-click="eval_action(item3.action)">
-	    <i class="glyphicon glyphicon-chevron-right"></i> {{item3.title}}
-	  </a>
-	</li>
-      </ul>
+      <a ng-repeat="item3 in item2.items" class="clickable" ng-click="eval_action(item3.action)">
+	&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> {{item3.title}}
+      </a>
     </li>
   </ul>
 </li>
