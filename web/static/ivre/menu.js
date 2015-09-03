@@ -40,8 +40,8 @@
  */
 
 var MENU_MAIN = {
-    "share": true,
-    "items": [
+    share: true,
+    items: [
 	{title: "HELP",
 	 action: "$scope.togglenotes('doc:webui');",
 	 icon: "question-sign",
@@ -208,6 +208,25 @@ var MENU_MAIN = {
     ]
 };
 
+var MENU_REPORT = {
+    share: true,
+    items: [
+	{title: "Main",
+	 action: "document.location='index.html' + document.location.hash",
+	 icon: "home",
+	},
+	{title: "Config",
+	 action: "$scope.toggleShowFilter();",
+	 icon: "list",
+	},
+	{title: "Build",
+	 action: "$scope.build_all();",
+	 icon: "ok",
+	},
+    ]
+};
+
 var MENUS = {
-    "main": MENU_MAIN,
+    main: MENU_MAIN,
+    report: MENU_REPORT,
 };
