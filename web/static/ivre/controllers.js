@@ -145,7 +145,6 @@ ivreWebUi
 
 ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
-	$scope.uploadok = config.uploadok;
 	$scope.get_href = function() {return document.location.href;};
 	$scope.get_title = function() {return document.title;};
 	$scope.add_bookmark = function() {

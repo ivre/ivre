@@ -39,6 +39,8 @@
  * Only three level of menu is currently supported.
  */
 
+
+// Menu for index.html
 var MENU_MAIN = {
     share: true,
     items: [
@@ -208,6 +210,15 @@ var MENU_MAIN = {
     ]
 };
 
+// Handle 'Upload' option
+if (config.uploadok) {
+    MENU_MAIN.items.push({title: "Upload",
+			  action: "document.location = 'upload.html'",
+			  icon: "upload"
+			 });
+}
+
+// Menu for report.html
 var MENU_REPORT = {
     share: true,
     items: [
@@ -226,6 +237,7 @@ var MENU_REPORT = {
     ]
 };
 
+// Export menus
 var MENUS = {
     main: MENU_MAIN,
     report: MENU_REPORT,
