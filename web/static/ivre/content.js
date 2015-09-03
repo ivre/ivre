@@ -787,7 +787,7 @@ var MENU_MAIN = {
 	      action: "$scope.setparam('script', 'smtp-open-relay');",
 	     },
 	     {title: "FTP Bounce",
-	      action: "$scope.setparam('script', 'ftp-bounce:&quot;bounce working!&quot;');",
+	      action: "$scope.setparam('script', 'ftp-bounce:bounce working!');",
 	     },
 	 ],
 	},
