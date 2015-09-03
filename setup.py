@@ -67,7 +67,6 @@ setup(
          ['web/static/index.html',
           'web/static/report.html',
           'web/static/upload.html',
-          'web/static/help.js',
           'web/static/config-sample.js',
           'web/static/favicon-loading.gif',
           'web/static/favicon.png',
@@ -98,7 +97,8 @@ setup(
           'web/static/ivre/ivre.js',
           'web/static/ivre/params.js',
           'web/static/ivre/tooltip.js',
-          'web/static/ivre/utils.js']),
+          'web/static/ivre/utils.js',
+          'web/static/ivre/content.js']),
         # Bootstrap
         ('share/ivre/web/static/bs/css',
          ['web/static/bs/css/bootstrap.css',

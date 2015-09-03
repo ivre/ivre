@@ -34,7 +34,7 @@
       config = {};
     </script>
     <script type="text/javascript" src="config.js"></script>
-    <script type="text/javascript" src="help.js"></script>
+    <script type="text/javascript" src="ivre/content.js"></script>
     <script type="text/javascript" src="ivre/utils.js"></script>
     <script type="text/javascript" src="ivre/graph.js"></script>
     <script type="text/javascript" src="ivre/controllers.js"></script>
@@ -46,41 +46,9 @@
 
   <body ng-controller="IvreReportCtrl" onload="load_params()">
 
-    <!-- The top navigation bar -->
-    <div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
-      <div class="col-lg-2 col-sm-1">
-	<div class="navbar-ivre">
-	  <!-- The logo + app name -->
-          <a href="#"><img alt="Logo" src="logo.png" class="logo"/></a>
-          <a href="#" class="navbar-brand visible-lg">
-	    IVRE
-	  </a>
-	</div>
-      </div>
-      <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11">
-	<li><a href="#" onclick="document.location='index.html' + document.location.hash">
-	    <i class="glyphicon glyphicon-home white"></i> <b>Main</b>
-	</a></li>
-	<li>
-	  <a class="clickable" ng-click="toggleShowFilter();">
-	    <i class="glyphicon glyphicon-list white"></i> <b>Config</b>
-	  </a>
-	</li>
-	<li>
-	  <a class="clickable" ng-click="build_all();">
-	    <i class="glyphicon glyphicon-ok white"></i> <b>Build</b>
-	  </a>
-	</li>
-      </ul>
-      <ul class="nav navbar-nav col-lg-1 col-md-1 visible-lg visible-md">
-	<!-- Droids Corp web site -->
-	<a title="Droids Corporation"
-	   href="http://droids-corp.org/"
-	   target="_blank"
-           class="navbar-link">
-	  <img alt="Droids Corp" src="droids.png" class="logo"/>
-	</a>
-      </ul>
+    <!-- Menu -->
+    <div ng-controller="IvreMenuCtrl"
+	 ivre-menu="report">
     </div>
 
     <!-- Configuration -->

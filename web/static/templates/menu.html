@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -16,192 +16,82 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<!-- HELP -->
-<li>
-  <a class="clickable" ng-click="togglenotes('doc:webui');">
-    <i class="glyphicon glyphicon-question-sign white"></i> <b>HELP</b>
-  </a>
-</li>
+<!-- The top navigation bar -->
+<div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
+  <div class="col-lg-2 col-sm-1">
+    <div class="navbar-ivre">
+      <!-- The logo + app name -->
+      <a href="#"><img alt="Logo" src="logo.png" class="logo"/></a>
+      <a href="#" class="navbar-brand visible-lg">
+	IVRE
+      </a>
+    </div>
+  </div>
 
-<!-- Unix -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-heart white"></i> Unix<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable" onclick="setparam('nfs', undefined, true, true); setparam('display', 'script:rpcinfo,nfs-showmount,nfs-ls', true);">NFS</a></li>
-    <li><a class="clickable" onclick="setparam('nis');">NIS / YP</a></li>
-    <li><a class="clickable" onclick="setparam('x11srv');">X11</a></li>
-    <li><a class="clickable" onclick="setparam('x11open');"
-	   >&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> open</a></li>
-  </ul>
-</li>
+  <!-- The menu -->
+  <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11">
 
-<!-- Windows -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-th-large white"></i> Win<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable" onclick="setparam('xp445');">XP / 445</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('smbshare', undefined, true, true); setparam('display', 'script:smb-enum-shares,smb-ls', true);"
-	   >SMB shares</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('smbshare', 'w', true, true); setparam('display', 'script:smb-enum-shares,smb-ls', true);"
-	   >&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> writable</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('mssqlemptypwd');"
-	   >MS-SQL empty password</li></a>
-  </ul>
-</li>
-
-<!-- Web -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-globe white"></i> Web<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable" onclick="setparam('authhttp');">HTTP Auth</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('webfiles', undefined, true, true); setparam('display', 'script:ls', true)">Shared web files</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('script', 'http-git:\'/Git repository found/\'');"
-	   >Git repository</a></li>
-    <li><a class="clickable" onclick="setparam('owa');">OWA</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('phpmyadmin');"
-	   >PHPMyAdmin</a></li>
-  </ul>
-</li>
-
-<!-- Authentication -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-lock white"></i> Auth<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable" onclick="setparam('authhttp');">HTTP Auth</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('anonftp', undefined, true, true); setparam('display', 'script:ftp-anon', true);"
-	   >Anonymous FTP</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('anonldap');">Anonymous LDAP</a></li>
-    <li><a class="clickable" onclick="setparam('nis');">NIS / YP</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('authbypassvnc');"
-	   >VNC Authentication Bypass</li></a>	    
-    <li><a class="clickable"
-	   onclick="setparam('mssqlemptypwd');"
-	   >MS-SQL empty password</li></a>	    
-    <li><a class="clickable"
-	   onclick="setparam('mysqlemptypwd');"
-	   >MySQL empty password</li></a>	    
-  </ul>
-</li>
-
-<!-- Relay -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-share-alt white"></i> Relay<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable"
-	   onclick="setparam('script', 'http-open-proxy');"
-	   >HTTP Open Proxy</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('script', 'socks-open-proxy');"
-	   >Socks Open Proxy</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('script', 'smtp-open-relay');"
-	   >SMTP Open Relay</a></li>
-    <li>
-      <a class="clickable"
-	 onclick="setparam('script', 'ftp-bounce:&quot;bounce working!&quot;');"
-	 >FTP Bounce</a>
+    <li ng-repeat="item1 in MENU.items" class="dropdown">
+      <a ng-class="{'dropdown-toggle': item1.items != undefined}" class="clickable"
+	 data-toggle="dropdown" ng-click="eval_action(item1.action)">
+	<i ng-if="item1.icon" class="glyphicon glyphicon-{{item1.icon}} white"></i>
+	<span ng-class="{'menu-single': item1.items == undefined}">
+	  {{item1.title}}
+	</span>
+	<b ng-if="item1.items" class="caret"></b>
+      </a>
+      <ul ng-if="item1.items" class="dropdown-menu">
+	<li ng-repeat="item2 in item1.items">
+	  <a class="clickable" ng-click="eval_action(item2.action)" ng-attr-id="{{item2.attr.id}}">
+	    <i ng-if="item2.icon" class="glyphicon glyphicon-{{item2.icon}}"></i>
+	    {{item2.title}}
+	  </a>
+	  <a ng-repeat="item3 in item2.items" class="clickable" ng-click="eval_action(item3.action)">
+	    &nbsp;<i class="glyphicon glyphicon-chevron-right"></i> {{item3.title}}
+	  </a>
+	</li>
+      </ul>
     </li>
-  </ul>
-</li>
 
-<!-- Fun -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-screenshot white"></i> Fun<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable"
-	   onclick="setparam('devicetype', 'webcam');">Webcam</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('geovision');"
-	   >&nbsp;<i class="glyphicon glyphicon-chevron-right"></i> GeoVision</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('netdev');">Network devices</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('phonedev');">Telephony systems</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('screenshot', undefined, true, true); setparam('display', 'screenshot', true);">Screenshots</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('file', undefined, true, true); setparam('display', 'script:ls', true);">Shared files</a></li>
-  </ul>
-</li>
+    <!-- Share -->
+    <li ng-if="MENU.share" class="dropdown">
+      <a class="dropdown-toggle clickable" data-toggle="dropdown">
+	<i class="glyphicon glyphicon-share white"></i> Share<b class="caret"></b>
+      </a>
+      <ul class="dropdown-menu">
+	<li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
+	    <i class="glyphicon glyphicon-plus"></i> New tab
+	</a></li>
+	<li><a id="share-bookmark" rel="sidebar"
+	       ng-href="{{get_href()}}" ng-title="{{get_title()}}"
+	       ng-click="add_bookmark()">
+	    <i class="glyphicon glyphicon-star"></i> Bookmark
+	</a></li>
+	<li><a id="share-mail" ng-href="{{get_mail_href()}}">
+	    <i class="glyphicon glyphicon-envelope"></i> Mail
+	</a></li>
+	<li><a href="#" onclick="document.location='report.html' + document.location.hash">
+	    <i class="glyphicon glyphicon-th-list "></i> Report
+	</a></li>
+      </ul>
+    </li>
 
-<!-- Sort -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-random white"></i> Sort<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a class="clickable"
-	   onclick="setparam('sortby', 'endtime', true);"
-	   ><i class="glyphicon glyphicon-arrow-down"></i> Date of scan</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('-sortby', 'endtime', true);"
-	   ><i class="glyphicon glyphicon-arrow-up"></i> Date of scan</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('sortby', 'addr', true);"
-	   ><i class="glyphicon glyphicon-arrow-down"></i> IP Address</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('-sortby', 'addr', true);"
-	   ><i class="glyphicon glyphicon-arrow-up"></i> IP Address</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('sortby', 'openports.count', true);"
-	   ><i class="glyphicon glyphicon-arrow-down"></i> Open ports</a></li>
-    <li><a class="clickable"
-	   onclick="setparam('-sortby', 'openports.count', true);"
-	   ><i class="glyphicon glyphicon-arrow-up"></i> Open ports</a></li>
-    <li>
-      <a class="clickable"
-	 onclick="'archives' in parametersobj ? unsetparam('archives') : setparam('archives');"
-	 ><i class="glyphicon glyphicon-file"></i> Archives</a></li>
-  </ul>
-</li>
+    <!-- Upload -->
+    <li ng-if="::uploadok">
+      <a class="clickable" href="upload.html" title="Upload scan results">
+	<i class="glyphicon glyphicon-upload white"></i> Upload
+      </a>
+    </li>
 
-<!-- Share -->
-<li class="dropdown">
-  <a class="dropdown-toggle clickable" data-toggle="dropdown">
-    <i class="glyphicon glyphicon-share white"></i> Share<b class="caret"></b>
-  </a>
-  <ul class="dropdown-menu">
-    <li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
-	<i class="glyphicon glyphicon-plus"></i> New tab
-    </a></li>
-    <li><a id="share-bookmark" rel="sidebar"
-	   ng-href="{{get_href()}}" ng-title="{{get_title()}}"
-	   ng-click="add_bookmark()">
-	<i class="glyphicon glyphicon-star"></i> Bookmark
-    </a></li>
-    <li><a id="share-mail" ng-href="{{get_mail_href()}}">
-	<i class="glyphicon glyphicon-envelope"></i> Mail
-    </a></li>
-    <li><a href="#" onclick="document.location='report.html' + document.location.hash">
-	<i class="glyphicon glyphicon-th-list "></i> Report
-    </a></li>
   </ul>
-</li>
 
-<!-- Upload -->
-<li ng-if="::uploadok">
-  <a class="clickable" href="upload.html" title="Upload scan results">
-    <i class="glyphicon glyphicon-upload white"></i> Upload
-  </a>
-</li>
+  <!-- Droids Corp web site -->
+  <ul class="nav navbar-nav col-lg-1 col-md-1 visible-lg visible-md">
+    <a title="Droids Corporation"
+       href="http://droids-corp.org/"
+       target="_blank"
+       class="navbar-link">
+      <img alt="Droids Corp" src="droids.png" class="logo"/>
+    </a>
+  </ul>
+</div>
