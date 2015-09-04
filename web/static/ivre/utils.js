@@ -172,6 +172,36 @@ function array_swap(arr, x, y) {
     return arr;
 }
 
+function getPagePath() {
+    var base = document.location.pathname;
+    if(base.endsWith('/')) {
+	return base;
+    }
+    var idx = base.lastIndexOf('/');
+    if(idx === -1) {
+	return base + '/';
+    }
+    if(base.endsWith('.html')) {
+	return base.substring(0, idx + 1);
+    }
+    return base + '/';
+}
+
+function getPageName() {
+    var base = document.location.pathname;
+    if(base.endsWith('/')) {
+	return 'index';
+    }
+    var idx = base.lastIndexOf('/');
+    if(idx === -1) {
+	return 'index';
+    }
+    if(base.endsWith('.html')) {
+	return base.substring(idx + 1, base.length - 5);
+    }
+    return 'index';
+}
+
 function exportDOM() {
     // Get current DOM
     var reportDOM = $("body").clone();
