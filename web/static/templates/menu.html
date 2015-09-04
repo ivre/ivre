@@ -70,10 +70,10 @@
 	<li><a id="share-mail" ng-href="{{get_mail_href()}}">
 	    <i class="glyphicon glyphicon-envelope"></i> Mail
 	</a></li>
-	<li><a href="#" onclick="document.location = getPagePath() + 'report.html' + document.location.hash">
+	<li ng-if="MENU.share_report"><a href="#" onclick="document.location = getPagePath() + 'report.html' + document.location.hash">
 	    <i class="glyphicon glyphicon-th-list"></i> Report
 	</a></li>
-	<li><a href="#" onclick="download_blob(exportDOM(), 'ivre_' + getPageName() + '_' + document.location.hash.substr(1).replace(' ', '_'))">
+	<li ng-if="MENU.share_htmlexport"><a href="#" onclick="download_blob(exportDOM(), 'ivre_' + getPageName() + '_' + document.location.hash.substr(1).replace(' ', '_'))">
 	    <i class="glyphicon glyphicon-export"></i> HTML export
 	</a></li>
       </ul>

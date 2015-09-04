@@ -660,10 +660,14 @@ prepare(HELP_TOPVALUES);
 
 /************* Menu content ****************/
 
-/* Menus structure is as follow:
+/* Menus structure is as follows:
  *
  * - items: menu content, see below
- * - share: (optional) if set to true, add a 'Share' menu. Default is false
+ * - share (optional): if set to true, add a 'Share' menu.
+ * - share_report (optional): if set to true, include a 'Report' item
+ *   in the 'Share' menu.
+ * - share_htmlexport (optional): if set to true, include an 'HTML
+ *    export' item in the 'Share' menu.
  *
  * The menu content is a list of recursive 'items'.
  *
@@ -685,6 +689,7 @@ prepare(HELP_TOPVALUES);
 // Menu for index.html
 var MENU_MAIN = {
     share: true,
+    share_report: true,
     items: [
 	{title: "HELP",
 	 action: "$scope.togglenotes('doc:webui');",
@@ -863,6 +868,7 @@ if (config.uploadok) {
 // Menu for report.html
 var MENU_REPORT = {
     share: true,
+    share_htmlexport: true,
     items: [
 	{title: "Main",
 	 action: "document.location='index.html' + document.location.hash",
