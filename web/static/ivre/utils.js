@@ -192,6 +192,8 @@ function exportDOM() {
     // Convert images
     reportDOM.find("img[src]").each(function(index, img) {
 	var canvas = document.createElement('canvas');
+	canvas.width = img.width;
+	canvas.height = img.height;
 	var context = canvas.getContext('2d');
 	context.drawImage(img, 0, 0);
 	img.src = canvas.toDataURL("image/png");
