@@ -171,3 +171,55 @@ function array_swap(arr, x, y) {
     arr[y] = tmp;
     return arr;
 }
+
+function exportDOM() {
+    // Get current DOM
+    var reportDOM = $("body").clone();
+
+    // Clean it
+    reportDOM.find(".no-export").remove();
+    reportDOM.find('style').remove();
+    reportDOM.find('script').remove();
+
+    // Get full CSS
+    var cssText = "";
+    $.each(document.styleSheets, function(sheetIndex, sheet) {
+       $.each(sheet.cssRules || sheet.rules, function(ruleIndex, rule) {
+	   cssText += rule.cssText;
+       });
+    });
+
+    // Convert images
+    reportDOM.find("img[src]").each(function(index, img) {
+	var canvas = document.createElement('canvas');
+	var context = canvas.getContext('2d');
+	context.drawImage(img, 0, 0);
+	img.src = canvas.toDataURL("image/png");
+    });
+
+    // Rebuild a web page
+    var content = "<html><head><style>" + cssText + "</style></head><body>" + reportDOM.html() + "</body></html>";
+    return new Blob([content], {"type": "text\/html" });
+};
+
+function download_blob(blob, title) {
+    // Build a link element to download Blob
+    var div = document.body;
+    var a = document.createElement('a');
+    a.onclick = function() {
+	this.setAttribute('href', window.URL.createObjectURL(blob));
+	return true;
+    };
+    if(title === undefined)
+	title = "Unknown.bin";
+    a.download = title;
+    a.href = "#";
+
+    // Trigger click event
+    div.appendChild(a);
+    a.click();
+
+    // Clean
+    document.removeElement(a);
+    return false;
+}

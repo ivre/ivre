@@ -17,7 +17,7 @@
 -->
 
 <!-- The top navigation bar -->
-<div id="navbar" class="navbar navbar-inverse navbar-fixed-top row">
+<div id="navbar" class="navbar navbar-inverse navbar-fixed-top row no-export">
   <div class="col-lg-2 col-sm-1">
     <div class="navbar-ivre">
       <!-- The logo + app name -->
@@ -71,18 +71,13 @@
 	    <i class="glyphicon glyphicon-envelope"></i> Mail
 	</a></li>
 	<li><a href="#" onclick="document.location='report.html' + document.location.hash">
-	    <i class="glyphicon glyphicon-th-list "></i> Report
+	    <i class="glyphicon glyphicon-th-list"></i> Report
+	</a></li>
+	<li><a href="#" onclick="download_blob(exportDOM(), /([A-Za-z]+)\.html/g.exec(document.location.pathname)[1] + '_' + document.location.hash.substr(1).replace(' ', '_'))">
+	    <i class="glyphicon glyphicon-export"></i> HTML export
 	</a></li>
       </ul>
     </li>
-
-    <!-- Upload -->
-    <li ng-if="::uploadok">
-      <a class="clickable" href="upload.html" title="Upload scan results">
-	<i class="glyphicon glyphicon-upload white"></i> Upload
-      </a>
-    </li>
-
   </ul>
 
   <!-- Droids Corp web site -->
