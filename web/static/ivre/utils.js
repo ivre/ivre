@@ -177,7 +177,7 @@ function exportDOM() {
     var reportDOM = $("body").clone();
 
     // Clean it
-    reportDOM.find("#navbar").remove();
+    reportDOM.find(".no-export").remove();
     reportDOM.find('style').remove();
     reportDOM.find('script').remove();
 
