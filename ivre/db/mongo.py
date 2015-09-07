@@ -721,6 +721,55 @@ have no effect if it is not expected)."""
         if url == "field":
             return port.get('screendata')
 
+    def set_label(self, flt, group, label, archive=False):
+        """Adds `label` in `group` to every host matching `flt`"""
+        colname = self.colname_oldhosts if archive else self.colname_hosts
+        for host in self.get(flt, archive=archive):
+            labels = host.get('labels', [])
+            try:
+                g_label = (lab for lab in labels
+                           if lab['group'] == group).next()
+            except StopIteration:
+                # group did not exist.
+                g_label = {'group': group, 'tags': [label]}
+                labels.append(g_label)
+            else:
+                if label in g_label['tags']:
+                    continue
+                g_label['tags'].append(label)
+            self.db[colname].update({"_id": host['_id']},
+                                    {"$set": {'labels': labels}})
+
+    def remove_label(self, flt, group, label=None, archive=False):
+        """Removes `label` of session `group` from every host matching `flt`
+        If label is None, removes the entire group.
+
+        """
+        colname = self.colname_oldhosts if archive else self.colname_hosts
+        flt = self.flt_and(flt, self.searchlabel(group, label=label))
+        for host in self.get(flt, archive=archive):
+            labels = host['labels']
+            if label:
+                g_label = (lab for lab in labels
+                           if lab['group'] == group).next()
+                g_label['tags'].remove(label)
+            if not label or not g_label['tags']:
+                labels = [lab for lab in host['labels']
+                          if lab['group'] != group]
+            if labels:
+                self.db[colname].update(
+                    {"_id": host['_id']}, {"$set": {'labels': labels}})
+            else:
+                self.db[colname].update({"_id": host['_id']},
+                                        {"$unset": {'labels': True}})
+
+    def clear_labels(self, flt, archive=False):
+        """Removes every label from hosts matching `flt`"""
+        colname = self.colname_oldhosts if archive else self.colname_hosts
+        for host in self.get(flt, archive=archive):
+                self.db[colname].update({"_id": host['_id']},
+                                        {"$unset": {'labels': True}})
+
     def setscreenshot(self, host, port, data, protocol='tcp',
                       archives=False, overwrite=False):
         """Sets the content of a port's screenshot."""
@@ -1162,6 +1211,25 @@ have no effect if it is not expected)."""
             else:
                 return {'categories': {'$in': cat}}
         return {'categories': cat}
+
+    def searchlabel(self, group, label=None, neg=False):
+        """Filters (if `neg` == True, filters out) hosts with
+        `label` in `group`.
+        If `label` is None, filters hosts having a group `group`.
+
+        """
+        if label is None:
+            if type(group) is utils.REGEXP_T:
+                return {'labels.group': {'$not': group} if neg else group}
+            return {'labels.group': {'$ne': group} if neg else group}
+        if neg:
+            return self.flt_or(self.searchlabel(group, neg=True),
+                               {'labels': {'$elemMatch':
+                                           {'group': group,
+                                            'tags': {'$not': label}
+                                            if type(label) is utils.REGEXP_T
+                                            else {'$ne': label}}}})
+        return {'labels': {'$elemMatch': {'group': group, 'tags': label}}}
 
     @staticmethod
     def searchcountry(country, neg=False):
