@@ -174,6 +174,35 @@ class AnalyzerCli(StackCli):
         except (RuntimeError, AttributeError):
             colorize_log('warning', 'Cluster hosts first.')
 
+    def do_tag_database(self, line):
+        """
+        Tag hosts into database with their cluster label
+        and their anomaly status
+        """
+        session = None
+        if line:
+            try:
+                session = int(line)
+                if session < 1:
+                    raise ValueError()
+            except ValueError:
+                self.help_tag_database()
+                return
+        self.get_context().set_labels(session=session)
+
+    def do_clean_database(self, line):
+        """Clean the database from previous tags"""
+        session = None
+        if line:
+            try:
+                session = int(line)
+                if session < 1:
+                    raise ValueError()
+            except ValueError:
+                self.help_clean_database()
+                return
+        self.get_context().clean_labels(session=session)
+
     @staticmethod
     def help_count():
         """Help for do_count command"""
@@ -245,6 +274,23 @@ class AnalyzerCli(StackCli):
         colorize_log('usage', """remove_clusters c1 [c2 [c3..]]
 \tRemove clusters c1, c2, c3.. from current context
 \tEnter -1 for noise if DBSCAN clusterring""")
+
+    @staticmethod
+    def help_tag_database():
+        """Print help for tag_database command"""
+        colorize_log('usage', """tag_database [session_number]
+\tTag hosts into database with their cluster label
+\tand their anomaly status
+\tIf n=`session_number` is provided, the group name
+\tin the database will be "analyzer_n" """)
+
+    @staticmethod
+    def help_clean_database():
+        """Print help for clean_database command"""
+        colorize_log('usage', """clean_database [session_number]
+\tClean database from previous tags
+\tIf n=`session_number` is provided, the tagging group
+\t"analyzer_n" will be cleaned instead of "analyzer" default one""")
 
 
 def main():
