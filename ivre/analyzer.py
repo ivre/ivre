@@ -625,9 +625,14 @@ class Context(object):
         instead of `outliers` anomalies
         Update self._anomalies attribute
         """
-        # 0.01 is faster and works well most of the time
-        # but 0.5 works with small host number.
-        nu_percent = outliers * 0.01 if percent_mode else 0.5
+        if percent_mode:
+            nu_percent = outliers * 0.01
+        else:
+            # 0.01 is faster but causes troubles with a small host number
+            # nu_percent tends to 0.5 when host count get smaller
+            nu_percent = max(0.01,
+                             -2.0 * 10 ** -6 * (len(self._list_id) - 500) \
+                             * (len(self._list_id) + 500))
 
         clf = svm.OneClassSVM(nu=nu_percent, kernel='rbf', gamma=0.1)
         clf.fit(self._matrix)
