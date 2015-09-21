@@ -122,12 +122,16 @@ def main():
             if params.get("ipsasnumbers"):
                 r2res = lambda r: [
                     r['addr'],
-                    [[p['port'], p['state_state']] for p in r.get('ports', [])]
+                    [[p['port'], p['state_state']]
+                     for p in r.get('ports', [])
+                     if 'state_state' in p]
                 ]
             else:
                 r2res = lambda r: [
                     utils.int2ip(r['addr']),
-                    [[p['port'], p['state_state']] for p in r.get('ports', [])]
+                    [[p['port'], p['state_state']]
+                     for p in r.get('ports', [])
+                     if 'state_state' in p]
                 ]
         elif action == "onlyips":
             result = db.nmap.get(flt, archive=archive, fields=['addr'])
