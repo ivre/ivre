@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,13 +23,17 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
     libfreetype6 libfontconfig1 fonts-dejavu
 
+# Install Nmap. Use included libpcap because to use the workaround for
+# Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
+# not know which kernel version will be used
 ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
 RUN apt-get -qy install build-essential libssl-dev && \
     tar zxf nmap.tar.gz && \
     mv nmap-nmap-* nmap && \
     cd nmap && \
     ./configure --without-ndiff --without-zenmap --without-nping \
-                --without-ncat --without-nmap-update && \
+                --without-ncat --without-nmap-update \
+                --with-libpcap=included && \
     make && make install && \
     cd ../ && rm -rf nmap nmap.tar.gz && \
     apt-get -qy --purge autoremove build-essential libssl-dev
