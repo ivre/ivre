@@ -722,7 +722,7 @@ have no effect if it is not expected)."""
             return port.get('screendata')
 
     def setscreenshot(self, host, port, data, protocol='tcp',
-                      archives=False, overwrite=False):
+                      archive=False, overwrite=False):
         """Sets the content of a port's screenshot."""
         try:
             port = [p for p in host.get('ports', [])
@@ -744,11 +744,11 @@ have no effect if it is not expected)."""
         if screenwords is not None:
             port['screenwords'] = screenwords
         self.db[
-            self.colname_oldhosts if archives else self.colname_hosts
+            self.colname_oldhosts if archive else self.colname_hosts
         ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
 
     def setscreenwords(self, host, port=None, protocol="tcp",
-                       archives=False, overwrite=False):
+                       archive=False, overwrite=False):
         """Sets the `screenwords` attribute based on the screenshot
         data.
 
@@ -779,11 +779,11 @@ have no effect if it is not expected)."""
                 updated = True
         if updated:
             self.db[
-                self.colname_oldhosts if archives else self.colname_hosts
+                self.colname_oldhosts if archive else self.colname_hosts
             ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
 
     def removescreenshot(self, host, port=None, protocol='tcp',
-                         archives=False):
+                         archive=False):
         """Removes screenshots"""
         changed = False
         for p in host.get('ports', []):
@@ -799,7 +799,7 @@ have no effect if it is not expected)."""
                     changed = True
         if changed:
             self.db[
-                self.colname_oldhosts if archives else self.colname_hosts
+                self.colname_oldhosts if archive else self.colname_hosts
             ].update({"_id": host["_id"]}, {"$set": {'ports': host['ports']}})
 
     def getlocations(self, flt, archive=False):
