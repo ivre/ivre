@@ -298,6 +298,11 @@ def flt_from_query(query, base_flt=None):
             flt = db.nmap.flt_and(flt, db.nmap.searchrange(
                 *value.replace('-', ',').split(',', 1),
                 neg=neg))
+        elif param == "label":
+            group, lab = map(utils.str2regexp, value.split(':', 1)) \
+                         if ':' in value else (utils.str2regexp(value), None)
+            flt = db.nmap.flt_and(flt, db.nmap.searchlabel(group=group,
+                                                           label=lab, neg=neg))
         elif param == "countports":
             vals = [int(val) for val in value.replace('-', ',').split(',', 1)]
             if len(vals) == 1:

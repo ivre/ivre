@@ -285,6 +285,14 @@ class DBNmap(DB):
                                     help='show only results with a number of open '
                                     'ports NOT within the provided range', nargs=2)
         self.argparser.add_argument('--service', metavar='SVC')
+        self.argparser.add_argument('--label', metavar='GROUP[:TAG]',
+                                    help='retrieve host labeled with TAG '
+                                    'in GROUP, if TAG is not provided, retrieve '
+                                    'hosts with at least one TAG in GROUP')
+        self.argparser.add_argument('--no-label', metavar='GROUP[:TAG]',
+                                    help='retrieve host WITHOUT the label TAG '
+                                    'in GROUP, if TAG is not provided, retrieve '
+                                    'hosts WITHOUT any tag in GROUP')
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
         self.argparser.add_argument('--svchostname')
         self.argparser.add_argument('--os')
