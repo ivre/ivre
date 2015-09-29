@@ -428,9 +428,10 @@ class DBNmap(DB):
                             host['infos'].update(data)
                 if not needports or 'ports' in host:
                     if merge and self.merge_host(host):
-                        return True
-                    self.archive_from_func(host, gettoarchive)
-                    self.store_host(host)
+                        pass
+                    else:
+                        self.archive_from_func(host, gettoarchive)
+                        self.store_host(host)
             self.store_scan_doc({'_id': filehash})
         return True
 
