@@ -55,8 +55,10 @@ def main():
                         help='Scan source.')
     parser.add_argument('-t', '--test', action='store_true',
                         help='Test mode.')
-    parser.add_argument('--port', action='store_true',
-                        help='Need ports.')
+    parser.add_argument('--ports', '--port', action='store_true',
+                        help='Store only hosts with a "ports" element.')
+    parser.add_argument('--open-ports', action='store_true',
+                        help='Store only hosts with open ports.')
     parser.add_argument('--never-archive', action='store_true',
                         help='Never archive.')
     parser.add_argument('--archive', '--archive-same-host', action='store_true',
@@ -101,8 +103,9 @@ def main():
         if database.store_scan(
                 scan,
                 categories=categories, source=args.source,
-                needports=args.port, gettoarchive=gettoarchive,
-                force_info=args.force_info, merge=args.merge,
+                needports=args.ports, needopenports=args.open_ports,
+                gettoarchive=gettoarchive, force_info=args.force_info,
+                merge=args.merge,
         ):
             count += 1
     print "%d results imported." % count

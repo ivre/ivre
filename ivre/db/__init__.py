@@ -390,7 +390,8 @@ class DBNmap(DB):
         self.remove(rec)
         return True
 
-    def store_scan_json(self, fname, filehash=None, needports=False,
+    def store_scan_json(self, fname, filehash=None,
+                        needports=False, needopenports=False,
                         categories=None, source=None,
                         gettoarchive=None, add_addr_infos=True,
                         force_info=False, merge=False):
@@ -426,7 +427,9 @@ class DBNmap(DB):
                         data = func(host['addr'])
                         if data:
                             host['infos'].update(data)
-                if not needports or 'ports' in host:
+                if ((not needports or 'ports' in host) and
+                    (not needopenports or
+                     host.get('openports', {}).get('count'))):
                     if merge and self.merge_host(host):
                         pass
                     else:

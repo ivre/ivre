@@ -552,9 +552,11 @@ class NmapHandler(ContentHandler):
 
     """
 
-    def __init__(self, fname, filehash, needports=False, **_):
+    def __init__(self, fname, filehash, needports=False, needopenports=False,
+                 **_):
         ContentHandler.__init__(self)
         self._needports = needports
+        self._needopenports = needopenports
         self._curscan = None
         self._curscript = None
         self._curhost = None
@@ -821,8 +823,10 @@ class NmapHandler(ContentHandler):
         elif name == 'host':
             # masscan -oX output has no "state" tag
             if self._curhost.get('state', 'up') == 'up' and (
-                    'ports' in self._curhost
-                    or not self._needports):
+                    not self._needports
+                    or 'ports' in self._curhost) and (
+                        not self._needopenports
+                        or self._curhost.get('openports', {}).get('count')):
                 if 'openports' not in self._curhost:
                     self._curhost['openports'] = {'count': 0}
                 self._pre_addhost()
@@ -997,10 +1001,9 @@ class Nmap2Txt(NmapHandler):
 
     """Simple "test" handler, outputs resulting JSON as text."""
 
-    def __init__(self, fname, needports=False, **kargs):
+    def __init__(self, fname, **kargs):
         self._db = []
-        NmapHandler.__init__(self, fname, needports=needports,
-                             **kargs)
+        NmapHandler.__init__(self, fname, **kargs)
 
     @staticmethod
     def _to_binary(data):
