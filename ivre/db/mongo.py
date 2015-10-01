@@ -439,6 +439,11 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('endtime', pymongo.ASCENDING)], {}),
                 ([('source', pymongo.ASCENDING)], {}),
                 ([('categories', pymongo.ASCENDING)], {}),
+                ([
+                    ('labels.group', pymongo.ASCENDING),
+                    ('labels.tags', pymongo.ASCENDING),
+                ],
+                 {"sparse": True}),
                 ([('hostnames.domains', pymongo.ASCENDING)], {}),
                 ([('traces.hops.domains', pymongo.ASCENDING)], {}),
                 ([('openports.count', pymongo.ASCENDING)], {}),
