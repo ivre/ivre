@@ -409,7 +409,8 @@ class MongoDB(DB):
 class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
-    needunwind = ["categories", "ports", "ports.scripts",
+    needunwind = ["categories", "labels", "labels.tags",
+                  "ports", "ports.scripts",
                   "ports.scripts.ssh-hostkey",
                   "ports.scripts.smb-enum-shares.shares",
                   "ports.scripts.ls.volumes",
@@ -1222,7 +1223,7 @@ have no effect if it is not expected)."""
         """
         if label is None:
             if group is None:
-                return {'labels.group': {'$exists': True}}
+                return {'labels.group': {'$exists': not neg}}
             if type(group) is utils.REGEXP_T:
                 return {'labels.group': {'$not': group} if neg else group}
             return {'labels.group': {'$ne': group} if neg else group}
@@ -1772,7 +1773,7 @@ have no effect if it is not expected)."""
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / asnum / country
+          - category / label / asnum / country
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -1800,6 +1801,38 @@ have no effect if it is not expected)."""
         # pseudo-fields
         if field == "category":
             field = "categories"
+        elif field == "label" or field.startswith("label:"):
+            subfield = field[6:]
+            field = "labels.tags"
+            group, tag = ((None, None)
+                          if not subfield else
+                          map(utils.str2regexp, subfield.split(':', 1))
+                          if ':' in subfield else
+                          (utils.str2regexp(subfield), None))
+            flt = self.flt_and(flt, self.searchlabel(group=group, label=tag))
+            specialproj = {"_id": 0, "labels.group": 1, "labels.tags": 1}
+            # We need a second filter for hosts containing both label
+            # we want to match and label we don't want to match (the
+            # first filter, `flt`, is needed for performance while the
+            # second, added in `specialflt`, is needed for
+            # correctness).
+            if group is not None:
+                flt2 = {"labels.group": group}
+                if tag is not None:
+                    flt2["labels.tags"] = tag
+                specialflt.append({"$match": flt2})
+            # This projection needs to happen after the $unwind and
+            # after the second filter
+            specialflt.append({"$project": {
+                "_id": 0,
+                "labels.tags": {"$concat": [
+                    "$labels.group",
+                    "###",
+                    "$labels.tags",
+                ]}
+            }})
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###', 1)}
         elif field == "country":
             flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
             field = "infos.country_code"
@@ -1823,7 +1856,7 @@ have no effect if it is not expected)."""
                            ]}}
             field = "city"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': x['_id'].split('###', 1)}
         elif field == "asnum":
             flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             field = "infos.as_num"
