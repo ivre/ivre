@@ -413,6 +413,10 @@ var HELP_TOPVALUES = {
 	"file": "file.filename",
     },
     content: {
+	"label": {
+	    "title": "<b>(!)</b>label<b>(:[group](:[tag]))</b>",
+	    "content": "Top tags (matching optional group / tag filter). Both group and tag can be specified as a string or a regexp.",
+	},
 	"cpe.type": {
 	    "title": "<b>(!)</b>cpe.type<b>(:[type](:[vendor])(:[product](:[version])))</b>",
 	    "content": "CPE types (matching optional type / vendor / product / version filter).",

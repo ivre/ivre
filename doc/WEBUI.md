@@ -45,6 +45,7 @@ displayed in the rightmost part of the screen.
     number of results to scan is important. Here is a list of
     (sometimes) interesting values to try here:
     - `category`, `source`
+    - `label`, `label:[group]`, `label:[group]:[tag]`
     - `country`, `city`, `as`
     - `domains`, `domains:[level]`
     - `hop`, `hop:[number]`

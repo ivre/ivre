@@ -29,6 +29,7 @@ The third part allows to explore the results by generating graphs displayed in t
 
   * The first field displays a graph with the 15 most common values of a variable in the filtered results. This can be slow when the number of results to scan is important. Here is a list of (sometimes) interesting values to try here:
     * ''%%category%%'', ''%%source%%''
+    * ''%%label%%'', ''%%label:[group]%%'', ''%%label:[group]:[tag]%%''
     * ''%%country%%'', ''%%city%%'', ''%%as%%''
     * ''%%domains%%'', ''%%domains:[level]%%''
     * ''%%hop%%'', ''%%hop:[number]%%''
