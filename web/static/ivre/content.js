@@ -148,9 +148,9 @@ var HELP_FILTERS = {
 	    "title": "version:<b>[service name]:[product name]:[version](:[port number])</b>",
 	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
 	},
-	"label:": {
-	    "title": "<b>(!)</b>label:<b>[group](:[tag])</b>",
-	    "content": "Look for results labeled with [tag] in [group], if [tag] is not provided, look for results with at least one tag in [group]",
+	"label": {
+	    "title": "<b>(!)</b>label<b>(:[group](:[tag]))</b>",
+	    "content": "Look for results labeled with [tag] in [group]; if [tag] is not provided, look for results with at least one tag in [group]; if [group] is not provided, look for results with at least one tag.",
 	},
 	"script:": {
 	    "title": "script:<b>[script id](:[script output])</b>",
