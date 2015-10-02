@@ -132,6 +132,8 @@ single or double quotes.
   - `[!]domain:[FQDN]` look for results with a hostname within a
     matching domain name.
   - `[!]category:` filter a category.
+  - `[!]label`, `[!]label:[group]`, `[!]label:[group]:[tag]` filter
+    according to labels.
   - `[!]country:[two letters code]` filter a country.
   - `[!]city:` filter a city (use with `country:`).
   - `[!]asnum:` filter by AS number (lists allowed).
