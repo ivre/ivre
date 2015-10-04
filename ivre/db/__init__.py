@@ -327,14 +327,14 @@ class DBNmap(DB):
             return False
         with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
-            try:
-                store_scan_function = {
-                    '<': self.store_scan_xml,
-                    '{': self.store_scan_json,
-                }[fchar]
-            except KeyError:
-                raise ValueError("Unknown file type %s" % fname)
-            return store_scan_function(fname, filehash=scanid, **kargs)
+        try:
+            store_scan_function = {
+                '<': self.store_scan_xml,
+                '{': self.store_scan_json,
+            }[fchar]
+        except KeyError:
+            raise ValueError("Unknown file type %s" % fname)
+        return store_scan_function(fname, filehash=scanid, **kargs)
 
     def store_scan_xml(self, fname, **kargs):
         """This method parses an XML scan result, displays a JSON
