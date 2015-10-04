@@ -409,7 +409,8 @@ class MongoDB(DB):
 class MongoDBNmap(MongoDB, DBNmap):
 
     content_handler = xmlnmap.Nmap2Mongo
-    needunwind = ["categories", "ports", "ports.scripts",
+    needunwind = ["categories", "labels", "labels.tags",
+                  "ports", "ports.scripts",
                   "ports.scripts.ssh-hostkey",
                   "ports.scripts.smb-enum-shares.shares",
                   "ports.scripts.ls.volumes",
@@ -439,6 +440,11 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('endtime', pymongo.ASCENDING)], {}),
                 ([('source', pymongo.ASCENDING)], {}),
                 ([('categories', pymongo.ASCENDING)], {}),
+                ([
+                    ('labels.group', pymongo.ASCENDING),
+                    ('labels.tags', pymongo.ASCENDING),
+                ],
+                 {"sparse": True}),
                 ([('hostnames.domains', pymongo.ASCENDING)], {}),
                 ([('traces.hops.domains', pymongo.ASCENDING)], {}),
                 ([('openports.count', pymongo.ASCENDING)], {}),
@@ -740,34 +746,31 @@ have no effect if it is not expected)."""
             self.db[colname].update({"_id": host['_id']},
                                     {"$set": {'labels': labels}})
 
-    def remove_label(self, flt, group, label=None, archive=False):
-        """Removes `label` of session `group` from every host matching `flt`
-        If label is None, removes the entire group.
+    def remove_label(self, flt, group=None, label=None, archive=False):
+        """Removes `label` of session `group` from every host matching `flt`.
+
+        If `label` is None, removes the entire `group`. If both
+        `group` and `label` are None, remove all the labels.
 
         """
         colname = self.colname_oldhosts if archive else self.colname_hosts
-        flt = self.flt_and(flt, self.searchlabel(group, label=label))
-        for host in self.get(flt, archive=archive):
-            labels = host['labels']
-            if label:
-                g_label = (lab for lab in labels
-                           if lab['group'] == group).next()
-                g_label['tags'].remove(label)
-            if not label or not g_label['tags']:
-                labels = [lab for lab in host['labels']
-                          if lab['group'] != group]
-            if labels:
-                self.db[colname].update(
-                    {"_id": host['_id']}, {"$set": {'labels': labels}})
-            else:
+        flt = self.flt_and(flt, self.searchlabel(group=group, label=label))
+        if group is None and label is None:
+            self.db[colname].update(flt, {"$unset": {'labels': True}},
+                                    multi=True)
+        else:
+            for host in self.get(flt, archive=archive):
+                labels = host['labels']
+                if label is not None:
+                    g_label = (lab for lab in labels
+                               if lab['group'] == group).next()
+                    g_label['tags'].remove(label)
+                if label is None or not g_label['tags']:
+                    labels = [lab for lab in host['labels']
+                              if lab['group'] != group]
                 self.db[colname].update({"_id": host['_id']},
-                                        {"$unset": {'labels': True}})
-
-    def clear_labels(self, flt, archive=False):
-        """Removes every label from hosts matching `flt`"""
-        colname = self.colname_oldhosts if archive else self.colname_hosts
-        for host in self.get(flt, archive=archive):
-                self.db[colname].update({"_id": host['_id']},
+                                        {"$set": {'labels': labels}}
+                                        if labels else
                                         {"$unset": {'labels': True}})
 
     def setscreenshot(self, host, port, data, protocol='tcp',
@@ -1212,18 +1215,20 @@ have no effect if it is not expected)."""
                 return {'categories': {'$in': cat}}
         return {'categories': cat}
 
-    def searchlabel(self, group, label=None, neg=False):
+    def searchlabel(self, group=None, label=None, neg=False):
         """Filters (if `neg` == True, filters out) hosts with
         `label` in `group`.
         If `label` is None, filters hosts having a group `group`.
 
         """
         if label is None:
+            if group is None:
+                return {'labels.group': {'$exists': not neg}}
             if type(group) is utils.REGEXP_T:
                 return {'labels.group': {'$not': group} if neg else group}
             return {'labels.group': {'$ne': group} if neg else group}
         if neg:
-            return self.flt_or(self.searchlabel(group, neg=True),
+            return self.flt_or(self.searchlabel(group=group, neg=True),
                                {'labels': {'$elemMatch':
                                            {'group': group,
                                             'tags': {'$not': label}
@@ -1768,7 +1773,7 @@ have no effect if it is not expected)."""
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / asnum / country
+          - category / label / asnum / country
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -1796,6 +1801,38 @@ have no effect if it is not expected)."""
         # pseudo-fields
         if field == "category":
             field = "categories"
+        elif field == "label" or field.startswith("label:"):
+            subfield = field[6:]
+            field = "labels.tags"
+            group, tag = ((None, None)
+                          if not subfield else
+                          map(utils.str2regexp, subfield.split(':', 1))
+                          if ':' in subfield else
+                          (utils.str2regexp(subfield), None))
+            flt = self.flt_and(flt, self.searchlabel(group=group, label=tag))
+            specialproj = {"_id": 0, "labels.group": 1, "labels.tags": 1}
+            # We need a second filter for hosts containing both label
+            # we want to match and label we don't want to match (the
+            # first filter, `flt`, is needed for performance while the
+            # second, added in `specialflt`, is needed for
+            # correctness).
+            if group is not None:
+                flt2 = {"labels.group": group}
+                if tag is not None:
+                    flt2["labels.tags"] = tag
+                specialflt.append({"$match": flt2})
+            # This projection needs to happen after the $unwind and
+            # after the second filter
+            specialflt.append({"$project": {
+                "_id": 0,
+                "labels.tags": {"$concat": [
+                    "$labels.group",
+                    "###",
+                    "$labels.tags",
+                ]}
+            }})
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'].split('###', 1)}
         elif field == "country":
             flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
             field = "infos.country_code"
@@ -1819,7 +1856,7 @@ have no effect if it is not expected)."""
                            ]}}
             field = "city"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': x['_id'].split('###', 1)}
         elif field == "asnum":
             flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             field = "infos.as_num"

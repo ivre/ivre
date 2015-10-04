@@ -787,6 +787,14 @@ function build_chart(chart, field, dataset, size, colors) {
 	    return 'setparam("category", "' + x + '");';
 	};
     }
+    else if(field === 'label' || field.substr(0, 6) === 'label:') {
+	preparefilter = function(x) {
+	    return 'setparam("label", "' + x[0] + ':' + x[1] + '");';
+	};
+	prepareoutput = function(x) {
+	    return x.join(' / ');
+	};
+    }
     else if(field === 'source') {
 	preparefilter = function(x) {
 	    return 'setparam("source", "' + x + '", true);';
