@@ -544,6 +544,11 @@ def main():
                         help='ARCHIVE the matched results instead of '
                         'displaying them (i.e., move the results to '
                         'the archive collections).')
+    parser.add_argument('--move-from-archives', action='store_true',
+                        help='UNARCHIVE the matched results instead of '
+                        'displaying them (i.e., move the results from '
+                        'the archive collections to the "fresh" results '
+                        'collections).')
     parser.add_argument('--update-schema', action='store_true',
                         help='update (host) schema. Use with --version to '
                         'specify your current version and run twice, once '
@@ -724,9 +729,15 @@ def main():
             for h in x:
                 db.db.nmap.remove(h, archive=args.archives)
     elif args.move_to_archives:
+        args.archives = False
         def displayfunction(x):
             for h in x:
                 db.db.nmap.archive(h)
+    elif args.move_from_archives:
+        args.archives = True
+        def displayfunction(x):
+            for h in x:
+                db.db.nmap.archive(h, unarchive=True)
     elif USING_ORDEREDDICT and args.csv is not None:
         fields = {
             "ports": OrderedDict([

@@ -570,8 +570,9 @@ class NmapHandler(ContentHandler):
         self._fname = fname
         self._filehash = filehash
         self.scanner = "nmap"
+        self.need_scan_doc = False
         if config.DEBUG:
-            sys.stderr.write("READING %r (%r)" % (fname, self._filehash))
+            sys.stderr.write("READING %r (%r)\n" % (fname, self._filehash))
 
     @staticmethod
     def _to_binary(data):
@@ -818,7 +819,8 @@ class NmapHandler(ContentHandler):
 
     def endElement(self, name):
         if name == 'nmaprun':
-            self._storescan()
+            if self.need_scan_doc:
+                self._storescan()
             self._curscan = None
         elif name == 'host':
             # masscan -oX output has no "state" tag
@@ -1062,6 +1064,9 @@ class Nmap2Mongo(NmapHandler):
                     self._curhost['infos'].update(data)
         if self.source:
             self._curhost['source'] = self.source
+        # We are about to insert data based on this file, so we want
+        # to save the scan document
+        self.need_scan_doc = True
         if self.merge and self._db.nmap.merge_host(self._curhost):
             return
         self._db.nmap.archive_from_func(self._curhost, self._gettoarchive)

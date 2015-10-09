@@ -327,14 +327,14 @@ class DBNmap(DB):
             return False
         with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
-            try:
-                store_scan_function = {
-                    '<': self.store_scan_xml,
-                    '{': self.store_scan_json,
-                }[fchar]
-            except KeyError:
-                raise ValueError("Unknown file type %s" % fname)
-            return store_scan_function(fname, filehash=scanid, **kargs)
+        try:
+            store_scan_function = {
+                '<': self.store_scan_xml,
+                '{': self.store_scan_json,
+            }[fchar]
+        except KeyError:
+            raise ValueError("Unknown file type %s" % fname)
+        return store_scan_function(fname, filehash=scanid, **kargs)
 
     def store_scan_xml(self, fname, **kargs):
         """This method parses an XML scan result, displays a JSON
@@ -406,6 +406,7 @@ class DBNmap(DB):
         """
         if categories is None:
             categories = []
+        need_scan_doc = False
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = self.json2dbrec(json.loads(line))
@@ -430,11 +431,15 @@ class DBNmap(DB):
                 if ((not needports or 'ports' in host) and
                     (not needopenports or
                      host.get('openports', {}).get('count'))):
+                    # We are about to insert data based on this file,
+                    # so we want to save the scan document
+                    need_scan_doc = True
                     if merge and self.merge_host(host):
                         pass
                     else:
                         self.archive_from_func(host, gettoarchive)
                         self.store_host(host)
+        if need_scan_doc:
             self.store_scan_doc({'_id': filehash})
         return True
 

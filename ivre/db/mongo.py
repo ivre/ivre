@@ -1010,63 +1010,74 @@ have no effect if it is not expected)."""
             if self.get({'scanid': scanid}, archive=archive).count() == 0:
                 self.db[colname_scans].remove(spec_or_id=scanid)
 
-    def archive(self, host):
-        """Archives a given host record. Also archives the
-        corresponding scan and removes the scan from the "not
-        archived" scan collection if not there is no host left in the
-        "not archived" host collumn.
+    def archive(self, host, unarchive=False):
+        """Archives (when `unarchive` is True, unarchives) a given
+        host record. Also (un)archives the corresponding scan and
+        removes the scan from the "not archived" (or "archived") scan
+        collection if not there is no host left in the "not archived"
+        (or "archived") host collumn.
 
         """
-        if self.find_one(self.colname_hosts, {"_id": host['_id']}) is None:
+        col_from_hosts, col_from_scans, col_to_hosts, col_to_scans = (
+            (self.colname_oldhosts, self.colname_oldscans,
+             self.colname_hosts, self.colname_scans)
+            if unarchive else
+            (self.colname_hosts, self.colname_scans,
+             self.colname_oldhosts, self.colname_oldscans)
+        )
+        if self.find_one(col_from_hosts, {"_id": host['_id']}) is None:
             if config.DEBUG:
                 sys.stderr.write(
-                    "WARNING: cannot archive: host %s does not exist"
-                    " in %r\n" % (host['_id'], self.colname_hosts)
+                    "WARNING: cannot %sarchive: host %s does not exist"
+                    " in %r\n" % ("un" if unarchive else "",
+                                  host['_id'], col_from_hosts)
                 )
         # store the host in the archive hosts collection
-        self.db[self.colname_oldhosts].insert(host)
+        self.db[col_to_hosts].insert(host)
         if config.DEBUG:
             sys.stderr.write(
-                "HOST ARCHIVED: %s in %r\n" % (
+                "HOST %sARCHIVED: %s in %r\n" % (
+                    "UN" if unarchive else "",
                     host['_id'],
-                    self.colname_oldhosts,
+                    col_to_hosts,
                 )
             )
         # remove the host from the (not archived) hosts collection
-        self.db[self.colname_hosts].remove(spec_or_id=host['_id'])
+        self.db[col_from_hosts].remove(spec_or_id=host['_id'])
         if config.DEBUG:
             sys.stderr.write(
                 "HOST REMOVED: %s from %r\n" % (
                     host['_id'],
-                    self.colname_hosts,
+                    col_from_hosts,
                 )
             )
         for scanid in self.getscanids(host):
-            scan = self.find_one(self.colname_scans, {'_id': scanid})
+            scan = self.find_one(col_from_scans, {'_id': scanid})
             if scan is not None:
                 # store the scan in the archive scans collection if it
                 # is not there yet
-                if self.find_one(self.colname_oldscans,
+                if self.find_one(col_to_scans,
                                  {'_id': scanid}) is None:
-                    self.db[self.colname_oldscans].insert(scan)
+                    self.db[col_to_scans].insert(scan)
                     if config.DEBUG:
                         sys.stderr.write(
-                            "SCAN ARCHIVED: %s in %r\n" % (
+                            "SCAN %sARCHIVED: %s in %r\n" % (
+                                "UN" if unarchive else "",
                                 scanid,
-                                self.colname_oldscans,
+                                col_to_scans,
                             )
                         )
                 # remove the scan from the (not archived) scans
                 # collection if there is no more hosts related to this
                 # scan in the hosts collection
-                if self.find_one(self.colname_hosts,
+                if self.find_one(col_from_hosts,
                                  {'scanid': scanid}) is None:
-                    self.db[self.colname_scans].remove(spec_or_id=scanid)
+                    self.db[col_from_scans].remove(spec_or_id=scanid)
                     if config.DEBUG:
                         sys.stderr.write(
                             "SCAN REMOVED: %s in %r" % (
                                 scanid,
-                                self.colname_scans,
+                                col_from_scans,
                             )
                         )
 
