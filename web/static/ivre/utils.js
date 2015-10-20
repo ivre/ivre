@@ -18,6 +18,35 @@
 
 /*********** Common util functions ***************/
 
+/* Workaround for cross-browser handling of .hash: Firefox 41+ (at
+   least) encodes document.location.hash, while Chromium (at least)
+   does not. Hope there is a better solution. */
+
+function are_hash_encoded() {
+    var parser = document.createElement("a");
+    parser.href = "# #";
+    return parser.hash !== "# #";
+}
+
+var HASH_ENCODED = are_hash_encoded();
+
+function get_hash() {
+    var res = document.location.hash.substr(1);
+    if(HASH_ENCODED){
+	return decodeURIComponent(res);
+    }
+    return res;
+}
+
+function set_hash(value) {
+    if(HASH_ENCODED){
+	document.location.hash = '#' + encodeURIComponent(value);
+    }
+    else {
+	document.location.hash = '#' + value;
+    }
+}
+
 /* Chrome */
 // if(String.prototype.repeat === undefined) {
 //     String.prototype.repeat = function(num) {

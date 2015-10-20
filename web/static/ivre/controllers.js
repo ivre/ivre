@@ -596,7 +596,7 @@ ivreWebUi
 
 	/********** Common **********/
 
-	$scope.query = document.location.hash.substring(1);
+	$scope.query = get_hash();
 	$scope.queryplural = parameters.length > 1;
 
 	/********** Display **********/
@@ -715,7 +715,7 @@ ivreWebUi
 	    c2.parentNode.appendChild(s);
 	};
 	$scope.build_all = function() {
-	    $scope.query = document.location.hash.substring(1);
+	    $scope.query = get_hash();
 	    $scope.queryplural = parameters.length > 1;
 
 	    for (var elementid in $scope.elements) {
