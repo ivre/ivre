@@ -17,7 +17,7 @@
 -->
 
 <li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> Filter</li>
-<form class="" onsubmit="ToolTip.remove_all(this); window.location.hash = Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' ');" id="filters">
+<form class="" onsubmit="ToolTip.remove_all(this); set_hash(Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' '));" id="filters">
   <li ng-repeat="filter in filters">
     <div class="input-group">
       <input class="form-control input-medium"

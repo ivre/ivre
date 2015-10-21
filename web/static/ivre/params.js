@@ -30,7 +30,7 @@ function params2hash() {
 		res += ':' + protect(store[t][k][1]);
 	    res += ' ';
 	}
-    document.location.hash = '#' + res.substr(0, res.length - 1);
+    set_hash(res.substr(0, res.length - 1));
 }
 
 function parse_params() {
@@ -38,7 +38,7 @@ function parse_params() {
     // the global parameters array and the global query string from
     // document.location.hash
     var state = 0;
-    query = document.location.hash.substr(1);
+    query = get_hash();
     var curtoken = undefined;
     var curtokenprotected = undefined;
     parameters = [];
