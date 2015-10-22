@@ -380,7 +380,7 @@ def open_file(fname):
     return {
         "bz2": bz2.BZ2File,
         "gz": gzip.open,
-    }.get(os.path.basename(fname).split('.')[-1], open)(fname)
+    }.get(os.path.basename(fname).rsplit('.', 1)[-1], open)(fname)
 
 def hash_file(fname, hashtype="sha1"):
     """Compute a hash of data from a given file"""
@@ -403,6 +403,18 @@ def serialize(obj):
     raise TypeError("Don't know what to do with %r (%r)" % (
         obj, type(obj)))
 
+
+def warn_exception(exc, **kargs):
+    """This function returns a WARNING line based on the exception
+    `exc` and the optional extra information.
+
+    """
+    return "WARNING: %s [%r]%s\n" % (
+        exc.message, exc,
+        "[%s]" % ", ".join("%s=%s" % (key, value)
+                           for key, value in kargs.iteritems())
+        if kargs else ""
+    )
 
 
 class FakeArgparserParent(object):

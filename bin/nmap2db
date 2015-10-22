@@ -17,6 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 import ivre.db
+import ivre.utils
 
 import os
 
@@ -100,14 +101,17 @@ def main():
         scans = args.scan
     count = 0
     for scan in scans:
-        if database.store_scan(
-                scan,
-                categories=categories, source=args.source,
-                needports=args.ports, needopenports=args.open_ports,
-                gettoarchive=gettoarchive, force_info=args.force_info,
-                merge=args.merge,
-        ):
-            count += 1
+        try:
+            if database.store_scan(
+                    scan,
+                    categories=categories, source=args.source,
+                    needports=args.ports, needopenports=args.open_ports,
+                    gettoarchive=gettoarchive, force_info=args.force_info,
+                    merge=args.merge,
+            ):
+                count += 1
+        except Exception as exc:
+            sys.stderr.write(ivre.utils.warn_exception(exc, fname=scan))
     print "%d results imported." % count
 
 if __name__ == '__main__':
