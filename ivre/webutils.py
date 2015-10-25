@@ -244,7 +244,7 @@ def get_init_flt():
     return DEFAULT_INIT_QUERY
 
 
-def flt_from_query(query, base_flt=None):
+def flt_from_query(query, base_flt=None, force_limit=True):
     """Return a tuple (`flt`, `archive`, `sortby`, `unused`, `skip`,
     `limit`):
 
@@ -259,14 +259,15 @@ def flt_from_query(query, base_flt=None):
 
       - an integer for the number of results to skip
 
-      - an integer for the maximum number of results to return
+      - an integer for the maximum number of results to return (always set if
+        `force_limit`)
 
     """
     unused = []
     sortby = []
     archive = False
     skip = config.WEB_SKIP
-    limit = config.WEB_LIMIT
+    limit = config.WEB_LIMIT if force_limit else None
     flt = get_init_flt() if base_flt is None else base_flt
     def add_unused(neg, param, value):
         """Add to the `unused` list a string representing (neg, param,
