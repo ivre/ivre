@@ -3071,7 +3071,7 @@ class MongoDBAgent(MongoDB, DBAgent):
         return self.db[self.colname_agents].insert(agent)
 
     def get_agent(self, agentid):
-        return self.find(self.colname_agents, {"_id": agentid})
+        return self.find_one(self.colname_agents, {"_id": agentid})
 
     def get_free_agents(self):
         return (x['_id'] for x in
