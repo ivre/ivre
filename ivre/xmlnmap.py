@@ -897,22 +897,38 @@ class NmapHandler(ContentHandler):
                     self._curscript
                 )
                 if fname is not None:
-                    with open(os.path.join(
-                            os.path.dirname(self._fname), fname)) as fdesc:
-                        data = fdesc.read()
-
-                        trim_result = utils.trim_image(data)
-                        if trim_result:
-                            # When trim_result is False, the image no
-                            # longer exists after trim
-                            if trim_result is not True:
-                                # Image has been trimmed
-                                data = trim_result
-                            current['screenshot'] = "field"
-                            current['screendata'] = self._to_binary(data)
-                            screenwords = utils.screenwords(data)
-                            if screenwords is not None:
-                                current['screenwords'] = screenwords
+                    exceptions = []
+                    for full_fname in [fname,
+                                       os.path.join(
+                                           os.path.dirname(self._fname),
+                                           fname)]:
+                        try:
+                            with open(full_fname) as fdesc:
+                                data = fdesc.read()
+                                trim_result = utils.trim_image(data)
+                                if trim_result:
+                                    # When trim_result is False, the image no
+                                    # longer exists after trim
+                                    if trim_result is not True:
+                                        # Image has been trimmed
+                                        data = trim_result
+                                    current['screenshot'] = "field"
+                                    current['screendata'] = self._to_binary(data)
+                                    screenwords = utils.screenwords(data)
+                                    if screenwords is not None:
+                                        current['screenwords'] = screenwords
+                        except Exception as exc:
+                            exceptions.append(exc)
+                        else:
+                            break
+                    for exc in exceptions:
+                        sys.stderr.write(
+                            utils.warn_exception(
+                                exc,
+                                scanfile=self._fname,
+                                fname=full_fname,
+                            )
+                        )
             if ignore_script(self._curscript):
                 self._curscript = None
                 return

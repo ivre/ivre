@@ -21,7 +21,7 @@
 database backends.
 """
 
-from ivre import config, utils, xmlnmap
+from ivre import config, utils, xmlnmap, utils
 
 import sys
 import socket
@@ -350,8 +350,7 @@ class DBNmap(DB):
         try:
             content_handler = self.content_handler(fname, **kargs)
         except Exception as exc:
-            sys.stderr.write("WARNING: %s [%r] [fname=%s]\n" % (
-                exc.message, exc, fname))
+            sys.stderr.write(utils.warn_exception(exc, fname=fname))
         else:
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
