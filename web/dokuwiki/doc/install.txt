@@ -83,7 +83,7 @@ On a typical Debian/Ubuntu installation with Apache and Dokuwiki installed with 
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/logo.png%%''  -> ''%%/var/lib/dokuwiki/data/media/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/doc%%''  -> ''%%/var/lib/dokuwiki/data/media/%%''
 
-The values ''%%WEB_SKIP%%'' and ''%%WEB_LIMIT%%'' from IVRE's configuration must match the values ''%%skip%%'' and ''%%limit%%'' in the ''%%dflt%%'' object in ''%%config.js%%''.
+The value ''%%WEB_LIMIT%%'' from IVRE's configuration must match the value ''%%limit%%'' in the ''%%dflt%%'' object in ''%%config.js%%''.
 
 ====== Agent ======
 

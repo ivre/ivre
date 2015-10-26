@@ -30,7 +30,6 @@ var config = {
     "notesbase": "/dokuwiki/#IP#",
     "cgibase": "/cgi-bin/scanjson.py",
     "dflt": {
-	"skip": 0,
 	"limit": 10,
     },
     "warn_dots_count": 20000,

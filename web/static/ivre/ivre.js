@@ -23,7 +23,6 @@ function setdefaultconfig() {
 	"notesbase": "/dokuwiki/#IP#",
 	"cgibase": "/cgi-bin/scanjson.py",
 	"dflt": {
-	    "skip": 0,
 	    "limit": 10,
 	},
 	"warn_dots_count": 20000,
@@ -196,11 +195,11 @@ function load() {
 	else
 	    limit = limit * 1;
 	if(skip === undefined)
-	    skip = config.dflt.skip;
+	    skip = 0;
 	else {
 	    skip = skip * 1;
 	    if(skip < 0)
-		setparam('skip', config.dflt.skip, true);
+		setparam('skip', 0, true);
 	}
 	var maxres = skip + hostcount;
 	set_display_mode(getparam('display'));

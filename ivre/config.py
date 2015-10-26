@@ -81,9 +81,8 @@ WEB_ALLOWED_REFERERS = None
 WEB_MAXRESULTS = None
 WEB_WARN_DOTS_COUNT= 20000
 WEB_GET_NOTEPAD_PAGES = None
-# if overwritten, these two values must match those in the config.js
-# config file config.dflt.skip and config.dflt.limit.
-WEB_SKIP = 0
+# if overwritten, this value must match its counterpart in the
+# config.js config file config.dflt.limit.
 WEB_LIMIT = 10
 # access control disabled by default:
 WEB_INIT_QUERIES = {}

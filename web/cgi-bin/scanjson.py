@@ -40,6 +40,10 @@ def main():
     params = webutils.parse_query_string()
     query = webutils.query_from_params(params)
     flt, archive, sortby, unused, skip, limit = webutils.flt_from_query(query)
+    if limit is None:
+        limit = config.WEB_LIMIT
+    if config.WEB_MAXRESULTS is not None:
+        limit = min(limit, config.WEB_MAXRESULTS)
     callback = params.get("callback")
     # type of result
     action = params.get("action", "")

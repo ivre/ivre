@@ -265,8 +265,8 @@ def flt_from_query(query, base_flt=None):
     unused = []
     sortby = []
     archive = False
-    skip = config.WEB_SKIP
-    limit = config.WEB_LIMIT
+    skip = 0
+    limit = None
     flt = get_init_flt() if base_flt is None else base_flt
     def add_unused(neg, param, value):
         """Add to the `unused` list a string representing (neg, param,
@@ -282,8 +282,6 @@ def flt_from_query(query, base_flt=None):
             skip = int(value)
         elif not neg and param == 'limit':
             limit = int(value)
-            if config.WEB_MAXRESULTS is not None:
-                limit = min(limit, config.WEB_MAXRESULTS)
         elif param == "archives":
             archive = not neg
         elif param == "id":
