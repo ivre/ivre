@@ -265,7 +265,7 @@ def flt_from_query(query, base_flt=None):
     unused = []
     sortby = []
     archive = False
-    skip = config.WEB_SKIP
+    skip = 0
     limit = config.WEB_LIMIT
     flt = get_init_flt() if base_flt is None else base_flt
     def add_unused(neg, param, value):

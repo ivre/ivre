@@ -464,7 +464,7 @@ function compare_params(store, other, count) {
 
 function load_params(){
     parse_params();
-    if (getparam('skip') == config.dflt.skip) {
+    if (getparam('skip') == 0) {
 	unsetparam('skip');
 	return false;
     }

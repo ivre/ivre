@@ -155,9 +155,8 @@ or (sym)linked at these locations:
  - `[PREFIX]/share/ivre/dokuwiki/media/doc`
      -> `/var/lib/dokuwiki/data/media/`
 
-The values `WEB_SKIP` and `WEB_LIMIT` from IVRE's configuration must
-match the values `skip` and `limit` in the `dflt` object in
-`config.js`.
+The value `WEB_LIMIT` from IVRE's configuration must match the value
+`limit` in the `dflt` object in `config.js`.
 
 # Agent #
 
