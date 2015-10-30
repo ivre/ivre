@@ -55,18 +55,10 @@ class AnalyserCli(StackCli):
 
     def _build_filter(self, cmd):
         """Build a db.nmap.flt from the string `cmd`"""
-        query = []
-        cmd = cmd.split()
-        while cmd:
-            param = cmd.pop(0)
-            neg, param = self._flt_param(param)
-            value = cmd.pop(0)
-            if param == 'limit':
-                self._dfilter['limit'] = int(value)
-            else:
-                query.append((neg, param, value))
+        query = webutils.query_from_params({'q': cmd})
         (self._dfilter['filter'], _, _, _,
-         self._dfilter['skip'], _) = webutils.flt_from_query(
+         self._dfilter['skip'],
+         self._dfilter['limit']) = webutils.flt_from_query(
              query, base_flt=db.nmap.flt_empty)
 
     def do_count(self, _):

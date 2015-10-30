@@ -345,9 +345,9 @@ class Context(object):
                                      'ports.service_name',
                                      'ports.state_state',
                                      'ports.service_product'])
-        if 'limit' in self._dfilter:
-            hosts_count = min(cursor.count() - self._dfilter['skip'],
-                              self._dfilter['limit'])
+        limit = self._dfilter.get('limit')
+        if limit is not None:
+            hosts_count = min(cursor.count() - self._dfilter['skip'], limit)
         else:
             hosts_count = cursor.count() - self._dfilter['skip']
         cursor.sort([("starttime",
