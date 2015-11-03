@@ -20,6 +20,7 @@ import ivre.db
 import ivre.utils
 
 import os
+import sys
 
 def recursive_filelisting(base_directories):
     "Iterator on filenames in base_directories"
