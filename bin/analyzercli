@@ -16,17 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""Command line interface tool to access the analyser API"""
+"""Command line interface tool to access the analyzer API"""
 
 from ivre import webutils
 from ivre.db import db
 from ivre.cliutils import colorize_log, StackCli
-from ivre.analyser import Context
+from ivre.analyzer import Context
 
 
-class AnalyserCli(StackCli):
+class AnalyzerCli(StackCli):
     """
-    Command line utility wrapper to access analyser API
+    Command line utility wrapper to access analyzer API
     """
     def __init__(self):
         StackCli.__init__(self)
@@ -246,4 +246,4 @@ class AnalyserCli(StackCli):
 
 
 if __name__ == '__main__':
-    AnalyserCli().cmdloop()
+    AnalyzerCli().cmdloop()
