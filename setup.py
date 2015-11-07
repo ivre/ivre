@@ -31,7 +31,7 @@ import os
 
 setup(
     name='ivre',
-    version='0.9.1',
+    version='0.9.2',
     author='Pierre LALET',
     author_email='pierre@droids-corp.org',
     url='https://ivre.rocks/',
