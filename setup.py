@@ -37,6 +37,7 @@ setup(
     url='https://ivre.rocks/',
     download_url = 'https://github.com/cea-sec/ivre/tarball/master',
     license='GPLv3+',
+    description="Network recon framework",
     long_description="""
 IVRE is a set of tools aimed at gathering and exploiting network
 information.
