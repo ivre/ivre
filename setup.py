@@ -31,7 +31,41 @@ import os
 
 setup(
     name='ivre',
-    version='0.9',
+    version='0.9.1',
+    author='Pierre LALET',
+    author_email='pierre@droids-corp.org',
+    url='https://ivre.rocks/',
+    download_url = 'https://github.com/cea-sec/ivre/tarball/master',
+    license='GPLv3+',
+    long_description="""
+IVRE is a set of tools aimed at gathering and exploiting network
+information.
+
+It consists of a Python library, a Web UI, CLI tools and several
+specialized scripts.
+""",
+    keywords=["network", "network recon", "network cartography",
+              "nmap", "bro", "p0f"],
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Environment :: Console",
+        "Environment :: Web Environment",
+        "Intended Audience :: Developers",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: System Administrators",
+        "Intended Audience :: Telecommunications Industry",
+        "License :: OSI Approved :: "
+        "GNU General Public License v3 or later (GPLv3+)",
+        "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.6",
+        "Programming Language :: Python :: 2.7",
+        "Topic :: Scientific/Engineering :: Information Analysis",
+        "Topic :: Security",
+        "Topic :: System :: Networking",
+        "Topic :: System :: Networking :: Monitoring",
+        "Topic :: System :: Software Distribution",
+    ],
     install_requires=[
         'pycrypto',
         'pymongo>=2.7.2',
@@ -158,16 +192,4 @@ setup(
           'doc/TESTS.md',
           'doc/WEBUI.md']),
     ],
-    author='Pierre LALET',
-    author_email='pierre.lalet@cea.fr',
-    url='http://pierre.droids-corp.org/blog/html/tags/ivre.html',
-    description='IVRE: Instrument de veille sur les reseaux exterieurs',
-    license='GPLv3',
-    long_description="""
-IVRE is a set of tools aimed at gathering and exploiting network
-information.
-
-It is compounded of a Python library, a Web UI, three CLIs and several
-specialized scripts.
-"""
 )
