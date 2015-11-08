@@ -16,6 +16,7 @@
 
 local shortport = require "shortport"
 local string = require "string"
+local stdnse = require "stdnse"
 
 description = [[
 
@@ -40,24 +41,39 @@ categories = {"discovery", "safe"}
 -- @usage
 -- nmap -n -p 80 --script http-screenshot www.google.com
 --
+-- @args http-screenshot.vhost the vhost to use (default: use the
+--       provided hostname or IP address)
+--
 -- @output
 -- PORT   STATE SERVICE
 -- 80/tcp open  http
--- |_http-screenshot: Saved to screenshot-173.194.45.80.jpg
+-- |_http-screenshot: Saved to screenshot-173.194.45.82-www.google.com-80.jpg
 
 portrule = shortport.http
+
+local function get_hostname(host)
+  local arg = stdnse.get_script_args(SCRIPT_NAME .. '.vhost')
+  return arg or host.targetname or host.ip
+end
 
 action = function(host, port)
   local ssl = port.version.service_tunnel == "ssl"
   local port = port.number
-  local fname = string.format("screenshot-%s-%d.jpg", host.ip, port)
-  if (port == 80 and not ssl) or (port == 443 and ssl) then
-    port = ""
+  local fname, strport
+  local hostname = get_hostname(host)
+  if hostname == host.ip then
+    fname = string.format("screenshot-%s-%d.jpg", host.ip, port)
   else
-    port = string.format(":%d", port)
+    fname = string.format("screenshot-%s-%s-%d.jpg", host.ip, hostname, port)
+  end
+  if (port == 80 and not ssl) or (port == 443 and ssl) then
+    strport = ""
+  else
+    strport = string.format(":%d", port)
   end
   os.execute(string.format("screenshot.js %s://%s%s %s >/dev/null 2>&1",
-			   ssl and "https" or "http", host.ip, port, fname))
+			   ssl and "https" or "http", hostname, strport,
+			   fname))
   return (os.rename(fname, fname)
 	    and string.format("Saved to %s", fname)
 	    or "Failed")
