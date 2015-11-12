@@ -188,6 +188,9 @@ def main():
         msg = "filter: %r" % flt
         sys.stdout.write(webutils.js_alert("filter", "info", msg))
         sys.stderr.write('IVRE: INFO: %r\n' % msg)
+        msg = "user: %r" % webutils.get_user()
+        sys.stdout.write(webutils.js_alert("user", "info", msg))
+        sys.stderr.write('IVRE: INFO: %r\n' % msg)
 
     version_mismatch = {}
     for rec in result:
