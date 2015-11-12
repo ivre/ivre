@@ -642,6 +642,9 @@ class NmapHandler(ContentHandler):
                     self._curhost[field] = datetime.datetime.utcfromtimestamp(
                         int(self._curhost[field])
                     )
+            if 'starttime' not in self._curhost and 'endtime' in self._curhost:
+                # Masscan
+                self._curhost['starttime'] = self._curhost['endtime']
         elif name == 'address' and self._curhost is not None:
             if attrs['addrtype'] != 'ipv4':
                 self._curhost.setdefault(
