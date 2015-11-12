@@ -913,13 +913,11 @@ have no effect if it is not expected)."""
                 rec["scanid"] = list(scanid)
         for fname, function in [("starttime", min), ("endtime", max)]:
             try:
-                rec[fname] = function(rec[fname] for rec in [rec1, rec2]
-                                      if fname in rec)
+                rec[fname] = function(record[fname] for record in [rec1, rec2]
+                                      if fname in record)
             except ValueError:
                 pass
-        rec["state"] = ("up" if "up" in [rec.get("state")
-                                         for rec in [rec1, rec2]]
-                        else rec.get("state"))
+        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
         if rec["state"] is None:
             del rec["state"]
         rec["categories"] = list(
