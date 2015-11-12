@@ -466,10 +466,17 @@ IGNORE_SCRIPT_OUTPUTS_REGEXP = set([
 MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "http": "http-headers",
     "title": "http-title",
+    "ftp": "banner",
+    "unknown": "banner",
+    "ssh": "banner",
+    "vnc": "banner",
 }
 
 MASSCAN_SERVICES_NMAP_SERVICES = {
+    "ftp": "ftp", # masscan can confuse smtp (for example) for ftp
     "http": "http",
+    "ssh": "ssh",
+    "vnc": "vnc",
 }
 
 MASSCAN_ENCODING = re.compile(re.escape("\\x") + "([0-9a-f]{2})")
@@ -635,6 +642,9 @@ class NmapHandler(ContentHandler):
                     self._curhost[field] = datetime.datetime.utcfromtimestamp(
                         int(self._curhost[field])
                     )
+            if 'starttime' not in self._curhost and 'endtime' in self._curhost:
+                # Masscan
+                self._curhost['starttime'] = self._curhost['endtime']
         elif name == 'address' and self._curhost is not None:
             if attrs['addrtype'] != 'ipv4':
                 self._curhost.setdefault(
