@@ -181,10 +181,15 @@ def main():
         )
         sys.stdout.write(webutils.js_alert("param-unused", "warning", msg))
         sys.stderr.write('IVRE: WARNING: %r\n' % msg)
+    else:
+        sys.stdout.write(webutils.js_del_alert("param-unused"))
 
     if config.DEBUG:
         msg = "filter: %r" % flt
         sys.stdout.write(webutils.js_alert("filter", "info", msg))
+        sys.stderr.write('IVRE: INFO: %r\n' % msg)
+        msg = "user: %r" % webutils.get_user()
+        sys.stdout.write(webutils.js_alert("user", "info", msg))
         sys.stderr.write('IVRE: INFO: %r\n' % msg)
 
     version_mismatch = {}

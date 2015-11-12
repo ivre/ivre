@@ -25,6 +25,7 @@ import os
 import sys
 import errno
 import random
+import time
 from cStringIO import StringIO
 from contextlib import contextmanager
 from distutils.spawn import find_executable as which
@@ -600,6 +601,7 @@ class IvreTests(unittest.TestCase):
                 env=broenv)
             broprocess.wait()
 
+        time.sleep(1) # Hack for Travis CI
         for root, _, files in os.walk("logs"):
             for fname in files:
                 with open(os.path.join(root, fname)) as fdesc:
