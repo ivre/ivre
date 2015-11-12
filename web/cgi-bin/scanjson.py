@@ -181,6 +181,8 @@ def main():
         )
         sys.stdout.write(webutils.js_alert("param-unused", "warning", msg))
         sys.stderr.write('IVRE: WARNING: %r\n' % msg)
+    else:
+        sys.stdout.write(webutils.js_del_alert("param-unused"))
 
     if config.DEBUG:
         msg = "filter: %r" % flt

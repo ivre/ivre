@@ -591,6 +591,13 @@ function add_message(ident, level, content) {
     });
 }
 
+function del_message(ident) {
+    var scope = get_scope('IvreMessagesCtrl');
+    scope.$apply(function() {
+	delete scope.messages[ident];
+    });
+}
+
 ivreWebUi
     .controller('IvreReportCtrl', function ($scope) {
 

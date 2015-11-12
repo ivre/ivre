@@ -58,6 +58,13 @@ def js_alert(ident, level, message):
                   "message": message.replace('"', '\\"')})
 
 
+def js_del_alert(ident):
+    """This function returns a string containing JS code to
+    remove an alert message.
+
+    """
+    return 'try {del_message("%s");} catch(err) {}\n' % ident
+
 
 def check_referer():
     """This function implements an anti-CSRF check based on the
