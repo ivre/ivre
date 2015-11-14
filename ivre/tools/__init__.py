@@ -23,8 +23,8 @@ __all__ = [
     'getmoduli',
     'httpd',
     'ipdata',
-    'ipinfohost',
     'ipinfo',
+    'iphost',
     'p0f2db',
     'passiverecon2db',
     'passivereconworker',
@@ -39,6 +39,7 @@ __all__ = [
 
 ALIASES = {
     "httpd-ivre": "httpd",
+    "ipinfohost": "iphost",
     "runscans-agent": "runscansagent",
     "runscans-agentdb": "runscansagentdb",
     "nmap2db": "scan2db",
