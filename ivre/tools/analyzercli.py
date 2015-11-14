@@ -18,6 +18,8 @@
 
 """Command line interface tool to access the analyzer API"""
 
+import sys
+
 from ivre import webutils
 from ivre.db import db
 from ivre.cliutils import colorize_log, StackCli
@@ -245,5 +247,11 @@ class AnalyzerCli(StackCli):
 \tEnter -1 for noise if DBSCAN clusterring""")
 
 
-if __name__ == '__main__':
-    AnalyzerCli().cmdloop()
+def main():
+    # no argparse / optparse here, so...
+    if "-h" in sys.argv or "--help" in sys.argv:
+        sys.stdout.write("usage: %s\n\n" % (sys.argv[0]))
+        sys.stdout.write(__doc__)
+        sys.stdout.write("\n\n")
+    else:
+        AnalyzerCli().cmdloop()
