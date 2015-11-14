@@ -26,6 +26,12 @@ import signal
 import functools
 import subprocess
 import os
+try:
+    import argparse
+    USING_ARGPARSE = True
+except ImportError:
+    import optparse
+    USING_ARGPARSE = False
 
 
 def terminate(signum, stack_frame):
@@ -67,13 +73,10 @@ def process_file(fname, sensor, bulk, mode):
         ) for line in p0fprocess.stdout
     )
 
-if __name__ == '__main__':
-    try:
-        import argparse
+def main():
+    if USING_ARGPARSE:
         parser = argparse.ArgumentParser(description=__doc__)
-        USING_ARGPARSE = True
-    except ImportError:
-        import optparse
+    else:
         parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
 
@@ -83,7 +86,6 @@ if __name__ == '__main__':
             return res[0]
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
-        USING_ARGPARSE = False
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--mode', '-m', help='p0f mode',
                         choices=ivre.passive.P0F_MODES.keys(),
