@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,25 +24,24 @@ Widespread Weak Keys in Network Devices"
 than the standalone tool attackkeys.
 
 To do so, you need to strip the output from the information after the
-moduli. A simple sed with 's# .*##' will do the trick.
+moduli. A simple sed with 's# .*##' will do the trick."""
 
-"""
+import sys
+import getopt
 
 import ivre.keys
 import ivre.db
 
-if __name__ == '__main__':
-    import sys
-    import getopt
+def main():
     # FIXME: this will not work if .nmap and .passive have different
     # backends
     flt = ivre.db.db.nmap.flt_empty
     bases = set()
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "p:f:",
+                                   "p:f:h",
                                    ['passive-ssl', 'active-ssl',
-                                    'active-ssh',
+                                    'active-ssh', 'help',
                                     'filter='])
     except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
@@ -58,6 +57,14 @@ if __name__ == '__main__':
             bases.add(ivre.keys.SSLRsaNmapKey)
         elif o == '--active-ssh':
             bases.add(ivre.keys.SSHRsaNmapKey)
+        elif o in ['-h', '--help']:
+            sys.stdout.write('usage: %s [-h] [-f FILTER] [--passive-ssl] '
+                             '[--active-ssl]\n'
+                             '       %s [--active-ssh]'
+                             '\n\n' % (sys.argv[0], " " * len(sys.argv[0])))
+            sys.stdout.write(__doc__)
+            sys.stdout.write("\n\n")
+            sys.exit(0)
         else:
             sys.stderr.write(
                 '%r %r not undestood (this is probably a bug).\n' % (o, a))
