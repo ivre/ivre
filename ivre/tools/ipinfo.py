@@ -22,7 +22,17 @@ from ivre.db import db
 import re
 import time
 import functools
-
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+import os
+import datetime
+try:
+    import argparse
+    USING_ARGPARSE = True
+except ImportError:
+    import optparse
+    USING_ARGPARSE = False
 
 def disp_rec(h):
     print '\t',
@@ -179,32 +189,23 @@ def disp_recs_tailf():
 def disp_recs_explain(flt):
     print db.passive.explain(db.passive.get(flt), indent=4)
 
-if __name__ == '__main__':
-    import sys
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-    import os
-    import datetime
-    baseflt = {}
-    disp_recs = disp_recs_std
-    try:
-        import argparse
+def main():
+    global baseflt
+    if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
             description='Access and query the passive database.')
-        USING_ARGPARSE = True
-    except ImportError:
-        import optparse
+    else:
         parser = optparse.OptionParser(
             description='Access and query the passive database.')
         parser.parse_args_orig = parser.parse_args
-
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('ips', res[1])
             return res[0]
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
-        USING_ARGPARSE = False
+    baseflt = {}
+    disp_recs = disp_recs_std
     # DB
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
