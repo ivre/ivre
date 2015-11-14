@@ -84,6 +84,7 @@ def parse_args():
 def main():
     """This function is called when __name__ == "__main__"."""
     global BASEDIR, CGIDIR, DOKUWIKIDIR
+    print __doc__
     BASEDIR = config.guess_prefix(directory='web/static')
     CGIDIR = config.guess_prefix(directory='web/cgi-bin')
     DOKUWIKIDIR = config.guess_prefix(directory='dokuwiki')
@@ -92,7 +93,3 @@ def main():
     args = parse_args()
     httpd = HTTPServer((args.bind_address, args.port), IvreRequestHandler)
     httpd.serve_forever()
-
-if __name__ == '__main__':
-    print __doc__
-    main()
