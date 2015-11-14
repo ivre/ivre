@@ -38,14 +38,15 @@ def main():
         )
         command = tools.ALIASES.get(executable, executable)
     else:
-        sys.argv = sys.argv[1:]
-        command = tools.ALIASES.get(sys.argv[0], sys.argv[0]) if sys.argv else ""
+        command = tools.ALIASES.get(sys.argv[1], sys.argv[1])
+        sys.argv = ["%s %s" % (executable, sys.argv[1])] + sys.argv[2:]
     if command.lower() in HELP_COMMANDS and len(sys.argv) > 1:
         command = sys.argv[1]
         sys.argv = ["%s %s" % (executable, sys.argv[1]),
                     "--help"] + sys.argv[2:]
-    if command in tools.__all__:
-        tools.get_command(command)()
+    possible_commands = tools.guess_command(command)
+    if len(possible_commands) == 1:
+        tools.get_command(possible_commands[0])()
     elif command in tools.ALIASES:
         tools.get_command(tools.ALIASES[command])()
     else:
@@ -53,10 +54,14 @@ def main():
             output = sys.stdout
         else:
             output = sys.stderr
-            output.write("Unknown command: %s\n\n" % command)
-        output.write("%s [COMMAND]\n\n" % executable)
-        output.write("available commands:\n")
-        for availcmd in tools.__all__:
+            output.write("%s command: %s\n\n" %  (
+                "Ambiguous" if possible_commands else "Unknown", command
+            ))
+        output.write("usage: %s [COMMAND]\n\n" % executable)
+        output.write("%s commands:\n" % ("matching" if possible_commands
+                                         else "available"))
+        for availcmd in (possible_commands if possible_commands
+                         else tools.__all__):
             output.write("  %s\n" % availcmd)
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)

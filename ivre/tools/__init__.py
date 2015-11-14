@@ -47,3 +47,16 @@ ALIASES = {
 def get_command(name):
     if name in __all__:
         return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
+    if name in ALIASES:
+        name = ALIASES[name]
+        return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
+
+def guess_command(name):
+    if name in __all__:
+        return [name]
+    possible = [cmd for cmd in __all__ if cmd.startswith(name)]
+    if possible:
+        return possible
+    if name in ALIASES:
+        return [name]
+    return [cmd for cmd in ALIASES if cmd.startswith(name)]
