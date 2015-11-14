@@ -21,7 +21,7 @@
 import sys
 import os
 
-from ivre import cmd
+from ivre import tools
 
 HELP_COMMANDS = ["-h", "--help", "h", "help"]
 
@@ -30,24 +30,24 @@ def main():
     if executable.startswith("ivre-"):
         # hack for blackarch package
         executable = executable[5:]
-    if executable in cmd.__all__ or executable in cmd.ALIASES:
+    if executable in tools.__all__ or executable in tools.ALIASES:
         sys.stderr.write(
             "WARNING: command %s deprecated. Use 'ivre %s' instead.\n" % (
-                executable, cmd.ALIASES.get(executable, executable)
+                executable, tools.ALIASES.get(executable, executable)
             )
         )
-        command = cmd.ALIASES.get(executable, executable)
+        command = tools.ALIASES.get(executable, executable)
     else:
         sys.argv = sys.argv[1:]
-        command = cmd.ALIASES.get(sys.argv[0], sys.argv[0]) if sys.argv else ""
+        command = tools.ALIASES.get(sys.argv[0], sys.argv[0]) if sys.argv else ""
     if command.lower() in HELP_COMMANDS and len(sys.argv) > 1:
         command = sys.argv[1]
         sys.argv = ["%s %s" % (executable, sys.argv[1]),
                     "--help"] + sys.argv[2:]
-    if command in cmd.__all__:
-        cmd.get_command(command)()
-    elif command in cmd.ALIASES:
-        cmd.get_command(cmd.ALIASES[command])()
+    if command in tools.__all__:
+        tools.get_command(command)()
+    elif command in tools.ALIASES:
+        tools.get_command(tools.ALIASES[command])()
     else:
         if command.lower() in HELP_COMMANDS:
             output = sys.stdout
@@ -56,7 +56,7 @@ def main():
             output.write("Unknown command: %s\n\n" % command)
         output.write("%s [COMMAND]\n\n" % executable)
         output.write("available commands:\n")
-        for availcmd in cmd.__all__:
+        for availcmd in tools.__all__:
             output.write("  %s\n" % availcmd)
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)

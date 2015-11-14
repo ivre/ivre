@@ -46,4 +46,4 @@ ALIASES = {
 
 def get_command(name):
     if name in __all__:
-        return getattr(__import__("%s.%s" % (__name__, name)).cmd, name).main
+        return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main

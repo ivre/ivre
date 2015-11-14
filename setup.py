@@ -71,7 +71,7 @@ specialized scripts.
         'pycrypto',
         'pymongo>=2.7.2',
     ],
-    packages=['ivre', 'ivre/cmd', 'ivre/db'],
+    packages=['ivre', 'ivre/tools', 'ivre/db'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',
