@@ -68,6 +68,3 @@ def main():
         ),
         getinfos=ivre.passive.getinfos,
     )
-
-if __name__ == '__main__':
-    main()
