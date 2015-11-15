@@ -20,65 +20,66 @@ import sys
 import re
 import datetime
 
-statusline = re.compile(
-    '<task(?P<status>begin|end|progress) task="(?P<task>[^"]*)" '
-    'time="(?P<time>[^"]*)"(?P<otherinfo>.*)/>')
-progressinfo = re.compile(
-    'percent="(?P<percent>[^"]*)" remaining="(?P<remaining>[^"]*)" '
-    'etc="(?P<etc>[^"]*)"')
-endinfo = re.compile('extrainfo="(?P<extrainfo>[^"]*)"')
+def main():
+    statusline = re.compile(
+        '<task(?P<status>begin|end|progress) task="(?P<task>[^"]*)" '
+        'time="(?P<time>[^"]*)"(?P<otherinfo>.*)/>')
+    progressinfo = re.compile(
+        'percent="(?P<percent>[^"]*)" remaining="(?P<remaining>[^"]*)" '
+        'etc="(?P<etc>[^"]*)"')
+    endinfo = re.compile('extrainfo="(?P<extrainfo>[^"]*)"')
+    curtask = None
+    curprogress = None
+    for line in sys.stdin:
+        line = statusline.match(line)
+        if line is None:
+            continue
+        line = line.groupdict()
+        if line['status'] == 'begin':
+            curtask = (line['task'], int(line['time']))
+            curprogress = None
+            continue
+        if curtask[0] != line['task']:
+            raise Exception('curtask != task (%r != %r)' % (curtask,
+                                                            line['task']))
+        elif line['status'] == 'progress':
+            progress = progressinfo.search(line['otherinfo'])
+            if progress is None:
+                raise Exception(
+                    'progress line not understood [%r]' % line['otherinfo'])
+            progress = progress.groupdict()
+            curprogress = (
+                int(line['time']),
+                float(progress['percent']),
+                int(progress['remaining']),
+                int(progress['etc']),
+            )
+        elif line['status'] == 'end':
+            end = endinfo.search(line['otherinfo'])
+            if end is None:
+                end = ''
+            else:
+                end = ' ' + end.group('extrainfo') + '.'
+            print 'task %s completed in %d seconds.%s' % (
+                curtask[0],
+                int(line['time']) - curtask[1],
+                end)
+            curtask = None
+            curprogress = None
 
-curtask = None
-curprogress = None
-for l in sys.stdin:
-    l = statusline.match(l)
-    if l is None:
-        continue
-    l = l.groupdict()
-    if l['status'] == 'begin':
-        curtask = (l['task'], int(l['time']))
-        curprogress = None
-        continue
-    if curtask[0] != l['task']:
-        raise Exception('curtask != task (%r != %r)' % (curtask, l['task']))
-    elif l['status'] == 'progress':
-        progress = progressinfo.search(l['otherinfo'])
-        if progress is None:
-            raise Exception(
-                'progress line not understood [%r]' % l['otherinfo'])
-        progress = progress.groupdict()
-        curprogress = (
-            int(l['time']),
-            float(progress['percent']),
-            int(progress['remaining']),
-            int(progress['etc']),
-        )
-    elif l['status'] == 'end':
-        end = endinfo.search(l['otherinfo'])
-        if end is None:
-            end = ''
+    if curtask is not None:
+        now = int(datetime.datetime.now().strftime('%s'))
+        if curprogress is None:
+            progress = ''
         else:
-            end = ' ' + end.group('extrainfo') + '.'
-        print 'task %s completed in %d seconds.%s' % (
+            progress = '\n     %d seconds ago: %.2f %% done, ' \
+                       'remaining %d seconds.\n     ETC %s.' % (
+                           now - curprogress[0],
+                           curprogress[1],
+                           curprogress[2],
+                           datetime.datetime.fromtimestamp(curprogress[3]))
+        print "task %s running for %d seconds.%s" % (
             curtask[0],
-            int(l['time']) - curtask[1],
-            end)
-        curtask = None
-        curprogress = None
-
-if curtask is not None:
-    now = int(datetime.datetime.now().strftime('%s'))
-    if curprogress is None:
-        progress = ''
-    else:
-        progress = '\n     %d seconds ago: %.2f %% done, ' \
-                   'remaining %d seconds.\n     ETC %s.' % (
-                       now - curprogress[0],
-                       curprogress[1],
-                       curprogress[2],
-                       datetime.datetime.fromtimestamp(curprogress[3]))
-    print "task %s running for %d seconds.%s" % (
-        curtask[0],
-        now - curtask[1],
-        progress
-    )
+            now - curtask[1],
+            progress
+        )
