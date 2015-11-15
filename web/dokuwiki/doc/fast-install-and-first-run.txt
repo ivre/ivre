@@ -38,29 +38,29 @@ Open a web browser and visit [[http://localhost/|http://localhost/]]. IVRE Web U
 
 ====== Database init, data download & importation ======
 
-<code>$ scancli --init
+<code>$ ivre scancli --init
 This will remove any scan result in your database. Process ? [y/N] y
-$ ipinfo --init
+$ ivre ipinfo --init
 This will remove any passive information in your database. Process ? [y/N] y
-$ ipdata --init
+$ ivre ipdata --init
 This will remove any country/AS information in your database. Process ? [y/N] y
-$ sudo runscans-agentdb --init
+$ sudo ivre runscansagentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-$ sudo ipdata --download
-$ ipdata --import-all --dont-feed-ipdata-cols</code>
+$ sudo ivre ipdata --download
+$ ivre ipdata --import-all --dont-feed-ipdata-cols</code>
 The two latest steps may take a long time to run, nothing to worry about.
 
 ====== Run a first scan ======
 
 Against 1k (routable) IP addresses, with a single nmap process:
 
-<code>$ sudo runscans --routable --limit 1000</code>
+<code>$ sudo ivre runscans --routable --limit 1000</code>
 Go have some coffees and/or beers (remember that according to the traveler's theorem, for any time of the day, there exists a time zone in which it is OK to drink).
 
 When the command has terminated, import the results:
 
-<code>$ nmap2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
->         scans/ROUTABLE/up</code>
+<code>$ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
+>              scans/ROUTABLE/up</code>
 The ''%%-c%%'' argument adds categories to the scan results. Categories are arbitrary names used to filter results. In this example, the values are ''%%ROUTABLE%%'', meaning the results came out while scanning the entire reachable address space (as opposed to while scanning a specific network, AS or country, for example), and ''%%ROUTABLE-CAMPAIGN-001%%'', which is the name I have chosen to mark this particular scan campaign.
 
 The ''%%-s%%'' argument adds a name for the source of the scan. Here again, it is an arbitrary name you can use to unambiguously specify the network access used to run the scan. This can be used later to highlight result differences depending on where the scans are run from.
@@ -73,7 +73,7 @@ There is no tool (for now) to automatically import scan results to the database.
 
 If you run very large scans (particularly against random hosts on the Internet), do NOT use the default ''%%--output=XML%%'' option. Rather, go for the ''%%--output=XMLFork%%''. This will fork one nmap process per IP to scan, and is (sadly) much more reliable.
 
-Another way to run scans efficiently is to use an [[doc:AGENT|agent]] and the ''%%runscans-agent%%'' command.
+Another way to run scans efficiently is to use an [[doc:AGENT|agent]] and the ''%%ivre runscansagent%%'' command.
 
 
 ----

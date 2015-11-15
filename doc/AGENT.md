@@ -38,8 +38,8 @@ beginning of the script, particularly `NMAPOPTS`, `NMAPSCRIPTS` and
 `THREADS`.
 
 Values for `NMAPOPTS` and `NMAPSCRIPTS` cause scans similar to those
-run by `runscans` by default (with IVRE's default template). To get
-options from other templates, run `runscans --nmap-template
+run by `ivre runscans` by default (with IVRE's default template). To
+get options from other templates, run `ivre runscans --nmap-template
 aggressive` (for example) and copy the corresponding values in the
 `agent` script.
 
@@ -56,50 +56,51 @@ Please refer to `screen` documentation if you need.
 
 ## On the master ##
 
-You need to make sure the user running `runscans-agent` or
-`runscans-agentdb` on the "master" can access (without password) to
-the agents data directories.
+You need to make sure the user running `ivre runscansagent` or `ivre
+runscansagentdb` on the "master" can access (without password) to the
+agents data directories.
 
-When the agents are all ready, you have two options, using
-`runscans-agent` or `runscans-agentdb`. In both cases, scan options
-are the same than with `runscans`.
+When the agents are all ready, you have two options, using `ivre
+runscansagent` or `ivre runscansagentdb`. In both cases, scan options
+are the same than with `ivre runscans`.
 
-The first one (`runscans-agent`) is the "old-school" version: it will
-not allow to dynamically add or remove agents, and will fetch the
+The first one (`ivre runscansagent`) is the "old-school" version: it
+will not allow to dynamically add or remove agents, and will fetch the
 results under `./agentsdata/output` directory, you have to import the
 results by yourself.
 
-On the other hand, the second one (`runscans-agentdb`) will use the DB
-to manage the agents, but is still experimental.
+On the other hand, the second one (`ivre runscansagentdb`) will use
+the DB to manage the agents, but is still experimental.
 
-### `runscans-agent`, the "old-school" one ###
+### `ivre runscansagent`, the "old-school" one ###
 
 You have to specify the agent(s) data directory. For example, run:
 
-    $ runscans-agent --routable --limit 1000 \
+    $ ivre runscansagent --routable --limit 1000 \
     >     agenthost1:/path/to/agent/dir      \
     >     agenthost2:/path/to/agent/dir      \
 
-You can now import the results as if you had run the "regular"
-`runscans` program to scan locally, see [README](README.md). The
+You can now import the results as if you had run the "regular" `ivre
+runscans` program to scan locally, see [README](README.md). The
 results are stored under `agentsdata/output/`
 
-### `runscans-agentdb`, the "modern" (but probably broken) one ###
+### `ivre runscansagentdb`, the "modern" (but probably broken) one ###
 
-Please note that it is important to run all the `runscans-agentdb`
-from the same host (the "master", which does not need to be the same
-host than the database server), since it relies on local directories.
+Please note that it is important to run all the `ivre
+runscansagentdb` from the same host (the "master", which does not
+need to be the same host than the database server), since it relies on
+local directories.
 
 First, let's create a master and add the agent(s):
 
-    $ runscans-agentdb --add-local-master
-    $ runscans-agentdb --source MySource --add-agent \
+    $ ivre runscansagentdb --add-local-master
+    $ ivre runscansagentdb --source MySource --add-agent \
     >     agenthost1:/path/to/agent/dir \
     >     agenthost2:/path/to/agent/dir
 
 Let's check it's OK:
 
-    $ runscans-agentdb --list-agents
+    $ ivre runscansagentdb --list-agents
     agent:
       - id: 543bfc8a312f915728f1709b
       - source name: MySource
@@ -127,11 +128,11 @@ Let's check it's OK:
 
 Now we can add a scan, and assign the (available) agents to that scan:
 
-    $ runscans-agentdb --assign-free-agents --routable --limit 1000
+    $ ivre runscansagentdb --assign-free-agents --routable --limit 1000
 
 And see if it works:
 
-    $ runscans-agentdb --list-scans
+    $ ivre runscansagentdb --list-scans
     scan:
       - id: 543bfcbf312f9158d6caeadf
       - categories:
@@ -148,7 +149,7 @@ And see if it works:
 For now, nothing has been sent to the agents. To really start the
 process, run:
 
-    $ runscans-agentdb --daemon
+    $ ivre runscansagentdb --daemon
 
 After some time, the first results get imported in the database
 (`READING [...]`, `HOST STORED: [...]`, `SCAN STORED: [...]`). You can
@@ -157,7 +158,8 @@ do).
 
 When all the targets have been sent to an agent, the agents get
 disassociated from the scan so that another scan can use them. You can
-check the scan evolution by issuing `runscans-agentdb --list-scans`.
+check the scan evolution by issuing `ivre runscansagentdb
+--list-scans`.
 
 
 ---

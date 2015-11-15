@@ -25,7 +25,7 @@ IVRE relies on:
   * optionnaly [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
   * [[http://www.bro.org/|Bro]] (version 2.3 minimum) & [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3)
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum
-  * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%httpd-ivre%%'')
+  * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%ivre httpd%%'')
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]])
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases
   * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]], if you plan to add screenshots to your Nmap scan results
@@ -59,35 +59,35 @@ If you want to run it on the ''%%capture%%'' file (''%%capture%%'' needs to a PC
 <code>$ mkdir logs
 $ LOG_PATH=logs/passiverecon \
 > bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture</code>
-This will produce log files in the ''%%logs%%'' directory. You need to run a ''%%passivereconworker%%'' to process these files. You can try:
+This will produce log files in the ''%%logs%%'' directory. You need to run a ''%%ivre passivereconworker%%'' to process these files. You can try:
 
-<code>$ passivereconworker --directory=logs</code>
+<code>$ ivre passivereconworker --directory=logs</code>
 This program will not stop by itself. You can (''%%p%%'')''%%kill%%'' it, it will stop gently (as soon as it has finished to process the current file).
 
 You can also send the data from ''%%bro%%'' to the database without using intermediate files:
 
 <code>$ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro [option] \
-> | passiverecon2db</code>
+> | ivre passiverecon2db</code>
 ===== Using p0f =====
 
 To start filling your database with information from the ''%%eth0%%'' interface, you just need to run (''%%passiverecon%%'' is just a sensor name here):
 
-<code># p0f2db -s passiverecon iface:eth0</code>
+<code># ivre p0f2db -s passiverecon iface:eth0</code>
 And from the same ''%%capture%%'' file:
 
-<code>$ p0f2db -s passiverecon capture</code>
+<code>$ ivre p0f2db -s passiverecon capture</code>
 ===== Using the results =====
 
 You have two options for now:
 
-  * the ''%%ipinfo%%'' command line tool
+  * the ''%%ivre ipinfo%%'' command line tool
   * the ''%%db.passive%%'' object of the ''%%ivre.db%%'' Python module
 
 For example, to show everything stored about an IP address or a network:
 
-<code>$ ipinfo 1.2.3.4
-$ ipinfo 1.2.3.0/24</code>
-See the output of ''%%ipinfo --help%%''.
+<code>$ ivre ipinfo 1.2.3.4
+$ ivre ipinfo 1.2.3.0/24</code>
+See the output of ''%%ivre help ipinfo%%''.
 
 To use the Python module, run for example:
 
@@ -102,30 +102,30 @@ For more, run ''%%help(db.passive)%%'' from the Python shell.
 
 The easiest way is to install IVRE on the "scanning" machine and run:
 
-<code># runscans --routable --limit 1000 --output=XMLFork</code>
-This will run a standard scan against 1000 random hosts on the Internet by running 30 nmap processes in parallel. See the output of ''%%runscans --help%%'' if you want to do something else.
+<code># ivre runscans --routable --limit 1000 --output=XMLFork</code>
+This will run a standard scan against 1000 random hosts on the Internet by running 30 nmap processes in parallel. See the output of ''%%ivre help runscans%%'' if you want to do something else.
 
 When it's over, to import the results in the database, run:
 
-<code>$ nmap2db -c ROUTABLE-CAMPAIGN-001 -s MySource -r scans/ROUTABLE/up</code>
+<code>$ ivre scan2db -c ROUTABLE-CAMPAIGN-001 -s MySource -r scans/ROUTABLE/up</code>
 Here, ''%%ROUTABLE-CAMPAIGN-001%%'' is a category (just an arbitrary name that you will use later to filter scan results) and ''%%MySource%%'' is a friendly name for your scanning machine (same here, an arbitrary name usable to filter scan results; by default, when you insert a scan result, if you already have a scan result for the same host address with the same source, the previous result is moved to an "archive" collection (fewer indexes) and the new result is inserted in the database).
 
-There is an alternative to installing IVRE on the scanning machine that allows to use several agents from one master. See the [[doc:AGENT|AGENT]] file, the program ''%%runscans-agent%%'' for the master and the ''%%agent/%%'' directory in the source tree.
+There is an alternative to installing IVRE on the scanning machine that allows to use several agents from one master. See the [[doc:AGENT|AGENT]] file, the program ''%%ivre runscansagent%%'' for the master and the ''%%agent/%%'' directory in the source tree.
 
 ===== Using the results =====
 
 You have three options:
 
-  * the ''%%scancli%%'' command line tool
+  * the ''%%ivre scancli%%'' command line tool
   * the ''%%db.nmap%%'' object of the ''%%ivre.db%%'' Python module
   * the web interface
 
-==== CLI: scancli ====
+==== CLI: ivre scancli ====
 
 To get all the hosts with the port 22 open:
 
-<code>$ scancli --port 22</code>
-See the output of ''%%scancli --help%%''.
+<code>$ ivre scancli --port 22</code>
+See the output of ''%%ivre help scancli%%''.
 
 ==== Python module ====
 
@@ -150,7 +150,7 @@ You should have received a copy of the GNU General Public License [[doc:LICENSE|
 
 ====== Support ======
 
-Try ''%%--help%%'' for the CLI tools, ''%%help()%%'' under Python and the "HELP" button in the web interface.
+Try ''%%ivre help%%'' for the CLI commands, ''%%help()%%'' under Python and the "HELP" button in the web interface.
 
 Feel free to contact the author and offer him a beer if you need help!
 
@@ -166,7 +166,7 @@ The project needs scan results and capture files that can be provided as example
 
 For both support and contribution, the [[https://github.com/cea-sec/ivre|repository]] on Github should be used: feel free to create a new issue or a pull request!
 
-You can also try to use the e-mail ''%%ivre%%'' on the domain ''%%droids-corp.org%%'', or to join the IRC chan [[irc://irc.freenode.net/%23ivre|#ivre]] on [[https://freenode.net/|Freenode]].
+You can also try to use the e-mail ''%%dev%%'' on the domain ''%%ivre.rocks%%'', or to join the IRC chan [[irc://irc.freenode.net/%23ivre|#ivre]] on [[https://freenode.net/|Freenode]].
 
 
 ----
