@@ -264,7 +264,7 @@ def _call_nmap_single(maincategory, options,
     ivre.utils.makedirs(os.path.dirname(outfile % outdir))
     shutil.move(outfile % 'current', outfile % outdir)
 
-if __name__ == '__main__':
+def main():
     accept_target_status = set([STATUS_NEW])
     try:
         import argparse
