@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""Handle passiverecon2db files."""
+"""Handle ivre passiverecon2db files."""
 
 from ivre import config
 

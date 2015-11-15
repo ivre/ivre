@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This is an example file to pass to passiverecon2db as ignore spec
-(-i option). This example will discard any information related to
+"""This is an example file to pass to ivre passiverecon2db as ignore
+spec (-i option). This example will discard any information related to
 private IP addresses (RFC 1918 + IPv4 link local) except those related
 to authentication.
 

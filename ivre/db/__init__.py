@@ -395,7 +395,7 @@ class DBNmap(DB):
                         gettoarchive=None, add_addr_infos=True,
                         force_info=False, merge=False):
         """This method parses a JSON scan result as exported using
-        `scancli --json > file`, displays the parsing result, and
+        `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
 
         In backend-specific subclasses, this method stores the result

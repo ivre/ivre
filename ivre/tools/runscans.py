@@ -19,7 +19,7 @@
 
 """
 This program runs scans and produces output files importable with
-nmap2db.
+ivre scan2db.
 """
 
 import subprocess

@@ -41,7 +41,7 @@ def main():
         import optparse
         parser = optparse.OptionParser(
             description='Sends targets to a remote agent.',
-            usage='Usage: runscans-agent [options] AGENT [AGENT ...]')
+            usage='Usage: ivre runscansagent [options] AGENT [AGENT ...]')
         for args, kargs in ivre.target.argparser.args:
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
