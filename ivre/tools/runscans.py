@@ -25,7 +25,6 @@ nmap2db.
 import subprocess
 import resource
 import multiprocessing
-import shlex
 import pipes
 import shutil
 import select
@@ -64,10 +63,10 @@ def setnmaplimits():
         resource.setrlimit(limit, value)
 
 
-class XmlProcess:
+class XmlProcess(object):
     addrrec = re.compile('<address\\s+addr="([0-9\\.]+)" addrtype="ipv4"/>')
 
-    def target_status(self, target):
+    def target_status(self, _):
         return STATUS_NEW
 
 
@@ -371,13 +370,14 @@ def main():
         parser.error('one argument of --country/--asnum/--range/--network/'
                      '--routable/--file/--test is required')
     if args.again is not None:
-        accept_target_status = set(reduce(lambda x, y: x + y, [{
-            'up': [STATUS_DONE_UP],
-            'down': [STATUS_DONE_DOWN],
-            'unknown': [STATUS_DONE_UNKNOWN],
-            'all': [STATUS_DONE_UP, STATUS_DONE_DOWN,
-                    STATUS_DONE_UNKNOWN]
-        }[x] for x in args.again],
+        accept_target_status = set(reduce(
+            lambda x, y: x + y, [{
+                'up': [STATUS_DONE_UP],
+                'down': [STATUS_DONE_DOWN],
+                'unknown': [STATUS_DONE_UNKNOWN],
+                'all': [STATUS_DONE_UP, STATUS_DONE_DOWN,
+                        STATUS_DONE_UNKNOWN]
+            }[x] for x in args.again],
             [STATUS_NEW]))
     if args.zmap_prescan_port is not None:
         args.nmap_ping_types = ["PS%d" % args.zmap_prescan_port]
@@ -409,7 +409,7 @@ def main():
                                          accept_target_status,
                                          target)
         pool = multiprocessing.Pool(processes=args.processes)
-        for i in pool.imap(call_nmap_single, targets, chunksize=1):
+        for _ in pool.imap(call_nmap_single, targets, chunksize=1):
             pass
         restore_echo()
         exit(0)
