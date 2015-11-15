@@ -188,5 +188,6 @@ specialized scripts.
           'doc/SCREENSHOTS.md',
           'doc/TESTS.md',
           'doc/WEBUI.md']),
+        ('etc/bash_completion.d', ['bash_completion/ivre']),
     ],
 )
