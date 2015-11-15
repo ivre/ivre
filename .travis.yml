@@ -28,9 +28,9 @@ install:
 
 before_script:
   # init DB
-  - ipinfo --init < /dev/null
-  - scancli --init < /dev/null
-  - ipdata --init < /dev/null
+  - ivre ipinfo --init < /dev/null
+  - ivre scancli --init < /dev/null
+  - ivre ipdata --init < /dev/null
   - echo "DEBUG = True" > ~/.ivre.conf
   # install p0f & Bro (.tar files)
   - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 ; do wget http://pierre.droids-corp.org/p0rn/${archive}.tar.bz2 -O - | tar jxf - ; done
