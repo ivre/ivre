@@ -19,9 +19,9 @@
 import ivre.target
 import ivre.utils
 import ivre.scanengine
+
 import os
 import sys
-import time
 import subprocess
 
 MAINDIR = "./agentsdata"
@@ -30,8 +30,7 @@ ACTION_SYNC = 1
 ACTION_FEED = 2
 ACTION_BOTH = 3
 
-if __name__ == '__main__':
-    import sys
+def main():
     try:
         import argparse
         parser = argparse.ArgumentParser(
