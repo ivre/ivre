@@ -17,9 +17,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 from ivre import db
-import struct
-import socket
-import numpy
 import math
 import matplotlib
 import matplotlib.pyplot
@@ -35,7 +32,7 @@ def graphhost(ap):
     ap = ap['ports']
     for p in ap:
         pn = p['port']
-        if p['state_state'] == 'open':
+        if p.get('state_state') == 'open':
             hh.append(an)
             pp.append(pn)
     return hh, pp
@@ -45,9 +42,9 @@ def getgraph(flt=db.db.nmap.flt_empty):
     h, p = [], []
     allhosts = db.db.nmap.get(flt)
     for ap in allhosts:
-            hh, pp = graphhost(ap)
-            h += hh
-            p += pp
+        hh, pp = graphhost(ap)
+        h += hh
+        p += pp
     return h, p
 
 
@@ -58,13 +55,13 @@ def graph3d(mainflt=db.db.nmap.flt_empty, alertflt=None):
         ax = Axes3D(fig)
     else:
         ax = fig.add_subplot(111, projection='3d')
-    ax.plot(map(lambda x: x / 65535, h), map(lambda x: x %
-            65535, h), map(lambda x: math.log(x, 10), p), '.')
+    ax.plot([x / 65535 for x in h], [x % 65535 for x in h],
+            [math.log(x, 10) for x in p], '.')
     if alertflt is not None:
         h, p = getgraph(flt=db.db.nmap.flt_and(mainflt, alertflt))
         if h:
-            ax.plot(map(lambda x: x / 65535, h), map(lambda x: x %
-                    65535, h), map(lambda x: math.log(x, 10), p), '.', c='r')
+            ax.plot([x / 65535 for x in h], [x % 65535 for x in h],
+                    [math.log(x, 10) for x in p], '.', c='r')
     matplotlib.pyplot.show()
 
 
@@ -79,8 +76,7 @@ def graph2d(mainflt=db.db.nmap.flt_empty, alertflt=None):
             ax.semilogy(h, p, '.', c='r')
     matplotlib.pyplot.show()
 
-if __name__ == '__main__':
-    import sys
+def main():
     try:
         import argparse
         parser = argparse.ArgumentParser(

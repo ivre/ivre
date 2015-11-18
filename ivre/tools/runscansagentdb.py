@@ -83,6 +83,8 @@ def display_master(master, verbose=True):
     print "  - hostname %s" % master["hostname"]
     print "  - path %s" % master["path"]
 
+WANT_DOWN = False
+
 def main():
     try:
         import argparse
@@ -221,7 +223,3 @@ def main():
                 time.sleep(args.sleep)
             signal.signal(signal.SIGINT, terminate)
             signal.signal(signal.SIGTERM, terminate)
-
-if __name__ == '__main__':
-    WANT_DOWN = False
-    main()

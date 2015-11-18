@@ -79,16 +79,15 @@ def main():
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='Import all files from given directories.')
     args = parser.parse_args()
-    source = None
     database = ivre.db.db.nmap
     categories = args.categories.split(',') if args.categories else []
     if args.test:
         database = ivre.db.DBNmap()
     if args.never_archive:
-        def gettoarchive(addr, source):
+        def gettoarchive(addr, _):
             return []
     elif args.archive:
-        def gettoarchive(addr, source):
+        def gettoarchive(addr, _):
             return database.get(database.searchhost(addr))
     else:  #args.archive_same_host_and_source
         def gettoarchive(addr, source):
@@ -114,6 +113,3 @@ def main():
         except Exception as exc:
             sys.stderr.write(ivre.utils.warn_exception(exc, fname=scan))
     print "%d results imported." % count
-
-if __name__ == '__main__':
-    main()

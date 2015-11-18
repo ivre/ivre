@@ -59,16 +59,16 @@ button to check if everything works.
 
 # Database init, data download & importation #
 
-    $ scancli --init
+    $ ivre scancli --init
     This will remove any scan result in your database. Process ? [y/N] y
-    $ ipinfo --init
+    $ ivre ipinfo --init
     This will remove any passive information in your database. Process ? [y/N] y
-    $ ipdata --init
+    $ ivre ipdata --init
     This will remove any country/AS information in your database. Process ? [y/N] y
-    $ sudo runscans-agentdb --init
+    $ sudo ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-    $ sudo ipdata --download
-    $ ipdata --import-all --dont-feed-ipdata-cols
+    $ sudo ivre ipdata --download
+    $ ivre ipdata --import-all --dont-feed-ipdata-cols
 
 The two latest steps may take a long time to run, nothing to worry
 about.
@@ -78,7 +78,7 @@ about.
 
 Against 1k (routable) IP addresses, with a single nmap process:
 
-    $ sudo runscans --routable --limit 1000
+    $ sudo ivre runscans --routable --limit 1000
 
 Go have some coffees and/or beers (remember that according to the
 traveler's theorem, for any time of the day, there exists a time zone
@@ -86,8 +86,8 @@ in which it is OK to drink).
 
 When the command has terminated, import the results:
 
-    $ nmap2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
-    >         scans/ROUTABLE/up
+    $ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
+    >              scans/ROUTABLE/up
 
 The `-c` argument adds categories to the scan results. Categories are
 arbitrary names used to filter results. In this example, the values
@@ -116,7 +116,7 @@ for the `--output=XMLFork`. This will fork one nmap process per IP to
 scan, and is (sadly) much more reliable.
 
 Another way to run scans efficiently is to use an [agent](AGENT.md)
-and the `runscans-agent` command.
+and the `ivre runscansagent` command.
 
 
 ---

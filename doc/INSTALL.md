@@ -36,12 +36,12 @@ The installation of [IVRE](README.md) itself can be done by:
   * using the `setup.py` (classical `./setup.py build; sudo ./setup.py
     install`) script.
 
-  * using [pip](https://pypi.python.org/pypi/pip): with on a
-    Debian-based system for example, install the packages `python-pip`
-    and `python-dev` (needed to build dependencies) and run `pip
-    install ivre` (this will download and install for you IVRE and its
-    Python dependencies from [PyPI](https://pypi.python.org), the
-    Python Package Index).
+  * using [pip](https://pypi.python.org/pypi/pip): on a Debian-based
+    system for example, install the packages `python-pip` and
+    `python-dev` (needed to build dependencies) and run `pip install
+    ivre` (this will download and install for you IVRE and its Python
+    dependencies from [PyPI](https://pypi.python.org), the Python
+    Package Index).
 
   * building an RPM package (you can use the provided `buildrpm`
     script, or use the `setup.py` script with your own options) and
@@ -86,39 +86,39 @@ the `ivre/config.py` file.
 
 It might be a good idea to have a read-only account everywhere except
 for some specific users or hosts that need write access to the
-database (the users that insert scan results with `nmap2db`, the users
-or the hosts that run `p0f2db` and/or `passiverecon2db`). It is best
-to avoid using a configuration with write access to the database when
-you only need a read access. This can be achieved with users or hosts
-dedicated to insertion tasks.
+database (the users that insert scan results with `ivre scan2db`, the
+users or the hosts that run `ivre p0f2db` and/or `ivre
+passiverecon2db`). It is best to avoid using a configuration with
+write access to the database when you only need a read access. This
+can be achieved with users or hosts dedicated to insertion tasks.
 
 ## DB creation ##
 
 Once IVRE has been properly configured, it's time to initialize its
 databases.
 
-For that, the command-line tools (namely `ipdata`, `ipinfo`, `scancli`
-and `runscans-agentdb`, respectively for information about IP
-addresses, passive information, active information and running scans
-through agents) have a `--init` option.
+For that, the command-line tools (namely `ivre ipdata`, `ivre ipinfo`,
+`ivre scancli` and `ivre runscansagentdb`, respectively for
+information about IP addresses, passive information, active
+information and running scans through agents) have a `--init` option.
 
 So you can run, with a user or from a host where the configuration has
 a write access to the database (add `< /dev/null` to skip the
 confirmation):
 
-    $ scancli --init
+    $ ivre scancli --init
     This will remove any scan result in your database. Process ? [y/N] y
-    $ ipinfo --init
+    $ ivre ipinfo --init
     This will remove any passive information in your database. Process ? [y/N] y
-    $ ipdata --init
+    $ ivre ipdata --init
     This will remove any country/AS information in your database. Process ? [y/N] y
-    # runscans-agentdb --init
+    # ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 
 ### Getting IP data ###
 
-    # ipdata --download
-    $ ipdata --import-all --dont-feed-ipdata-cols
+    # ivre ipdata --download
+    $ ivre ipdata --import-all --dont-feed-ipdata-cols
 
 ### Web Server ###
 

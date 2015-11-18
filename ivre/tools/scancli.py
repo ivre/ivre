@@ -802,8 +802,3 @@ def main():
             cursor = cursor.skip(args.skip)
         displayfunction(cursor)
         sys.exit(0)
-
-if __name__ == '__main__':
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-    main()

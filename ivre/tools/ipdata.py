@@ -21,33 +21,34 @@ AS number and country information.
 
 """
 
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+import os
+try:
+    import argparse
+    USING_ARGPARSE = True
+except ImportError:
+    import optparse
+    USING_ARGPARSE = False
+
 import ivre.db
 import ivre.geoiputils
 import ivre.config
 
-if __name__ == '__main__':
-    import sys
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-    import os
-    try:
-        import argparse
-        parser = argparse.ArgumentParser(
-            description=__doc__)
-        USING_ARGPARSE = True
-    except ImportError:
-        import optparse
+def main():
+    if USING_ARGPARSE:
+        parser = argparse.ArgumentParser(description=__doc__)
+    else:
         parser = optparse.OptionParser(
             description=__doc__)
         parser.parse_args_orig = parser.parse_args
-
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('ip', res[1])
             return res[0]
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
-        USING_ARGPARSE = False
     TORUN = []
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')

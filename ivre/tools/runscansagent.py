@@ -19,9 +19,9 @@
 import ivre.target
 import ivre.utils
 import ivre.scanengine
+
 import os
 import sys
-import time
 import subprocess
 
 MAINDIR = "./agentsdata"
@@ -30,8 +30,7 @@ ACTION_SYNC = 1
 ACTION_FEED = 2
 ACTION_BOTH = 3
 
-if __name__ == '__main__':
-    import sys
+def main():
     try:
         import argparse
         parser = argparse.ArgumentParser(
@@ -42,7 +41,7 @@ if __name__ == '__main__':
         import optparse
         parser = optparse.OptionParser(
             description='Sends targets to a remote agent.',
-            usage='Usage: runscans-agent [options] AGENT [AGENT ...]')
+            usage='Usage: ivre runscansagent [options] AGENT [AGENT ...]')
         for args, kargs in ivre.target.argparser.args:
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args

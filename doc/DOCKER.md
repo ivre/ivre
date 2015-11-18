@@ -176,21 +176,21 @@ This gives a shell in the `ivreclient` container, and from there we
 can use IVRE's command line tools and Python API. For example, to
 initialize the database:
 
-    root@ivreclient:/# ipinfo --init
+    root@ivreclient:/# ivre ipinfo --init
     This will remove any passive information in your database. Process ? [y/N] y
-    root@ivreclient:/# ipdata --init
+    root@ivreclient:/# ivre ipdata --init
     This will remove any country/AS information in your database. Process ? [y/N] y
-    root@ivreclient:/# scancli --init
+    root@ivreclient:/# ivre scancli --init
     This will remove any scan result in your database. Process ? [y/N] y
-    root@ivreclient:/# runscans-agentdb --init
+    root@ivreclient:/# ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-    root@ivreclient:/# ipdata --download --import-all --dont-feed-ipdata-cols
+    root@ivreclient:/# ivre ipdata --download --import-all --dont-feed-ipdata-cols
     [...]
 
 The latest command will take a long time. Then we can integrate the
 Nmap results to the database:
 
-    root@ivreclient:/# nmap2db -r -s MySource -c MyCategory /ivre-share
+    root@ivreclient:/# ivre scan2db -r -s MySource -c MyCategory /ivre-share
 
 You can then exit the shell (`C-d`), this will stop the
 container.

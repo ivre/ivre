@@ -1,0 +1,71 @@
+#! /usr/bin/env python
+
+# This file is part of IVRE.
+# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+"""IVRE command line"""
+
+import sys
+import os
+
+from ivre import tools
+
+HELP_COMMANDS = ["-h", "--help", "h", "help"]
+
+def main():
+    executable = os.path.basename(sys.argv[0])
+    if executable.startswith("ivre-"):
+        # hack for blackarch package
+        executable = executable[5:]
+    if executable in tools.__all__ or executable in tools.ALIASES:
+        sys.stderr.write(
+            "WARNING: command %s deprecated. Use 'ivre %s' instead.\n" % (
+                executable, tools.ALIASES.get(executable, executable)
+            )
+        )
+        command = tools.ALIASES.get(executable, executable)
+    else:
+        command = tools.ALIASES.get(sys.argv[1], sys.argv[1])
+        sys.argv = ["%s %s" % (executable, sys.argv[1])] + sys.argv[2:]
+    if command.lower() in HELP_COMMANDS and len(sys.argv) > 1:
+        command = sys.argv[1]
+        sys.argv = ["%s %s" % (executable, sys.argv[1]),
+                    "--help"] + sys.argv[2:]
+    possible_commands = tools.guess_command(command)
+    if len(possible_commands) == 1:
+        tools.get_command(possible_commands[0])()
+    elif command in tools.ALIASES:
+        tools.get_command(tools.ALIASES[command])()
+    else:
+        if command.lower() in HELP_COMMANDS:
+            output = sys.stdout
+        else:
+            output = sys.stderr
+            output.write("%s command: %s\n\n" %  (
+                "Ambiguous" if possible_commands else "Unknown", command
+            ))
+        output.write("usage: %s [COMMAND]\n\n" % executable)
+        output.write("%s commands:\n" % ("matching" if possible_commands
+                                         else "available"))
+        for availcmd in (possible_commands if possible_commands
+                         else tools.__all__):
+            output.write("  %s\n" % availcmd)
+        output.write("\n")
+        output.write("Try %s help [COMMAND]\n\n" % executable)
+        
+        
+if __name__ == "__main__":
+    main()

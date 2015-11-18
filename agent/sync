@@ -17,8 +17,8 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-# This is an equivalent of runscans-agent (the --sync part only) that
-# can do not need python.
+# This is an equivalent of ivre runscansagent (the --sync part only)
+# that do not need python.
 
 RSYNC="rsync"
 # Uncomment the following line to use TOR

@@ -122,10 +122,10 @@ class IvreTests(unittest.TestCase):
     def test_nmap(self):
 
         # Init DB
-        self.assertEqual(RUN(["scancli", "--count"])[1], "0\n")
-        self.assertEqual(RUN(["scancli", "--init"],
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["scancli", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], "0\n")
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
@@ -142,35 +142,35 @@ class IvreTests(unittest.TestCase):
         scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
-            res, _, err = RUN(["nmap2db", "--port",
+            res, _, err = RUN(["ivre", "scan2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(err))
             scan_counter += sum(1 for _ in scan_stored.finditer(err))
             # Insertion test (== parsing only)
-            res, out, _ = RUN(["nmap2db", "--port", "--test",
+            res, out, _ = RUN(["ivre", "scan2db", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             host_counter_test += sum(host_stored_test(line)
                                      for line in out.splitlines())
             # Duplicate insertion
-            res, _, err = RUN(["nmap2db", "--port",
+            res, _, err = RUN(["ivre", "scan2db", "--port",
                                "-c", "TEST", "-s", "SOURCE", fname])
             self.assertEqual(res, 0)
             scan_warning += sum(
                 1 for _ in scan_duplicate.finditer(err)
             )
 
-        RUN(["scancli", "--update-schema"])
-        RUN(["scancli", "--update-schema", "--archives"])
+        RUN(["ivre", "scancli", "--update-schema"])
+        RUN(["ivre", "scancli", "--update-schema", "--archives"])
 
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
 
-        res, out, _ = RUN(["scancli", "--count"])
+        res, out, _ = RUN(["ivre", "scancli", "--count"])
         self.assertEqual(res, 0)
         hosts_count = int(out)
-        res, out, _ = RUN(["scancli", "--count", "--archives"])
+        res, out, _ = RUN(["ivre", "scancli", "--count", "--archives"])
         self.assertEqual(res, 0)
         archives_count = int(out)
 
@@ -184,33 +184,37 @@ class IvreTests(unittest.TestCase):
                          host_counter)
 
         # Object ID
-        res, out, _ = RUN(["scancli", "--json", "--limit", "1"])
+        res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
         oid = json.loads(out)['_id']
-        res, out, _ = RUN(["scancli", "--count", "--id", oid])
+        res, out, _ = RUN(["ivre", "scancli", "--count", "--id", oid])
         self.assertEqual(res, 0)
         self.assertEqual(int(out), 1)
-        res, out, _ = RUN(["scancli", "--count", "--no-id", oid])
+        res, out, _ = RUN(["ivre", "scancli", "--count", "--no-id", oid])
         self.assertEqual(res, 0)
         self.assertEqual(int(out) + 1, hosts_count)
 
-        res, out, _ = RUN(["scancli", "--count", "--countports", "20", "20"])
+        res, out, _ = RUN(["ivre", "scancli", "--count",
+                           "--countports", "20", "20"])
         self.assertEqual(res, 0)
         portsnb_20 = int(out)
         self.check_value("nmap_20_ports", portsnb_20)
 
-        res, out, _ = RUN(["scancli", "--count", "--no-countports", "20", "20"])
+        res, out, _ = RUN(["ivre", "scancli", "--count",
+                           "--no-countports", "20", "20"])
         self.assertEqual(res, 0)
         portsnb_not_20 = int(out)
 
         self.assertEqual(portsnb_20 + portsnb_not_20, host_counter)
 
-        res, out, _ = RUN(["scancli", "--count", "--countports", "10", "100"])
+        res, out, _ = RUN(["ivre", "scancli", "--count",
+                           "--countports", "10", "100"])
         self.assertEqual(res, 0)
         portsnb_10_100 = int(out)
         self.check_value("nmap_10-100_ports", portsnb_10_100)
 
-        res, out, _ = RUN(["scancli", "--count", "--no-countports", "10", "100"])
+        res, out, _ = RUN(["ivre", "scancli", "--count",
+                           "--no-countports", "10", "100"])
         self.assertEqual(res, 0)
         portsnb_not_10_100 = int(out)
 
@@ -560,16 +564,16 @@ class IvreTests(unittest.TestCase):
             cov.stop()
             cov.save()
 
-        self.assertEqual(RUN(["scancli", "--init"],
+        self.assertEqual(RUN(["ivre", "scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
     def test_passive(self):
 
         # Init DB
-        self.assertEqual(RUN(["ipinfo", "--count"])[1], "0\n")
-        self.assertEqual(RUN(["ipinfo", "--init"],
+        self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["ipinfo", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], "0\n")
 
         # p0f & Bro insertion
         ivre.utils.makedirs("logs")
@@ -746,7 +750,7 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.passive.flt_empty).count()
         self.assertEqual(count + new_count, total_count)
 
-        self.assertEqual(RUN(["ipinfo", "--init"],
+        self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
 
     def test_utils(self):

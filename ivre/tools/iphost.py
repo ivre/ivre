@@ -16,9 +16,16 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+'Query the passive database to perform DNS resolutions (passive DNS).'
+
 import re
 import time
 import struct
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+import datetime
+import getopt
 
 import ivre.utils
 from ivre.db import db
@@ -66,20 +73,18 @@ def disp_rec(r):
         else:
             print 'WARNING', r
 
-if __name__ == '__main__':
-    import sys
-    import datetime
+def main():
     baseflt = {'recontype': 'DNS_ANSWER'}
-    import getopt
     subdomains = False
     try:
         opts, args = getopt.getopt(sys.argv[1:],
-                                   "s:",
+                                   "s:h",
                                    [
                                        # filters
                                        "sensor=",
                                        # subdomains
-                                       "sub"
+                                       "sub",
+                                       "help",
                                    ])
     except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
@@ -89,6 +94,12 @@ if __name__ == '__main__':
             baseflt = db.passive.flt_and(baseflt, db.passive.searchsensor(a))
         elif o == '--sub':
             subdomains = True
+        elif o in ['-h', '--help']:
+            sys.stdout.write('usage: %s [-h] [-s SENSOR] [--sub]'
+                             '\n\n' % (sys.argv[0]))
+            sys.stdout.write(__doc__)
+            sys.stdout.write("\n\n")
+            sys.exit(0)
         else:
             sys.stderr.write(
                 '%r %r not undestood (this is probably a bug).\n' % (o, a))

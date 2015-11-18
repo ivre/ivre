@@ -1,0 +1,12 @@
+_ivre_commands() {
+    ivre help | sed -e '1,/^available commands:/d' -e '/^$/,$d' -e 's/^ *//'
+    echo help
+}
+
+_ivre() {
+    if [ $COMP_CWORD -eq 1 ]; then
+        COMPREPLY=( $( compgen -W "$(_ivre_commands)" ${COMP_WORDS[COMP_CWORD]} ) )
+    fi
+}
+
+complete -F _ivre ivre

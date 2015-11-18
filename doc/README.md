@@ -49,7 +49,7 @@ IVRE relies on:
     [Apache](https://httpd.apache.org/) and
     [Nginx](http://nginx.org/), should work with anything capable of
     serving static files and run a Python-based CGI), although a test
-    web server is now distributed with IVRE (`httpd-ivre`)
+    web server is now distributed with IVRE (`ivre httpd`)
 
   * a web browser (successfully tested with recent versions of
     [Firefox](https://www.mozilla.org/firefox/) and
@@ -106,9 +106,9 @@ file), run:
     > bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture
 
 This will produce log files in the `logs` directory. You need to run a
-`passivereconworker` to process these files. You can try:
+`ivre passivereconworker` to process these files. You can try:
 
-    $ passivereconworker --directory=logs
+    $ ivre passivereconworker --directory=logs
 
 This program will not stop by itself. You can (`p`)`kill` it, it will
 stop gently (as soon as it has finished to process the current file).
@@ -117,7 +117,7 @@ You can also send the data from `bro` to the database without using
 intermediate files:
 
     $ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro [option] \
-    > | passiverecon2db
+    > | ivre passiverecon2db
 
 ## Using p0f ##
 
@@ -125,27 +125,27 @@ To start filling your database with information from the `eth0`
 interface, you just need to run (`passiverecon` is just a sensor name
 here):
 
-    # p0f2db -s passiverecon iface:eth0
+    # ivre p0f2db -s passiverecon iface:eth0
 
 And from the same `capture` file:
 
-    $ p0f2db -s passiverecon capture
+    $ ivre p0f2db -s passiverecon capture
 
 ## Using the results ##
 
 You have two options for now:
 
-  * the `ipinfo` command line tool
+  * the `ivre ipinfo` command line tool
 
   * the `db.passive` object of the `ivre.db` Python module
 
 For example, to show everything stored about an IP address or a
 network:
 
-    $ ipinfo 1.2.3.4
-    $ ipinfo 1.2.3.0/24
+    $ ivre ipinfo 1.2.3.4
+    $ ivre ipinfo 1.2.3.0/24
 
-See the output of `ipinfo --help`.
+See the output of `ivre help ipinfo`.
 
 To use the Python module, run for example:
 
@@ -161,15 +161,15 @@ For more, run `help(db.passive)` from the Python shell.
 
 The easiest way is to install IVRE on the "scanning" machine and run:
 
-    # runscans --routable --limit 1000 --output=XMLFork
+    # ivre runscans --routable --limit 1000 --output=XMLFork
 
 This will run a standard scan against 1000 random hosts on the
 Internet by running 30 nmap processes in parallel. See the output of
-`runscans --help` if you want to do something else.
+`ivre help runscans` if you want to do something else.
 
 When it's over, to import the results in the database, run:
 
-    $ nmap2db -c ROUTABLE-CAMPAIGN-001 -s MySource -r scans/ROUTABLE/up
+    $ ivre scan2db -c ROUTABLE-CAMPAIGN-001 -s MySource -r scans/ROUTABLE/up
 
 Here, `ROUTABLE-CAMPAIGN-001` is a category (just an arbitrary name
 that you will use later to filter scan results) and `MySource` is a
@@ -182,26 +182,26 @@ database).
 
 There is an alternative to installing IVRE on the scanning machine
 that allows to use several agents from one master. See the
-[AGENT](AGENT.md) file, the program `runscans-agent` for the master
-and the `agent/` directory in the source tree.
+[AGENT](AGENT.md) file, the program `ivre runscansagent` for the
+master and the `agent/` directory in the source tree.
 
 ## Using the results ##
 
 You have three options:
 
-  * the `scancli` command line tool
+  * the `ivre scancli` command line tool
 
   * the `db.nmap` object of the `ivre.db` Python module
 
   * the web interface
 
-### CLI: scancli ###
+### CLI: ivre scancli ###
 
 To get all the hosts with the port 22 open:
 
-    $ scancli --port 22
+    $ ivre scancli --port 22
 
-See the output of `scancli --help`.
+See the output of `ivre help scancli`.
 
 ### Python module ###
 
@@ -236,8 +236,8 @@ site](http://www.gnu.org/licenses/).
 
 # Support #
 
-Try `--help` for the CLI tools, `help()` under Python and the "HELP"
-button in the web interface.
+Try `ivre help` for the CLI commands, `help()` under Python and the
+"HELP" button in the web interface.
 
 Feel free to contact the author and offer him a beer if you need help!
 
@@ -260,9 +260,8 @@ For both support and contribution, the
 [repository](https://github.com/cea-sec/ivre) on Github should be
 used: feel free to create a new issue or a pull request!
 
-You can also try to use the e-mail `ivre` on the domain
-`droids-corp.org`, or to join the IRC chan
-[#ivre](irc://irc.freenode.net/%23ivre) on
+You can also try to use the e-mail `dev` on the domain `ivre.rocks`,
+or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
 

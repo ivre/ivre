@@ -83,7 +83,7 @@ def check_referer():
         if host is None:
             # In case the server does not provide the environment
             # variable HTTP_HOST, which is the case for at least the
-            # test Web server included with IVRE (httpd-ivre,
+            # test Web server included with IVRE (ivre httpd,
             # implemented using Python BaseHTTPServer and
             # CGIHTTPServer modules, see
             # https://bugs.python.org/issue10486).

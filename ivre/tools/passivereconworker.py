@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""Handle passiverecon2db files."""
+"""Handle ivre passiverecon2db files."""
 
 from ivre import config
 
@@ -149,6 +149,10 @@ def worker(progname, directory, sensor=None):
 
 def main():
     """Parses the arguments and call worker()"""
+    # Set the signal handler
+    for s in [signal.SIGINT, signal.SIGTERM]:
+        signal.signal(s, shutdown)
+        signal.siginterrupt(s, False)
     try:
         import argparse
         parser = argparse.ArgumentParser(description=__doc__)
@@ -170,8 +174,8 @@ def main():
     )
     parser.add_argument(
         '--progname', metavar='PROG',
-        help='Program to run (defaults to passiverecon2db).',
-        default="passiverecon2db",
+        help='Program to run (defaults to ivre passiverecon2db).',
+        default="ivre passiverecon2db",
     )
     args = parser.parse_args()
     if args.sensor is not None:
@@ -182,12 +186,3 @@ def main():
     else:
         sensor = None
     worker(args.progname, args.directory, sensor=sensor)
-
-
-if __name__ == '__main__':
-    # Set the signal handler
-    for s in [signal.SIGINT, signal.SIGTERM]:
-        signal.signal(s, shutdown)
-        signal.siginterrupt(s, False)
-    # Start
-    main()

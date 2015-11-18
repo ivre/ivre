@@ -31,7 +31,7 @@ import os
 
 setup(
     name='ivre',
-    version='0.9.2',
+    version='0.9.3',
     author='Pierre LALET',
     author_email='pierre@droids-corp.org',
     url='https://ivre.rocks/',
@@ -71,12 +71,8 @@ specialized scripts.
         'pycrypto',
         'pymongo>=2.7.2',
     ],
-    packages=['ivre', 'ivre/db'],
-    scripts=['bin/getmoduli', 'bin/ipdata', 'bin/ipinfo', 'bin/ipinfohost',
-             'bin/httpd-ivre', 'bin/nmap2db', 'bin/p0f2db', 'bin/analyzercli',
-             'bin/passiverecon2db', 'bin/passivereconworker',
-             'bin/runscans', 'bin/runscans-agent', 'bin/runscans-agentdb',
-             'bin/plotdb', 'bin/scancli', 'bin/scanstatus'],
+    packages=['ivre', 'ivre/tools', 'ivre/db'],
+    scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',
          ['passiverecon/passiverecon.bro',
@@ -192,5 +188,6 @@ specialized scripts.
           'doc/SCREENSHOTS.md',
           'doc/TESTS.md',
           'doc/WEBUI.md']),
+        ('etc/bash_completion.d', ['bash_completion/ivre']),
     ],
 )
