@@ -37,6 +37,8 @@ def main():
             )
         )
         command = tools.ALIASES.get(executable, executable)
+    elif len(sys.argv) == 1:
+        command = "help"
     else:
         command = tools.ALIASES.get(sys.argv[1], sys.argv[1])
         sys.argv = ["%s %s" % (executable, sys.argv[1])] + sys.argv[2:]
