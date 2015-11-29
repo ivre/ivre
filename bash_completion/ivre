@@ -3,9 +3,49 @@ _ivre_commands() {
     echo help
 }
 
+_ivre_options() {
+    command="$1"
+    type="$2"
+    if [ "$type" = "long" ]; then
+	pattern="^--"
+    else
+	pattern="^-[^-]"
+    fi
+    ivre help "$command" | sed -e '1,/^optional arguments:/d' \
+	-e '/^ *[^ -]/d' -e 's/^  //' -e 's/, -/\n-/g' | \
+	grep "$pattern"
+}
+
+_ivre_choices() {
+    command="$1"
+    option="$2"
+    ivre help "$command" | grep -- "^  $option {" | \
+	sed "s/^  $option {//; s/}.*//; s/,/\n/g"
+}
+
 _ivre() {
-    if [ $COMP_CWORD -eq 1 ]; then
-        COMPREPLY=( $( compgen -W "$(_ivre_commands)" ${COMP_WORDS[COMP_CWORD]} ) )
+    command="${COMP_WORDS[1]}"
+    current="${COMP_WORDS[COMP_CWORD]}"
+    if [ \( $COMP_CWORD -eq 1 \) \
+	-o \( \( $COMP_CWORD -eq 2 \) \
+	     -a \( "$command" = "help" \) \) ]; then
+        COMPREPLY=( $( compgen -W "$(_ivre_commands)" -- "$current" ) )
+    elif [ "${current:0:2}" = "--" ]; then
+	COMPREPLY=( $( compgen -W "$(_ivre_options $command long)" -- "$current" ) )
+    elif [ "${current:0:1}" = "-" ]; then
+	COMPREPLY=( $( compgen -W "$(_ivre_options $command short)" -- "$current" ) )
+    else
+	# multiple choices
+	prev=""
+	for (( i=COMP_CWORD-1 ; i >= 1 ; i=i-1 )); do
+	    if [ "${COMP_WORDS[i]:0:1}" = "-" ]; then
+		prev="${COMP_WORDS[i]}"
+		break
+	    fi
+	done
+	if [ -n "$prev" ]; then
+	    COMPREPLY=( $( compgen -W "$(_ivre_choices $command $prev)" -- "$current" ) )
+	fi
     fi
 }
 

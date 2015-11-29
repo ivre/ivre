@@ -27,7 +27,18 @@ $ python setup.py build
 """
 
 from distutils.core import setup
+from distutils.command.install_data import install_data
 import os
+
+class smart_install_data(install_data):
+    def run(self):
+        if self.install_dir.endswith('/usr') or \
+           self.install_dir.endswith('/usr/local'):
+            self.data_files = [
+                ("/%s" % path if path.startswith('etc/') else path, files)
+                for path, files in self.data_files
+            ]
+        return install_data.run(self)
 
 setup(
     name='ivre',
@@ -190,4 +201,5 @@ specialized scripts.
           'doc/WEBUI.md']),
         ('etc/bash_completion.d', ['bash_completion/ivre']),
     ],
+    cmdclass={'install_data':smart_install_data},
 )
