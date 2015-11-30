@@ -34,6 +34,7 @@ import hashlib
 import gzip
 import bz2
 import subprocess
+import traceback
 from cStringIO import StringIO
 try:
     import PIL.Image
@@ -408,12 +409,18 @@ def warn_exception(exc, **kargs):
     """This function returns a WARNING line based on the exception
     `exc` and the optional extra information.
 
+    If config.DEBUG is True, the function will append to the result
+    the full stacktrace.
+
     """
-    return "WARNING: %s [%r]%s\n" % (
+    return "WARNING: %s [%r]%s\n%s" % (
         exc.message, exc,
         "[%s]" % ", ".join("%s=%s" % (key, value)
                            for key, value in kargs.iteritems())
-        if kargs else ""
+        if kargs else "",
+        "".join("\t%s\n" % line for line in
+                traceback.format_exc().splitlines())
+        if config.DEBUG else "",
     )
 
 
