@@ -46,6 +46,13 @@ _ivre() {
 	if [ -n "$prev" ]; then
 	    COMPREPLY=( $( compgen -W "$(_ivre_choices $command $prev)" -- "$current" ) )
 	fi
+	if [ -z "$COMPREPLY" ]; then
+	    case "$command" in
+		p0f2db|runscansagent|scan2db)
+		    COMPREPLY=( $(compgen -o default "$current") )
+		    ;;
+	    esac
+	fi
     fi
 }
 
