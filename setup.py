@@ -135,6 +135,7 @@ specialized scripts.
         ('share/ivre/web/static/ivre',
          ['web/static/ivre/ivre.css',
           'web/static/ivre/controllers.js',
+          'web/static/ivre/filters.js',
           'web/static/ivre/graph.js',
           'web/static/ivre/ivre.js',
           'web/static/ivre/params.js',

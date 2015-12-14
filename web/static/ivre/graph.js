@@ -36,7 +36,7 @@ function build_top_chart(f) {
 	encodeURIComponent("(function(data){build_chart('chart1', '" +
 			   field + "', data);})") +
 	'&action=topvalues:' + encodeURIComponent(field) + ':15&q=' +
-	encodeURIComponent(query);
+	encodeURIComponent(FILTER.query);
     c1.parentNode.appendChild(s);
 }
 
@@ -237,7 +237,7 @@ function build_ip_map(fullworld) {
     document.getElementById('charts').style.display = 'inline';
     s = document.createElement('script');
     s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_map('chart1', ips, " + fullworld + ");})")+ '&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(query);
+    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_map('chart1', ips, " + fullworld + ");})")+ '&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(FILTER.query);
     c1.parentNode.appendChild(s);
 }
 

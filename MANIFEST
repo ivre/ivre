@@ -354,6 +354,7 @@ web/static/fi/flags/4x3/zm.svg
 web/static/fi/flags/4x3/zw.svg
 web/static/ivre/content.js
 web/static/ivre/controllers.js
+web/static/ivre/filters.js
 web/static/ivre/graph.js
 web/static/ivre/ivre.css
 web/static/ivre/ivre.js

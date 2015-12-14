@@ -16,13 +16,13 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> Filter</li>
-<form class="" onsubmit="ToolTip.remove_all(this); set_hash(Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' '));" id="filters">
+<li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> {{title}}</li>
+<form class="" onsubmit="ToolTip.remove_all(this); set_hash(Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' '));" id="{{idprefix + 'filters'}}">
   <li ng-repeat="filter in filters">
     <div class="input-group">
       <input class="form-control input-medium"
 	     type="text"
-	     id="{{'filter' + filter.id}}"
+	     id="{{idprefix + 'filter' + filter.id}}"
 	     name="{{'filter' + filter.id}}"
 	     data-trigger="manual"
 	     data-html="true"
@@ -41,7 +41,7 @@
     <div class="input-group">
       <input class="form-control input-medium"
 	     type="text"
-	     id="filter-last"
+	     id="{{idprefix + 'filter-last'}}"
 	     name="filter-last"
 	     data-trigger="manual"
 	     data-html="true"

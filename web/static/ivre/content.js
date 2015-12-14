@@ -857,7 +857,7 @@ var MENU_MAIN = {
 	      icon: "arrow-up",
 	     },
 	     {title: "Archives",
-	      action: "'archives' in parametersobj ? unsetparam('archives') : $scope.setparam('archives');",
+	      action: "'archives' in FILTER.parametersobj ? unsetparam('archives') : $scope.setparam('archives');",
 	      icon: "file",
 	     },
 	 ],

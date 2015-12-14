@@ -42,16 +42,8 @@ setdefaultconfig();
 /****** Global Variables *******/
 
 /* global variables */
-var parameters = [];
-var parametersprotected = [];
-var parametersobj = {};
-var parametersobjunalias = {};
 var clicktimeout = null;
 var wanted_scripts, wanted_hops;
-// the initial prev_query has to be an object and to be different than
-// any valid query
-var prev_query = {"thiswillneverexist": []};
-var query;
 
 /******* IVRE specific methods *******/
 
@@ -152,27 +144,18 @@ function port_summary(host, width) {
 /******* Main function *********/
 
 function load() {
+    if(FILTER === undefined) {
+	/* XXX Wait for FILTER to be ready. */
+	setTimeout(load, 100);
+	return;
+    }
     if (!(load_params()))
 	return;
-    var need_update = ! compare_params(parametersobjunalias,
-				       prev_query,
-				       false);
-    if(! need_update)
-	need_update = ! compare_params(prev_query,
-				       parametersobjunalias,
-				       false);
-    if(! need_update) {
+    if(! FILTER.need_update()) {
 	set_display_mode(getparam('display'));
 	return;
     }
-
-    var need_count = ! compare_params(parametersobjunalias,
-				      prev_query,
-				      true);
-    if(! need_count)
-	need_count = ! compare_params(prev_query,
-				      parametersobjunalias,
-				      true);
+    var need_count = FILTER.need_count();
 
     clear_hosts();
     hidecharts();
@@ -185,7 +168,7 @@ function load() {
     s = document.createElement('script');
     s.id = "resultsscript";
     s.src = config.cgibase + '?callback=add_host&q=' +
-	encodeURIComponent(query);
+	encodeURIComponent(FILTER.query);
     s.onload = function() {
 	var hostcount = count_displayed_hosts(),
 	limit = getparam('limit'),
@@ -221,14 +204,10 @@ function load() {
 	    s = document.createElement('script');
 	    s.id = "countscript";
 	    s.src = config.cgibase + '?callback=set_nbrres&action=count&q=' +
-		encodeURIComponent(query);
+		encodeURIComponent(FILTER.query);
 	    document.body.appendChild(s);
 	}
-	prev_query = {};
-	for(var key in parametersobjunalias) {
-	    prev_query[key] = parametersobjunalias[key];
-	}
-
+	FILTER.end_new_query();
     };
     document.body.appendChild(s);
 }
