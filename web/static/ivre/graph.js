@@ -443,7 +443,7 @@ var GraphTopValues = (function(_super) {
 	}
     });
 
-  return GraphTopValues;
+    return GraphTopValues;
 })(Graph);
 
 var GraphMap = (function(_super) {
@@ -589,7 +589,7 @@ var GraphMap = (function(_super) {
 	}
     });
 
-  return GraphMap;
+    return GraphMap;
 })(Graph);
 
 var GraphPlane = (function(_super) {
@@ -764,314 +764,324 @@ var GraphPlane = (function(_super) {
 	}
     });
 
-  return GraphPlane;
+    return GraphPlane;
 })(Graph);
 
+var GraphIpPort = (function(_super) {
 
-function build_ip_ports(query) {
-    hideall();
-    var c1 = document.getElementById('chart1');
-    c1.innerHTML = "";
-    var s = document.getElementById('chart1script');
-    if(s) c1.parentNode.removeChild(s);
-    document.getElementById('charts').style.display = 'inline';
-    s = document.createElement('script');
-    s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})") + '&action=ipsports&ipsasnumbers=1&q=' + encodeURIComponent(query);
-    c1.parentNode.appendChild(s);
-}
+    function GraphIpPort(chart, query) {
+        _super.call(this, chart, query);
+    };
 
-function build_ip_timeline(query, modulo) {
-    hideall();
-    var c1 = document.getElementById('chart1');
-    c1.innerHTML = "";
-    var s = document.getElementById('chart1script');
-    if(s) c1.parentNode.removeChild(s);
-    document.getElementById('charts').style.display = 'inline';
-    s = document.createElement('script');
-    s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&action=timeline&ipsasnumbers=1&q=' + encodeURIComponent(query);
-    if(modulo !== undefined)
-	s.src += '&modulo=' + modulo;
-    c1.parentNode.appendChild(s);
-}
+    $.extend(GraphIpPort.prototype, _super.prototype, {
+	get_url: function() {
+	    return config.cgibase + '?action=ipsports&ipsasnumbers=1&q=' +
+		encodeURIComponent(this.query);
+	},
+	draw: function(ips) {
+	    var chart = this.chart,
+	    real_w = 500,
+	    real_h = 450,
+	    w = real_w - 100,
+	    h = real_h - 60,
+	    xmin = d3.min(ips, function(i) {return i[0];}),
+	    xmax = d3.max(ips, function(i) {return i[0];}),
+	    x = d3.scale.linear()
+		.domain(d3.extent(ips, function(i) {return i[0];}))
+		.range([0, w]),
+	    y = d3.scale.log()
+		.domain([1, 65535])
+		.range([h, 0]),
+	    colors = {"open": "green", "closed": "red", "filtered": "orange"},
+	    ips_ports = ips.map(function(x) {
+		return x[1].map(function(t) {
+		    return [x[0], t[0], t[1]];
+		});
+	    }).reduce(function(x, y) {
+		return x.concat(y);
+	    }, []);
 
-function build_chart_timeline(chart, ips) {
-    var real_w = 500,
-    real_h = 450,
-    w = real_w - 100,
-    h = real_h - 50,
-    xmin = d3.min(ips, function(i) {return i[0];}),
-    xmax = d3.max(ips, function(i) {return i[0];}),
-    ymin = d3.min(ips, function(i) {return i[1];}),
-    ymax = d3.max(ips, function(i) {return i[1];}),
-    x = d3.scale.linear()
-	.domain(d3.extent(ips, function(i) {return i[0];}))
-	.range([0, w]),
-    y = d3.scale.linear()
-	.domain(d3.extent(ips, function(i) {return i[1];}))
-	.range([h, 0]),
-    colscale = d3.scale.log()
-	.domain(d3.extent(ips, function(i) {return i[2] + 1;}))
-	.range([0, 1]),
-    date2text;
-    document.getElementById("chartstitle").innerHTML = "Timeline";
-    if(xmax - xmin > 31536000) // 365 days
-	date2text = function(d) {
-	    return (d.getMonth() + 1) + '/' + d.getFullYear();
-	};
-    else if (xmax - xmin > 2419200) // 28 days
-	date2text = function(d) {
-	    return d.getDate() + '/' + (d.getMonth() + 1);
-	};
-    else if (xmax - xmin > 86400) // 1 day
-	date2text = function(d) {
-	    return d.getDate() + ' - ' + d.getHours() + 'h';
-	};
-    else if (xmax - xmin > 3600)
-	date2text = function(d) {
-	    return d.getHours() + ':' + d.getMinutes();
-	};
-    else
-	date2text = function(d) {return d;};
+	    this.title.html("Ports status");
+
+	    var vis = d3.select(chart.selector)
+		.append("svg:svg")
+		.attr("viewBox", [0, 0, real_w, real_h])
+		.attr("preserveAspectRatio", "xMidYMid meet")
+		.append("svg:g")
+		.attr("transform", "translate(70, 10)");
+
+	    var plane = vis.append("g");
+
+	    plane.selectAll("g.dot")
+		.data(ips_ports)
+		.enter().append("svg:circle")
+		.attr("class", "dot")
+		.attr("r", 1.5)
+		.attr("cx", function(d) {return x(d[0]);})
+		.attr("cy", function(d) {return y(d[1]);})
+		.attr("fill-opacity", 1)
+		.attr("fill", function(d) {return colors[d[2]];});
+
+	    var xaxis = [];
+	    var xstep = Math.max((xmax - xmin) / 10 / 16777216, 1) * 16777216;
+	    for(var i = xmin; i <= (xmax+1); i += xstep) {
+		xaxis.push(i);
+	    }
+
+	    var rulesx = vis.selectAll("g.rulex")
+		.data(xaxis)
+		.enter().append("svg:g")
+		.attr("class", "rule")
+		.attr("transform", function(d) {
+		    return "translate(" + x(d) + ", 0)";
+		});
+
+	    rulesx.append("svg:line")
+		.attr("y1", h)
+		.attr("y2", h + 10)
+		.attr("x1", 0)
+		.attr("x2", 0)
+		.attr("stroke", "black");
+
+	    rulesx.append("svg:text")
+		.attr("y", h + 15)
+		.attr("x", 0)
+		.attr("dy", ".71em")
+		.attr("text-anchor", "middle")
+		.attr("dominant-baseline", "middle")
+		.attr("transform", "rotate(-45, 5, " + (h + 25) + ")")
+		.text(function(d) {
+		    return Math.floor(d / 16777216) + '.' +
+			(Math.floor(d / 65536) % 256);
+		});
+
+	    var yaxis = [];
+	    var ystep = Math.max(h / 10);
+	    for(i = 1; i <= h; i += ystep) {
+		yaxis.push(i);
+	    }
+
+	    var rulesy = vis.selectAll("g.ruley")
+		.data(yaxis)
+		.enter().append("svg:g")
+		.attr("class", "rule")
+		.attr("transform", function(d) {
+		    return "translate(0, " + d + ")";
+		});
+
+	    rulesy.append("svg:line")
+		.attr("y1", 0)
+		.attr("y2", 0)
+		.attr("x1", -10)
+		.attr("x2", 0)
+		.attr("stroke", "black");
+
+	    rulesy.append("svg:text")
+		.attr("y", 0)
+		.attr("x", -15)
+		.attr("dy", ".5ex")
+		.attr("text-anchor", "end")
+		.text(function(d) {
+		    return Math.floor(y.invert(d));
+		});
+
+	    var brush = d3.svg.brush()
+		.x(x)
+		.on("brushend", brushended);
+
+	    var gbrush = plane.append("g")
+		.attr("class", "brush")
+		.call(brush)
+		.call(brush.event);
+
+	    gbrush.selectAll("rect")
+		.attr("height", h);
+
+	    function brushended() {
+		if(!d3.event.sourceEvent) return; // only transition after input
+		var extent = brush.extent().map(function(val) {
+		    return Math.floor(val / 16777216) + '.' +
+			Math.floor((val / 65536) % 256) + '.' +
+			Math.floor((val / 256) % 256) + '.' +
+			Math.floor(val % 256);
+		});
+		setparam("range", extent[0] + '-' + extent[1]);
+		d3.select(this).transition()
+		    .call(brush.extent(extent))
+		    .call(brush.event);
+	    }
+
+	    add_download_button(chart, "IPsPorts");
+	}
+    });
+
+    return GraphIpPort;
+})(Graph);
+
+var GraphTimeline = (function(_super) {
+
+    function GraphTimeline(chart, query, modulo) {
+        _super.call(this, chart, query);
+	this.modulo = modulo;
+    };
+
+    $.extend(GraphTimeline.prototype, _super.prototype, {
+	get_url: function() {
+	    var url =  config.cgibase + '?action=timeline&ipsasnumbers=1&q=' +
+		encodeURIComponent(this.query);
+	    if(this.modulo) {
+		url += "&modulo=" + this.modulo;
+	    }
+	    return url;
+	},
+	draw: function(ips) {
+	    var chart = this.chart,
+	    real_w = 500,
+	    real_h = 450,
+	    w = real_w - 100,
+	    h = real_h - 50,
+	    xmin = d3.min(ips, function(i) {return i[0];}),
+	    xmax = d3.max(ips, function(i) {return i[0];}),
+	    ymin = d3.min(ips, function(i) {return i[1];}),
+	    ymax = d3.max(ips, function(i) {return i[1];}),
+	    x = d3.scale.linear()
+		.domain(d3.extent(ips, function(i) {return i[0];}))
+		.range([0, w]),
+	    y = d3.scale.linear()
+		.domain(d3.extent(ips, function(i) {return i[1];}))
+		.range([h, 0]),
+	    colscale = d3.scale.log()
+		.domain(d3.extent(ips, function(i) {return i[2] + 1;}))
+		.range([0, 1]),
+	    date2text;
+	    this.title.html("Timeline");
+	    if(xmax - xmin > 31536000) // 365 days
+		date2text = function(d) {
+		    return (d.getMonth() + 1) + '/' + d.getFullYear();
+		};
+	    else if (xmax - xmin > 2419200) // 28 days
+		date2text = function(d) {
+		    return d.getDate() + '/' + (d.getMonth() + 1);
+		};
+	    else if (xmax - xmin > 86400) // 1 day
+		date2text = function(d) {
+		    return d.getDate() + ' - ' + d.getHours() + 'h';
+		};
+	    else if (xmax - xmin > 3600)
+		date2text = function(d) {
+		    return d.getHours() + ':' + d.getMinutes();
+		};
+	    else
+		date2text = function(d) {return d;};
+
+	    var vis = d3.select(chart.selector)
+		.append("svg:svg")
+		.attr("viewBox", [0, 0, real_w, real_h])
+		.attr("preserveAspectRatio", "xMidYMid meet")
+		.append("svg:g")
+		.attr("transform", "translate(70, 10)");
+
+	    var plane = vis.append("g");
+
+	    plane.selectAll("g.dot")
+		.data(ips)
+		.enter().append("svg:circle")
+		.attr("class", "dot")
+		.attr("r", 1.5)
+		.attr("cx", function(d, i) {return x(ips[i][0]);})
+		.attr("cy", function(d, i) {return y(ips[i][1]);})
+		.attr("fill-opacity", 1)
+		.attr("fill", function(d, i) {
+		    return heatmapColour(colscale(ips[i][2] + 1));
+		});
+
+	    var xaxis = [];
+	    var xstep = Math.max((xmax - xmin) / 6, 1);
+	    for(var i = xmin; i <= (xmax+1); i += xstep) {
+		xaxis.push(i);
+	    }
+
+	    var rulesx = vis.selectAll("g.rulex")
+		.data(xaxis)
+		.enter().append("svg:g")
+		.attr("class", "rule")
+		.attr("transform", function(d) {
+		    return "translate(" + x(d) + ", 0)";
+		});
     
-    var vis = d3.select("#"+chart)
-	.append("svg:svg")
-	.attr("viewBox", [0, 0, real_w, real_h])
-	.attr("preserveAspectRatio", "xMidYMid meet")
-	.append("svg:g")
-	.attr("transform", "translate(70, 10)");
-
-    var plane = vis.append("g");
-
-    plane.selectAll("g.dot")
-	.data(ips)
-	.enter().append("svg:circle")
-	.attr("class", "dot")
-	.attr("r", 1.5)
-	.attr("cx", function(d, i) {return x(ips[i][0]);})
-	.attr("cy", function(d, i) {return y(ips[i][1]);})
-	.attr("fill-opacity", 1)
-	.attr("fill", function(d, i) {
-	    return heatmapColour(colscale(ips[i][2] + 1));
-	});
-
-    var xaxis = [];
-    var xstep = Math.max((xmax - xmin) / 6, 1);
-    for(var i = xmin; i <= (xmax+1); i += xstep) {
-	xaxis.push(i);
-    }
-
-    var rulesx = vis.selectAll("g.rulex")
-	.data(xaxis)
-	.enter().append("svg:g")
-	.attr("class", "rule")
-	.attr("transform", function(d) {
-	    return "translate(" + x(d) + ", 0)";
-	});
+	    rulesx.append("svg:line")
+		.attr("y1", h)
+		.attr("y2", h + 10)
+		.attr("x1", 0)
+		.attr("x2", 0)
+		.attr("stroke", "black");
     
-    rulesx.append("svg:line")
-	.attr("y1", h)
-	.attr("y2", h + 10)
-	.attr("x1", 0)
-	.attr("x2", 0)
-	.attr("stroke", "black");
+	    rulesx.append("svg:text")
+		.attr("y", h + 15)
+		.attr("x", 0)
+		.attr("dy", ".71em")
+		.attr("text-anchor", "middle")
+		.attr("dominant-baseline", "middle")
+		//.attr("transform", "rotate(45, 0, " + (h + 15) + ")")
+		.text(function(d) {d = new Date(d*1000); return date2text(d);});
+
+	    var yaxis = [];
+	    var ystep = Math.max((ymax - ymin) / 20 / 16777216, 1) * 16777216;
+	    for(i = ymin; i <= (ymax+1); i += ystep) {
+		yaxis.push(i);
+	    }
+
+	    var rulesy = vis.selectAll("g.ruley")
+		.data(yaxis)
+		.enter().append("svg:g")
+		.attr("class", "rule")
+		.attr("transform", function(d) {
+		    return "translate(0, " + y(d) + ")";
+		});
     
-    rulesx.append("svg:text")
-	.attr("y", h + 15)
-	.attr("x", 0)
-	.attr("dy", ".71em")
-	.attr("text-anchor", "middle")
-	.attr("dominant-baseline", "middle")
-	//.attr("transform", "rotate(45, 0, " + (h + 15) + ")")
-	.text(function(d) {d = new Date(d*1000); return date2text(d);});
+	    rulesy.append("svg:line")
+		.attr("y1", 0)
+		.attr("y2", 0)
+		.attr("x1", -10)
+		.attr("x2", 0)
+		.attr("stroke", "black");
 
-    var yaxis = [];
-    var ystep = Math.max((ymax - ymin) / 20 / 16777216, 1) * 16777216;
-    for(i = ymin; i <= (ymax+1); i += ystep) {
-	yaxis.push(i);
-    }
+	    rulesy.append("svg:text")
+		.attr("y", 0)
+		.attr("x", -15)
+		.attr("dy", ".5ex")
+		.attr("text-anchor", "end")
+		.text(function(d) {
+		    return Math.floor(d / 16777216) + '.' +
+			(Math.floor(d / 65536) % 256);
+		});
 
-    var rulesy = vis.selectAll("g.ruley")
-	.data(yaxis)
-	.enter().append("svg:g")
-	.attr("class", "rule")
-	.attr("transform", function(d) {
-	    return "translate(0, " + y(d) + ")";
-	});
-    
-    rulesy.append("svg:line")
-	.attr("y1", 0)
-	.attr("y2", 0)
-	.attr("x1", -10)
-	.attr("x2", 0)
-	.attr("stroke", "black");
-    
-    rulesy.append("svg:text")
-	.attr("y", 0)
-	.attr("x", -15)
-	.attr("dy", ".5ex")
-	.attr("text-anchor", "end")
-	.text(function(d) {
-	    return Math.floor(d / 16777216) + '.' +
-		(Math.floor(d / 65536) % 256);
-	});
+	    if(this.modulo === undefined) {
+		var brush = d3.svg.brush()
+		    .x(x)
+		    .on("brushend", brushended);
 
-    var brush = d3.svg.brush()
-	.x(x)
-	.on("brushend", brushended);
+		var gbrush = plane.append("g")
+		    .attr("class", "brush")
+		    .call(brush)
+		    .call(brush.event);
 
-    var gbrush = plane.append("g")
-	.attr("class", "brush")
-	.call(brush)
-	.call(brush.event);
+		gbrush.selectAll("rect")
+		    .attr("height", h);
 
-    gbrush.selectAll("rect")
-	.attr("height", h);
-    
-    function brushended() {
-	if (!d3.event.sourceEvent) return; // only transition after input
-	var extent = brush.extent();
-	setparam("timerange", extent[0] + '-' + extent[1]);
-	d3.select(this).transition()
-	    .call(brush.extent(extent))
-	    .call(brush.event);
-    }
+		function brushended() {
+		    if (!d3.event.sourceEvent) return; // only transition after input
+		    var extent = brush.extent();
+		    setparam("timerange", extent[0] + '-' + extent[1]);
+		    d3.select(this).transition()
+			.call(brush.extent(extent))
+			.call(brush.event);
+		}
+	    }
 
-    add_download_button(document.getElementById(chart), "Timeline");
-}
+	    add_download_button(chart, "Timeline");
+	}
+    });
 
-function build_chart_ports(chart, ips) {
-    var real_w = 500,
-    real_h = 450,
-    w = real_w - 100,
-    h = real_h - 60,
-    xmin = d3.min(ips, function(i) {return i[0];}),
-    xmax = d3.max(ips, function(i) {return i[0];}),
-    x = d3.scale.linear()
-	.domain(d3.extent(ips, function(i) {return i[0];}))
-	.range([0, w]),
-    y = d3.scale.log()
-	.domain([1, 65535])
-	.range([h, 0]),
-    colors = {"open": "green", "closed": "red", "filtered": "orange"},
-    ips_ports = ips.map(function(x) {
-	return x[1].map(function(t) {
-	    return [x[0], t[0], t[1]];
-	});
-    }).reduce(function(x, y) {
-	return x.concat(y);
-    }, []);
-
-    document.getElementById("chartstitle").innerHTML = "Ports status";
-
-    var vis = d3.select("#"+chart)
-	.append("svg:svg")
-	.attr("viewBox", [0, 0, real_w, real_h])
-	.attr("preserveAspectRatio", "xMidYMid meet")
-	.append("svg:g")
-	.attr("transform", "translate(70, 10)");
-
-    var plane = vis.append("g");
-
-    plane.selectAll("g.dot")
-	.data(ips_ports)
-	.enter().append("svg:circle")
-	.attr("class", "dot")
-	.attr("r", 1.5)
-	.attr("cx", function(d) {return x(d[0]);})
-	.attr("cy", function(d) {return y(d[1]);})
-	.attr("fill-opacity", 1)
-	.attr("fill", function(d) {return colors[d[2]];});
-
-    var xaxis = [];
-    var xstep = Math.max((xmax - xmin) / 10 / 16777216, 1) * 16777216;
-    for(var i = xmin; i <= (xmax+1); i += xstep) {
-	xaxis.push(i);
-    }
-
-    var rulesx = vis.selectAll("g.rulex")
-	.data(xaxis)
-	.enter().append("svg:g")
-	.attr("class", "rule")
-	.attr("transform", function(d) {
-	    return "translate(" + x(d) + ", 0)";
-	});
-
-    rulesx.append("svg:line")
-	.attr("y1", h)
-	.attr("y2", h + 10)
-	.attr("x1", 0)
-	.attr("x2", 0)
-	.attr("stroke", "black");
-
-    rulesx.append("svg:text")
-	.attr("y", h + 15)
-	.attr("x", 0)
-	.attr("dy", ".71em")
-	.attr("text-anchor", "middle")
-	.attr("dominant-baseline", "middle")
-	.attr("transform", "rotate(-45, 5, " + (h + 25) + ")")
-	.text(function(d) {
-	    return Math.floor(d / 16777216) + '.' +
-		(Math.floor(d / 65536) % 256);
-	});
-
-    var yaxis = [];
-    var ystep = Math.max(h / 10);
-    for(i = 1; i <= h; i += ystep) {
-	yaxis.push(i);
-    }
-
-    var rulesy = vis.selectAll("g.ruley")
-	.data(yaxis)
-	.enter().append("svg:g")
-	.attr("class", "rule")
-	.attr("transform", function(d) {
-	    return "translate(0, " + d + ")";
-	});
-
-    rulesy.append("svg:line")
-	.attr("y1", 0)
-	.attr("y2", 0)
-	.attr("x1", -10)
-	.attr("x2", 0)
-	.attr("stroke", "black");
-
-    rulesy.append("svg:text")
-	.attr("y", 0)
-	.attr("x", -15)
-	.attr("dy", ".5ex")
-	.attr("text-anchor", "end")
-	.text(function(d) {
-	    return Math.floor(y.invert(d));
-	});
-
-    var brush = d3.svg.brush()
-	.x(x)
-	.on("brushend", brushended);
-
-    var gbrush = plane.append("g")
-	.attr("class", "brush")
-	.call(brush)
-	.call(brush.event);
-
-    gbrush.selectAll("rect")
-	.attr("height", h);
-
-    function brushended() {
-	if(!d3.event.sourceEvent) return; // only transition after input
-	var extent = brush.extent().map(function(val) {
-	    return Math.floor(val / 16777216) + '.' +
-		Math.floor((val / 65536) % 256) + '.' +
-		Math.floor((val / 256) % 256) + '.' +
-		Math.floor(val % 256);
-	});
-	setparam("range", extent[0] + '-' + extent[1]);
-	d3.select(this).transition()
-	    .call(brush.extent(extent))
-	    .call(brush.event);
-    }
-
-    add_download_button(document.getElementById(chart), "IPsPorts");
-}
+    return GraphTimeline;
+})(Graph)
