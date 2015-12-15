@@ -316,8 +316,8 @@ ivreWebUi
 		.map(function(x) {return x[1];});
 	    return wanted.indexOf(value) != -1;
 	};
-	$scope.wanted_port = function(protocol, port) {
-	    var wanted = getparamvalues("open", true)
+	$scope.wanted_port = function(status, protocol, port) {
+	    var wanted = getparamvalues(status, true)
 		.filter(function(x) {return x[0];})
 		.map(function(x) {return x[1];});
 	    return wanted.indexOf(protocol + '/' + port) != -1;

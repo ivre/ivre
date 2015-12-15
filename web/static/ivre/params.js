@@ -290,10 +290,19 @@ function add_param_objects(p, pp) {
     else if (parseInt(p) == p) {
 	add_param_object(FILTER.parametersobjunalias, 'open', [b, "tcp/" + p]);
     }
-    else if (p.substr(0, 5) === "open:"
-	     && parseInt(p.substr(5)) == p.substr(5)) {
-	add_param_object(FILTER.parametersobjunalias, 'open',
-			 [b, "tcp/" + p.substr(5)]);
+    else if (p.substr(0, 5) === "open:" || p.substr(0, 9) === "filtered:" ||
+	     p.substr(0, 7) === "closed:") {
+	var ports = p.split(":", 2)[1].split(","), status = p.split(":", 1);
+	for(var i in ports) {
+	    var port = ports[i].split("/", 2);
+	    if(port.length === 1)
+		add_param_object(FILTER.parametersobjunalias, 'open',
+				 [b, "tcp/" + port[0]]);
+	    else
+		add_param_object(FILTER.parametersobjunalias, 'open',
+				 [b, port[0] + "/" + port[1]]);
+
+	}
     }
     else switch (p) {
     case 'nfs':
