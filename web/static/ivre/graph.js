@@ -23,10 +23,11 @@ function hidecharts() {
 }
 
 var Graph = (function() {
-    function Graph(chart) {
+    function Graph(chart, query) {
 	this.container = chart
 	this.title = $('[name="charttitle"]', chart);
 	this.chart = $('[name="chartcontent"]', chart);
+	this.query = query;
     }
 
     $.extend(Graph.prototype, {
@@ -52,10 +53,8 @@ var Graph = (function() {
 
 var GraphTopValues = (function(_super) {
 
-    /* constructor */
     function GraphTopValues(chart, query, field) {
-        _super.call(this, chart);
-	this.query = query;
+        _super.call(this, chart, query);
 	this.field = field;
     };
 
@@ -413,25 +412,158 @@ var GraphTopValues = (function(_super) {
 	    //     .attr("text-anchor", "middle")
 	    //     .text(x.tickFormat(10));
 
-	    add_download_button(chart[0], "TopValues");
+	    add_download_button(chart, "TopValues");
 	}
     });
 
   return GraphTopValues;
 })(Graph);
 
-function build_ip_map(query, fullworld) {
-    hideall();
-    var c1 = document.getElementById('chart1');
-    c1.innerHTML = "";
-    var s = document.getElementById('chart1script');
-    if(s) c1.parentNode.removeChild(s);
-    document.getElementById('charts').style.display = 'inline';
-    s = document.createElement('script');
-    s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_map('chart1', ips, " + fullworld + ");})")+ '&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(query);
-    c1.parentNode.appendChild(s);
-}
+var GraphMap = (function(_super) {
+
+    function GraphMap(chart, query, fullworld) {
+        _super.call(this, chart, query);
+	this.fullworld = fullworld;
+    };
+
+    $.extend(GraphMap.prototype, _super.prototype, {
+	get_url: function() {
+	    return config.cgibase + '?action=coordinates&ipsasnumbers=1&q=' +
+		encodeURIComponent(this.query);
+	},
+	draw: function(locs) {
+	    var chart = this.chart,
+	    fullworld = this.fullworld,
+	    w = 500,
+	    h = 250;
+
+	    this.title.html("Map");
+	    var vis = d3.select(chart.selector).append("svg")
+		.attr("viewBox", [0, 0, w, h])
+		.attr("preserveAspectRatio", "xMidYMid meet");
+
+	    d3.json("world-110m.json", function(error, world) {
+		var projection =  d3.geo.mercator()
+		    .scale(80)
+		    .translate([w / 2, h / 2]);
+		if(fullworld !== true) {
+		    var bounds = [
+			d3.extent(locs.geometries,
+				  function(x) {return x.coordinates[0];}),
+			d3.extent(locs.geometries,
+				  function(x) {return x.coordinates[1];}),
+		    ];
+		    projection
+			.center([d3.mean(bounds[0]), d3.mean(bounds[1])]);
+		    var p1 = projection([bounds[0][0], bounds[1][0]]);
+		    var p2 = projection([bounds[0][1], bounds[1][1]]);
+		    projection
+			.scale(70 * d3.min([w / Math.abs(p2[0] - p1[0]),
+					    h / Math.abs(p2[1] - p1[1])]));
+		}
+		else {
+		    projection.scale(w/7)
+		}
+
+		var path = d3.geo.path()
+		    .projection(projection);
+		world = topojson.feature(world, world.objects.world110m);
+		var locations = topojson.feature(locs, locs);
+		var maxsize = 10, minsize = 1.2;
+		var radiusscale = d3.scale.linear()
+		    .domain(d3.extent(locations.features, function(i) {
+			return i.properties.count;
+		    }))
+		    .range([minsize, maxsize]);
+
+		var dotgradient = vis.append("svg:defs")
+		    .append("svg:radialGradient")
+		    .attr("id", "dotgradient");
+		dotgradient.append("svg:stop")
+		    .attr("offset", "0%")
+		    .attr("stop-color", "red")
+		    .attr("stop-opacity", 1);
+		dotgradient.append("svg:stop")
+		    .attr("offset", "30%")
+		    .attr("stop-color", "red")
+		    .attr("stop-opacity", 1/2);
+		dotgradient.append("svg:stop")
+		    .attr("offset", "100%")
+		    .attr("stop-color", "red")
+		    .attr("stop-opacity", 1/3);
+
+		vis.selectAll("country")
+		    .data(world.features)
+		    .enter().append("path")
+		    .attr("title", function(d) {
+			return d.properties.name + " (" + d.id + ")";
+		    })
+		    .attr("class", "clickable")
+		    .attr("onclick", function(d) {
+			return 'setparam("country", "' + d.id + '", true);';
+		    })
+		    .attr("d", path)
+		    .attr("fill", "lightgrey");
+		vis.selectAll("dot")
+		    .data(locations.features)
+		    .enter().append("svg:circle")
+		    .attr("class", "dot")
+		    .attr("r", function(d) {
+			return radiusscale(d.properties.count);
+		    })
+		    .attr("cx", function(d) {
+			return projection(d.geometry.coordinates)[0];
+		    })
+		    .attr("cy", function(d) {
+			return projection(d.geometry.coordinates)[1];
+		    })
+		    .attr("fill", "url(#dotgradient)");
+		// The next lines enable "boundary dots" (debug)
+		// vis.selectAll("dotbound")
+		//     .data([[bounds[0][0], bounds[1][0]],
+		// 	   [bounds[0][0], bounds[1][1]],
+		// 	   [d3.mean(bounds[0]), d3.mean(bounds[1])],
+		// 	   [bounds[0][1], bounds[1][0]],
+		// 	   [bounds[0][1], bounds[1][1]]])
+		//     .enter().append("svg:circle")
+		//     .attr("class", "dot")
+		//     .attr("r", 4)
+		//     .attr("cx", function(d, i) {
+		// 	return projection(d)[0];
+		//     })
+		//     .attr("cy", function(d, i) {
+		// 	return projection(d)[1];
+		//     })
+		//     .attr("fill", "steelblue");
+	    });
+
+	    add_download_button(chart, "Map");
+
+	    var b;
+	    if(fullworld === true) {
+		b = document.createElement('button');
+		b.onclick = function() {
+		    new GraphMap($("#chart"), this.query)
+			.build();
+		};
+		b.innerHTML = '<i class="glyphicon glyphicon-zoom-in"></i>';
+		b.setAttribute("title", "Adjust zoom");
+	    }
+	    else {
+		b = document.createElement('button');
+		b.onclick = function() {
+		    new GraphMap($("#chart"), this.query, true)
+			.build();
+		};
+		b.innerHTML = '<i class="glyphicon glyphicon-zoom-out"></i>';
+		b.setAttribute("title", "Zoom out");
+	    }
+	    chart.append(b);
+	}
+    });
+
+  return GraphMap;
+})(Graph);
 
 function build_ip_plane(query) {
     hideall();
@@ -474,7 +606,7 @@ function build_ip_timeline(query, modulo) {
     c1.parentNode.appendChild(s);
 }
 
-function add_download_button(div, title) {
+function add_download_button(selector, title) {
     var a = document.createElement('a');
     a.onclick = function() {
 	var blob = new Blob(
@@ -489,7 +621,7 @@ function add_download_button(div, title) {
     a.href = "#";
     a.innerHTML = '<button><i class="glyphicon glyphicon-download-alt download"></i></button>';
     a.setAttribute("title", "Download");
-    div.appendChild(a);
+    selector.append(a);
 }
 
 // global graph stuff
@@ -660,137 +792,6 @@ function build_chart_plane(chart, ips) {
     }
 
     add_download_button(document.getElementById(chart), "AddressSpace");
-}
-
-function build_chart_map(chart, locs, fullworld) {
-    var w = 500,
-    h = 250;
-
-    document.getElementById("chartstitle").innerHTML = "Map";
-    var vis = d3.select("#"+chart).append("svg")
-	.attr("viewBox", [0, 0, w, h])
-	.attr("preserveAspectRatio", "xMidYMid meet");
-
-    d3.json("world-110m.json", function(error, world) {
-	var projection =  d3.geo.mercator()
-	    .scale(80)
-	    .translate([w / 2, h / 2]);
-
-	if(fullworld !== true) {
-	    var bounds = [
-		d3.extent(locs.geometries,
-			  function(x) {return x.coordinates[0];}),
-		d3.extent(locs.geometries,
-			  function(x) {return x.coordinates[1];}),
-	    ];
-
-	    projection
-		.center([d3.mean(bounds[0]), d3.mean(bounds[1])]);
-
-	    var p1 = projection([bounds[0][0], bounds[1][0]]);
-	    var p2 = projection([bounds[0][1], bounds[1][1]]);
-
-	    projection
-		.scale(70 * d3.min([w / Math.abs(p2[0] - p1[0]),
-				    h / Math.abs(p2[1] - p1[1])]));
-	}
-	else {
-	    projection.scale(w/7)
-	}
-
-	var path = d3.geo.path()
-	    .projection(projection);
-	world = topojson.feature(world, world.objects.world110m);
-	var locations = topojson.feature(locs, locs);
-	var maxsize = 10, minsize = 1.2;
-	var radiusscale = d3.scale.linear()
-	    .domain(d3.extent(locations.features, function(i) {
-		return i.properties.count;
-	    }))
-	    .range([minsize, maxsize]);
-
-	var dotgradient = vis.append("svg:defs")
-	    .append("svg:radialGradient")
-	    .attr("id", "dotgradient");
-	dotgradient.append("svg:stop")
-	    .attr("offset", "0%")
-	    .attr("stop-color", "red")
-	    .attr("stop-opacity", 1);
-	dotgradient.append("svg:stop")
-	    .attr("offset", "30%")
-	    .attr("stop-color", "red")
-	    .attr("stop-opacity", 1/2);
-	dotgradient.append("svg:stop")
-	    .attr("offset", "100%")
-	    .attr("stop-color", "red")
-	    .attr("stop-opacity", 1/3);
-
-	vis.selectAll("country")
-	    .data(world.features)
-	    .enter().append("path")
-	    .attr("title", function(d) {
-		return d.properties.name + " (" + d.id + ")";
-	    })
-	    .attr("class", "clickable")
-	    .attr("onclick", function(d) {
-		return 'setparam("country", "' + d.id + '", true);';
-	    })
-	    .attr("d", path)
-	    .attr("fill", "lightgrey");
-	vis.selectAll("dot")
-	    .data(locations.features)
-	    .enter().append("svg:circle")
-	    .attr("class", "dot")
-	    .attr("r", function(d) {
-		return radiusscale(d.properties.count);
-	    })
-	    .attr("cx", function(d) {
-		return projection(d.geometry.coordinates)[0];
-	    })
-	    .attr("cy", function(d) {
-		return projection(d.geometry.coordinates)[1];
-	    })
-	    .attr("fill", "url(#dotgradient)");
-	// The next lines enable "boundary dots" (debug)
-	// vis.selectAll("dotbound")
-	//     .data([[bounds[0][0], bounds[1][0]],
-	// 	   [bounds[0][0], bounds[1][1]],
-	// 	   [d3.mean(bounds[0]), d3.mean(bounds[1])],
-	// 	   [bounds[0][1], bounds[1][0]],
-	// 	   [bounds[0][1], bounds[1][1]]])
-	//     .enter().append("svg:circle")
-	//     .attr("class", "dot")
-	//     .attr("r", 4)
-	//     .attr("cx", function(d, i) {
-	// 	return projection(d)[0];
-	//     })
-	//     .attr("cy", function(d, i) {
-	// 	return projection(d)[1];
-	//     })
-	//     .attr("fill", "steelblue");
-
-    });
-
-    add_download_button(document.getElementById(chart), "Map");
-
-    var b;
-    if(fullworld === true) {
-	b = document.createElement('button');
-	b.onclick = function() {
-	    build_ip_map();
-	};
-	b.innerHTML = '<i class="glyphicon glyphicon-zoom-in"></i>';
-	b.setAttribute("title", "Adjust zoom");
-    }
-    else {
-	b = document.createElement('button');
-	b.onclick = function() {
-	    build_ip_map(true);
-	};
-	b.innerHTML = '<i class="glyphicon glyphicon-zoom-out"></i>';
-	b.setAttribute("title", "Zoom out");
-    }
-    document.getElementById(chart).appendChild(b);
 }
 
 function build_chart_timeline(chart, ips) {

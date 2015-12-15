@@ -89,7 +89,8 @@ ivreWebUi
 	    }
 	};
 	$scope.build_ip_map = function() {
-	    return build_ip_map($scope.shared.filter.query);
+	    new GraphMap($("#chart"), $scope.shared.filter.query)
+		.build();
 	};
 	$scope.build_ip_timeline = function(modulo) {
 	    var totalnbrres = $scope.totalnbrres;
