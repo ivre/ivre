@@ -413,13 +413,11 @@ def warn_exception(exc, **kargs):
     the full stacktrace.
 
     """
-    return "WARNING: %s [%r]%s\n%s" % (
-        exc.message, exc,
-        "[%s]" % ", ".join("%s=%s" % (key, value)
-                           for key, value in kargs.iteritems())
+    return "WARNING: %s [%r]%s\n%s" % (exc, exc,
+        " [%s]" % ", ".join("%s=%s" % (key, value)
+                            for key, value in kargs.iteritems())
         if kargs else "",
-        "".join("\t%s\n" % line for line in
-                traceback.format_exc().splitlines())
+        "\t%s\n" % "\n\t".join(traceback.format_exc().splitlines())
         if config.DEBUG else "",
     )
 
