@@ -19,25 +19,406 @@
 /************* Graphing utilities **************/
 
 function hidecharts() {
-    document.getElementById('charts').style.display = "none";
+    $("#chart").css("display", "none");
 }
 
-function build_top_chart(query, field) {
-    hideall();
-    var c1 = document.getElementById('chart1');
-    c1.innerHTML = "";
-    var s = document.getElementById('chart1script');
-    if(s) c1.parentNode.removeChild(s);
-    document.getElementById('charts').style.display = 'inline';
-    s = document.createElement('script');
-    s.id = 'chart1script';
-    s.src = config.cgibase + '?callback=' +
-	encodeURIComponent("(function(data){build_chart('chart1', '" +
-			   field + "', data);})") +
-	'&action=topvalues:' + encodeURIComponent(field) + ':15&q=' +
-	encodeURIComponent(query);
-    c1.parentNode.appendChild(s);
-}
+var Graph = (function() {
+    function Graph(chart) {
+	this.container = chart
+	this.title = $('[name="charttitle"]', chart);
+	this.chart = $('[name="chartcontent"]', chart);
+    }
+
+    $.extend(Graph.prototype, {
+	build: function() {
+	    var graphobject = this;
+	    hideall();
+	    this.chart.empty();
+	    this.container.css("display", "inline")
+	    $.ajax({
+		url: this.get_url(),
+		jsonp: "callback",
+		dataType: "jsonp",
+		success: function(data) {
+		    graphobject.draw.call(graphobject, data);
+		}
+	    });
+	    return true;
+	}
+    });
+
+    return Graph;
+})()
+
+var GraphTopValues = (function(_super) {
+
+    /* constructor */
+    function GraphTopValues(chart, query, field) {
+        _super.call(this, chart);
+	this.query = query;
+	this.field = field;
+    };
+
+    $.extend(GraphTopValues.prototype, _super.prototype, {
+	get_url: function() {
+	    return config.cgibase + '?action=topvalues:' +
+		encodeURIComponent(this.field) + ':15&q=' +
+		encodeURIComponent(this.query);
+	},
+	draw: function(dataset) {
+	    var field = this.field,
+	    chart = this.chart,
+	    charttitle = this.title,
+	    size = this.size || 5,
+	    colors = this.colors || [ "steelblue", "lightblue" ],
+	    w = 100 * size,
+	    h = 30 * dataset.length,
+	    //labelpad = 60,
+	    labelpad = 10 + d3.max(dataset, function(t) {
+		var v = d3.select(chart.selector)
+		    .append('svg:svg')
+		    .append('svg:text')
+		    .text(t.value)[0][0]
+		    .getComputedTextLength();
+		d3.select(chart.selector)[0][0].innerHTML = '';
+		return v;}),
+	    data = dataset.map(function(t) {return t.value;}),
+	    labels = dataset.map(function(t) {return t.label;}),
+	    x = d3.scale.linear()
+		.domain([0, d3.max(data)])
+		.range([0, w - labelpad]),
+	    y = d3.scale.ordinal()
+		.domain(d3.range(data.length))
+	.rangeBands([0, h], 0.2),
+	    color = colors,
+	    prepareoutput = function(x) {return x;},
+	    preparefilter = undefined,
+	    preparetitle = undefined,
+	    neg;
+	    if(field.substr(0,1) === "-") {
+		field = field.substr(1);
+		neg = true;
+	    }
+	    else
+		neg = false;
+	    if(field.substr(0, 9) === 'portlist:') {
+		prepareoutput = function(x) {
+		    return (x.length === 0) ? "None" : x.join(' / ');
+		};
+		if(field.substr(9) === 'open')
+		    preparefilter = function(x) {
+			if(x.length === 0)
+			    return 'setparam("countports", "0", true);';
+			else
+			    return 'setparam("open", "' + x + '", true, true); setparam("countports", "' + x.length + '", true);';
+		    };
+	    }
+	    else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
+		prepareoutput = function(x) {
+		    var attributes = {
+			'commonName': 'cn',
+			'countryName': 'c',
+			'organizationName': 'o',
+			'organizationalUnitName': 'ou',
+			'emailAddress': 'email',
+			'localityName': 'locality',
+			'stateOrProvinceName': 'state',
+		    };
+		    var result = [];
+		    for(var k in x) {
+			if(k in attributes)
+			    result.push(attributes[k] + '=' + x[k]);
+			else
+			    result.push(k + '=' + x[k]);
+		    }
+		    return result.join('/');
+		};
+	    else if(field === 'asnum') {
+		preparefilter = function(x) {
+		    return 'setparam("asnum", "' + x + '", true);';
+		};
+	    }
+	    else if(field.substr(0, 4) === 'smb.') {
+		preparefilter = function(x) {
+		    return 'setparam("' + field + '", "' +
+			x.replace(/\\x/g, '\\\\\\\\x') + '", true);';
+		};
+	    }
+	    else if(field === 'sshkey.bits') {
+		prepareoutput = function(x) {
+		    return x.join(' / ');
+		};
+		preparefilter = function(x) {
+		    return 'setparam("sshkey.type", "' + x[0] + '", false, true); setparam("sshkey.bits", "' + x[1] + '");';
+		};
+	    }
+	    else if(field.substr(0, 7) === 'sshkey.') {
+		preparefilter = function(x) {
+		    return 'setparam("' + field + '", "' + x + '");';
+		};
+	    }
+	    else if(field === 'devicetype') {
+		preparefilter = function(x) {
+		    return 'setparam("devtype", "' + x + '", true);';
+		};
+	    }
+	    else if(field === 'as') {
+		prepareoutput = function(x) {
+		    return x[1];
+		};
+		preparetitle = function(x) {
+		    return x[0];
+		};
+		preparefilter = function(x) {
+		    return 'setparam("asnum", "' + x[0] + '", true);';
+		};
+	    }
+	    else if(field === 'country') {
+		prepareoutput = function(x) {
+		    return x[1];
+		};
+		preparetitle = function(x) {
+		    return x[0];
+		};
+		preparefilter = function(x) {
+		    return 'setparam("country", "' + x[0] + '", true);';
+		};
+	    }
+	    else if(field === 'city') {
+		prepareoutput = function(x) {
+		    return x.join(' / ');
+		};
+		preparefilter = function(x) {
+		    return 'setparam("country", "' + x[0] + '", true, true); setparam("city", "' + x[1] + '");';
+		};
+	    }
+	    else if(field === 'category') {
+		preparefilter = function(x) {
+		    return 'setparam("category", "' + x + '");';
+		};
+	    }
+	    else if(field === 'label' || field.substr(0, 6) === 'label:') {
+		preparefilter = function(x) {
+		    return 'setparam("label", "' + x[0] + ':' + x[1] + '");';
+		};
+		prepareoutput = function(x) {
+		    return x.join(' / ');
+		};
+	    }
+	    else if(field === 'source') {
+		preparefilter = function(x) {
+		    return 'setparam("source", "' + x + '", true);';
+		};
+	    }
+	    else if(field === 'script') {
+		preparefilter = function(x) {
+		    return 'setparam("script", "' + x + '");';
+		};
+	    }
+	    else if(field.substr(0, 5) === 'port:') {
+		var info = field.substr(5);
+		switch(info) {
+		case "open":
+		case "filtered":
+		case "closed":
+		    preparefilter = function(x) {
+			return 'setparam("' + info + '", "' + x + '");';
+		    };
+		    break;
+		default:
+		    preparefilter = function(x) {
+			return 'setparam("service", "' + info + ':' + x + '");';
+		    };
+		    break;
+		}
+	    }
+	    else if(field === 'countports:open') {
+		preparefilter = function(x) {
+		    return 'setparam("countports", "' + x + '");';
+		};
+	    }
+	    else if(field === 'service') {
+		preparefilter = function(x) {
+		    return 'setparam("service", "' + x + '");';
+		};
+	    }
+	    else if(field.substr(0, 8) === 'service:') {
+		preparefilter = function(x) {
+		    return 'setparam("service", "' + x + ':' + field.substr(8) + '");';
+		};
+	    }
+	    else if(field.substr(0, 7) === 'product') {
+		prepareoutput = function(x) {
+		    return x[1];
+		};
+		preparetitle = function(x) {
+		    return x[0];
+		};
+		if(field[7] === ':') {
+		    preparefilter = function(x) {
+			return 'setparam("product", "' + x[0] + ':' + x[1] + field.substr(7) + '");';
+		    };
+		}
+		else {
+		    preparefilter = function(x) {
+			return 'setparam("product", "' + x[0] + ':' + x[1] + '");';
+		    };
+		}
+	    }
+	    else if(field.substr(0, 7) === 'version') {
+		prepareoutput = function(x) {
+		    return x[1] + " " + x[2];
+		};
+		preparetitle = function(x) {
+		    return x[0];
+		};
+		if(field[7] === ':') {
+		    preparefilter = function(x) {
+			return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + field.substr(7) + '");';
+		    };
+		}
+		else {
+		    preparefilter = function(x) {
+			return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + '");';
+		    };
+		}
+	    }
+	    else if(field.substr(0, 3) === 'cpe') {
+		prepareoutput = function(x) {
+		    return x.join(":");
+		};
+		preparefilter = function(x) {
+		    return 'setparam("cpe", "' + x.join(":") + '")';
+		};
+	    }
+	    else if(field === 'screenwords') {
+		preparefilter = function(x) {
+		    return 'setparam("screenwords", "' + x + '")';
+		};
+	    }
+	    else if(field.substr(0, 3) === 'hop') {
+		if(field[3] === ':')
+		    preparefilter = function(x) {
+			return 'setparam("hop", "' + x + '", ' + field.substr(4) + ');';
+		    };
+		else
+		    preparefilter = function(x) {
+			return 'setparam("hop", "' + x + '");';
+		    };
+	    }
+	    else if(field.substr(0, 7) === 'domains' && (field[7] === undefined ||
+							 field[7] === ':')) {
+		preparefilter = function(x) {
+		    return 'setparam("domain", "' + x + '");';
+		};
+	    }
+
+	    charttitle.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
+
+	    var vis = d3.select(chart.selector)
+		.append("svg:svg")
+		.attr("viewBox", [0, 0, w + 20, h + 20])
+		.attr("preserveAspectRatio", "xMidYMid meet")
+		.append("svg:g");
+
+	    var bars = vis.selectAll("g.bar")
+		.data(data)
+		.enter().append("svg:g")
+		.attr("class", "bar")
+		.attr("transform", function(d, i) {
+		    return "translate(" + labelpad + "," + y(i) + ")";
+		});
+
+	    colorBg = chart.getBg();
+	    colorFg = getComputedStyle(chart[0]).color;
+
+	    var bar = bars.append("svg:rect")
+	    //.attr("fill", "steelblue")
+		.attr("fill", function(d, i) { return color[i % color.length]; })
+	    //.attr("width", x)
+		.attr("width", 0)
+		.attr("height", y.rangeBand())
+		.attr("class", preparefilter === undefined ? "" : "clickable")
+		.attr("title", function(d, i) {
+		    if (preparetitle !== undefined)
+			return preparetitle(labels[i]);
+		})
+		.attr("onclick", function(d, i) {
+		    return (preparefilter === undefined ?
+			    undefined :
+			    preparefilter(labels[i]));
+		});
+
+	    bar.transition()
+		.attr("width", x);
+
+	    bars.append("svg:text")
+		.attr("x", -6)
+		.attr("y", y.rangeBand() / 2)
+		.attr("dy", ".35em")
+		.attr("text-anchor", "end")
+		.text(function(d) {return d;})
+		.attr("fill", colorFg);
+
+	    bars.append("svg:text")
+		.attr("x", function(d, i) {
+		    return x(d, i) + (x(d, i) < (w - 10) / 2 ? 10 : -10);
+		})
+		.attr("fill", function(d, i) {
+		    return x(d, i) < (w - 10) / 2 ? colorFg : colorBg;
+		})
+		.attr("font-weight", "bold")
+		.attr("y", y.rangeBand() / 2)
+		.attr("dy", ".35em")
+		.attr("text-anchor", function(d, i) {
+		    return x(d, i) < (w - 10) / 2 ? "start" : "end" ;
+		})
+		.text(function(d, i) {return prepareoutput(labels[i]);})
+		.attr("title", function(d, i) {
+		    if (preparetitle !== undefined)
+			return preparetitle(labels[i]);
+		})
+		.attr("class", preparefilter === undefined ? "" : "clickable")
+		.attr("onclick", function(d, i) {
+		    return (preparefilter === undefined ?
+			    undefined :
+			    preparefilter(labels[i]));
+		});
+
+	    // var rules = vis.selectAll("g.rule")
+	    //     .data(x.ticks(10))
+	    //     .enter().append("svg:g")
+	    //     .attr("class", "rule")
+	    //     .attr("transform", function(d) { return "translate(" + x(d) + ", 0)"; });
+
+	    // rules.append("svg:line")
+	    //     .attr("y1", h)
+	    //     .attr("y2", h + 6)
+	    //     .attr("x1", labelpad)
+	    //     .attr("x2", labelpad)
+	    //     .attr("stroke", "black");
+
+	    // rules.append("svg:line")
+	    //     .attr("y1", 0)
+	    //     .attr("y2", h)
+	    //     .attr("x1", labelpad)
+	    //     .attr("x2", labelpad)
+	    //     .attr("stroke", "white")
+	    //     .attr("stroke-opacity", .3);
+
+	    // rules.append("svg:text")
+	    //     .attr("y", h + 10)
+	    //     //.attr("x", labelpad-10)
+	    //     .attr("dy", ".71em")
+	    //     .attr("text-anchor", "middle")
+	    //     .text(x.tickFormat(10));
+
+	    add_download_button(chart[0], "TopValues");
+	}
+    });
+
+  return GraphTopValues;
+})(Graph);
 
 function build_ip_map(query, fullworld) {
     hideall();
@@ -690,358 +1071,4 @@ function build_chart_ports(chart, ips) {
     }
 
     add_download_button(document.getElementById(chart), "IPsPorts");
-}
-
-function build_chart(chart, field, dataset, size, colors) {
-
-    if (size === undefined)
-	size = 5;
-
-    if (colors === undefined)
-	colors = [ "steelblue", "lightblue" ];
-
-    var w = 100 * size,
-    h = 30 * dataset.length,
-    //labelpad = 60,
-    labelpad = 10 + d3.max(dataset, function(t) {
-	var v = d3.select("#"+chart)
-	    .append('svg:svg')
-	    .append('svg:text')
-	    .text(t.value)[0][0]
-	    .getComputedTextLength();
-	d3.select("#"+chart)[0][0].innerHTML = '';
-	return v;}),
-    data = dataset.map(function(t) {return t.value;}),
-    labels = dataset.map(function(t) {return t.label;}),
-    x = d3.scale.linear()
-	.domain([0, d3.max(data)])
-	.range([0, w - labelpad]),
-    y = d3.scale.ordinal()
-	.domain(d3.range(data.length))
-	.rangeBands([0, h], 0.2),
-    //color = [ "grey", "lightgrey" ];
-    color = colors,
-    prepareoutput = function(x) {return x;},
-    preparefilter = undefined,
-    preparetitle = undefined,
-    neg;
-    if(field.substr(0,1) === "-") {
-	field = field.substr(1);
-	neg = true;
-    }
-    else
-	neg = false;
-    if(field.substr(0, 9) === 'portlist:') {
-	prepareoutput = function(x) {
-	    return (x.length === 0) ? "None" : x.join(' / ');
-	};
-	if(field.substr(9) === 'open')
-	    preparefilter = function(x) {
-		if(x.length === 0)
-		    return 'setparam("countports", "0", true);';
-		else
-		    return 'setparam("open", "' + x + '", true, true); setparam("countports", "' + x.length + '", true);';
-	    };
-    }
-    else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
-	prepareoutput = function(x) {
-	    var attributes = {
-		'commonName': 'cn',
-		'countryName': 'c',
-		'organizationName': 'o',
-		'organizationalUnitName': 'ou',
-		'emailAddress': 'email',
-		'localityName': 'locality',
-		'stateOrProvinceName': 'state',
-	    };
-	    var result = [];
-	    for(var k in x) {
-		if(k in attributes)
-		    result.push(attributes[k] + '=' + x[k]);
-		else
-		    result.push(k + '=' + x[k]);
-		}
-	    return result.join('/');
-	};
-    else if(field === 'asnum') {
-	preparefilter = function(x) {
-	    return 'setparam("asnum", "' + x + '", true);';
-	};
-    }
-    else if(field.substr(0, 4) === 'smb.') {
-	preparefilter = function(x) {
-	    return 'setparam("' + field + '", "' +
-		x.replace(/\\x/g, '\\\\\\\\x') + '", true);';
-	};
-    }
-    else if(field === 'sshkey.bits') {
-	prepareoutput = function(x) {
-	    return x.join(' / ');
-	};
-	preparefilter = function(x) {
-	    return 'setparam("sshkey.type", "' + x[0] + '", false, true); setparam("sshkey.bits", "' + x[1] + '");';
-	};
-    }
-    else if(field.substr(0, 7) === 'sshkey.') {
-	preparefilter = function(x) {
-	    return 'setparam("' + field + '", "' + x + '");';
-	};
-    }
-    else if(field === 'devicetype') {
-	preparefilter = function(x) {
-	    return 'setparam("devtype", "' + x + '", true);';
-	};
-    }
-    else if(field === 'as') {
-	prepareoutput = function(x) {
-	    return x[1];
-	};
-	preparetitle = function(x) {
-	    return x[0];
-	};
-	preparefilter = function(x) {
-	    return 'setparam("asnum", "' + x[0] + '", true);';
-	};
-    }
-    else if(field === 'country') {
-	prepareoutput = function(x) {
-	    return x[1];
-	};
-	preparetitle = function(x) {
-	    return x[0];
-	};
-	preparefilter = function(x) {
-	    return 'setparam("country", "' + x[0] + '", true);';
-	};
-    }
-    else if(field === 'city') {
-	prepareoutput = function(x) {
-	    return x.join(' / ');
-	};
-	preparefilter = function(x) {
-	    return 'setparam("country", "' + x[0] + '", true, true); setparam("city", "' + x[1] + '");';
-	};
-    }
-    else if(field === 'category') {
-	preparefilter = function(x) {
-	    return 'setparam("category", "' + x + '");';
-	};
-    }
-    else if(field === 'label' || field.substr(0, 6) === 'label:') {
-	preparefilter = function(x) {
-	    return 'setparam("label", "' + x[0] + ':' + x[1] + '");';
-	};
-	prepareoutput = function(x) {
-	    return x.join(' / ');
-	};
-    }
-    else if(field === 'source') {
-	preparefilter = function(x) {
-	    return 'setparam("source", "' + x + '", true);';
-	};
-    }
-    else if(field === 'script') {
-	preparefilter = function(x) {
-	    return 'setparam("script", "' + x + '");';
-	};
-    }
-    else if(field.substr(0, 5) === 'port:') {
-	var info = field.substr(5);
-	switch(info) {
-	case "open":
-	case "filtered":
-	case "closed":
-	    preparefilter = function(x) {
-		return 'setparam("' + info + '", "' + x + '");';
-	    };
-	    break;
-	default:
-	    preparefilter = function(x) {
-		return 'setparam("service", "' + info + ':' + x + '");';
-	    };
-	    break;
-	}
-    }
-    else if(field === 'countports:open') {
-	preparefilter = function(x) {
-	    return 'setparam("countports", "' + x + '");';
-	};
-    }
-    else if(field === 'service') {
-	preparefilter = function(x) {
-	    return 'setparam("service", "' + x + '");';
-	};
-    }
-    else if(field.substr(0, 8) === 'service:') {
-	preparefilter = function(x) {
-	    return 'setparam("service", "' + x + ':' + field.substr(8) + '");';
-	};
-    }
-    else if(field.substr(0, 7) === 'product') {
-	prepareoutput = function(x) {
-	    return x[1];
-	};
-	preparetitle = function(x) {
-	    return x[0];
-	};
-	if(field[7] === ':') {
-	    preparefilter = function(x) {
-		return 'setparam("product", "' + x[0] + ':' + x[1] + field.substr(7) + '");';
-	    };
-	}
-	else {
-	    preparefilter = function(x) {
-		return 'setparam("product", "' + x[0] + ':' + x[1] + '");';
-	    };
-	}
-    }
-    else if(field.substr(0, 7) === 'version') {
-	prepareoutput = function(x) {
-	    return x[1] + " " + x[2];
-	};
-	preparetitle = function(x) {
-	    return x[0];
-	};
-	if(field[7] === ':') {
-	    preparefilter = function(x) {
-		return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + field.substr(7) + '");';
-	    };
-	}
-	else {
-	    preparefilter = function(x) {
-		return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + '");';
-	    };
-	}
-    }
-    else if(field.substr(0, 3) === 'cpe') {
-	prepareoutput = function(x) {
-	    return x.join(":");
-	};
-	preparefilter = function(x) {
-	    return 'setparam("cpe", "' + x.join(":") + '")';
-	};
-    }
-    else if(field === 'screenwords') {
-	preparefilter = function(x) {
-	    return 'setparam("screenwords", "' + x + '")';
-	};
-    }
-    else if(field.substr(0, 3) === 'hop') {
-	if(field[3] === ':')
-	    preparefilter = function(x) {
-		return 'setparam("hop", "' + x + '", ' + field.substr(4) + ');';
-	    };
-	else
-	    preparefilter = function(x) {
-		return 'setparam("hop", "' + x + '");';
-	    };
-    }
-    else if(field.substr(0, 7) === 'domains' && (field[7] === undefined ||
-						 field[7] === ':')) {
-	preparefilter = function(x) {
-	    return 'setparam("domain", "' + x + '");';
-	};
-    }
-    
-    document.getElementById("chartstitle").innerHTML = data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : "");
-    
-    var vis = d3.select("#"+chart)
-	.append("svg:svg")
-	.attr("viewBox", [0, 0, w + 20, h + 20])
-	.attr("preserveAspectRatio", "xMidYMid meet")
-	.append("svg:g");
-    
-    var bars = vis.selectAll("g.bar")
-	.data(data)
-	.enter().append("svg:g")
-	.attr("class", "bar")
-	.attr("transform", function(d, i) {
-	    return "translate(" + labelpad + "," + y(i) + ")";
-	});
-
-    colorBg = $("#" + chart).getBg();
-    colorFg = getComputedStyle($("#" + chart)[0]).color;
-
-    var bar = bars.append("svg:rect")
-	//.attr("fill", "steelblue")
-	.attr("fill", function(d, i) { return color[i % color.length]; })
-	//.attr("width", x)
-	.attr("width", 0)
-	.attr("height", y.rangeBand())
-	.attr("class", preparefilter === undefined ? "" : "clickable")
-	.attr("title", function(d, i) {
-	    if (preparetitle !== undefined)
-		return preparetitle(labels[i]);
-	})
-	.attr("onclick", function(d, i) {
-	    return (preparefilter === undefined ?
-		    undefined :
-		    preparefilter(labels[i]));
-	});
-    
-    bar.transition()
-	.attr("width", x);
-    
-    bars.append("svg:text")
-	.attr("x", -6)
-	.attr("y", y.rangeBand() / 2)
-	.attr("dy", ".35em")
-	.attr("text-anchor", "end")
-	.text(function(d) {return d;})
-	.attr("fill", colorFg);
-    
-    bars.append("svg:text")
-	.attr("x", function(d, i) {
-	    return x(d, i) + (x(d, i) < (w - 10) / 2 ? 10 : -10);
-	})
-	.attr("fill", function(d, i) {
-	    return x(d, i) < (w - 10) / 2 ? colorFg : colorBg;
-	})
-	.attr("font-weight", "bold")
-	.attr("y", y.rangeBand() / 2)
-	.attr("dy", ".35em")
-	.attr("text-anchor", function(d, i) {
-	    return x(d, i) < (w - 10) / 2 ? "start" : "end" ;
-	})
-	.text(function(d, i) {return prepareoutput(labels[i]);})
-	.attr("title", function(d, i) {
-	    if (preparetitle !== undefined)
-		return preparetitle(labels[i]);
-	})
-	.attr("class", preparefilter === undefined ? "" : "clickable")
-	.attr("onclick", function(d, i) {
-	    return (preparefilter === undefined ?
-		    undefined :
-		    preparefilter(labels[i]));
-	});
-	
-    // var rules = vis.selectAll("g.rule")
-    //     .data(x.ticks(10))
-    //     .enter().append("svg:g")
-    //     .attr("class", "rule")
-    //     .attr("transform", function(d) { return "translate(" + x(d) + ", 0)"; });
-    
-    // rules.append("svg:line")
-    //     .attr("y1", h)
-    //     .attr("y2", h + 6)
-    //     .attr("x1", labelpad)
-    //     .attr("x2", labelpad)
-    //     .attr("stroke", "black");
-    
-    // rules.append("svg:line")
-    //     .attr("y1", 0)
-    //     .attr("y2", h)
-    //     .attr("x1", labelpad)
-    //     .attr("x2", labelpad)
-    //     .attr("stroke", "white")
-    //     .attr("stroke-opacity", .3);
-    
-    // rules.append("svg:text")
-    //     .attr("y", h + 10)
-    //     //.attr("x", labelpad-10)
-    //     .attr("dy", ".71em")
-    //     .attr("text-anchor", "middle")
-    //     .text(x.tickFormat(10));
-
-    add_download_button(document.getElementById(chart), "TopValues");
 }

@@ -114,8 +114,10 @@ ivreWebUi
 	    }
 	};
 	$scope.build_top_chart = function() {
-	    return build_top_chart($scope.shared.filter.query,
-				   $scope.shared.topvaluesfield);
+	    new GraphTopValues($("#chart"),
+			       $scope.shared.filter.query,
+			       $scope.shared.topvaluesfield)
+		.build();
 	};
     });
 

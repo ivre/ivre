@@ -87,15 +87,15 @@
 		  ng-src="{{notes_page}}";
 		  onload="this.parentNode.style.height=window.innerHeight-50+'px'">
 	  </iframe>
-	  <div id="charts" style="display: none;">
+	  <div id="chart" style="display: none;">
 	    <div>
 	      <center>
-		<span id="chartstitle"></span>
+		<span name="charttitle"></span>
 		<i class="icon-remove clickable"
 		   onclick="build_current_graph = undefined; hidecharts();"></i>
 	      </center>
 	    </div>
-	    <div id="chart1"></div>
+	    <div name="chartcontent"></div>
 	  </div>
 	</div>
       </div>
