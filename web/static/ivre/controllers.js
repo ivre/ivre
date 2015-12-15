@@ -82,39 +82,21 @@ ivreWebUi
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		hideall();
-		var c1 = document.getElementById('chart1');
-		c1.innerHTML = "";
-		var s = document.getElementById('chart1script');
-		if(s) c1.parentNode.removeChild(s);
-		document.getElementById('charts').style.display = 'inline';
-		s = document.createElement('script');
-		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_plane('chart1', ips);})")+ '&action=countopenports&ipsasnumbers=1&q=' + encodeURIComponent($scope.shared.filter.query);
-		c1.parentNode.appendChild(s);
+		build_ip_plane($scope.shared.filter.query);
 	    }
 	    else {
 		hidecharts();
 	    }
 	};
-	$scope.build_ip_map = build_ip_map;
+	$scope.build_ip_map = function() {
+	    return build_ip_map($scope.shared.filter.query);
+	};
 	$scope.build_ip_timeline = function(modulo) {
 	    var totalnbrres = $scope.totalnbrres;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || modulo !== undefined || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		hideall();
-		var c1 = document.getElementById('chart1');
-		c1.innerHTML = "";
-		var s = document.getElementById('chart1script');
-		if(s) c1.parentNode.removeChild(s);
-		document.getElementById('charts').style.display = 'inline';
-		s = document.createElement('script');
-		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&action=timeline&ipsasnumbers=1&q=' + encodeURIComponent($scope.shared.filter.query);
-		if(modulo !== undefined)
-		    s.src += '&modulo=' + modulo;
-		c1.parentNode.appendChild(s);
+		build_ip_timeline($scope.shared.filter.query, modulo);
 	    }
 	    else {
 		hidecharts();
@@ -125,24 +107,15 @@ ivreWebUi
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		hideall();
-		var c1 = document.getElementById('chart1');
-		c1.innerHTML = "";
-		var s = document.getElementById('chart1script');
-		if(s) c1.parentNode.removeChild(s);
-		document.getElementById('charts').style.display = 'inline';
-		s = document.createElement('script');
-		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&action=ipsports&ipsasnumbers=1&q=' + encodeURIComponent($scope.shared.filter.query);
-		c1.parentNode.appendChild(s);
+		return build_ip_ports($scope.shared.filter.query);
 	    }
 	    else {
 		hidecharts();
 	    }
 	};
 	$scope.build_top_chart = function() {
-	    return build_top_chart($scope.shared.topvaluesfield,
-				   $scope.shared.filter.query);
+	    return build_top_chart($scope.shared.filter.query,
+				   $scope.shared.topvaluesfield);
 	};
     });
 
