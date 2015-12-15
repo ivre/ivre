@@ -614,7 +614,7 @@ ivreWebUi
 	/********** Common **********/
 
 	$scope.query = get_hash();
-	$scope.queryplural = FILTER.parameters.length > 1;
+	$scope.queryplural = FILTER === undefined ? false : FILTER.parameters.length > 1;
 
 	/********** Display **********/
 

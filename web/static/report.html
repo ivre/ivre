@@ -37,6 +37,7 @@
     <script type="text/javascript" src="ivre/content.js"></script>
     <script type="text/javascript" src="ivre/utils.js"></script>
     <script type="text/javascript" src="ivre/graph.js"></script>
+    <script type="text/javascript" src="ivre/filters.js"></script>
     <script type="text/javascript" src="ivre/controllers.js"></script>
     <script type="text/javascript" src="ivre/params.js"></script>
     <script type="text/javascript" src="ivre/tooltip.js"></script>
@@ -57,8 +58,8 @@
 	<h2 class="page-header">Configuration</h2>
 	<div class="col-sm-3">
 	  <ul class="nav"
-	      ng-controller="IvreFilterListCtrl"
-	      ivre-filters="">
+	      ng-controller="IvreFilterListCtrl">
+	    <ivre-filters title="Filter"></ivre-filters>
 	  </ul>
 	  <li class="nav sidebox-header"><i class="glyphicon glyphicon-cog black"></i> Actions</li>
 	  <div class="btn-group-vertical" role="group" style="width:100%">
