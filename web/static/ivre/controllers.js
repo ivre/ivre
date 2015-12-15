@@ -82,7 +82,8 @@ ivreWebUi
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		build_ip_plane($scope.shared.filter.query);
+	    new GraphPlane($("#chart"), $scope.shared.filter.query)
+		.build();
 	    }
 	    else {
 		hidecharts();
