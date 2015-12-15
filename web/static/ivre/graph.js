@@ -22,8 +22,7 @@ function hidecharts() {
     document.getElementById('charts').style.display = "none";
 }
 
-function build_top_chart(f) {
-    var field = f.getElementsByTagName('input')[0].value;
+function build_top_chart(field, query) {
     hideall();
     var c1 = document.getElementById('chart1');
     c1.innerHTML = "";
@@ -36,7 +35,7 @@ function build_top_chart(f) {
 	encodeURIComponent("(function(data){build_chart('chart1', '" +
 			   field + "', data);})") +
 	'&action=topvalues:' + encodeURIComponent(field) + ':15&q=' +
-	encodeURIComponent(FILTER.query);
+	encodeURIComponent(query);
     c1.parentNode.appendChild(s);
 }
 

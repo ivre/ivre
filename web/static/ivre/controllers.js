@@ -63,6 +63,7 @@ ivreWebUi
 	// the results
 	$scope.notes_page = undefined;
 	$scope.notes_display = "none";
+	$scope.shared = {};
 	$scope.togglenotes = function (page) {
 	    if($scope.notes_display === "none") {
 		hideall();
@@ -89,7 +90,7 @@ ivreWebUi
 		document.getElementById('charts').style.display = 'inline';
 		s = document.createElement('script');
 		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_plane('chart1', ips);})")+ '&action=countopenports&ipsasnumbers=1&q=' + encodeURIComponent(FILTER.query);
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_plane('chart1', ips);})")+ '&action=countopenports&ipsasnumbers=1&q=' + encodeURIComponent($scope.shared.filter.query);
 		c1.parentNode.appendChild(s);
 	    }
 	    else {
@@ -110,7 +111,7 @@ ivreWebUi
 		document.getElementById('charts').style.display = 'inline';
 		s = document.createElement('script');
 		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&action=timeline&ipsasnumbers=1&q=' + encodeURIComponent(FILTER.query);
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&action=timeline&ipsasnumbers=1&q=' + encodeURIComponent($scope.shared.filter.query);
 		if(modulo !== undefined)
 		    s.src += '&modulo=' + modulo;
 		c1.parentNode.appendChild(s);
@@ -132,12 +133,16 @@ ivreWebUi
 		document.getElementById('charts').style.display = 'inline';
 		s = document.createElement('script');
 		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&action=ipsports&ipsasnumbers=1&q=' + encodeURIComponent(FILTER.query);
+		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&action=ipsports&ipsasnumbers=1&q=' + encodeURIComponent($scope.shared.filter.query);
 		c1.parentNode.appendChild(s);
 	    }
 	    else {
 		hidecharts();
 	    }
+	};
+	$scope.build_top_chart = function() {
+	    return build_top_chart($scope.shared.topvaluesfield,
+				   $scope.shared.filter.query);
 	};
     });
 
@@ -246,6 +251,9 @@ ivreWebUi
 	    link: function(scope, elem, attrs) {
 		scope.title = attrs.title;
 		scope.filter = new Filter(attrs.name);
+		if(scope.shared !== undefined) {
+		    scope.shared.filter = scope.filter;
+		}
 	    }
 	};
     })
@@ -614,7 +622,9 @@ ivreWebUi
 	/********** Common **********/
 
 	$scope.query = get_hash();
-	$scope.queryplural = FILTER === undefined ? false : FILTER.parameters.length > 1;
+	$scope.shared = {};
+	$scope.queryplural = ($scope.shared.filter === undefined ? false :
+			      $scope.shared.filter.parameters.length > 1);
 
 	/********** Display **********/
 
@@ -710,7 +720,7 @@ ivreWebUi
 	    s.src = config.cgibase + '?callback=' +
 		encodeURIComponent(component) +
 		'&action=coordinates&ipsasnumbers=1&q=' +
-		encodeURIComponent(FILTER.query);
+		encodeURIComponent($scope.shared.filter.query);
 	    c1.parentNode.appendChild(s);
 	};
 
@@ -729,12 +739,12 @@ ivreWebUi
 			"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); }" +
 			"})") +
 		'&action=topvalues:' + encodeURIComponent(field) + ':10&q=' +
-		encodeURIComponent(FILTER.query);
+		encodeURIComponent($scope.shared.filter.query);
 	    c2.parentNode.appendChild(s);
 	};
 	$scope.build_all = function() {
 	    $scope.query = get_hash();
-	    $scope.queryplural = FILTER.parameters.length > 1;
+	    $scope.queryplural = $scope.shared.filter.parameters.length > 1;
 
 	    for (var elementid in $scope.elements) {
 		element = $scope.elements[elementid];

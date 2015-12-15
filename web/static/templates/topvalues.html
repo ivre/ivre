@@ -19,7 +19,7 @@
 <li class="sidebox-header"><i class="glyphicon glyphicon-search black"></i> Explore</li>
 <li>
   <form id="explore"
-	onsubmit="build_top_chart(this);">
+	ng-submit="build_top_chart(query);">
     <input type="text"
 	   placeholder="Top values"
 	   class="form-control input-medium"
@@ -27,6 +27,7 @@
 	   onfocus="ToolTip.handle(this, HELP_TOPVALUES);"
 	   onblur="ToolTip.remove(this);"
 	   id="topvalues-input"
+	   ng-model="shared.topvaluesfield"
 	   data-trigger="manual"
 	   data-html="true"
 	   data-container="#navbar"
