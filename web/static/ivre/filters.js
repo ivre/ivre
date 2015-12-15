@@ -26,7 +26,6 @@ function _compare_params(store, other, count) {
 }
 
 var Filter = function(name) {
-    console.log("instanciating filter ", name);
     this.parameters = [];
     this.parametersprotected = [];
     this.parametersobj = {};
