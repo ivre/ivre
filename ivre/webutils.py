@@ -543,23 +543,20 @@ def flt_from_query(query, base_flt=None):
             else:
                 sortby.append((value, 1))
         elif param in ['open', 'filtered', 'closed']:
-            if '_' in value:
-                value = value.replace('_', '/')
-            if '/' in value:
-                proto, port = value.split('/')
-            else:
-                proto, port = "tcp", value
-            port = port.split(',')
-            if len(port) > 1:
+            value = value.replace('_', '/').split(',')
+            protos = {}
+            for port in value:
+                if '/' in port:
+                    proto, port = port.split('/')
+                else:
+                    proto, port = "tcp", port
+                protos.setdefault(proto, []).append(int(port))
+            for proto, ports in protos.iteritems():
                 flt = db.nmap.flt_and(
                     flt,
-                    db.nmap.searchports([int(p) for p in port], protocol=proto,
-                                        state=param))
-            else:
-                flt = db.nmap.flt_and(
-                    flt,
-                    db.nmap.searchport(int(port[0]), protocol=proto,
-                                       state=param)
+                    db.nmap.searchport(ports[0], protocol=proto, state=param)
+                    if len(ports) == 1 else
+                    db.nmap.searchports(ports, protocol=proto, state=param)
                 )
         elif param == 'otheropenport':
             flt = db.nmap.flt_and(
