@@ -171,12 +171,15 @@
       </div>
     </div>
 
-    <span id="chartstitle" style="display:none"></span>
     <div class="row" ng-repeat="element in elements" style="background-color: {{colors[element.color].bg}};text-shadow:none;color: {{colors[element.color].fg}};">
-      <div ng-if="element.type === 'Map + Top-values'" id="chartmap{{$index + 1}}" class="col-sm-6" style="padding-top: 5px;">Waiting for build...</div>
+      <div ng-if="element.type === 'Map + Top-values'" id="chartmap{{$index + 1}}" class="col-sm-6" style="padding-top: 5px;">
+	<div name="chartcontent">Waiting for build...</div>
+      </div>
       <div class="" ng-class="{'Map + Top-values': 'col-sm-6', 'Top-values': 'col-sm-10 col-sm-offset-1'}[element.type]">
 	<h3 style="text-align:center;">{{element.text}}</h3>
-	<div id="chart{{$index + 1}}">Waiting for build...</div>
+	<div id="chart{{$index + 1}}">
+	  <div name="chartcontent">Waiting for build...</div>
+	</div>
       </div>
     </div>
 

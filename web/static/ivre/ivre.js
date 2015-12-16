@@ -48,10 +48,7 @@ var wanted_scripts, wanted_hops;
 /******* IVRE specific methods *******/
 
 function hideall() {
-    var elts = Array.prototype.slice.call(
-	document.getElementById('notes-container').children);
-    for(var i in elts)
-	elts[i].style.display = "none";
+    $("#notes-container").children().css("display", "none");
 }
 
 function addr_links(host) {

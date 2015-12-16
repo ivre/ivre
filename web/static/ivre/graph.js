@@ -56,6 +56,7 @@ var Graph = (function() {
 	this.title = $('[name="charttitle"]', chart);
 	this.chart = $('[name="chartcontent"]', chart);
 	this.query = query;
+	this.buttons = true;
     }
 
     $.extend(Graph.prototype, {
@@ -72,7 +73,10 @@ var Graph = (function() {
 		    graphobject.draw.call(graphobject, data);
 		}
 	    });
-	    return true;
+	},
+	no_buttons: function() {
+	    this.buttons = false;
+	    return this;
 	}
     });
 
@@ -81,15 +85,18 @@ var Graph = (function() {
 
 var GraphTopValues = (function(_super) {
 
-    function GraphTopValues(chart, query, field) {
+    function GraphTopValues(chart, query, field, count, size, colors) {
         _super.call(this, chart, query);
 	this.field = field;
+	this.count = count || 15;
+	this.size = size;
+	this.colors = colors;
     };
 
     $.extend(GraphTopValues.prototype, _super.prototype, {
 	get_url: function() {
 	    return config.cgibase + '?action=topvalues:' +
-		encodeURIComponent(this.field) + ':15&q=' +
+		encodeURIComponent(this.field) + ':' + this.count + '&q=' +
 		encodeURIComponent(this.query);
 	},
 	draw: function(dataset) {
@@ -115,8 +122,7 @@ var GraphTopValues = (function(_super) {
 		.range([0, w - labelpad]),
 	    y = d3.scale.ordinal()
 		.domain(d3.range(data.length))
-	.rangeBands([0, h], 0.2),
-	    color = colors,
+		.rangeBands([0, h], 0.2),
 	    prepareoutput = function(x) {return x;},
 	    preparefilter = undefined,
 	    preparetitle = undefined,
@@ -360,7 +366,9 @@ var GraphTopValues = (function(_super) {
 
 	    var bar = bars.append("svg:rect")
 	    //.attr("fill", "steelblue")
-		.attr("fill", function(d, i) { return color[i % color.length]; })
+		.attr("fill", function(d, i) {
+		    return colors[i % colors.length];
+		})
 	    //.attr("width", x)
 		.attr("width", 0)
 		.attr("height", y.rangeBand())
@@ -439,7 +447,8 @@ var GraphTopValues = (function(_super) {
 	    //     .attr("text-anchor", "middle")
 	    //     .text(x.tickFormat(10));
 
-	    add_download_button(chart, "TopValues");
+	    if(this.buttons)
+		add_download_button(chart, "TopValues");
 	}
     });
 
@@ -564,28 +573,30 @@ var GraphMap = (function(_super) {
 		//     .attr("fill", "steelblue");
 	    });
 
-	    add_download_button(chart, "Map");
+	    if(this.buttons) {
+		add_download_button(chart, "Map");
 
-	    var b;
-	    if(fullworld === true) {
-		b = document.createElement('button');
-		b.onclick = function() {
-		    new GraphMap($("#chart"), this.query)
-			.build();
-		};
-		b.innerHTML = '<i class="glyphicon glyphicon-zoom-in"></i>';
-		b.setAttribute("title", "Adjust zoom");
+		var b;
+		if(fullworld === true) {
+		    b = document.createElement('button');
+		    b.onclick = function() {
+			new GraphMap($("#chart"), this.query)
+			    .build();
+		    };
+		    b.innerHTML = '<i class="glyphicon glyphicon-zoom-in"></i>';
+		    b.setAttribute("title", "Adjust zoom");
+		}
+		else {
+		    b = document.createElement('button');
+		    b.onclick = function() {
+			new GraphMap($("#chart"), this.query, true)
+			    .build();
+		    };
+		    b.innerHTML = '<i class="glyphicon glyphicon-zoom-out"></i>';
+		    b.setAttribute("title", "Zoom out");
+		}
+		chart.append(b);
 	    }
-	    else {
-		b = document.createElement('button');
-		b.onclick = function() {
-		    new GraphMap($("#chart"), this.query, true)
-			.build();
-		};
-		b.innerHTML = '<i class="glyphicon glyphicon-zoom-out"></i>';
-		b.setAttribute("title", "Zoom out");
-	    }
-	    chart.append(b);
 	}
     });
 
@@ -760,7 +771,8 @@ var GraphPlane = (function(_super) {
 		    .call(brush.event);
 	    }
 
-	    add_download_button(chart, "AddressSpace");
+	    if(this.buttons)
+		add_download_button(chart, "AddressSpace");
 	}
     });
 
@@ -911,7 +923,8 @@ var GraphIpPort = (function(_super) {
 		    .call(brush.event);
 	    }
 
-	    add_download_button(chart, "IPsPorts");
+	    if(this.buttons)
+		add_download_button(chart, "IPsPorts");
 	}
     });
 
@@ -1079,7 +1092,8 @@ var GraphTimeline = (function(_super) {
 		}
 	    }
 
-	    add_download_button(chart, "Timeline");
+	    if(this.buttons)
+		add_download_button(chart, "Timeline");
 	}
     });
 

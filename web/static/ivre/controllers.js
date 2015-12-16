@@ -685,42 +685,16 @@ ivreWebUi
 	/********** Report building **********/
 
 	$scope.build_ip_map = function(nb) {
-	    var c1 = document.getElementById('chartmap' + nb);
-	    var fullworld = undefined;
-	    c1.innerHTML = "";
-	    var s = document.getElementById('chartmap' + nb + 'script');
-	    if(s) $(s).remove();
-	    s = document.createElement('script');
-	    s.id = 'chartmap' + nb + 'script';
-	    component = "(function(ips){build_chart_map('chartmap" + nb +
-		"', ips, " + fullworld + ");" +
-		"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); };" +
-		"to_remove = $.find('[title=\"Zoom out\"]'); for (var i in to_remove) { $(to_remove[i]).remove(); };" +
-		"})";
-	    s.src = config.cgibase + '?callback=' +
-		encodeURIComponent(component) +
-		'&action=coordinates&ipsasnumbers=1&q=' +
-		encodeURIComponent($scope.shared.filter.query);
-	    c1.parentNode.appendChild(s);
+	    new GraphMap($("#chartmap" + nb), $scope.shared.filter.query)
+		.no_buttons()
+		.build();
 	};
 
 	$scope.build_top_value = function(field, nb, size, colors) {
-	    var c2 = document.getElementById('chart' + nb);
-	    c2.innerHTML = "";
-	    var s = document.getElementById('chart' + nb + 'script');
-	    if(s) $(s).remove();
-	    s = document.createElement('script');
-	    s.id = 'chart' + nb + 'script';
-
-	    s.src = config.cgibase + '?callback=' +
-		encodeURIComponent(
-		    "(function(data){build_chart('chart" + nb + "', '" +
-			field + "', data, " + size + ", " + colors + ");" +
-			"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); }" +
-			"})") +
-		'&action=topvalues:' + encodeURIComponent(field) + ':10&q=' +
-		encodeURIComponent($scope.shared.filter.query);
-	    c2.parentNode.appendChild(s);
+	    new GraphTopValues($("#chart" + nb), $scope.shared.filter.query,
+			      field, 10, size, colors)
+		.no_buttons()
+		.build();
 	};
 	$scope.build_all = function() {
 	    $scope.query = get_hash();
@@ -731,7 +705,7 @@ ivreWebUi
 		if (element.type === "Top-values") {
 		    bcolor = undefined;
 		    if ($scope.colors[element.color].fg === "white")
-			bcolor = '["white"]';
+			bcolor = ["white"];
 		    $scope.build_top_value(element.parameters,
 					   parseInt(elementid) + 1,
 					   10, bcolor);
