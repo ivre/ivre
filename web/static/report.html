@@ -45,7 +45,7 @@
     <title>IVRE Web UI</title>
   </head>
 
-  <body ng-controller="IvreReportCtrl" onload="load_params()">
+  <body ng-controller="IvreReportCtrl" onload="init_report()">
 
     <!-- Menu -->
     <div ng-controller="IvreMenuCtrl"
@@ -160,9 +160,9 @@
       </div>
       <div class="col-sm-8" style="text-align:center;">
 	<h3>IVRE Report</h3>
-	<p ng-if="query != ''" class="lead">
-	  With filter<span ng-if="queryplural">s</span>
-	  <span style="color:#C60F13;">{{query}}</span>
+	<p ng-if="shared.filter.query" class="lead">
+	  With filter<span ng-if="shared.filter.parameters.length > 1">s</span>
+	  <span style="color:#C60F13;">{{shared.filter.query}}</span>
 	</p>
       </div>
       <div class="col-sm-2">

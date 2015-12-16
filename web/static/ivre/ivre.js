@@ -138,14 +138,21 @@ function port_summary(host, width) {
     return result;
 }
 
+function wait_filter(fct) {
+    if(FILTER === undefined) {
+	/* XXX Wait for FILTER to be ready. */
+	setTimeout(fct, 100);
+	return false;
+    }
+    return true
+}
+
 /******* Main function *********/
 
 function load() {
-    if(FILTER === undefined) {
-	/* XXX Wait for FILTER to be ready. */
-	setTimeout(load, 100);
+    if(!(wait_filter(load)))
 	return;
-    }
+    window.onhashchange = load;
     if (!(load_params()))
 	return;
     if(! FILTER.need_update()) {
@@ -209,4 +216,11 @@ function load() {
     document.body.appendChild(s);
 }
 
-window.onhashchange = load;
+function init_report() {
+    if(!(wait_filter(init_report)))
+	return;
+    load_params();
+    window.onhashchange = init_report;
+    if (!(load_params()))
+	return;
+}

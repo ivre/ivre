@@ -601,10 +601,7 @@ ivreWebUi
 
 	/********** Common **********/
 
-	$scope.query = get_hash();
 	$scope.shared = {};
-	$scope.queryplural = ($scope.shared.filter === undefined ? false :
-			      $scope.shared.filter.parameters.length > 1);
 
 	/********** Display **********/
 
@@ -697,9 +694,6 @@ ivreWebUi
 		.build();
 	};
 	$scope.build_all = function() {
-	    $scope.query = get_hash();
-	    $scope.queryplural = $scope.shared.filter.parameters.length > 1;
-
 	    for (var elementid in $scope.elements) {
 		element = $scope.elements[elementid];
 		if (element.type === "Top-values") {
