@@ -143,10 +143,10 @@ var ToolTip = {
 	$('#' + elt.id).popover('destroy');
     },
 
-    remove_all: function(parentelt) {
-	var elements = parentelt.getElementsByTagName('input');
-	for(var i = 0; i < elements.length; i++) {
-	    ToolTip.remove(elements[i]);
-	}
+    remove_all: function() {
+	$("input")
+	    .removeAttr("data-original-title")
+	    .removeAttr("data-content")
+	    .popover("destroy");
     }
 };

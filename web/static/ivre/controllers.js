@@ -245,6 +245,7 @@ ivreWebUi
 		    scope.submitform();
 		}
 		scope.submitform = function() {
+		    ToolTip.remove_all();
 		    scope.filter.on_param_update();
 		};
 		if(!attrs.name && scope.shared !== undefined) {
