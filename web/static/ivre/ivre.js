@@ -203,8 +203,9 @@ function load() {
 function init_report() {
     if(!(wait_filter(init_report)))
 	return;
-    load_params();
     window.onhashchange = init_report;
-    if (!(load_params()))
+    FILTER.query = get_hash();
+    if (!(load_params(FILTER)))
 	return;
+    FILTER.on_query_update();
 }
