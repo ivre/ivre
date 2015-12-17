@@ -140,9 +140,9 @@ var GraphTopValues = (function(_super) {
 		if(field.substr(9) === 'open')
 		    preparefilter = function(x) {
 			if(x.length === 0)
-			    return 'setparam("countports", "0", true);';
+			    return 'setparam(FILTER, "countports", "0", true);';
 			else
-			    return 'setparam("open", "' + x + '", true, true); setparam("countports", "' + x.length + '", true);';
+			    return 'setparam(FILTER, "open", "' + x + '", true, true); setparam(FILTER, "countports", "' + x.length + '", true);';
 		    };
 	    }
 	    else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
@@ -167,12 +167,12 @@ var GraphTopValues = (function(_super) {
 		};
 	    else if(field === 'asnum') {
 		preparefilter = function(x) {
-		    return 'setparam("asnum", "' + x + '", true);';
+		    return 'setparam(FILTER, "asnum", "' + x + '", true);';
 		};
 	    }
 	    else if(field.substr(0, 4) === 'smb.') {
 		preparefilter = function(x) {
-		    return 'setparam("' + field + '", "' +
+		    return 'setparam(FILTER, "' + field + '", "' +
 			x.replace(/\\x/g, '\\\\\\\\x') + '", true);';
 		};
 	    }
@@ -181,17 +181,17 @@ var GraphTopValues = (function(_super) {
 		    return x.join(' / ');
 		};
 		preparefilter = function(x) {
-		    return 'setparam("sshkey.type", "' + x[0] + '", false, true); setparam("sshkey.bits", "' + x[1] + '");';
+		    return 'setparam(FILTER, "sshkey.type", "' + x[0] + '", false, true); setparam(FILTER, "sshkey.bits", "' + x[1] + '");';
 		};
 	    }
 	    else if(field.substr(0, 7) === 'sshkey.') {
 		preparefilter = function(x) {
-		    return 'setparam("' + field + '", "' + x + '");';
+		    return 'setparam(FILTER, "' + field + '", "' + x + '");';
 		};
 	    }
 	    else if(field === 'devicetype') {
 		preparefilter = function(x) {
-		    return 'setparam("devtype", "' + x + '", true);';
+		    return 'setparam(FILTER, "devtype", "' + x + '", true);';
 		};
 	    }
 	    else if(field === 'as') {
@@ -202,7 +202,7 @@ var GraphTopValues = (function(_super) {
 		    return x[0];
 		};
 		preparefilter = function(x) {
-		    return 'setparam("asnum", "' + x[0] + '", true);';
+		    return 'setparam(FILTER, "asnum", "' + x[0] + '", true);';
 		};
 	    }
 	    else if(field === 'country') {
@@ -213,7 +213,7 @@ var GraphTopValues = (function(_super) {
 		    return x[0];
 		};
 		preparefilter = function(x) {
-		    return 'setparam("country", "' + x[0] + '", true);';
+		    return 'setparam(FILTER, "country", "' + x[0] + '", true);';
 		};
 	    }
 	    else if(field === 'city') {
@@ -221,17 +221,17 @@ var GraphTopValues = (function(_super) {
 		    return x.join(' / ');
 		};
 		preparefilter = function(x) {
-		    return 'setparam("country", "' + x[0] + '", true, true); setparam("city", "' + x[1] + '");';
+		    return 'setparam(FILTER, "country", "' + x[0] + '", true, true); setparam(FILTER, "city", "' + x[1] + '");';
 		};
 	    }
 	    else if(field === 'category') {
 		preparefilter = function(x) {
-		    return 'setparam("category", "' + x + '");';
+		    return 'setparam(FILTER, "category", "' + x + '");';
 		};
 	    }
 	    else if(field === 'label' || field.substr(0, 6) === 'label:') {
 		preparefilter = function(x) {
-		    return 'setparam("label", "' + x[0] + ':' + x[1] + '");';
+		    return 'setparam(FILTER, "label", "' + x[0] + ':' + x[1] + '");';
 		};
 		prepareoutput = function(x) {
 		    return x.join(' / ');
@@ -239,12 +239,12 @@ var GraphTopValues = (function(_super) {
 	    }
 	    else if(field === 'source') {
 		preparefilter = function(x) {
-		    return 'setparam("source", "' + x + '", true);';
+		    return 'setparam(FILTER, "source", "' + x + '", true);';
 		};
 	    }
 	    else if(field === 'script') {
 		preparefilter = function(x) {
-		    return 'setparam("script", "' + x + '");';
+		    return 'setparam(FILTER, "script", "' + x + '");';
 		};
 	    }
 	    else if(field.substr(0, 5) === 'port:') {
@@ -254,29 +254,29 @@ var GraphTopValues = (function(_super) {
 		case "filtered":
 		case "closed":
 		    preparefilter = function(x) {
-			return 'setparam("' + info + '", "' + x + '");';
+			return 'setparam(FILTER, "' + info + '", "' + x + '");';
 		    };
 		    break;
 		default:
 		    preparefilter = function(x) {
-			return 'setparam("service", "' + info + ':' + x + '");';
+			return 'setparam(FILTER, "service", "' + info + ':' + x + '");';
 		    };
 		    break;
 		}
 	    }
 	    else if(field === 'countports:open') {
 		preparefilter = function(x) {
-		    return 'setparam("countports", "' + x + '");';
+		    return 'setparam(FILTER, "countports", "' + x + '");';
 		};
 	    }
 	    else if(field === 'service') {
 		preparefilter = function(x) {
-		    return 'setparam("service", "' + x + '");';
+		    return 'setparam(FILTER, "service", "' + x + '");';
 		};
 	    }
 	    else if(field.substr(0, 8) === 'service:') {
 		preparefilter = function(x) {
-		    return 'setparam("service", "' + x + ':' + field.substr(8) + '");';
+		    return 'setparam(FILTER, "service", "' + x + ':' + field.substr(8) + '");';
 		};
 	    }
 	    else if(field.substr(0, 7) === 'product') {
@@ -288,12 +288,12 @@ var GraphTopValues = (function(_super) {
 		};
 		if(field[7] === ':') {
 		    preparefilter = function(x) {
-			return 'setparam("product", "' + x[0] + ':' + x[1] + field.substr(7) + '");';
+			return 'setparam(FILTER, "product", "' + x[0] + ':' + x[1] + field.substr(7) + '");';
 		    };
 		}
 		else {
 		    preparefilter = function(x) {
-			return 'setparam("product", "' + x[0] + ':' + x[1] + '");';
+			return 'setparam(FILTER, "product", "' + x[0] + ':' + x[1] + '");';
 		    };
 		}
 	    }
@@ -306,12 +306,12 @@ var GraphTopValues = (function(_super) {
 		};
 		if(field[7] === ':') {
 		    preparefilter = function(x) {
-			return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + field.substr(7) + '");';
+			return 'setparam(FILTER, "version", "' + x[0] + ':' + x[1] + ':' + x[2] + field.substr(7) + '");';
 		    };
 		}
 		else {
 		    preparefilter = function(x) {
-			return 'setparam("version", "' + x[0] + ':' + x[1] + ':' + x[2] + '");';
+			return 'setparam(FILTER, "version", "' + x[0] + ':' + x[1] + ':' + x[2] + '");';
 		    };
 		}
 	    }
@@ -320,28 +320,28 @@ var GraphTopValues = (function(_super) {
 		    return x.join(":");
 		};
 		preparefilter = function(x) {
-		    return 'setparam("cpe", "' + x.join(":") + '")';
+		    return 'setparam(FILTER, "cpe", "' + x.join(":") + '")';
 		};
 	    }
 	    else if(field === 'screenwords') {
 		preparefilter = function(x) {
-		    return 'setparam("screenwords", "' + x + '")';
+		    return 'setparam(FILTER, "screenwords", "' + x + '")';
 		};
 	    }
 	    else if(field.substr(0, 3) === 'hop') {
 		if(field[3] === ':')
 		    preparefilter = function(x) {
-			return 'setparam("hop", "' + x + '", ' + field.substr(4) + ');';
+			return 'setparam(FILTER, "hop", "' + x + '", ' + field.substr(4) + ');';
 		    };
 		else
 		    preparefilter = function(x) {
-			return 'setparam("hop", "' + x + '");';
+			return 'setparam(FILTER, "hop", "' + x + '");';
 		    };
 	    }
 	    else if(field.substr(0, 7) === 'domains' && (field[7] === undefined ||
 							 field[7] === ':')) {
 		preparefilter = function(x) {
-		    return 'setparam("domain", "' + x + '");';
+		    return 'setparam(FILTER, "domain", "' + x + '");';
 		};
 	    }
 
@@ -536,7 +536,7 @@ var GraphMap = (function(_super) {
 		    })
 		    .attr("class", "clickable")
 		    .attr("onclick", function(d) {
-			return 'setparam("country", "' + d.id + '", true);';
+			return 'setparam(FILTER, "country", "' + d.id + '", true);';
 		    })
 		    .attr("d", path)
 		    .attr("fill", "lightgrey");
@@ -756,14 +756,14 @@ var GraphPlane = (function(_super) {
 			    Math.floor((val / 256) % 256) + '.' +
 			    Math.floor(val % 256) + '.';
 		    });
-		    setparam("range", extent[0] + '0-' + extent[1] + '255');
+		    setparam(FILTER, "range", extent[0] + '0-' + extent[1] + '255');
 		}
 		else {
 		    extent = brush.extent().map(function(val) {
 			return Math.floor(val / 256) + '.' +
 			    Math.floor(val % 256) + '.';
 		    });
-		    setparam("range",
+		    setparam(FILTER, "range",
 			     extent[0] + '0.0-' + extent[1] + '255.255');
 		}
 		d3.select(this).transition()
@@ -917,7 +917,7 @@ var GraphIpPort = (function(_super) {
 			Math.floor((val / 256) % 256) + '.' +
 			Math.floor(val % 256);
 		});
-		setparam("range", extent[0] + '-' + extent[1]);
+		setparam(FILTER, "range", extent[0] + '-' + extent[1]);
 		d3.select(this).transition()
 		    .call(brush.extent(extent))
 		    .call(brush.event);
@@ -1085,7 +1085,7 @@ var GraphTimeline = (function(_super) {
 		function brushended() {
 		    if (!d3.event.sourceEvent) return; // only transition after input
 		    var extent = brush.extent();
-		    setparam("timerange", extent[0] + '-' + extent[1]);
+		    setparam(FILTER, "timerange", extent[0] + '-' + extent[1]);
 		    d3.select(this).transition()
 			.call(brush.extent(extent))
 			.call(brush.event);
