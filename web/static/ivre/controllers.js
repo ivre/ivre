@@ -64,7 +64,6 @@ ivreWebUi
 	$scope.unsetparam = function(param) {
 	     return unsetparam($scope.shared.filter, param);
 	}
-	$scope.totalnbrres = undefined;
 	// notes: here because the buttons are located in the menu and
 	// the results
 	$scope.notes_page = undefined;
@@ -84,7 +83,7 @@ ivreWebUi
 	};
 	// graphs:here beacause the buttons are located w/ the filters
 	$scope.build_ip_plane = function() {
-	    var totalnbrres = $scope.totalnbrres;
+	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
@@ -100,7 +99,7 @@ ivreWebUi
 		.build();
 	};
 	$scope.build_ip_timeline = function(modulo) {
-	    var totalnbrres = $scope.totalnbrres;
+	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || modulo !== undefined || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
@@ -113,7 +112,7 @@ ivreWebUi
 	    }
 	};
 	$scope.build_ip_ports = function() {
-	    var totalnbrres = $scope.totalnbrres;
+	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
@@ -181,7 +180,7 @@ ivreWebUi
 	    return $scope.firstdisplayed === 1;
 	};
 	$scope.at_end = function() {
-	    return $scope.lastdisplayed === $scope.totalnbrres;
+	    return $scope.lastdisplayed === $scope.shared.filter.count;
 	};
 	$scope.goto_start = function() {
 	    if(!$scope.at_start())
@@ -191,7 +190,7 @@ ivreWebUi
 	    if(!$scope.at_end())
 		setparam(
 		    'skip',
-		    $scope.totalnbrres - $scope.lastdisplayed +
+		    $scope.shared.filter.count - $scope.lastdisplayed +
 			$scope.firstdisplayed - 1 + "",
 		    true);
 	};
@@ -210,13 +209,6 @@ ivreWebUi
 	};
     });
 
-
-function set_nbrres(nbr) {
-    var scope = get_scope('IvreMainCtrl');
-    scope.$apply(function() {
-	scope.totalnbrres = nbr;
-    });
-}
 
 function set_display_bounds(first, last) {
     var scope = get_scope('IvreProgressCtrl');

@@ -38,22 +38,22 @@
   <div class="btn-group-vertical" style="width:100%;" role="group">
     <button class="btn btn-default"
 	    ng-click="build_ip_plane()"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >Address space</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_ports()"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >IPs & Ports</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_map()"
 	    >Map</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_timeline()"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >Timeline</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_timeline(86400)"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >Timeline (24h)</button>
   </div>
 </li>
