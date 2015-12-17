@@ -284,3 +284,11 @@ function download_blob(blob, title) {
     document.removeElement(a);
     return false;
 }
+
+function find_parent(base, tagname) {
+    tagname = tagname.toUpperCase();
+    while(base.tagName !== tagname) {
+	base = base.parentNode;
+    }
+    return base;
+}

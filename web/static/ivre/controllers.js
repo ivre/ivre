@@ -57,7 +57,13 @@ ivreWebUi.directive('popover', function(){
 
 ivreWebUi
     .controller('IvreMainCtrl', function ($scope) {
-	$scope.setparam = setparam;
+	$scope.setparam = function(param, value, unique, notnow) {
+	     return setparam($scope.shared.filter,
+			     param, value, unique, notnow);
+	}
+	$scope.unsetparam = function(param) {
+	     return unsetparam($scope.shared.filter, param);
+	}
 	$scope.totalnbrres = undefined;
 	// notes: here because the buttons are located in the menu and
 	// the results
@@ -124,6 +130,7 @@ ivreWebUi
 			       $scope.shared.topvaluesfield)
 		.build();
 	};
+	$scope.apply_on_filter_update = [$scope];
     });
 
 // The menu controller
@@ -231,9 +238,25 @@ ivreWebUi
 	    link: function(scope, elem, attrs) {
 		scope.title = attrs.title;
 		scope.filter = new Filter(attrs.name);
-		if(scope.shared !== undefined) {
-		    scope.shared.filter = scope.filter;
+		scope.filter.scope = scope;
+		scope.idprefix = attrs.name ? attrs.name + "-" : "";
+		scope.clear_and_submit = function(index) {
+		    scope.parametersprotected[index] = "";
+		    scope.submitform();
 		}
+		scope.submitform = function() {
+		    scope.filter.on_param_update();
+		};
+		if(!attrs.name && scope.shared !== undefined) {
+		    scope.shared.filter = scope.filter;
+		};
+		if(scope.all_filters !== undefined) {
+		    scope.all_filters.push(scope.filter);
+		};
+		if(scope.apply_on_filter_update !== undefined) {
+		    $.merge(scope.filter.need_apply,
+			    scope.apply_on_filter_update)
+		};
 	    }
 	};
     })
@@ -299,13 +322,13 @@ ivreWebUi
 	    }
 	};
 	$scope.wanted_param = function(param, value) {
-	    var wanted = getparamvalues(param)
+	    var wanted = getparamvalues($scope.shared.filter, param)
 		.filter(function(x) {return x[0];})
 		.map(function(x) {return x[1];});
 	    return wanted.indexOf(value) != -1;
 	};
 	$scope.wanted_port = function(status, protocol, port) {
-	    var wanted = getparamvalues(status, true)
+	    var wanted = getparamvalues($scope.shared.filter, status, true)
 		.filter(function(x) {return x[0];})
 		.map(function(x) {return x[1];});
 	    return wanted.indexOf(protocol + '/' + port) != -1;
@@ -496,18 +519,19 @@ function prepare_host(host) {
     return host;
 }
 
-function add_host(host) {
+function add_hosts(hosts) {
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
     var scope = get_scope('IvreResultListCtrl');
-    scope.$apply(function() {
-	scope.results.push(prepare_host(host));
-    });
+    for(var i in hosts) {
+	scope.results.push(prepare_host(hosts[i]));
+    }
 }
 
 function clear_hosts() {
-    var scope = get_scope('IvreResultListCtrl');
-    scope.$apply(function() {
-	scope.results = [];
-    });
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
+    get_scope('IvreResultListCtrl').results = [];
 }
 
 function toggle_full_display(hostindex) {
@@ -523,28 +547,28 @@ function count_displayed_hosts() {
 }
 
 function set_display_mode(mode) {
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
     var scope = get_scope('IvreResultListCtrl'), args = [];
     if(mode === undefined)
 	mode = "host"; // default
-    scope.$apply(function() { 
-	if(mode.substr(0, 7) === "script:") {
-	    args = mode.substr(7).split(',').reduce(function(accu, value) {
-		switch(value) {
-		case "":
-		    return accu;
-		case "ls":
-		    return accu.concat([
-			"afp-ls", "ftp-anon", "http-ls", "nfs-ls", "smb-ls",
-		    ]);
-		default:
-		    return accu.concat([value]);
-		}
-	    }, []);
-	    mode = "script";
-	}
-	scope.display_mode_args = args;
-	scope.display_mode = mode;
-    });
+    if(mode.substr(0, 7) === "script:") {
+	args = mode.substr(7).split(',').reduce(function(accu, value) {
+	    switch(value) {
+	    case "":
+		return accu;
+	    case "ls":
+		return accu.concat([
+		    "afp-ls", "ftp-anon", "http-ls", "nfs-ls", "smb-ls",
+		]);
+	    default:
+		return accu.concat([value]);
+	    }
+	}, []);
+	mode = "script";
+    }
+    scope.display_mode_args = args;
+    scope.display_mode = mode;
 }
 
 ivreWebUi
@@ -578,22 +602,18 @@ ivreWebUi
     });
 
 function add_message(ident, level, content) {
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
     var message;
     if(content === undefined)
 	message = {"level": "info", "content": level};
     else
 	message = {"level": level, "content": content};
-    var scope = get_scope('IvreMessagesCtrl');
-    scope.$apply(function() {
-	scope.messages[ident] = message;
-    });
+    get_scope('IvreMessagesCtrl').messages[ident] = message;
 }
 
 function del_message(ident) {
-    var scope = get_scope('IvreMessagesCtrl');
-    scope.$apply(function() {
-	delete scope.messages[ident];
-    });
+    delete get_scope('IvreMessagesCtrl').messages[ident];
 }
 
 ivreWebUi
@@ -751,5 +771,40 @@ ivreWebUi
 			  config.cgibase.replace(/json.py/, "upload.py"))
 		    .submit();
 	    }
+	}
+    });
+
+ivreWebUi
+    .controller('IvreDiffCtrl', function ($scope) {
+	$scope.all_filters = [];
+	$scope.apply_on_filter_update = [$scope];
+	$scope.names = {
+	    undefined: "Common",
+	    "set1": "Set 1",
+	    "set2": "Set 2"
+	};
+	$scope.get_total_set_count = function() {
+	    var sum = 0, count, filter;
+	    for(var i in $scope.all_filters) {
+		filter = $scope.all_filters[i];
+		if(filter.name && filter.name.substr(0, 3) === "set") {
+		    count = filter.count;
+		    if(count === undefined)
+			return undefined;
+		    sum += count;
+		}
+	    }
+	    return sum;
+	}
+	$scope.is_ready = function() {
+	    var filter;
+	    for(var i in $scope.all_filters) {
+		filter = $scope.all_filters[i];
+		if(filter.name && filter.name.substr(0, 3) === "set" &&
+		   filter.count === undefined) {
+		    return false;
+		}
+	    }
+	    return true;
 	}
     });

@@ -18,9 +18,9 @@
 
 /************ Parameters handling ****************/
 
-function params2hash() {
-    var store = FILTER.parametersobj;
-    var res = "";
+function params2hash(filter) {
+    var store = filter.parametersobj,
+    res = "";
     for(var t in store)
 	for(var k in store[t]) {
 	    if(! store[t][k][0])
@@ -33,19 +33,18 @@ function params2hash() {
     set_hash(res.substr(0, res.length - 1));
 }
 
-function parse_params() {
+function parse_params(filter) {
     // this is more or less an equivalent to shlex.split() and builds
-    // the global parameters array and the global query string from
+    // parameters array and the query string from
     // document.location.hash
     var state = 0;
-    FILTER.query = get_hash();
     var curtoken, curtokenprotected, curchar;
-    FILTER.parameters = [];
-    FILTER.parametersprotected = [];
-    FILTER.parametersobj = {};
-    FILTER.parametersobjunalias = {};
-    for(var i in FILTER.query) {
-	curchar = FILTER.query[i];
+    filter.parameters = [];
+    filter.parametersprotected = [];
+    filter.parametersobj = {};
+    filter.parametersobjunalias = {};
+    for(var i in filter.query) {
+	curchar = filter.query[i];
 	switch(state) {
 	case 0:
 	    // state init / out of token
@@ -76,7 +75,7 @@ function parse_params() {
 	    case " ":
 		state = 0;
 		if(curtoken !== undefined)
-		    add_param_objects(curtoken, curtokenprotected);
+		    add_param_objects(filter, curtoken, curtokenprotected);
 		curtoken = undefined;
 		curtokenprotected = undefined;
 		break;
@@ -148,11 +147,12 @@ function parse_params() {
 	}
     }
     if(curtoken !== undefined)
-	add_param_objects(curtoken, curtokenprotected);
-    create_wanted_scripts();
+	add_param_objects(filter, curtoken, curtokenprotected);
+    filter.scope.parametersprotected = filter.parametersprotected;
+    create_wanted_scripts(filter);
 }
 
-function create_wanted_scripts() {
+function create_wanted_scripts(filter) {
     function array2object(array) {
 	// convert the array of [true, <script-id>[:<value>]] elements
 	// to an object {<script-id>: <value>}
@@ -183,8 +183,8 @@ function create_wanted_scripts() {
 	    }, {});
     }
 
-    wanted_scripts = array2object(getparamvalues("script", true));
-    wanted_hops = getparamvalues("hop")
+    wanted_scripts = array2object(getparamvalues(filter, "script", true));
+    wanted_hops = getparamvalues(filter, "hop")
 	.filter(function(x) {return x[0];})
 	.map(function(x) {return x[1];});
 }
@@ -196,10 +196,10 @@ function add_param_object(p, f, v) {
     p[f] = s;
 }
 
-function add_param_objects(p, pp) {
+function add_param_objects(filter, p, pp) {
     if (p.length === 0) return;
-    FILTER.parameters.push(p);
-    FILTER.parametersprotected.push(pp);
+    filter.parameters.push(p);
+    filter.parametersprotected.push(pp);
     var b, i;
     if ('-!'.indexOf(p[0]) != -1) {
 	b = false;
@@ -212,26 +212,26 @@ function add_param_objects(p, pp) {
 
     // aliases
     if (p.substr(0, 7) === "banner:")
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'banner:' + p.substr(7)]);
     else if (p.substr(0, 7) === "sshkey:")
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'ssh-hostkey:' + p.substr(7)]);
     else if (p.substr(0, 5) === 'file:') {
 	for (i = 0; i < aliases_ls.length; i++) {
 	    add_param_object(
-		FILTER.parametersobjunalias, 'script',
+		filter.parametersobjunalias, 'script',
 		[b, aliases_ls[i] + ':' +
 		 p.substr(5)]
 	    );
 	}
     }
     else if (p.substr(0, 7) === 'cookie:')
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'http-headers:/Set-Cookie: ' + p.substr(7) + '=/']);
     else if (p.substr(0, 8) === 'smbshare' && (p.length === 8 ||
 					       p.substr(8, 1) === ':'))
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'smb-enum-shares:/READ|WRITE|STYPE_DISKTREE/']);
     else if (p.substr(0, 4) === 'smb.') {
 	/*
@@ -250,45 +250,45 @@ function add_param_objects(p, pp) {
 	switch(subfield) {
 	case 'os':
 	case 'lanmanager':
-	    add_param_object(FILTER.parametersobjunalias, 'script',
+	    add_param_object(filter.parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
 	    break;
 	case 'server':
 	    add_param_object(
-		FILTER.parametersobjunalias, 'script',
+		filter.parametersobjunalias, 'script',
 		[b, 'smb-os-discovery:/^NetBIOS computer name: .*$/m']
 	    );
 	    break;
 	case 'workgroup':
-	    add_param_object(FILTER.parametersobjunalias, 'script',
+	    add_param_object(filter.parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery:/^Workgroup: .*$/m']);
 	    break;
 	case 'date':
-	    add_param_object(FILTER.parametersobjunalias, 'script',
+	    add_param_object(filter.parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery:/^System time: .*$/m']);
 	    break;
 	case 'domain_dns':
 	    add_param_object(
-		FILTER.parametersobjunalias, 'script',
+		filter.parametersobjunalias, 'script',
 		[b, 'smb-os-discovery:/^Domain name: .*$/m']
 	    );
 	    break;
 	case 'fqdn':
 	    add_param_object(
-		FILTER.parametersobjunalias, 'script',
+		filter.parametersobjunalias, 'script',
 		[b, 'smb-os-discovery:/^FQDN: .*$/m']
 	    );
 	    break;
 	default:
-	    add_param_object(FILTER.parametersobjunalias, 'script',
+	    add_param_object(filter.parametersobjunalias, 'script',
 			     [b, 'smb-os-discovery']);
 	}
     }
     else if (p.substr(0, 4) === "tcp/" || p.substr(0, 4) === "udp/") {
-	add_param_object(FILTER.parametersobjunalias, 'open', [b, p]);
+	add_param_object(filter.parametersobjunalias, 'open', [b, p]);
     }
     else if (parseInt(p) == p) {
-	add_param_object(FILTER.parametersobjunalias, 'open', [b, "tcp/" + p]);
+	add_param_object(filter.parametersobjunalias, 'open', [b, "tcp/" + p]);
     }
     else if (p.substr(0, 5) === "open:" || p.substr(0, 9) === "filtered:" ||
 	     p.substr(0, 7) === "closed:") {
@@ -296,10 +296,10 @@ function add_param_objects(p, pp) {
 	for(var i in ports) {
 	    var port = ports[i].split("/", 2);
 	    if(port.length === 1)
-		add_param_object(FILTER.parametersobjunalias, 'open',
+		add_param_object(filter.parametersobjunalias, 'open',
 				 [b, "tcp/" + port[0]]);
 	    else
-		add_param_object(FILTER.parametersobjunalias, 'open',
+		add_param_object(filter.parametersobjunalias, 'open',
 				 [b, port[0] + "/" + port[1]]);
 
 	}
@@ -307,56 +307,56 @@ function add_param_objects(p, pp) {
     else switch (p) {
     case 'nfs':
     case 'nfsexports':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'rpcinfo:/nfs/']);
 	break;
     case 'ypserv':
     case 'yp':
     case 'nis':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'rpcinfo:/ypserv/']);
 	break;
     case 'anonftp':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'ftp-anon:/^Anonymous FTP login allowed/']);
 	break;
     case 'authhttp':
 	for (i = 0; i < 2; i++) {
-	    add_param_object(FILTER.parametersobjunalias, 'script',
+	    add_param_object(filter.parametersobjunalias, 'script',
 			     [b, ['http-auth', 'http-default-accounts'][i] +
 			      ':/HTTP server may accept|credentials found/']);
 	}
 	break;
     case 'authbypassvnc':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'realvnc-auth-bypass']);
 	break;
     case 'mssqlemptypwd':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'ms-sql-empty-password:/Login Success/']);
 	break;
     case 'mysqlemptypwd':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'mysql-empty-password:/account has empty password/']);
 	break;
     case 'x11srv':
-	add_param_object(FILTER.parametersobjunalias, 'service', [b, 'X11']);
+	add_param_object(filter.parametersobjunalias, 'service', [b, 'X11']);
 	break;
     case 'x11open':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'x11-access:X server access is granted']);
 	break;
     case 'xp445':
 	/* same as smb.os + tcp port 445*/
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
-	add_param_object(FILTER.parametersobjunalias, 'tcp/445',
+	add_param_object(filter.parametersobjunalias, 'tcp/445',
 			 [b, undefined]);
 	break;
     case 'webfiles':
 	for (i = 0; i < aliases_ls.length; i++) {
 	    add_param_object(
-		FILTER.parametersobjunalias, 'script',
+		filter.parametersobjunalias, 'script',
 		[b, aliases_ls[i] +
 		 ':/vhost|www|web\.config|\.htaccess|' +
 		 '\.([aj]sp|php|html?|js|css)/i']
@@ -364,52 +364,49 @@ function add_param_objects(p, pp) {
 	}
 	break;
     case 'webmin':
-	add_param_object(FILTER.parametersobjunalias, 'service', [b, 'Webmin']);
+	add_param_object(filter.parametersobjunalias, 'service', [b, 'Webmin']);
 	break;
     case 'owa':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'http-headers', '/^ *(Location:.*(owa|exchweb)|X-OWA-Version)/i']);
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'http-auth-finder', '/\/(owa|exchweb)/i']);
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'http-title', '/Outlook Web A|(Requested resource was|Did not follow redirect to ).*\/(owa|exchweb)/i']);
 	break;
     case 'phpmyadmin':
-	add_param_object(FILTER.parametersobjunalias, 'script',
+	add_param_object(filter.parametersobjunalias, 'script',
 			 [b, 'http-headers', '/^ *Set-Cookie: phpMyAdmin/i']);
 	break;
     default:
 	i = p.indexOf(':');
 	if (i === -1)
-	    add_param_object(FILTER.parametersobjunalias, p,
+	    add_param_object(filter.parametersobjunalias, p,
 			     [b, undefined]);
 	else
-	    add_param_object(FILTER.parametersobjunalias, p.substr(0, i),
+	    add_param_object(filter.parametersobjunalias, p.substr(0, i),
 			     [b, p.substr(i+1)]);
     }
     i = p.indexOf(':');
     if (i === -1)
-	add_param_object(FILTER.parametersobj, p,
+	add_param_object(filter.parametersobj, p,
 			 [b, undefined]);
     else
-	add_param_object(FILTER.parametersobj, p.substr(0, i),
+	add_param_object(filter.parametersobj, p.substr(0, i),
 			 [b, p.substr(i+1)]);
 }
 
-function getparamvalues(param, unalias) {
-    var store;
-    if (unalias === true)
-	store = FILTER.parametersobjunalias;
-    else
-	store = FILTER.parametersobj;
+function getparamvalues(filter, param, unalias) {
+    var store = (unalias ? filter.parametersobjunalias :
+		 store = filter.parametersobj);
     if (param in store)
 	return store[param];
     return [];
 }
 
-function getparam(param) {
+function getparam(filter, param) {
     // returns the first value for param
-    var store = FILTER.parametersobj, b;
+    var store = filter.parametersobj, b;
     if (param.length > 0 && '-!'.indexOf(param[0]) != -1) {
 	b = false;
 	param = param.substr(1);
@@ -423,14 +420,14 @@ function getparam(param) {
     return undefined;
 }
 
-function unsetparam(param) {
-    var store = FILTER.parametersobj;
+function unsetparam(filter, param) {
+    var store = filter.parametersobj;
     delete(store[param]);
-    params2hash();
+    filter.on_query_update();
 }
 
-function setparam(param, value, unique, notnow) {
-    var store = FILTER.parametersobj, b;
+function setparam(filter, param, value, unique, notnow) {
+    var store = filter.parametersobj, b;
     if (param.length > 0 && '-!'.indexOf(param[0]) != -1) {
 	b = false;
 	param = param.substr(1);
@@ -455,33 +452,19 @@ function setparam(param, value, unique, notnow) {
 	    store[param].push([b, value]);
     }
     if(! notnow) {
-	params2hash();
+	params2hash(filter);
     }
 }
 
-function load_params(){
-    parse_params();
-    if (getparam('skip') == 0) {
-	unsetparam('skip');
+function load_params(filter){
+    parse_params(filter);
+    if (getparam(filter, 'skip') == 0) {
+	unsetparam(filter, 'skip');
 	return false;
     }
-    if (getparam('limit') == config.dflt.limit) {
-	unsetparam('limit');
+    if (getparam(filter, 'limit') == config.dflt.limit) {
+	unsetparam(filter, 'limit');
 	return false;
-    }
-
-    clear_filters();
-
-    var ii = 0;
-    for(var i in FILTER.parametersprotected) {
-	if (! (FILTER.parametersprotected[i].substr(0,5) === "skip:" ||
-	       FILTER.parametersprotected[i].substr(0,6) === "limit:")) {
-	    add_filter({
-		"id": ii,
-		"value": FILTER.parametersprotected[i],
-	    });
-	    ii += 1;
-	}
     }
     return true;
 }

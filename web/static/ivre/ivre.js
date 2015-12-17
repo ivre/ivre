@@ -152,31 +152,27 @@ function wait_filter(fct) {
 function load() {
     if(!(wait_filter(load)))
 	return;
-    window.onhashchange = load;
-    if (!(load_params()))
-	return;
-    if(! FILTER.need_update()) {
-	set_display_mode(getparam('display'));
-	return;
-    }
-    var need_count = FILTER.need_count();
-
-    clear_hosts();
-    hidecharts();
-    changefav("favicon-loading.gif");
-    if(need_count)
-	set_nbrres(undefined);
-
-    var s = document.getElementById('resultsscript');
-    if(s) document.body.removeChild(s);
-    s = document.createElement('script');
-    s.id = "resultsscript";
-    s.src = config.cgibase + '?callback=add_host&q=' +
-	encodeURIComponent(FILTER.query);
-    s.onload = function() {
+    window.onhashchange = function() {
+	FILTER.query = get_hash();
+	if (!(load_params(FILTER)))
+	    return;
+	FILTER.on_query_update();
+    };
+    FILTER.callback_pre_get_results = function() {
+	clear_hosts();
+	hidecharts();
+	changefav("favicon-loading.gif");
+    };
+    FILTER.callback_get_results = function(data) {
+	add_hosts(data);
+    };
+    FILTER.callback_final = function() {
+	set_display_mode(getparam(FILTER, 'display'));
+    };
+    FILTER.callback_post_get_results = function() {
 	var hostcount = count_displayed_hosts(),
-	limit = getparam('limit'),
-	skip = getparam('skip');
+	limit = getparam(FILTER, 'limit'),
+	skip = getparam(FILTER, 'skip');
 	if(limit === undefined)
 	    limit = config.dflt.limit;
 	else
@@ -189,31 +185,19 @@ function load() {
 		setparam('skip', 0, true);
 	}
 	var maxres = skip + hostcount;
-	set_display_mode(getparam('display'));
 	if(maxres !== skip) {
 	    set_display_bounds(skip + 1, maxres);
 	}
-
 	changefav("favicon.png");
-
 	if(hostcount === 1) {
 	    toggle_full_display(0);
 	}
-
-	document.getElementById("filter-last").focus();
-
-	if(need_count) {
-	    var s = document.getElementById('countscript');
-	    if(s) document.body.removeChild(s);
-	    s = document.createElement('script');
-	    s.id = "countscript";
-	    s.src = config.cgibase + '?callback=set_nbrres&action=count&q=' +
-		encodeURIComponent(FILTER.query);
-	    document.body.appendChild(s);
-	}
-	FILTER.end_new_query();
     };
-    document.body.appendChild(s);
+    document.getElementById("filter-last").focus();
+    FILTER.query = get_hash();
+    if (!(load_params(FILTER)))
+	return;
+    FILTER.on_query_update();
 }
 
 function init_report() {
