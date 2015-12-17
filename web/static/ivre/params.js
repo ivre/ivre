@@ -149,6 +149,7 @@ function parse_params(filter) {
     if(curtoken !== undefined)
 	add_param_objects(filter, curtoken, curtokenprotected);
     filter.scope.parametersprotected = filter.parametersprotected;
+    filter.scope.$apply();
     create_wanted_scripts(filter);
 }
 
