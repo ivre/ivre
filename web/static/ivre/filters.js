@@ -99,6 +99,7 @@ var Filter = (function() {
 		dataType: "jsonp",
 		success: function(data) {
 		    filterobject.count = data;
+		    filterobject.scope.$apply();
 		}
 	    });
 	},
