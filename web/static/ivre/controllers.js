@@ -230,8 +230,19 @@ ivreWebUi
 	    templateUrl: 'templates/filters.html',
 	    link: function(scope, elem, attrs) {
 		scope.title = attrs.title;
-		scope.filter = new Filter(attrs.name);
+		switch(attrs.parent) {
+		case undefined:
+		    scope.filter = new Filter(attrs.name);
+		    break;
+		case "":
+		    scope.filter = new SubFilter(attrs.name, FILTER);
+		    break;
+		default:
+		    scope.filter = new SubFilter(attrs.name,
+						 FILTERS[attrs.parent]);
+		}
 		scope.filter.scope = scope;
+		scope.parametersprotected = scope.filter.parametersprotected;
 		scope.idprefix = attrs.name ? attrs.name + "-" : "";
 		scope.clear_and_submit = function(index) {
 		    scope.parametersprotected[index] = "";
@@ -769,7 +780,7 @@ ivreWebUi
     });
 
 ivreWebUi
-    .controller('IvreDiffCtrl', function ($scope) {
+    .controller('IvreCompareCtrl', function ($scope) {
 	$scope.all_filters = [];
 	$scope.apply_on_filter_update = [$scope];
 	$scope.names = {
@@ -787,5 +798,75 @@ ivreWebUi
 		}
 	    }
 	    return true;
-	}
+	};
+	$scope.build_ip_plane = function() {
+	    var totalnbrres, filter, i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set") {
+		    filter = FILTERS[name];
+		    totalnbrres = filter.count;
+		    if(totalnbrres === undefined)
+			return;
+		    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+			new GraphPlane($("#chart" + i++), filter.query)
+			    .build();
+		    }
+		}
+	    }
+	};
+	$scope.build_ip_map = function() {
+	    var i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set")
+		    new GraphMap($("#chart" + i++),
+				 FILTERS[name].query)
+		    .build();
+	    }
+	};
+	$scope.build_ip_timeline = function(modulo) {
+	    var totalnbrres, filter, i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set") {
+		    filter = FILTERS[name];
+		    totalnbrres = filter.count;
+		    if(totalnbrres === undefined)
+			return;
+		    if(totalnbrres < config.warn_dots_count || modulo !== undefined || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+			new GraphTimeline($("#chart" + i++),
+					  filter.query, modulo)
+			    .build();
+		    }
+		}
+	    }
+	};
+	$scope.build_ip_ports = function() {
+	    var totalnbrres, filter, i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set") {
+		    filter = FILTERS[name];
+		    totalnbrres = filter.count;
+		    if(totalnbrres === undefined)
+			return;
+		    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+			new GraphIpPort($("#chart" + i++), filter.query)
+		    .build();
+		    }
+		}
+	    }
+	};
+	$scope.build_top_chart = function() {
+	    var i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set")
+		    new GraphTopValues($("#chart" + i++),
+				       FILTERS[name].query,
+				       $scope.topvaluesfield, 10)
+		    .build();
+	    }
+	};
     });

@@ -73,6 +73,9 @@
 	<li ng-if="MENU.share_report"><a href="#" onclick="document.location = getPagePath() + 'report.html' + document.location.hash">
 	    <i class="glyphicon glyphicon-th-list"></i> Report
 	</a></li>
+	<li><a href="#" onclick="document.location = getPagePath() + 'compare.html' + document.location.hash">
+	    <i class="glyphicon glyphicon-stats"></i> Compare graphs
+	</a></li>
 	<li ng-if="MENU.share_htmlexport"><a href="#" onclick="download_blob(exportDOM(), 'ivre_' + getPageName() + '_' + get_hash().replace(' ', '_'))">
 	    <i class="glyphicon glyphicon-export"></i> HTML export
 	</a></li>

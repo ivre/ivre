@@ -200,3 +200,57 @@ var Filter = (function() {
 
     return Filter;
 })();
+
+var SubFilter = (function(_super) {
+
+    /*
+     * Special filter that includes the intersection of other filters
+     */
+
+    function SubFilter(name) {
+	var args = Array.from(arguments)
+	_super.call(this, args.shift());
+	this.children = args;
+	this._query = "";
+	var parent = this;
+	for(var i in this.children) {
+	    var child = this.children[i];
+	    var index = i;
+	    child.add_callback("post_get_results", function() {
+		// force parent update
+		parent.prev_query = {"thiswillneverexist": []};
+		parent.on_param_update();
+	    });
+	}
+    };
+
+    $.extend(SubFilter.prototype, _super.prototype, {
+	set_full_query: function() {
+	    if(this.query) {
+		this.query += " ";
+	    }
+	    this.query += this.children
+		.map(function(p) {return p.query;})
+		.filter(function(p) {return p;})
+		.join(" ");
+	    this.on_query_update();
+	},
+
+	on_param_update: function() {
+	    if(this.scope) {
+		this.scope.parametersprotected.push(this.scope.lastfiltervalue);
+		this.scope.lastfiltervalue = "";
+		this.query = this.scope.parametersprotected
+		    .filter(function(p){return p;})
+		    .join(" ");
+	    }
+	    else
+		this.query = "";
+	    load_params(this);
+	    this.set_full_query();
+	    this._call_callbacks(this.callbacks.param_update, this.query);
+	}
+    });
+
+    return SubFilter;
+})(Filter);
