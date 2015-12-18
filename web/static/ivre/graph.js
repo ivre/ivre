@@ -576,11 +576,11 @@ var GraphMap = (function(_super) {
 	    if(this.buttons) {
 		add_download_button(chart, "Map");
 
-		var b;
+		var b, graphobj = this;
 		if(fullworld === true) {
 		    b = document.createElement('button');
 		    b.onclick = function() {
-			new GraphMap($("#chart"), this.query)
+			new GraphMap(graphobj.container, graphobj.query)
 			    .build();
 		    };
 		    b.innerHTML = '<i class="glyphicon glyphicon-zoom-in"></i>';
@@ -589,7 +589,7 @@ var GraphMap = (function(_super) {
 		else {
 		    b = document.createElement('button');
 		    b.onclick = function() {
-			new GraphMap($("#chart"), this.query, true)
+			new GraphMap(graphobj.container, graphobj.query, true)
 			    .build();
 		    };
 		    b.innerHTML = '<i class="glyphicon glyphicon-zoom-out"></i>';
