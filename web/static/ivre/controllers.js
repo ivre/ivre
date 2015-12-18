@@ -136,7 +136,11 @@ ivreWebUi
 
 ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
-	$scope.get_href = function() {return document.location.href;};
+	$scope.get_href = function(page) {
+	    if(page === undefined)
+		return document.location.href;
+	    return getPagePath() + page + document.location.hash;
+	};
 	$scope.get_title = function() {return document.title;};
 	$scope.add_bookmark = function() {
 	    // https://stackoverflow.com/questions/3024745
