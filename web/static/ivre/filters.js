@@ -25,6 +25,7 @@ var Filter = (function() {
 	this.parametersprotected = [];
 	this.parametersobj = {};
 	this.parametersobjunalias = {};
+	this.query = "";
 	this.count = undefined;
 	// the initial prev_query has to be an object and to be
 	// different than any valid query
