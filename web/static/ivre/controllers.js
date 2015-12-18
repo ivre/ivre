@@ -777,19 +777,6 @@ ivreWebUi
 	    "set1": "Set 1",
 	    "set2": "Set 2"
 	};
-	$scope.get_total_set_count = function() {
-	    var sum = 0, count, filter;
-	    for(var i in $scope.all_filters) {
-		filter = $scope.all_filters[i];
-		if(filter.name && filter.name.substr(0, 3) === "set") {
-		    count = filter.count;
-		    if(count === undefined)
-			return undefined;
-		    sum += count;
-		}
-	    }
-	    return sum;
-	}
 	$scope.is_ready = function() {
 	    var filter;
 	    for(var i in $scope.all_filters) {
