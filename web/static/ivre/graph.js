@@ -19,7 +19,7 @@
 /************* Graphing utilities **************/
 
 function hidecharts() {
-    $("#chart").css("display", "none");
+    $(".chart").css("display", "none");
 }
 
 function add_download_button(selector, title) {
