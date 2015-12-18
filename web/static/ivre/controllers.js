@@ -180,7 +180,8 @@ ivreWebUi
 	    return $scope.firstdisplayed === 1;
 	};
 	$scope.at_end = function() {
-	    return $scope.lastdisplayed === $scope.shared.filter.count;
+	    return $scope.shared.filter &&
+		$scope.lastdisplayed === $scope.shared.filter.count;
 	};
 	$scope.goto_start = function() {
 	    if(!$scope.at_start())
