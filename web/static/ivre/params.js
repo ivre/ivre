@@ -148,8 +148,8 @@ function parse_params(filter) {
     }
     if(curtoken !== undefined)
 	add_param_objects(filter, curtoken, curtokenprotected);
-    filter.scope.parametersprotected = filter.parametersprotected;
-    filter.scope.$apply();
+    if(filter.scope)
+	filter.scope.parametersprotected = filter.parametersprotected;
     create_wanted_scripts(filter);
 }
 
