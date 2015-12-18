@@ -38,6 +38,14 @@ var Filter = (function() {
 	    FILTER = this;
 	    this.idprefix = "";
 	}
+	this.callbacks = {
+	    pre_get_results: [],
+	    get_results: [],
+	    post_get_results: [],
+	    end_update: [],
+	    param_update: [],
+	};
+	this.need_apply = [];
     }
 
     function _compare_params(store, other, count) {
@@ -67,6 +75,18 @@ var Filter = (function() {
     }
 
     $.extend(Filter.prototype, {
+	_call_callbacks: function() {
+	    var args = Array.from(arguments);
+	    var callbacks = args.shift();
+	    for(var i in callbacks) {
+		callbacks[i].apply(this, args);
+	    }
+	},
+
+	add_callback: function(name, callback) {
+	    this.callbacks[name].push(callback);
+	},
+
 	end_new_query: function() {
 	    this.prev_query = {};
 	    for(var key in this.parametersobjunalias) {
@@ -100,35 +120,49 @@ var Filter = (function() {
 		dataType: "jsonp",
 		success: function(data) {
 		    filterobject.count = data;
-		    filterobject.scope.$apply();
+		    filterobject.update_scopes();
 		}
 	    });
 	},
 
 	do_get_results: function() {
-	    if(this.callback_get_results !== undefined) {
-		var filterobject = this;
+	    var filterobject = this;
+	    if(this.callbacks.get_results) {
 		$.ajax({
 		    url: config.cgibase + '?q=' +
 			encodeURIComponent(this.query),
 		    jsonp: "callback",
 		    dataType: "jsonp",
-		    beforeSend: function(data) {
-			filterobject.callback_pre_get_results();
+		    beforeSend: function() {
+			filterobject._call_callbacks(
+			    filterobject.callbacks.pre_get_results
+			);
 		    },
 		    success: function(data) {
-			filterobject.callback_get_results(data);
+			filterobject._call_callbacks(
+			    filterobject.callbacks.get_results, data
+			);
 		    },
 		    complete: function() {
-			filterobject.callback_post_get_results();
+			filterobject._call_callbacks(
+			    filterobject.callbacks.post_get_results
+			);
 			filterobject.end_new_query();
-			filterobject.callback_final();
-			for(var i in filterobject.need_apply) {
-			    filterobject.need_apply[i].$apply();
-			}
-			filterobject.scope.$apply();
+			filterobject._call_callbacks(
+			    filterobject.callbacks.end_update
+			);
+			filterobject.update_scopes();
 		    }
 		});
+	    }
+	    else {
+		filterobject._call_callbacks(
+		    filterobject.callbacks.pre_get_results
+		);
+		filterobject._call_callbacks(filterobject.callbacks.post_get_results);
+		filterobject.end_new_query();
+		filterobject._call_callbacks(filterobject.callbacks.end_update);
+		filterobject.update_scopes();
 	    }
 	},
 
@@ -138,7 +172,9 @@ var Filter = (function() {
 	    this.query = this.scope.parametersprotected
 		.filter(function(p){return p;})
 		.join(" ");
-	    set_hash(this.query);
+	    load_params(this);
+	    this.on_query_update();
+	    this._call_callbacks(this.callbacks.param_update, this.query);
 	},
 
 	on_query_update: function() {
@@ -148,15 +184,18 @@ var Filter = (function() {
 		this.do_get_results();
 	    }
 	    else {
-		this.callback_final();
+		this._call_callbacks(this.callbacks.end_update);
 	    }
 	},
 
-	callback_pre_get_results: function() {},
-	callback_get_results: undefined,
-	callback_post_get_results: function() {},
-	callback_final: function() {},
-	need_apply: []
+	update_scopes: function() {
+	    for(var i in this.need_apply) {
+		this.need_apply[i].$apply();
+	    }
+	    if(this.scope) {
+		this.scope.$apply();
+	    }
+	}
     });
 
     return Filter;

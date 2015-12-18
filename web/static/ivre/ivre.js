@@ -147,29 +147,43 @@ function wait_filter(fct) {
     return true
 }
 
+function sync_hash_filter(filter) {
+    /*
+     * Syncs the filter's parameters/query and the page's hash.
+     */
+
+    window.onhashchange = function() {
+	filter.query = get_hash();
+	if (!(load_params(filter)))
+	    return;
+	filter.on_query_update();
+    };
+    filter.add_callback("param_update", set_hash);
+}
+
 /******* Main function *********/
 
 function load() {
+
+    /* Main Web UI */
+
     if(!(wait_filter(load)))
 	return;
-    window.onhashchange = function() {
-	FILTER.query = get_hash();
-	if (!(load_params(FILTER)))
-	    return;
-	FILTER.on_query_update();
-    };
-    FILTER.callback_pre_get_results = function() {
+
+    sync_hash_filter(FILTER)
+
+    FILTER.add_callback("pre_get_results", function() {
 	clear_hosts();
 	hidecharts();
 	changefav("favicon-loading.gif");
-    };
-    FILTER.callback_get_results = function(data) {
+    });
+    FILTER.add_callback("get_results", function(data) {
 	add_hosts(data);
-    };
-    FILTER.callback_final = function() {
+    });
+    FILTER.add_callback("end_update", function() {
 	set_display_mode(getparam(FILTER, 'display'));
-    };
-    FILTER.callback_post_get_results = function() {
+    });
+    FILTER.add_callback("post_get_results", function() {
 	var hostcount = count_displayed_hosts(),
 	limit = getparam(FILTER, 'limit'),
 	skip = getparam(FILTER, 'skip');
@@ -192,18 +206,25 @@ function load() {
 	if(hostcount === 1) {
 	    toggle_full_display(0);
 	}
-    };
+    });
     document.getElementById("filter-last").focus();
-    FILTER.query = get_hash();
-    if (!(load_params(FILTER)))
-	return;
-    FILTER.on_query_update();
+    window.onhashchange();
+    // FILTER.query = get_hash();
+    // if (!(load_params(FILTER)))
+    // 	return;
+    // FILTER.on_query_update();
 }
 
 function init_report() {
+    /* Report Web UI
+
+       Sync between parameters and query works through the hash. See
+       load() function.
+
+     */
     if(!(wait_filter(init_report)))
 	return;
-    window.onhashchange = init_report;
+    sync_hash_filter(FILTER);
     FILTER.query = get_hash();
     if (!(load_params(FILTER)))
 	return;
