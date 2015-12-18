@@ -18,7 +18,8 @@
 
 <li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> {{title}}</li>
 <form class="" ng-submit="submitform()">
-  <li ng-repeat="param in parametersprotected track by $index">
+  <li ng-repeat="param in parametersprotected track by $index"
+      class="filter-list">
     <div class="input-group">
       <input class="form-control input-medium"
 	     type="text"
@@ -38,7 +39,7 @@
 	    ><i class="glyphicon glyphicon-remove"></i></span>
     </div>
   </li>
-  <li>
+  <li class="filter-list">
     <div class="input-group">
       <input class="form-control input-medium"
 	     type="text"
