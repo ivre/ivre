@@ -34,7 +34,7 @@ function prepare(help) {
     }
 
     // Manage optional parameters
-    for (var key in help.content) {
+    for (key in help.content) {
 	if(help.content[key].title.indexOf("<b>(:") !== -1) {
 	    help.content[key + ":"] = help.content[key];
 	}

@@ -4,11 +4,11 @@ function init_compare() {
     if(!(wait_filter(init_compare)))
 	return;
 
-    sync_hash_filter(FILTER)
+    sync_hash_filter(FILTER);
 
     window.onhashchange();
     //var all_sets = [];
-    for(name in FILTERS) {
+    for(var name in FILTERS) {
 	if(name.substr(0, 3) === "set") {
 	    var filter = FILTERS[name];
 	    filter.on_query_update();

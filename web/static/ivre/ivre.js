@@ -144,7 +144,7 @@ function wait_filter(fct) {
 	setTimeout(fct, 100);
 	return false;
     }
-    return true
+    return true;
 }
 
 function sync_hash_filter(filter) {
@@ -170,7 +170,7 @@ function load() {
     if(!(wait_filter(load)))
 	return;
 
-    sync_hash_filter(FILTER)
+    sync_hash_filter(FILTER);
 
     FILTER.add_callback("pre_get_results", function() {
 	clear_hosts();

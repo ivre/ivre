@@ -52,7 +52,7 @@ function heatmapColour(value) {
 
 var Graph = (function() {
     function Graph(chart, query) {
-	this.container = chart
+	this.container = chart;
 	this.title = $('[name="charttitle"]', chart);
 	this.chart = $('[name="chartcontent"]', chart);
 	this.query = query;
@@ -64,7 +64,7 @@ var Graph = (function() {
 	    var graphobject = this;
 	    hideall();
 	    this.chart.empty();
-	    this.container.css("display", "inline")
+	    this.container.css("display", "inline");
 	    $.ajax({
 		url: this.get_url(),
 		jsonp: "callback",
@@ -81,7 +81,7 @@ var Graph = (function() {
     });
 
     return Graph;
-})()
+})();
 
 var GraphTopValues = (function(_super) {
 
@@ -91,7 +91,7 @@ var GraphTopValues = (function(_super) {
 	this.count = count || 15;
 	this.size = size;
 	this.colors = colors;
-    };
+    }
 
     $.extend(GraphTopValues.prototype, _super.prototype, {
 	get_url: function() {
@@ -460,7 +460,7 @@ var GraphMap = (function(_super) {
     function GraphMap(chart, query, fullworld) {
         _super.call(this, chart, query);
 	this.fullworld = fullworld;
-    };
+    }
 
     $.extend(GraphMap.prototype, _super.prototype, {
 	get_url: function() {
@@ -498,7 +498,7 @@ var GraphMap = (function(_super) {
 					    h / Math.abs(p2[1] - p1[1])]));
 		}
 		else {
-		    projection.scale(w/7)
+		    projection.scale(w / 7);
 		}
 
 		var path = d3.geo.path()
@@ -607,7 +607,7 @@ var GraphPlane = (function(_super) {
 
     function GraphPlane(chart, query) {
         _super.call(this, chart, query);
-    };
+    }
 
     $.extend(GraphPlane.prototype, _super.prototype, {
 	get_url: function() {
@@ -783,7 +783,7 @@ var GraphIpPort = (function(_super) {
 
     function GraphIpPort(chart, query) {
         _super.call(this, chart, query);
-    };
+    }
 
     $.extend(GraphIpPort.prototype, _super.prototype, {
 	get_url: function() {
@@ -936,7 +936,7 @@ var GraphTimeline = (function(_super) {
     function GraphTimeline(chart, query, modulo) {
         _super.call(this, chart, query);
 	this.modulo = modulo;
-    };
+    }
 
     $.extend(GraphTimeline.prototype, _super.prototype, {
 	get_url: function() {
@@ -1098,4 +1098,4 @@ var GraphTimeline = (function(_super) {
     });
 
     return GraphTimeline;
-})(Graph)
+})(Graph);

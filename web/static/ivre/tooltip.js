@@ -60,7 +60,7 @@ var ToolTip = {
 	}
 
 	// Match available commands
-	const COMMANDS = Object.keys(HELP.content);
+	var COMMANDS = Object.keys(HELP.content);
 	var matching_keys = COMMANDS.filter(
 	    function(key) {
 		// Suffix detection

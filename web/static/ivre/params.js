@@ -294,7 +294,7 @@ function add_param_objects(filter, p, pp) {
     else if (p.substr(0, 5) === "open:" || p.substr(0, 9) === "filtered:" ||
 	     p.substr(0, 7) === "closed:") {
 	var ports = p.split(":", 2)[1].split(","), status = p.split(":", 1);
-	for(var i in ports) {
+	for(i in ports) {
 	    var port = ports[i].split("/", 2);
 	    if(port.length === 1)
 		add_param_object(filter.parametersobjunalias, 'open',

@@ -52,8 +52,8 @@ var Filter = (function() {
 	/* Returns true iff store "contains" other. "limit", "skip"
 	 * and "sortby" are omitted when count is true. */
 	for(var key in store) {
-	    if((count && (key == 'limit' || key == 'skip'
-			  || key == 'sortby')) ||
+	    if((count && (key == 'limit' || key == 'skip' ||
+			  key == 'sortby')) ||
 	       key == 'display') {
 		continue;
 	    }
@@ -208,21 +208,22 @@ var SubFilter = (function(_super) {
      */
 
     function SubFilter(name) {
-	var args = Array.from(arguments)
+	var args = Array.from(arguments);
 	_super.call(this, args.shift());
 	this.children = args;
 	this._query = "";
 	var parent = this;
+	var callback_post_get_results = function() {
+	    // force parent update
+	    parent.prev_query = {"thiswillneverexist": []};
+	    parent.on_param_update();
+	};
 	for(var i in this.children) {
 	    var child = this.children[i];
 	    var index = i;
-	    child.add_callback("post_get_results", function() {
-		// force parent update
-		parent.prev_query = {"thiswillneverexist": []};
-		parent.on_param_update();
-	    });
+	    child.add_callback("post_get_results", callback_post_get_results);
 	}
-    };
+    }
 
     $.extend(SubFilter.prototype, _super.prototype, {
 	set_full_query: function() {

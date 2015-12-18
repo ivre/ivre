@@ -60,10 +60,10 @@ ivreWebUi
 	$scope.setparam = function(param, value, unique, notnow) {
 	     return setparam($scope.shared.filter,
 			     param, value, unique, notnow);
-	}
+	};
 	$scope.unsetparam = function(param) {
 	     return unsetparam($scope.shared.filter, param);
-	}
+	};
 	// notes: here because the buttons are located in the menu and
 	// the results
 	$scope.notes_page = undefined;
@@ -166,8 +166,8 @@ ivreWebUi
     })
     .directive('ivreMenu', function() {
 	var linkFunction = function(scope, elements, attributes) {
-	    scope.MENU = MENUS[attributes["ivreMenu"]];
-	}
+	    scope.MENU = MENUS[attributes.ivreMenu];
+	};
 	return {
 	    templateUrl: 'templates/menu.html',
 	    link: linkFunction,
@@ -251,21 +251,21 @@ ivreWebUi
 		scope.clear_and_submit = function(index) {
 		    scope.parametersprotected[index] = "";
 		    scope.submitform();
-		}
+		};
 		scope.submitform = function() {
 		    ToolTip.remove_all();
 		    scope.filter.on_param_update();
 		};
 		if(!attrs.name && scope.shared !== undefined) {
 		    scope.shared.filter = scope.filter;
-		};
+		}
 		if(scope.all_filters !== undefined) {
 		    scope.all_filters.push(scope.filter);
-		};
+		}
 		if(scope.apply_on_filter_update !== undefined) {
 		    $.merge(scope.filter.need_apply,
-			    scope.apply_on_filter_update)
-		};
+			    scope.apply_on_filter_update);
+		}
 	    }
 	};
     })
@@ -341,7 +341,7 @@ ivreWebUi
 		.filter(function(x) {return x[0];})
 		.map(function(x) {return x[1];});
 	    return wanted.indexOf(protocol + '/' + port) != -1;
-	}
+	};
 	$scope.wanted_trace = function(trace) {
 	    var hops = trace.hops.map(function(hop) {return hop.ipaddr;});
 	    for(var i in wanted_hops) {
@@ -397,57 +397,57 @@ ivreWebUi
 	    }
 	    return result;
 	};
-    $scope.get_reshaped_cpes = function(host) {
-        if(host.n_cpes)
+	$scope.get_reshaped_cpes = function(host) {
+            if(host.n_cpes)
+		return host.n_cpes;
+            var cpes = host.cpes,
+            n_cpes = {},
+            type2str = {
+		'h': 'Hw',
+		'o': 'OS',
+		'a': 'App',
+            },
+            my_setdefault = function(d, key) {
+		if(!("data" in d)) {
+                    d.data = {};
+		}
+		if(!(key in d.data)) {
+                    d.data[key] = {"name": key, "data": {}};
+		}
+		return d.data[key];
+            };
+            for(var i in cpes) {
+		var cpe = cpes[i],
+		type_d = my_setdefault(n_cpes, cpe.type),
+		vend_d = my_setdefault(type_d, cpe.vendor),
+		prod_d = my_setdefault(vend_d, cpe.product),
+		comp_d = my_setdefault(prod_d, cpe.version);
+		type_d.pretty_name = type2str[cpe.type] || "Unk";
+		vend_d.pretty_name = cpe.vendor ? cpe.vendor : "---";
+		prod_d.pretty_name = cpe.product ? cpe.product : "---";
+		comp_d.pretty_name = cpe.version ? cpe.version : "---";
+		comp_d.origins || (comp_d.origins = []);
+		comp_d.origins = comp_d.origins.concat(cpe.origins);
+		comp_d.tooltitle = "cpe:/" +
+                    [cpe.type, cpe.vendor, cpe.product, cpe.version]
+                    .join(":").replace(/:+$/, "");
+		comp_d.toolcontent = cpe.origins.join('<br/>');
+            }
+            host.n_cpes = n_cpes;
             return host.n_cpes;
-        var cpes = host.cpes,
-        n_cpes = {},
-        type2str = {
-            'h': 'Hw',
-            'o': 'OS',
-            'a': 'App',
-        },
-        my_setdefault = function(d, key) {
-            if(!("data" in d)) {
-                d.data = {};
+	};
+	$scope.set_cpe_param = function(type, vendor, product, version) {
+            var query = [],
+            parts = [type, vendor, product, version];
+            for(var i in parts) {
+		if(parts[i] && !!parts[i].name) {
+                    query.push(parts[i].name);
+		} else {
+                    break;
+		}
             }
-            if(!(key in d.data)) {
-                d.data[key] = {"name": key, "data": {}};
-            }
-            return d.data[key];
-        };
-        for(var i in cpes) {
-            var cpe = cpes[i],
-            type_d = my_setdefault(n_cpes, cpe.type),
-            vend_d = my_setdefault(type_d, cpe.vendor),
-            prod_d = my_setdefault(vend_d, cpe.product),
-            comp_d = my_setdefault(prod_d, cpe.version);
-            type_d.pretty_name = type2str[cpe.type] || "Unk";
-	    vend_d.pretty_name = cpe.vendor == "" ? "---" : cpe.vendor;
-	    prod_d.pretty_name = cpe.product == "" ? "---" : cpe.product;
-	    comp_d.pretty_name = cpe.version == "" ? "---" : cpe.version;
-            comp_d.origins || (comp_d.origins = []);
-            comp_d.origins = comp_d.origins.concat(cpe.origins);
-            comp_d.tooltitle = "cpe:/" +
-                               [cpe.type, cpe.vendor, cpe.product, cpe.version]
-                               .join(":").replace(/:+$/, "");
-            comp_d.toolcontent = cpe.origins.join('<br/>');
-        }
-        host.n_cpes = n_cpes;
-        return host.n_cpes;
-    };
-    $scope.set_cpe_param = function(type, vendor, product, version) {
-        var query = [],
-        parts = [type, vendor, product, version];
-        for(var i in parts) {
-            if(parts[i] && !!parts[i].name) {
-                query.push(parts[i].name);
-            } else {
-                break;
-            }
-        }
-        $scope.setparam("cpe", query.join(':'));
-    }
+            $scope.setparam("cpe", query.join(':'));
+	};
     })
     .directive('displayHost', function() {
 	return {
@@ -769,8 +769,8 @@ ivreWebUi
 	    $scope.error_agreed = config.publicsrv && !$scope.agreed;
 	    $scope.error_source = !$scope.source || $scope.source.length === 0;
 	    return (!($scope.error_files || $scope.error_agreed ||
-		     $scope.error_source))
-	}
+		     $scope.error_source));
+	};
 	$scope.upload = function() {
 	    if($scope.check()) {
 		$("#uploadReferer")
@@ -780,7 +780,7 @@ ivreWebUi
 			  config.cgibase.replace(/json.py/, "upload.py"))
 		    .submit();
 	    }
-	}
+	};
     });
 
 ivreWebUi
