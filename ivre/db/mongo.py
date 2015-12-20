@@ -2352,12 +2352,12 @@ have no effect if it is not expected)."""
             states = [category1 in categories, category2 in categories]
             # assert any(states)
             return -cmp(*states)
-        cursor = ((x['_id'], categories_to_val(x['categories']))
+        cursor = (dict(x['_id'], value=categories_to_val(x['categories']))
                   for x in cursor)
         if include_both_open:
             return cursor
         else:
-            return ((xid, xval) for xid, xval in cursor if xval)
+            return (result for result in cursor if result["value"])
 
     def parse_args(self, args, flt=None):
         if flt is None:
