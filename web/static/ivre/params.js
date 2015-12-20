@@ -18,7 +18,7 @@
 
 /************ Parameters handling ****************/
 
-function params2hash(filter) {
+function params2query(filter) {
     var store = filter.parametersobj,
     res = "";
     for(var t in store)
@@ -30,7 +30,7 @@ function params2hash(filter) {
 		res += ':' + protect(store[t][k][1]);
 	    res += ' ';
 	}
-    set_hash(res.substr(0, res.length - 1));
+    filter.query = res.substr(0, res.length - 1);
 }
 
 function parse_params(filter) {
@@ -424,7 +424,7 @@ function getparam(filter, param) {
 function unsetparam(filter, param) {
     var store = filter.parametersobj;
     delete(store[param]);
-    filter.on_query_update();
+    filter.on_paramobj_update();
 }
 
 function setparam(filter, param, value, unique, notnow) {
@@ -452,8 +452,8 @@ function setparam(filter, param, value, unique, notnow) {
 	if(needed)
 	    store[param].push([b, value]);
     }
-    if(! notnow) {
-	params2hash(filter);
+    if(!notnow) {
+	filter.on_paramobj_update();
     }
 }
 

@@ -172,7 +172,17 @@ var Filter = (function() {
 	    this.query = this.scope.parametersprotected
 		.filter(function(p){return p;})
 		.join(" ");
-	    load_params(this);
+	    this.update_query();
+	},
+
+	on_paramobj_update: function() {
+	    params2query(this);
+	    this.update_query()
+	},
+
+	update_query: function() {
+	    if(!load_params(this))
+		return;
 	    this.on_query_update();
 	    this._call_callbacks(this.callbacks.param_update, this.query);
 	},

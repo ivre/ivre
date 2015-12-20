@@ -158,7 +158,13 @@ function sync_hash_filter(filter) {
 	    return;
 	filter.on_query_update();
     };
-    filter.add_callback("param_update", set_hash);
+    filter.add_callback("param_update", function(query) {
+	var onhashchange = window.onhashchange;
+	window.onhashchange = function() {
+	    window.onhashchange = onhashchange;
+	}
+	set_hash(query);
+    });
 }
 
 /******* Main function *********/
