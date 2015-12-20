@@ -22,24 +22,6 @@ function hidecharts() {
     $(".chart").css("display", "none");
 }
 
-function add_download_button(selector, title) {
-    var a = document.createElement('a');
-    a.onclick = function() {
-	var blob = new Blob(
-	    [this.parentNode.getElementsByTagName("svg")[0].outerHTML],
-	    {type: "image/svg"});
-	this.setAttribute('href', window.URL.createObjectURL(blob));
-	return true;
-    };
-    if(title === undefined)
-	title = "Graph";
-    a.download = "IVRE-" + title + ".svg";
-    a.href = "#";
-    a.innerHTML = '<button><i class="glyphicon glyphicon-download-alt download"></i></button>';
-    a.setAttribute("title", "Download");
-    selector.append(a);
-}
-
 // from http://stackoverflow.com/a/12935903/3223422
 function heatmapColour(value) {
     // 0 == 360 : red
@@ -57,6 +39,7 @@ var Graph = (function() {
 	this.chart = $('[name="chartcontent"]', chart);
 	this.query = query;
 	this.buttons = true;
+	this.filename = "Graph";
     }
 
     $.extend(Graph.prototype, {
@@ -77,6 +60,23 @@ var Graph = (function() {
 	no_buttons: function() {
 	    this.buttons = false;
 	    return this;
+	},
+	add_download_button: function() {
+	    if(! this.buttons)
+		return;
+	    var a = document.createElement('a');
+	    a.onclick = function() {
+		var blob = new Blob(
+		    [this.parentNode.getElementsByTagName("svg")[0].outerHTML],
+		    {type: "image/svg"});
+		this.setAttribute('href', window.URL.createObjectURL(blob));
+		return true;
+	    };
+	    a.download = "IVRE-" + this.filename + ".svg";
+	    a.href = "#";
+	    a.innerHTML = '<button><i class="glyphicon glyphicon-download-alt download"></i></button>';
+	    a.setAttribute("title", "Download");
+	    this.chart.append(a);
 	}
     });
 
@@ -91,6 +91,7 @@ var GraphTopValues = (function(_super) {
 	this.count = count || 15;
 	this.size = size;
 	this.colors = colors;
+	this.filename = "TopValues";
     }
 
     $.extend(GraphTopValues.prototype, _super.prototype, {
@@ -447,8 +448,7 @@ var GraphTopValues = (function(_super) {
 	    //     .attr("text-anchor", "middle")
 	    //     .text(x.tickFormat(10));
 
-	    if(this.buttons)
-		add_download_button(chart, "TopValues");
+	    this.add_download_button();
 	}
     });
 
@@ -460,6 +460,7 @@ var GraphMap = (function(_super) {
     function GraphMap(chart, query, fullworld) {
         _super.call(this, chart, query);
 	this.fullworld = fullworld;
+	this.filename = "Map";
     }
 
     $.extend(GraphMap.prototype, _super.prototype, {
@@ -573,9 +574,9 @@ var GraphMap = (function(_super) {
 		//     .attr("fill", "steelblue");
 	    });
 
-	    if(this.buttons) {
-		add_download_button(chart, "Map");
+	    this.add_download_button();
 
+	    if(this.buttons) {
 		var b, graphobj = this;
 		if(fullworld === true) {
 		    b = document.createElement('button');
@@ -607,6 +608,7 @@ var GraphPlane = (function(_super) {
 
     function GraphPlane(chart, query) {
         _super.call(this, chart, query);
+	this.filename = "AddressSpace";
     }
 
     $.extend(GraphPlane.prototype, _super.prototype, {
@@ -770,9 +772,7 @@ var GraphPlane = (function(_super) {
 		    .call(brush.extent(extent))
 		    .call(brush.event);
 	    }
-
-	    if(this.buttons)
-		add_download_button(chart, "AddressSpace");
+	    this.add_download_button();
 	}
     });
 
@@ -783,6 +783,7 @@ var GraphIpPort = (function(_super) {
 
     function GraphIpPort(chart, query) {
         _super.call(this, chart, query);
+	this.filename = "IPsPorts";
     }
 
     $.extend(GraphIpPort.prototype, _super.prototype, {
@@ -923,8 +924,7 @@ var GraphIpPort = (function(_super) {
 		    .call(brush.event);
 	    }
 
-	    if(this.buttons)
-		add_download_button(chart, "IPsPorts");
+	    this.add_download_button();
 	}
     });
 
@@ -936,6 +936,7 @@ var GraphTimeline = (function(_super) {
     function GraphTimeline(chart, query, modulo) {
         _super.call(this, chart, query);
 	this.modulo = modulo;
+	this.filename = "Timeline";
     }
 
     $.extend(GraphTimeline.prototype, _super.prototype, {
@@ -1092,8 +1093,7 @@ var GraphTimeline = (function(_super) {
 		}
 	    }
 
-	    if(this.buttons)
-		add_download_button(chart, "Timeline");
+	    this.add_download_button();
 	}
     });
 
