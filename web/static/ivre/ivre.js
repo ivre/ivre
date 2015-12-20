@@ -154,7 +154,7 @@ function sync_hash_filter(filter) {
 
     window.onhashchange = function() {
 	filter.query = get_hash();
-	if (!(load_params(filter)))
+	if(!(load_params(filter)))
 	    return;
 	filter.on_query_update();
     };
@@ -209,10 +209,6 @@ function load() {
     });
     document.getElementById("filter-last").focus();
     window.onhashchange();
-    // FILTER.query = get_hash();
-    // if (!(load_params(FILTER)))
-    // 	return;
-    // FILTER.on_query_update();
 }
 
 function init_report() {
@@ -225,8 +221,5 @@ function init_report() {
     if(!(wait_filter(init_report)))
 	return;
     sync_hash_filter(FILTER);
-    FILTER.query = get_hash();
-    if (!(load_params(FILTER)))
-	return;
-    FILTER.on_query_update();
+    window.onhashchange();
 }
