@@ -784,6 +784,10 @@ var GraphIpPort = (function(_super) {
     function GraphIpPort(chart, query) {
         _super.call(this, chart, query);
 	this.filename = "IPsPorts";
+	this._colors = {"open": "green", "closed": "red", "filtered": "orange"};
+	this.colors = function(val) {
+	    return this._colors[val];
+	};
     }
 
     $.extend(GraphIpPort.prototype, _super.prototype, {
@@ -792,7 +796,7 @@ var GraphIpPort = (function(_super) {
 		encodeURIComponent(this.query);
 	},
 	draw: function(ips) {
-	    var chart = this.chart,
+	    var chart = this.chart, graphobject = this,
 	    real_w = 500,
 	    real_h = 450,
 	    w = real_w - 100,
@@ -805,7 +809,6 @@ var GraphIpPort = (function(_super) {
 	    y = d3.scale.log()
 		.domain([1, 65535])
 		.range([h, 0]),
-	    colors = {"open": "green", "closed": "red", "filtered": "orange"},
 	    ips_ports = ips.map(function(x) {
 		return x[1].map(function(t) {
 		    return [x[0], t[0], t[1]];
@@ -833,7 +836,7 @@ var GraphIpPort = (function(_super) {
 		.attr("cx", function(d) {return x(d[0]);})
 		.attr("cy", function(d) {return y(d[1]);})
 		.attr("fill-opacity", 1)
-		.attr("fill", function(d) {return colors[d[2]];});
+		.attr("fill", function(d) {return graphobject.colors(d[2]);});
 
 	    var xaxis = [];
 	    var xstep = Math.max((xmax - xmin) / 10 / 16777216, 1) * 16777216;
@@ -1099,3 +1102,33 @@ var GraphTimeline = (function(_super) {
 
     return GraphTimeline;
 })(Graph);
+
+var GraphDiffCategories = (function(_super) {
+
+    function GraphDiffCategories(chart, query, category1, category2,
+				 onlydiff) {
+	_super.call(this, chart, query);
+	this.category1 = category1;
+	this.category2 = category2;
+	this.onlydiff = onlydiff;
+	this.filename = "DiffCategories";
+	this.colors = function(val) {
+	    return heatmapColour((val + 1) / 2);
+	};
+    }
+
+    $.extend(GraphDiffCategories.prototype, _super.prototype, {
+	get_url: function() {
+	    var url = config.cgibase + '?action=diffcats&ipsasnumbers=1&cat1=' +
+		encodeURIComponent(this.category1) + '&cat2=' +
+		encodeURIComponent(this.category2) + '&query=' +
+		encodeURIComponent(this.query);
+	    if(this.onlydiff) {
+		url += '&onlydiff=1'
+	    }
+	    return url;
+	}
+    });
+
+    return GraphDiffCategories;
+})(GraphIpPort);
