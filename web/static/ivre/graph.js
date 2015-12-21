@@ -1074,6 +1074,15 @@ var GraphTimeline = (function(_super) {
 		});
 
 	    if(this.modulo === undefined) {
+		function brushended() {
+		    if (!d3.event.sourceEvent) return; // only transition after input
+		    var extent = brush.extent();
+		    setparam(FILTER, "timerange", extent[0] + '-' + extent[1]);
+		    d3.select(this).transition()
+			.call(brush.extent(extent))
+			.call(brush.event);
+		}
+
 		var brush = d3.svg.brush()
 		    .x(x)
 		    .on("brushend", brushended);
@@ -1085,15 +1094,6 @@ var GraphTimeline = (function(_super) {
 
 		gbrush.selectAll("rect")
 		    .attr("height", h);
-
-		function brushended() {
-		    if (!d3.event.sourceEvent) return; // only transition after input
-		    var extent = brush.extent();
-		    setparam(FILTER, "timerange", extent[0] + '-' + extent[1]);
-		    d3.select(this).transition()
-			.call(brush.extent(extent))
-			.call(brush.event);
-		}
 	    }
 
 	    this.add_download_button();
