@@ -46,8 +46,10 @@
     <title>IVRE Web UI</title>
   </head>
 
-  <body onload="init_compare();" ng-controller="IvreCompareCtrl" 
-	style="padding-top: 10px">
+  <body onload="init_compare();" ng-controller="IvreCompareCtrl">
+    <div ng-controller="IvreMenuCtrl"
+	 ivre-menu="compare">
+    </div>
     <div class="container-fluid">
       <div class="row">
 	<div class="col-sm-12 col-md-3">

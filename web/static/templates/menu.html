@@ -73,7 +73,7 @@
 	<li ng-if="MENU.share_report"><a ng-href="{{get_href('report.html')}}">
 	    <i class="glyphicon glyphicon-th-list"></i> Report
 	</a></li>
-	<li><a ng-href="{{get_href('compare.html')}}">
+	<li ng-if="MENU.share_compare"><a ng-href="{{get_href('compare.html')}}">
 	    <i class="glyphicon glyphicon-stats"></i> Compare graphs
 	</a></li>
 	<li ng-if="MENU.share_htmlexport"><a href="#" onclick="download_blob(exportDOM(), 'ivre_' + getPageName() + '_' + get_hash().replace(' ', '_'))">

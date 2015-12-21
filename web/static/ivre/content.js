@@ -693,142 +693,136 @@ prepare(HELP_TOPVALUES);
  * Only three level of menu is currently supported.
  */
 
+var _SUBMENU_FILTERS = [
+    {title: "Unix",
+     icon: "heart",
+     items: [
+	 {title: "NFS",
+	  action: "$scope.setparam('nfs', undefined, true, true); $scope.setparam('display', 'script:rpcinfo,nfs-showmount,nfs-ls', true);",
+	 },
+	 {title: "NIS / YP",
+	  action: "$scope.setparam('nis')",
+	 },
+	 {title: "X11",
+	  action: "$scope.setparam('x11srv');",
+	  items: [
+	      {title: "open",
+	       action: "$scope.setparam('x11open');",
+	      }
+	  ],
+	 },
+     ],
+    },
+    {title: "Win",
+     icon: "th-large",
+     items: [
+	 {title: "XP / 445",
+	  action: "$scope.setparam('xp445');",
+	 },
+	 {title: "SMB shares",
+	  action: "$scope.setparam('smbshare', undefined, true, true); $scope.setparam('display', 'script:smb-enum-shares,smb-ls', true);",
+	  items: [
+	      {title: "writable",
+	       action: "$scope.setparam('smbshare', 'w', true, true); $scope.setparam('display', 'script:smb-enum-shares,smb-ls', true);"
+	      },
+	  ],
+	 },
+	 {title: "MS-SQL empty password",
+	  action: "$scope.setparam('mssqlemptypwd');"
+	 },
+     ],
+    },
+    {title: "Web",
+     icon: "globe",
+     items: [
+	 {title: "HTTP Auth",
+	  action: "$scope.setparam('authhttp');",
+	 },
+	 {title: "Shared web files",
+	  action: "$scope.setparam('webfiles', undefined, true, true); $scope.setparam('display', 'script:ls', true);",
+	 },
+	 {title: "Git repository",
+	  action: "$scope.setparam('script', 'http-git:\"/Git repository found/\"');",
+	 },
+	 {title: "OWA",
+	  action: "$scope.setparam('owa');",
+	 },
+	 {title: "PHPMyAdmin",
+	  action: "$scope.setparam('phpmyadmin');",
+	 }
+     ],
+    },
+    {title: "Auth",
+     icon: "lock",
+     items: [
+	 {title: "HTTP Auth",
+	  action: "$scope.setparam('authhttp');",
+	 },
+	 {title: "Anonymous FTP",
+	  action: "$scope.setparam('anonftp', undefined, true, true); $scope.setparam('display', 'script:ftp-anon', true);",
+	 },
+	 {title: "Anonymous LDAP",
+	  action: "$scope.setparam('anonldap')",
+	 },
+	 {title: "NIS / YP",
+	  action: "$scope.setparam('nis')",
+	 },
+	 {title: "VNC Authentication Bypass",
+	  action: "$scope.setparam('authbypassvnc');",
+	 },
+	 {title: "MS-SQL empty password",
+	  action: "$scope.setparam('mssqlemptypwd')",
+	 },
+	 {title: "MY-SQL empty password",
+	  action: "$scope.setparam('mysqlemptypwd')",
+	 },
+     ],
+    },
+    {title: "Relay",
+     icon: "share-alt",
+     items: [
+	 {title: "HTTP Open Proxy",
+	  action: "$scope.setparam('script', 'http-open-proxy');",
+	 },
+	 {title: "Socks Open Proxy",
+	  action: "$scope.setparam('script', 'socks-open-proxy');",
+	 },
+	 {title: "SMTP Open Relay",
+	  action: "$scope.setparam('script', 'smtp-open-relay');",
+	 },
+	 {title: "FTP Bounce",
+	  action: "$scope.setparam('script', 'ftp-bounce:bounce working!');",
+	 },
+     ],
+    },
+    {title: "Fun",
+     icon: "screenshot",
+     items: [
+	 {title: "Webcam",
+	  action: "$scope.setparam('devicetype', 'webcam');",
+	  items: [
+	      {title: "GeoVision",
+	       action: "$scope.setparam('geovision');",
+	      },
+	  ],
+	 },
+	 {title: "Network devices",
+	  action: "$scope.setparam('netdev');",
+	 },
+	 {title: "Telephony devices",
+	  action: "$scope.setparam('phonedev');",
+	 },
+	 {title: "Screenshots",
+	  action: "$scope.setparam('screenshot', undefined, true, true); $scope.setparam('display', 'screenshot', true);",
+	 },
+	 {title: "Shared files",
+	  action: "setparam('file', undefined, true, true); setparam('display', 'script:ls', true);",
+	 },
+     ],
+    },
+];
 
-// Menu for index.html
-var MENU_MAIN = {
-    share: true,
-    share_report: true,
-    items: [
-	{title: "HELP",
-	 action: "$scope.togglenotes('doc:webui');",
-	 icon: "question-sign",
-	},
-	{title: "Unix",
-	 icon: "heart",
-	 items: [
-	     {title: "NFS",
-	      action: "$scope.setparam('nfs', undefined, true, true); $scope.setparam('display', 'script:rpcinfo,nfs-showmount,nfs-ls', true);",
-	     },
-	     {title: "NIS / YP",
-	      action: "$scope.setparam('nis')",
-	     },
-	     {title: "X11",
-	      action: "$scope.setparam('x11srv');",
-	      items: [
-		  {title: "open",
-		   action: "$scope.setparam('x11open');",
-		  }
-	      ],
-	     },
-	 ],
-	},
-	{title: "Win",
-	 icon: "th-large",
-	 items: [
-	     {title: "XP / 445",
-	      action: "$scope.setparam('xp445');",
-	     },
-	     {title: "SMB shares",
-	      action: "$scope.setparam('smbshare', undefined, true, true); $scope.setparam('display', 'script:smb-enum-shares,smb-ls', true);",
-	      items: [
-		  {title: "writable",
-		   action: "$scope.setparam('smbshare', 'w', true, true); $scope.setparam('display', 'script:smb-enum-shares,smb-ls', true);"
-		  },
-	      ],
-	     },
-	     {title: "MS-SQL empty password",
-	      action: "$scope.setparam('mssqlemptypwd');"
-	     },
-	 ],
-	},
-	{title: "Web",
-	 icon: "globe",
-	 items: [
-	     {title: "HTTP Auth",
-	      action: "$scope.setparam('authhttp');",
-	     },
-	     {title: "Shared web files",
-	      action: "$scope.setparam('webfiles', undefined, true, true); $scope.setparam('display', 'script:ls', true);",
-	     },
-	     {title: "Git repository",
-	      action: "$scope.setparam('script', 'http-git:\"/Git repository found/\"');",
-	     },
-	     {title: "OWA",
-	      action: "$scope.setparam('owa');",
-	     },
-	     {title: "PHPMyAdmin",
-	      action: "$scope.setparam('phpmyadmin');",
-	     }
-	 ],
-	},
-	{title: "Auth",
-	 icon: "lock",
-	 items: [
-	     {title: "HTTP Auth",
-	      action: "$scope.setparam('authhttp');",
-	     },
-	     {title: "Anonymous FTP",
-	      action: "$scope.setparam('anonftp', undefined, true, true); $scope.setparam('display', 'script:ftp-anon', true);",
-	     },
-	     {title: "Anonymous LDAP",
-	      action: "$scope.setparam('anonldap')",
-	     },
-	     {title: "NIS / YP",
-	      action: "$scope.setparam('nis')",
-	     },
-	     {title: "VNC Authentication Bypass",
-	      action: "$scope.setparam('authbypassvnc');",
-	     },
-	     {title: "MS-SQL empty password",
-	      action: "$scope.setparam('mssqlemptypwd')",
-	     },
-	     {title: "MY-SQL empty password",
-	      action: "$scope.setparam('mysqlemptypwd')",
-	     },
-	 ],
-	},
-	{title: "Relay",
-	 icon: "share-alt",
-	 items: [
-	     {title: "HTTP Open Proxy",
-	      action: "$scope.setparam('script', 'http-open-proxy');",
-	     },
-	     {title: "Socks Open Proxy",
-	      action: "$scope.setparam('script', 'socks-open-proxy');",
-	     },
-	     {title: "SMTP Open Relay",
-	      action: "$scope.setparam('script', 'smtp-open-relay');",
-	     },
-	     {title: "FTP Bounce",
-	      action: "$scope.setparam('script', 'ftp-bounce:bounce working!');",
-	     },
-	 ],
-	},
-	{title: "Fun",
-	 icon: "screenshot",
-	 items: [
-	     {title: "Webcam",
-	      action: "$scope.setparam('devicetype', 'webcam');",
-	      items: [
-		  {title: "GeoVision",
-		   action: "$scope.setparam('geovision');",
-		  },
-	      ],
-	     },
-	     {title: "Network devices",
-	      action: "$scope.setparam('netdev');",
-	     },
-	     {title: "Telephony devices",
-	      action: "$scope.setparam('phonedev');",
-	     },
-	     {title: "Screenshots",
-	      action: "$scope.setparam('screenshot', undefined, true, true); $scope.setparam('display', 'screenshot', true);",
-	     },
-	     {title: "Shared files",
-	      action: "setparam('file', undefined, true, true); setparam('display', 'script:ls', true);",
-	     },
-	 ],
-	},
+var _SUBMENU_SORT = [
 	{title: "Sort",
 	 icon: "random",
 	 items: [
@@ -862,8 +856,35 @@ var MENU_MAIN = {
 	     },
 	 ],
 	},
+];
+
+// Menu for index.html
+var MENU_MAIN = {
+    share: true,
+    share_report: true,
+    items: [
+	{title: "HELP",
+	 action: "$scope.togglenotes('doc:webui');",
+	 icon: "question-sign",
+	},
     ]
 };
+
+// Menu for index.html
+var MENU_MAIN = {
+    share: true,
+    share_report: true,
+    share_compare: true,
+    items: [
+	{title: "HELP",
+	 action: "$scope.togglenotes('doc:webui');",
+	 icon: "question-sign",
+	},
+    ]
+};
+
+$.merge(MENU_MAIN.items, _SUBMENU_FILTERS);
+$.merge(MENU_MAIN.items, _SUBMENU_SORT);
 
 // Handle 'Upload' option
 if (config.uploadok) {
@@ -873,13 +894,28 @@ if (config.uploadok) {
 			 });
 }
 
+// Menu for compare.html
+var MENU_COMPARE = {
+    share: true,
+    share_report: true,
+    items: [
+	{title: "Main",
+	 action: "document.location = $scope.get_href('index.html')",
+	 icon: "home",
+	},
+    ]
+};
+
+$.merge(MENU_COMPARE.items, _SUBMENU_FILTERS);
+
 // Menu for report.html
 var MENU_REPORT = {
     share: true,
     share_htmlexport: true,
+    share_compare: true,
     items: [
 	{title: "Main",
-	 action: "document.location='index.html' + document.location.hash",
+	 action: "document.location = $scope.get_href('index.html')",
 	 icon: "home",
 	},
 	{title: "Config",
@@ -897,4 +933,5 @@ var MENU_REPORT = {
 var MENUS = {
     main: MENU_MAIN,
     report: MENU_REPORT,
+    compare: MENU_COMPARE,
 };
