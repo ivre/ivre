@@ -127,7 +127,7 @@ var Filter = (function() {
 
 	do_get_results: function() {
 	    var filterobject = this;
-	    if(this.callbacks.get_results) {
+	    if(this.callbacks.get_results.length > 0) {
 		$.ajax({
 		    url: config.cgibase + '?q=' +
 			encodeURIComponent(this.query),
