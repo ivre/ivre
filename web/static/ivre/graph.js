@@ -625,31 +625,28 @@ var GraphPlane = (function(_super) {
 	    ipsint = ips.map(function(i) {
 		return [~~(i[0] / 65536), i[0] % 65536, i[1]];
 	    }),
-	    xmin = (d3.min(ipsint, function(i) {return i[0];}) / 256) * 256,
-	    xmax = (d3.max(ipsint, function(i) {return i[0];}) / 256) * 256,
+	    xextent = d3.extent(ipsint, function(i) {return i[0];});
+	    yextent = d3.extent(ipsint, function(i) {return i[1];}).reverse();
 	    x = d3.scale.linear()
-		.domain(d3.extent(ipsint, function(i) {return i[0];}))
+		.domain(xextent)
 		.range([0, w]),
 	    y = d3.scale.linear()
-		.domain([65536, 0])
+		.domain(yextent)
 		.range([0, h]),
 	    colscale = d3.scale.log()
 		.domain(d3.extent(ips, function(i) {return i[1] + 1;}))
 		.range([0, 1]),
-	    same_slash_16 = false,
-	    yaxisvals = [0, 4096, 8192, 12288, 16384, 20480, 24576, 28672, 32768,
-			 36864, 40960, 45056, 49152, 53248, 57344, 61440, 65536];
-	    if(xmin === xmax) {
+	    same_slash_16 = false;
+	    if(xextent[0] === xextent[1]) {
 		ipsint = ips.map(function(i) {
 		    return [~~(i[0] / 256), i[0] % 256, i[1]];
 		});
-		xmin = (d3.min(ipsint, function(i) {return i[0];}) / 256) * 256;
-		xmax = (d3.max(ipsint, function(i) {return i[0];}) / 256) * 256;
-		x.domain(d3.extent(ipsint, function(i) {return i[0];}));
-		y.domain([256, 0]);
+		xextent = d3.extent(ipsint, function(i) {return i[0];});
+		x.domain(xextent);
+		yextent = d3.extent(ipsint, function(i) {return i[1];})
+		    .reverse();
+		y.domain(yextent);
 		same_slash_16 = true;
-		yaxisvals = [0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176,
-			     192, 208, 224, 240, 256];
 	    }
 	    this.title.html('IP addresses');
 
@@ -660,14 +657,20 @@ var GraphPlane = (function(_super) {
 		.append("svg:g")
 		.attr("transform", "translate(40, 10)");
 
-	    var xaxis = [];
-	    var xstep;
-	    if(same_slash_16)
-		xstep = (Math.max((xmax - xmin) / 7, 1));
-	    else
-		xstep = (Math.max((xmax - xmin) / 7 / 256, 1)) * 256;
-	    for(var i=xmin; i <= (xmax+1); i += xstep) {
+	    var xaxis = [], yaxis = [], xstep, ystep;
+	    if(same_slash_16) {
+		xstep = (Math.max((xextent[1] - xextent[0]) / 7, 1));
+		ystep = (Math.max((yextent[0] - yextent[1]) / 7, 1));
+	    }
+	    else {
+		xstep = (Math.max((xextent[1] - xextent[0]) / 7 / 256, 1)) * 256;
+		ystep = (Math.max((yextent[0] - yextent[1]) / 7, 1));
+	    }
+	    for(var i = xextent[0]; i <= (xextent[1]+1); i += xstep) {
 		xaxis.push(i);
+	    }
+	    for(var i=yextent[1]; i <= (yextent[0]+1); i += ystep) {
+		yaxis.push(i);
 	    }
 
 	    var plane = vis.append("g");
@@ -713,10 +716,12 @@ var GraphPlane = (function(_super) {
 		});
 
 	    var rulesy = vis.selectAll("g.ruley")
-		.data(yaxisvals)
+		.data(yaxis)
 		.enter().append("svg:g")
 		.attr("class", "rule")
-		.attr("transform", function(d) {return "translate(0, " + y(d) + ")";});
+		.attr("transform", function(d) {
+		    return "translate(0, " + y(d) + ")";
+		});
 
 	    rulesy.append("svg:line")
 		.attr("y1", 0)
