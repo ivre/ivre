@@ -33,6 +33,9 @@ IVRE relies on:
       version 2.7.2 minimum.
     * optionally [PIL](http://www.pythonware.com/products/pil/), to
       trim screenshots.
+    * optionally [numpy](http://www.numpy.org/),
+      [matplotlib](http://matplotlib.org/) &
+      [sklearn](http://scikit-learn.org/stable/), to use the analyzer module
 
   * [Nmap](http://nmap.org/)
 

@@ -28,6 +28,9 @@ version 2.6 minimum (prefer 2.7), with the following modules:
   * [pymongo](http://api.mongodb.org/python/) version 2.7.2 minimum.
   * [PIL](http://www.pythonware.com/products/pil/) optional, to trim
     screenshots.
+  * optionally [numpy](http://www.numpy.org/),
+    [matplotlib](http://matplotlib.org/) &
+    [sklearn](http://scikit-learn.org/stable/), to use the analyzer module
 
 ## Installation ##
 
