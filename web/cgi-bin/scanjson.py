@@ -154,7 +154,7 @@ def main():
             else:
                 output = db.nmap.diff_categories(params.get("cat1"),
                                                  params.get("cat2"),
-                                                 flt=flt))
+                                                 flt=flt)
             count = 0
             result = {}
             if params.get("ipsasnumbers"):
