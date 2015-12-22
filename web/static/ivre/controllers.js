@@ -252,10 +252,12 @@ ivreWebUi
 		    scope.parametersprotected[index] = "";
 		    scope.submitform();
 		};
-		scope.submitform = function() {
-		    ToolTip.remove_all();
-		    scope.filter.on_param_update();
-		};
+		if(scope.submitform === undefined) {
+		    scope.submitform = function() {
+			ToolTip.remove_all();
+			scope.filter.on_param_update();
+		    };
+		}
 		if(!attrs.name && scope.shared !== undefined) {
 		    scope.shared.filter = scope.filter;
 		}
@@ -791,6 +793,18 @@ ivreWebUi
 	    undefined: "Common",
 	    "set1": "Set 1",
 	    "set2": "Set 2"
+	};
+	$scope.setparam = function(param, value, unique, notnow) {
+	     return setparam(FILTER, param, value, unique, notnow);
+	};
+	$scope.unsetparam = function(param) {
+	     return unsetparam(FILTER, param);
+	};
+	$scope.submitform = function() {
+	    ToolTip.remove_all();
+	    for(var i in $scope.all_filters) {
+		$scope.all_filters[i].on_param_update();
+	    }
 	};
 	$scope.is_ready = function() {
 	    var filter;
