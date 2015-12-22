@@ -70,10 +70,6 @@ hr {
     margin-bottom: 5px;
 }
 
-.sidebar .input-group {
-     margin-bottom: 10px;
-}
-
 /* Progress bar not starting at the beginning */
 .progress-bar-empty {
     background-image: none;
@@ -247,4 +243,21 @@ form {
 
 .menu-single {
     font-weight: bold;
+}
+
+.filter-list > .input-group {
+    margin-bottom: 5px;
+}
+
+.graph-list > div > ul > li {
+    margin: 5px;
+}
+
+.navbar.graph-list .navbar-inner {
+    text-align: center;
+}
+
+.navbar.graph-list .navbar-inner .nav {
+    float: none;
+    display:inline-block;
 }

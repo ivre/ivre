@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<li class="sidebox-header" ng-switch="totalnbrres">
+<li class="sidebox-header" ng-switch="shared.filter.count">
   <i class="glyphicon glyphicon-list black"></i>
   <span ng-switch-when="0">No result!</span>
   <span ng-switch-when="undefined">[Counting...]
@@ -24,7 +24,7 @@
     <small class="text-muted">showing {{firstdisplayed}} to {{lastdisplayed}}</small>
   </span>
   <span ng-switch-default="">
-    {{totalnbrres}} result<span ng-if="totalnbrres > 1">s</span>
+    {{shared.filter.count}} result<span ng-if="shared.filter.count > 1">s</span>
     <br/>
     <small class="text-muted">showing {{firstdisplayed}} to {{lastdisplayed}}</small>
   </span>
@@ -32,10 +32,10 @@
 <li class="text-center">
   <div class="progress">
     <div class="progress-bar progress-bar-empty"
-	 style="width: {{((firstdisplayed - 1) / totalnbrres * 100) + '%'}}; max-width: 99%"
+	 style="width: {{((firstdisplayed - 1) / shared.filter.count * 100) + '%'}}; max-width: 99%"
 	 ></div>
     <div class="progress-bar"
-	 style="width: {{((lastdisplayed - firstdisplayed + 1) / totalnbrres * 100) + '%'}}; min-width: 1px"
+	 style="width: {{((lastdisplayed - firstdisplayed + 1) / shared.filter.count * 100) + '%'}}; min-width: 1px"
 	 ></div>
   </div>
   <div class="btn-group">

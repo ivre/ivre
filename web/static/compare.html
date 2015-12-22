@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+
+<!--
+  This file is part of IVRE.
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+
+  IVRE is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  IVRE is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<html ng-app="ivreWebUi">
+
+  <head>
+    <link rel="stylesheet" type="text/css" href="bs/css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="fi/css/flag-icon.css" />
+    <link rel="stylesheet" type="text/css" href="ivre/ivre.css" />
+    <link rel="icon" type="image/png" id="favicon" href="favicon.png" />
+    <script type="text/javascript" src="jq/jquery.js"></script>
+    <script type="text/javascript" src="bs/js/bootstrap.js"></script>
+    <script type="text/javascript" src="d3/js/d3.v3.min.js"></script>
+    <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
+    <script type="text/javascript" src="an/js/angular.js"></script>
+    <script type="text/javascript">
+      config = {};
+    </script>
+    <script type="text/javascript" src="config.js"></script>
+    <script type="text/javascript" src="ivre/content.js"></script>
+    <script type="text/javascript" src="ivre/utils.js"></script>
+    <script type="text/javascript" src="ivre/graph.js"></script>
+    <script type="text/javascript" src="ivre/filters.js"></script>
+    <script type="text/javascript" src="ivre/compare.js"></script>
+    <script type="text/javascript" src="ivre/controllers.js"></script>
+    <script type="text/javascript" src="ivre/params.js"></script>
+    <script type="text/javascript" src="ivre/tooltip.js"></script>
+    <script type="text/javascript" src="ivre/ivre.js"></script>
+    <title>IVRE Web UI</title>
+  </head>
+
+  <body onload="init_compare();" ng-controller="IvreCompareCtrl">
+    <div ng-controller="IvreMenuCtrl"
+	 ivre-menu="compare">
+    </div>
+    <div class="container-fluid">
+      <div class="row">
+	<div class="col-sm-12 col-md-3">
+	  <table class="table">
+	    <thead>
+	      <tr><th colspan="2">Result counters</th></tr>
+	    </thead>
+	    <tbody>
+	      <tr ng-repeat="filter in all_filters"
+		  ng-class="{succes: filter.count > 0, warning: filter.count === undefined, error: filter.count === 0}">
+		<td>{{names[filter.name]}}</td>
+		<td ng-switch="filter.count">
+		  <span ng-switch-when="0">No result!</span>
+		  <span ng-switch-when="undefined">[Counting...]</span>
+		  <span ng-switch-default="">{{filter.count}}</span>
+		</td>
+	      </tr>
+	      <tr>
+		<td>Results in all sets </td>
+		<td>{{all_sets.count}}
+	      </tr>
+	    </tbody>
+	  </table>
+	</div>
+	<div class="col-sm-12 col-md-3" ng-controller="IvreFilterListCtrl">
+	  <ul class="nav" ng-controller="IvreFilterListCtrl">
+	      <ivre-filters title="Common filters"></ivre-filters>
+	  </ul>
+	</div>
+	<div class="col-sm-12 col-md-3" ng-repeat="set in [1, 2]">
+	  <ul class="nav" ng-controller="IvreFilterListCtrl">
+	    <ivre-filters title="Filters for set {{set}}"
+			  ng-init="tooltipplace=$last?'left':'right'"
+			  parent=""
+			  name="set{{set}}"></ivre-filters>
+	  </ul>
+	</div>
+      </div>
+      <div class="row">
+      <div class="navbar graph-list center col-sm-12">
+	<div class="navbar-inner">
+	  <ul class="nav navbar-nav">
+	    <li>
+	      <form id="explore" ng-submit="build_top_chart();">
+		<input type="text"
+		       placeholder="Top values"
+		       class="form-control input-medium"
+		       oninput="ToolTip.handle(this, HELP_TOPVALUES);"
+		       onfocus="ToolTip.handle(this, HELP_TOPVALUES);"
+		       onblur="ToolTip.remove(this);"
+		       id="topvalues-input"
+		       ng-model="topvaluesfield"
+		       data-trigger="manual"
+		       data-html="true"
+		       data-container="body"
+		       />
+	      </form>
+	    </li>
+	    <li>
+ 	      <div class="btn-group" role="group">
+		<button class="btn btn-default" ng-click="build_ip_plane()"
+			ng-disabled="!is_ready()">Address space</button>
+		<button class="btn btn-default" ng-click="build_ip_ports()"
+			ng-disabled="!is_ready()">IPs &amp; Ports</button>
+		<button class="btn btn-default"
+			ng-click="build_ip_map()">Map</button>
+		<button class="btn btn-default" ng-click="build_ip_timeline()"
+			ng-disabled="!is_ready()">Timeline</button>
+		<button class="btn btn-default"
+			ng-click="build_ip_timeline(86400)"
+			ng-disabled="!is_ready()">Timeline (24h)</button>
+	      </div>
+	    </li>
+	  </ul>
+	</div>
+      </div>
+      </div>
+      <div class="row" style="padding-top: 10px">
+	<div class="col-sm-12 col-md-6">
+	  <div id="chart1" class="chart" style="display: none;">
+	    <div>
+	      <center>
+		<span name="charttitle"></span>
+		<i class="icon-remove clickable"
+		   onclick="hidecharts();"></i>
+	      </center>
+	    </div>
+	    <div name="chartcontent"></div>
+	  </div>
+	</div>
+	<div class="col-sm-12 col-md-6">
+	  <div id="chart2" class="chart" style="display: none;">
+	    <div>
+	      <center>
+		<span name="charttitle"></span>
+		<i class="icon-remove clickable"
+		   onclick="hidecharts();"></i>
+	      </center>
+	    </div>
+	    <div name="chartcontent"></div>
+	  </div>
+	</div>
+      </div>
+    </div>
+  </body>
+</html>

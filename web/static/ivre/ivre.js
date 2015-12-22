@@ -42,24 +42,13 @@ setdefaultconfig();
 /****** Global Variables *******/
 
 /* global variables */
-var parameters = [];
-var parametersprotected = [];
-var parametersobj = {};
-var parametersobjunalias = {};
 var clicktimeout = null;
 var wanted_scripts, wanted_hops;
-// the initial prev_query has to be an object and to be different than
-// any valid query
-var prev_query = {"thiswillneverexist": []};
-var query;
 
 /******* IVRE specific methods *******/
 
 function hideall() {
-    var elts = Array.prototype.slice.call(
-	document.getElementById('notes-container').children);
-    for(var i in elts)
-	elts[i].style.display = "none";
+    $("#notes-container").children().css("display", "none");
 }
 
 function addr_links(host) {
@@ -149,47 +138,61 @@ function port_summary(host, width) {
     return result;
 }
 
+function wait_filter(fct) {
+    if(FILTER === undefined) {
+	/* XXX Wait for FILTER to be ready. */
+	setTimeout(fct, 100);
+	return false;
+    }
+    return true;
+}
+
+function sync_hash_filter(filter) {
+    /*
+     * Syncs the filter's parameters/query and the page's hash.
+     */
+
+    window.onhashchange = function() {
+	filter.query = get_hash();
+	if(!(load_params(filter)))
+	    return;
+	filter.on_query_update();
+    };
+    filter.add_callback("param_update", function(query) {
+	var onhashchange = window.onhashchange;
+	window.onhashchange = function() {
+	    window.onhashchange = onhashchange;
+	};
+	set_hash(query);
+    });
+}
+
 /******* Main function *********/
 
 function load() {
-    if (!(load_params()))
+
+    /* Main Web UI */
+
+    if(!(wait_filter(load)))
 	return;
-    var need_update = ! compare_params(parametersobjunalias,
-				       prev_query,
-				       false);
-    if(! need_update)
-	need_update = ! compare_params(prev_query,
-				       parametersobjunalias,
-				       false);
-    if(! need_update) {
-	set_display_mode(getparam('display'));
-	return;
-    }
 
-    var need_count = ! compare_params(parametersobjunalias,
-				      prev_query,
-				      true);
-    if(! need_count)
-	need_count = ! compare_params(prev_query,
-				      parametersobjunalias,
-				      true);
+    sync_hash_filter(FILTER);
 
-    clear_hosts();
-    hidecharts();
-    changefav("favicon-loading.gif");
-    if(need_count)
-	set_nbrres(undefined);
-
-    var s = document.getElementById('resultsscript');
-    if(s) document.body.removeChild(s);
-    s = document.createElement('script');
-    s.id = "resultsscript";
-    s.src = config.cgibase + '?callback=add_host&q=' +
-	encodeURIComponent(query);
-    s.onload = function() {
+    FILTER.add_callback("pre_get_results", function() {
+	clear_hosts();
+	hidecharts();
+	changefav("favicon-loading.gif");
+    });
+    FILTER.add_callback("get_results", function(data) {
+	add_hosts(data);
+    });
+    FILTER.add_callback("end_update", function() {
+	set_display_mode(getparam(FILTER, 'display'));
+    });
+    FILTER.add_callback("post_get_results", function() {
 	var hostcount = count_displayed_hosts(),
-	limit = getparam('limit'),
-	skip = getparam('skip');
+	limit = getparam(FILTER, 'limit'),
+	skip = getparam(FILTER, 'skip');
 	if(limit === undefined)
 	    limit = config.dflt.limit;
 	else
@@ -202,35 +205,27 @@ function load() {
 		setparam('skip', 0, true);
 	}
 	var maxres = skip + hostcount;
-	set_display_mode(getparam('display'));
 	if(maxres !== skip) {
 	    set_display_bounds(skip + 1, maxres);
 	}
-
 	changefav("favicon.png");
-
 	if(hostcount === 1) {
 	    toggle_full_display(0);
 	}
-
-	document.getElementById("filter-last").focus();
-
-	if(need_count) {
-	    var s = document.getElementById('countscript');
-	    if(s) document.body.removeChild(s);
-	    s = document.createElement('script');
-	    s.id = "countscript";
-	    s.src = config.cgibase + '?callback=set_nbrres&action=count&q=' +
-		encodeURIComponent(query);
-	    document.body.appendChild(s);
-	}
-	prev_query = {};
-	for(var key in parametersobjunalias) {
-	    prev_query[key] = parametersobjunalias[key];
-	}
-
-    };
-    document.body.appendChild(s);
+    });
+    document.getElementById("filter-last").focus();
+    window.onhashchange();
 }
 
-window.onhashchange = load;
+function init_report() {
+    /* Report Web UI
+
+       Sync between parameters and query works through the hash. See
+       load() function.
+
+     */
+    if(!(wait_filter(init_report)))
+	return;
+    sync_hash_filter(FILTER);
+    window.onhashchange();
+}

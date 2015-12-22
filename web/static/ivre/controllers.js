@@ -57,12 +57,18 @@ ivreWebUi.directive('popover', function(){
 
 ivreWebUi
     .controller('IvreMainCtrl', function ($scope) {
-	$scope.setparam = setparam;
-	$scope.totalnbrres = undefined;
+	$scope.setparam = function(param, value, unique, notnow) {
+	     return setparam($scope.shared.filter,
+			     param, value, unique, notnow);
+	};
+	$scope.unsetparam = function(param) {
+	     return unsetparam($scope.shared.filter, param);
+	};
 	// notes: here because the buttons are located in the menu and
 	// the results
 	$scope.notes_page = undefined;
 	$scope.notes_display = "none";
+	$scope.shared = {};
 	$scope.togglenotes = function (page) {
 	    if($scope.notes_display === "none") {
 		hideall();
@@ -77,75 +83,64 @@ ivreWebUi
 	};
 	// graphs:here beacause the buttons are located w/ the filters
 	$scope.build_ip_plane = function() {
-	    var totalnbrres = $scope.totalnbrres;
+	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		hideall();
-		var c1 = document.getElementById('chart1');
-		c1.innerHTML = "";
-		var s = document.getElementById('chart1script');
-		if(s) c1.parentNode.removeChild(s);
-		document.getElementById('charts').style.display = 'inline';
-		s = document.createElement('script');
-		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_plane('chart1', ips);})")+ '&action=countopenports&ipsasnumbers=1&q=' + encodeURIComponent(query);
-		c1.parentNode.appendChild(s);
+	    new GraphPlane($("#chart"), $scope.shared.filter.query)
+		.build();
 	    }
 	    else {
 		hidecharts();
 	    }
 	};
-	$scope.build_ip_map = build_ip_map;
+	$scope.build_ip_map = function() {
+	    new GraphMap($("#chart"), $scope.shared.filter.query)
+		.build();
+	};
 	$scope.build_ip_timeline = function(modulo) {
-	    var totalnbrres = $scope.totalnbrres;
+	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || modulo !== undefined || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		hideall();
-		var c1 = document.getElementById('chart1');
-		c1.innerHTML = "";
-		var s = document.getElementById('chart1script');
-		if(s) c1.parentNode.removeChild(s);
-		document.getElementById('charts').style.display = 'inline';
-		s = document.createElement('script');
-		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_timeline('chart1', ips);})")+ '&action=timeline&ipsasnumbers=1&q=' + encodeURIComponent(query);
-		if(modulo !== undefined)
-		    s.src += '&modulo=' + modulo;
-		c1.parentNode.appendChild(s);
+		new GraphTimeline($("#chart"), $scope.shared.filter.query,
+				  modulo)
+		    .build();
 	    }
 	    else {
 		hidecharts();
 	    }
 	};
 	$scope.build_ip_ports = function() {
-	    var totalnbrres = $scope.totalnbrres;
+	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)
 		return;
 	    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
-		hideall();
-		var c1 = document.getElementById('chart1');
-		c1.innerHTML = "";
-		var s = document.getElementById('chart1script');
-		if(s) c1.parentNode.removeChild(s);
-		document.getElementById('charts').style.display = 'inline';
-		s = document.createElement('script');
-		s.id = 'chart1script';
-		s.src = config.cgibase + '?callback=' + encodeURIComponent("(function(ips){build_chart_ports('chart1', ips);})")+ '&action=ipsports&ipsasnumbers=1&q=' + encodeURIComponent(query);
-		c1.parentNode.appendChild(s);
+		new GraphIpPort($("#chart"), $scope.shared.filter.query)
+		    .build();
 	    }
 	    else {
 		hidecharts();
 	    }
 	};
+	$scope.build_top_chart = function() {
+	    new GraphTopValues($("#chart"),
+			       $scope.shared.filter.query,
+			       $scope.shared.topvaluesfield)
+		.build();
+	};
+	$scope.apply_on_filter_update = [$scope];
     });
 
 // The menu controller
 
 ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
-	$scope.get_href = function() {return document.location.href;};
+	$scope.get_href = function(page) {
+	    if(page === undefined)
+		return document.location.href;
+	    return getPagePath() + page + document.location.hash;
+	};
 	$scope.get_title = function() {return document.title;};
 	$scope.add_bookmark = function() {
 	    // https://stackoverflow.com/questions/3024745
@@ -171,8 +166,8 @@ ivreWebUi
     })
     .directive('ivreMenu', function() {
 	var linkFunction = function(scope, elements, attributes) {
-	    scope.MENU = MENUS[attributes["ivreMenu"]];
-	}
+	    scope.MENU = MENUS[attributes.ivreMenu];
+	};
 	return {
 	    templateUrl: 'templates/menu.html',
 	    link: linkFunction,
@@ -189,7 +184,8 @@ ivreWebUi
 	    return $scope.firstdisplayed === 1;
 	};
 	$scope.at_end = function() {
-	    return $scope.lastdisplayed === $scope.totalnbrres;
+	    return $scope.shared.filter &&
+		$scope.lastdisplayed === $scope.shared.filter.count;
 	};
 	$scope.goto_start = function() {
 	    if(!$scope.at_start())
@@ -199,7 +195,7 @@ ivreWebUi
 	    if(!$scope.at_end())
 		setparam(
 		    'skip',
-		    $scope.totalnbrres - $scope.lastdisplayed +
+		    $scope.shared.filter.count - $scope.lastdisplayed +
 			$scope.firstdisplayed - 1 + "",
 		    true);
 	};
@@ -219,13 +215,6 @@ ivreWebUi
     });
 
 
-function set_nbrres(nbr) {
-    var scope = get_scope('IvreMainCtrl');
-    scope.$apply(function() {
-	scope.totalnbrres = nbr;
-    });
-}
-
 function set_display_bounds(first, last) {
     var scope = get_scope('IvreProgressCtrl');
     scope.$apply(function() {
@@ -242,7 +231,44 @@ ivreWebUi
     })
     .directive('ivreFilters', function() {
 	return {
-	    templateUrl: 'templates/filters.html'
+	    templateUrl: 'templates/filters.html',
+	    link: function(scope, elem, attrs) {
+		scope.title = attrs.title;
+		switch(attrs.parent) {
+		case undefined:
+		    scope.filter = new Filter(attrs.name);
+		    break;
+		case "":
+		    scope.filter = new SubFilter(attrs.name, FILTER);
+		    break;
+		default:
+		    scope.filter = new SubFilter(attrs.name,
+						 FILTERS[attrs.parent]);
+		}
+		scope.filter.scope = scope;
+		scope.parametersprotected = scope.filter.parametersprotected;
+		scope.idprefix = attrs.name ? attrs.name + "-" : "";
+		scope.clear_and_submit = function(index) {
+		    scope.parametersprotected[index] = "";
+		    scope.submitform();
+		};
+		if(scope.submitform === undefined) {
+		    scope.submitform = function() {
+			ToolTip.remove_all();
+			scope.filter.on_param_update();
+		    };
+		}
+		if(!attrs.name && scope.shared !== undefined) {
+		    scope.shared.filter = scope.filter;
+		}
+		if(scope.all_filters !== undefined) {
+		    scope.all_filters.push(scope.filter);
+		}
+		if(scope.apply_on_filter_update !== undefined) {
+		    $.merge(scope.filter.need_apply,
+			    scope.apply_on_filter_update);
+		}
+	    }
 	};
     })
     .directive('ivreTopvalues', function() {
@@ -307,10 +333,16 @@ ivreWebUi
 	    }
 	};
 	$scope.wanted_param = function(param, value) {
-	    var wanted = getparamvalues(param)
+	    var wanted = getparamvalues($scope.shared.filter, param)
 		.filter(function(x) {return x[0];})
 		.map(function(x) {return x[1];});
 	    return wanted.indexOf(value) != -1;
+	};
+	$scope.wanted_port = function(status, protocol, port) {
+	    var wanted = getparamvalues($scope.shared.filter, status, true)
+		.filter(function(x) {return x[0];})
+		.map(function(x) {return x[1];});
+	    return wanted.indexOf(protocol + '/' + port) != -1;
 	};
 	$scope.wanted_trace = function(trace) {
 	    var hops = trace.hops.map(function(hop) {return hop.ipaddr;});
@@ -367,57 +399,57 @@ ivreWebUi
 	    }
 	    return result;
 	};
-    $scope.get_reshaped_cpes = function(host) {
-        if(host.n_cpes)
+	$scope.get_reshaped_cpes = function(host) {
+            if(host.n_cpes)
+		return host.n_cpes;
+            var cpes = host.cpes,
+            n_cpes = {},
+            type2str = {
+		'h': 'Hw',
+		'o': 'OS',
+		'a': 'App',
+            },
+            my_setdefault = function(d, key) {
+		if(!("data" in d)) {
+                    d.data = {};
+		}
+		if(!(key in d.data)) {
+                    d.data[key] = {"name": key, "data": {}};
+		}
+		return d.data[key];
+            };
+            for(var i in cpes) {
+		var cpe = cpes[i],
+		type_d = my_setdefault(n_cpes, cpe.type),
+		vend_d = my_setdefault(type_d, cpe.vendor),
+		prod_d = my_setdefault(vend_d, cpe.product),
+		comp_d = my_setdefault(prod_d, cpe.version);
+		type_d.pretty_name = type2str[cpe.type] || "Unk";
+		vend_d.pretty_name = cpe.vendor ? cpe.vendor : "---";
+		prod_d.pretty_name = cpe.product ? cpe.product : "---";
+		comp_d.pretty_name = cpe.version ? cpe.version : "---";
+		comp_d.origins || (comp_d.origins = []);
+		comp_d.origins = comp_d.origins.concat(cpe.origins);
+		comp_d.tooltitle = "cpe:/" +
+                    [cpe.type, cpe.vendor, cpe.product, cpe.version]
+                    .join(":").replace(/:+$/, "");
+		comp_d.toolcontent = cpe.origins.join('<br/>');
+            }
+            host.n_cpes = n_cpes;
             return host.n_cpes;
-        var cpes = host.cpes,
-        n_cpes = {},
-        type2str = {
-            'h': 'Hw',
-            'o': 'OS',
-            'a': 'App',
-        },
-        my_setdefault = function(d, key) {
-            if(!("data" in d)) {
-                d.data = {};
+	};
+	$scope.set_cpe_param = function(type, vendor, product, version) {
+            var query = [],
+            parts = [type, vendor, product, version];
+            for(var i in parts) {
+		if(parts[i] && !!parts[i].name) {
+                    query.push(parts[i].name);
+		} else {
+                    break;
+		}
             }
-            if(!(key in d.data)) {
-                d.data[key] = {"name": key, "data": {}};
-            }
-            return d.data[key];
-        };
-        for(var i in cpes) {
-            var cpe = cpes[i],
-            type_d = my_setdefault(n_cpes, cpe.type),
-            vend_d = my_setdefault(type_d, cpe.vendor),
-            prod_d = my_setdefault(vend_d, cpe.product),
-            comp_d = my_setdefault(prod_d, cpe.version);
-            type_d.pretty_name = type2str[cpe.type] || "Unk";
-	    vend_d.pretty_name = cpe.vendor == "" ? "---" : cpe.vendor;
-	    prod_d.pretty_name = cpe.product == "" ? "---" : cpe.product;
-	    comp_d.pretty_name = cpe.version == "" ? "---" : cpe.version;
-            comp_d.origins || (comp_d.origins = []);
-            comp_d.origins = comp_d.origins.concat(cpe.origins);
-            comp_d.tooltitle = "cpe:/" +
-                               [cpe.type, cpe.vendor, cpe.product, cpe.version]
-                               .join(":").replace(/:+$/, "");
-            comp_d.toolcontent = cpe.origins.join('<br/>');
-        }
-        host.n_cpes = n_cpes;
-        return host.n_cpes;
-    };
-    $scope.set_cpe_param = function(type, vendor, product, version) {
-        var query = [],
-        parts = [type, vendor, product, version];
-        for(var i in parts) {
-            if(parts[i] && !!parts[i].name) {
-                query.push(parts[i].name);
-            } else {
-                break;
-            }
-        }
-        $scope.setparam("cpe", query.join(':'));
-    }
+            $scope.setparam("cpe", query.join(':'));
+	};
     })
     .directive('displayHost', function() {
 	return {
@@ -498,18 +530,19 @@ function prepare_host(host) {
     return host;
 }
 
-function add_host(host) {
+function add_hosts(hosts) {
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
     var scope = get_scope('IvreResultListCtrl');
-    scope.$apply(function() {
-	scope.results.push(prepare_host(host));
-    });
+    for(var i in hosts) {
+	scope.results.push(prepare_host(hosts[i]));
+    }
 }
 
 function clear_hosts() {
-    var scope = get_scope('IvreResultListCtrl');
-    scope.$apply(function() {
-	scope.results = [];
-    });
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
+    get_scope('IvreResultListCtrl').results = [];
 }
 
 function toggle_full_display(hostindex) {
@@ -525,28 +558,28 @@ function count_displayed_hosts() {
 }
 
 function set_display_mode(mode) {
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
     var scope = get_scope('IvreResultListCtrl'), args = [];
     if(mode === undefined)
 	mode = "host"; // default
-    scope.$apply(function() { 
-	if(mode.substr(0, 7) === "script:") {
-	    args = mode.substr(7).split(',').reduce(function(accu, value) {
-		switch(value) {
-		case "":
-		    return accu;
-		case "ls":
-		    return accu.concat([
-			"afp-ls", "ftp-anon", "http-ls", "nfs-ls", "smb-ls",
-		    ]);
-		default:
-		    return accu.concat([value]);
-		}
-	    }, []);
-	    mode = "script";
-	}
-	scope.display_mode_args = args;
-	scope.display_mode = mode;
-    });
+    if(mode.substr(0, 7) === "script:") {
+	args = mode.substr(7).split(',').reduce(function(accu, value) {
+	    switch(value) {
+	    case "":
+		return accu;
+	    case "ls":
+		return accu.concat([
+		    "afp-ls", "ftp-anon", "http-ls", "nfs-ls", "smb-ls",
+		]);
+	    default:
+		return accu.concat([value]);
+	    }
+	}, []);
+	mode = "script";
+    }
+    scope.display_mode_args = args;
+    scope.display_mode = mode;
 }
 
 ivreWebUi
@@ -580,22 +613,18 @@ ivreWebUi
     });
 
 function add_message(ident, level, content) {
+    // scope.$apply() has to be called at the end of
+    // Filter.on_query_update()
     var message;
     if(content === undefined)
 	message = {"level": "info", "content": level};
     else
 	message = {"level": level, "content": content};
-    var scope = get_scope('IvreMessagesCtrl');
-    scope.$apply(function() {
-	scope.messages[ident] = message;
-    });
+    get_scope('IvreMessagesCtrl').messages[ident] = message;
 }
 
 function del_message(ident) {
-    var scope = get_scope('IvreMessagesCtrl');
-    scope.$apply(function() {
-	delete scope.messages[ident];
-    });
+    delete get_scope('IvreMessagesCtrl').messages[ident];
 }
 
 ivreWebUi
@@ -603,8 +632,7 @@ ivreWebUi
 
 	/********** Common **********/
 
-	$scope.query = get_hash();
-	$scope.queryplural = parameters.length > 1;
+	$scope.shared = {};
 
 	/********** Display **********/
 
@@ -685,52 +713,24 @@ ivreWebUi
 	/********** Report building **********/
 
 	$scope.build_ip_map = function(nb) {
-	    var c1 = document.getElementById('chartmap' + nb);
-	    var fullworld = undefined;
-	    c1.innerHTML = "";
-	    var s = document.getElementById('chartmap' + nb + 'script');
-	    if(s) $(s).remove();
-	    s = document.createElement('script');
-	    s.id = 'chartmap' + nb + 'script';
-	    component = "(function(ips){build_chart_map('chartmap" + nb +
-		"', ips, " + fullworld + ");" +
-		"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); };" +
-		"to_remove = $.find('[title=\"Zoom out\"]'); for (var i in to_remove) { $(to_remove[i]).remove(); };" +
-		"})";
-	    s.src = config.cgibase + '?callback=' +
-		encodeURIComponent(component) +
-		'&action=coordinates&ipsasnumbers=1&q=' + encodeURIComponent(query);
-	    c1.parentNode.appendChild(s);
+	    new GraphMap($("#chartmap" + nb), $scope.shared.filter.query)
+		.no_buttons()
+		.build();
 	};
 
 	$scope.build_top_value = function(field, nb, size, colors) {
-	    var c2 = document.getElementById('chart' + nb);
-	    c2.innerHTML = "";
-	    var s = document.getElementById('chart' + nb + 'script');
-	    if(s) $(s).remove();
-	    s = document.createElement('script');
-	    s.id = 'chart' + nb + 'script';
-
-	    s.src = config.cgibase + '?callback=' +
-		encodeURIComponent(
-		    "(function(data){build_chart('chart" + nb + "', '" +
-			field + "', data, " + size + ", " + colors + ");" +
-			"to_remove = $.find('[download]'); for (var i in to_remove) { $(to_remove[i]).remove(); }" +
-			"})") +
-		'&action=topvalues:' + encodeURIComponent(field) + ':10&q=' +
-		encodeURIComponent(query);
-	    c2.parentNode.appendChild(s);
+	    new GraphTopValues($("#chart" + nb), $scope.shared.filter.query,
+			      field, 10, size, colors)
+		.no_buttons()
+		.build();
 	};
 	$scope.build_all = function() {
-	    $scope.query = get_hash();
-	    $scope.queryplural = parameters.length > 1;
-
 	    for (var elementid in $scope.elements) {
 		element = $scope.elements[elementid];
 		if (element.type === "Top-values") {
 		    bcolor = undefined;
 		    if ($scope.colors[element.color].fg === "white")
-			bcolor = '["white"]';
+			bcolor = ["white"];
 		    $scope.build_top_value(element.parameters,
 					   parseInt(elementid) + 1,
 					   10, bcolor);
@@ -771,8 +771,8 @@ ivreWebUi
 	    $scope.error_agreed = config.publicsrv && !$scope.agreed;
 	    $scope.error_source = !$scope.source || $scope.source.length === 0;
 	    return (!($scope.error_files || $scope.error_agreed ||
-		     $scope.error_source))
-	}
+		     $scope.error_source));
+	};
 	$scope.upload = function() {
 	    if($scope.check()) {
 		$("#uploadReferer")
@@ -782,5 +782,109 @@ ivreWebUi
 			  config.cgibase.replace(/json.py/, "upload.py"))
 		    .submit();
 	    }
-	}
+	};
+    });
+
+ivreWebUi
+    .controller('IvreCompareCtrl', function ($scope) {
+	$scope.all_filters = [];
+	$scope.apply_on_filter_update = [$scope];
+	$scope.names = {
+	    undefined: "Common",
+	    "set1": "Set 1",
+	    "set2": "Set 2"
+	};
+	$scope.setparam = function(param, value, unique, notnow) {
+	     return setparam(FILTER, param, value, unique, notnow);
+	};
+	$scope.unsetparam = function(param) {
+	     return unsetparam(FILTER, param);
+	};
+	$scope.submitform = function() {
+	    ToolTip.remove_all();
+	    for(var i in $scope.all_filters) {
+		$scope.all_filters[i].on_param_update();
+	    }
+	};
+	$scope.is_ready = function() {
+	    var filter;
+	    for(var i in $scope.all_filters) {
+		filter = $scope.all_filters[i];
+		if(filter.name && filter.name.substr(0, 3) === "set" &&
+		   filter.count === undefined) {
+		    return false;
+		}
+	    }
+	    return true;
+	};
+	$scope.build_ip_plane = function() {
+	    var totalnbrres, filter, i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set") {
+		    filter = FILTERS[name];
+		    totalnbrres = filter.count;
+		    if(totalnbrres === undefined)
+			return;
+		    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+			new GraphPlane($("#chart" + i++), filter.query)
+			    .build();
+		    }
+		}
+	    }
+	};
+	$scope.build_ip_map = function() {
+	    var i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set")
+		    new GraphMap($("#chart" + i++),
+				 FILTERS[name].query)
+		    .build();
+	    }
+	};
+	$scope.build_ip_timeline = function(modulo) {
+	    var totalnbrres, filter, i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set") {
+		    filter = FILTERS[name];
+		    totalnbrres = filter.count;
+		    if(totalnbrres === undefined)
+			return;
+		    if(totalnbrres < config.warn_dots_count || modulo !== undefined || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+			new GraphTimeline($("#chart" + i++),
+					  filter.query, modulo)
+			    .build();
+		    }
+		}
+	    }
+	};
+	$scope.build_ip_ports = function() {
+	    var totalnbrres, filter, i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set") {
+		    filter = FILTERS[name];
+		    totalnbrres = filter.count;
+		    if(totalnbrres === undefined)
+			return;
+		    if(totalnbrres < config.warn_dots_count || confirm("You are about to ask your browser to display " + totalnbrres + " dots, which is a lot and might slow down, freeze or crash your browser. Do you want to continue?")) {
+			new GraphIpPort($("#chart" + i++), filter.query)
+		    .build();
+		    }
+		}
+	    }
+	};
+	$scope.build_top_chart = function() {
+	    var i = 1;
+	    hidecharts();
+	    for(var name in FILTERS) {
+		if(name.substr(0, 3) === "set")
+		    new GraphTopValues($("#chart" + i++),
+				       FILTERS[name].query,
+				       $scope.topvaluesfield, 10)
+		    .build();
+	    }
+	};
     });

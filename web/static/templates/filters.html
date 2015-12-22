@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -16,43 +16,46 @@
   along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> Filter</li>
-<form class="" onsubmit="ToolTip.remove_all(this); set_hash(Array.prototype.slice.call(this.getElementsByTagName('input')).filter(function(p){return p.getAttribute('type') === 'text' && p.value;}).map(function(p){return p.value}).join(' '));" id="filters">
-  <li ng-repeat="filter in filters">
+<li class="sidebox-header"><i class="glyphicon glyphicon-filter black"></i> {{title}}</li>
+<form class="" ng-submit="submitform()">
+  <li ng-repeat="param in parametersprotected track by $index"
+      class="filter-list">
     <div class="input-group">
       <input class="form-control input-medium"
 	     type="text"
-	     id="{{'filter' + filter.id}}"
-	     name="{{'filter' + filter.id}}"
+	     id="{{idprefix + 'filter' + $index}}"
+	     name="{{'filter' + $index}}"
 	     data-trigger="manual"
 	     data-html="true"
-	     data-container="#navbar"
+	     data-container="body"
+	     data-placement="{{tooltipplace}}"
 	     oninput="ToolTip.handle(this, HELP_FILTERS);"
 	     onfocus="ToolTip.handle(this, HELP_FILTERS);"
 	     onblur="ToolTip.remove(this);"
-	     ng-model="filter.value"
+	     ng-model="parametersprotected[$index]"
 	     placeholder="Add a criteria"/>
       <span class="input-group-addon clickable"
-	    onclick="this.parentNode.getElementsByTagName('input')[0].value=''; this.parentNode.parentNode.parentNode.onsubmit();"
+	    ng-click="clear_and_submit($index);"
 	    ><i class="glyphicon glyphicon-remove"></i></span>
     </div>
   </li>
-  <li>
+  <li class="filter-list">
     <div class="input-group">
       <input class="form-control input-medium"
 	     type="text"
-	     id="filter-last"
+	     id="{{idprefix + 'filter-last'}}"
 	     name="filter-last"
 	     data-trigger="manual"
 	     data-html="true"
-	     data-container="#navbar"
+	     data-container="body"
+	     data-placement="{{tooltipplace}}"
 	     oninput="ToolTip.handle(this, HELP_FILTERS);"
 	     onfocus="ToolTip.handle(this, HELP_FILTERS);"
 	     onblur="ToolTip.remove(this);"
 	     placeholder="Add a criteria"
 	     ng-model="lastfiltervalue"/>
       <span class="input-group-addon clickable"
-	    onclick="document.getElementById('filter-last').value=''; document.getElementById('filter-last').focus();"
+	    ng-click="lastfiltervalue = '';"
 	    ><i class="glyphicon glyphicon-remove"></i></span>
     </div>
     <input type="submit"

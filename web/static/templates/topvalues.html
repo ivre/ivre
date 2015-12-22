@@ -18,8 +18,7 @@
 
 <li class="sidebox-header"><i class="glyphicon glyphicon-search black"></i> Explore</li>
 <li>
-  <form id="explore"
-	onsubmit="build_top_chart(this);">
+  <form id="explore" ng-submit="build_top_chart();">
     <input type="text"
 	   placeholder="Top values"
 	   class="form-control input-medium"
@@ -27,9 +26,10 @@
 	   onfocus="ToolTip.handle(this, HELP_TOPVALUES);"
 	   onblur="ToolTip.remove(this);"
 	   id="topvalues-input"
+	   ng-model="shared.topvaluesfield"
 	   data-trigger="manual"
 	   data-html="true"
-	   data-container="#navbar"
+	   data-container="body"
 	   />
   </form>
 </li>
@@ -37,22 +37,22 @@
   <div class="btn-group-vertical" style="width:100%;" role="group">
     <button class="btn btn-default"
 	    ng-click="build_ip_plane()"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >Address space</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_ports()"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >IPs & Ports</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_map()"
 	    >Map</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_timeline()"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >Timeline</button>
     <button class="btn btn-default"
 	    ng-click="build_ip_timeline(86400)"
-	    ng-class="{disabled: totalnbrres == undefined}"
+	    ng-class="{disabled: shared.filter.count == undefined}"
 	    >Timeline (24h)</button>
   </div>
 </li>

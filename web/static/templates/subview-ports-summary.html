@@ -36,7 +36,9 @@
       <span ng-if="::summary.type == 'ports'"
 	    ng-repeat="port in ::summary.ports | orderBy: ['protocol','port']"
 	    ><!--
-     --><a ng-click="setparam(port.protocol+'/'+port.port)" class="clickable">
+     --><a ng-click="setparam(port.protocol + '/' + port.port)"
+	   ng-class="{highlight: wanted_port(summary.status, port.protocol, port.port)}"
+	   class="clickable">
 	  {{::port.protocol}}/{{::port.port}}</a><span ng-if="!$last">, </span>
       </span>
     </td>

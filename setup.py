@@ -107,6 +107,7 @@ specialized scripts.
           'docker/web-apache/doku-conf-local.php']),
         ('share/ivre/web/static',
          ['web/static/index.html',
+          'web/static/compare.html',
           'web/static/report.html',
           'web/static/upload.html',
           'web/static/config-sample.js',
@@ -134,7 +135,9 @@ specialized scripts.
         # IVRE
         ('share/ivre/web/static/ivre',
          ['web/static/ivre/ivre.css',
+          'web/static/ivre/compare.js',
           'web/static/ivre/controllers.js',
+          'web/static/ivre/filters.js',
           'web/static/ivre/graph.js',
           'web/static/ivre/ivre.js',
           'web/static/ivre/params.js',

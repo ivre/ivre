@@ -69,7 +69,7 @@ def main():
                                     least=least, topnbr=topnbr,
                                     archive=archive)]
         if callback is None:
-            sys.stdout.write("%s;\n" % json.dumps(series))
+            sys.stdout.write("%s\n" % json.dumps(series))
         else:
             sys.stdout.write("%s(%s);\n" % (callback, json.dumps(series)))
         exit(0)
@@ -157,8 +157,8 @@ def main():
             sys.stdout.write(json.dumps(r2res(rec)) + ",\n")
         sys.stdout.write(postamble)
         if callback is not None:
-            sys.stdout.write(")")
-        sys.stdout.write(";\n")
+            sys.stdout.write(");")
+        sys.stdout.write("\n")
         if count >= config.WEB_WARN_DOTS_COUNT:
             sys.stdout.write('}\n')
         exit(0)
@@ -168,10 +168,10 @@ def main():
                          limit=limit, skip=skip, sort=sortby)
 
     if action == "count":
-        if callback is not None:
-            sys.stdout.write("%s(%d);\n" % (callback, result.count()))
+        if callback is None:
+            sys.stdout.write("%d\n" % result.count())
         else:
-            sys.stdout.write("%d;\n" % result.count())
+            sys.stdout.write("%s(%d);\n" % (callback, result.count()))
         exit(0)
 
     if unused:
@@ -193,6 +193,10 @@ def main():
         sys.stderr.write('IVRE: INFO: %r\n' % msg)
 
     version_mismatch = {}
+    if callback is None:
+        sys.stdout.write("[\n")
+    else:
+        sys.stdout.write("%s([\n" % callback)
     for rec in result:
         del rec['_id']
         try:
@@ -213,13 +217,14 @@ def main():
                         hop['ipaddr'] = utils.int2ip(hop['ipaddr'])
                     except:
                         pass
-        if callback is not None:
-            sys.stdout.write("%s(%s);\n" % (callback, json.dumps(rec)))
-        else:
-            sys.stdout.write("%s;\n" % json.dumps(rec))
+        sys.stdout.write("\t%s,\n" % json.dumps(rec))
         check = db.nmap.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
+    if callback is None:
+        sys.stdout.write("]\n")
+    else:
+        sys.stdout.write("]);\n")
 
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "

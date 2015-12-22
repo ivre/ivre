@@ -37,6 +37,7 @@
     <script type="text/javascript" src="ivre/content.js"></script>
     <script type="text/javascript" src="ivre/utils.js"></script>
     <script type="text/javascript" src="ivre/graph.js"></script>
+    <script type="text/javascript" src="ivre/filters.js"></script>
     <script type="text/javascript" src="ivre/controllers.js"></script>
     <script type="text/javascript" src="ivre/params.js"></script>
     <script type="text/javascript" src="ivre/tooltip.js"></script>
@@ -62,7 +63,7 @@
 	    <hr />
 	    <ul class="nav"
 		ng-controller="IvreFilterListCtrl">
-	      <ivre-filters></ivre-filters>
+	      <ivre-filters title="Filter"></ivre-filters>
 	      <hr />
 	      <ivre-topvalues></ivre-topvalues>
 	    </ul>
@@ -86,15 +87,15 @@
 		  ng-src="{{notes_page}}";
 		  onload="this.parentNode.style.height=window.innerHeight-50+'px'">
 	  </iframe>
-	  <div id="charts" style="display: none;">
+	  <div id="chart" class="chart" style="display: none;">
 	    <div>
 	      <center>
-		<span id="chartstitle"></span>
+		<span name="charttitle"></span>
 		<i class="icon-remove clickable"
-		   onclick="build_current_graph = undefined; hidecharts();"></i>
+		   onclick="hidecharts();"></i>
 	      </center>
 	    </div>
-	    <div id="chart1"></div>
+	    <div name="chartcontent"></div>
 	  </div>
 	</div>
       </div>

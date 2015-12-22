@@ -189,7 +189,8 @@ jQuery.fn.getBg = function() {
 
 	var color = $(this).css('background-color');
 
-	if(color != 'transparent' && color != 'rgba(0, 0, 0, 0)' && color != undefined) 
+	if(color != 'transparent' && color != 'rgba(0, 0, 0, 0)' &&
+	   color !== undefined)
 	    return color;
     }).css('background-color');
 };
@@ -261,7 +262,7 @@ function exportDOM() {
     // Rebuild a web page
     var content = "<html><head><style>" + cssText + "</style></head><body>" + reportDOM.html() + "</body></html>";
     return new Blob([content], {"type": "text\/html" });
-};
+}
 
 function download_blob(blob, title) {
     // Build a link element to download Blob
@@ -283,4 +284,12 @@ function download_blob(blob, title) {
     // Clean
     document.removeElement(a);
     return false;
+}
+
+function find_parent(base, tagname) {
+    tagname = tagname.toUpperCase();
+    while(base.tagName !== tagname) {
+	base = base.parentNode;
+    }
+    return base;
 }

@@ -83,6 +83,7 @@ web/dokuwiki/doc/screenshots.txt
 web/dokuwiki/doc/tests.txt
 web/dokuwiki/doc/webui.txt
 web/dokuwiki/media/logo.png
+web/static/compare.html
 web/static/config-sample.js
 web/static/droids.png
 web/static/favicon-loading.gif
@@ -352,8 +353,10 @@ web/static/fi/flags/4x3/yt.svg
 web/static/fi/flags/4x3/za.svg
 web/static/fi/flags/4x3/zm.svg
 web/static/fi/flags/4x3/zw.svg
+web/static/ivre/compare.js
 web/static/ivre/content.js
 web/static/ivre/controllers.js
+web/static/ivre/filters.js
 web/static/ivre/graph.js
 web/static/ivre/ivre.css
 web/static/ivre/ivre.js

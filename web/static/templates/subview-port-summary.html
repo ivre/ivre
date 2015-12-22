@@ -18,6 +18,7 @@
 
 <a class="clickable"
    ng-click="setparam(port.protocol + '/' + port.port)"
+   ng-class="{highlight: wanted_port(port.state_state, port.protocol, port.port)}"
    >{{::port.protocol}}/{{::port.port}}</a>
 <span class="label label-status"
       ng-class="class_from_port_status(port.state_state)">
