@@ -2288,15 +2288,11 @@ have no effect if it is not expected)."""
         Where `address` is an integer (use `utils.int2ip` to get the
         corresponding string), and value is:
 
-          - -1  if the port is open in category1 and not in category2
-                (service has "disappeared"),
+          - -1  if the port is open in category1 and not in category2,
 
-          -  0  if the port is open in both category1 and category2
-                (service is still there, only when
-                `include_both_open`),
+          -  0  if the port is open in both category1 and category2,
 
-          -  1  if the port is open in category2 and not in category1
-                (service has "appeared").
+          -  1  if the port is open in category2 and not in category1.
 
         This can be useful to compare open ports from two scan results
         against the same targets.
