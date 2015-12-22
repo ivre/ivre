@@ -2274,6 +2274,87 @@ have no effect if it is not expected)."""
             return (outputproc(res) for res in cursor)
         return cursor
 
+    def diff_categories(self, category1, category2, flt=None,
+                        archive=False, include_both_open=True):
+        """`category1` and `category2` can be categories (provided as
+        str or unicode objects) or labels (provided as dicts with two
+        keys, "group" and "tags", or as a two-element tuple, (group,
+        tags)). They *must* be of the same type: both categories or
+        both labels.
+
+        Returns a generator of tuples:
+        ({'addr': address, 'proto': protocol, 'port': port}, value)
+
+        Where `address` is an integer (use `utils.int2ip` to get the
+        corresponding string), and value is:
+
+          - -1  if the port is open in category1 and not in category2,
+
+          -  0  if the port is open in both category1 and category2,
+
+          -  1  if the port is open in category2 and not in category1.
+
+        This can be useful to compare open ports from two scan results
+        against the same targets.
+
+        """
+        project = {"_id": 0, "addr": 1, "ports.protocol": 1, "ports.port": 1}
+        if isinstance(category1, basestring):
+            category_filter = self.searchcategory([category1, category2])
+            category_field = "categories"
+            unwind_match = [
+                {"$unwind": "$categories"},
+                {"$match": category_filter},
+            ]
+            project["categories"] = 1
+        else:
+            if isinstance(category1, (tuple, list)):
+                category1 = {"group": category1[0], "tags": category1[1]}
+            if isinstance(category2, (tuple, list)):
+                category2 = {"group": category2[0], "tags": category2[1]}
+            groups = (category1["group"]
+                      if category1["group"] == category2["group"] else
+                      {"$in": [cat["group"] for cat in [category1,
+                                                        category2]]})
+            labels = (category1["tags"]
+                      if category1["tags"] == category2["tags"] else
+                      {"$in": [cat["tags"] for cat in [category1, category2]]})
+            category_filter = self.searchlabel(group=groups, label=labels)
+            category_field = "labels"
+            unwind_match = [
+                {"$unwind": "$labels"},
+                {"$unwind": "$labels.tags"},
+                {"$match": {"labels.group": groups, "labels.tags": labels}},
+            ]
+            project["labels.group"] = 1
+            project["labels.tags"] = 1
+        pipeline = [
+            {"$match": (category_filter if flt is None else
+                        self.flt_and(flt, category_filter))},
+        ]
+        pipeline.extend(unwind_match)
+        pipeline.extend([
+            {"$unwind": "$ports"},
+            {"$match": {"ports.port": {"$ne": "host"},
+                        "ports.state_state": "open"}},
+            {"$project": project},
+            {"$group": {"_id": {"addr": "$addr", "proto": "$ports.protocol",
+                                "port": "$ports.port"},
+                        "categories": {"$push": "$%s" % category_field}}},
+        ])
+        cursor = self.db[self.colname_oldhosts if archive else
+                         self.colname_hosts].aggregate(pipeline, cursor={})
+        def categories_to_val(categories):
+            states = [category1 in categories, category2 in categories]
+            # assert any(states)
+            return -cmp(*states)
+        cursor = (dict(x['_id'], value=categories_to_val(x['categories']))
+                  for x in cursor)
+        if include_both_open:
+            return cursor
+        else:
+            return (result for result in cursor if result["value"])
+
     def parse_args(self, args, flt=None):
         if flt is None:
             flt = self.flt_empty

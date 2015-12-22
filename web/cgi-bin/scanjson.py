@@ -76,9 +76,10 @@ def main():
 
     # extract info
     if action in ["onlyips", "ipsports", "timeline", "coordinates",
-                  "countopenports"]:
+                  "countopenports", "diffcats"]:
         preamble = "[\n"
         postamble = "]\n"
+        r2res = lambda x: x
         if action == "timeline":
             result = db.nmap.get(
                 flt, archive=archive,
@@ -144,6 +145,29 @@ def main():
                 r2res = lambda r: r['addr']
             else:
                 r2res = lambda r: utils.int2ip(r['addr'])
+        elif action == "diffcats":
+            if params.get("onlydiff"):
+                output = db.nmap.diff_categories(params.get("cat1"),
+                                                 params.get("cat2"),
+                                                 flt=flt,
+                                                 include_both_open=False)
+            else:
+                output = db.nmap.diff_categories(params.get("cat1"),
+                                                 params.get("cat2"),
+                                                 flt=flt)
+            count = 0
+            result = {}
+            if params.get("ipsasnumbers"):
+                for res in output:
+                    result.setdefault(res["addr"], []).append([res['port'],
+                                                              res['value']])
+                    count += 1
+            else:
+                for res in output:
+                    result.setdefault(utils.int2ip(res["addr"]),
+                                      []).append([res['port'], res['value']])
+                    count += 1
+            result = result.iteritems()
         if count >= config.WEB_WARN_DOTS_COUNT:
             sys.stdout.write(
                 'if(confirm("You are about to ask your browser to display %d '
