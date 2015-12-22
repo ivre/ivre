@@ -147,24 +147,26 @@ def main():
                 r2res = lambda r: utils.int2ip(r['addr'])
         elif action == "diffcats":
             if params.get("onlydiff"):
-                output = list(db.nmap.diff_categories(params.get("cat1"),
-                                                      params.get("cat2"),
-                                                      flt=flt,
-                                                      include_both_open=False))
+                output = db.nmap.diff_categories(params.get("cat1"),
+                                                 params.get("cat2"),
+                                                 flt=flt,
+                                                 include_both_open=False)
             else:
-                output = list(db.nmap.diff_categories(params.get("cat1"),
-                                                      params.get("cat2"),
-                                                      flt=flt))
-            count = len(output)
+                output = db.nmap.diff_categories(params.get("cat1"),
+                                                 params.get("cat2"),
+                                                 flt=flt))
+            count = 0
             result = {}
             if params.get("ipsasnumbers"):
                 for res in output:
                     result.setdefault(res["addr"], []).append([res['port'],
                                                               res['value']])
+                    count += 1
             else:
                 for res in output:
                     result.setdefault(utils.int2ip(res["addr"]),
                                       []).append([res['port'], res['value']])
+                    count += 1
             result = result.iteritems()
         if count >= config.WEB_WARN_DOTS_COUNT:
             sys.stdout.write(
