@@ -17,6 +17,7 @@ function init_compare() {
     }
     // FIXME work w/ arbitrary number of sets
     ALL_SETS = new SubFilter("all_sets", FILTERS.set1, FILTERS.set2);
+    ALL_SETS.on_query_update();
     var scope = get_scope("IvreCompareCtrl");
     scope.$apply(function() {
 	scope.all_sets = ALL_SETS;
