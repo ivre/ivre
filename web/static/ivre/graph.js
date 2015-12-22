@@ -669,7 +669,7 @@ var GraphPlane = (function(_super) {
 	    for(var i = xextent[0]; i <= (xextent[1]+1); i += xstep) {
 		xaxis.push(i);
 	    }
-	    for(var i=yextent[1]; i <= (yextent[0]+1); i += ystep) {
+	    for(i=yextent[1]; i <= (yextent[0]+1); i += ystep) {
 		yaxis.push(i);
 	    }
 
@@ -1129,7 +1129,7 @@ var GraphDiffCategories = (function(_super) {
 		encodeURIComponent(this.category2) + '&query=' +
 		encodeURIComponent(this.query);
 	    if(this.onlydiff) {
-		url += '&onlydiff=1'
+		url += '&onlydiff=1';
 	    }
 	    return url;
 	}

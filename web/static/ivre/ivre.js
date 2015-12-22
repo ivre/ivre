@@ -162,7 +162,7 @@ function sync_hash_filter(filter) {
 	var onhashchange = window.onhashchange;
 	window.onhashchange = function() {
 	    window.onhashchange = onhashchange;
-	}
+	};
 	set_hash(query);
     });
 }

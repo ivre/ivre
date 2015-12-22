@@ -177,7 +177,7 @@ var Filter = (function() {
 
 	on_paramobj_update: function() {
 	    params2query(this);
-	    this.update_query()
+	    this.update_query();
 	},
 
 	update_query: function() {
