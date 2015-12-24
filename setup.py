@@ -55,6 +55,7 @@ class smart_install_data(install_data):
                     fullfname = os.path.join(self.install_dir, path,
                                              os.path.basename(fname))
                     tmpfname = os.path.join(tmpdir, os.path.basename(fname))
+                    stat = os.stat(fullfname)
                     os.rename(fullfname, tmpfname)
                     with open(fullfname, 'w') as newf:
                         with open(tmpfname) as oldf:
@@ -62,6 +63,8 @@ class smart_install_data(install_data):
                             newf.write("#!%s\n" % sys.executable)
                             for line in oldf:
                                 newf.write(line)
+                    os.chown(fullfname, stat.st_uid, stat.st_gid)
+                    os.chmod(fullfname, stat.st_mode)
                     os.unlink(tmpfname)
         os.rmdir(tmpdir)
         return result
