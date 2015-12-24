@@ -30,7 +30,6 @@ from distutils.core import setup
 from distutils.command.install_data import install_data
 import os
 import sys
-import tempfile
 
 class smart_install_data(install_data):
     """Replacement for distutils.command.install_data to handle
@@ -48,13 +47,12 @@ class smart_install_data(install_data):
         result = install_data.run(self)
         # handle CGI files like files in [PREFIX]/bin, replace first
         # line based on sys.executable
-        tmpdir = tempfile.mkdtemp()
         for path, files in self.data_files:
             for fname in files:
                 if fname.startswith('web/cgi-bin/') and fname.endswith('.py'):
                     fullfname = os.path.join(self.install_dir, path,
                                              os.path.basename(fname))
-                    tmpfname = os.path.join(tmpdir, os.path.basename(fname))
+                    tmpfname = "%s.tmp" % fullfname
                     stat = os.stat(fullfname)
                     os.rename(fullfname, tmpfname)
                     with open(fullfname, 'w') as newf:
@@ -66,7 +64,6 @@ class smart_install_data(install_data):
                     os.chown(fullfname, stat.st_uid, stat.st_gid)
                     os.chmod(fullfname, stat.st_mode)
                     os.unlink(tmpfname)
-        os.rmdir(tmpdir)
         return result
 
 setup(
