@@ -29,16 +29,42 @@ $ python setup.py build
 from distutils.core import setup
 from distutils.command.install_data import install_data
 import os
+import sys
 
 class smart_install_data(install_data):
+    """Replacement for distutils.command.install_data to handle
+    configuration files location and CGI files shebang lines.
+
+    """
     def run(self):
+        # install files to /etc when target was /usr(/local)/etc
         if self.install_dir.endswith('/usr') or \
            self.install_dir.endswith('/usr/local'):
             self.data_files = [
                 ("/%s" % path if path.startswith('etc/') else path, files)
                 for path, files in self.data_files
             ]
-        return install_data.run(self)
+        result = install_data.run(self)
+        # handle CGI files like files in [PREFIX]/bin, replace first
+        # line based on sys.executable
+        for path, files in self.data_files:
+            for fname in files:
+                if fname.startswith('web/cgi-bin/') and fname.endswith('.py'):
+                    fullfname = os.path.join(self.install_dir, path,
+                                             os.path.basename(fname))
+                    tmpfname = "%s.tmp" % fullfname
+                    stat = os.stat(fullfname)
+                    os.rename(fullfname, tmpfname)
+                    with open(fullfname, 'w') as newf:
+                        with open(tmpfname) as oldf:
+                            oldf.readline()
+                            newf.write("#!%s\n" % sys.executable)
+                            for line in oldf:
+                                newf.write(line)
+                    os.chown(fullfname, stat.st_uid, stat.st_gid)
+                    os.chmod(fullfname, stat.st_mode)
+                    os.unlink(tmpfname)
+        return result
 
 setup(
     name='ivre',
