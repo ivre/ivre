@@ -23,6 +23,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get -q update
 RUN apt-get -qy install python python-dev python-pip && \
     pip install ivre && \
+    pip install numpy matplotlib sklearn && \
     apt-get -qy autoremove python-dev python-pip
 
 # Config

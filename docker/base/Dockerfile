@@ -21,7 +21,8 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Dependencies
 RUN apt-get -q update
-RUN apt-get -qy install python-pymongo python-crypto
+RUN apt-get -qy install python-pymongo python-crypto \
+    python-numpy python-matplotlib python-sklearn
 
 # IVRE
 ADD https://github.com/cea-sec/ivre/tarball/master ./ivre.tar.gz

@@ -17,6 +17,11 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 from ivre import utils, db, graphroute, config, xmlnmap
+try:
+    from ivre.analyzer import Context
+    USING_CONTEXT = True
+except ImportError:
+    USING_CONTEXT = False
 
 import sys
 reload(sys)
@@ -476,6 +481,17 @@ def displayhost_csv(fields, separator, nastr, dic, out=sys.stdout):
                         for line in utils.doc2csv(dic, fields, nastr=nastr)))
     out.write('\n')
 
+def analyzer_init_context(hostfilter, skip=None, limit=None):
+    """Return an ivre.analyzer.Context initialized object"""
+    dfilter = {'filter': hostfilter,
+               'skip': 0 if skip is None else skip}
+    if limit is not None:
+        dfilter['limit'] = limit
+    context = Context()
+    context.dfilter = dfilter
+    context.init_hosts()
+    return context
+
 def main():
     try:
         import argparse
@@ -526,6 +542,17 @@ def main():
     parser.add_argument('--graphroute-include', choices=['last-hop', 'target'],
                         help='How far should graphroute go? Default if to '
                         'exclude the last hop and the target for each result.')
+    if USING_CONTEXT:
+        parser.add_argument('--tag-anomalies', metavar='COUNT',
+                            help='Search and label COUNT anomalies into '
+                            'database. COUNT can be an integer or a '
+                            'percentage.')
+        parser.add_argument('--tag-dbscan-clusters', action='store_true',
+                            help='Compute and label clusters with the DBScan '
+                            'algorithm')
+        parser.add_argument('--tag-kmeans-clusters', metavar='NB_CLUSTER',
+                            type=int, help='Compute and label NB_CLUSTER '
+                            'clusters with the K-means algorithm')
     parser.add_argument('--count', action='store_true',
                         help='Count matched results.')
     parser.add_argument('--explain', action='store_true',
@@ -628,6 +655,25 @@ def main():
                     entry['_id'] = "None"
             print "%(_id)s: %(count)d" % entry
         sys.exit(0)
+    if USING_CONTEXT:
+        if args.tag_anomalies:
+            context = analyzer_init_context(hostfilter, args.skip, args.limit)
+            count, percent = (float(args.tag_anomalies[:-1]), True) \
+                             if args.tag_anomalies.endswith('%') \
+                             else (int(args.tag_anomalies), False)
+            context.search_anomalies(count, percent)
+            context.set_labels()
+            sys.exit(0)
+        if args.tag_dbscan_clusters:
+            context = analyzer_init_context(hostfilter, args.skip, args.limit)
+            context.clusterize_dbscan()
+            context.set_labels()
+            sys.exit(0)
+        if args.tag_kmeans_clusters:
+            context = analyzer_init_context(hostfilter, args.skip, args.limit)
+            context.clusterize_kmeans(n_clusters=args.tag_kmeans_clusters)
+            context.set_labels()
+            sys.exit(0)
     if args.json:
         import json
 

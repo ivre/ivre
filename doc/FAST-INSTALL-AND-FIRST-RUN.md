@@ -24,6 +24,7 @@ You might also want to adapt it to your needs, architecture, etc.
 # Install #
 
     $ sudo apt-get -y install mongodb python-pymongo python-crypto apache2 dokuwiki
+    $ sudo apt-get -y install python-numpy python-matplotlib python-sklearn # If you plan to use analyzer module
     $ git clone https://github.com/cea-sec/ivre
     $ cd ivre
     $ python setup.py build

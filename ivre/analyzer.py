@@ -73,6 +73,15 @@ class Anomalies(object):
         new_matrix = matrix[non_anomalies_idx]
         return new_list_id, new_matrix
 
+    def set_labels(self, list_id, session_name):
+        """
+        Tag anomalies in database.
+        `session` must be a string representing the ongoing analyze
+        """
+        anom_id = [list_id[idx] for idx in self._anomalies_idx]
+        db.nmap.set_label(db.nmap.searchobjectid(anom_id),
+                          session_name, 'anom')
+
     def plot(self, plot, hosts, plot3d=False):
         """
         Plot host and anomalies
@@ -126,6 +135,17 @@ class Clusters(object):
             else:
                 count['cluster%d' % lab] = sum((self._cluster_labels == lab))
         return count
+
+    def set_labels(self, list_id, session_name):
+        """
+        Tag cluster repartition in database.
+        `session` must be a string representing the ongoing analyze
+        """
+        for lab in self._unique_labels:
+            lab_ids = [list_id[idx] for idx, idx_lab
+                       in enumerate(self._cluster_labels) if idx_lab == lab]
+            db.nmap.set_label(db.nmap.searchobjectid(lab_ids),
+                              session_name, str(int(lab)))
 
     def select(self, cluster_labels, list_id, matrix):
         """
@@ -326,6 +346,32 @@ class Context(object):
         if self._anomalies is not None:
             count['anomalies'] = len(self._anomalies)
         return count
+
+    def set_labels(self, session=None):
+        """
+        Tag hosts in database with their respective cluster number
+        and anomaly status.
+        `session` must be None or a positive integer representing
+        the group tag in database. The possible group tags are
+        'analyze', 'analyze_1', 'analyze_2', ...
+        """
+        session_name = 'analyze' if session is None \
+                       else 'analyze_%d' % int(session)
+        if self._clusters is not None:
+            self._clusters.set_labels(self._list_id, session_name)
+        if self._anomalies is not None:
+            self._anomalies.set_labels(self._list_id, session_name)
+
+    def clean_labels(self, session=None):
+        """
+        Remove tag made by the analyzer module (i.e. from group "analyze[_n]")
+        from the database.
+        If n=`session` is provided as a positive integer, the group "analyze[_n]"
+        is cleared instead of "analyze"
+        """
+        session_name = 'analyze' if session is None \
+                       else 'analyze_%d' % int(session)
+        db.nmap.remove_label(db.nmap.flt_empty, session_name)
 
     def init_hosts(self):
         """
@@ -579,9 +625,14 @@ class Context(object):
         instead of `outliers` anomalies
         Update self._anomalies attribute
         """
-        # 0.01 is faster and works well most of the time
-        # but 0.5 works with small host number.
-        nu_percent = outliers * 0.01 if percent_mode else 0.5
+        if percent_mode:
+            nu_percent = outliers * 0.01
+        else:
+            # 0.01 is faster but causes troubles with a small host number
+            # nu_percent tends to 0.5 when host count get smaller
+            nu_percent = max(0.01,
+                             -2.0 * 10 ** -6 * (len(self._list_id) - 500) \
+                             * (len(self._list_id) + 500))
 
         clf = svm.OneClassSVM(nu=nu_percent, kernel='rbf', gamma=0.1)
         clf.fit(self._matrix)
