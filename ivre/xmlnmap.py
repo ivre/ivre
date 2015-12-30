@@ -25,7 +25,7 @@ This sub-module contains the parser for nmap's XML output files.
 
 """
 
-from ivre import utils, config
+from ivre import utils, config, nmapout
 
 from xml.sax.handler import ContentHandler, EntityResolver
 import datetime
@@ -1042,6 +1042,11 @@ class Nmap2Txt(NmapHandler):
 
     def outputresults(self):
         print json.dumps(self._db, default=utils.serialize)
+
+
+class Nmap2Normal(Nmap2Txt):
+    def outputresults(self):
+        nmapout.displayhosts(self._db, out=sys.stdout)
 
 
 class Nmap2Mongo(NmapHandler):
