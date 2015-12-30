@@ -610,10 +610,6 @@ class NmapHandler(ContentHandler):
         """
         pass
 
-    def outputresults(self):
-        """Subclasses may display any results here."""
-        pass
-
     def startElement(self, name, attrs):
         if name == 'nmaprun':
             if self._curscan is not None:
@@ -1039,14 +1035,6 @@ class Nmap2Txt(NmapHandler):
 
     def _addhost(self):
         self._db.append(self._curhost)
-
-    def outputresults(self):
-        print json.dumps(self._db, default=utils.serialize)
-
-
-class Nmap2Normal(Nmap2Txt):
-    def outputresults(self):
-        nmapout.displayhosts(self._db, out=sys.stdout)
 
 
 class Nmap2Mongo(NmapHandler):

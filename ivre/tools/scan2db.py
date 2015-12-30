@@ -84,10 +84,10 @@ def main():
     args = parser.parse_args()
     database = ivre.db.db.nmap
     categories = args.categories.split(',') if args.categories else []
-    if args.test or args.test_normal:
+    if args.test:
         database = ivre.db.DBNmap()
-        if args.test_normal:
-            database.content_handler = ivre.xmlnmap.Nmap2Normal
+    if args.test_normal:
+        database = ivre.db.DBNmap(output_mode="normal")
     if args.never_archive:
         def gettoarchive(addr, _):
             return []

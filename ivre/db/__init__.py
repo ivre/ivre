@@ -21,7 +21,7 @@
 database backends.
 """
 
-from ivre import config, utils, xmlnmap, utils
+from ivre import config, utils, xmlnmap, nmapout
 
 import sys
 import socket
@@ -230,9 +230,12 @@ class DB(object):
 
 class DBNmap(DB):
 
-    content_handler = xmlnmap.Nmap2Txt
-
-    def __init__(self):
+    def __init__(self, output_mode="json", output=sys.stdout):
+        self.content_handler = xmlnmap.Nmap2Txt
+        self.output_function = {
+            "normal": nmapout.displayhosts,
+        }.get(output_mode, nmapout.displayhosts_json)
+        self.output = output
         try:
             import argparse
             self.argparser = argparse.ArgumentParser(add_help=False)
@@ -355,7 +358,8 @@ class DBNmap(DB):
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
             parser.parse(utils.open_file(fname))
-            content_handler.outputresults()
+            if self.output_function is not None:
+                self.output_function(content_handler._db, out=self.output)
             return True
         return False
 
@@ -447,7 +451,8 @@ class DBNmap(DB):
         return host
 
     def store_host(self, host):
-        print json.dumps([host])
+        if self.output_function is not None:
+            self.output_function([host], out=self.output)
 
     def store_scan_doc(self, scan):
         pass

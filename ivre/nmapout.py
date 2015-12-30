@@ -164,3 +164,10 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
             raw_input()
         else:
             out.write('\n')
+
+def displayhosts_json(recordsgen, out=sys.stdout):
+    """Displays (on `out`, by default `sys.stdout`) the Nmap scan
+    result contained in `record` as JSON.
+
+    """
+    out.write(json.dumps(recordsgen, default=utils.serialize))
