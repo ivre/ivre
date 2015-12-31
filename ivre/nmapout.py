@@ -172,3 +172,4 @@ def displayhosts_json(recordsgen, out=sys.stdout):
 
     """
     out.write(json.dumps(recordsgen, default=utils.serialize))
+    out.write('\n')
