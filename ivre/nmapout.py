@@ -26,6 +26,7 @@ from ivre import utils
 
 import sys
 import os
+import json
 
 def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
                 out=sys.stdout):

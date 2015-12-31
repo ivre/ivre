@@ -32,7 +32,6 @@ import datetime
 import sys
 import os
 import re
-import json
 import bson
 
 SCHEMA_VERSION = 4
