@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-from ivre import utils, db, graphroute, config, xmlnmap
+from ivre import utils, db, graphroute, config, xmlnmap, nmapout
 
 import sys
 reload(sys)
@@ -29,130 +29,6 @@ except ImportError:
     USING_ORDEREDDICT = False
 from datetime import datetime
 from xml.sax import saxutils
-
-
-def displayhost(dic, showscripts=True, showtraceroute=True, showos=True,
-                out=sys.stdout):
-    try:
-        h = "Host %s" % utils.int2ip(dic['addr'])
-    except:
-        h = "Host %s" % dic['addr']
-    if 'hostnames' in dic and dic['hostnames']:
-        h += " (%s)" % '/'.join(x['name'] for x in dic['hostnames'])
-    if 'source' in dic:
-        h += ' from %s' % dic['source']
-    if 'categories' in dic and dic['categories']:
-        h += ' (%s)' % ', '.join(dic['categories'])
-    if 'state' in dic:
-        h += ' (%s' % dic['state']
-        if 'state_reason' in dic:
-            h += ': %s' % dic['state_reason']
-        h += ')\n'
-    out.write(h)
-    if 'infos' in dic:
-        infos = dic['infos']
-        if 'country_code' in infos or 'country_name' in infos:
-            out.write("\t%s - %s" % (infos.get('country_code', '?'),
-                                     infos.get('country_name', '?')))
-            if 'city' in infos:
-                out.write(' - %s' % infos['city'])
-            out.write('\n')
-        if 'as_num' in infos or 'as_name' in infos:
-            out.write("\tAS%s - %s\n" % (infos.get('as_num', '?'),
-                                         infos.get('as_name', '?')))
-    if 'starttime' in dic and 'endtime' in dic:
-        out.write("\tscan %s - %s\n" %
-                 (dic['starttime'], dic['endtime']))
-    if 'extraports' in dic:
-        d = dic['extraports']
-        for k in d:
-            out.write("\t%d ports %s (%s)\n" %
-                      (d[k][0], k, ', '.join(['%d %s' % (d[k][1][kk], kk)
-                                              for kk in d[k][1].keys()])))
-    if 'ports' in dic:
-        d = dic['ports']
-        d.sort(key=lambda x: (x.get('protocol'), x['port']))
-        for k in d:
-            if k.get('port') == 'host':
-                dic['scripts'] = k['scripts']
-                continue
-            reason = ""
-            if 'state_reason' in k:
-                reason = " (%s" % k['state_reason']
-                for kk in filter(lambda x: x.startswith('state_reason_'),
-                                 k.keys()):
-                    reason += ", %s=%s" % (kk[13:], k[kk])
-                reason += ')'
-            srv = ""
-            if 'service_name' in k:
-                srv = "" + k['service_name']
-                if 'service_method' in k:
-                    srv += ' (%s)' % k['service_method']
-                for kk in ['service_product', 'service_version',
-                           'service_extrainfo', 'service_ostype',
-                           'service_hostname']:
-                    if kk in k:
-                        srv += ' %s' % k[kk]
-            out.write("\t%-10s%-8s%-22s%s\n" %
-                      ('%s/%d' % (k.get('protocol'), k['port']),
-                       k['state_state'], reason, srv))
-            if showscripts and 'scripts' in k:
-                for s in k['scripts']:
-                    if 'output' not in s:
-                        out.write('\t\t' + s['id'] + ':\n')
-                    else:
-                        o = filter(
-                            lambda x: x, map(lambda x: x.strip(),
-                                             s['output'].split('\n')))
-                        if len(o) == 0:
-                            out.write('\t\t' + s['id'] + ':\n')
-                        elif len(o) == 1:
-                            out.write('\t\t' + s['id'] + ': ' + o[0] + '\n')
-                        elif len(o) > 1:
-                            out.write('\t\t' + s['id'] + ': \n')
-                            for oo in o:
-                                out.write('\t\t\t' + oo + '\n')
-    if showscripts and 'scripts' in dic:
-        out.write('\tHost scripts:\n')
-        for s in dic['scripts']:
-            if 'output' not in s:
-                out.write('\t\t' + s['id'] + ':\n')
-            else:
-                o = [x.strip() for x in s['output'].split('\n') if x]
-                if len(o) == 0:
-                    out.write('\t\t' + s['id'] + ':\n')
-                elif len(o) == 1:
-                    out.write('\t\t' + s['id'] + ': ' + o[0] + '\n')
-                elif len(o) > 1:
-                    out.write('\t\t' + s['id'] + ': \n')
-                    for oo in o:
-                        out.write('\t\t\t' + oo + '\n')
-    if showtraceroute and 'traces' in dic and dic['traces']:
-        for k in dic['traces']:
-            proto = k['protocol']
-            if proto in ['tcp', 'udp']:
-                proto += '/%d' % k['port']
-            out.write('\tTraceroute (using %s)\n' % proto)
-            hops = k['hops']
-            hops.sort(key=lambda x: x['ttl'])
-            for i in hops:
-                try:
-                    out.write('\t\t%3s %15s %7s\n' %
-                              (i['ttl'], utils.int2ip(i['ipaddr']),
-                               i['rtt']))
-                except:
-                    out.write('\t\t%3s %15s %7s\n' %
-                              (i['ttl'], i['ipaddr'], i['rtt']))
-    if showos and 'os' in dic and 'osclass' in dic['os'] and \
-       dic['os']['osclass']:
-        o = dic['os']['osclass']
-        maxacc = str(max([int(x['accuracy']) for x in o]))
-        o = filter(lambda x: x['accuracy'] == maxacc, o)
-        out.write('\tOS fingerprint\n')
-        for oo in o:
-            out.write(
-                '\t\t%(osfamily)s / %(type)s / %(vendor)s / '
-                'accuracy = %(accuracy)s\n' % oo)
 
 
 HONEYD_ACTION_FROM_NMAP_STATE = {
@@ -583,13 +459,8 @@ def main():
 
     out = sys.stdout
 
-    def displayfunction(x):
-        for h in x:
-            displayhost(h, out=out)
-            if os.isatty(out.fileno()):
-                raw_input()
-            else:
-                out.write('\n')
+    def displayfunction(cursor):
+        nmapout.displayhosts(cursor, out=out)
 
     hostfilter = db.db.nmap.parse_args(args)
     sortkeys = []

@@ -25,14 +25,13 @@ This sub-module contains the parser for nmap's XML output files.
 
 """
 
-from ivre import utils, config
+from ivre import utils, config, nmapout
 
 from xml.sax.handler import ContentHandler, EntityResolver
 import datetime
 import sys
 import os
 import re
-import json
 import bson
 
 SCHEMA_VERSION = 4
@@ -610,10 +609,6 @@ class NmapHandler(ContentHandler):
         """
         pass
 
-    def outputresults(self):
-        """Subclasses may display any results here."""
-        pass
-
     def startElement(self, name, attrs):
         if name == 'nmaprun':
             if self._curscan is not None:
@@ -1039,9 +1034,6 @@ class Nmap2Txt(NmapHandler):
 
     def _addhost(self):
         self._db.append(self._curhost)
-
-    def outputresults(self):
-        print json.dumps(self._db, default=utils.serialize)
 
 
 class Nmap2Mongo(NmapHandler):

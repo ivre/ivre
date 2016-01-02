@@ -42,6 +42,7 @@ ivre/graphroute.py
 ivre/keys.py
 ivre/mathutils.py
 ivre/nmapopt.py
+ivre/nmapout.py
 ivre/passive.py
 ivre/scanengine.py
 ivre/target.py

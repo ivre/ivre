@@ -18,6 +18,7 @@
 
 import ivre.db
 import ivre.utils
+import ivre.xmlnmap
 
 import os
 import sys
@@ -56,7 +57,9 @@ def main():
     parser.add_argument('-s', '--source', default=None,
                         help='Scan source.')
     parser.add_argument('-t', '--test', action='store_true',
-                        help='Test mode.')
+                        help='Test mode (JSON output).')
+    parser.add_argument('--test-normal', action='store_true',
+                        help='Test mode ("normal" Nmap output).')
     parser.add_argument('--ports', '--port', action='store_true',
                         help='Store only hosts with a "ports" element.')
     parser.add_argument('--open-ports', action='store_true',
@@ -83,6 +86,8 @@ def main():
     categories = args.categories.split(',') if args.categories else []
     if args.test:
         database = ivre.db.DBNmap()
+    if args.test_normal:
+        database = ivre.db.DBNmap(output_mode="normal")
     if args.never_archive:
         def gettoarchive(addr, _):
             return []
