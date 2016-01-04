@@ -230,6 +230,8 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
                 nmap_port2honeyd_action(p))
             )
         except KeyError:
+            # let's skip pseudo-port records that are only containers for host
+            # scripts.
             pass
     if 'traces' in host and len(host['traces']) > 0:
         trace = max(host['traces'], key=lambda x: len(x['hops']))['hops']
