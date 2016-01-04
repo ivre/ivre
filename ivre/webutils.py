@@ -225,6 +225,11 @@ QUERIES = {
 }
 
 def _parse_query(query):
+    """Returns a DB filter (valid for db.nmap) from a query string
+    usable in WEB_DEFAULT_INIT_QUERY and WEB_INIT_QUERIES
+    configuration items.
+
+    """
     if query is None:
         query = 'full'
     query = query.split(':')

@@ -918,7 +918,9 @@ class NmapHandler(ContentHandler):
                                         # Image has been trimmed
                                         data = trim_result
                                     current['screenshot'] = "field"
-                                    current['screendata'] = self._to_binary(data)
+                                    current['screendata'] = self._to_binary(
+                                        data
+                                    )
                                     screenwords = utils.screenwords(data)
                                     if screenwords is not None:
                                         current['screenwords'] = screenwords

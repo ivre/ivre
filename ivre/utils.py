@@ -510,10 +510,10 @@ if USE_PIL:
         """
         img = PIL.Image.open(StringIO(imgdata))
         bkg = PIL.Image.new(img.mode, img.size, img.getpixel((0, 0)))
-        diff = PIL.ImageChops.difference(img, bkg)
+        diffbkg = PIL.ImageChops.difference(img, bkg)
         if tolerance:
-            diff = PIL.ImageChops.add(diff, diff, 2.0, -tolerance)
-        bbox = diff.getbbox()
+            diffbkg = PIL.ImageChops.add(diffbkg, diffbkg, 2.0, -tolerance)
+        bbox = diffbkg.getbbox()
         if bbox:
             newbbox = (max(bbox[0] - minborder, 0),
                        max(bbox[1] - minborder, 0),
