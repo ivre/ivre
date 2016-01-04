@@ -413,7 +413,8 @@ def warn_exception(exc, **kargs):
     the full stacktrace.
 
     """
-    return "WARNING: %s [%r]%s\n%s" % (exc, exc,
+    return "WARNING: %s [%r]%s\n%s" % (
+        exc, exc,
         " [%s]" % ", ".join("%s=%s" % (key, value)
                             for key, value in kargs.iteritems())
         if kargs else "",
@@ -508,7 +509,7 @@ if USE_PIL:
 
         """
         img = PIL.Image.open(StringIO(imgdata))
-        bkg = PIL.Image.new(img.mode, img.size, img.getpixel((0,0)))
+        bkg = PIL.Image.new(img.mode, img.size, img.getpixel((0, 0)))
         diff = PIL.ImageChops.difference(img, bkg)
         if tolerance:
             diff = PIL.ImageChops.add(diff, diff, 2.0, -tolerance)

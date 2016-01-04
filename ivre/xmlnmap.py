@@ -90,7 +90,7 @@ def add_smb_ls_data(script):
     cases.
 
     """
-    assert(script["id"] == "smb-ls")
+    assert script["id"] == "smb-ls"
     result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
     state = 0 # outside a volume
     cur_vol = None
@@ -144,7 +144,7 @@ def add_nfs_ls_data(script):
     cases.
 
     """
-    assert(script["id"] == "nfs-ls")
+    assert script["id"] == "nfs-ls"
     result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
     state = 0 # outside a volume
     cur_vol = None
@@ -201,7 +201,7 @@ def add_afp_ls_data(script):
     cases.
 
     """
-    assert(script["id"] == "afp-ls")
+    assert script["id"] == "afp-ls"
     result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
     state = 0 # volumes / listings
     cur_vol = None
@@ -257,11 +257,11 @@ def add_ftp_anon_data(script):
     by humans.
 
     """
-    assert(script["id"] == "ftp-anon")
+    assert script["id"] == "ftp-anon"
     # expressions that match lines, based on large data collection
     subexprs = {
-        "user": '(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|'
-        '\\*|\\(\\?\\))',
+        "user": ('(?:[a-zA-Z0-9\\._-]+(?:\\s+[NLOPQS])?|\\\\x[0-9A-F]{2}|'
+                 '\\*|\\(\\?\\))'),
         "fname": '[A-Za-z0-9%s]+' % re.escape(" ?._@[](){}~#'&$%!+\\-/,|`="),
         "perm": '[a-zA-Z\\?-]{10}',
         "day": '[0-3]?[0-9]',
@@ -269,8 +269,8 @@ def add_ftp_anon_data(script):
         "month": "(?:[0-1]?[0-9]|[A-Z][a-z]{2}|[A-Z]{3})",
         "time": "[0-9]{1,2}\\:[0-9]{2}(?:\\:[0-9]{1,2})?",
         "windate": "[0-9]{2}-[0-9]{2}-[0-9]{2,4} +[0-9]{2}:[0-9]{2}(?:[AP]M)?",
-        "vxworksdate": "[A-Z][a-z]{2}-[0-9]{2}-[0-9]{2,4}\\s+"
-        "[0-9]{2}:[0-9]{2}:[0-9]{2}",
+        "vxworksdate": ("[A-Z][a-z]{2}-[0-9]{2}-[0-9]{2,4}\\s+"
+                        "[0-9]{2}:[0-9]{2}:[0-9]{2}"),
     }
     subexprs["date"] = "(?:%s)" % "|".join([
         "%(month)s\\s+%(day)s\\s+(?:%(year)s|%(time)s)" % subexprs,
