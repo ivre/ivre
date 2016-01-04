@@ -224,10 +224,13 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
         )
     out.write('set %s default tcp action %s\n' % (hname, defaction))
     for p in host.get('ports', []):
-        out.write('add %s %s port %d %s\n' % (
-            hname, p['protocol'], p['port'],
-            nmap_port2honeyd_action(p))
-        )
+        try:
+            out.write('add %s %s port %d %s\n' % (
+                hname, p['protocol'], p['port'],
+                nmap_port2honeyd_action(p))
+            )
+        except KeyError:
+            pass
     if 'traces' in host and len(host['traces']) > 0:
         trace = max(host['traces'], key=lambda x: len(x['hops']))['hops']
         if trace:
