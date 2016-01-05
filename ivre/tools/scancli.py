@@ -103,8 +103,8 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
         try:
             out.write('add %s %s port %d %s\n' % (
                 hname, p['protocol'], p['port'],
-                nmap_port2honeyd_action(p))
-            )
+                nmap_port2honeyd_action(p),
+            ))
         except KeyError:
             # let's skip pseudo-port records that are only containers for host
             # scripts.
@@ -295,7 +295,8 @@ def display_xml_host(h, out=sys.stdout):
         out.write('/>')
         if 'service_name' in p:
             out.write('<service name="%s"' % p['service_name'])
-            for k in ['servicefp', 'product', 'version', 'extrainfo', 'ostype', 'method', 'conf']:
+            for k in ['servicefp', 'product', 'version', 'extrainfo',
+                      'ostype', 'method', 'conf']:
                 kk = "service_%s" % k
                 if kk in p:
                     if type(p[kk]) in [str, unicode]:
@@ -403,7 +404,7 @@ def main():
     if graphroute.HAVE_DBUS:
         parser.add_argument('--graphroute-dont-reset', action='store_true',
                             help='Do NOT reset graph (only for '
-                                 '--graphroute rtgraph3d)')
+                            '--graphroute rtgraph3d)')
     parser.add_argument('--graphroute-include', choices=['last-hop', 'target'],
                         help='How far should graphroute go? Default if to '
                         'exclude the last hop and the target for each result.')
@@ -464,9 +465,6 @@ def main():
 
     out = sys.stdout
 
-    def displayfunction(cursor):
-        nmapout.displayhosts(cursor, out=out)
-
     hostfilter = db.db.nmap.parse_args(args)
     sortkeys = []
     if args.init:
@@ -513,7 +511,7 @@ def main():
             else:
                 indent = None
             for h in x:
-                del(h['scanid'])
+                del h['scanid']
                 for port in h.get('ports', []):
                     if args.no_screenshots:
                         for fname in ['screenshot', 'screendata']:
@@ -567,7 +565,6 @@ def main():
                 include_target=args.graphroute_include == "target",
             )
             if args.graphroute == "dot":
-                cluster = None
                 if args.graphroute_cluster == "AS":
                     def cluster(ipaddr):
                         res = db.db.data.as_byip(ipaddr)
@@ -582,6 +579,8 @@ def main():
                             return
                         return (res['country_code'],
                                 "%(country_code)s - %(country_name)s" % res)
+                else:
+                    cluster = None
                 graphroute.writedotgraph(graph, sys.stdout,
                                          cluster=cluster)
             elif args.graphroute == "rtgraph3d":
@@ -624,23 +623,21 @@ def main():
             "hops": OrderedDict([
                 ["addr", utils.int2ip],
                 ["traces", OrderedDict([
-                     ["hops", OrderedDict([
-                         ["ipaddr", utils.int2ip],
-                         ["ttl", str],
-                         ["rtt", lambda x: (args.csv_na_str if x == '--'
-                                            else str(x))],
-                     ])
-                  ]
+                    ["hops", OrderedDict([
+                        ["ipaddr", utils.int2ip],
+                        ["ttl", str],
+                        ["rtt", lambda x: (args.csv_na_str if x == '--'
+                                           else str(x))],
+                    ])]
                 ])]
             ]),
             "rtt": OrderedDict([
                 ["addr", utils.int2ip],
                 ["traces", OrderedDict([
-                     ["hops", OrderedDict([
-                         ["rtt", lambda x: (args.csv_na_str if x == '--'
-                                            else str(x))],
-                     ])
-                  ]
+                    ["hops", OrderedDict([
+                        ["rtt", lambda x: (args.csv_na_str if x == '--'
+                                           else str(x))],
+                    ])]
                 ])]
             ]),
         }.get(args.csv)
@@ -658,6 +655,9 @@ def main():
             for h in x:
                 displayhost_csv(fields, args.csv_separator, args.csv_na_str,
                                 h, out=out)
+    else:
+        def displayfunction(cursor):
+            nmapout.displayhosts(cursor, out=out)
     if args.sort is not None:
         sortkeys = [(field.startswith('~') and field[1:] or field,
                      field.startswith('~') and -1 or 1)

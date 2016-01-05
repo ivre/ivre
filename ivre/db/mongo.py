@@ -585,8 +585,8 @@ creates the default indexes."""
         open ports based researches.
 
         """
-        assert("schema_version" not in doc)
-        assert("openports" not in doc)
+        assert "schema_version" not in doc
+        assert "openports" not in doc
         update = {"$set": {"schema_version": 1}}
         updated_ports = False
         openports = {}
@@ -619,7 +619,7 @@ creates the default indexes."""
         nmap-services file.
 
         """
-        assert(doc["schema_version"] == 1)
+        assert doc["schema_version"] == 1
         update = {"$set": {"schema_version": 2}}
         update_ports = False
         for port in doc.get("ports", []):
@@ -639,7 +639,7 @@ creates the default indexes."""
         library.
 
         """
-        assert(doc["schema_version"] == 2)
+        assert doc["schema_version"] == 2
         update = {"$set": {"schema_version": 3}}
         updated_ports = False
         updated_scripts = False
@@ -675,7 +675,7 @@ creates the default indexes."""
         creates a "fake" port entry to store host scripts.
 
         """
-        assert(doc["schema_version"] == 3)
+        assert doc["schema_version"] == 3
         update = {"$set": {"schema_version": 4}}
         if 'scripts' in doc:
             doc.setdefault('ports', []).append({
@@ -1238,12 +1238,15 @@ have no effect if it is not expected)."""
                 return {'labels.group': {'$not': group} if neg else group}
             return {'labels.group': {'$ne': group} if neg else group}
         if neg:
-            return self.flt_or(self.searchlabel(group=group, neg=True),
-                               {'labels': {'$elemMatch':
-                                           {'group': group,
-                                            'tags': {'$not': label}
-                                            if type(label) is utils.REGEXP_T
-                                            else {'$ne': label}}}})
+            return self.flt_or(
+                self.searchlabel(group=group, neg=True),
+                {'labels': {'$elemMatch': {
+                    'group': group,
+                    'tags': ({'$not': label}
+                             if type(label) is utils.REGEXP_T
+                             else {'$ne': label})
+                }}},
+            )
         return {'labels': {'$elemMatch': {'group': group, 'tags': label}}}
 
     @staticmethod
@@ -1384,7 +1387,7 @@ have no effect if it is not expected)."""
     @staticmethod
     def searchcountopenports(minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
-        assert(minn is not None or maxn is not None)
+        assert minn is not None or maxn is not None
         flt = []
         if minn == maxn:
             return {'openports.count': {'$ne': minn} if neg else minn}
@@ -2424,10 +2427,15 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchopenport(neg=True))
         if args.countports:
             minn, maxn = int(args.countports[0]), int(args.countports[1])
-            flt = self.flt_and(flt,self.searchcountopenports(minn=minn, maxn=maxn))
+            flt = self.flt_and(flt,
+                               self.searchcountopenports(minn=minn,
+                                                         maxn=maxn))
         if args.no_countports:
             minn, maxn = int(args.no_countports[0]), int(args.no_countports[1])
-            flt = self.flt_and(flt,self.searchcountopenports(minn=minn, maxn=maxn, neg=True))
+            flt = self.flt_and(flt,
+                               self.searchcountopenports(minn=minn,
+                                                         maxn=maxn,
+                                                         neg=True))
         if args.service is not None:
             flt = self.flt_and(
                 flt,
@@ -2831,18 +2839,20 @@ setting values according to the keyword arguments.
         return {field: {'$lt' if neg else '$gte': now - delta}}
 
     def knownip_bycountry(self, code):
-        return self.set_limits(self.find(self.colname_ipdata,
-                                         {'country_code': code}
-                                     )).distinct('addr')
+        return self.set_limits(self.find(
+            self.colname_ipdata,
+            {'country_code': code},
+        )).distinct('addr')
 
     def knownip_byas(self, asnum):
         if type(asnum) is str:
             if asnum.startswith('AS'):
                 asnum = asnum[2:]
             asnum = int(asnum)
-        return self.set_limits(self.find(self.colname_ipdata,
-                                         {'as_num': asnum}
-                                     )).distinct('addr')
+        return self.set_limits(self.find(
+            self.colname_ipdata,
+            {'as_num': asnum}
+        )).distinct('addr')
 
     def set_data(self, addr, force=False):
         """Sets IP information in colname_ipdata."""
@@ -3126,7 +3136,7 @@ class MongoDBAgent(MongoDB, DBAgent):
             ],
             self.colname_masters: [
                 ([('hostname', pymongo.ASCENDING),
-                 ('path', pymongo.ASCENDING)], {}),
+                  ('path', pymongo.ASCENDING)], {}),
             ],
         }
 

@@ -163,8 +163,8 @@ def _disp_recs_tailf(flt, field):
             prevtime = r[field]
             time.sleep(1)
             for r in db.passive.get(
-                db.passive.flt_and(
-                    baseflt, {field: {'$gt': prevtime}}),
+                    db.passive.flt_and(
+                        baseflt, {field: {'$gt': prevtime}}),
                     sort=[(field, 1)]):
                 if 'addr' in r:
                     print ivre.utils.int2ip(r['addr']),
