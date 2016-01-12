@@ -360,12 +360,13 @@ class Context(object):
         self._list_id = []
         for num, host in enumerate(cursor):
             self._list_id.append(host["_id"])
-            host_ports = {'%s/%s' % (port['protocol'], port['port']):  # key
-                          '%s/%s' % (port.get('service_name', 'UNKNOWN'),
-                                     port.get('service_product', 'UNKNOWN'))
-                          # ex: {'tcp/80':'http/Apache httpd', 'tcp/443':...}
-                          for port in host.get('ports', [])
-                          if port.get('state_state') == 'open'}
+            host_ports = dict(
+                ('%s/%s' % (port['protocol'], port['port']),
+                 '%s/%s' % (port.get('service_name', 'UNKNOWN'),
+                            port.get('service_product', 'UNKNOWN')))
+                for port in host.get('ports', [])
+                if port.get('state_state') == 'open'
+            )
             # frequence
             self._matrix[num] = [categorizer[p_nb][host_ports.get(p_nb)]
                                  if host_ports.get(p_nb) in categorizer[p_nb]
@@ -375,7 +376,7 @@ class Context(object):
     @staticmethod
     def _handle_none(field):
         """
-        Used to create pipeline handling None field
+        Used to create pipeline handling None values in field
         """
         return {'$cond': {
             "if": {"$eq": [{"$ifNull": [field, None]}, None]},
@@ -424,9 +425,9 @@ class Context(object):
         result = {}
         for rec in db.nmap.db[db.nmap.colname_hosts].aggregate(pipeline,
                                                                cursor={}):
-            result[rec['_id']] = {srvprod['name']:
-                                  float(srvprod['count']) / host_count
-                                  for srvprod in rec['srvprods']}
+            result[rec['_id']] = dict((srvprod['name'],
+                                       float(srvprod['count']) / host_count)
+                                      for srvprod in rec['srvprods'])
             result[rec['_id']][u'UNAVAILABLE'] = 1 - \
                 float(rec['count']) / host_count
         return result
