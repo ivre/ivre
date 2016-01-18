@@ -189,11 +189,11 @@ ivreWebUi
 	};
 	$scope.goto_start = function() {
 	    if(!$scope.at_start())
-		setparam('skip', '0', true);
+		$scope.setparam('skip', '0', true);
 	};
 	$scope.goto_end = function() {
 	    if(!$scope.at_end())
-		setparam(
+		$scope.setparam(
 		    'skip',
 		    $scope.shared.filter.count - $scope.lastdisplayed +
 			$scope.firstdisplayed - 1 + "",
@@ -201,11 +201,11 @@ ivreWebUi
 	};
 	$scope.go_back = function(count) {
 	    if(!$scope.at_start())
-		setparam('skip', $scope.firstdisplayed - count - 1 + '', true);
+		$scope.setparam('skip', $scope.firstdisplayed - count - 1 + '', true);
 	};
 	$scope.go_forward = function(count) {
 	    if(!$scope.at_end())
-		setparam('skip', $scope.firstdisplayed + count - 1 + '', true);
+		$scope.setparam('skip', $scope.firstdisplayed + count - 1 + '', true);
 	};
     })
     .directive('ivreProgressBar', function() {
