@@ -93,11 +93,12 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
     defaction = HONEYD_DEFAULT_ACTION
     if 'extraports' in host:
         extra = host['extraports']
-        defstate = extra[max(extra, key=lambda x: extra[x][0])][1]
-        defaction = HONEYD_ACTION_FROM_NMAP_STATE.get(
-            max(defstate, key=lambda x: defstate[x]),
-            HONEYD_DEFAULT_ACTION
-        )
+        defaction = max(
+            max(extra.itervalues(),
+                key=lambda state: state['total'])['reasons'].iteritems(),
+            key=lambda reason: reason[1],
+        )[0]
+        defaction = HONEYD_ACTION_FROM_NMAP_STATE.get(defaction)
     out.write('set %s default tcp action %s\n' % (hname, defaction))
     for p in host.get('ports', []):
         try:
@@ -271,15 +272,17 @@ def display_xml_host(h, out=sys.stdout):
             out.write('/>\n')
         out.write('</hostnames>\n')
     out.write('<ports>')
-    for k in h.get('extraports', []):
+    for state, counts in h.get('extraports', {}).iteritems():
         out.write('<extraports state="%s" count="%d">\n' % (
-            k, h['extraports'][k][0]))
-        for kk in h['extraports'][k][1]:
+            state, counts['total']
+        ))
+        for reason, count in counts['reasons'].iteritems():
             out.write('<extrareasons reason="%s" count="%d"/>\n' % (
-                kk, h['extraports'][k][1][kk]))
+                reason, count
+            ))
         out.write('</extraports>\n')
     for p in h.get('ports', []):
-        if p.get('port') == 'host':
+        if p.get('port') == -1:
             h['scripts'] = p['scripts']
             continue
         out.write('<port')

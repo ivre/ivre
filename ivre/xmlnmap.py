@@ -34,7 +34,7 @@ import os
 import re
 import bson
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -676,9 +676,11 @@ class NmapHandler(ContentHandler):
                 sys.stderr.write("WARNING, self._curextraports should be None"
                                  " at this point "
                                  "(got %r)\n" % self._curextraports)
-            self._curextraports = {attrs['state']: [int(attrs['count']), {}]}
+            self._curextraports = {
+                attrs['state']: {"total": int(attrs['count']), "reasons": {}},
+            }
         elif name == 'extrareasons' and self._curextraports is not None:
-            self._curextraports[self._curextraports.keys()[0]][1][
+            self._curextraports[next(iter(self._curextraports))]["reasons"][
                 attrs['reason']] = int(attrs['count'])
         elif name == 'port':
             if self._curport is not None:
@@ -963,9 +965,9 @@ class NmapHandler(ContentHandler):
             self._curtablepath.pop()
         elif name == 'hostscript':
             # "fake" port element, without a "protocol" key and with the
-            # magic value "host" for the "port" key.
+            # magic value -1 for the "port" key.
             self._curhost.setdefault('ports', []).append({
-                "port": "host",
+                "port": -1,
                 "scripts": self._curhost.pop('scripts')
             })
         elif name == 'trace':

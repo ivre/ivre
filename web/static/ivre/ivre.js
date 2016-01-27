@@ -107,15 +107,15 @@ function port_summary(host, width) {
 	for(status in host.extraports) {
 	    var values = host.extraports[status];
 	    result.push({"type": "extra", "status": status,
-			 "count": values[0] + '',
-			 "reasons": values[1]});
+			 "count": values["total"] + '',
+			 "reasons": values["reasons"]});
 	}
     }
     if('ports' in host) {
 	var ports = {};
 	for(var i in host.ports) {
 	    var port = host.ports[i];
-	    if(port.port == "host") {
+	    if(port.port === -1) {
 		host.scripts = port.scripts;
 	    }
 	    else {
