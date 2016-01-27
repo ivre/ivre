@@ -82,16 +82,16 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
     if 'starttime' in record and 'endtime' in record:
         out.write("\tscan %s - %s\n" %
                   (record['starttime'], record['endtime']))
-    if 'extraports' in record:
-        d = record['extraports']
-        for k in d:
-            out.write("\t%d ports %s (%s)\n" %
-                      (d[k][0], k, ', '.join(['%d %s' % (d[k][1][kk], kk)
-                                              for kk in d[k][1].keys()])))
+    for state, counts in record.get('extraports', {}).iteritems():
+        out.write("\t%d ports %s (%s)\n" %
+                  (counts["total"], state,
+                   ", ".join("%d %s" % (count, reason)
+                             for reason, count in counts["reasons"].iteritems()
+                             if reason != "total")))
     ports = record.get('ports', [])
     ports.sort(key=lambda x: (x.get('protocol'), x['port']))
     for port in ports:
-        if port.get('port') == 'host':
+        if port.get('port') == -1:
             record['scripts'] = port['scripts']
             continue
         if 'state_reason' in port:

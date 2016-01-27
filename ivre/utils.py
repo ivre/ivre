@@ -269,8 +269,8 @@ def diff(doc1, doc2):
     between two scans.
 
     """
-    keys1 = set(doc1.keys())
-    keys2 = set(doc2.keys())
+    keys1 = set(doc1)
+    keys2 = set(doc2)
     res = {}
     for key in keys1.symmetric_difference(keys2):
         res[key] = True
@@ -287,15 +287,11 @@ def diff(doc1, doc2):
             if not res[key]:
                 del res[key]
             continue
-        if key in ['extraports']:
+        if key == 'extraports':
             res[key] = {}
-            kkeys1 = set(doc1[key].keys())
-            kkeys2 = set(doc2[key].keys())
-            for kkey in kkeys1.symmetric_difference(kkeys2):
-                res[key][kkey] = True
-            for kkey in kkeys1.intersection(kkeys2):
-                if doc1[key][kkey] != doc2[key][kkey]:
-                    res[key][kkey] = True
+            for state in set(doc1[key]).union(doc2[key]):
+                if doc1[key].get(state) != doc2[key].get(state):
+                    res[key][state] = True
             if not res[key]:
                 del res[key]
             continue

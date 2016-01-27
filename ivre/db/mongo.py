@@ -415,7 +415,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.ls.volumes",
                   "ports.scripts.ls.volumes.files",
                   "ports.screenwords",
-                  "extraports.filtered", "traces", "traces.hops",
+                  "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
 
@@ -501,6 +501,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 1: (2, self.migrate_schema_hosts_1_2),
                 2: (3, self.migrate_schema_hosts_2_3),
                 3: (4, self.migrate_schema_hosts_3_4),
+                4: (5, self.migrate_schema_hosts_4_5),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -684,6 +685,33 @@ creates the default indexes."""
             })
             update["$set"]["ports"] = doc["ports"]
             update["$unset"] = {"scripts": True}
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_4_5(doc):
+        """Converts a record from version 4 to version 5. Version 5
+        uses the magic value -1 instead of "host" for "port" in the
+        "fake" port entry used to store host scripts (see
+        `migrate_schema_hosts_3_4()`). Moreover, it changes the
+        structure of the values of "extraports" from [totalcount,
+        {"state": count}] to {"total": totalcount, "state": count}.
+
+        """
+        assert doc["schema_version"] == 4
+        update = {"$set": {"schema_version": 5}}
+        updated_ports = False
+        updated_extraports = False
+        for port in doc.get('ports', []):
+            if port['port'] == 'host':
+                port['port'] = -1
+                updated_ports = True
+        if updated_ports:
+            update["$set"]["ports"] = doc['ports']
+        for state, (total, counts) in doc.get('extraports', []).items():
+            doc['extraports'][state] = {"total": total, "reasons": counts}
+            updated_extraports = True
+        if updated_extraports:
+            update["$set"]["extraports"] = doc['extraports']
         return update
 
     def get(self, flt, archive=False, **kargs):
@@ -1325,7 +1353,7 @@ have no effect if it is not expected)."""
 
         """
         if port == "host":
-            return {'ports.port': {'$ne': "host"} if neg else "host"}
+            return {'ports.port': {"$gte": 0} if neg else -1}
         if state == "open":
             return {"openports.%s.ports" % protocol:
                     {'$ne': port} if neg else port}
@@ -2339,8 +2367,7 @@ have no effect if it is not expected)."""
         pipeline.extend(unwind_match)
         pipeline.extend([
             {"$unwind": "$ports"},
-            {"$match": {"ports.port": {"$ne": "host"},
-                        "ports.state_state": "open"}},
+            {"$match": {"ports.state_state": "open"}},
             {"$project": project},
             {"$group": {"_id": {"addr": "$addr", "proto": "$ports.protocol",
                                 "port": "$ports.port"},
