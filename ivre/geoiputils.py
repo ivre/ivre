@@ -163,6 +163,32 @@ def download_all(verbose=False):
         sys.stdout.write("done.\n")
 
 
+def locids_by_city(country_code, city_name):
+    with open(os.path.join(config.GEOIP_PATH,
+                           'GeoIPCity-Location.csv')) as fdesc:
+        for _ in xrange(2):
+            fdesc.readline()
+        for line in fdesc:
+            locid, country, _, city, _ = line[:-1].split(',', 4)
+            country = country.strip('"')
+            city = city.strip('"')
+            if (country, city) == (country_code, city_name):
+                yield int(locid)
+
+
+def locids_by_region(country_code, region_code):
+    with open(os.path.join(config.GEOIP_PATH,
+                           'GeoIPCity-Location.csv')) as fdesc:
+        for _ in xrange(2):
+            fdesc.readline()
+        for line in fdesc:
+            locid, country, region, _ = line[:-1].split(',', 3)
+            country = country.strip('"')
+            region = region.strip('"')
+            if (country, region) == (country_code, region_code):
+                yield int(locid)
+
+
 def parseline_country(line):
     line = line.strip('\n"').split('","')
     try:
@@ -173,7 +199,7 @@ def parseline_country(line):
         raise exc
 
 
-def parseline_city(line):
+def parseline_location(line):
     line = line.strip('\n"').split('","')
     try:
         return int(line[0]), int(line[1]), int(line[2])
@@ -250,15 +276,14 @@ class IPRanges(object):
         raise IndexError("index out of range")
 
 
-def get_ranges_by_data(datafile, parseline, data):
+def get_ranges_by_data(datafile, parseline, data, multiple=False):
     rnge = IPRanges()
     with open(datafile) as fdesc:
         for line in fdesc:
             start, stop, curdata = parseline(line)
-            if curdata == data:
+            if (multiple and curdata in data) or curdata == data:
                 rnge.append(start, stop)
     return rnge
-
 
 get_ranges_by_country = functools.partial(
     get_ranges_by_data,
@@ -266,11 +291,19 @@ get_ranges_by_country = functools.partial(
     parseline_country,
 )
 
-get_ranges_by_city = functools.partial(
+get_ranges_by_location = functools.partial(
     get_ranges_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCity-Blocks.csv'),
-    parseline_city,
+    parseline_location,
+    multiple=True,
 )
+
+def get_ranges_by_city(country_code, city):
+    return get_ranges_by_location(set(locids_by_city(country_code, city)))
+
+def get_ranges_by_region(country_code, region_code):
+    return get_ranges_by_location(set(locids_by_region(country_code,
+                                                       region_code)))
 
 get_ranges_by_asnum = functools.partial(
     get_ranges_by_data,
@@ -286,12 +319,13 @@ get_routable_ranges = functools.partial(
 )
 
 
-def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None):
+def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None,
+                    multiple=False):
     res = []
     with open(datafile) as fdesc:
         for line in fdesc:
             start, stop, curdata = parseline(line)
-            if curdata == data:
+            if (multiple and curdata in data) or curdata == data:
                 curaddrs = map(utils.int2ip, xrange(start, stop + 1))
                 if skip > 0:
                     skip -= len(curaddrs)
@@ -314,11 +348,21 @@ get_ips_by_country = functools.partial(
     parseline_country,
 )
 
-get_ips_by_city = functools.partial(
+get_ips_by_location = functools.partial(
     get_ips_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCity-Blocks.csv'),
-    parseline_city,
+    parseline_location,
+    multiple=True,
 )
+
+def get_ips_by_city(country_code, city, **kargs):
+    return get_ips_by_location(set(locids_by_city(country_code, city)),
+                               **kargs)
+
+def get_ips_by_region(country_code, region_code, **kargs):
+    return get_ips_by_location(set(locids_by_region(country_code,
+                                                    region_code)),
+                               **kargs)
 
 get_ips_by_asnum = functools.partial(
     get_ips_by_data,
@@ -334,12 +378,12 @@ get_routable_ips = functools.partial(
 )
 
 
-def count_ips_by_data(datafile, parseline, data):
+def count_ips_by_data(datafile, parseline, data, multiple=False):
     res = 0
     with open(datafile) as fdesc:
         for line in fdesc:
             start, stop, curdata = parseline(line)
-            if curdata == data:
+            if (multiple and curdata in data) or curdata == data:
                 res += stop - start + 1
     return res
 
@@ -349,11 +393,19 @@ count_ips_by_country = functools.partial(
     parseline_country,
 )
 
-count_ips_by_city = functools.partial(
+count_ips_by_location = functools.partial(
     count_ips_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCity-Blocks.csv'),
-    parseline_city,
+    parseline_location,
+    multiple=True,
 )
+
+def count_ips_by_city(country_code, city):
+    return count_ips_by_location(set(locids_by_city(country_code, city)))
+
+def count_ips_by_region(country_code, region_code):
+    return count_ips_by_location(set(locids_by_region(country_code,
+                                                      region_code)))
 
 count_ips_by_asnum = functools.partial(
     count_ips_by_data,
@@ -371,7 +423,7 @@ count_routable_ips = functools.partial(
 
 def list_ips_by_data(datafile, parseline, data,
                      listall=True, listcidrs=False,
-                     skip=0, maxnbr=None):
+                     skip=0, maxnbr=None, multiple=False):
     if ((not listall) or listcidrs) and ((skip != 0) or (maxnbr is not None)):
         sys.stderr.write('WARNING: skip and maxnbr parameters have no effect '
                          'when listall == False or listcidrs == True.\n')
@@ -380,7 +432,7 @@ def list_ips_by_data(datafile, parseline, data,
     with open(datafile) as fdesc:
         for line in fdesc:
             start, stop, curdata = parseline(line)
-            if curdata == data:
+            if (multiple and curdata in data) or curdata == data:
                 if listall:
                     curaddrs = map(utils.int2ip, xrange(start, stop + 1))
                     if skip > 0:
@@ -404,18 +456,27 @@ def list_ips_by_data(datafile, parseline, data,
                     print "%s - %s" % (utils.int2ip(start),
                                        utils.int2ip(stop))
 
-
 list_ips_by_country = functools.partial(
     list_ips_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCountry.csv'),
     parseline_country,
 )
 
-list_ips_by_city = functools.partial(
+list_ips_by_location = functools.partial(
     list_ips_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCity-Blocks.csv'),
-    parseline_city,
+    parseline_location,
+    multiple=True,
 )
+
+def list_ips_by_city(country_code, city, **kargs):
+    return list_ips_by_location(set(locids_by_city(country_code, city)),
+                                **kargs)
+
+def list_ips_by_region(country_code, region_code, **kargs):
+    return list_ips_by_location(set(locids_by_region(country_code,
+                                                     region_code)),
+                                **kargs)
 
 list_ips_by_asnum = functools.partial(
     list_ips_by_data,

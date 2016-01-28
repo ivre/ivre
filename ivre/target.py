@@ -138,6 +138,22 @@ class TargetCountry(Target):
         self.infos = {'categories': categories}
 
 
+class TargetRegion(Target):
+    """This class can be used to get IP addresses from a region,
+    according to the data from Maxmind GeoIP.
+
+    """
+
+    def __init__(self, country, region, categories=None, rand=True,
+                 maxnbr=None, state=None):
+        Target.__init__(self,
+                        geoiputils.get_ranges_by_region(country, region),
+                        rand=rand, maxnbr=maxnbr, state=state)
+        if categories is None:
+            categories = ['REGION-%s-%s' % (country, region)]
+        self.infos = {'categories': categories}
+
+
 class TargetCity(Target):
     """This class can be used to get IP addresses from a specified
     city, according to the data from Maxmind GeoIP.
@@ -374,6 +390,9 @@ argparser.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
 argparser.add_argument('--country', '-c', metavar='CODE',
                        help='select a country')
+argparser.add_argument('--region', nargs=2,
+                       metavar=('COUNTRY_CODE', 'REGION_CODE'),
+                       help='select a region')
 argparser.add_argument('--asnum', '-a', metavar='AS', type=int,
                        help='select an autonomous system')
 argparser.add_argument('--range', '-r', nargs=2, metavar=('START', 'STOP'),
