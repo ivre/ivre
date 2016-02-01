@@ -324,6 +324,12 @@ def main():
                 ivre.geoiputils.count_ips_by_country(args.country)
             )
             exit(0)
+        if args.region is not None:
+            print '%s / %s has %d IPs.' % (
+                args.region[0], args.region[1],
+                ivre.geoiputils.count_ips_by_region(*args.region),
+            )
+            exit(0)
         if args.asnum is not None:
             print 'AS%d has %d IPs.' % (
                 args.asnum,
@@ -336,8 +342,8 @@ def main():
             )
             exit(0)
         parser.error("argument --output: invalid choice: '%s' "
-                     "(only available with --country, --asnum or "
-                     "--routable)" % args.output)
+                     "(only available with --country, --asnum, --region "
+                     "or --routable)" % args.output)
     if args.output in ['List', 'ListAll', 'ListCIDRs']:
         if args.output == 'List':
             listall = False
@@ -353,6 +359,11 @@ def main():
                                                 listall=listall,
                                                 listcidrs=listcidrs)
             exit(0)
+        if args.region is not None:
+            ivre.geoiputils.list_ips_by_region(*args.region,
+                                               listall=listall,
+                                               listcidrs=listcidrs)
+            exit(0)
         if args.asnum is not None:
             ivre.geoiputils.list_ips_by_asnum(args.asnum,
                                               listall=listall,
@@ -363,8 +374,8 @@ def main():
                                               listcidrs=listcidrs)
             exit(0)
         parser.error("argument --output: invalid choice: '%s' "
-                     "(only available with --country, --asnum or "
-                     "--routable)" % args.output)
+                     "(only available with --country, --region, --asnum "
+                     "or --routable)" % args.output)
     targets = ivre.target.target_from_args(args)
     if targets is None:
         parser.error('one argument of --country/--asnum/--range/--network/'
