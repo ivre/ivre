@@ -68,7 +68,7 @@ def main():
                         help='Import all files into databases.')
     parser.add_argument('--dont-feed-ipdata-cols', action='store_true',
                         help='Do not feed data to other purpose-specific'
-                        ' DB (this only affects the passive DB for now)')
+                        ' DB (this only affects the passive and nmap DB)')
     parser.add_argument('--quiet', "-q", action='store_true',
                         help='Quiet mode.')
     if USING_ARGPARSE:
@@ -96,17 +96,17 @@ def main():
         TORUN.append((ivre.db.db.data.feed_geoip_city,
                       [args.city_csv],
                       {} if args.dont_feed_ipdata_cols else
-                      {"feedipdata": [ivre.db.db.passive]}))
+                      {"feedipdata": [ivre.db.db.passive, ivre.db.db.nmap]}))
     if args.country_csv:
         TORUN.append((ivre.db.db.data.feed_geoip_country,
                       [args.country_csv],
                       {} if args.dont_feed_ipdata_cols else
-                      {"feedipdata": [ivre.db.db.passive]}))
+                      {"feedipdata": [ivre.db.db.passive, ivre.db.db.nmap]}))
     if args.asnum_csv:
         TORUN.append((ivre.db.db.data.feed_geoip_asnum,
                       [args.asnum_csv],
                       {} if args.dont_feed_ipdata_cols else
-                      {"feedipdata": [ivre.db.db.passive]}))
+                      {"feedipdata": [ivre.db.db.passive, ivre.db.db.nmap]}))
     if args.location_csv:
         TORUN.append((ivre.db.db.data.feed_city_location,
                       [args.location_csv], {}))
@@ -115,15 +115,15 @@ def main():
                 (ivre.db.db.data.feed_geoip_city,
                  'GeoIPCity-Blocks.csv',
                  {} if args.dont_feed_ipdata_cols else
-                 {"feedipdata": [ivre.db.db.passive]}),
+                 {"feedipdata": [ivre.db.db.passive, ivre.db.db.nmap]}),
                 (ivre.db.db.data.feed_geoip_country,
                  'GeoIPCountry.csv',
                  {} if args.dont_feed_ipdata_cols else
-                 {"feedipdata": [ivre.db.db.passive]}),
+                 {"feedipdata": [ivre.db.db.passive, ivre.db.db.nmap]}),
                 (ivre.db.db.data.feed_geoip_asnum,
                  'GeoIPASNum.csv',
                  {} if args.dont_feed_ipdata_cols else
-                 {"feedipdata": [ivre.db.db.passive]}),
+                 {"feedipdata": [ivre.db.db.passive, ivre.db.db.nmap]}),
                 (ivre.db.db.data.feed_city_location,
                  'GeoIPCity-Location.csv', {}),
         ]:
