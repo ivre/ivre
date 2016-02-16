@@ -963,7 +963,7 @@ class NmapHandler(ContentHandler):
                 # stop recording characters
                 self._curdata = None
             self._curtablepath.pop()
-        elif name == 'hostscript':
+        elif name == 'hostscript' and 'scripts' in self._curhost:
             # "fake" port element, without a "protocol" key and with the
             # magic value -1 for the "port" key.
             self._curhost.setdefault('ports', []).append({
