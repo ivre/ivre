@@ -707,7 +707,7 @@ creates the default indexes."""
                 updated_ports = True
         if updated_ports:
             update["$set"]["ports"] = doc['ports']
-        for state, (total, counts) in doc.get('extraports', []).items():
+        for state, (total, counts) in doc.get('extraports', {}).items():
             doc['extraports'][state] = {"total": total, "reasons": counts}
             updated_extraports = True
         if updated_extraports:
