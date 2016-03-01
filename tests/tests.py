@@ -186,7 +186,10 @@ class IvreTests(unittest.TestCase):
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
-        oid = json.loads(out)['_id']
+        oid = str(ivre.db.db.nmap.get(
+            ivre.db.db.nmap.searchhost(json.loads(out)['addr']),
+            limit=1, fields=["_id"],
+        )[0]['_id'])
         res, out, _ = RUN(["ivre", "scancli", "--count", "--id", oid])
         self.assertEqual(res, 0)
         self.assertEqual(int(out), 1)
