@@ -875,6 +875,7 @@ var MENU_MAIN = {
     share: true,
     share_report: true,
     share_compare: true,
+    share_jsonexport: true,
     items: [
 	{title: "HELP",
 	 action: "$scope.togglenotes('doc:webui');",
