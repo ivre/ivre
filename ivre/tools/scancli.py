@@ -514,7 +514,7 @@ def main():
             else:
                 indent = None
             for h in x:
-                del h['scanid']
+                del h['scanid'], h['_id']
                 for port in h.get('ports', []):
                     if args.no_screenshots:
                         for fname in ['screenshot', 'screendata']:

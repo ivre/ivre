@@ -47,6 +47,12 @@ def main():
     callback = params.get("callback")
     # type of result
     action = params.get("action", "")
+    ipsasnumbers = params.get("ipsasnumbers")
+    datesasstrings = params.get("datesasstrings")
+    if callback is None:
+        sys.stdout.write('Content-Disposition: attachment; '
+                         'filename="IVRE-results.json"\r\n')
+    sys.stdout.write("\r\n")
 
     # top values
     if action.startswith('topvalues:'):
@@ -91,7 +97,7 @@ def main():
             else:
                 r2time = lambda r: (int(r['starttime'].strftime('%s'))
                                     % int(params.get("modulo")))
-            if params.get("ipsasnumbers"):
+            if ipsasnumbers:
                 r2res = lambda r: [r2time(r), r['addr'],
                                    r['openports']['count']]
             else:
@@ -112,7 +118,7 @@ def main():
             result = db.nmap.get(flt, archive=archive,
                                  fields=['addr', 'openports.count'])
             count = result.count()
-            if params.get("ipsasnumbers"):
+            if ipsasnumbers:
                 r2res = lambda r: [r['addr'], r['openports']['count']]
             else:
                 r2res = lambda r: [utils.int2ip(r['addr']),
@@ -124,7 +130,7 @@ def main():
             )
             count = sum(len(host.get('ports', [])) for host in result)
             result.rewind()
-            if params.get("ipsasnumbers"):
+            if ipsasnumbers:
                 r2res = lambda r: [
                     r['addr'],
                     [[p['port'], p['state_state']]
@@ -141,7 +147,7 @@ def main():
         elif action == "onlyips":
             result = db.nmap.get(flt, archive=archive, fields=['addr'])
             count = result.count()
-            if params.get("ipsasnumbers"):
+            if ipsasnumbers:
                 r2res = lambda r: r['addr']
             else:
                 r2res = lambda r: utils.int2ip(r['addr'])
@@ -157,7 +163,7 @@ def main():
                                                  flt=flt)
             count = 0
             result = {}
-            if params.get("ipsasnumbers"):
+            if ipsasnumbers:
                 for res in output:
                     result.setdefault(res["addr"], []).append([res['port'],
                                                               res['value']])
@@ -205,7 +211,7 @@ def main():
         )
         sys.stdout.write(webutils.js_alert("param-unused", "warning", msg))
         sys.stderr.write('IVRE: WARNING: %r\n' % msg)
-    else:
+    elif callback is not None:
         sys.stdout.write(webutils.js_del_alert("param-unused"))
 
     if config.DEBUG:
@@ -218,36 +224,40 @@ def main():
 
     version_mismatch = {}
     if callback is None:
-        sys.stdout.write("[\n")
+        tab, sep = "", "\n"
     else:
+        tab, sep = "\t", ",\n"
         sys.stdout.write("%s([\n" % callback)
     for rec in result:
-        del rec['_id']
-        try:
-            rec['addr'] = utils.int2ip(rec['addr'])
-        except:
-            pass
+        del rec['_id'], rec['scanid']
+        if not ipsasnumbers:
+            try:
+                rec['addr'] = utils.int2ip(rec['addr'])
+            except:
+                pass
         for field in ['starttime', 'endtime']:
             if field in rec:
-                rec[field] = int(rec[field].strftime('%s'))
+                if not datesasstrings:
+                    rec[field] = int(rec[field].strftime('%s'))
         for port in rec.get('ports', []):
             if 'screendata' in port:
                 port['screendata'] = port['screendata'].encode('base64')
-        if 'traces' in rec:
-            for trace in rec['traces']:
-                trace['hops'].sort(key=lambda x: x['ttl'])
-                for hop in trace['hops']:
-                    try:
-                        hop['ipaddr'] = utils.int2ip(hop['ipaddr'])
-                    except:
-                        pass
-        sys.stdout.write("\t%s,\n" % json.dumps(rec))
+        if not ipsasnumbers:
+            if 'traces' in rec:
+                for trace in rec['traces']:
+                    trace['hops'].sort(key=lambda x: x['ttl'])
+                    for hop in trace['hops']:
+                        try:
+                            hop['ipaddr'] = utils.int2ip(hop['ipaddr'])
+                        except:
+                            pass
+        sys.stdout.write("%s%s%s" % (
+            tab, json.dumps(rec, default=utils.serialize), sep
+        ))
         check = db.nmap.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
-    if callback is None:
-        sys.stdout.write("]\n")
-    else:
+    if callback is not None:
         sys.stdout.write("]);\n")
 
     messages = {

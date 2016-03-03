@@ -41,7 +41,7 @@ from ivre import config, utils
 from ivre.db import db
 
 
-JS_HEADERS = 'Content-Type: application/javascript\r\n\r\n'
+JS_HEADERS = 'Content-Type: application/javascript\r\n'
 IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 NETADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+'
                      '/\\d+(\\.\\d+\\.\\d+\\.\\d+)?$')
@@ -97,6 +97,7 @@ def check_referer():
         referer_ok = referer in config.WEB_ALLOWED_REFERERS
     if not referer_ok:
         sys.stdout.write(JS_HEADERS)
+        sys.stdout.write("\r\n")
         sys.stdout.write(
             js_alert(
                 "referer", "error",

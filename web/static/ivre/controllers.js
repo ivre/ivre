@@ -141,6 +141,11 @@ ivreWebUi
 		return document.location.href;
 	    return getPagePath() + page + document.location.hash;
 	};
+	$scope.get_json_export = function() {
+	    return config.cgibase + '?q=' + encodeURIComponent(
+		$scope.shared.filter.query + " limit:0"
+	    ) + '&ipsasnumbers=1&datesasstrings=1';
+	};
 	$scope.get_title = function() {return document.title;};
 	$scope.add_bookmark = function() {
 	    // https://stackoverflow.com/questions/3024745
