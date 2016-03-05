@@ -229,7 +229,11 @@ def main():
         tab, sep = "\t", ",\n"
         sys.stdout.write("%s([\n" % callback)
     for rec in result:
-        del rec['_id'], rec['scanid']
+        for fld in ['_id', 'scanid']:
+            try:
+                del rec[fld]
+            except KeyError:
+                pass
         if not ipsasnumbers:
             try:
                 rec['addr'] = utils.int2ip(rec['addr'])
