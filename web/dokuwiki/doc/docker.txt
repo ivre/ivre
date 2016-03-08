@@ -125,7 +125,7 @@ root@ivreclient:/# ivre scancli --init
 This will remove any scan result in your database. Process ? [y/N] y
 root@ivreclient:/# ivre runscansagentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
-root@ivreclient:/# ivre ipdata --download --import-all --dont-feed-ipdata-cols
+root@ivreclient:/# ivre ipdata --download --import-all --no-update-passive-db
 [...]</code>
 The latest command will take a long time. Then we can integrate the Nmap results to the database:
 
