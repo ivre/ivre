@@ -66,7 +66,7 @@ def main():
                         help='Import FILE into locations database.')
     parser.add_argument('--import-all', action='store_true',
                         help='Import all files into databases.')
-    parser.add_argument('--dont-feed-ipdata-cols', action='store_true',
+    parser.add_argument('--no-update-passive-db', action='store_true',
                         help='Do not feed data to other purpose-specific'
                         ' DB (this only affects the passive DB for now)')
     parser.add_argument('--update-nmap-db', action='store_true',
@@ -95,10 +95,10 @@ def main():
     if args.download:
         ivre.geoiputils.download_all(verbose=not args.quiet)
     dbtofeed = {}
-    if not args.dont_feed_ipdata_cols:
-        dbtofeed["feedipdata"] = [ ivre.db.db.passive ]
-        if args.update_nmap_db:
-            dbtofeed["feedipdata"].append(ivre.db.db.nmap)
+    if not args.no_update_passive_db:
+        dbtofeed["feedipdata"] = [ivre.db.db.passive]
+    if args.update_nmap_db:
+        dbtofeed.setdefault("feedipdata", []).append(ivre.db.db.nmap)
     if args.city_csv is not None:
         TORUN.append((ivre.db.db.data.feed_geoip_city,
                       [args.city_csv],
