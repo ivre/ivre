@@ -67,8 +67,7 @@ def main():
     parser.add_argument('--import-all', action='store_true',
                         help='Import all files into databases.')
     parser.add_argument('--no-update-passive-db', action='store_true',
-                        help='Do not feed data to other purpose-specific'
-                        ' DB (this only affects the passive DB for now)')
+                        help='Do not update the passive database.')
     parser.add_argument('--update-nmap-db', action='store_true',
                         help='Update the active database.')
     parser.add_argument('--quiet', "-q", action='store_true',
