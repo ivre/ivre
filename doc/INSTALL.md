@@ -118,7 +118,7 @@ confirmation):
 ### Getting IP data ###
 
     # ivre ipdata --download
-    $ ivre ipdata --import-all --dont-feed-ipdata-cols
+    $ ivre ipdata --import-all --no-update-passive-db
 
 ### Web Server ###
 

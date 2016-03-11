@@ -66,9 +66,11 @@ def main():
                         help='Import FILE into locations database.')
     parser.add_argument('--import-all', action='store_true',
                         help='Import all files into databases.')
-    parser.add_argument('--dont-feed-ipdata-cols', action='store_true',
+    parser.add_argument('--no-update-passive-db', action='store_true',
                         help='Do not feed data to other purpose-specific'
                         ' DB (this only affects the passive DB for now)')
+    parser.add_argument('--update-nmap-db', action='store_true',
+                        help='Update the active database.')
     parser.add_argument('--quiet', "-q", action='store_true',
                         help='Quiet mode.')
     if USING_ARGPARSE:
@@ -92,21 +94,23 @@ def main():
                 ivre.db.db.data.ensure_indexes()
     if args.download:
         ivre.geoiputils.download_all(verbose=not args.quiet)
+    dbtofeed = {}
+    if not args.no_update_passive_db:
+        dbtofeed["feedipdata"] = [ivre.db.db.passive]
+    if args.update_nmap_db:
+        dbtofeed.setdefault("feedipdata", []).append(ivre.db.db.nmap)
     if args.city_csv is not None:
         TORUN.append((ivre.db.db.data.feed_geoip_city,
                       [args.city_csv],
-                      {} if args.dont_feed_ipdata_cols else
-                      {"feedipdata": [ivre.db.db.passive]}))
+                      dbtofeed))
     if args.country_csv:
         TORUN.append((ivre.db.db.data.feed_geoip_country,
                       [args.country_csv],
-                      {} if args.dont_feed_ipdata_cols else
-                      {"feedipdata": [ivre.db.db.passive]}))
+                      dbtofeed))
     if args.asnum_csv:
         TORUN.append((ivre.db.db.data.feed_geoip_asnum,
                       [args.asnum_csv],
-                      {} if args.dont_feed_ipdata_cols else
-                      {"feedipdata": [ivre.db.db.passive]}))
+                      dbtofeed))
     if args.location_csv:
         TORUN.append((ivre.db.db.data.feed_city_location,
                       [args.location_csv], {}))
@@ -114,16 +118,13 @@ def main():
         for function, fname, kwargs in [
                 (ivre.db.db.data.feed_geoip_city,
                  'GeoIPCity-Blocks.csv',
-                 {} if args.dont_feed_ipdata_cols else
-                 {"feedipdata": [ivre.db.db.passive]}),
+                 dbtofeed),
                 (ivre.db.db.data.feed_geoip_country,
                  'GeoIPCountry.csv',
-                 {} if args.dont_feed_ipdata_cols else
-                 {"feedipdata": [ivre.db.db.passive]}),
+                 dbtofeed),
                 (ivre.db.db.data.feed_geoip_asnum,
                  'GeoIPASNum.csv',
-                 {} if args.dont_feed_ipdata_cols else
-                 {"feedipdata": [ivre.db.db.passive]}),
+                 dbtofeed),
                 (ivre.db.db.data.feed_city_location,
                  'GeoIPCity-Location.csv', {}),
         ]:
