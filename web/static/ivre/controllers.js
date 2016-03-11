@@ -142,9 +142,16 @@ ivreWebUi
 	    return getPagePath() + page + document.location.hash;
 	};
 	$scope.get_json_export = function() {
-	    return config.cgibase + '?q=' + encodeURIComponent(
-		$scope.shared.filter.query + " limit:0"
-	    ) + '&ipsasnumbers=1&datesasstrings=1';
+	    var query;
+	    if($scope.shared.filter !== undefined
+	       && $scope.shared.filter.query !== "") {
+		query = $scope.shared.filter.query + " limit:0";
+	    }
+	    else {
+		query = "limit:0";
+	    }
+	    return config.cgibase + '?q=' + encodeURIComponent(query) +
+		'&ipsasnumbers=1&datesasstrings=1';
 	};
 	$scope.get_title = function() {return document.title;};
 	$scope.add_bookmark = function() {

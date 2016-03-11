@@ -514,7 +514,11 @@ def main():
             else:
                 indent = None
             for h in x:
-                del h['scanid'], h['_id']
+                for fld in ['_id', 'scanid']:
+                    try:
+                        del h[fld]
+                    except KeyError:
+                        pass
                 for port in h.get('ports', []):
                     if args.no_screenshots:
                         for fname in ['screenshot', 'screendata']:
