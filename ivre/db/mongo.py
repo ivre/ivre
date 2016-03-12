@@ -1034,7 +1034,7 @@ have no effect if it is not expected)."""
             colname_scans = self.colname_scans
         self.db[colname_hosts].remove(spec_or_id=host['_id'])
         for scanid in self.getscanids(host):
-            if self.get({'scanid': scanid}, archive=archive).count() == 0:
+            if self.find_one(colname_hosts, {'scanid': scanid}) is None:
                 self.db[colname_scans].remove(spec_or_id=scanid)
 
     def archive(self, host, unarchive=False):
