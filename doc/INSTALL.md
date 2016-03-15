@@ -14,7 +14,8 @@ If you plan to run scans from a machine, install
 [Nmap](http://nmap.org/) and optionally [ZMap](https://zmap.io/) and
 [Masscan](https://github.com/robertdavidgraham/masscan). If you want
 to integrate screenshots, install
-[Tesseract](https://github.com/tesseract-ocr/tesseract).
+[Tesseract](https://github.com/tesseract-ocr/tesseract) and
+[PhantomJS](http://phantomjs.org/).
 
 If you plan to analyze PCAP file on a machine, install
 [Bro](http://www.bro.org/) (version 2.3 minimum) and
@@ -157,6 +158,21 @@ or (sym)linked at these locations:
 
 The value `WEB_LIMIT` from IVRE's configuration must match the value
 `limit` in the `dflt` object in `config.js`.
+
+### Getting HTTP screenshots ###
+
+Nmap does not take HTTP screenshots by default. To do so, you need to
+install the NSE script and the PhantomJS script  manually which are
+included in the docker files. The NSE file needs to be installed in
+your nmap scripts folder. The `screenshot.js` needs to be copied
+somewhere according to your PATH environment variable. For example,
+on a Debian-based with nmap installed from sources:
+
+    # cp docker/client/http-screenshot.nse /usr/local/share/nmap/scripts/
+    # cp docker/client/screenshot.js /usr/local/bin/
+    # nmap --script-updatedb
+
+You also need to install PhantomJS to be able to execute `screenshot.js`.
 
 # Agent #
 
