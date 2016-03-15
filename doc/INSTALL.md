@@ -162,11 +162,11 @@ The value `WEB_LIMIT` from IVRE's configuration must match the value
 ### Getting HTTP screenshots ###
 
 Nmap does not take HTTP screenshots by default. To do so, you need to
-install the NSE script and the PhantomJS script  manually which are
+install the NSE script and the PhantomJS script manually which are
 included in the docker files. The NSE file needs to be installed in
 your nmap scripts folder. The `screenshot.js` needs to be copied
-somewhere according to your PATH environment variable. For example,
-on a Debian-based with nmap installed from sources:
+somewhere according to your PATH environment variable. For example, on
+a Debian-based with nmap installed from sources:
 
     # cp docker/client/http-screenshot.nse /usr/local/share/nmap/scripts/
     # cp docker/client/screenshot.js /usr/local/bin/
