@@ -294,13 +294,13 @@ def main():
                         help='run COUNT nmap processes in parallel '
                         '(when --output=XMLFork)')
     parser.add_argument('--nmap-max-cpu', metavar='TIME', type=int,
-                        help='maximumt amount of CPU time (in seconds) '
+                        help='maximum amount of CPU time (in seconds) '
                         'per nmap process')
-    parser.add_argument('--nmap-max-heap-size', metavar='TIME', type=int,
-                        help="maximumt size (in bytes) of each nmap "
+    parser.add_argument('--nmap-max-heap-size', metavar='SIZE', type=int,
+                        help="maximum size (in bytes) of each nmap "
                         "process's heap")
-    parser.add_argument('--nmap-max-stack-size', metavar='TIME', type=int,
-                        help="maximumt size (in bytes) of each nmap "
+    parser.add_argument('--nmap-max-stack-size', metavar='SIZE', type=int,
+                        help="maximum size (in bytes) of each nmap "
                         "process's stack")
     if USING_ARGPARSE:
         parser.add_argument('--again', nargs='+',
