@@ -1,27 +1,29 @@
 ====== IVRE's screenshots gallery ======
 
-{{:doc:screenshots:webui-home-heatmap.png|screenshot}}
+{{:screenshots/webui-home-heatmap.png|screenshot}}
 
 Home page with "heatmap" IP addresses.
 
-{{:doc:screenshots:webui-details-heatmapzoom.png|screenshot}}
+{{:screenshots/webui-details-heatmapzoom.png|screenshot}}
 
-Scan result details, using the "heatmap" IP addresses to "zoom" in the address space
+Scan result details, using the "heatmap" IP addresses to "zoom" in the\\
+address space
 
-{{:doc:screenshots:webui-screenshots-solar-world.png|screenshot}}
+{{:screenshots/webui-screenshots-solar-world.png|screenshot}}
 
 Screenshots containing the word "solar" and map
 
-{{:doc:screenshots:webui-topproducts-80.png|screenshot}}
+{{:screenshots/webui-topproducts-80.png|screenshot}}
 
 Most common products seen on port 80
 
-{{:doc:screenshots:webui-tooltip-topenipvendors.png|screenshot}}
+{{:screenshots/webui-tooltip-topenipvendors.png|screenshot}}
 
 Help tooltip and most common ENIP vendors
 
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2015\\
+[[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
