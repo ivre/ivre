@@ -170,7 +170,7 @@ on a Debian-based with nmap installed from sources:
 
     # cp docker/client/http-screenshot.nse /usr/local/share/nmap/scripts/
     # cp docker/client/screenshot.js /usr/local/bin/
-    # nmap --script-update
+    # nmap --script-updatedb
 
 You also need to install PhantomJS to be able to execute `screenshot.js`.
 
