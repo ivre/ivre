@@ -816,7 +816,7 @@ var _SUBMENU_FILTERS = [
 	  action: "$scope.setparam('screenshot', undefined, true, true); $scope.setparam('display', 'screenshot', true);",
 	 },
 	 {title: "Shared files",
-	  action: "setparam('file', undefined, true, true); setparam('display', 'script:ls', true);",
+	  action: "$scope.setparam('file', undefined, true, true); $scope.setparam('display', 'script:ls', true);",
 	 },
      ],
     },
