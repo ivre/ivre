@@ -720,7 +720,7 @@ class DBData(DB):
         if feedipdata is not None:
             for dbinst in feedipdata:
                 dbinst.update_city(
-                    int(line[0]), int(line[1]), line[2],
+                    int(line[0]), int(line[1]), int(line[2]),
                     create=createipdata
                 )
         return {'start': int(line[0]),

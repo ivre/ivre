@@ -2386,6 +2386,48 @@ have no effect if it is not expected)."""
         else:
             return (result for result in cursor if result["value"])
 
+    def update_country(self, start, stop, code, create=False):
+        """Update country info on existing Nmap scan result documents"""
+        name = self.globaldb.data.country_name_by_code(code)
+        for colname in [self.colname_hosts, self.colname_oldhosts]:
+            self.db[colname].update(
+                self.searchrange(start, stop),
+                {'$set': {'infos.country_code': code,
+                          'infos.country_name': name}},
+                multi=True,
+            )
+
+    def update_city(self, start, stop, locid, create=False):
+        """Update city/location info on existing Nmap scan result documents"""
+        updatespec = dict(("infos.%s" % key, value) for key, value in
+                          self.globaldb.data.location_byid(locid).iteritems())
+        if "infos.country_code" in updatespec:
+            updatespec[
+                "infos.country_name"
+            ] = self.globaldb.data.country_name_by_code(
+                updatespec["infos.country_code"]
+            )
+        for colname in [self.colname_hosts, self.colname_oldhosts]:
+            self.db[colname].update(
+                self.searchrange(start, stop),
+                {'$set': updatespec},
+                multi=True,
+            )
+
+    def update_as(self, start, stop, asnum, asname, create=False):
+        """Update AS info on existing Nmap scan result documents"""
+        if asname is None:
+            updatespec = {'infos.as_num': asnum}
+        else:
+            updatespec = {'infos.as_num': asnum, 'infos.as_name': asname}
+        # we first update existing records
+        for colname in [self.colname_hosts, self.colname_oldhosts]:
+            self.db[colname].update(
+                self.searchrange(start, stop),
+                {'$set': updatespec},
+                multi=True,
+            )
+
     def parse_args(self, args, flt=None):
         if flt is None:
             flt = self.flt_empty
@@ -2898,7 +2940,9 @@ setting values according to the keyword arguments.
         # we first update existing records
         self.db[self.colname_ipdata].update(
             self.searchrange(start, stop),
-            {'$set': {'country_code': code}})
+            {'$set': {'country_code': code}},
+            multi=True,
+        )
         # then (if requested), we add a record for addresses we
         # have in database (first the active one, then the
         # passive)
@@ -2913,7 +2957,9 @@ setting values according to the keyword arguments.
         # we first update existing records
         self.db[self.colname_ipdata].update(
             self.searchrange(start, stop),
-            {'$set': {'location_id': locid}})
+            {'$set': {'location_id': locid}},
+            multi=True,
+        )
         # then (if requested), we add a record for addresses we
         # have in database (first the active one, then the
         # passive)
@@ -2932,7 +2978,9 @@ setting values according to the keyword arguments.
         # we first update existing records
         self.db[self.colname_ipdata].update(
             self.searchrange(start, stop),
-            {'$set': updatespec})
+            {'$set': updatespec},
+            multi=True,
+        )
         # then (if requested), we add a record for addresses we
         # have in database (first the active one, then the
         # passive)
@@ -3042,7 +3090,8 @@ class MongoDBData(MongoDB, DBData):
             fdesc.readline()
             self.db[self.colname_city_locations].insert(
                 self.parse_line_city_location(line)
-                for line in fdesc)
+                for line in fdesc
+            )
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
