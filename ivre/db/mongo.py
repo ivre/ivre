@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -502,6 +502,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 2: (3, self.migrate_schema_hosts_2_3),
                 3: (4, self.migrate_schema_hosts_3_4),
                 4: (5, self.migrate_schema_hosts_4_5),
+                5: (6, self.migrate_schema_hosts_5_6),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -713,6 +714,36 @@ creates the default indexes."""
             updated_extraports = True
         if updated_extraports:
             update["$set"]["extraports"] = doc['extraports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_5_6(doc):
+        """Converts a record from version 5 to version 6. Version 6 uses Nmap
+        structured data for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 5
+        update = {"$set": {"schema_version": 6}}
+        updated = False
+        migrate_scripts = set(script for script, alias
+                              in xmlnmap.ALIASES_TABLE_ELEMS.iteritems()
+                              if alias == 'vulns')
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    table = None
+                    if script['id'] in script:
+                        table = script.pop(script['id'])
+                        script["vulns"] = table
+                        updated = True
+                    elif "vulns" in script:
+                        table = script["vulns"]
+                    newtable = xmlnmap.change_vulns(table)
+                    if newtable != table:
+                        script["vulns"] = newtable
+                        updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
         return update
 
     def get(self, flt, archive=False, **kargs):
