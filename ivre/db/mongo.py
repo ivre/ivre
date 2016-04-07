@@ -653,6 +653,7 @@ creates the default indexes."""
                     if script['id'] in script:
                         script["ls"] = xmlnmap.change_ls(
                             script.pop(script['id']))
+                        updated_ports = True
                     elif "ls" not in script:
                         data = xmlnmap.add_ls_data(script)
                         if data is not None:
