@@ -1,16 +1,18 @@
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
-[![Code Climate](https://codeclimate.com/github/cea-sec/ivre/badges/gpa.svg)](https://codeclimate.com/github/cea-sec/ivre)
 
 # What is it? #
 
-<img align="right" src="web/static/logo.png" alt="Logo"/>
-IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK
-(Dynamic Recon of UNKnown networks) is a network recon framework,
-including two modules for passive recon (one
-[p0f](http://lcamtuf.coredump.cx/p0f/)-based and one
-[Bro](https://www.bro.org/)-based) and one module for active recon
-(mostly [Nmap](http://nmap.org/)-based, with a bit of
-[ZMap](https://zmap.io/)).
+<img align="right" src="web/static/logo.png" alt="Logo"/> IVRE
+(Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic
+Recon of UNKnown networks) is a network recon framework, including
+tools for passive recon (flow analytics relying on
+[Bro](https://www.bro.org/), [Argus](http://qosient.com/argus/),
+[Nfdump](http://nfdump.sourceforge.net/), fingerprint analytics based
+on Bro and [p0f](http://lcamtuf.coredump.cx/p0f/) and active recon
+(IVRE uses [Nmap](http://nmap.org/) to run scans, can use
+[ZMap](https://zmap.io/) as a pre-scanner; IVRE can also import XML
+output from Namp and
+[Masscan](https://github.com/robertdavidgraham/masscan)).
 
 The advertising slogans are:
 
@@ -94,4 +96,4 @@ or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2015 [Pierre LALET](mailto:pierre.lalet@cea.fr).
+This file is part of IVRE. Copyright 2011 - 2016 [Pierre LALET](mailto:pierre.lalet@cea.fr).

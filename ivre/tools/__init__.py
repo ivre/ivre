@@ -19,7 +19,11 @@
 """This sub-module contains functions to implement ivre commands."""
 
 __all__ = [
+    'airodump2db',
+    'arp2db',
     'analyzercli',
+    'bro2db',
+    'flow2db',
     'getmoduli',
     'httpd',
     'ipdata',
@@ -34,7 +38,7 @@ __all__ = [
     'runscansagentdb',
     'scan2db',
     'scancli',
-    'scanstatus'
+    'scanstatus',
 ]
 
 ALIASES = {

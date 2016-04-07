@@ -39,6 +39,14 @@ Files under the `web/static/d3` directory come from the
 They are licensed under
 [BSD license](http://opensource.org/licenses/BSD-3-Clause).
 
+## Linkurious ##
+
+Files under the `web/static/lk` directory come from the
+[Linkurious](http://linkurio.us/).
+
+They are licensed under
+[GPL v3 license](https://www.gnu.org/licenses/gpl-3.0.en.html).
+
 ## flag-icon-css ##
 
 Files under the `web/static/fi` directory come from the

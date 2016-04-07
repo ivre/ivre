@@ -2,11 +2,14 @@
 
 IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK\\
 (Dynamic Recon of UNKnown networks) is a network recon framework,\\
-including two modules for passive recon (one\\
-[[http://lcamtuf.coredump.cx/p0f/|p0f]]-based and one\\
-[[https://www.bro.org/|Bro]]-based) and one module for active recon\\
-(mostly [[http://nmap.org/|Nmap]]-based, with a bit of\\
-[[https://zmap.io/|ZMap]]).
+including tools for passive recon (flow analytics relying on\\
+[[https://www.bro.org/|Bro]], [[http://qosient.com/argus/|Argus]],\\
+[[http://nfdump.sourceforge.net/|Nfdump]], fingerprint analytics based\\
+on Bro and [[http://lcamtuf.coredump.cx/p0f/|p0f]] and active recon\\
+(IVRE uses [[http://nmap.org/|Nmap]] to run scans, can use\\
+[[https://zmap.io/|ZMap]] as a pre-scanner; IVRE can also import XML\\
+output from Namp and\\
+[[https://github.com/robertdavidgraham/masscan|Masscan]]).
 
 The advertising slogans are:
 
@@ -33,13 +36,18 @@ IVRE relies on:
 version 2.7.2 minimum.
     * optionally [[http://www.pythonware.com/products/pil/|PIL]], to\\
 trim screenshots.
+    * optionally [[http://py2neo.org/v3/|py2neo]] to use the flow\\
+module, version 3 minimum.
   * [[http://nmap.org/|Nmap]]
   * optionnaly [[https://zmap.io/|ZMap]] and/or\\
 [[https://github.com/robertdavidgraham/masscan|Masscan]]
-  * [[http://www.bro.org/|Bro]] (version 2.3 minimum) &\\
+  * [[http://www.bro.org/|Bro]] (version 2.3 minimum),\\
+[[http://qosient.com/argus/|Argus]],\\
+[[http://nfdump.sourceforge.net/|Nfdump]]&\\
 [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work\\
-with version 3)
+with version 3) for the passive fingerprint and flow modules.
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum
+  * [[http://neo4j.com/|Neo4j]] for the flow module
   * a web server (successfully tested with\\
 [[https://httpd.apache.org/|Apache]] and\\
 [[http://nginx.org/|Nginx]], should work with anything capable of\\
@@ -52,6 +60,9 @@ web server is now distributed with IVRE (''%%ivre httpd%%'')
 free databases
   * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]],\\
 if you plan to add screenshots to your Nmap scan results
+  * optionally [[XXX%20TODO|neo4j]] (version >= 2) & [[XXX%20TODO|py2neo]]\\
+(version >= 3) for ivre flow related tools
+  * optionally [[XXX%20TODO|argus]] and/or [[XXX%20TODO|nfdump]] for ivre flow2db
   * optionally [[http://www.docker.com/|Docker]] &\\
 [[https://www.vagrantup.com/|Vagrant]] (version 1.6 minimum)
 
@@ -62,6 +73,7 @@ file for the licenses):
   * [[http://getbootstrap.com/|Twitter Bootstrap]]
   * [[https://jquery.com/|jQuery]]
   * [[http://d3js.org/|D3.js]]
+  * [[http://linkurio.us/|Linkurious]]
   * [[https://lipis.github.io/flag-icon-css/|flag-icon-css]]
 
 ====== Installation ======

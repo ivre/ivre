@@ -1,4 +1,6 @@
 *.py[cod]
+.*.swp
+*~
 build/
 dist/
 docker/base-local/ivre.tar

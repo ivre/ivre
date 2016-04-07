@@ -1,0 +1,37 @@
+<div class="popover" role="tooltip" style="display: block">
+  <div class="arrow"></div>
+  <h3 class="popover-title">{{clicked_elt.label}}</h3>
+  <div class="popover-content">
+
+    <ul class="nav nav-pills nav-stacked">
+      <li class="dropdown">
+        <a href="#" target="_self" class="dropdown-toggle" data-toggle="dropdown">
+          <span class="text-nowrap">Filter by <span class="caret"></span></span>
+        </a>
+        <ul class="dropdown-menu">
+          <li ng-repeat="label in clicked_elt.labels">
+            <a ng-click="query_label(clicked_elt, label, true)">
+              {{label}} (label)</a></li>
+          <li ng-repeat="(attr, val) in clicked_elt.data">
+            <a ng-click="query_attr(clicked_elt, attr, val, true)">
+              {{attr}}</a></li>
+        </ul>
+      </li>
+
+      <li class="dropdown">
+        <a href="#" target="_self" class="dropdown-toggle" data-toggle="dropdown">
+          <span class="text-nowrap">Filter out <span class="caret"></span></span>
+        </a>
+        <ul class="dropdown-menu">
+          <li ng-repeat="label in clicked_elt.labels">
+            <a ng-click="query_label(clicked_elt, label, false)">
+              {{label}} (label)</a></li>
+          <li ng-repeat="(attr, val) in clicked_elt.data">
+            <a ng-click="query_attr(clicked_elt, attr, val, false)">
+              {{attr}}</a></li>
+        </ul>
+      </li>
+    </ul>
+
+  </div>
+</div>

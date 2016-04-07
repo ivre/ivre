@@ -1,0 +1,30 @@
+<ul class="nav">
+  <form class="form-group" ng-submit="on_submit()">
+    <li class="sidebox-header">
+      <i class="glyphicon glyphicon-filter black"></i>
+      <label>{{title}}</label>
+    </li>
+    <li class="filter-list" 
+        ng-repeat="flt in filters track by $index">
+      <div class="input-group">
+        <input placeholder="New Filter..."
+               ng-model="filters[$index]"
+               class="form-control input-medium"/>
+        <span class="input-group-addon clickable"
+              ng-click="remove($index); on_submit()">
+          <i class="glyphicon glyphicon-remove"></i></span>
+      </div>
+    </li>
+    <li class="filter-list">
+      <div class="input-group">
+        <input placeholder="New Filter..."
+               ng-model="new_filter"
+               class="form-control input-medium"/>
+        <span class="input-group-addon clickable">
+          <i class="glyphicon glyphicon-remove"></i></span>
+      </div>
+    </li>
+    <input type="submit" tabindex="-1"
+           style="position: absolute; left: -1000px; width: 1px; height: 1px;"/>
+  </form>
+</ul>

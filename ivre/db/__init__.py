@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1146,57 +1146,74 @@ class DBAgent(DB):
             return self.str2id(fdesc.read())
 
 
+class DBFlow(DB):
+    """Backend-independent code to handle flows"""
+
+
+def _mongodb_url2dbinfos(url):
+    userinfo = {}
+    if '@' in url.netloc:
+        username = url.netloc[:url.netloc.index('@')]
+        if ':' in username:
+            userinfo = dict(zip(["username", "password"],
+                                map(urllib.unquote,
+                                    username.split(':', 1))))
+        else:
+            username = urllib.unquote(username)
+            if username == 'GSSAPI':
+                import krbV
+                userinfo = {
+                    'username': (krbV
+                                 .default_context()
+                                 .default_ccache()
+                                 .principal().name),
+                    'mechanism': 'GSSAPI'}
+            elif '@' in username:
+                userinfo = {'username': username,
+                            'mechanism': 'GSSAPI'}
+            else:
+                userinfo = {'username': username}
+        hostname = url.netloc[url.netloc.index('@') + 1:]
+    else:
+        hostname = url.netloc
+    if not hostname:
+        hostname = None
+    dbname = url.path.lstrip('/')
+    if not dbname:
+        dbname = 'ivre'
+    params = dict(x.split('=', 1) if '=' in x else [x, None]
+                  for x in url.query.split('&') if x)
+    params.update(userinfo)
+    return (url.scheme,
+            (hostname, dbname),
+            params)
+
+def _neo4j_url2dbinfos(url):
+    return (url.scheme, (url._replace(scheme='http').geturl(),), {})
+
 class MetaDB(object):
     db_types = {
         "nmap": {},
         "passive": {},
         "data": {},
         "agent": {},
+        "flow": {},
     }
     nmap = None
     passive = None
     data = None
     agent = None
+    extract_dbinfos = {
+        "mongodb": _mongodb_url2dbinfos,
+        "neo4j": _neo4j_url2dbinfos,
+    }
 
-    @staticmethod
-    def url2dbinfos(url):
+    @classmethod
+    def url2dbinfos(cls, url):
         url = urlparse.urlparse(url)
-        userinfo = {}
-        if '@' in url.netloc:
-            username = url.netloc[:url.netloc.index('@')]
-            if ':' in username:
-                userinfo = dict(zip(["username", "password"],
-                                    map(urllib.unquote,
-                                        username.split(':', 1))))
-            else:
-                username = urllib.unquote(username)
-                if username == 'GSSAPI':
-                    import krbV
-                    userinfo = {
-                        'username': (krbV
-                                     .default_context()
-                                     .default_ccache()
-                                     .principal().name),
-                        'mechanism': 'GSSAPI'}
-                elif '@' in username:
-                    userinfo = {'username': username,
-                                'mechanism': 'GSSAPI'}
-                else:
-                    userinfo = {'username': username}
-            hostname = url.netloc[url.netloc.index('@') + 1:]
-        else:
-            hostname = url.netloc
-        if not hostname:
-            hostname = None
-        dbname = url.path.lstrip('/')
-        if not dbname:
-            dbname = 'ivre'
-        params = dict(x.split('=', 1) if '=' in x else [x, None]
-                      for x in url.query.split('&') if x)
-        params.update(userinfo)
-        return (url.scheme,
-                (hostname, dbname),
-                params)
+        if url.scheme in cls.extract_dbinfos:
+            return cls.extract_dbinfos[url.scheme](url)
+        return url.scheme, (url.geturl(),), {}
 
     def __init__(self, url=None, urls=None):
         try:
@@ -1208,19 +1225,25 @@ class MetaDB(object):
             self.db_types["agent"]["mongodb"] = MongoDBAgent
         except ImportError:
             pass
+        try:
+            from ivre.db.neo4j import Neo4jDBFlow
+            self.db_types["flow"]["neo4j"] = Neo4jDBFlow
+        except ImportError:
+            pass
         if urls is None:
             urls = {}
         for datatype, dbtypes in self.db_types.iteritems():
             specificurl = urls.get(datatype, url)
             if specificurl is not None:
                 (spurlscheme,
-                 spurlhostdb,
-                 spurlparams) = self.url2dbinfos(specificurl)
-                setattr(
-                    self,
-                    datatype,
-                    dbtypes[spurlscheme](*spurlhostdb, **spurlparams))
-                getattr(self, datatype).globaldb = self
+                 spurlargs,
+                 spurlkargs) = self.url2dbinfos(specificurl)
+                if spurlscheme in dbtypes:
+                    setattr(
+                        self,
+                        datatype,
+                        dbtypes[spurlscheme](*spurlargs, **spurlkargs))
+                    getattr(self, datatype).globaldb = self
 
 db = MetaDB(
     url=config.DB if hasattr(config, "DB") else None,

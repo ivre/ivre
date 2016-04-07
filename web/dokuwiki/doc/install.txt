@@ -6,6 +6,9 @@ your distribution. It is recommended to install packages from the\\
 MongoDB project rather than the (possibly old) packages from your\\
 distribution.
 
+If you want to use the "flow" module, you also need to install\\
+[[http://neo4j.com/|Neo4j]].
+
 ====== IVRE ======
 
 ===== Dependencies =====
@@ -27,6 +30,7 @@ version 2.6 minimum (prefer 2.7), with the following modules:
 
   * [[http://www.pycrypto.org/|Crypto]]
   * [[http://api.mongodb.org/python/|pymongo]] version 2.7.2 minimum.
+  * [[http://py2neo.org/v3/|py2neo]]
   * [[http://www.pythonware.com/products/pil/|PIL]] optional, to trim\\
 screenshots.
 

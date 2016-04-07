@@ -20,20 +20,20 @@
 
 function setdefaultconfig() {
     var defaultconfig = {
-	"notesbase": "/dokuwiki/#IP#",
-	"cgibase": "/cgi-bin/scanjson.py",
-	"dflt": {
-	    "limit": 10,
-	},
-	"warn_dots_count": 20000,
-	"publicsrv": false,
-	"uploadok": false,
+        "notesbase": "/dokuwiki/#IP#",
+        "cgibase": "/cgi-bin/scanjson.py",
+        "dflt": {
+            "limit": 10,
+        },
+        "warn_dots_count": 20000,
+        "publicsrv": false,
+        "uploadok": false,
     };
 
     for(var k in defaultconfig) {
-	if (config[k] === undefined) {
-	    config[k] = defaultconfig[k];
-	}
+        if (config[k] === undefined) {
+            config[k] = defaultconfig[k];
+        }
     }
 }
 
@@ -56,93 +56,93 @@ function addr_links(host) {
     var result = [];
     var net;
     for(var i = 0; i < addr.length; i++) {
-	//net = addr.slice(0, i + 1).join('.') + '.0'.repeat(3 - i);
-	net = addr.slice(0, i + 1).join('.') + repeat('.0', 3 - i);
-	if(i !== 3)
-	    net += '/' + (8 * (i+1));
-	result.push({
-	    "addrpart": addr[i],
-	    "net": net,
-	});
+        //net = addr.slice(0, i + 1).join('.') + '.0'.repeat(3 - i);
+        net = addr.slice(0, i + 1).join('.') + repeat('.0', 3 - i);
+        if(i !== 3)
+            net += '/' + (8 * (i+1));
+        result.push({
+            "addrpart": addr[i],
+            "net": net,
+        });
     }
     return result;
 }
 
 function hostnames_links(host) {
     if(!('hostnames' in host))
-	return [];
+        return [];
     var hostnames = host.hostnames;
     var results = [];
     for(var i in hostnames) {
-	if('name' in hostnames[i]) {
-	    var names = hostnames[i].name.split('.');
-	    var fullname = names.shift();
-	    var result = [{
-		'param': 'hostname',
-		'value': fullname + '.' + names.join('.'),
-		'name': fullname,
-	    }];
-	    for(var j in names) {
-		result.push({
-		    'param': 'domain',
-		    'value': names.slice(j).join('.'),
-		    'name': names[j],
-		});
-	    }
-	    results.push(result);
-	}
+        if('name' in hostnames[i]) {
+            var names = hostnames[i].name.split('.');
+            var fullname = names.shift();
+            var result = [{
+                'param': 'hostname',
+                'value': fullname + '.' + names.join('.'),
+                'name': fullname,
+            }];
+            for(var j in names) {
+                result.push({
+                    'param': 'domain',
+                    'value': names.slice(j).join('.'),
+                    'name': names[j],
+                });
+            }
+            results.push(result);
+        }
     }
     return results;
 }
 
 function port_summary(host, width) {
     /*
-      This function prepares the host with a summary for ports, and
-      creates the hostscripts section.
-     */
+       This function prepares the host with a summary for ports, and
+       creates the hostscripts section.
+       */
     var result = [], status;
     if(width === undefined)
-	width = 4;
+        width = 4;
     if('extraports' in host) {
-	for(status in host.extraports) {
-	    var values = host.extraports[status];
-	    result.push({"type": "extra", "status": status,
-			 "count": values["total"] + '',
-			 "reasons": values["reasons"]});
-	}
+        for(status in host.extraports) {
+            var values = host.extraports[status];
+            result.push({"type": "extra", "status": status,
+                "count": values["total"] + '',
+                "reasons": values["reasons"]});
+        }
     }
     if('ports' in host) {
-	var ports = {};
-	for(var i in host.ports) {
-	    var port = host.ports[i];
-	    if(port.port === -1) {
-		host.scripts = port.scripts;
-	    }
-	    else {
-		if(port.state_state in ports)
-		    ports[port.state_state].push({
-			'protocol': port.protocol,
-			'port': port.port
-		    });
-		else
-		    ports[port.state_state] = [{'protocol': port.protocol,
-						'port': port.port}];
-	    }
-	}
-	for(status in ports) {
-	    result.push({"type": "ports", "status": status,
-			 "count": ports[status].length,
-			 "ports": ports[status]});
-	}
+        var ports = {};
+        for(var i in host.ports) {
+            var port = host.ports[i];
+            if(port.port === -1) {
+                host.scripts = port.scripts;
+            }
+            else {
+                if(port.state_state in ports)
+                    ports[port.state_state].push({
+                        'protocol': port.protocol,
+                        'port': port.port
+                    });
+                else
+                    ports[port.state_state] = [{'protocol': port.protocol,
+                        'port': port.port}];
+            }
+        }
+        for(status in ports) {
+            result.push({"type": "ports", "status": status,
+                "count": ports[status].length,
+                "ports": ports[status]});
+        }
     }
     return result;
 }
 
 function wait_filter(fct) {
     if(FILTER === undefined) {
-	/* XXX Wait for FILTER to be ready. */
-	setTimeout(fct, 100);
-	return false;
+        /* XXX Wait for FILTER to be ready. */
+        setTimeout(fct, 100);
+        return false;
     }
     return true;
 }
@@ -153,17 +153,17 @@ function sync_hash_filter(filter) {
      */
 
     window.onhashchange = function() {
-	filter.query = get_hash();
-	if(!(load_params(filter)))
-	    return;
-	filter.on_query_update();
+        filter.query = get_hash();
+        if(!(load_params(filter)))
+            return;
+        filter.on_query_update();
     };
     filter.add_callback("param_update", function(query) {
-	var onhashchange = window.onhashchange;
-	window.onhashchange = function() {
-	    window.onhashchange = onhashchange;
-	};
-	set_hash(query);
+        var onhashchange = window.onhashchange;
+        window.onhashchange = function() {
+            window.onhashchange = onhashchange;
+        };
+        set_hash(query);
     });
 }
 
@@ -174,44 +174,44 @@ function load() {
     /* Main Web UI */
 
     if(!(wait_filter(load)))
-	return;
+        return;
 
     sync_hash_filter(FILTER);
 
     FILTER.add_callback("pre_get_results", function() {
-	clear_hosts();
-	hidecharts();
-	changefav("favicon-loading.gif");
+        clear_hosts();
+        hidecharts();
+        changefav("favicon-loading.gif");
     });
     FILTER.add_callback("get_results", function(data) {
-	add_hosts(data);
+        add_hosts(data);
     });
     FILTER.add_callback("end_update", function() {
-	set_display_mode(getparam(FILTER, 'display'));
+        set_display_mode(getparam(FILTER, 'display'));
     });
     FILTER.add_callback("post_get_results", function() {
-	var hostcount = count_displayed_hosts(),
-	limit = getparam(FILTER, 'limit'),
-	skip = getparam(FILTER, 'skip');
-	if(limit === undefined)
-	    limit = config.dflt.limit;
-	else
-	    limit = limit * 1;
-	if(skip === undefined)
-	    skip = 0;
-	else {
-	    skip = skip * 1;
-	    if(skip < 0)
-		setparam('skip', 0, true);
-	}
-	var maxres = skip + hostcount;
-	if(maxres !== skip) {
-	    set_display_bounds(skip + 1, maxres);
-	}
-	changefav("favicon.png");
-	if(hostcount === 1) {
-	    toggle_full_display(0);
-	}
+        var hostcount = count_displayed_hosts(),
+        limit = getparam(FILTER, 'limit'),
+        skip = getparam(FILTER, 'skip');
+        if(limit === undefined)
+            limit = config.dflt.limit;
+        else
+            limit = limit * 1;
+        if(skip === undefined)
+            skip = 0;
+        else {
+            skip = skip * 1;
+            if(skip < 0)
+                setparam('skip', 0, true);
+        }
+        var maxres = skip + hostcount;
+        if(maxres !== skip) {
+            set_display_bounds(skip + 1, maxres);
+        }
+        changefav("favicon.png");
+        if(hostcount === 1) {
+            toggle_full_display(0);
+        }
     });
     document.getElementById("filter-last").focus();
     window.onhashchange();
@@ -223,9 +223,9 @@ function init_report() {
        Sync between parameters and query works through the hash. See
        load() function.
 
-     */
+*/
     if(!(wait_filter(init_report)))
-	return;
+        return;
     sync_hash_filter(FILTER);
     window.onhashchange();
 }
