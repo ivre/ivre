@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -47,6 +47,63 @@ ALIASES_TABLE_ELEMS = {
     "nfs-ls": "ls",
     "smb-ls": "ls",
     "ftp-anon": "ls",
+    # vulns unified output (vulns NSE module)
+    "afp-path-vuln": "vulns",
+    "distcc-cve2004-2687": "vulns",
+    "ftp-libopie": "vulns",
+    "ftp-vsftpd-backdoor": "vulns",
+    "ftp-vuln-cve2010-4221": "vulns",
+    "http-avaya-ipoffice-users": "vulns",
+    "http-cross-domain-policy": "vulns",
+    "http-dlink-backdoor": "vulns",
+    "http-frontpage-login": "vulns",
+    "http-huawei-hg5xx-vuln": "vulns",
+    "http-iis-short-name-brute": "vulns",
+    "http-method-tamper": "vulns",
+    "http-phpmyadmin-dir-traversal": "vulns",
+    "http-phpself-xss": "vulns",
+    "http-shellshock": "vulns",
+    "http-slowloris-check": "vulns",
+    "http-tplink-dir-traversal": "vulns",
+    "http-vuln-cve2006-3392": "vulns",
+    "http-vuln-cve2009-3960": "vulns",
+    "http-vuln-cve2010-2861": "vulns",
+    "http-vuln-cve2011-3192": "vulns",
+    "http-vuln-cve2011-3368": "vulns",
+    "http-vuln-cve2012-1823": "vulns",
+    "http-vuln-cve2013-0156": "vulns",
+    "http-vuln-cve2013-6786": "vulns",
+    "http-vuln-cve2013-7091": "vulns",
+    "http-vuln-cve2014-2126": "vulns",
+    "http-vuln-cve2014-2127": "vulns",
+    "http-vuln-cve2014-2128": "vulns",
+    "http-vuln-cve2014-2129": "vulns",
+    "http-vuln-cve2014-3704": "vulns",
+    "http-vuln-cve2014-8877": "vulns",
+    "http-vuln-cve2015-1427": "vulns",
+    "http-vuln-cve2015-1635": "vulns",
+    "http-vuln-misfortune-cookie": "vulns",
+    "http-vuln-wnr1000-creds": "vulns",
+    "mysql-vuln-cve2012-2122": "vulns",
+    "qconn-exec": "vulns",
+    "rdp-vuln-ms12-020": "vulns",
+    "rmi-vuln-classloader": "vulns",
+    "samba-vuln-cve-2012-1182": "vulns",
+    "smb-vuln-conficker": "vulns",
+    "smb-vuln-cve2009-3103": "vulns",
+    "smb-vuln-ms06-025": "vulns",
+    "smb-vuln-ms07-029": "vulns",
+    "smb-vuln-ms08-067": "vulns",
+    "smb-vuln-ms10-054": "vulns",
+    "smb-vuln-ms10-061": "vulns",
+    "smb-vuln-regsvc-dos": "vulns",
+    "smtp-vuln-cve2011-1720": "vulns",
+    "smtp-vuln-cve2011-1764": "vulns",
+    "ssl-ccs-injection": "vulns",
+    "ssl-dh-params": "vulns",
+    "ssl-heartbleed": "vulns",
+    "ssl-poodle": "vulns",
+    "supermicro-ipmi-conf": "vulns",
 }
 
 HTTP_SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
