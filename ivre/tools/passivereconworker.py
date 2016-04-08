@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """Handle ivre passiverecon2db files."""
 
-from ivre import config
+from ivre import config, utils
 
 import re
 import os
@@ -82,10 +82,7 @@ def worker(progname, directory, sensor=None):
     needed and feeding them with the data from the files.
 
     """
-    try:
-        os.makedirs(os.path.join(directory, "current"))
-    except OSError:
-        pass
+    utils.makedirs(os.path.join(directory, "current"))
     procs = {}
     while not WANTDOWN:
         # We get the next file to handle
