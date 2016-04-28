@@ -464,6 +464,8 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('ports.scripts.ls.volumes.files.filename',
                    pymongo.ASCENDING)],
                  {"sparse": True}),
+                ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
+                 {"sparse": True}),
                 ([
                     ('ports.screenshot', pymongo.ASCENDING),
                     ('ports.screenwords', pymongo.ASCENDING),
@@ -538,6 +540,10 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('scripts.id', pymongo.ASCENDING)], {}),
                 ([('scripts.ls.volumes.volume', pymongo.ASCENDING)], {}),
                 ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)], {}),
+            ]},
+            6: {"ensure": [
+                ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
+                 {"sparse": True}),
             ]},
         }
         self.schema_migrations_indexes[colname_oldhosts] = {
