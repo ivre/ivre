@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,20 +19,33 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 ENV DEBIAN_FRONTEND noninteractive
 
-# MongoDB install
+# MongoDB
 # http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/
 RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
 RUN echo 'deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen' > /etc/apt/sources.list.d/mongodb.list
-RUN apt-get -q update && apt-get -qy install mongodb-org
+
+# Neo4j
+# http://debian.neo4j.org/
+ADD https://debian.neo4j.org/neotechnology.gpg.key /neotechnology.gpg.key
+RUN apt-key add /neotechnology.gpg.key && rm /neotechnology.gpg.key
+RUN echo 'deb http://debian.neo4j.org/repo stable/' > /etc/apt/sources.list.d/neo4j.list
+RUN echo 'deb http://httpredir.debian.org/debian stable-backports main' >> /etc/apt/sources.list
+RUN apt-get -q update && apt-get -qy install mongodb-org neo4j
 
 # Data & log directories
 VOLUME /var/lib/mongodb
 VOLUME /var/log/mongodb
+VOLUME /var/lib/neo4j
+VOLUME /var/log/neo4j
 
-# MongoDB config
+# Accept remote connections to DBs
 RUN sed -i 's/^bind_ip = /#bind_ip = /' /etc/mongod.conf
+RUN sed -ri 's/^# *(dbms.security.auth_enabled=false|dbms.connector.http.address=0.0.0.0:7474|dbms.connector.bolt.address=0.0.0.0:7687)/\1/' /etc/neo4j/neo4j.conf
 
 # MongoDB instance
 EXPOSE 27017
-USER mongodb
-CMD exec /usr/bin/mongod -f /etc/mongod.conf
+EXPOSE 7474
+EXPOSE 7687
+
+ADD run.sh /
+CMD /run.sh

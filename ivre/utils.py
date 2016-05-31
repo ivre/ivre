@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ import gzip
 import bz2
 import subprocess
 import traceback
+import ast
 from cStringIO import StringIO
 try:
     import PIL.Image
@@ -189,6 +190,22 @@ def str2list(string):
     if ',' in string or '|' in string:
         return string.replace('|', ',').split(',')
     return string
+
+
+_PYVALS = {
+    "true": True,
+    "false": False,
+    "null": None,
+    "none": None,
+}
+
+def str2pyval(string):
+    """This function takes a string and returns a Python object"""
+    try:
+        return ast.literal_eval(string)
+    except (ValueError, SyntaxError):
+        # "special" values, fallback as simple string
+        return _PYVALS.get(string, string)
 
 
 def ports2nmapspec(portlist):
@@ -369,15 +386,78 @@ def doc2csv(doc, fields, nastr="NA"):
                                                 nastr=nastr)]
     return lines
 
-def open_file(fname):
-    """Returns an open file-like object, working with gzip or bzip2
-    compressed files.
+
+class FileOpener(object):
+    """A file-like object, working with gzip or bzip2 compressed files.
+
+    Uses subprocess.Popen() to call zcat or bzcat by default (much
+    faster), fallbacks to gzip.open or bz2.BZ2File.
 
     """
-    return {
-        "bz2": bz2.BZ2File,
-        "gz": gzip.open,
-    }.get(os.path.basename(fname).rsplit('.', 1)[-1], open)(fname)
+    FILE_OPENERS_MAGIC = {
+        "\x1f\x8b": (config.GZ_CMD, gzip.open),
+        "BZ": (config.BZ2_CMD, bz2.BZ2File),
+    }
+
+    def __init__(self, fname):
+        self.proc = None
+        if not isinstance(fname, basestring):
+            self.fdesc = fname
+            self.close = False
+            return
+        self.close = True
+        with open(fname) as fdesc:
+            magic = fdesc.read(2)
+        try:
+            cmd_opener, py_opener = self.FILE_OPENERS_MAGIC[magic]
+        except KeyError:
+            # Not a compressed file
+            self.fdesc = open(fname)
+            return
+        try:
+            # By default we try to use zcat / bzcat, since they seem to be
+            # (a lot) faster
+            self.proc = subprocess.Popen([cmd_opener, fname],
+                                         stdout=subprocess.PIPE)
+            self.fdesc = self.proc.stdout
+            return
+        except OSError as exc:
+            if exc.errno != errno.ENOENT:
+                raise
+        # Fallback to the appropriate python opener
+        self.fdesc = py_opener(fname)
+
+    def read(self, *args):
+        return self.fdesc.read(*args)
+
+    def fileno(self):
+        return self.fdesc.fileno()
+
+    def close(self):
+        # since .close() is explicitly called, we close self.fdesc
+        # even when self.close is False.
+        self.fdesc.close()
+        if self.proc is not None:
+            self.proc.wait()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.close:
+            self.fdesc.close()
+        if self.proc is not None:
+            self.proc.wait()
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self.fdesc.next()
+
+
+def open_file(fname):
+    return FileOpener(fname)
 
 def hash_file(fname, hashtype="sha1"):
     """Compute a hash of data from a given file"""
@@ -532,3 +612,82 @@ else:
             sys.stdout.write('WARNING: Python PIL not found, '
                              'screenshots will not be trimmed')
         return imgdata
+
+
+_PORTS = {}
+_PORTS_POPULATED = False
+
+
+def _set_ports():
+    """Populate _PORTS global dict, based on nmap-services when available
+(and found), with a fallback to /etc/services.
+
+    This function is called on module load.
+
+    """
+    global _PORTS, _PORTS_POPULATED
+    fdesc = None
+    for path in ['/usr/share/nmap', '/usr/local/share/nmap']:
+        try:
+            fdesc = open(os.path.join(path, 'nmap-services'))
+        except IOError:
+            pass
+    if fdesc is not None:
+        for line in fdesc:
+            try:
+                _, port, freq = line.split('#', 1)[0].split(None, 3)
+                port, proto = port.split('/', 1)
+                port = int(port)
+                freq = float(freq)
+            except ValueError:
+                continue
+            _PORTS.setdefault(proto, {})[port] = freq
+        fdesc.close()
+    else:
+        try:
+            with open('/etc/services') as fdesc:
+                for line in fdesc:
+                    try:
+                        _, port = line.split('#', 1)[0].split(None, 2)
+                        port, proto = port.split('/', 1)
+                        port = int(port)
+                    except ValueError:
+                        continue
+                    _PORTS.setdefault(proto, {})[port] = 0.5
+        except IOError:
+            pass
+    for proto, entry in config.KNOWN_PORTS.iteritems():
+        for port, proba in entry.iteritems():
+            _PORTS.setdefault(proto, {})[port] = proba
+    _PORTS_POPULATED = True
+
+
+def guess_srv_port(port1, port2, proto="tcp"):
+    """Returns 1 when port1 is probably the server port, -1 when that's
+    port2, and 0 when we cannot tell.
+
+    """
+    if not _PORTS_POPULATED:
+        _set_ports()
+    ports = _PORTS.get(proto, {})
+    cmpval = cmp(ports.get(port1, 0), ports.get(port2, 0))
+    if cmpval == 0:
+        return cmp(port2, port1)
+    return cmpval
+
+def normalize_props(props):
+    """Returns a normalized property list/dict so that (roughly):
+        - a list gives {k: "{k}"}
+        - a dict gives {k: v if v is not None else "{%s}" % v}
+    """
+    if not isinstance(props, dict):
+        props = dict.fromkeys(props)
+    props = dict(
+        (key, (value if isinstance(value, basestring) else
+               ("{%s}" % key) if value is None else
+               str(value))) for key, value in props.iteritems()
+    )
+    return props
+
+def datetime2timestamp(dt):
+    return float(dt.strftime("%s.%f"))

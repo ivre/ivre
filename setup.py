@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -108,7 +108,10 @@ specialized scripts.
         'pycrypto',
         'pymongo>=2.7.2',
     ],
-    packages=['ivre', 'ivre/tools', 'ivre/db'],
+    extras_require={
+        'Flow':  ["py2neo>=3"],
+    },
+    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',
@@ -134,6 +137,7 @@ specialized scripts.
         ('share/ivre/web/static',
          ['web/static/index.html',
           'web/static/compare.html',
+          'web/static/flow.html',
           'web/static/report.html',
           'web/static/upload.html',
           'web/static/config-sample.js',
@@ -145,9 +149,11 @@ specialized scripts.
           'web/static/world-110m.json']),
         ('share/ivre/web/static/templates',
          ['web/static/templates/filters.html',
+          'web/static/templates/graph-right-click.html',
           'web/static/templates/menu.html',
           'web/static/templates/messages.html',
           'web/static/templates/progressbar.html',
+          'web/static/templates/query-builder.html',
           'web/static/templates/view-cpes-only.html',
           'web/static/templates/view-hosts.html',
           'web/static/templates/view-screenshots-only.html',
@@ -160,16 +166,20 @@ specialized scripts.
           'web/static/templates/topvalues.html']),
         # IVRE
         ('share/ivre/web/static/ivre',
-         ['web/static/ivre/ivre.css',
+         ['web/static/ivre/flow.css',
+          'web/static/ivre/ivre.css',
           'web/static/ivre/compare.js',
           'web/static/ivre/controllers.js',
           'web/static/ivre/filters.js',
+          'web/static/ivre/form-helpers.js',
           'web/static/ivre/graph.js',
           'web/static/ivre/ivre.js',
           'web/static/ivre/params.js',
           'web/static/ivre/tooltip.js',
           'web/static/ivre/utils.js',
           'web/static/ivre/content.js']),
+        ('share/ivre/web/static/ivre/flow',
+         ['web/static/ivre/flow/controllers.js']),
         # Bootstrap
         ('share/ivre/web/static/bs/css',
          ['web/static/bs/css/bootstrap.css',
@@ -189,6 +199,12 @@ specialized scripts.
         # AngularJS
         ('share/ivre/web/static/an/js',
          ['web/static/an/js/angular.js']),
+        # Linkurious/sigma.js
+        ('share/ivre/web/static/lk',
+         ['web/static/lk/plugins.min.js',
+          'web/static/lk/plugins.min.js.map',
+          'web/static/lk/sigma.min.js',
+          'web/static/lk/sigma.min.js.map']),
         # flag-icon-css
         ('share/ivre/web/static/fi/css',
          ['web/static/fi/css/flag-icon.css']),
@@ -215,7 +231,8 @@ specialized scripts.
          [os.path.join('doc/screenshots', x)
           for x in os.listdir('doc/screenshots')]),
         ('share/ivre/web/cgi-bin',
-         ['web/cgi-bin/scanjson.py',
+         ['web/cgi-bin/flowjson.py',
+          'web/cgi-bin/scanjson.py',
           'web/cgi-bin/scanupload.py']),
         ('share/doc/ivre',
          ['doc/AGENT.md',

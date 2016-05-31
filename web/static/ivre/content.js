@@ -930,9 +930,28 @@ var MENU_REPORT = {
     ]
 };
 
+
+// Menu for flow.html
+var MENU_FLOW = {
+  share: true,
+  share_htmlexport: true,
+  share_compare: true,
+  items: [
+  {title: "Main",
+    action: "document.location = $scope.get_href('index.html')",
+    icon: "home",
+  },
+  {title: "Menu",
+    action: "$scope.toggle_pane();",
+    icon: "option-vertical",
+  },
+  ]
+};
+
 // Export menus
 var MENUS = {
     main: MENU_MAIN,
     report: MENU_REPORT,
     compare: MENU_COMPARE,
+    flow: MENU_FLOW,
 };

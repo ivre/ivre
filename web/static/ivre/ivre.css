@@ -18,7 +18,7 @@
 
 /* leave room from the topbar */
 body {
-    padding-top: 50px;
+    padding-top: 40px;
 }
 
 .navbar .logo {
@@ -60,6 +60,10 @@ hr {
 .navbar-link {
     float: right !important;
     margin-right: 20%;
+}
+
+.ivre-main {
+    margin-top: 10px;
 }
 
 .sidebar {

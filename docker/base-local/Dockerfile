@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,7 +21,14 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # Dependencies
 RUN apt-get -q update
-RUN apt-get -qy install python-pymongo python-crypto
+RUN apt-get -qy install python-pymongo python-crypto python-setuptools
+
+# Py2neo
+ADD https://github.com/nigelsmall/py2neo/tarball/py2neo-3.0.0 ./py2neo.tar.gz
+RUN tar zxf ./py2neo.tar.gz && rm ./py2neo.tar.gz && \
+    mv nigelsmall-py2neo-* py2neo && cd py2neo && \
+    python setup.py build && python setup.py install && \
+    cd ../ && rm -rf py2neo/
 
 # IVRE
 ADD ivre.tar ./

@@ -20,7 +20,7 @@
 
 // Our AngularJS App
 
-var ivreWebUi = angular.module('ivreWebUi', []);
+var ivreWebUi = angular.module('ivreWebUi', ["formHelpers"]);
 
 function get_scope(controller) {
     return angular.element(
@@ -280,6 +280,9 @@ ivreWebUi
 		    $.merge(scope.filter.need_apply,
 			    scope.apply_on_filter_update);
 		}
+		if(scope.on_filter_ready !== undefined) {
+                    scope.on_filter_ready(scope.filter);
+                }
 	    }
 	};
     })
@@ -899,4 +902,4 @@ ivreWebUi
 		    .build();
 	    }
 	};
-    });
+});

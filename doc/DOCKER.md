@@ -28,9 +28,11 @@ source tree (or the `[PREFIX]/share/ivre/docker/` directory when IVRE
 has been installed), run (from the folder where you want to store your
 data):
 
-    $ mkdir -m 1777 var_lib_mongodb var_log_mongodb ivre-share
+    $ mkdir -m 1777 var_lib_mongodb var_log_mongodb var_lib_neo4j \
+	> var_log_neo4j ivre-share
     $ # For people using SELinux enforced, you need to run
-    $ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb var_log_mongodb ivre-share
+    $ sudo chcon -Rt svirt_sandbox_file_t var_lib_mongodb var_log_mongodb \
+    > var_lib_neo4j var_log_neo4j ivre-share
     
     $ cp [path to ivre source]/docker/Vagrantfile .
     $ vagrant up --no-parallel

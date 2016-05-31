@@ -2,11 +2,14 @@
 
 IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK
 (Dynamic Recon of UNKnown networks) is a network recon framework,
-including two modules for passive recon (one
-[p0f](http://lcamtuf.coredump.cx/p0f/)-based and one
-[Bro](https://www.bro.org/)-based) and one module for active recon
-(mostly [Nmap](http://nmap.org/)-based, with a bit of
-[ZMap](https://zmap.io/)).
+including tools for passive recon (flow analytics relying on
+[Bro](https://www.bro.org/), [Argus](http://qosient.com/argus/),
+[Nfdump](http://nfdump.sourceforge.net/), fingerprint analytics based
+on Bro and [p0f](http://lcamtuf.coredump.cx/p0f/) and active recon
+(IVRE uses [Nmap](http://nmap.org/) to run scans, can use
+[ZMap](https://zmap.io/) as a pre-scanner; IVRE can also import XML
+output from Namp and
+[Masscan](https://github.com/robertdavidgraham/masscan)).
 
 The advertising slogans are:
 
@@ -33,17 +36,23 @@ IVRE relies on:
       version 2.7.2 minimum.
     * optionally [PIL](http://www.pythonware.com/products/pil/), to
       trim screenshots.
+    * optionally [py2neo](http://py2neo.org/v3/) to use the flow
+      module, version 3 minimum.
 
   * [Nmap](http://nmap.org/)
 
   * optionnaly [ZMap](https://zmap.io/) and/or
     [Masscan](https://github.com/robertdavidgraham/masscan)
 
-  * [Bro](http://www.bro.org/) (version 2.3 minimum) &
+  * [Bro](http://www.bro.org/) (version 2.3 minimum),
+    [Argus](http://qosient.com/argus/),
+    [Nfdump](http://nfdump.sourceforge.net/)&
     [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
-    with version 3)
+    with version 3) for the passive fingerprint and flow modules.
 
   * [MongoDB](http://www.mongodb.org/), version 2.6 minimum
+
+  * [Neo4j](http://neo4j.com/) for the flow module
 
   * a web server (successfully tested with
     [Apache](https://httpd.apache.org/) and
@@ -61,6 +70,11 @@ IVRE relies on:
   * optionally [Tesseract](https://github.com/tesseract-ocr/tesseract),
     if you plan to add screenshots to your Nmap scan results
 
+  * optionally [neo4j](XXX TODO) (version >= 2) & [py2neo](XXX TODO)
+    (version >= 3) for ivre flow related tools
+
+  * optionally [argus](XXX TODO) and/or [nfdump](XXX TODO) for ivre flow2db
+
   * optionally [Docker](http://www.docker.com/) &
     [Vagrant](https://www.vagrantup.com/) (version 1.6 minimum)
 
@@ -74,6 +88,8 @@ file for the licenses):
   * [jQuery](https://jquery.com/)
 
   * [D3.js](http://d3js.org/)
+
+  * [Linkurious](http://linkurio.us/)
 
   * [flag-icon-css](https://lipis.github.io/flag-icon-css/)
 
