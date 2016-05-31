@@ -69,7 +69,9 @@ def cleanup_record(elt):
         new_meta.setdefault(key, []).append(new_data)
     if new_meta:
         elt["meta"] = new_meta
-        db.flow.from_dbdict(elt["meta"])
+        for reclist in new_meta.itervalues():
+            for rec in reclist:
+                db.flow.from_dbdict(rec)
     else:
         del(elt["meta"])
 

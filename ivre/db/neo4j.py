@@ -97,6 +97,7 @@ class Neo4jDB(DB):
 
     @classmethod
     def from_dbdict(cls, d):
+        d.pop("__key__", None)
         for k in d:
             d[k] = cls.from_dbprop(k, d[k])
 
@@ -116,6 +117,7 @@ class Neo4jDB(DB):
 
     @classmethod
     def to_dbdict(cls, d):
+        d.pop("__key__", None)
         for k in d:
             d[k] = cls.to_dbprop(k, d[k])
 
