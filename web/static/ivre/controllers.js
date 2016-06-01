@@ -136,9 +136,12 @@ ivreWebUi
 
 ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
-	$scope.get_href = function(page) {
+	$scope.get_href = function(page, drop_hash) {
 	    if(page === undefined)
 		return document.location.href;
+	    if(drop_hash) {
+		return getPagePath() + page;
+	    }
 	    return getPagePath() + page + document.location.hash;
 	};
 	$scope.get_json_export = function() {

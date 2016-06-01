@@ -934,11 +934,11 @@ var MENU_REPORT = {
 // Menu for flow.html
 var MENU_FLOW = {
   share: true,
-  share_htmlexport: true,
-  share_compare: true,
+  share_htmlexport: false,
+  share_compare: false,
   items: [
   {title: "Main",
-    action: "document.location = $scope.get_href('index.html')",
+    action: "document.location = $scope.get_href('index.html', true)",
     icon: "home",
   },
   {title: "Menu",
