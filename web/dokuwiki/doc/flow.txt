@@ -20,7 +20,7 @@ default admin interface on ''%%http://localhost:7474%%''). Default user/password
 <code python>
 DB_FLOW = "neo4j://<user>:<password>@localhost:7474/"
 </code>
-Run ''%%ivre flow2db --init%%'' to initialize the database (**WARNING:** this will\\
+Run ''%%ivre flowcli --init%%'' to initialize the database (**WARNING:** this will\\
 **REMOVE** everything in the db).
 
 And that should be it. The Web UI is available at ''%%<ivre-web-root>/flow.html%%''.
@@ -37,13 +37,17 @@ There are two tools for data insertion, the first is bro-based:
 <code bash>
     $ bro -r capture_file.pcap
     $ ivre bro2db ./*.log
+    $ ivre flowcli
 </code>
 The second can take either argus logs or netflow logs:
 
 <code bash>
     $ argus -m -r capture_file.pcap -r flows.argus
     $ ivre flow2db flows.argus
-    # or
+</code>
+Or:
+
+<code bash>
     $ ivre flow2db flows.nfdump
 </code>
 Any of these tools can be called with '--init' to reinitialize the DB.
