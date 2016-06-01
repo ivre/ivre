@@ -44,6 +44,7 @@ RUN sed -ri 's/^# *(dbms.security.auth_enabled=false|dbms.connector.http.address
 
 # MongoDB instance
 EXPOSE 27017
+# Neo4j
 EXPOSE 7474
 EXPOSE 7687
 

@@ -27,7 +27,7 @@ RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
 # Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
 # not know which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-ADD https://nmap.org/dist/nmap-7.00.tgz ./nmap.tar.gz
+ADD https://nmap.org/dist/nmap-7.12.tgz ./nmap.tar.gz
 RUN apt-get -qy install build-essential libssl-dev && \
     tar zxf nmap.tar.gz && \
     mv nmap-* nmap && \
