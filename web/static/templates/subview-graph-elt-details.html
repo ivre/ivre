@@ -1,0 +1,117 @@
+
+<h4>{{ cur_elt.label || "No element selected" }}
+  <span ng-repeat="label in cur_elt.labels"
+        class="label label-info">{{label}}</span>
+</h4>
+
+<div ng-if="cur_elt">
+  <table class="table table-hover table-striped table-condensed">
+    <tbody>
+      <tr ng-repeat="(key, value) in cur_elt.data"
+          ng-if="!key.startsWith('__')">
+        <th class="key">{{key}}</th>
+        <td>
+          <div ng-switch="is_array(value)">
+            <div ng-switch-when="true">
+              <table>
+                <tr ng-repeat="val in value">
+                  <td>{{val}}</td>
+                </tr>
+              </table>
+            </div>
+            <div ng-switch-default>
+              {{value}}
+            </div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4>Details</h4>
+  <div ng-if="!cur_elt.details">
+    <i>Click element for details</i>
+  </div>
+
+  <div ng-if="cur_elt.details">
+    <div ng-repeat="(meta, data) in cur_elt.details.meta">
+      <table class="table table-hover table-striped table-condensed">
+        <thead>
+          <tr><th colspan=2>{{meta}}</th></tr>
+        </thead>
+        <tbody ng-repeat="elem in data track by $index">
+          <tr ng-repeat="(key, value) in elem"
+              ng-if="!key.startsWith('__')"
+              style="{{$index == 0?'border-top: 2px solid':''}}">
+            <th>{{key}}</th>
+            <td>
+              <div ng-switch="is_array(value)">
+                <div ng-switch-when="true">
+                  <table>
+                    <tr ng-repeat="val in value">
+                      <td>{{val}}</td>
+                    </tr>
+                  </table>
+                </div>
+                <div ng-switch-default>
+                  {{value}}
+                </div>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <table class="table table-hover table-striped table-condensed"
+           ng-if="cur_elt.details.in_flows">
+      <thead>
+        <tr><th colspan=2>Incoming flows</th></tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="flow in cur_elt.details.in_flows | orderBy:['0','1']">
+          <td>{{flow[0]}}</td>
+          <td>{{flow[1]}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="table table-hover table-striped table-condensed"
+           ng-if="cur_elt.details.out_flows">
+      <thead>
+        <tr><th colspan=2>Outgoing flows</th></tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="flow in cur_elt.details.out_flows | orderBy:['0','1']">
+          <td>{{flow[0]}}</td>
+          <td>{{flow[1]}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="table table-hover table-striped table-condensed"
+           ng-if="cur_elt.details.servers">
+      <thead>
+        <tr><th>Servers</th></tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="server in cur_elt.details.servers | orderBy : server">
+          <td>{{server}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <table class="table table-hover table-striped table-condensed"
+           ng-if="cur_elt.details.clients">
+      <thead>
+        <tr><th>Clients</th></tr>
+      </thead>
+      <tbody>
+        <tr ng-repeat="client in cur_elt.details.clients | orderBy : client">
+          <td>{{client}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+</div>
