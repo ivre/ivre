@@ -77,8 +77,6 @@ def main():
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
 
-    parser.add_argument('--init', '--purgedb', action='store_true',
-                        help='Purge or create and initialize the database.')
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     parser.add_argument("-t", "--type", help="file type",
@@ -92,9 +90,6 @@ def main():
 
     if args.verbose:
         config.DEBUG = True
-
-    if args.init:
-        db.flow.init()
 
     query_cache = {}
     for fname in args.files:
