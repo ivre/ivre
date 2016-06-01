@@ -93,6 +93,13 @@ ivreWebUi.directive("graphRightClick", function () {
     };
 });
 
+ivreWebUi.directive("eltDetails", function () {
+    return {
+        restrict: "E",
+        templateUrl: "templates/subview-graph-elt-details.html",
+    };
+});
+
 ivreWebUi.factory("graphService", function () {
     node_colors = {
         "Host": ["#666", "#ddd"],
@@ -599,4 +606,6 @@ ivreWebUi
             graphService.update_display($scope.sigma, $scope.graph_formatters,
                                 $scope.graph_filters);
         };
+
+        $scope.is_array = angular.isArray;
 });
