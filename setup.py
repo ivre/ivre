@@ -159,6 +159,7 @@ specialized scripts.
           'web/static/templates/view-screenshots-only.html',
           'web/static/templates/view-scripts-only.html',
           'web/static/templates/subview-cpes.html',
+          'web/static/templates/subview-graph-elt-details.html',
           'web/static/templates/subview-host-summary.html',
           'web/static/templates/subview-port-summary.html',
           'web/static/templates/subview-ports-summary.html',
