@@ -35,7 +35,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     end
     db.vm.synced_folder "var_lib_mongodb", "/var/lib/mongodb"
     db.vm.synced_folder "var_log_mongodb", "/var/log/mongodb"
-    db.vm.synced_folder "var_lib_neo4j", "/var/lib/neo4j"
+    db.vm.synced_folder "var_lib_neo4j", "/var/lib/neo4j/data"
+    ## v3
+    #db.vm.synced_folder "var_lib_neo4j", "/var/lib/neo4j"
     db.vm.synced_folder "var_log_neo4j", "/var/log/neo4j"
   end
 
