@@ -48,7 +48,7 @@ _ivre() {
 	fi
 	if [ -z "$COMPREPLY" ]; then
 	    case "$command" in
-		p0f2db|runscansagent|scan2db)
+		*2db|runscansagent)
 		    COMPREPLY=( $(compgen -o default "$current") )
 		    ;;
 	    esac
