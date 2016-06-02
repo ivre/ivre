@@ -51,21 +51,23 @@ def cleanup_record(elt):
         if len(v) == 1 and all(x == None for x in v[0]):
             elt[k] = None
 
-    db.flow.from_dbdict(elt["elt"]["data"])
+    db.flow.from_dbdict(super_get_props(elt["elt"]))
     new_meta = {}
     for rec in elt["meta"]:
         if rec["info"] is None and rec["link"] is None:
             continue
         info = rec["info"] or {}
+        info_props = super_get_props(info)
         link = rec["link"] or {}
         link_tag = link.get("type", link.get("labels", [""])[0]).lower()
+        link_props = super_get_props(link)
         key = "%s%s" % ("_".join(label
-                                 for label in info["metadata"]["labels"]
+                                 for label in super_get_labels(info, info_props)
                                  if label != "Intel"),
                         "_%s" % link_tag if link_tag else "")
         new_data = dict(("%s_%s" % (link_tag, k), v)
-                        for k, v in link["data"].iteritems())
-        new_data.update(info["data"])
+                        for k, v in link_props.iteritems())
+        new_data.update(info_props)
         new_meta.setdefault(key, []).append(new_data)
     if new_meta:
         elt["meta"] = new_meta
@@ -274,6 +276,30 @@ def _get_props(elt, cls):
     else:
         raise ValueError("Unsupported elt type")
 
+def super_get_props(elt, meta=None):
+    if isinstance(elt, Node) or isinstance(elt, Relationship):
+        props = elt.properties
+    else:
+        props = elt.get("data", {})
+    if meta:
+        props["meta"] = meta
+    return props
+
+def super_get_ref(elt, props):
+    if isinstance(elt, Node):
+        return int(remote(elt).ref.split('/', 1)[-1])
+    else:
+        return elt["metadata"]["id"]
+
+def super_get_labels(elt, props):
+    if isinstance(elt, Node):
+        return list(elt.labels())
+    elif isinstance(elt, Relationship):
+        return [elt.type()]
+    else:
+        meta = elt["metadata"]
+        return meta["labels"] if "labels" in meta else [meta["type"]]
+
 def super_cursor2json(cursor):
     """Same as cursor2json but relies on the fact that the cursor will return
     triplets (node, edge, node) and that elements of that triplets may be
@@ -282,39 +308,26 @@ def super_cursor2json(cursor):
     g = {"nodes": [], "edges": []}
     done = set()
 
-    def super_get_props(elt):
-        props = elt["elt"]["data"]
-        if "meta" in elt:
-            props["meta"] = elt["meta"]
-        return props
-
-    def super_get_ref(elt, props):
-        return elt["elt"]["metadata"]["id"]
-
-    def super_get_labels(elt, props):
-        meta = elt["elt"]["metadata"]
-        return meta["labels"] if "labels" in meta else [meta["type"]]
-
     for src, edge, dst in cursor:
         map(cleanup_record, (src, edge, dst))
-        src_props = super_get_props(src)
-        src_ref = super_get_ref(src, src_props)
+        src_props = super_get_props(src["elt"], src.get("meta"))
+        src_ref = super_get_ref(src["elt"], src_props)
         if src_ref not in done:
-            src_labels = super_get_labels(src, src_props)
+            src_labels = super_get_labels(src["elt"], src_props)
             g["nodes"].append(node2json(src_ref, src_labels, src_props))
             done.add(src_ref)
 
-        dst_props = super_get_props(dst)
-        dst_ref = super_get_ref(dst, dst_props)
+        dst_props = super_get_props(dst["elt"], dst.get("meta"))
+        dst_ref = super_get_ref(dst["elt"], dst_props)
         if dst_ref not in done:
-            dst_labels = super_get_labels(dst, dst_props)
+            dst_labels = super_get_labels(dst["elt"], dst_props)
             g["nodes"].append(node2json(dst_ref, dst_labels, dst_props))
             done.add(dst_ref)
 
-        edge_props = super_get_props(edge)
-        edge_ref = super_get_ref(edge, edge_props)
+        edge_props = super_get_props(edge["elt"], edge.get("meta"))
+        edge_ref = super_get_ref(edge["elt"], edge_props)
         if edge_ref not in done:
-            edge_labels = super_get_labels(edge, edge_props)
+            edge_labels = super_get_labels(edge["elt"], edge_props)
             g["edges"].append(edge2json(edge_ref, src_ref, dst_ref,
                                         edge_labels, edge_props))
             done.add(edge_ref)
@@ -323,6 +336,11 @@ def super_cursor2json(cursor):
 
 def count_data(cursor):
     res = cursor.next
+    # Compat py2neo < 3
+    try:
+        res = res()
+    except TypeError:
+        pass
     return {"clients": res['clients'],
             "flows": res['flows'],
             "servers": res['servers']}
