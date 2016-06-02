@@ -56,6 +56,15 @@ class Neo4jDB(DB):
             self._db = Graph(self.dburl)
             return self._db
 
+    @property
+    def db_version(self):
+        """The tuple representing the database version"""
+        try:
+            return self._db_version
+        except:
+            self._db_version = self.db.neo4j_version
+        return self._db_version
+
     def drop(self):
         for query in ["MATCH (n:%s) DETACH DELETE n" % label
                       for label in self.node_labels]:
@@ -554,17 +563,18 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                       for key, value in attrs.iteritems())
         )
 
-    @classmethod
-    def _key_from_attrs(cls, attrs, src="src", dst="dst", link=None):
+    def _key_from_attrs(self, attrs, src="src", dst="dst", link=None):
         # Sort by key to canonize the expression
         skeys = sorted(attrs.iteritems(), key=operator.itemgetter(0))
         # Include all keys in the aggregated key
+        str_func = "str" if self.db_version[0] < 3 else "toString"
         key = (('ID(%s)+' % src if src else "") +
                '"|"+' +
                ('ID(%s)+' % dst if dst else "") +
                '"-"+' +
                ('ID(%s)+' % link if link else "") +
-                '+"|"+'.join(['"-"'] + ["str(%s)" % v for _, v in skeys]))
+                '+"|"+'.join(['"-"'] + ["%s(%s)" %
+                (str_func, v) for _, v in skeys]))
         return key
 
     @classmethod
@@ -598,8 +608,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         return '\n'.join(clauses)
 
-    @classmethod
-    def _add_flow(cls, labels, keys, elt="link", counters=None,
+    def _add_flow(self, labels, keys, elt="link", counters=None,
                   accumulators=None, srcnode=None, dstnode=None, time=True):
         keys = utils.normalize_props(keys)
         if srcnode is None:
@@ -607,19 +616,19 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         if dstnode is None:
             dstnode = (["Host"], {"addr": "{dst}"})
 
-        key = cls._key_from_attrs(keys)
+        key = self._key_from_attrs(keys)
 
         query = [
-            cls.add_host("src", srcnode[0], srcnode[1], time=time),
-            cls.add_host("dst", dstnode[0], dstnode[1], time=time),
+            self.add_host("src", srcnode[0], srcnode[1], time=time),
+            self.add_host("dst", dstnode[0], dstnode[1], time=time),
             "MERGE (%s)" % (
-                cls._gen_merge_elt(elt, labels, {"__key__": key})),
+                self._gen_merge_elt(elt, labels, {"__key__": key})),
             "MERGE (%s)<-[:SEND]-(src)" % elt,
             "MERGE (%s)-[:TO]->(dst)" % elt,
         ]
 
-        query.append(cls._prop_update(elt, props=keys, counters=counters,
-                                      accumulators=accumulators, time=time))
+        query.append(self._prop_update(elt, props=keys, counters=counters,
+                                       accumulators=accumulators, time=time))
         return "\n".join(query)
 
     def add_flow(self, *args, **kargs):

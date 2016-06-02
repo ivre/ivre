@@ -195,6 +195,10 @@ IP_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|'
 
 
 def dns2neo(bulk, rec):
+    # FIXME
+    if db.flow.db_version[0] >= 3:
+        rec["answers"] = ', '.join(rec.get("answers") or [])
+
     if (rec.get("query", "") or "").endswith(".in-addr.arpa"):
         # Reverse DNS
         # rec["names"] = rec["answers"]
