@@ -79,6 +79,12 @@ RETURN count(distinct src) as clients,
        count(distinct link) as flows,
        count(distinct dst) as servers
 """
-    count = dict(db.flow.db.run(query.query, query.params).next)
+    count = db.flow.db.run(query.query, query.params).next
+    # Compat py2neo < 3
+    try:
+        count = count()
+    except TypeError:
+        pass
+    count = dict(count)
     sys.stdout.write('%(clients)d clients\n%(servers)d servers\n'
                      '%(flows)d flows\n' % count)

@@ -1,5 +1,9 @@
 #! /bin/sh
 
-/usr/bin/neo4j start
+/var/lib/neo4j/bin/neo4j start
+## v3
+#/usr/bin/neo4j start
 /usr/bin/mongod -f /etc/mongod.conf
-/usr/bin/neo4j stop
+/var/lib/neo4j/bin/neo4j stop
+## v3
+#/usr/bin/neo4j stop

@@ -44,5 +44,8 @@ ADD doku-conf-acl.auth.php var/www/dokuwiki/conf/acl.auth.php
 ADD doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
 RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/www/dokuwiki/lib/plugins
 
+# Needed by Neo4j
+RUN mkdir /var/www/.neo4j && chown www-data:www-data /var/www/.neo4j
+
 EXPOSE 80
 CMD service php5-fpm start && service fcgiwrap start && exec /usr/sbin/nginx
