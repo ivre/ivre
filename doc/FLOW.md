@@ -44,7 +44,7 @@ There are two tools for data insertion, the first is bro-based:
 The second can take either argus logs or netflow logs:
 
 ```bash
-    $ argus -m -r capture_file.pcap -r flows.argus
+    $ argus -m -r capture_file.pcap -w flows.argus
     $ ivre flow2db flows.argus
 ```
 
