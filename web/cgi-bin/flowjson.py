@@ -46,23 +46,23 @@ log.setLevel(logging.DEBUG)
 
 webutils.check_referer()
 
-def cleanup_record(elt):
+def _cleanup_record(elt):
     for k, v in elt.iteritems():
         if len(v) == 1 and all(x == None for x in v[0]):
             elt[k] = None
 
-    db.flow.from_dbdict(super_get_props(elt["elt"]))
+    db.flow.from_dbdict(_get_props(elt["elt"]))
     new_meta = {}
     for rec in elt["meta"]:
         if rec["info"] is None and rec["link"] is None:
             continue
         info = rec["info"] or {}
-        info_props = super_get_props(info)
+        info_props = _get_props(info)
         link = rec["link"] or {}
         link_tag = link.get("type", link.get("labels", [""])[0]).lower()
-        link_props = super_get_props(link)
+        link_props = _get_props(link)
         key = "%s%s" % ("_".join(label
-                                 for label in super_get_labels(info, info_props)
+                                 for label in _get_labels(info, info_props)
                                  if label != "Intel"),
                         "_%s" % link_tag if link_tag else "")
         new_data = dict(("%s_%s" % (link_tag, k), v)
@@ -77,7 +77,7 @@ def cleanup_record(elt):
     else:
         del(elt["meta"])
 
-def get_host_details(node_id):
+def host_details(node_id):
     q = """
     MATCH (n)
     WHERE ID(n) = {nid}
@@ -100,10 +100,10 @@ def get_host_details(node_id):
             servers: servers, clients: clients}
     """
     node = dict(db.flow.db.run(q, nid=node_id).evaluate())
-    cleanup_record(node)
+    _cleanup_record(node)
     return node
 
-def get_flow_details(node_id):
+def flow_details(node_id):
     q = """
     MATCH (n)
     WHERE ID(n) = {nid}
@@ -112,11 +112,11 @@ def get_flow_details(node_id):
     RETURN {elt: n, meta: infos}
     """
     node = dict(db.flow.db.run(q, nid=node_id).evaluate())
-    cleanup_record(node)
+    _cleanup_record(node)
     return node
 
 
-def query2cypher(queries, mode="default", count=False, limit=None, skip=0):
+def _query2cypher(queries, mode="default", count=False, limit=None, skip=0):
     limit = config.WEB_GRAPH_LIMIT if limit is None else limit
     query = db.flow.query(
         skip=skip, limit=limit,
@@ -132,7 +132,7 @@ def query2cypher(queries, mode="default", count=False, limit=None, skip=0):
              {elt: dst, meta: [] } as dst
         """)
         query.ret = "RETURN src, link, dst"
-        executor = super_cursor2json
+        formatter = _cursor2json_graph
 
     elif mode == "talk_map":
         query.add_clause('WITH src, dst, COUNT(link) AS t, '
@@ -147,7 +147,7 @@ def query2cypher(queries, mode="default", count=False, limit=None, skip=0):
                     }} as F,
                    {elt: dst, meta: []}
         """)
-        executor = super_cursor2json
+        formatter = _cursor2json_graph
 
     elif mode == "flow_map":
         query.add_clause('WITH src, dst, '
@@ -163,7 +163,7 @@ def query2cypher(queries, mode="default", count=False, limit=None, skip=0):
                     }} as F,
                    {elt: dst, meta: []}
         """)
-        executor = super_cursor2json
+        formatter = _cursor2json_graph
 
     if count:
         query.ret = """
@@ -171,15 +171,15 @@ def query2cypher(queries, mode="default", count=False, limit=None, skip=0):
                    count(distinct link) as flows,
                    count(distinct dst) as servers
         """
-        executor = count_data
+        formatter = _cursor2count
     else:
         query.ret +=  " SKIP {skip} LIMIT {limit}"
 
     log.info("Executing query:\n%s\nWith params: %s" % (query.query, query.params))
-    return query.query, query.params, executor
+    return query, formatter
 
 
-def flow2name(ref, labels, properties):
+def _flow2name(ref, labels, properties):
     proto = properties.get("proto", "Flow")
     attr = properties.get("dport", properties.get("type", None))
     return "%s%s" % (proto, "/%s" % attr if attr is not None else "")
@@ -187,11 +187,11 @@ def flow2name(ref, labels, properties):
 
 LABEL2NAME = {
     "Host": ["addr"],
-    "Flow": [flow2name],
+    "Flow": [_flow2name],
 }
 
 
-def elt2name(ref, labels, properties):
+def _elt2name(ref, labels, properties):
     name = None
     for label in labels:
         for attr in LABEL2NAME.get(label, []):
@@ -209,8 +209,8 @@ def elt2name(ref, labels, properties):
         name = ", ".join(labels)
     return name
 
-def node2json(ref, labels, properties):
-    name = elt2name(ref, labels, properties)
+def _node2json(ref, labels, properties):
+    name = _elt2name(ref, labels, properties)
     return {
         "id": ref,
         "label": name,
@@ -220,8 +220,8 @@ def node2json(ref, labels, properties):
         "y": random.random(),
     }
 
-def edge2json(ref, from_ref, to_ref, labels, properties):
-    name = elt2name(ref, labels, properties)
+def _edge2json(ref, from_ref, to_ref, labels, properties):
+    name = _elt2name(ref, labels, properties)
     return {
         "id": ref,
         "label": name,
@@ -231,52 +231,7 @@ def edge2json(ref, from_ref, to_ref, labels, properties):
         "target": to_ref,
     }
 
-def cursor2json(cursor):
-    # Same pseudo-random sequence for each exec: allows stable layout on the UI
-    random.seed(0)
-    g = {"nodes": [], "edges": []}
-    done = set()
-
-    for res in cursor:
-        for node in res.nodes():
-            ref = remote(node).ref
-            if ref not in done:
-                labels = list(node.labels())
-                g["nodes"].append(node2json(ref, labels, dict(node)))
-            done.add(ref)
-
-        for edge in res.relationships():
-            ref = remote(edge).ref
-            if ref not in done:
-                from_ref = remote(edge.start_node()).ref
-                to_ref = remote(edge.end_node()).ref
-                g["edges"].append(edge2json(ref, from_ref, to_ref,
-                                            [edge.type()], dict(edge)))
-            done.add(ref)
-
-    return g
-
-def _get_ref(elt, cls, props):
-    return remote(elt).ref if isinstance(elt, cls) else props.pop("_ref")
-
-def _get_labels(elt, cls, props):
-    if issubclass(cls, Node):
-        return list(elt.labels()) if isinstance(elt, cls)\
-                                  else props.pop("_labels")
-    elif issubclass(cls, Relationship):
-        return [elt.type()] if isinstance(elt, cls) else props.pop("_labels")
-    else:
-        raise ValueError("Unsupported cls %s" % cls.__name__)
-
-def _get_props(elt, cls):
-    if isinstance(elt, cls):
-        return dict(elt)
-    elif isinstance(elt, dict):
-        return elt
-    else:
-        raise ValueError("Unsupported elt type")
-
-def super_get_props(elt, meta=None):
+def _get_props(elt, meta=None):
     if isinstance(elt, Node) or isinstance(elt, Relationship):
         props = elt.properties
     else:
@@ -285,13 +240,13 @@ def super_get_props(elt, meta=None):
         props["meta"] = meta
     return props
 
-def super_get_ref(elt, props):
+def _get_ref(elt, props):
     if isinstance(elt, Node):
         return int(remote(elt).ref.split('/', 1)[-1])
     else:
         return elt["metadata"]["id"]
 
-def super_get_labels(elt, props):
+def _get_labels(elt, props):
     if isinstance(elt, Node):
         return list(elt.labels())
     elif isinstance(elt, Relationship):
@@ -300,41 +255,43 @@ def super_get_labels(elt, props):
         meta = elt["metadata"]
         return meta["labels"] if "labels" in meta else [meta["type"]]
 
-def super_cursor2json(cursor):
-    """Same as cursor2json but relies on the fact that the cursor will return
-    triplets (node, edge, node) and that elements of that triplets may be
-    raw Neo4j maps rather that proper node or edge elements."""
+def _cursor2json_graph(cursor):
+    """Transforms triplets of (node, edge, node) to a graph of hosts and flows.
+    All the elements are of the form
+    {elt: <neo4j node like>, meta: [<list of metadata>]}
+    This is an internal API that is very likely to change.
+    """
     random.seed(0)
     g = {"nodes": [], "edges": []}
     done = set()
 
     for src, edge, dst in cursor:
-        map(cleanup_record, (src, edge, dst))
-        src_props = super_get_props(src["elt"], src.get("meta"))
-        src_ref = super_get_ref(src["elt"], src_props)
+        map(_cleanup_record, (src, edge, dst))
+        src_props = _get_props(src["elt"], src.get("meta"))
+        src_ref = _get_ref(src["elt"], src_props)
         if src_ref not in done:
-            src_labels = super_get_labels(src["elt"], src_props)
-            g["nodes"].append(node2json(src_ref, src_labels, src_props))
+            src_labels = _get_labels(src["elt"], src_props)
+            g["nodes"].append(_node2json(src_ref, src_labels, src_props))
             done.add(src_ref)
 
-        dst_props = super_get_props(dst["elt"], dst.get("meta"))
-        dst_ref = super_get_ref(dst["elt"], dst_props)
+        dst_props = _get_props(dst["elt"], dst.get("meta"))
+        dst_ref = _get_ref(dst["elt"], dst_props)
         if dst_ref not in done:
-            dst_labels = super_get_labels(dst["elt"], dst_props)
-            g["nodes"].append(node2json(dst_ref, dst_labels, dst_props))
+            dst_labels = _get_labels(dst["elt"], dst_props)
+            g["nodes"].append(_node2json(dst_ref, dst_labels, dst_props))
             done.add(dst_ref)
 
-        edge_props = super_get_props(edge["elt"], edge.get("meta"))
-        edge_ref = super_get_ref(edge["elt"], edge_props)
+        edge_props = _get_props(edge["elt"], edge.get("meta"))
+        edge_ref = _get_ref(edge["elt"], edge_props)
         if edge_ref not in done:
-            edge_labels = super_get_labels(edge["elt"], edge_props)
-            g["edges"].append(edge2json(edge_ref, src_ref, dst_ref,
+            edge_labels = _get_labels(edge["elt"], edge_props)
+            g["edges"].append(_edge2json(edge_ref, src_ref, dst_ref,
                                         edge_labels, edge_props))
             done.add(edge_ref)
         #log.info("\n%s\n%s\n%s", src_props, edge_props, dst_props)
     return g
 
-def count_data(cursor):
+def _cursor2count(cursor):
     res = cursor.next
     # Compat py2neo < 3
     try:
@@ -351,12 +308,6 @@ def main():
     sys.stdout.write(webutils.JS_HEADERS)
     params = webutils.parse_query_string()
 
-    # TODO
-    #flt, archive, sortby, unused, skip, limit = webutils.flt_from_query(query)
-    #if limit is None:
-    #    limit = config.WEB_LIMIT
-    #if config.WEB_MAXRESULTS is not None:
-    #    limit = min(limit, config.WEB_MAXRESULTS)
     callback = params.get("callback")
 
     action = params.get("action", "")
@@ -381,18 +332,17 @@ def main():
     if action == "details":
         # TODO: error
         if "Host" in query["labels"]:
-            res = get_host_details(query["id"])
+            res = host_details(query["id"])
         else:
-            res = get_flow_details(query["id"])
+            res = flow_details(query["id"])
     else:
-        # TODO: return object
-        q, qparams, executor = query2cypher(query, mode=mode, count=count,
-                                            limit=limit, skip=skip)
+        cypher_query, formatter = _query2cypher(query, mode=mode, count=count,
+                                                limit=limit, skip=skip)
 
         t1 = time.time()
-        cypher_res = db.flow.db.run(q, **qparams)
+        cypher_res = db.flow.run(cypher_query)
         log.info("result in %s\n" % (time.time() - t1))
-        res = executor(cypher_res)
+        res = formatter(cypher_res)
 
     sys.stdout.write("%s" % json.dumps(res, default=utils.serialize))
 

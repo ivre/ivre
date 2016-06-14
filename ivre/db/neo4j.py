@@ -102,7 +102,7 @@ class Neo4jDB(DB):
         return Query(*args, **kargs)
 
     def run(self, query):
-        return self.db.run(query.query, properties=query.params)
+        return self.db.run(query.query, **query.params)
 
     @classmethod
     def from_dbdict(cls, d):
