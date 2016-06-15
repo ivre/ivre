@@ -468,6 +468,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         "SIP": ["__key__"],
         "Modbus": ["__key__"],
         "SNMP": ["__key__"],
+        "Year": ["year"],
+        "Month": ["month"],
+        "Day": ["day"],
+        "Hour": ["hour"],
     }
     node_labels = ["Host", "Mac", "Wlan", "DNS", "Flow", "HTTP", "SSL", "SSH",
                    "SIP", "Modbus", "SNMP"]
@@ -645,6 +649,15 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         query.append(self._prop_update(elt, props=keys, counters=counters,
                                        accumulators=accumulators, time=time))
+        # FIXME: endtime
+        query.append(
+                """
+                MERGE (y:Year {year: {year}})
+                MERGE (y)<-[:OF]-(m:Month {month: {month}})
+                MERGE (m)<-[:OF]-(d:Day {day: {day}})
+                MERGE (d)<-[:OF]-(h:Hour {hour: {hour}})
+                MERGE (%s)-[:SEEN]->(h)""" % elt
+        )
         return "\n".join(query)
 
     def add_flow(self, *args, **kargs):

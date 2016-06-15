@@ -118,6 +118,10 @@ def _bro2neo(rec):
         rec["dst"] = rec.pop("id_resp_h")
     if "ts" in rec:
         rec["start_time"] = rec["end_time"] = rec.pop("ts")
+        rec["hour"] = rec["start_time"].hour
+        rec["day"] = rec["start_time"].day
+        rec["month"] = rec["start_time"].month
+        rec["year"] = rec["start_time"].year
     return rec
 
 
