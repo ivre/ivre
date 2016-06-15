@@ -50,14 +50,14 @@ def main():
                         help='Filter the results with a list of ivre specific '
                              'flow textual filters (see WebUI doc in FLOW.md).')
     parser.add_argument('--json', '-j', action='store_true',
-                        help='Outputs the full json records')
+                        help='Outputs the full json records of results.')
     parser.add_argument('--count', '-c', action='store_true',
-                        help='Do not return results, but count it.')
+                        help='Only return the count of the results.')
     parser.add_argument('--limit', type=int,
                         help='Ouput at most LIMIT results.')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
-    parser.add_argument('--separator', '-s', help="Separator string")
+    parser.add_argument('--separator', '-s', help="Separator string.")
     args = parser.parse_args()
 
     out = sys.stdout
