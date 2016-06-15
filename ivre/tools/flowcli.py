@@ -43,17 +43,28 @@ def main():
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
                         help='Create missing indexes (will lock the database).')
+    parser.add_argument('--node-filters', '-n', nargs="+",
+                        help='Filter the results with a list of ivre specific '
+                             'node textual filters (see WebUI doc in FLOW.md).')
+    parser.add_argument('--flow-filters', '-f', nargs="+",
+                        help='Filter the results with a list of ivre specific '
+                             'flow textual filters (see WebUI doc in FLOW.md).')
+    parser.add_argument('--json', '-j', action='store_true',
+                        help='Outputs the full json records')
+    parser.add_argument('--count', '-c', action='store_true',
+                        help='Do not return results, but count it.')
     parser.add_argument('--limit', type=int,
                         help='Ouput at most LIMIT results.')
-    parser.add_argument('--skip', type=int,
+    parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
+    parser.add_argument('--separator', '-s', help="Separator string")
     args = parser.parse_args()
 
     out = sys.stdout
 
     if args.init:
         if os.isatty(sys.stdin.fileno()):
-            sys.stdout.write(
+            out.write(
                 'This will remove any scan result in your database. '
                 'Process ? [y/N] ')
             ans = raw_input()
@@ -61,9 +72,10 @@ def main():
                 sys.exit(-1)
         db.flow.init()
         sys.exit(0)
+
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
-            sys.stdout.write(
+            out.write(
                 'This will lock your database. '
                 'Process ? [y/N] ')
             ans = raw_input()
@@ -71,20 +83,30 @@ def main():
                 sys.exit(-1)
         db.flow.ensure_indexes()
         sys.exit(0)
-    query = db.flow.query(
-        skip=args.skip, limit=args.limit,
-    )
-    query.ret = """
-RETURN count(distinct src) as clients,
-       count(distinct link) as flows,
-       count(distinct dst) as servers
-"""
-    count = db.flow.db.run(query.query, query.params).next
-    # Compat py2neo < 3
-    try:
-        count = count()
-    except TypeError:
-        pass
-    count = dict(count)
-    sys.stdout.write('%(clients)d clients\n%(servers)d servers\n'
-                     '%(flows)d flows\n' % count)
+
+    filters = {"nodes": args.node_filters or [],
+               "edges": args.flow_filters or []}
+
+    query = db.flow.from_filters(filters, skip=args.skip, limit=args.limit)
+    if args.count:
+        count = db.flow.count(query)
+        out.write('%(clients)d clients\n%(servers)d servers\n'
+                  '%(flows)d flows\n' % count)
+    else:
+        sep = args.separator or '|'
+        fmt = '%%s%s%%s%s%%s\n' % (sep, sep)
+        node_width = len('XXX.XXX.XXX.XXX')
+        flow_width = len('tcp/XXXXX')
+        for res in db.flow.to_iter(query):
+            if args.json:
+                out.write('%s\n' % res)
+            else:
+                src = res['src']['label']
+                flow = res['edge']['label']
+                dst = res['dst']['label']
+                node_width = max(node_width, len(src), len(dst))
+                flow_width = max(flow_width, len(flow))
+                if not args.separator:
+                    fmt = ('%%-%ds %s %%-%ds %s %%-%ds\n' %
+                           (node_width, sep, flow_width, sep, node_width))
+                out.write(fmt % (src, flow, dst))
