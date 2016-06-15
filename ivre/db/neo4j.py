@@ -103,7 +103,14 @@ class Neo4jDB(DB):
         return Query(*args, **kargs)
 
     def run(self, query):
-        return self.db.run(query.query, **query.params)
+        if config.DEBUG:
+            sys.stderr.write("Executing query:\n%s\nWith params: %s\n" %
+                             (query.query, query.params))
+            t1 = time.time()
+        res = self.db.run(query.query, **query.params)
+        if config.DEBUG:
+            sys.stderr.write("result in %s\n" % (time.time() - t1))
+        return res
 
     @classmethod
     def from_dbdict(cls, d):
@@ -760,7 +767,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return node
 
     @classmethod
-    def _query2cypher(cls, queries, mode="default", count=False, limit=None,
+    def _filters2cypher(cls, queries, mode="default", count=False, limit=None,
                       skip=0):
         limit = config.WEB_GRAPH_LIMIT if limit is None else limit
         query = cls.query(
@@ -777,8 +784,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                  {elt: dst, meta: [] } as dst
             """)
             query.ret = "RETURN src, link, dst"
-            # FIXME: should be determined by the caller
-            formatter = cls._cursor2json_graph
 
         elif mode == "talk_map":
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
@@ -793,7 +798,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                         }} as F,
                        {elt: dst, meta: []}
             """)
-            formatter = cls._cursor2json_graph
 
         elif mode == "flow_map":
             query.add_clause('WITH src, dst, '
@@ -809,21 +813,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                         }} as F,
                        {elt: dst, meta: []}
             """)
-            formatter = cls._cursor2json_graph
 
-        if count:
-            query.ret = """
-                RETURN count(distinct src) as clients,
-                       count(distinct link) as flows,
-                       count(distinct dst) as servers
-            """
-            formatter = cls._cursor2count
-        else:
-            query.ret +=  " SKIP {skip} LIMIT {limit}"
-
-        sys.stderr.write("Executing query:\n%s\nWith params: %s\n" %
-                         (query.query, query.params))
-        return query, formatter
+        query.ret +=  " SKIP {skip} LIMIT {limit}"
+        return query
 
     @staticmethod
     def _flow2name(ref, labels, properties):
@@ -901,8 +893,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             meta = elt["metadata"]
             return meta["labels"] if "labels" in meta else [meta["type"]]
 
+    # TODO: cursor2json_iter
     @classmethod
-    def _cursor2json_graph(cls, cursor):
+    def cursor2json_graph(cls, cursor):
         """Transforms a cursor of triplets of (node, edge, node) to a graph of
         hosts and flows. All the elements are of the form
         {elt: <neo4j element-like>, meta: [<list of metadata>]}
@@ -939,7 +932,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return g
 
     @classmethod
-    def _cursor2count(cls, cursor):
+    def cursor2count(cls, cursor):
         res = cursor.next
         # Compat py2neo < 3
         try:
@@ -950,15 +943,30 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 "flows": res['flows'],
                 "servers": res['servers']}
 
-    def query2graph(self, query, limit=None, skip=0, mode=None, count=False):
-        cypher_query, formatter = self._query2cypher(query, mode=mode,
-                                                     count=count, limit=limit,
-                                                     skip=skip)
-        t1 = time.time()
-        cypher_res = self.run(cypher_query)
-        sys.stderr.write("result in %s\n" % (time.time() - t1))
-        res = formatter(cypher_res)
+    def from_filters(self, filters, limit=None, skip=0, mode=None):
+        cypher_query = self._filters2cypher(filters, mode=mode, count=False,
+                                          limit=limit, skip=skip)
+        return cypher_query
+
+    def to_graph(self, query):
+        res = self.cursor2json_graph(self.run(query))
         return res
+
+    # TODO
+    #def to_iter(self, query):
+    #    res = self.cursor2json_list(self.run(query))
+    #    return res
+
+    def count(self, query):
+        old_ret = query.ret
+        query.ret = """
+            RETURN count(distinct src) as clients,
+                   count(distinct link) as flows,
+                   count(distinct dst) as servers
+        """
+        counts = self.cursor2count(self.run(query))
+        query.ret = old_ret
+        return counts
 
     def cleanup_flows(self):
         """Cleanup mistakes when predicting client/server ports"""

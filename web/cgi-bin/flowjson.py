@@ -77,8 +77,11 @@ def main():
         else:
             res = db.flow.flow_details(query["id"])
     else:
-        res = db.flow.query2graph(query, limit=limit, skip=skip, mode=mode,
-                                     count=count)
+        cquery = db.flow.from_filters(query, limit=limit, skip=skip, mode=mode)
+        if count:
+            res = db.flow.count(cquery)
+        else:
+            res = db.flow.to_graph(cquery)
 
     sys.stdout.write("%s" % json.dumps(res, default=utils.serialize))
 
