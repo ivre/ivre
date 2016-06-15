@@ -755,7 +755,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 in_flows: in_flows, out_flows: out_flows,
                 servers: servers, clients: clients}
         """
-        node = dict(self.run(q, nid=node_id).evaluate())
+        node = dict(self.db.run(q, nid=node_id).evaluate())
         self._cleanup_record(node)
         return node
 
@@ -767,8 +767,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         WITH n, collect(distinct {info: infos, link: sr}) as infos
         RETURN {elt: n, meta: infos}
         """
-        node = dict(self.run(q, nid=node_id).evaluate())
-        cls._cleanup_record(node)
+        node = dict(self.db.run(q, nid=node_id).evaluate())
+        self._cleanup_record(node)
         return node
 
     @classmethod
