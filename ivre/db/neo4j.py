@@ -898,9 +898,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             meta = elt["metadata"]
             return meta["labels"] if "labels" in meta else [meta["type"]]
 
-    # TODO: cursor2json_iter
     @classmethod
     def cursor2json_iter(cls, cursor):
+        """Transforms a neo4j returned by executing a query into an iterator of
+        {src: <dict>, edge: <dict>, dst: <dict>}.
+        """
         for src, edge, dst in cursor:
             map(cls._cleanup_record, (src, edge, dst))
             src_props = cls._get_props(src["elt"], src.get("meta"))
@@ -921,7 +923,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             yield {"src": src_node, "dst": dst_node, "edge": edge_node}
 
 
-    # TODO: use cursor2json_iter
     @classmethod
     def cursor2json_graph(cls, cursor):
         """Transforms a cursor of triplets of (node, edge, node) to a graph of
@@ -934,29 +935,13 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         g = {"nodes": [], "edges": []}
         done = set()
 
-        for src, edge, dst in cursor:
-            map(cls._cleanup_record, (src, edge, dst))
-            src_props = cls._get_props(src["elt"], src.get("meta"))
-            src_ref = cls._get_ref(src["elt"], src_props)
-            if src_ref not in done:
-                src_labels = cls._get_labels(src["elt"], src_props)
-                g["nodes"].append(cls._node2json(src_ref, src_labels, src_props))
-                done.add(src_ref)
-
-            dst_props = cls._get_props(dst["elt"], dst.get("meta"))
-            dst_ref = cls._get_ref(dst["elt"], dst_props)
-            if dst_ref not in done:
-                dst_labels = cls._get_labels(dst["elt"], dst_props)
-                g["nodes"].append(cls._node2json(dst_ref, dst_labels, dst_props))
-                done.add(dst_ref)
-
-            edge_props = cls._get_props(edge["elt"], edge.get("meta"))
-            edge_ref = cls._get_ref(edge["elt"], edge_props)
-            if edge_ref not in done:
-                edge_labels = cls._get_labels(edge["elt"], edge_props)
-                g["edges"].append(cls._edge2json(edge_ref, src_ref, dst_ref,
-                                                 edge_labels, edge_props))
-                done.add(edge_ref)
+        for row in cls.cursor2json_iter(cursor):
+            for node, typ in ((row["src"], "nodes"),
+                              (row["edge"], "edges"),
+                              (row["dst"], "nodes")):
+                if node["id"] not in done:
+                    g[typ].append(node)
+                    done.add(node["id"])
         return g
 
     @classmethod
