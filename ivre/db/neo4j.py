@@ -32,12 +32,17 @@ import random
 import re
 import sys
 import time
+import warnings
 from py2neo import Graph, Node, Relationship, GraphError
 from py2neo import http
 from py2neo.database.status import TransientError
 from py2neo.types import remote
 
 http.socket_timeout = 3600
+# We are aware of that, let's just ignore it for now
+warnings.filterwarnings("ignore",
+        "Map literals returned over the Neo4j REST interface are ambiguous.*",
+        module="py2neo.database")
 
 class Neo4jDB(DB):
     values = re.compile('{([^}]+)}')
