@@ -772,7 +772,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return node
 
     @classmethod
-    def _filters2cypher(cls, queries, mode="default", count=False, limit=None,
+    def _filters2cypher(cls, queries, mode=None, count=False, limit=None,
                       skip=0):
         limit = config.WEB_GRAPH_LIMIT if limit is None else limit
         query = cls.query(
@@ -782,15 +782,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             for flt in queries.get("%ss" % flt_type, []):
                 query.add_clause_from_filter(flt, mode=flt_type)
 
-        if mode == "default":
-            query.add_clause("""
-            WITH {elt: src, meta: [] } as src,
-                 {elt: link, meta: [] } as link,
-                 {elt: dst, meta: [] } as dst
-            """)
-            query.ret = "RETURN src, link, dst"
-
-        elif mode == "talk_map":
+        if mode == "talk_map":
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
                              'COLLECT(DISTINCT LABELS(link)) AS labels, '
                              'HEAD(COLLECT(ID(link))) AS ref')
@@ -818,6 +810,14 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                         }} as F,
                        {elt: dst, meta: []}
             """)
+        else:
+            query.add_clause("""
+            WITH {elt: src, meta: [] } as src,
+                 {elt: link, meta: [] } as link,
+                 {elt: dst, meta: [] } as dst
+            """)
+            query.ret = "RETURN src, link, dst"
+
 
         query.ret +=  " SKIP {skip} LIMIT {limit}"
         return query
@@ -900,6 +900,29 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     # TODO: cursor2json_iter
     @classmethod
+    def cursor2json_iter(cls, cursor):
+        for src, edge, dst in cursor:
+            map(cls._cleanup_record, (src, edge, dst))
+            src_props = cls._get_props(src["elt"], src.get("meta"))
+            src_ref = cls._get_ref(src["elt"], src_props)
+            src_labels = cls._get_labels(src["elt"], src_props)
+            src_node = cls._node2json(src_ref, src_labels, src_props)
+
+            dst_props = cls._get_props(dst["elt"], dst.get("meta"))
+            dst_ref = cls._get_ref(dst["elt"], dst_props)
+            dst_labels = cls._get_labels(dst["elt"], dst_props)
+            dst_node = cls._node2json(dst_ref, dst_labels, dst_props)
+
+            edge_props = cls._get_props(edge["elt"], edge.get("meta"))
+            edge_ref = cls._get_ref(edge["elt"], edge_props)
+            edge_labels = cls._get_labels(edge["elt"], edge_props)
+            edge_node = cls._edge2json(edge_ref, src_ref, dst_ref, edge_labels,
+                                       edge_props)
+            yield {"src": src_node, "dst": dst_node, "edge": edge_node}
+
+
+    # TODO: use cursor2json_iter
+    @classmethod
     def cursor2json_graph(cls, cursor):
         """Transforms a cursor of triplets of (node, edge, node) to a graph of
         hosts and flows. All the elements are of the form
@@ -950,17 +973,15 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     def from_filters(self, filters, limit=None, skip=0, mode=None):
         cypher_query = self._filters2cypher(filters, mode=mode, count=False,
-                                          limit=limit, skip=skip)
+                                            limit=limit, skip=skip)
         return cypher_query
 
     def to_graph(self, query):
         res = self.cursor2json_graph(self.run(query))
         return res
 
-    # TODO
-    #def to_iter(self, query):
-    #    res = self.cursor2json_list(self.run(query))
-    #    return res
+    def to_iter(self, query):
+        return self.cursor2json_iter(self.run(query))
 
     def count(self, query):
         old_ret = query.ret
