@@ -21,8 +21,8 @@ ENV DEBIAN_FRONTEND noninteractive
 
 # MongoDB
 # http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10
-RUN echo 'deb http://downloads-distro.mongodb.org/repo/debian-sysvinit dist 10gen' > /etc/apt/sources.list.d/mongodb.list
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
+RUN echo "deb http://repo.mongodb.org/apt/debian wheezy/mongodb-org/3.2 main" | tee /etc/apt/sources.list.d/mongodb-org-3.2.list
 
 # Neo4j
 # http://debian.neo4j.org/
@@ -41,7 +41,7 @@ VOLUME /var/lib/neo4j/data
 VOLUME /var/log/neo4j
 
 # Accept remote connections to DBs
-RUN sed -i 's/^bind_ip = /#bind_ip = /' /etc/mongod.conf
+RUN sed -i 's/^  bindIp:/#bindIp:/' /etc/mongod.conf
 # Neo4j
 RUN sed -ri 's/^(dbms\.security\.auth_enabled=)true/\1false/;s/^# *(org\.neo4j\.server\.webserver\.address=0\.0\.0\.0)/\1/' /etc/neo4j/neo4j-server.properties
 ## v3
