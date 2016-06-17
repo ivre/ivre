@@ -63,6 +63,14 @@ def main():
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
     parser.add_argument('--separator', '-s', help="Separator string.")
+    parser.add_argument('--top', '-t', nargs="+",
+                        help='Top flows for a given set of fields, e.g. '
+                        '"--top src.addr dport".')
+    parser.add_argument('--collect', '-C', nargs="+",
+                        help='When using --top, also collect these properties.')
+    parser.add_argument('--sum', '-S', nargs="+",
+                        help='When using --top, sum on these properties to '
+                        'order the result.')
     parser.add_argument('--mode', '-m',
                         help="Query special mode (flow_map, timeline...)")
     parser.add_argument('--flow-daily', action="store_true",
@@ -107,11 +115,26 @@ def main():
     query = db.flow.from_filters(filters, mode=args.mode,
                                  skip=args.skip, limit=args.limit)
     sep = args.separator or ' | '
-    coma = ',' if args.separator else ', '
+    coma = ';' if args.separator else '; '
+    coma2 = ',' if args.separator else ', '
     if args.count:
         count = db.flow.count(query)
         out.write('%(clients)d clients\n%(servers)d servers\n'
                   '%(flows)d flows\n' % count)
+
+    elif args.top:
+        top = db.flow.top(query, args.top, args.collect, args.sum)
+        for rec in top:
+            sys.stdout.write("%s%s%s%s%s\n" % (
+                coma.join(map(str, rec["fields"])),
+                sep,
+                rec["count"],
+                sep,
+                coma.join(str(coma2.join(map(str, elt)))
+                          for elt in rec["collected"])
+                if rec["collected"] else ""
+            ))
+
     elif args.flow_daily:
         cur_flow = None
         # FIXME? fully in-memory
@@ -161,7 +184,7 @@ def main():
                 out.write(fmt % (src, flow, dst))
                 if args.mode == "timeline":
                     out.write(sep)
-                    out.write(", ".join(
+                    out.write(coma.join(
                         map(str, sorted(res['flow']['data']['meta']['times'])))
                     )
                 out.write('\n')

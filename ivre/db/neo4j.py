@@ -35,6 +35,7 @@ import time
 import warnings
 from py2neo import Graph, Node, Relationship, GraphError
 from py2neo import http
+from py2neo.database import cypher_escape
 from py2neo.database.status import TransientError
 from py2neo.types import remote
 
@@ -184,7 +185,8 @@ class Query(object):
     identifier = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
     or_re = re.compile('^OR|\\|\\|$')
 
-    def __init__(self, src=None, link=None, dst=None, ret=None, **params):
+    def __init__(self, src=None, link=None, dst=None, ret=None,
+                 limit=None, skip=None, **params):
         self.labels = {}
         if src is not None:
             self.labels["src"] = src
@@ -199,6 +201,8 @@ class Query(object):
         self.meta_link = False
         self.meta_src = False
         self.meta_dst = False
+        self.limit = limit
+        self.skip = skip
 
     def nextid(self):
         self.idcounter += 1
@@ -400,9 +404,14 @@ filter (no OR).
 
     @property
     def query(self):
-        return "%s\n%s\n%s" % (self.mline,
-                               "\n".join(self.all_clauses),
-                               self.ret)
+        return "%s\n%s\n%s\n%s%s" % (
+            self.mline,
+            "\n".join(self.all_clauses),
+            self.ret,
+            # FIXME: param?
+            "SKIP %d" % self.skip if self.skip else "",
+            " LIMIT %d" % self.limit if self.limit else "",
+        )
 
 
 class BulkInsert(object):
@@ -489,7 +498,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     node_labels = ["Host", "Mac", "Wlan", "DNS", "Flow", "HTTP", "SSL", "SSH",
                    "SIP", "Modbus", "SNMP", "Time"]
 
-    # FIXME: will it work?
     LABEL2NAME = {}
 
     def __init__(self, url):
@@ -828,7 +836,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @classmethod
     def _filters2cypher(cls, queries, mode=None, count=False, limit=None,
-                      skip=0):
+                        skip=0):
         limit = config.WEB_GRAPH_LIMIT if limit is None else limit
         query = cls.query(
             skip=skip, limit=limit,
@@ -880,9 +888,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 "     {elt: link, meta: [] } as link,\n"
                 "     {elt: dst, meta: [] } as dst\n"
             )
-
-
-        query.ret +=  " SKIP {skip} LIMIT {limit}"
         return query
 
     @staticmethod
@@ -1027,6 +1032,15 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                         datetime.datetime.fromtimestamp(row["time_in_day"]),
                    "count": row["count"]}
 
+    @classmethod
+    def _cursor2top(cls, cursor):
+        for row in cursor:
+            yield {
+                "fields": row["fields"],
+                "count": row["count"],
+                "collected": row["collected"],
+            }
+
     def from_filters(self, filters, limit=None, skip=0, mode=None):
         cypher_query = self._filters2cypher(filters, mode=mode, count=False,
                                             limit=limit, skip=skip)
@@ -1040,13 +1054,19 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return self.cursor2json_iter(self.run(query))
 
     def count(self, query):
+        old_limit = query.limit
+        old_skip = query.skip
         old_ret = query.ret
+        query.limit = None
+        query.skip = None
         query.ret = (
-            "RETURN count(distinct src) as clients,\n"
-            "       count(distinct link) as flows,\n"
-            "       count(distinct dst) as servers\n"
+            "RETURN COUNT(DISTINCT src) as clients,\n"
+            "       COUNT(DISTINCT link) as flows,\n"
+            "       COUNT(DISTINCT dst) as servers\n"
         )
         counts = self.cursor2count(self.run(query))
+        query.limit = old_limit
+        query.skip = old_skip
         query.ret = old_ret
         return counts
 
@@ -1055,7 +1075,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         WARNING/FIXME: this mutates the query
         """
-        old_ret = query.ret
         query.add_clause(
             "MATCH (link)-[:SEEN]->(t:Time)\n"
             "WITH src, link, dst, t, (t.time % 86400) as time_in_day\n"
@@ -1065,8 +1084,37 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         query.ret = ("RETURN flow, time_in_day, count "
                      "ORDER BY flow[0], flow[1], time_in_day")
         counts = self._cursor2flow_daily(self.run(query))
-        query.ret = old_ret
         return counts
+
+    def top(self, query, fields, collect=None, sumfields=None):
+        """Returns an iterator of:
+        {fields: <fields>, count: <number of occurrence or sum of sumfields>,
+         collected: <collected fields>}.
+
+        WARNING/FIXME: this mutates the query
+        """
+        collect = collect or []
+        sumfields = sumfields or []
+        for flist in fields, collect, sumfields:
+            for i in range(len(flist)):
+                if flist[i].startswith("link."):
+                    flist[i] = flist[i].replace("flow.", "link.")
+                if "." not in flist[i]:
+                    flist[i] = "link.%s" % flist[i]
+                flist[i] = '.'.join(map(cypher_escape, flist[i].split(".")))
+
+        cy_fields = "[%s]" % ', '.join(fields)
+        cy_collect = "[%s]" % ', '.join(collect)
+        cy_sumfields = "SUM(%s)" % ' + '.join(sumfields)
+        query.add_clause(
+            "WITH %s as fields, %s as count, %s as collected" %
+            (cy_fields,
+             "COUNT(*)" if not sumfields else cy_sumfields,
+             "NULL" if not collect else "COLLECT(DISTINCT %s)" % cy_collect)
+        )
+        query.ret = "RETURN fields, count, collected ORDER BY count DESC"
+        top = self._cursor2top(self.run(query))
+        return top
 
     def cleanup_flows(self):
         """Cleanup mistakes when predicting client/server ports"""
