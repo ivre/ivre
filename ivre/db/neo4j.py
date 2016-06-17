@@ -716,35 +716,50 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def _cleanup_record(cls, elt):
         for k, v in elt.iteritems():
-            if len(v) == 1 and all(x == None for x in v[0]):
-                elt[k] = None
+            if len(v) == 1 and isinstance(v, list) and \
+                    isinstance(v[0], dict) and \
+                    all(x == None for x in v[0].itervalues()):
+                elt[k] = []
 
         cls.from_dbdict(cls._get_props(elt["elt"]))
         new_meta = {}
-        for rec in elt["meta"]:
-            if rec["info"] is None and rec["link"] is None:
-                continue
-            info = rec["info"] or {}
-            info_props = cls._get_props(info)
-            link = rec["link"] or {}
-            link_tag = link.get("type", link.get("labels", [""])[0]).lower()
-            link_props = cls._get_props(link)
-            key = "%s%s" % ("_".join(label
-                                     for label in cls._get_labels(info,
-                                                                  info_props)
-                                     if label != "Intel"),
-                            "_%s" % link_tag if link_tag else "")
-            new_data = dict(("%s_%s" % (link_tag, k), v)
-                            for k, v in link_props.iteritems())
-            new_data.update(info_props)
-            new_meta.setdefault(key, []).append(new_data)
-        if new_meta:
-            elt["meta"] = new_meta
-            for reclist in new_meta.itervalues():
-                for rec in reclist:
-                    cls.from_dbdict(rec)
-        else:
+        if not isinstance(elt["meta"], dict):
+            for rec in elt["meta"]:
+                if rec["info"] is None and rec["link"] is None:
+                    continue
+                info = rec["info"] or {}
+                info_props = cls._get_props(info)
+                link = rec["link"] or {}
+                link_tag = link.get("type", link.get("labels", [""])[0]).lower()
+                link_props = cls._get_props(link)
+                key = "%s%s" % (
+                        "_".join(label
+                                 for label in cls._get_labels(info, info_props)
+                                 if label != "Intel"),
+                                "_%s" % link_tag if link_tag else ""
+                )
+                new_data = dict(("%s_%s" % (link_tag, k), v)
+                                for k, v in link_props.iteritems())
+                new_data.update(info_props)
+                new_meta.setdefault(key, []).append(new_data)
+            if new_meta:
+                elt["meta"] = new_meta
+                for reclist in new_meta.itervalues():
+                    for rec in reclist:
+                        cls.from_dbdict(rec)
+
+        if ("times" in elt["meta"] and elt["meta"]["times"] and
+                isinstance(elt["meta"]["times"], list) and
+                isinstance(elt["meta"]["times"][0], list)):
+            elt["meta"]["times"] = map(cls._time_quad2date, elt["meta"]["times"])
+
+        if not elt["meta"]:
             del(elt["meta"])
+
+    @staticmethod
+    def _time_quad2date(time_quad):
+        """Transforms (year, month, date, hour) into datetime."""
+        return datetime.datetime(*time_quad)
 
     def host_details(self, node_id):
         q = """
@@ -823,13 +838,22 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                         }} as F,
                        {elt: dst, meta: []}
             """)
-        else:
+        elif mode == "timeline":
             query.add_clause("""
-            WITH {elt: src, meta: [] } as src,
+                MATCH (link)-[:SEEN]->(h:Hour)-[:OF]->(d:Day)-[:OF]->(m:Month)
+                                              -[:OF]->(y:Year)
+                WITH src, link, dst,
+                     COLLECT([y.year, m.month, d.day, h.hour]) AS times
+                WITH {elt: src, meta: [] } as src,
+                     {elt: link, meta: {times: times} } as link,
+                     {elt: dst, meta: [] } as dst
+            """)
+        else:
+            query.ret = """
+            RETURN {elt: src, meta: [] } as src,
                  {elt: link, meta: [] } as link,
                  {elt: dst, meta: [] } as dst
-            """)
-            query.ret = "RETURN src, link, dst"
+            """
 
 
         query.ret +=  " SKIP {skip} LIMIT {limit}"
@@ -914,10 +938,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def cursor2json_iter(cls, cursor):
         """Transforms a neo4j returned by executing a query into an iterator of
-        {src: <dict>, edge: <dict>, dst: <dict>}.
+        {src: <dict>, flow: <dict>, dst: <dict>}.
         """
-        for src, edge, dst in cursor:
-            map(cls._cleanup_record, (src, edge, dst))
+        for src, flow, dst in cursor:
+            map(cls._cleanup_record, (src, flow, dst))
             src_props = cls._get_props(src["elt"], src.get("meta"))
             src_ref = cls._get_ref(src["elt"], src_props)
             src_labels = cls._get_labels(src["elt"], src_props)
@@ -928,12 +952,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             dst_labels = cls._get_labels(dst["elt"], dst_props)
             dst_node = cls._node2json(dst_ref, dst_labels, dst_props)
 
-            edge_props = cls._get_props(edge["elt"], edge.get("meta"))
-            edge_ref = cls._get_ref(edge["elt"], edge_props)
-            edge_labels = cls._get_labels(edge["elt"], edge_props)
-            edge_node = cls._edge2json(edge_ref, src_ref, dst_ref, edge_labels,
-                                       edge_props)
-            yield {"src": src_node, "dst": dst_node, "edge": edge_node}
+            flow_props = cls._get_props(flow["elt"], flow.get("meta"))
+            flow_ref = cls._get_ref(flow["elt"], flow_props)
+            flow_labels = cls._get_labels(flow["elt"], flow_props)
+            flow_node = cls._edge2json(flow_ref, src_ref, dst_ref, flow_labels,
+                                       flow_props)
+            yield {"src": src_node, "dst": dst_node, "flow": flow_node}
 
 
     @classmethod
@@ -950,7 +974,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         for row in cls.cursor2json_iter(cursor):
             for node, typ in ((row["src"], "nodes"),
-                              (row["edge"], "edges"),
+                              (row["flow"], "edges"),
                               (row["dst"], "nodes")):
                 if node["id"] not in done:
                     g[typ].append(node)
@@ -968,6 +992,13 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return {"clients": res['clients'],
                 "flows": res['flows'],
                 "servers": res['servers']}
+
+    @classmethod
+    def _cursor2flow_hourly(cls, cursor):
+        for row in cursor:
+            yield {"flow": "%s/%s" % tuple(row["flow"]),
+                   "hour": row["hour"],
+                   "count": row["count"]}
 
     def from_filters(self, filters, limit=None, skip=0, mode=None):
         cypher_query = self._filters2cypher(filters, mode=mode, count=False,
@@ -989,6 +1020,25 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                    count(distinct dst) as servers
         """
         counts = self.cursor2count(self.run(query))
+        query.ret = old_ret
+        return counts
+
+    def flow_hourly(self, query):
+        """Returns a dict of {flow: {hour: count}}
+
+        WARNING/FIXME: this mutates the query
+        """
+        old_ret = query.ret
+        query.add_clause("""
+            MATCH (link)-[:SEEN]->(h:Hour)
+            WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,
+                 h.hour AS hour, COUNT(h) AS count
+
+        """)
+        query.ret = """
+            RETURN flow, hour, count ORDER BY flow[0], flow[1], hour
+        """
+        counts = self._cursor2flow_hourly(self.run(query))
         query.ret = old_ret
         return counts
 

@@ -24,6 +24,11 @@ sys.setdefaultencoding('utf-8')
 
 import os
 
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
 def main():
     try:
         import argparse
@@ -53,14 +58,26 @@ def main():
                         help='Outputs the full json records of results.')
     parser.add_argument('--count', '-c', action='store_true',
                         help='Only return the count of the results.')
-    parser.add_argument('--limit', type=int,
+    parser.add_argument('--limit', '-l', type=int,
                         help='Ouput at most LIMIT results.')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
     parser.add_argument('--separator', '-s', help="Separator string.")
+    parser.add_argument('--mode', '-m',
+                        help="Query special mode (flow_map, timeline...)")
+    parser.add_argument('--flow-hourly', action="store_true",
+                        help="Flow count per hour of the day")
+    parser.add_argument('--plot', action="store_true",
+                        help="Plot data when possible (requires matplotlib).")
+    parser.add_argument('--fields', nargs='+',
+                        help="Display these fields for each entry.")
     args = parser.parse_args()
 
     out = sys.stdout
+
+    if args.plot and plt is None:
+        sys.stderr.write("Error: matplotlib is required for --plot\n")
+        sys.exit(-1)
 
     if args.init:
         if os.isatty(sys.stdin.fileno()):
@@ -87,26 +104,63 @@ def main():
     filters = {"nodes": args.node_filters or [],
                "edges": args.flow_filters or []}
 
-    query = db.flow.from_filters(filters, skip=args.skip, limit=args.limit)
+    query = db.flow.from_filters(filters, mode=args.mode,
+                                 skip=args.skip, limit=args.limit)
+    sep = args.separator or ' | '
+    coma = ',' if args.separator else ', '
     if args.count:
         count = db.flow.count(query)
         out.write('%(clients)d clients\n%(servers)d servers\n'
                   '%(flows)d flows\n' % count)
+    elif args.flow_hourly:
+        cur_flow = None
+        # FIXME? fully in-memory
+        if args.plot:
+            plot_data = {}
+        for rec in db.flow.flow_hourly(query):
+            out.write(sep.join([rec["flow"], "%dh" % rec["hour"],
+                                str(rec["count"])]))
+            out.write("\n")
+
+            if args.plot:
+                plot_data.setdefault(rec["flow"], [[], []])
+                plot_data[rec["flow"]][0].append(rec["hour"])
+                plot_data[rec["flow"]][1].append(rec["count"])
+        for flow, points in plot_data.iteritems():
+            plt.plot(points[0], points[1], label=flow)
+        plt.legend(loc='best')
+        plt.show()
+
     else:
-        sep = args.separator or '|'
-        fmt = '%%s%s%%s%s%%s\n' % (sep, sep)
+        fmt = '%%s%s%%s%s%%s' % (sep, sep)
         node_width = len('XXX.XXX.XXX.XXX')
         flow_width = len('tcp/XXXXX')
         for res in db.flow.to_iter(query):
             if args.json:
                 out.write('%s\n' % res)
             else:
-                src = res['src']['label']
-                flow = res['edge']['label']
-                dst = res['dst']['label']
+                elts = {}
+                for elt in ["src", "flow", "dst"]:
+                    elts[elt] = res[elt]['label']
+                    if args.fields:
+                        elts[elt] = "%s%s%s" % (
+                            elts[elt],
+                            coma,
+                            coma.join(
+                                str(res[elt]['data'].get(field, ""))
+                                for field in args.fields
+                            )
+                        )
+                src, flow, dst = elts["src"], elts["flow"], elts["dst"]
                 node_width = max(node_width, len(src), len(dst))
                 flow_width = max(flow_width, len(flow))
                 if not args.separator:
-                    fmt = ('%%-%ds %s %%-%ds %s %%-%ds\n' %
+                    fmt = ('%%-%ds%s%%-%ds%s%%-%ds' %
                            (node_width, sep, flow_width, sep, node_width))
                 out.write(fmt % (src, flow, dst))
+                if args.mode == "timeline":
+                    out.write(sep)
+                    out.write(", ".join(
+                        map(str, sorted(res['flow']['data']['meta']['times'])))
+                    )
+                out.write('\n')
