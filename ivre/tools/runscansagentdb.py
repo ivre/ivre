@@ -114,6 +114,7 @@ def main():
         help='Source name (only affects --add-agent)'
     )
     parser.add_argument('--add-agent', metavar='(HOST:)PATH', nargs='+')
+    parser.add_argument('--del-agent', metavar='AGENT', nargs='+')
     parser.add_argument('--add-local-master', action="store_true")
     parser.add_argument('--master-path', metavar="PATH",
                         default=ivre.config.AGENT_MASTER_PATH,
@@ -167,6 +168,10 @@ def main():
                 maxwaiting=args.max_waiting,
                 source=args.source,
             )
+
+    if args.del_agent is not None:
+        for agentid in args.del_agent:
+            ivre.db.db.agent.del_agent(ivre.db.db.agent.str2id(agentid))
 
     if args.assign is not None:
         try:
