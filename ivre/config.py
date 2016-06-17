@@ -99,6 +99,9 @@ NMAP_SCAN_TEMPLATES = {
 #  }
 KNOWN_PORTS = {}
 
+# Enable the time tree for flows. Will slow down the insertion rate
+FLOW_TIME_TREE = True
+
 WEB_ALLOWED_REFERERS = None
 WEB_MAXRESULTS = None
 WEB_WARN_DOTS_COUNT = 20000

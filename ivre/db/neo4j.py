@@ -649,15 +649,15 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         query.append(self._prop_update(elt, props=keys, counters=counters,
                                        accumulators=accumulators, time=time))
-        # FIXME: endtime
-        query.append(
-                """
-                MERGE (y:Year {year: {year}})
-                MERGE (y)<-[:OF]-(m:Month {month: {month}})
-                MERGE (m)<-[:OF]-(d:Day {day: {day}})
-                MERGE (d)<-[:OF]-(h:Hour {hour: {hour}})
-                MERGE (%s)-[:SEEN]->(h)""" % elt
-        )
+        if config.FLOW_TIME_TREE:
+            # FIXME: add endtime as well?
+            query.append(
+                "MERGE (y:Year {year: {year}})\n"
+                "MERGE (y)<-[:OF]-(m:Month {month: {month}})\n"
+                "MERGE (m)<-[:OF]-(d:Day {day: {day}})\n"
+                "MERGE (d)<-[:OF]-(h:Hour {hour: {hour}})\n"
+                "MERGE (%s)-[:SEEN]->(h)" % elt
+            )
         return "\n".join(query)
 
     def add_flow(self, *args, **kargs):
@@ -814,46 +814,46 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
                              'COLLECT(DISTINCT LABELS(link)) AS labels, '
                              'HEAD(COLLECT(ID(link))) AS ref')
-            query.ret = ("""
-                RETURN {elt: src, meta: []},
-                       {meta: [],
-                        elt: {
-                            data: { count: t, labels: labels },
-                            metadata: {labels: ["TALK"], id: ref}
-                        }} as F,
-                       {elt: dst, meta: []}
-            """)
+            query.ret = (
+                "RETURN {elt: src, meta: []},\n"
+                "       {meta: [],\n"
+                "        elt: {\n"
+                "            data: { count: t, labels: labels },\n"
+                "            metadata: {labels: ['TALK'], id: ref}\n"
+                "        }} as F,\n"
+                "       {elt: dst, meta: []}\n"
+            )
 
         elif mode == "flow_map":
             query.add_clause('WITH src, dst, '
                              'COLLECT(DISTINCT [link.proto, link.dport]) AS flows, '
                              'HEAD(COLLECT(ID(link))) AS ref')
             query.add_clause('WITH src, dst, flows, ref, SIZE(flows) AS t')
-            query.ret = ("""
-                RETURN {elt: src, meta: []},
-                       {meta: [],
-                        elt: {
-                            data: { count: t, flows: flows },
-                            metadata: {labels: ["MERGED_FLOWS"], id: ref}
-                        }} as F,
-                       {elt: dst, meta: []}
-            """)
+            query.ret = (
+                "RETURN {elt: src, meta: []},\n"
+                "       {meta: [],\n"
+                "        elt: {\n"
+                "            data: { count: t, flows: flows },\n"
+                "            metadata: {labels: ['MERGED_FLOWS'], id: ref}\n"
+                "        }} as F,\n"
+                "       {elt: dst, meta: []}\n"
+            )
         elif mode == "timeline":
-            query.add_clause("""
-                MATCH (link)-[:SEEN]->(h:Hour)-[:OF]->(d:Day)-[:OF]->(m:Month)
-                                              -[:OF]->(y:Year)
-                WITH src, link, dst,
-                     COLLECT([y.year, m.month, d.day, h.hour]) AS times
-                WITH {elt: src, meta: [] } as src,
-                     {elt: link, meta: {times: times} } as link,
-                     {elt: dst, meta: [] } as dst
-            """)
+            query.add_clause(
+                "MATCH (link)-[:SEEN]->(h:Hour)-[:OF]->(d:Day)-[:OF]->(m:Month)\n"
+                "                              -[:OF]->(y:Year)\n"
+                "WITH src, link, dst,\n"
+                "     COLLECT([y.year, m.month, d.day, h.hour]) AS times\n"
+                "WITH {elt: src, meta: [] } as src,\n"
+                "     {elt: link, meta: {times: times} } as link,\n"
+                "     {elt: dst, meta: [] } as dst\n"
+            )
         else:
-            query.ret = """
-            RETURN {elt: src, meta: [] } as src,
-                 {elt: link, meta: [] } as link,
-                 {elt: dst, meta: [] } as dst
-            """
+            query.ret = (
+                "RETURN {elt: src, meta: [] } as src,\n"
+                "     {elt: link, meta: [] } as link,\n"
+                "     {elt: dst, meta: [] } as dst\n"
+            )
 
 
         query.ret +=  " SKIP {skip} LIMIT {limit}"
@@ -1014,11 +1014,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     def count(self, query):
         old_ret = query.ret
-        query.ret = """
-            RETURN count(distinct src) as clients,
-                   count(distinct link) as flows,
-                   count(distinct dst) as servers
-        """
+        query.ret = (
+            "RETURN count(distinct src) as clients,\n"
+            "       count(distinct link) as flows,\n"
+            "       count(distinct dst) as servers\n"
+        )
         counts = self.cursor2count(self.run(query))
         query.ret = old_ret
         return counts
@@ -1029,15 +1029,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         WARNING/FIXME: this mutates the query
         """
         old_ret = query.ret
-        query.add_clause("""
-            MATCH (link)-[:SEEN]->(h:Hour)
-            WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,
-                 h.hour AS hour, COUNT(h) AS count
-
-        """)
-        query.ret = """
-            RETURN flow, hour, count ORDER BY flow[0], flow[1], hour
-        """
+        query.add_clause(
+            "MATCH (link)-[:SEEN]->(h:Hour)\n"
+            "WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,\n"
+            "     h.hour AS hour, COUNT(h) AS count\n"
+        )
+        query.ret = "RETURN flow, hour, count ORDER BY flow[0], flow[1], hour"
         counts = self._cursor2flow_hourly(self.run(query))
         query.ret = old_ret
         return counts
@@ -1051,12 +1048,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     def _sanity_check(self):
         keys = {"dport": "f.dport", "proto": "f.proto"}
         key = self._key_from_attrs(keys)
-        q = """
-        MATCH (src:Host)-[:SEND]->(f:Flow)-[:TO]->(dst:Host)
-        WHERE f.proto IN ["udp", "tcp"] AND
-             f.__key__ <> %s
-        RETURN COUNT(f)
-        """ % key
+        q = (
+            "MATCH (src:Host)-[:SEND]->(f:Flow)-[:TO]->(dst:Host)\n"
+            "WHERE f.proto IN ['udp', 'tcp'] AND\n"
+            "     f.__key__ <> %s\n"
+            "RETURN COUNT(f)\n" % key
+        )
         cur = self.db.run(q)
         res = cur.evaluate()
         # TODO: fix it
