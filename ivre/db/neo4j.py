@@ -474,7 +474,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         "Hour": ["hour"],
     }
     node_labels = ["Host", "Mac", "Wlan", "DNS", "Flow", "HTTP", "SSL", "SSH",
-                   "SIP", "Modbus", "SNMP"]
+                   "SIP", "Modbus", "SNMP", "Year", "Month", "Day", "Hour"]
 
     # FIXME: will it work?
     LABEL2NAME = {}
@@ -537,6 +537,20 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                             "%(end)s THEN %(end)s ELSE "
                             "%(elt)s.lastseen END" %
                             {"elt":elt, "end": end})
+
+    @classmethod
+    def _update_time_tree(cls, elt):
+        # FIXME: add endtime as well?
+        if config.FLOW_TIME_TREE:
+            return (
+                "MERGE (y:Year {year: {year}})\n"
+                "MERGE (y)<-[:OF]-(m:Month {month: {month}})\n"
+                "MERGE (m)<-[:OF]-(d:Day {day: {day}})\n"
+                "MERGE (d)<-[:OF]-(h:Hour {hour: {hour}})\n"
+                "MERGE (%s)-[:SEEN]->(h)" % elt
+            )
+        else:
+            return ""
 
     @classmethod
     def _set_props(cls, elt, props, set_list):
@@ -649,15 +663,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         query.append(self._prop_update(elt, props=keys, counters=counters,
                                        accumulators=accumulators, time=time))
-        if config.FLOW_TIME_TREE:
-            # FIXME: add endtime as well?
-            query.append(
-                "MERGE (y:Year {year: {year}})\n"
-                "MERGE (y)<-[:OF]-(m:Month {month: {month}})\n"
-                "MERGE (m)<-[:OF]-(d:Day {day: {day}})\n"
-                "MERGE (d)<-[:OF]-(h:Hour {hour: {hour}})\n"
-                "MERGE (%s)-[:SEEN]->(h)" % elt
-            )
+        query.append(self._update_time_tree(elt))
         return "\n".join(query)
 
     def add_flow(self, *args, **kargs):
@@ -1093,10 +1099,13 @@ MERGE (new_f)<-[:SEND]-(dst)
 %s
 WITH *
 MATCH (src)-[:SEND]->(df:Flow {sports: [sport]})-[:TO]->(dst)
+%s
 DETACH DELETE df
         """ % (
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
+            "MATCH (df)-[:SEEN]->(h:Hour)\n"
+            "MERGE (new_f)-[:SEEN]->(h)" if config.FLOW_TIME_TREE else "",
         )
         if config.DEBUG:
             sys.stderr.write("Fixing client/server ports...\n")
@@ -1143,10 +1152,14 @@ MERGE (%s)
 MERGE (new_f)-[:TO]->(d2)
 MERGE (new_f)<-[:SEND]-(src)
 %s
+WITH *
+%s
 DETACH DELETE old_f
         """ % (
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
+            "MATCH (old_f)-[:SEEN]->(h:Hour)\n"
+            "MERGE (new_f)-[:SEEN]->(h)" if config.FLOW_TIME_TREE else "",
         )
 
         if config.DEBUG:
