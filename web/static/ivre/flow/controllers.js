@@ -450,9 +450,88 @@ ivreWebUi
           id: "talk_map",
         }];
 
+        $scope.draw_timeline = function(data) {
+            d3.select("#timeline")[0][0].innerHTML = '';
+            var vis = d3.select("#timeline")
+                .append("svg:svg")
+                .attr("viewBox", [0, 0, 1000, 10])
+                .attr("class", "fullfill")
+                .attr("preserveAspectRatio", "none")
+                .append("svg:g");
+            var dates = [], counts = {};
+            data.edges.forEach(function(flow) {
+                flow.data.meta.times.forEach(function(date) {
+                    date = new Date(date.replace(" ", "T"));
+                    if(counts[date] === undefined) {
+                        dates.push(date);
+                        counts[date] = 1;
+                    }
+                    else {
+                        counts[date] += 1;
+                    }
+                });
+            });
+            var dateextent = d3.extent(dates),
+                alldates = Array.apply(
+                    0, Array((dateextent[1] - dateextent[0]) / 3600000 + 1)
+                ).map(function(_, i) {
+                    return new Date(dateextent[0].getTime() + 3600000 * i);
+                });
+            var width = Math.max((3600000000 / (
+                (dateextent[1] - dateextent[0] + 3600000)
+                    || 3600000)) - 1, 1);
+            var x = d3.time.scale()
+                .domain(dateextent)
+                .range([0, 1000 - width]);
+            var y = d3.scale.linear()
+                .domain([0, d3.max(dates, function(x) {return counts[x];})])
+                .range([0, 10]);
+
+            vis.append("g")
+                .selectAll("g.bar")
+                .data(dates)
+                .enter().append("svg:g")
+                .attr("class", "bar")
+                .attr("transform", function(d, i) {
+                    var ytr = 10 - y(counts[d]);
+                    return "translate(" + x(d) + ", " + ytr + ")";
+                })
+                .append("svg:rect")
+                .attr("fill", "steelblue")
+                .attr("width", width)
+                .attr("height", function(d, i) {return y(counts[d]);});
+
+            vis.append("g")
+                .selectAll("g.bar")
+                .data(alldates)
+                .enter().append("svg:g")
+                .attr("class", "bar")
+                .attr("transform", function(d, i) {
+                    return "translate(" + x(d) + ")";
+                })
+                .append("svg:rect")
+                .attr("fill", "white")
+                .attr("fill-opacity", 0)
+                .attr("width", width)
+                .attr("height", 10)
+                .on("mouseover", function(d) {
+                    d3.select(this).attr("fill-opacity", 0.3);
+                })
+                .on("mouseout", function(d) {
+                    d3.select(this).attr("fill-opacity", 0);
+                })
+                .append("svg:title")
+                .text(function(d, i) {
+                    var count = (counts[d] || 0);
+                    return (d + ": " + count + " flow" +
+                            (count > 1 ? "s" : ""));
+                })
+        };
+
         $scope.update_graph_data = function () {
             r = $scope.query_ready;
             if (r.nodes && r.edges) {
+                var oldmode;
                 $scope.query.count = false;
                 $scope.load_json_url(config.cgibase + "?q=" +
                              encodeURIComponent(angular.toJson($scope.query)));
@@ -463,6 +542,12 @@ ivreWebUi
                          $scope.counts = data;
                      });
                 $scope.query.count = false;
+                oldmode = $scope.query.mode;
+                $scope.query.mode = "timeline";
+                $http.get(config.cgibase + "?q=" +
+                          encodeURIComponent(angular.toJson($scope.query)))
+                    .success($scope.draw_timeline);
+                $scope.query.mode = oldmode;
             }
         };
 
