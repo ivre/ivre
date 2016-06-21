@@ -16,218 +16,192 @@
   <body ng-controller="IvreFlowCtrl">
 
     <div ng-controller="IvreMenuCtrl" ivre-menu="flow"> </div>
-    <div id="wrapper">
+    <div class="container-fluid nomargin main" style="overflow-x: hidden;">
+
       <!-- Sidebar -->
-      <div id="sidebar-wrapper">
-        <div id="side-menu" class="container-fluid">
-          <div class="row">
-            <ul class="nav nav-tabs" id="menu-tab" role="tablist">
-              <li role="presentation" class="active">
-                <a href="#menu-tab-explore" target="_self" role="tab" data-toggle="tab">Explore</a></li>
-              <li role="presentation">
-                <a href="#menu-tab-layout" target="_self" role="tab" data-toggle="tab">Display</a></li>
-              <li role="presentation">
-                <a href="#menu-tab-details" target="_self" role="tab" data-toggle="tab">Details</a></li>
-            </ul>
-          </div>
+      <div class="col-xs-12 col-md-3">
+        <div class="row">
+          <ul class="nav nav-tabs" id="menu-tab" role="tablist">
+            <li role="presentation" class="active">
+              <a href="#menu-tab-explore" target="_self" role="tab" data-toggle="tab">Explore</a></li>
+            <li role="presentation">
+              <a href="#menu-tab-layout" target="_self" role="tab" data-toggle="tab">Display</a></li>
+            <li role="presentation">
+              <a href="#menu-tab-details" target="_self" role="tab" data-toggle="tab">Details</a></li>
+          </ul>
+        </div>
 
-          <!-- Tab panes -->
-          <div class="row">
-            <div id="control-pane" class="col-xs-12">
-              <div class="tab-content">
-                <div role="tabpanel" class="tab-pane active" id="menu-tab-explore">
-                  {{counts.flows || "no"}} flows,
-                  {{counts.servers || "no"}} servers,
-                  {{counts.clients || "no"}} clients
-                  <query-builder title="Node query" bind-to="query.nodes"
-                                 on-submit="query.skip = 0; update_graph_data()"
-                                 on-load="query_ready.nodes = true; update_graph_data()">
-                  </query-builder>
-                  <query-builder title="Edge query" bind-to="query.edges"
-                                 on-submit="query.skip = 0; update_graph_data()"
-                                 on-load="query_ready.edges = true; update_graph_data()">
-                  </query-builder>
-
-                  <ul class="nav">
-                    <li class="sidebox-header">
-                      <i class="glyphicon glyphicon-resize-full black"></i>
-                      Options
-                    </li>
-
-                    <form class="form-horizontal"
-                          ng-submit="update_graph_data()">
-
-                      <div class="form-group">
-                        <label for="query_mode" class="col-md-4 control-label">
-                          Mode
-                        </label>
-                        <div class="col-md-8">
-                            <select class="form-control" id="query_mode"
-                                   ng-model="query.mode"
-                                   ng-options="mode.id as mode.label for mode in query_modes">
-                            </select>
-                        </div>
+        <!-- Tab panes -->
+        <div class="row">
+          <div id="control-pane" class="col-xs-12">
+            <div class="tab-content">
+              <div role="tabpanel" class="tab-pane active" id="menu-tab-explore">
+                {{counts.flows || "no"}} flows,
+                {{counts.servers || "no"}} servers,
+                {{counts.clients || "no"}} clients
+                <query-builder title="Node query" bind-to="query.nodes"
+                               on-submit="query.skip = 0; update_graph_data()"
+                               on-load="query_ready.nodes = true; update_graph_data()">
+                </query-builder>
+                <query-builder title="Edge query" bind-to="query.edges"
+                               on-submit="query.skip = 0; update_graph_data()"
+                               on-load="query_ready.edges = true; update_graph_data()">
+                </query-builder>
+                <ul class="nav">
+                  <li class="sidebox-header">
+                    <i class="glyphicon glyphicon-resize-full black"></i>
+                    Options
+                  </li>
+                  <form class="form-horizontal"
+                        ng-submit="update_graph_data()">
+                    <div class="form-group">
+                      <label for="query_mode" class="col-md-4 control-label">
+                        Mode
+                      </label>
+                      <div class="col-md-8">
+                        <select class="form-control" id="query_mode"
+                                ng-model="query.mode"
+                                ng-options="mode.id as mode.label for mode in query_modes">
+                        </select>
                       </div>
-
-                      <div class="form-group">
-                        <label for="query_limit" class="col-md-4 control-label">
-                          Limit
-                        </label>
-                        <div class="col-md-8">
-                            <input type="number" class="form-control" id="query_limit"
-                                   ng-model="query.limit"/>
-                        </div>
-                      </div>
-
-                      <div class="form-group">
-                        <label for="query_skip" class="col-md-4 control-label">
-                          Skip
-                        </label>
-                        <div class="col-md-8">
-                        <div class="input-group">
-                            <input type="number" class="form-control" id="query_skip"
-                                   ng-model="query.skip"/>
-                            <span class="input-group-addon clickable"
-                                  ng-click="query.skip = query.skip + query.limit; update_graph_data()">
-                              <i class="glyphicon glyphicon-plus"></i></span>
-                            <span class="input-group-addon clickable"
-                                  ng-click="query.skip = query.skip - query.limit; update_graph_data()">
-                              <i class="glyphicon glyphicon-minus"></i></span>
-                        </div>
-                        </div>
-                      </div>
-
-                      <div class="form-group">
-                        <div class="col-sm-offset-3 col-sm-6">
-                          <button type="submit" class="btn btn-default">Refresh</button>
-                        </div>
-                      </div>
-                    </form>
-                  </ul>
-
-                </div>
-
-                <div role="tabpanel" class="tab-pane" id="menu-tab-layout">
-                  <!-- Currently incoherent with the query language, commented
-                       for now
-                  <query-builder title="Node filters" bind-to="gflt.nodes"
-                                 on-submit="update_graph_display()">
-                  </query-builder>
-                  <query-builder title="Edge filters" bind-to="gflt.edges"
-                                 on-submit="update_graph_display()">
-                  </query-builder>
-                  -->
-                  <ul class="nav">
-                    <li class="sidebox-header">
-                      <i class="glyphicon glyphicon-resize-full black"></i>
-                      Nodes
-                    </li>
-
-                    <form class="form-horizontal"
-                          ng-submit="update_graph_display()">
-
-                      <div class="form-group">
-                        <label for="node_size" class="col-md-4 control-label">
-                          Size
-                        </label>
-                        <div class="col-md-8">
-                          <input id="node_size"
-                                 class="form-control" ng-model="gfmt.nodes.size"/>
-                        </div>
-                      </div>
-
-                      <div class="form-group">
-                        <label for="node_size_scale" class="col-md-4 control-label">
-                          Size scale
-                        </label>
-                        <div class="col-md-8">
-                          <input type="number" id="edge_size_scale"
-                                               class="form-control"
-                                               ng-model="node_size_scaling"
-                                               ng-change="update_graph_display()"/>
-                        </div>
-                      </div>
-
-                      <li class="sidebox-header">
-                        <i class="glyphicon glyphicon-resize-full black"></i>
-                        Edges
-                      </li>
-
-                      <div class="form-group">
-                        <label for="edge_size" class="col-md-4 control-label">
-                          Size
-                        </label>
-                        <div class="col-md-8">
-                          <input id="edge_size"
-                                 class="form-control" ng-model="gfmt.edges.size"/>
-                        </div>
-                      </div>
-
-                      <div class="form-group">
-                        <label for="edge_size_scale" class="col-md-4 control-label">
-                          Size scale
-                        </label>
-                        <div class="col-md-8">
-                          <input type="number" id="edge_size_scale"
-                                               class="form-control"
-                                               ng-model="edge_size_scaling"
-                                               ng-change="update_graph_display()"/>
-                        </div>
-                      </div>
-
-                      <input type="submit" tabindex="-1"
-                             style="position: absolute; left: -1000px; width: 1px; height: 1px;"/>
-                    </form>
-                  </ul>
-                </div>
-                <div role="tabpanel" class="tab-pane" id="menu-tab-details">
-                  <div class="col-xs-12">
-                    <div class="node-details">
-                      <elt-details/>
                     </div>
+                    <div class="form-group">
+                      <label for="query_limit" class="col-md-4 control-label">
+                        Limit
+                      </label>
+                      <div class="col-md-8">
+                        <input type="number" class="form-control" id="query_limit"
+                               ng-model="query.limit"/>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="query_skip" class="col-md-4 control-label">
+                        Skip
+                      </label>
+                      <div class="col-md-8">
+                        <div class="input-group">
+                          <input type="number" class="form-control" id="query_skip"
+                                 ng-model="query.skip"/>
+                          <span class="input-group-addon clickable"
+                                ng-click="query.skip = query.skip + query.limit; update_graph_data()">
+                            <i class="glyphicon glyphicon-plus"></i></span>
+                          <span class="input-group-addon clickable"
+                                ng-click="query.skip = query.skip - query.limit; update_graph_data()">
+                            <i class="glyphicon glyphicon-minus"></i></span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <div class="col-sm-offset-3 col-sm-6">
+                        <button type="submit" class="btn btn-default">Refresh</button>
+                      </div>
+                    </div>
+                  </form>
+                </ul>
+              </div>
+              <div role="tabpanel" class="tab-pane" id="menu-tab-layout">
+                <ul class="nav">
+                  <li class="sidebox-header">
+                    <i class="glyphicon glyphicon-resize-full black"></i>
+                    Nodes
+                  </li>
+                  <form class="form-horizontal"
+                        ng-submit="update_graph_display()">
+                    <div class="form-group">
+                      <label for="node_size" class="col-md-4 control-label">
+                        Size
+                      </label>
+                      <div class="col-md-8">
+                        <input id="node_size"
+                               class="form-control" ng-model="gfmt.nodes.size"/>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="node_size_scale" class="col-md-4 control-label">
+                        Size scale
+                      </label>
+                      <div class="col-md-8">
+                        <input type="number" id="edge_size_scale"
+                               class="form-control"
+                               ng-model="node_size_scaling"
+                               ng-change="update_graph_display()"/>
+                      </div>
+                    </div>
+                    <li class="sidebox-header">
+                      <i class="glyphicon glyphicon-resize-full black"></i>
+                      Edges
+                    </li>
+                    <div class="form-group">
+                      <label for="edge_size" class="col-md-4 control-label">
+                        Size
+                      </label>
+                      <div class="col-md-8">
+                        <input id="edge_size"
+                               class="form-control" ng-model="gfmt.edges.size"/>
+                      </div>
+                    </div>
+                    <div class="form-group">
+                      <label for="edge_size_scale" class="col-md-4 control-label">
+                        Size scale
+                      </label>
+                      <div class="col-md-8">
+                        <input type="number" id="edge_size_scale"
+                               class="form-control"
+                               ng-model="edge_size_scaling"
+                               ng-change="update_graph_display()"/>
+                      </div>
+                    </div>
+                    <input type="submit" tabindex="-1"
+                           style="position: absolute; left: -1000px; width: 1px; height: 1px;"/>
+                  </form>
+                </ul>
+              </div>
+              <div role="tabpanel" class="tab-pane" id="menu-tab-details">
+                <div class="col-xs-12">
+                  <div class="node-details">
+                    <elt-details/>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        </div>
-
-        <div id="page-content-wrapper">
-          <div class="container-fluid">
-            <div class="fill">
-              <sigma-graph id="graph-container" sigma="sigma"
-                           on-load="init_flow();"></div>
-            </div>
-          </div>
-        </div>
-
       </div>
 
+      <div class="col-xs-12 col-md-9 fill">
+        <sigma-graph id="graph-container" sigma="sigma"
+                     on-load="init_flow();">
+      </div>
+    </div>
 
-      <script type="text/javascript" src="jq/jquery.js"></script>
-      <script type="text/javascript" src="bs/js/bootstrap.js"></script>
-      <script type="text/javascript" src="d3/js/d3.v3.min.js"></script>
-      <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
-      <script type="text/javascript" src="an/js/angular.js"></script>
-      <script type="application/javascript" src="lk/sigma.min.js"></script>
-      <script type="application/javascript" src="lk/plugins.min.js"></script>
-      <script type="text/javascript">
-	config = {};
-      </script>
-      <script type="text/javascript" src="config.js"></script>
-      <script type="text/javascript" src="ivre/parsers.js"></script>
-      <script type="text/javascript" src="ivre/content.js"></script>
-      <script type="text/javascript" src="ivre/form-helpers.js"></script>
-      <script type="text/javascript" src="ivre/utils.js"></script>
-      <script type="text/javascript" src="ivre/graph.js"></script>
-      <script type="text/javascript" src="ivre/filters.js"></script>
-      <script type="text/javascript" src="ivre/compare.js"></script>
-      <script type="text/javascript" src="ivre/controllers.js"></script>
-      <script type="text/javascript" src="ivre/flow/controllers.js"></script>
-      <script type="text/javascript" src="ivre/params.js"></script>
-      <script type="text/javascript" src="ivre/tooltip.js"></script>
-      <script type="text/javascript" src="ivre/ivre.js"></script>
+    <div class="row status">
+      <div id="chart" class="fill">
+      </div>
+    </div>
+
+    <script type="text/javascript" src="jq/jquery.js"></script>
+    <script type="text/javascript" src="bs/js/bootstrap.js"></script>
+    <script type="text/javascript" src="d3/js/d3.v3.min.js"></script>
+    <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
+    <script type="text/javascript" src="an/js/angular.js"></script>
+    <script type="application/javascript" src="lk/sigma.min.js"></script>
+    <script type="application/javascript" src="lk/plugins.min.js"></script>
+    <script type="text/javascript">
+      config = {};
+    </script>
+    <script type="text/javascript" src="config.js"></script>
+    <script type="text/javascript" src="ivre/parsers.js"></script>
+    <script type="text/javascript" src="ivre/content.js"></script>
+    <script type="text/javascript" src="ivre/form-helpers.js"></script>
+    <script type="text/javascript" src="ivre/utils.js"></script>
+    <script type="text/javascript" src="ivre/graph.js"></script>
+    <script type="text/javascript" src="ivre/filters.js"></script>
+    <script type="text/javascript" src="ivre/compare.js"></script>
+    <script type="text/javascript" src="ivre/controllers.js"></script>
+    <script type="text/javascript" src="ivre/flow/controllers.js"></script>
+    <script type="text/javascript" src="ivre/params.js"></script>
+    <script type="text/javascript" src="ivre/tooltip.js"></script>
+    <script type="text/javascript" src="ivre/ivre.js"></script>
   </body>
 
 </html>

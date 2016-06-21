@@ -315,15 +315,6 @@ ivreWebUi
     .controller('IvreFlowCtrl', function ($scope, $http, $compile,
                                           graphService, hashSync) {
         // Menu things
-        $scope.toggle_pane = function() {
-            $("#wrapper").toggleClass("toggled");
-            if ($scope.sigma !== undefined) {
-                // FIXME :(
-                $scope.sigma.renderers[0].resize();
-                $scope.sigma.refresh();
-            }
-        }
-
         $scope.enable_tab = function (tab_id) {
 	          $('.nav-tabs a[href="#' + tab_id + '"]').tab('show');
         };
