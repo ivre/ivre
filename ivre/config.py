@@ -99,8 +99,9 @@ NMAP_SCAN_TEMPLATES = {
 #  }
 KNOWN_PORTS = {}
 
-# Enable the time tree for flows. Will slow down the insertion rate
-FLOW_TIME_TREE = True
+# Enable the recording of appearance times for flows. Will slow down a bit the
+# insertion rate
+FLOW_TIME = True
 # Precision (in seconds) to use when recording times when flows appear
 FLOW_TIME_PRECISION = 3600
 

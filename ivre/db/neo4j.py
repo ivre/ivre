@@ -552,9 +552,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                             {"elt":elt, "end": end})
 
     @classmethod
-    def _update_time_tree(cls, elt):
+    def _update_time_seen(cls, elt):
         # FIXME: add endtime as well?
-        if config.FLOW_TIME_TREE:
+        if config.FLOW_TIME:
             return (
                 "MERGE (t:Time {time: {seen_time}})\n"
                 "MERGE (%s)-[:SEEN]->(t)" % elt
@@ -673,7 +673,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         query.append(self._prop_update(elt, props=keys, counters=counters,
                                        accumulators=accumulators, time=time))
-        query.append(self._update_time_tree(elt))
+        query.append(self._update_time_seen(elt))
         return "\n".join(query)
 
     def add_flow(self, *args, **kargs):
@@ -1119,7 +1119,7 @@ DETACH DELETE df
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
             "MATCH (df)-[:SEEN]->(t:Time)\n"
-            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME_TREE else "",
+            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME else "",
         )
         if config.DEBUG:
             sys.stderr.write("Fixing client/server ports...\n")
@@ -1173,7 +1173,7 @@ DETACH DELETE old_f
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
             "MATCH (old_f)-[:SEEN]->(t:Time)\n"
-            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME_TREE else "",
+            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME else "",
         )
 
         if config.DEBUG:
