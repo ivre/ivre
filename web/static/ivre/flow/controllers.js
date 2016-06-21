@@ -289,10 +289,10 @@ ivreWebUi.factory("graphService", function () {
 
     function add_details(s, elt, data) {
         elt.has_details = true;
-        if (elt.labels.includes("Host")) {
+        if ($.inArray("Host", elt.labels) >= 0) {
             delete(data["elt"]);
             elt.details = data;
-        } else if (elt.labels.includes("Flow")) {
+        } else if ($.inArray("Flow", elt.labels) >= 0) {
             delete(data["elt"]);
             elt.details = data;
         } else {
