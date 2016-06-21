@@ -104,6 +104,9 @@ KNOWN_PORTS = {}
 FLOW_TIME = True
 # Precision (in seconds) to use when recording times when flows appear
 FLOW_TIME_PRECISION = 3600
+# When recording flow times, record the whole range from start_time to end_time
+# This option is experimental and possibly useless in practice
+FLOW_TIME_FULL_RANGE = False
 
 WEB_ALLOWED_REFERERS = None
 WEB_MAXRESULTS = None

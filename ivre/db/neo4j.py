@@ -553,12 +553,22 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @classmethod
     def _update_time_seen(cls, elt):
-        # FIXME: add endtime as well?
         if config.FLOW_TIME:
-            return (
-                "MERGE (t:Time {time: {seen_time}})\n"
-                "MERGE (%s)-[:SEEN]->(t)" % elt
-            )
+            # Experimental and possibly useless
+            if config.FLOW_TIME_FULL_RANGE:
+                return (
+                    "FOREACH (stime IN RANGE(\n"
+                    "           {start_time} - ({start_time} %% %(prec)d),\n"
+                    "           {end_time} - ({end_time} %% %(prec)d),\n"
+                    "           %(prec)d) | \n"
+                    "    MERGE (t:Time {time: stime})\n"
+                    "    MERGE (%(elt)s)-[:SEEN]->(t))"
+                ) % { "elt": elt, "prec": config.FLOW_TIME_PRECISION }
+            else:
+                return (
+                    "MERGE (t:Time {time: {seen_time}})\n"
+                    "MERGE (%s)-[:SEEN]->(t)" % elt
+                )
         else:
             return ""
 
