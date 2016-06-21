@@ -16,7 +16,7 @@
   <body ng-controller="IvreFlowCtrl">
 
     <div ng-controller="IvreMenuCtrl" ivre-menu="flow"> </div>
-    <div class="container-fluid nomargin main" style="overflow-x: hidden;">
+    <div class="container-fluid nomargin" style="overflow-x: hidden;">
 
       <!-- Sidebar -->
       <div class="col-xs-12 col-md-3">
@@ -169,13 +169,17 @@
       </div>
 
       <div class="col-xs-12 col-md-9 fill">
-        <sigma-graph id="graph-container" sigma="sigma"
-                     on-load="init_flow();">
-      </div>
-    </div>
+	<div class="row main">
+	  <div class="col-xs-12 fill">
+          <sigma-graph id="graph-container" sigma="sigma"
+                       on-load="init_flow();"/>
+	  </div>
+	</div>
+	<div class="row status">
+	  <div id="timeline" class="fill">
+	  </div>
+	</div>
 
-    <div class="row status">
-      <div id="chart" class="fill">
       </div>
     </div>
 
