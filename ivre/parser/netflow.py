@@ -104,10 +104,6 @@ class NetFlow(CmdParser):
         for field in ["start_time", "end_time"]:
             fields[field] = datetime.datetime.strptime(fields[field],
                                                        cls.timefmt)
-        fields["hour"] = fields["start_time"].hour
-        fields["day"] = fields["start_time"].day
-        fields["month"] = fields["start_time"].month
-        fields["year"] = fields["start_time"].year
 
         if srv_idx is None:
             srv_idx = (

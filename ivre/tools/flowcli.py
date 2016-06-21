@@ -65,8 +65,8 @@ def main():
     parser.add_argument('--separator', '-s', help="Separator string.")
     parser.add_argument('--mode', '-m',
                         help="Query special mode (flow_map, timeline...)")
-    parser.add_argument('--flow-hourly', action="store_true",
-                        help="Flow count per hour of the day")
+    parser.add_argument('--flow-daily', action="store_true",
+                        help="Flow count per times of the day")
     parser.add_argument('--plot', action="store_true",
                         help="Plot data when possible (requires matplotlib).")
     parser.add_argument('--fields', nargs='+',
@@ -112,19 +112,20 @@ def main():
         count = db.flow.count(query)
         out.write('%(clients)d clients\n%(servers)d servers\n'
                   '%(flows)d flows\n' % count)
-    elif args.flow_hourly:
+    elif args.flow_daily:
         cur_flow = None
         # FIXME? fully in-memory
         if args.plot:
             plot_data = {}
-        for rec in db.flow.flow_hourly(query):
-            out.write(sep.join([rec["flow"], "%dh" % rec["hour"],
+        for rec in db.flow.flow_daily(query):
+            out.write(sep.join([rec["flow"],
+                                rec["time_in_day"].strftime("%T.%f"),
                                 str(rec["count"])]))
             out.write("\n")
 
             if args.plot:
                 plot_data.setdefault(rec["flow"], [[], []])
-                plot_data[rec["flow"]][0].append(rec["hour"])
+                plot_data[rec["flow"]][0].append(rec["time_in_day"])
                 plot_data[rec["flow"]][1].append(rec["count"])
         for flow, points in plot_data.iteritems():
             plt.plot(points[0], points[1], label=flow)

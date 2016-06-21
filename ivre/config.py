@@ -101,6 +101,8 @@ KNOWN_PORTS = {}
 
 # Enable the time tree for flows. Will slow down the insertion rate
 FLOW_TIME_TREE = True
+# Precision (in seconds) to use when recording times when flows appear
+FLOW_TIME_PRECISION = 3600
 
 WEB_ALLOWED_REFERERS = None
 WEB_MAXRESULTS = None

@@ -142,6 +142,9 @@ class Neo4jDB(DB):
         d.pop("__key__", None)
         for k in d:
             d[k] = cls.to_dbprop(k, d[k])
+        seen_time = d.get("start_time", d.get("end_time", None))
+        if seen_time and "seen_time" not in d:
+            d["seen_time"] = cls._date_round(seen_time)
 
     @classmethod
     def to_dbprop(cls, prop, val):
@@ -151,6 +154,19 @@ class Neo4jDB(DB):
         if isinstance(val, datetime.datetime):
             val = utils.datetime2timestamp(val)
         return val
+
+    @classmethod
+    def _date_round(cls, date):
+        if isinstance(date, datetime.datetime):
+            ts = datetime2timestamp(date)
+        else:
+            ts = date
+        ts = ts - (ts % config.FLOW_TIME_PRECISION)
+        if isinstance(date, datetime.datetime):
+            return datetime.datetime.fromtimestamp(ts)
+        else:
+            return ts
+
 
 class Query(object):
     operators = {
@@ -468,13 +484,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         "SIP": ["__key__"],
         "Modbus": ["__key__"],
         "SNMP": ["__key__"],
-        "Year": ["year"],
-        "Month": ["month"],
-        "Day": ["day"],
-        "Hour": ["hour"],
+        "Time": ["time"],
     }
     node_labels = ["Host", "Mac", "Wlan", "DNS", "Flow", "HTTP", "SSL", "SSH",
-                   "SIP", "Modbus", "SNMP", "Year", "Month", "Day", "Hour"]
+                   "SIP", "Modbus", "SNMP", "Time"]
 
     # FIXME: will it work?
     LABEL2NAME = {}
@@ -543,11 +556,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         # FIXME: add endtime as well?
         if config.FLOW_TIME_TREE:
             return (
-                "MERGE (y:Year {year: {year}})\n"
-                "MERGE (y)<-[:OF]-(m:Month {month: {month}})\n"
-                "MERGE (m)<-[:OF]-(d:Day {day: {day}})\n"
-                "MERGE (d)<-[:OF]-(h:Hour {hour: {hour}})\n"
-                "MERGE (%s)-[:SEEN]->(h)" % elt
+                "MERGE (t:Time {time: {seen_time}})\n"
+                "MERGE (%s)-[:SEEN]->(t)" % elt
             )
         else:
             return ""
@@ -756,8 +766,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         if ("times" in elt["meta"] and elt["meta"]["times"] and
                 isinstance(elt["meta"]["times"], list) and
-                isinstance(elt["meta"]["times"][0], list)):
-            elt["meta"]["times"] = map(cls._time_quad2date, elt["meta"]["times"])
+                isinstance(elt["meta"]["times"][0], float)):
+            elt["meta"]["times"] = map(datetime.datetime.fromtimestamp,
+                                       elt["meta"]["times"])
 
         if not elt["meta"]:
             del(elt["meta"])
@@ -846,10 +857,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             )
         elif mode == "timeline":
             query.add_clause(
-                "MATCH (link)-[:SEEN]->(h:Hour)-[:OF]->(d:Day)-[:OF]->(m:Month)\n"
-                "                              -[:OF]->(y:Year)\n"
+                "MATCH (link)-[:SEEN]->(t:Time)\n"
                 "WITH src, link, dst,\n"
-                "     COLLECT([y.year, m.month, d.day, h.hour]) AS times\n"
+                "     COLLECT(t.time) AS times\n"
                 "WITH {elt: src, meta: [] } as src,\n"
                 "     {elt: link, meta: {times: times} } as link,\n"
                 "     {elt: dst, meta: [] } as dst\n"
@@ -1000,10 +1010,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 "servers": res['servers']}
 
     @classmethod
-    def _cursor2flow_hourly(cls, cursor):
+    def _cursor2flow_daily(cls, cursor):
         for row in cursor:
             yield {"flow": "%s/%s" % tuple(row["flow"]),
-                   "hour": row["hour"],
+                   "time_in_day":
+                        datetime.datetime.fromtimestamp(row["time_in_day"]),
                    "count": row["count"]}
 
     def from_filters(self, filters, limit=None, skip=0, mode=None):
@@ -1029,19 +1040,22 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         query.ret = old_ret
         return counts
 
-    def flow_hourly(self, query):
-        """Returns a dict of {flow: {hour: count}}
+    # FIXME: doc
+    def flow_daily(self, query):
+        """Returns a dict of {flow: {time_in_day: count}}
 
         WARNING/FIXME: this mutates the query
         """
         old_ret = query.ret
         query.add_clause(
-            "MATCH (link)-[:SEEN]->(h:Hour)\n"
+            "MATCH (link)-[:SEEN]->(t:Time)\n"
+            "WITH src, link, dst, t, (t.time % 86400) as time_in_day\n"
             "WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,\n"
-            "     h.hour AS hour, COUNT(h) AS count\n"
+            "     time_in_day, COUNT(*) AS count\n"
         )
-        query.ret = "RETURN flow, hour, count ORDER BY flow[0], flow[1], hour"
-        counts = self._cursor2flow_hourly(self.run(query))
+        query.ret = ("RETURN flow, time_in_day, count "
+                     "ORDER BY flow[0], flow[1], time_in_day")
+        counts = self._cursor2flow_daily(self.run(query))
         query.ret = old_ret
         return counts
 
@@ -1104,8 +1118,8 @@ DETACH DELETE df
         """ % (
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
-            "MATCH (df)-[:SEEN]->(h:Hour)\n"
-            "MERGE (new_f)-[:SEEN]->(h)" if config.FLOW_TIME_TREE else "",
+            "MATCH (df)-[:SEEN]->(t:Time)\n"
+            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME_TREE else "",
         )
         if config.DEBUG:
             sys.stderr.write("Fixing client/server ports...\n")
@@ -1158,8 +1172,8 @@ DETACH DELETE old_f
         """ % (
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
-            "MATCH (old_f)-[:SEEN]->(h:Hour)\n"
-            "MERGE (new_f)-[:SEEN]->(h)" if config.FLOW_TIME_TREE else "",
+            "MATCH (old_f)-[:SEEN]->(t:Time)\n"
+            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME_TREE else "",
         )
 
         if config.DEBUG:
