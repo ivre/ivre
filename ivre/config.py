@@ -99,6 +99,15 @@ NMAP_SCAN_TEMPLATES = {
 #  }
 KNOWN_PORTS = {}
 
+# Enable the recording of appearance times for flows. Will slow down a bit the
+# insertion rate
+FLOW_TIME = True
+# Precision (in seconds) to use when recording times when flows appear
+FLOW_TIME_PRECISION = 3600
+# When recording flow times, record the whole range from start_time to end_time
+# This option is experimental and possibly useless in practice
+FLOW_TIME_FULL_RANGE = False
+
 WEB_ALLOWED_REFERERS = None
 WEB_MAXRESULTS = None
 WEB_WARN_DOTS_COUNT = 20000

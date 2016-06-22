@@ -142,6 +142,9 @@ class Neo4jDB(DB):
         d.pop("__key__", None)
         for k in d:
             d[k] = cls.to_dbprop(k, d[k])
+        seen_time = d.get("start_time", d.get("end_time", None))
+        if seen_time and "seen_time" not in d:
+            d["seen_time"] = cls._date_round(seen_time)
 
     @classmethod
     def to_dbprop(cls, prop, val):
@@ -151,6 +154,19 @@ class Neo4jDB(DB):
         if isinstance(val, datetime.datetime):
             val = utils.datetime2timestamp(val)
         return val
+
+    @classmethod
+    def _date_round(cls, date):
+        if isinstance(date, datetime.datetime):
+            ts = utils.datetime2timestamp(date)
+        else:
+            ts = date
+        ts = ts - (ts % config.FLOW_TIME_PRECISION)
+        if isinstance(date, datetime.datetime):
+            return datetime.datetime.fromtimestamp(ts)
+        else:
+            return ts
+
 
 class Query(object):
     operators = {
@@ -468,9 +484,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         "SIP": ["__key__"],
         "Modbus": ["__key__"],
         "SNMP": ["__key__"],
+        "Time": ["time"],
     }
     node_labels = ["Host", "Mac", "Wlan", "DNS", "Flow", "HTTP", "SSL", "SSH",
-                   "SIP", "Modbus", "SNMP"]
+                   "SIP", "Modbus", "SNMP", "Time"]
 
     # FIXME: will it work?
     LABEL2NAME = {}
@@ -533,6 +550,27 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                             "%(end)s THEN %(end)s ELSE "
                             "%(elt)s.lastseen END" %
                             {"elt":elt, "end": end})
+
+    @classmethod
+    def _update_time_seen(cls, elt):
+        if config.FLOW_TIME:
+            # Experimental and possibly useless
+            if config.FLOW_TIME_FULL_RANGE:
+                return (
+                    "FOREACH (stime IN RANGE(\n"
+                    "           {start_time} - ({start_time} %% %(prec)d),\n"
+                    "           {end_time} - ({end_time} %% %(prec)d),\n"
+                    "           %(prec)d) | \n"
+                    "    MERGE (t:Time {time: stime})\n"
+                    "    MERGE (%(elt)s)-[:SEEN]->(t))"
+                ) % { "elt": elt, "prec": config.FLOW_TIME_PRECISION }
+            else:
+                return (
+                    "MERGE (t:Time {time: {seen_time}})\n"
+                    "MERGE (%s)-[:SEEN]->(t)" % elt
+                )
+        else:
+            return ""
 
     @classmethod
     def _set_props(cls, elt, props, set_list):
@@ -645,6 +683,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         query.append(self._prop_update(elt, props=keys, counters=counters,
                                        accumulators=accumulators, time=time))
+        query.append(self._update_time_seen(elt))
         return "\n".join(query)
 
     def add_flow(self, *args, **kargs):
@@ -703,35 +742,51 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def _cleanup_record(cls, elt):
         for k, v in elt.iteritems():
-            if len(v) == 1 and all(x == None for x in v[0]):
-                elt[k] = None
+            if isinstance(v, list) and len(v) == 1 and \
+                    isinstance(v[0], dict) and \
+                    all(x == None for x in v[0].itervalues()):
+                elt[k] = []
 
         cls.from_dbdict(cls._get_props(elt["elt"]))
         new_meta = {}
-        for rec in elt["meta"]:
-            if rec["info"] is None and rec["link"] is None:
-                continue
-            info = rec["info"] or {}
-            info_props = cls._get_props(info)
-            link = rec["link"] or {}
-            link_tag = link.get("type", link.get("labels", [""])[0]).lower()
-            link_props = cls._get_props(link)
-            key = "%s%s" % ("_".join(label
-                                     for label in cls._get_labels(info,
-                                                                  info_props)
-                                     if label != "Intel"),
-                            "_%s" % link_tag if link_tag else "")
-            new_data = dict(("%s_%s" % (link_tag, k), v)
-                            for k, v in link_props.iteritems())
-            new_data.update(info_props)
-            new_meta.setdefault(key, []).append(new_data)
-        if new_meta:
-            elt["meta"] = new_meta
-            for reclist in new_meta.itervalues():
-                for rec in reclist:
-                    cls.from_dbdict(rec)
-        else:
+        if isinstance(elt["meta"], list):
+            for rec in elt["meta"]:
+                if rec["info"] is None and rec["link"] is None:
+                    continue
+                info = rec["info"] or {}
+                info_props = cls._get_props(info)
+                link = rec["link"] or {}
+                link_tag = link.get("type", link.get("labels", [""])[0]).lower()
+                link_props = cls._get_props(link)
+                key = "%s%s" % (
+                        "_".join(label
+                                 for label in cls._get_labels(info, info_props)
+                                 if label != "Intel"),
+                                "_%s" % link_tag if link_tag else ""
+                )
+                new_data = dict(("%s_%s" % (link_tag, k), v)
+                                for k, v in link_props.iteritems())
+                new_data.update(info_props)
+                new_meta.setdefault(key, []).append(new_data)
+            if new_meta:
+                elt["meta"] = new_meta
+                for reclist in new_meta.itervalues():
+                    for rec in reclist:
+                        cls.from_dbdict(rec)
+
+        if ("times" in elt["meta"] and elt["meta"]["times"] and
+                isinstance(elt["meta"]["times"], list) and
+                isinstance(elt["meta"]["times"][0], float)):
+            elt["meta"]["times"] = map(datetime.datetime.fromtimestamp,
+                                       elt["meta"]["times"])
+
+        if not elt["meta"]:
             del(elt["meta"])
+
+    @staticmethod
+    def _time_quad2date(time_quad):
+        """Transforms (year, month, date, hour) into datetime."""
+        return datetime.datetime(*time_quad)
 
     def host_details(self, node_id):
         q = """
@@ -786,37 +841,45 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
                              'COLLECT(DISTINCT LABELS(link)) AS labels, '
                              'HEAD(COLLECT(ID(link))) AS ref')
-            query.ret = ("""
-                RETURN {elt: src, meta: []},
-                       {meta: [],
-                        elt: {
-                            data: { count: t, labels: labels },
-                            metadata: {labels: ["TALK"], id: ref}
-                        }} as F,
-                       {elt: dst, meta: []}
-            """)
+            query.ret = (
+                "RETURN {elt: src, meta: []},\n"
+                "       {meta: [],\n"
+                "        elt: {\n"
+                "            data: { count: t, labels: labels },\n"
+                "            metadata: {labels: ['TALK'], id: ref}\n"
+                "        }} as F,\n"
+                "       {elt: dst, meta: []}\n"
+            )
 
         elif mode == "flow_map":
             query.add_clause('WITH src, dst, '
                              'COLLECT(DISTINCT [link.proto, link.dport]) AS flows, '
                              'HEAD(COLLECT(ID(link))) AS ref')
             query.add_clause('WITH src, dst, flows, ref, SIZE(flows) AS t')
-            query.ret = ("""
-                RETURN {elt: src, meta: []},
-                       {meta: [],
-                        elt: {
-                            data: { count: t, flows: flows },
-                            metadata: {labels: ["MERGED_FLOWS"], id: ref}
-                        }} as F,
-                       {elt: dst, meta: []}
-            """)
+            query.ret = (
+                "RETURN {elt: src, meta: []},\n"
+                "       {meta: [],\n"
+                "        elt: {\n"
+                "            data: { count: t, flows: flows },\n"
+                "            metadata: {labels: ['MERGED_FLOWS'], id: ref}\n"
+                "        }} as F,\n"
+                "       {elt: dst, meta: []}\n"
+            )
+        elif mode == "timeline":
+            query.add_clause(
+                "MATCH (link)-[:SEEN]->(t:Time)\n"
+                "WITH src, link, dst,\n"
+                "     COLLECT(t.time) AS times\n"
+                "WITH {elt: src, meta: [] } as src,\n"
+                "     {elt: link, meta: {times: times} } as link,\n"
+                "     {elt: dst, meta: [] } as dst\n"
+            )
         else:
-            query.add_clause("""
-            WITH {elt: src, meta: [] } as src,
-                 {elt: link, meta: [] } as link,
-                 {elt: dst, meta: [] } as dst
-            """)
-            query.ret = "RETURN src, link, dst"
+            query.ret = (
+                "RETURN {elt: src, meta: [] } as src,\n"
+                "     {elt: link, meta: [] } as link,\n"
+                "     {elt: dst, meta: [] } as dst\n"
+            )
 
 
         query.ret +=  " SKIP {skip} LIMIT {limit}"
@@ -901,10 +964,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def cursor2json_iter(cls, cursor):
         """Transforms a neo4j returned by executing a query into an iterator of
-        {src: <dict>, edge: <dict>, dst: <dict>}.
+        {src: <dict>, flow: <dict>, dst: <dict>}.
         """
-        for src, edge, dst in cursor:
-            map(cls._cleanup_record, (src, edge, dst))
+        for src, flow, dst in cursor:
+            map(cls._cleanup_record, (src, flow, dst))
             src_props = cls._get_props(src["elt"], src.get("meta"))
             src_ref = cls._get_ref(src["elt"], src_props)
             src_labels = cls._get_labels(src["elt"], src_props)
@@ -915,12 +978,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             dst_labels = cls._get_labels(dst["elt"], dst_props)
             dst_node = cls._node2json(dst_ref, dst_labels, dst_props)
 
-            edge_props = cls._get_props(edge["elt"], edge.get("meta"))
-            edge_ref = cls._get_ref(edge["elt"], edge_props)
-            edge_labels = cls._get_labels(edge["elt"], edge_props)
-            edge_node = cls._edge2json(edge_ref, src_ref, dst_ref, edge_labels,
-                                       edge_props)
-            yield {"src": src_node, "dst": dst_node, "edge": edge_node}
+            flow_props = cls._get_props(flow["elt"], flow.get("meta"))
+            flow_ref = cls._get_ref(flow["elt"], flow_props)
+            flow_labels = cls._get_labels(flow["elt"], flow_props)
+            flow_node = cls._edge2json(flow_ref, src_ref, dst_ref, flow_labels,
+                                       flow_props)
+            yield {"src": src_node, "dst": dst_node, "flow": flow_node}
 
 
     @classmethod
@@ -937,7 +1000,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         for row in cls.cursor2json_iter(cursor):
             for node, typ in ((row["src"], "nodes"),
-                              (row["edge"], "edges"),
+                              (row["flow"], "edges"),
                               (row["dst"], "nodes")):
                 if node["id"] not in done:
                     g[typ].append(node)
@@ -956,6 +1019,14 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 "flows": res['flows'],
                 "servers": res['servers']}
 
+    @classmethod
+    def _cursor2flow_daily(cls, cursor):
+        for row in cursor:
+            yield {"flow": "%s/%s" % tuple(row["flow"]),
+                   "time_in_day":
+                        datetime.datetime.fromtimestamp(row["time_in_day"]),
+                   "count": row["count"]}
+
     def from_filters(self, filters, limit=None, skip=0, mode=None):
         cypher_query = self._filters2cypher(filters, mode=mode, count=False,
                                             limit=limit, skip=skip)
@@ -970,12 +1041,30 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     def count(self, query):
         old_ret = query.ret
-        query.ret = """
-            RETURN count(distinct src) as clients,
-                   count(distinct link) as flows,
-                   count(distinct dst) as servers
-        """
+        query.ret = (
+            "RETURN count(distinct src) as clients,\n"
+            "       count(distinct link) as flows,\n"
+            "       count(distinct dst) as servers\n"
+        )
         counts = self.cursor2count(self.run(query))
+        query.ret = old_ret
+        return counts
+
+    def flow_daily(self, query):
+        """Returns a dict of {flow: {time_in_day: count}}
+
+        WARNING/FIXME: this mutates the query
+        """
+        old_ret = query.ret
+        query.add_clause(
+            "MATCH (link)-[:SEEN]->(t:Time)\n"
+            "WITH src, link, dst, t, (t.time % 86400) as time_in_day\n"
+            "WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,\n"
+            "     time_in_day, COUNT(*) AS count\n"
+        )
+        query.ret = ("RETURN flow, time_in_day, count "
+                     "ORDER BY flow[0], flow[1], time_in_day")
+        counts = self._cursor2flow_daily(self.run(query))
         query.ret = old_ret
         return counts
 
@@ -988,12 +1077,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     def _sanity_check(self):
         keys = {"dport": "f.dport", "proto": "f.proto"}
         key = self._key_from_attrs(keys)
-        q = """
-        MATCH (src:Host)-[:SEND]->(f:Flow)-[:TO]->(dst:Host)
-        WHERE f.proto IN ["udp", "tcp"] AND
-             f.__key__ <> %s
-        RETURN COUNT(f)
-        """ % key
+        q = (
+            "MATCH (src:Host)-[:SEND]->(f:Flow)-[:TO]->(dst:Host)\n"
+            "WHERE f.proto IN ['udp', 'tcp'] AND\n"
+            "     f.__key__ <> %s\n"
+            "RETURN COUNT(f)\n" % key
+        )
         cur = self.db.run(q)
         res = cur.evaluate()
         # TODO: fix it
@@ -1033,10 +1122,13 @@ MERGE (new_f)<-[:SEND]-(dst)
 %s
 WITH *
 MATCH (src)-[:SEND]->(df:Flow {sports: [sport]})-[:TO]->(dst)
+%s
 DETACH DELETE df
         """ % (
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
+            "MATCH (df)-[:SEEN]->(t:Time)\n"
+            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME else "",
         )
         if config.DEBUG:
             sys.stderr.write("Fixing client/server ports...\n")
@@ -1083,10 +1175,14 @@ MERGE (%s)
 MERGE (new_f)-[:TO]->(d2)
 MERGE (new_f)<-[:SEND]-(src)
 %s
+WITH *
+%s
 DETACH DELETE old_f
         """ % (
             self._gen_merge_elt("new_f", ["Flow"], {"__key__": new_key}),
             set_clause,
+            "MATCH (old_f)-[:SEEN]->(t:Time)\n"
+            "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME else "",
         )
 
         if config.DEBUG:
