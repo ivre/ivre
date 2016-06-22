@@ -104,7 +104,6 @@ class NetFlow(CmdParser):
         for field in ["start_time", "end_time"]:
             fields[field] = datetime.datetime.strptime(fields[field],
                                                        cls.timefmt)
-
         if srv_idx is None:
             srv_idx = (
                 1 if

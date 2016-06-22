@@ -158,7 +158,7 @@ class Neo4jDB(DB):
     @classmethod
     def _date_round(cls, date):
         if isinstance(date, datetime.datetime):
-            ts = datetime2timestamp(date)
+            ts = utils.datetime2timestamp(date)
         else:
             ts = date
         ts = ts - (ts % config.FLOW_TIME_PRECISION)
@@ -742,14 +742,14 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def _cleanup_record(cls, elt):
         for k, v in elt.iteritems():
-            if len(v) == 1 and isinstance(v, list) and \
+            if isinstance(v, list) and len(v) == 1 and \
                     isinstance(v[0], dict) and \
                     all(x == None for x in v[0].itervalues()):
                 elt[k] = []
 
         cls.from_dbdict(cls._get_props(elt["elt"]))
         new_meta = {}
-        if not isinstance(elt["meta"], dict):
+        if isinstance(elt["meta"], list):
             for rec in elt["meta"]:
                 if rec["info"] is None and rec["link"] is None:
                     continue
@@ -1050,7 +1050,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         query.ret = old_ret
         return counts
 
-    # FIXME: doc
     def flow_daily(self, query):
         """Returns a dict of {flow: {time_in_day: count}}
 
