@@ -31,7 +31,7 @@
     <script type="text/javascript" src="d3/js/topojson.v1.min.js"></script>
     <script type="text/javascript" src="an/js/angular.js"></script>
     <script type="text/javascript">
-      config = {};
+      var config = {};
     </script>
     <script type="text/javascript" src="config.js"></script>
     <script type="text/javascript" src="help.js"></script>
@@ -154,13 +154,9 @@
 	  This instance do not authorize uploads <small>(this is the
 	    default)</small>
 	</h1>
-	<p class="lead">To change this, set:
-	  <ul>
-	    <li><code>WEB_UPLOAD_OK</code> to <code>True</code>
-	      in <code>ivre.conf</code></li>
-	    <li><code>config.uploadok</code> to <code>true</code>
-	      in <code>config.js</code></li>
-	  </ul>
+	<p class="lead">
+	  To change this, set<code>WEB_UPLOAD_OK</code>
+	  to <code>True</code> in <code>ivre.conf</code>.
 	</p>
       </div>
     </div>

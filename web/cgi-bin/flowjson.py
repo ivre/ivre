@@ -23,17 +23,16 @@ import sys
 import time
 
 try:
-    imp = "ivre"
     from ivre import utils, webutils, config
     from ivre.db import db
     from ivre.utils import str2pyval
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
     sys.stdout.write(
-        'alert("ERROR: Could not import %s. Check the server\'s logs!");' % imp
+        'alert("ERROR: Could not import ivre. Check the server\'s logs!");'
     )
     sys.stderr.write(
-        "IVRE: ERROR: cannot import %s [%s (%r)].\n" % (imp, exc.message, exc)
+        "IVRE: ERROR: cannot import ivre [%s (%r)].\n" % (exc.message, exc)
     )
     sys.exit(0)
 
