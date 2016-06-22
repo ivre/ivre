@@ -289,10 +289,10 @@ ivreWebUi.factory("graphService", function () {
 
     function add_details(s, elt, data) {
         elt.has_details = true;
-        if (elt.labels.includes("Host")) {
+        if ($.inArray("Host", elt.labels) >= 0) {
             delete(data["elt"]);
             elt.details = data;
-        } else if (elt.labels.includes("Flow")) {
+        } else if ($.inArray("Flow", elt.labels) >= 0) {
             delete(data["elt"]);
             elt.details = data;
         } else {
@@ -315,15 +315,6 @@ ivreWebUi
     .controller('IvreFlowCtrl', function ($scope, $http, $compile,
                                           graphService, hashSync) {
         // Menu things
-        $scope.toggle_pane = function() {
-            $("#wrapper").toggleClass("toggled");
-            if ($scope.sigma !== undefined) {
-                // FIXME :(
-                $scope.sigma.renderers[0].resize();
-                $scope.sigma.refresh();
-            }
-        }
-
         $scope.enable_tab = function (tab_id) {
 	          $('.nav-tabs a[href="#' + tab_id + '"]').tab('show');
         };
@@ -459,9 +450,90 @@ ivreWebUi
           id: "talk_map",
         }];
 
+        $scope.draw_timeline = function(data) {
+            d3.select("#timeline")[0][0].innerHTML = '';
+	    var dr_w = 1000, dr_h = 10;
+            var vis = d3.select("#timeline")
+                .append("svg:svg")
+                .attr("viewBox", [0, 0, dr_w, dr_h])
+                .attr("class", "fullfill")
+                .attr("preserveAspectRatio", "none")
+                .append("svg:g");
+            var dates = [], counts = {};
+            data.edges.forEach(function(flow) {
+                flow.data.meta.times.forEach(function(date) {
+                    date = new Date(date.replace(" ", "T"));
+                    if(counts[date] === undefined) {
+                        dates.push(date);
+                        counts[date] = 1;
+                    }
+                    else {
+                        counts[date] += 1;
+                    }
+                });
+            });
+	    var time_prec = config.flow_time_precision * 1000;
+            var dateextent = d3.extent(dates),
+                alldates = Array.apply(
+                    0, Array((dateextent[1] - dateextent[0]) / time_prec + 1)
+                ).map(function(_, i) {
+                    return new Date(dateextent[0].getTime() + time_prec * i);
+                });
+            var width = Math.max((time_prec * dr_w / (
+                (dateextent[1] - dateextent[0] + time_prec)
+                    || time_prec)) - 1, 1);
+            var x = d3.time.scale()
+                .domain(dateextent)
+                .range([0, dr_w - width]);
+            var y = d3.scale.linear()
+                .domain([0, d3.max(dates, function(x) {return counts[x];})])
+                .range([0, dr_h]);
+
+            vis.append("g")
+                .selectAll("g.bar")
+                .data(dates)
+                .enter().append("svg:g")
+                .attr("class", "bar")
+                .attr("transform", function(d, i) {
+                    var ytr = dr_h - y(counts[d]);
+                    return "translate(" + x(d) + ", " + ytr + ")";
+                })
+                .append("svg:rect")
+                .attr("fill", "steelblue")
+                .attr("width", width)
+                .attr("height", function(d, i) {return y(counts[d]);});
+
+            vis.append("g")
+                .selectAll("g.bar")
+                .data(alldates)
+                .enter().append("svg:g")
+                .attr("class", "bar")
+                .attr("transform", function(d, i) {
+                    return "translate(" + x(d) + ")";
+                })
+                .append("svg:rect")
+                .attr("fill", "white")
+                .attr("fill-opacity", 0)
+                .attr("width", width)
+                .attr("height", dr_h)
+                .on("mouseover", function(d) {
+                    d3.select(this).attr("fill-opacity", 0.3);
+                })
+                .on("mouseout", function(d) {
+                    d3.select(this).attr("fill-opacity", 0);
+                })
+                .append("svg:title")
+                .text(function(d, i) {
+                    var count = (counts[d] || 0);
+                    return (d + ": " + count + " flow" +
+                            (count > 1 ? "s" : ""));
+                })
+        };
+
         $scope.update_graph_data = function () {
             r = $scope.query_ready;
             if (r.nodes && r.edges) {
+                var oldmode;
                 $scope.query.count = false;
                 $scope.load_json_url(config.cgibase + "?q=" +
                              encodeURIComponent(angular.toJson($scope.query)));
@@ -472,6 +544,12 @@ ivreWebUi
                          $scope.counts = data;
                      });
                 $scope.query.count = false;
+                oldmode = $scope.query.mode;
+                $scope.query.mode = "timeline";
+                $http.get(config.cgibase + "?q=" +
+                          encodeURIComponent(angular.toJson($scope.query)))
+                    .success($scope.draw_timeline);
+                $scope.query.mode = oldmode;
             }
         };
 

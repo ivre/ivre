@@ -941,10 +941,6 @@ var MENU_FLOW = {
     action: "document.location = $scope.get_href('index.html', true)",
     icon: "home",
   },
-  {title: "Menu",
-    action: "$scope.toggle_pane();",
-    icon: "option-vertical",
-  },
   ]
 };
 
