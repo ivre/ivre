@@ -35,4 +35,5 @@ var config = {
     "warn_dots_count": 20000,
     "publicsrv": false,
     "uploadok": false,
+    "flow_time_precision": 3600,
 };

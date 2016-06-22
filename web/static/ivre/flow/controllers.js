@@ -471,15 +471,16 @@ ivreWebUi
                     }
                 });
             });
+	    var time_prec = config.flow_time_precision;
             var dateextent = d3.extent(dates),
                 alldates = Array.apply(
-                    0, Array((dateextent[1] - dateextent[0]) / 3600000 + 1)
+                    0, Array((dateextent[1] - dateextent[0]) / (time_prec * 1000) + 1)
                 ).map(function(_, i) {
-                    return new Date(dateextent[0].getTime() + 3600000 * i);
+                    return new Date(dateextent[0].getTime() + time_prec * 1000 * i);
                 });
-            var width = Math.max((3600000000 / (
-                (dateextent[1] - dateextent[0] + 3600000)
-                    || 3600000)) - 1, 1);
+            var width = Math.max((time_prec * 1000000 / (
+                (dateextent[1] - dateextent[0] + time_prec * 1000)
+                    || time_prec * 1000)) - 1, 1);
             var x = d3.time.scale()
                 .domain(dateextent)
                 .range([0, 1000 - width]);
