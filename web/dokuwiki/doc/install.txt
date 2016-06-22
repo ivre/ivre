@@ -138,9 +138,8 @@ using Apache; you can use the provided ''%%Dockerfile%%''s as examples on\\
 how to configure Apache or Nginx) and adding ''%%$conf['userewrite'] = 1%%''\\
 in your Dokuwiki config file.
 
-You may want to change some values, by creating the file\\
-''%%[PREFIX]/share/ivre/web/static/config.js%%'' based on the ''%%-sample%%''\\
-file and by creating or modifying ''%%/etc/ivre.conf%%''.
+You may want to change some values, by creating or modifying\\
+''%%/etc/ivre.conf%%''.
 
 On a typical Debian/Ubuntu installation with Apache and Dokuwiki\\
 installed with the distribution packages, these files should be copied\\
@@ -154,9 +153,6 @@ or (sym)linked at these locations:
 -> ''%%/var/lib/dokuwiki/data/media/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/doc%%''\\
 -> ''%%/var/lib/dokuwiki/data/media/%%''
-
-The value ''%%WEB_LIMIT%%'' from IVRE's configuration must match the value\\
-''%%limit%%'' in the ''%%dflt%%'' object in ''%%config.js%%''.
 
 ==== Getting HTTP screenshots ====
 

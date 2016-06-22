@@ -109,11 +109,10 @@ FLOW_TIME_PRECISION = 3600
 FLOW_TIME_FULL_RANGE = False
 
 WEB_ALLOWED_REFERERS = None
+WEB_NOTES_BASE = "/dokuwiki/#IP#"
 WEB_MAXRESULTS = None
 WEB_WARN_DOTS_COUNT = 20000
 WEB_GET_NOTEPAD_PAGES = None
-# if overwritten, this value must match its counterpart in the
-# config.js config file config.dflt.limit.
 WEB_LIMIT = 10
 WEB_GRAPH_LIMIT = 1000
 # access control disabled by default:
