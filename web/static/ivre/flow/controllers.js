@@ -452,9 +452,10 @@ ivreWebUi
 
         $scope.draw_timeline = function(data) {
             d3.select("#timeline")[0][0].innerHTML = '';
+	    var dr_w = 1000, dr_h = 10;
             var vis = d3.select("#timeline")
                 .append("svg:svg")
-                .attr("viewBox", [0, 0, 1000, 10])
+                .attr("viewBox", [0, 0, dr_w, dr_h])
                 .attr("class", "fullfill")
                 .attr("preserveAspectRatio", "none")
                 .append("svg:g");
@@ -471,22 +472,22 @@ ivreWebUi
                     }
                 });
             });
-	    var time_prec = config.flow_time_precision;
+	    var time_prec = config.flow_time_precision * 1000;
             var dateextent = d3.extent(dates),
                 alldates = Array.apply(
-                    0, Array((dateextent[1] - dateextent[0]) / (time_prec * 1000) + 1)
+                    0, Array((dateextent[1] - dateextent[0]) / time_prec + 1)
                 ).map(function(_, i) {
-                    return new Date(dateextent[0].getTime() + time_prec * 1000 * i);
+                    return new Date(dateextent[0].getTime() + time_prec * i);
                 });
-            var width = Math.max((time_prec * 1000000 / (
-                (dateextent[1] - dateextent[0] + time_prec * 1000)
-                    || time_prec * 1000)) - 1, 1);
+            var width = Math.max((time_prec * dr_w / (
+                (dateextent[1] - dateextent[0] + time_prec)
+                    || time_prec)) - 1, 1);
             var x = d3.time.scale()
                 .domain(dateextent)
-                .range([0, 1000 - width]);
+                .range([0, dr_w - width]);
             var y = d3.scale.linear()
                 .domain([0, d3.max(dates, function(x) {return counts[x];})])
-                .range([0, 10]);
+                .range([0, dr_h]);
 
             vis.append("g")
                 .selectAll("g.bar")
@@ -494,7 +495,7 @@ ivreWebUi
                 .enter().append("svg:g")
                 .attr("class", "bar")
                 .attr("transform", function(d, i) {
-                    var ytr = 10 - y(counts[d]);
+                    var ytr = dr_h - y(counts[d]);
                     return "translate(" + x(d) + ", " + ytr + ")";
                 })
                 .append("svg:rect")
@@ -514,7 +515,7 @@ ivreWebUi
                 .attr("fill", "white")
                 .attr("fill-opacity", 0)
                 .attr("width", width)
-                .attr("height", 10)
+                .attr("height", dr_h)
                 .on("mouseover", function(d) {
                     d3.select(this).attr("fill-opacity", 0.3);
                 })
