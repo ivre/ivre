@@ -316,7 +316,7 @@ ivreWebUi
                                           graphService, hashSync) {
         // Menu things
         $scope.enable_tab = function (tab_id) {
-	          $('.nav-tabs a[href="#' + tab_id + '"]').tab('show');
+            $('.nav-tabs a[href="#' + tab_id + '"]').tab('show');
         };
 
         // Sigma things
@@ -450,32 +450,48 @@ ivreWebUi
           id: "talk_map",
         }];
 
+        $scope.flow_to_date = {};
+        $scope.date_to_flow = {};
         $scope.draw_timeline = function(data) {
             d3.select("#timeline")[0][0].innerHTML = '';
-	    var dr_w = 1000, dr_h = 10;
+            var dr_w = 1000, dr_h = 10;
+            var time_prec = config.flow_time_precision * 1000;
             var vis = d3.select("#timeline")
                 .append("svg:svg")
                 .attr("viewBox", [0, 0, dr_w, dr_h])
                 .attr("class", "fullfill")
                 .attr("preserveAspectRatio", "none")
                 .append("svg:g");
+
             var dates = [], counts = {};
+            $scope.date_to_flow = {};
+            $scope.flow_to_date = {};
             data.edges.forEach(function(flow) {
                 flow.data.meta.times.forEach(function(date) {
                     date = new Date(date.replace(" ", "T"));
-                    if(counts[date] === undefined) {
+                    date = new Date(date - (date % time_prec))
+                    if ($scope.date_to_flow[date] === undefined) {
                         dates.push(date);
-                        counts[date] = 1;
+                        $scope.date_to_flow[date] = new Set();
                     }
-                    else {
-                        counts[date] += 1;
+                    $scope.date_to_flow[date].add(flow.id);
+
+                    if ($scope.flow_to_date[flow.id] === undefined) {
+                        $scope.flow_to_date[flow.id] = new Set();
                     }
+                    $scope.flow_to_date[flow.id].add(date);
                 });
             });
-	    var time_prec = config.flow_time_precision * 1000;
-            var dateextent = d3.extent(dates),
-                alldates = Array.apply(
-                    0, Array((dateextent[1] - dateextent[0]) / time_prec + 1)
+
+            for (date in $scope.date_to_flow) {
+                counts[date] = $scope.date_to_flow[date].size;
+            }
+
+            var dateextent = d3.extent(dates);
+            var alldates = Array.apply(
+                    0,
+                    Array(Math.ceil((dateextent[1] - dateextent[0]) / time_prec)
+                          + 1)
                 ).map(function(_, i) {
                     return new Date(dateextent[0].getTime() + time_prec * i);
                 });
@@ -524,8 +540,9 @@ ivreWebUi
                 })
                 .append("svg:title")
                 .text(function(d, i) {
-                    var count = (counts[d] || 0);
-                    return (d + ": " + count + " flow" +
+                    var date = new Date(d - (d % time_prec))
+                    var count = (counts[date] || 0);
+                    return (date + ": " + count + " flow" +
                             (count > 1 ? "s" : ""));
                 })
         };
