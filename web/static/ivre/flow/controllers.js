@@ -578,8 +578,6 @@ ivreWebUi
             if (flow_id === undefined && $scope.cur_elt !== undefined) {
                 flow_id = $scope.cur_elt.id;
             }
-
-            console.log(flow_id, $scope.flow_to_date[flow_id]);
             d3.selectAll(".timeline-highlight")
                 .each(function (d, i) {
                     var date = new Date(d - (d % time_prec));
