@@ -367,7 +367,12 @@ ivreWebUi
                 $scope.$apply(function () {
                     $scope.hover_elt = elt;
                     $scope.cur_elt = elt || $scope.clicked_elt;
-                    var type = elt == node ? "node" : edge;
+                    var type = elt == node ? "node" : "edge";
+                    if (type == "edge") {
+                        $scope.timeline_highlight_flow(elt.id);
+                    } else {
+                        $scope.timeline_highlight_flow(undefined);
+                    }
                 });
 
             });
@@ -472,20 +477,22 @@ ivreWebUi
                     date = new Date(date - (date % time_prec))
                     if ($scope.date_to_flow[date] === undefined) {
                         dates.push(date);
-                        $scope.date_to_flow[date] = new Set();
+                        $scope.date_to_flow[date] = {};
                     }
-                    $scope.date_to_flow[date].add(flow.id);
+                    $scope.date_to_flow[date][flow.id] = true;
 
                     if ($scope.flow_to_date[flow.id] === undefined) {
-                        $scope.flow_to_date[flow.id] = new Set();
+                        $scope.flow_to_date[flow.id] = {};
                     }
-                    $scope.flow_to_date[flow.id].add(date);
+                    $scope.flow_to_date[flow.id][date] = true;
                 });
             });
 
             for (date in $scope.date_to_flow) {
-                counts[date] = $scope.date_to_flow[date].size;
+                counts[date] = Object.keys($scope.date_to_flow[date]).length;
             }
+
+            //console.log($scope.flow_to_date);
 
             var dateextent = d3.extent(dates);
             var alldates = Array.apply(
@@ -517,7 +524,7 @@ ivreWebUi
                 .append("svg:rect")
                 .attr("fill", "steelblue")
                 .attr("width", width)
-                .attr("height", function(d, i) {return y(counts[d]);});
+                .attr("height", function(d, i) {return y(counts[d]);})
 
             vis.append("g")
                 .selectAll("g.bar")
@@ -532,6 +539,7 @@ ivreWebUi
                 .attr("fill-opacity", 0)
                 .attr("width", width)
                 .attr("height", dr_h)
+                .attr("class", "timeline-highlight")
                 .on("mouseover", function(d) {
                     d3.select(this).attr("fill-opacity", 0.3);
                 })
@@ -545,6 +553,26 @@ ivreWebUi
                     return (date + ": " + count + " flow" +
                             (count > 1 ? "s" : ""));
                 })
+
+        };
+
+        $scope.timeline_highlight_flow = function (flow_id) {
+            var time_prec = config.flow_time_precision * 1000;
+            if (flow_id === undefined && $scope.cur_elt !== undefined) {
+                flow_id = $scope.cur_elt.id;
+            }
+
+            console.log(flow_id, $scope.flow_to_date[flow_id]);
+            d3.selectAll(".timeline-highlight")
+                .each(function (d, i) {
+                    var date = new Date(d - (d % time_prec));
+                    if ($scope.flow_to_date[flow_id] !== undefined &&
+                            $scope.flow_to_date[flow_id][date]) {
+                        d3.select(this).attr("fill-opacity", 0.3);
+                    } else {
+                        d3.select(this).attr("fill-opacity", 0);
+                    }
+                });
         };
 
         $scope.update_graph_data = function () {
