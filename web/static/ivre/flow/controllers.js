@@ -384,12 +384,7 @@ ivreWebUi
                 $scope.$apply(function () {
                     $scope.hover_elt = elt;
                     $scope.cur_elt = elt || $scope.clicked_elt;
-                    var type = elt == node ? "node" : "edge";
-                    if (type == "edge") {
-                        $scope.timeline_highlight_flow(elt.id);
-                    } else {
-                        $scope.timeline_highlight_flow(undefined);
-                    }
+                    $scope.timeline_highlight_flow($scope.cur_elt);
                 });
 
             });
@@ -583,16 +578,29 @@ ivreWebUi
 
         };
 
-        $scope.timeline_highlight_flow = function (flow_id) {
+        $scope.timeline_highlight_flow = function (elt) {
             var time_prec = config.flow_time_precision * 1000;
-            if (flow_id === undefined && $scope.cur_elt !== undefined) {
-                flow_id = $scope.cur_elt.id;
+            if (elt === undefined) {
+                elts = [];
+            }
+            else if (elt.labels[0] === "Host") {
+                elts = $scope.sigma.graph.adjacentEdges(elt.id);
+            }
+            else {
+                elts = [elt];
             }
             d3.selectAll(".timeline-highlight")
                 .each(function (d, i) {
-                    var date = new Date(d - (d % time_prec));
-                    if ($scope.flow_to_date[flow_id] !== undefined &&
-                            $scope.flow_to_date[flow_id][date]) {
+                    var date = new Date(d - (d % time_prec)),
+                        highlight = false;
+                    for(var i = 0; i < elts.length; i++) {
+                        var fl_to_date = $scope.flow_to_date[elts[i].id];
+                        if(fl_to_date !== undefined && fl_to_date[date]) {
+                            highlight = true;
+                            break;
+                        }
+                    }
+                    if(highlight) {
                         d3.select(this).attr("fill-opacity", 0.2);
                     } else {
                         d3.select(this).attr("fill-opacity", 0);
