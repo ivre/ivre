@@ -8,7 +8,7 @@
   <table class="table table-hover table-striped table-condensed">
     <tbody>
       <tr ng-repeat="(key, value) in cur_elt.data"
-          ng-if="!key.startsWith('__')">
+          ng-if="!key.startsWith('__') && key != 'meta'">
         <th class="key">{{key}}</th>
         <td>
           <div ng-switch="is_array(value)">

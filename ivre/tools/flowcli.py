@@ -72,7 +72,9 @@ def main():
                         help='When using --top, sum on these properties to '
                         'order the result.')
     parser.add_argument('--mode', '-m',
-                        help="Query special mode (flow_map, timeline...)")
+                        help="Query special mode (flow_map, talk_map...)")
+    parser.add_argument('--timeline', '-T', action="store_true",
+                        help='Retrieves the timeline of each flow')
     parser.add_argument('--flow-daily', action="store_true",
                         help="Flow count per times of the day")
     parser.add_argument('--plot', action="store_true",
@@ -113,6 +115,7 @@ def main():
                "edges": args.flow_filters or []}
 
     query = db.flow.from_filters(filters, mode=args.mode,
+                                 timeline=args.timeline,
                                  skip=args.skip, limit=args.limit)
     sep = args.separator or ' | '
     coma = ';' if args.separator else '; '
@@ -182,7 +185,7 @@ def main():
                     fmt = ('%%-%ds%s%%-%ds%s%%-%ds' %
                            (node_width, sep, flow_width, sep, node_width))
                 out.write(fmt % (src, flow, dst))
-                if args.mode == "timeline":
+                if args.timeline:
                     out.write(sep)
                     out.write(coma.join(
                         map(str, sorted(res['flow']['data']['meta']['times'])))

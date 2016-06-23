@@ -67,6 +67,7 @@ def main():
     skip = query.get("skip", config.WEB_GRAPH_LIMIT)
     mode = query.get("mode", "default")
     count = query.get("count", False)
+    timeline = query.get("timeline", False)
     log.info("Query: %s", query)
 
     if action == "details":
@@ -76,7 +77,8 @@ def main():
         else:
             res = db.flow.flow_details(query["id"])
     else:
-        cquery = db.flow.from_filters(query, limit=limit, skip=skip, mode=mode)
+        cquery = db.flow.from_filters(query, limit=limit, timeline=timeline,
+                                      skip=skip, mode=mode)
         if count:
             res = db.flow.count(cquery)
         else:

@@ -835,7 +835,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return node
 
     @classmethod
-    def _filters2cypher(cls, queries, mode=None, count=False, limit=None,
+    def _filters2cypher(cls, queries, mode=None, timeline=False, limit=None,
                         skip=0):
         limit = config.WEB_GRAPH_LIMIT if limit is None else limit
         query = cls.query(
@@ -849,14 +849,14 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
                              'COLLECT(DISTINCT LABELS(link)) AS labels, '
                              'HEAD(COLLECT(ID(link))) AS ref')
-            query.ret = (
-                "RETURN {elt: src, meta: []},\n"
-                "       {meta: [],\n"
-                "        elt: {\n"
-                "            data: { count: t, labels: labels },\n"
-                "            metadata: {labels: ['TALK'], id: ref}\n"
-                "        }} as F,\n"
-                "       {elt: dst, meta: []}\n"
+            query.add_clause(
+                "WITH {elt: src, meta: []} as src,\n"
+                "     {meta: [],\n"
+                "      elt: {\n"
+                "          data: { count: t, labels: labels },\n"
+                "          metadata: {labels: ['TALK'], id: ref}\n"
+                "      }} as link,\n"
+                "     {elt: dst, meta: []} as dst\n"
             )
 
         elif mode == "flow_map":
@@ -864,30 +864,32 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                              'COLLECT(DISTINCT [link.proto, link.dport]) AS flows, '
                              'HEAD(COLLECT(ID(link))) AS ref')
             query.add_clause('WITH src, dst, flows, ref, SIZE(flows) AS t')
-            query.ret = (
-                "RETURN {elt: src, meta: []},\n"
-                "       {meta: [],\n"
-                "        elt: {\n"
-                "            data: { count: t, flows: flows },\n"
-                "            metadata: {labels: ['MERGED_FLOWS'], id: ref}\n"
-                "        }} as F,\n"
-                "       {elt: dst, meta: []}\n"
-            )
-        elif mode == "timeline":
             query.add_clause(
-                "MATCH (link)-[:SEEN]->(t:Time)\n"
-                "WITH src, link, dst,\n"
-                "     COLLECT(t.time) AS times\n"
-                "WITH {elt: src, meta: [] } as src,\n"
-                "     {elt: link, meta: {times: times} } as link,\n"
-                "     {elt: dst, meta: [] } as dst\n"
+                "WITH {elt: src, meta: []} as src,\n"
+                "     {meta: [],\n"
+                "      elt: {\n"
+                "          data: { count: t, flows: flows },\n"
+                "          metadata: {labels: ['MERGED_FLOWS'], id: ref}\n"
+                "      }} as link,\n"
+                "     {elt: dst, meta: []} as dst\n"
             )
         else:
-            query.ret = (
-                "RETURN {elt: src, meta: [] } as src,\n"
-                "     {elt: link, meta: [] } as link,\n"
-                "     {elt: dst, meta: [] } as dst\n"
-            )
+            if timeline:
+                query.add_clause(
+                    "MATCH (link)-[:SEEN]->(t:Time)\n"
+                    "WITH src, link, dst,\n"
+                    "     COLLECT(t.time) AS times\n"
+                    "WITH {elt: src, meta: [] } as src,\n"
+                    "     {elt: link, meta: {times: times} } as link,\n"
+                    "     {elt: dst, meta: [] } as dst\n"
+                )
+            else:
+                query.add_clause(
+                    "WITH {elt: src, meta: [] } as src,\n"
+                    "       {elt: link, meta: [] } as link,\n"
+                    "       {elt: dst, meta: [] } as dst\n"
+                )
+        query.ret = "RETURN src, link, dst"
         return query
 
     @staticmethod
@@ -1041,9 +1043,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 "collected": row["collected"],
             }
 
-    def from_filters(self, filters, limit=None, skip=0, mode=None):
-        cypher_query = self._filters2cypher(filters, mode=mode, count=False,
-                                            limit=limit, skip=skip)
+    def from_filters(self, filters, limit=None, timeline=False,
+                     skip=0, mode=None):
+        cypher_query = self._filters2cypher(filters, mode=mode,
+                                            timeline=timeline, limit=limit,
+                                            skip=skip)
         return cypher_query
 
     def to_graph(self, query):
@@ -1076,6 +1080,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         WARNING/FIXME: this mutates the query
         """
         query.add_clause(
+            "WITH src.elt as src, link.elt as link, dst.elt as dst\n"
             "MATCH (link)-[:SEEN]->(t:Time)\n"
             "WITH src, link, dst, t, (t.time % 86400) as time_in_day\n"
             "WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,\n"
@@ -1107,6 +1112,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         cy_collect = "[%s]" % ', '.join(collect)
         cy_sumfields = "SUM(%s)" % ' + '.join(sumfields)
         query.add_clause(
+            "WITH src.elt as src, link.elt as link, dst.elt as dst\n"
             "WITH %s as fields, %s as count, %s as collected" %
             (cy_fields,
              "COUNT(*)" if not sumfields else cy_sumfields,
