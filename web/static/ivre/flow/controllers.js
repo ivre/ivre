@@ -90,13 +90,6 @@ ivreWebUi.directive("sigmaGraph", function () {
 
             sigma.canvas.edges.autoCurve(s)
 
-            s.bind('clickNode doubleClickNode rightClickNode', function(e) {
-                console.log(e.data.node);
-            });
-            s.bind('clickEdge doubleClickEdge rightClickEdge', function(e) {
-                console.log(e.data.edge);
-            });
-
             scope[attrs.sigma] = s;
             scope.$eval(on_load);
         }
@@ -364,13 +357,13 @@ ivreWebUi
 
         $scope.click_elt = function (elt, type, force) {
             $scope.enable_tab("menu-tab-details");
-            if (typeof elt !== "undefined") {
-                $scope.$apply(function (){
-                    $scope.clicked_elt = elt;
-                    $scope.cur_elt = elt;
+            $scope.$apply(function (){
+                $scope.clicked_elt = elt;
+                $scope.cur_elt = elt;
+                if (typeof elt !== "undefined") {
                     $scope.elt_details(elt, type, force);
-                });
-            }
+                }
+            });
         };
 
         $scope.init_flow = function() {
@@ -402,6 +395,10 @@ ivreWebUi
             $scope.sigma.bind('doubleClickEdge clickEdge rightClickEdge', function(e) {
                 var edge = e.data.edge;
                 $scope.click_elt(edge, "edge", e.type == 'doubleClickEdge');
+            });
+
+            $scope.sigma.bind('clickStage doubleClickStage rightClickStage', function(e) {
+                $scope.click_elt(undefined);
             });
 
             var tooltip_render = function(node, template) {
@@ -515,8 +512,6 @@ ivreWebUi
             for (date in $scope.date_to_flow) {
                 counts[date] = Object.keys($scope.date_to_flow[date]).length;
             }
-
-            //console.log($scope.flow_to_date);
 
             var dateextent = d3.extent(dates);
             var alldates = Array.apply(
