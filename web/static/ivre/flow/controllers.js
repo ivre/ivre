@@ -442,6 +442,7 @@ ivreWebUi
                                $scope.graph_filters);
             graphService.enable_halo($scope.sigma);
             $scope.update_graph_display();
+            $scope.draw_timeline(data);
         };
 
         $scope.load_json_url = function (url) {
@@ -457,6 +458,7 @@ ivreWebUi
             limit: 1000,
             skip: 0,
             mode: "default",
+            timeline: true,
         };
         hashSync.sync($scope, 'query', 'query', 'val');
 
@@ -476,6 +478,11 @@ ivreWebUi
         $scope.date_to_flow = {};
         $scope.draw_timeline = function(data) {
             d3.select("#timeline")[0][0].innerHTML = '';
+            if (!data.edges || !data.edges[0] || !data.edges[0].data ||
+                    !data.edges[0].data.meta ||
+                    !data.edges[0].data.meta.times) {
+                return;
+            }
             var dr_w = 1000, dr_h = 10;
             var time_prec = config.flow_time_precision * 1000;
             var vis = d3.select("#timeline")
@@ -558,10 +565,13 @@ ivreWebUi
                 .attr("height", dr_h)
                 .attr("class", "timeline-highlight")
                 .on("mouseover", function(d) {
-                    d3.select(this).attr("fill-opacity", 0.3);
+                    var rect = d3.select(this);
+                    rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
+                    rect.attr("fill-opacity", 0.4);
                 })
                 .on("mouseout", function(d) {
-                    d3.select(this).attr("fill-opacity", 0);
+                    var rect = d3.select(this);
+                    rect.attr("fill-opacity", rect.attr("old-fill-opacity"));
                 })
                 .append("svg:title")
                 .text(function(d, i) {
@@ -583,7 +593,7 @@ ivreWebUi
                     var date = new Date(d - (d % time_prec));
                     if ($scope.flow_to_date[flow_id] !== undefined &&
                             $scope.flow_to_date[flow_id][date]) {
-                        d3.select(this).attr("fill-opacity", 0.3);
+                        d3.select(this).attr("fill-opacity", 0.2);
                     } else {
                         d3.select(this).attr("fill-opacity", 0);
                     }
@@ -593,7 +603,6 @@ ivreWebUi
         $scope.update_graph_data = function () {
             r = $scope.query_ready;
             if (r.nodes && r.edges) {
-                var oldmode;
                 $scope.query.count = false;
                 $scope.load_json_url(config.cgibase + "?q=" +
                              encodeURIComponent(angular.toJson($scope.query)));
@@ -604,12 +613,6 @@ ivreWebUi
                          $scope.counts = data;
                      });
                 $scope.query.count = false;
-                oldmode = $scope.query.mode;
-                $scope.query.mode = "timeline";
-                $http.get(config.cgibase + "?q=" +
-                          encodeURIComponent(angular.toJson($scope.query)))
-                    .success($scope.draw_timeline);
-                $scope.query.mode = oldmode;
             }
         };
 
