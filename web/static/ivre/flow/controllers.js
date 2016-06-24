@@ -360,6 +360,7 @@ ivreWebUi
             $scope.$apply(function (){
                 $scope.clicked_elt = elt;
                 $scope.cur_elt = elt;
+                $scope.timeline_highlight_flow($scope.cur_elt);
                 if (typeof elt !== "undefined") {
                     $scope.elt_details(elt, type, force);
                 }
