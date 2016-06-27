@@ -494,9 +494,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         "Modbus": ["__key__"],
         "SNMP": ["__key__"],
         "Time": ["time"],
+        "Name": ["name"],
     }
     node_labels = ["Host", "Mac", "Wlan", "DNS", "Flow", "HTTP", "SSL", "SSH",
-                   "SIP", "Modbus", "SNMP", "Time"]
+                   "SIP", "Modbus", "SNMP", "Time", "Name"]
 
     LABEL2NAME = {}
 
