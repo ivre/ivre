@@ -744,6 +744,8 @@ creates the default indexes."""
                         updated = True
                     elif "vulns" in script:
                         table = script["vulns"]
+                    else:
+                        continue
                     newtable = xmlnmap.change_vulns(table)
                     if newtable != table:
                         script["vulns"] = newtable
