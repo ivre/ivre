@@ -360,6 +360,7 @@ ivreWebUi
             $scope.$apply(function (){
                 $scope.clicked_elt = elt;
                 $scope.cur_elt = elt;
+                $scope.timeline_highlight_flow($scope.cur_elt);
                 if (typeof elt !== "undefined") {
                     $scope.elt_details(elt, type, force);
                 }
@@ -469,6 +470,12 @@ ivreWebUi
         $scope.flow_to_date = {};
         $scope.date_to_flow = {};
         $scope.draw_timeline = function(data) {
+            if(data === undefined) {
+                data = $scope.timeline_data;
+            }
+            else {
+                $scope.timeline_data = data;
+            }
             d3.select("#timeline")[0][0].innerHTML = '';
             if (!data.edges || !data.edges[0] || !data.edges[0].data ||
                     !data.edges[0].data.meta ||
@@ -476,7 +483,19 @@ ivreWebUi
                 return;
             }
             var dr_w = 1000, dr_h = 10;
-            var time_prec = config.flow_time_precision * 1000;
+            var timerange = d3.extent(data.edges.reduce(function(dates, flow) {
+                return dates.concat(flow.data.meta.times.map(function(date) {
+                    date = new Date(date.replace(" ", "T"));
+                    date = new Date(date - (date % config.flow_time_precision));
+                    return date;
+                }));
+            }, [])).reduce(function(x, y) {return y - x});
+            var time_prec = $scope.time_prec = (
+                this.max_time_slots > 1 ?
+                    Math.max(timerange / (this.max_time_slots - 1),
+                             config.flow_time_precision * 1000) :
+                    config.flow_time_precision * 1000
+            );
             var vis = d3.select("#timeline")
                 .append("svg:svg")
                 .attr("viewBox", [0, 0, dr_w, dr_h])
@@ -490,7 +509,7 @@ ivreWebUi
             data.edges.forEach(function(flow) {
                 flow.data.meta.times.forEach(function(date) {
                     date = new Date(date.replace(" ", "T"));
-                    date = new Date(date - (date % time_prec))
+                    date = new Date(date - (date % time_prec));
                     if ($scope.date_to_flow[date] === undefined) {
                         dates.push(date);
                         $scope.date_to_flow[date] = {};
@@ -574,7 +593,7 @@ ivreWebUi
         };
 
         $scope.timeline_highlight_flow = function (elt) {
-            var time_prec = config.flow_time_precision * 1000;
+            var time_prec = $scope.time_prec;
             if (elt === undefined) {
                 elts = [];
             }
@@ -736,6 +755,7 @@ ivreWebUi
 
         $scope.edge_size_scaling = 0;
         $scope.node_size_scaling = 2;
+        $scope.max_time_slots = 100;
         hashSync.sync($scope, 'node_size_scaling', 'node_size_scaling');
         hashSync.sync($scope, 'edge_size_scaling', 'edge_size_scaling');
         $scope.update_graph_display = function () {

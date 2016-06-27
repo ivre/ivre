@@ -111,12 +111,12 @@
               </div>
               <div role="tabpanel" class="tab-pane" id="menu-tab-layout">
                 <ul class="nav">
-                  <li class="sidebox-header">
-                    <i class="glyphicon glyphicon-resize-full black"></i>
-                    Nodes
-                  </li>
                   <form class="form-horizontal"
                         ng-submit="update_graph_display()">
+                    <li class="sidebox-header">
+                      <i class="glyphicon glyphicon-resize-full black"></i>
+                      Nodes
+                    </li>
                     <div class="form-group">
                       <label for="node_size" class="col-md-4 control-label">
                         Size
@@ -161,8 +161,26 @@
                                ng-change="update_graph_display()"/>
                       </div>
                     </div>
+                  </form>
+                  <form class="form-horizontal"
+                        ng-submit="draw_timeline()"
+                        ng-if="query.timeline">
+                    <li class="sidebox-header" ng-if="query.timeline">
+                      <i class="glyphicon glyphicon-resize-full black"></i>
+                      Timeline
+                    </li>
                     <input type="submit" tabindex="-1"
                            style="position: absolute; left: -1000px; width: 1px; height: 1px;"/>
+                    <div class="form-group">
+                      <label for="max_time_slots" class="col-md-4 control-label">
+                        Max time slots
+                      </label>
+                      <div class="col-md-8">
+                        <input type="number" id="max_time_slots"
+                               class="form-control"
+                               ng-model="max_time_slots"/>
+                      </div>
+                    </div>
                   </form>
                 </ul>
               </div>
@@ -179,16 +197,16 @@
       </div>
 
       <div class="col-xs-12 col-md-9 fill">
-	<div class="row main">
-	  <div class="col-xs-12 fill">
+        <div class="row main">
+          <div class="col-xs-12 fill">
           <sigma-graph id="graph-container" sigma="sigma"
                        on-load="init_flow();"/>
-	  </div>
-	</div>
-	<div class="row status">
-	  <div id="timeline" class="fill">
-	  </div>
-	</div>
+          </div>
+        </div>
+        <div class="row status">
+          <div id="timeline" class="fill">
+          </div>
+        </div>
 
       </div>
     </div>
