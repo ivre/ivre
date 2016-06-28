@@ -55,7 +55,7 @@ class Argus(CmdParser):
 
     @classmethod
     def parse_line(cls, line):
-        fields = {name: val.strip() for name, val in izip(cls.fields, line.split(","))}
+        fields = dict((name, val.strip()) for name, val in izip(cls.fields, line.split(",")))
         for fld in ["sport", "dport"]:
             try:
                 fields[fld] = int(

@@ -41,7 +41,7 @@ class NetFlow(CmdParser):
         ("bytes2", "%ibyt"),
         ("flags", "%flg"),
     ]
-    field_idx = {fld: idx for idx, (fld, _) in enumerate(fields)}
+    field_idx = dict((fld, idx) for idx, (fld, _) in enumerate(fields))
     fmt = 'fmt:' + ','.join(fmt for _, fmt in fields)
     units = {
         'K': 1000,
@@ -81,7 +81,7 @@ class NetFlow(CmdParser):
 
     @classmethod
     def parse_line(cls, line):
-        fields = {name[0]: val.strip() for name, val in izip(cls.fields, line.split(","))}
+        fields = dict((name[0], val.strip()) for name, val in izip(cls.fields, line.split(",")))
         fields["proto"] = fields["proto"].lower()
         srv_idx = None
         if fields["proto"] == "icmp":
