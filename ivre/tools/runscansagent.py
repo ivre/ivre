@@ -21,8 +21,9 @@ import ivre.utils
 import ivre.scanengine
 
 import os
-import sys
+import shlex
 import subprocess
+import sys
 
 MAINDIR = "./agentsdata"
 
@@ -87,12 +88,15 @@ def main():
         ivre.scanengine.syncloop(agents)
     elif args.action in [ACTION_FEED, ACTION_BOTH]:
         if args.action == ACTION_BOTH:
+            argv = (shlex.split(sys.argv[0]) + sys.argv[1:]
+                    if sys.argv and sys.argv[0].startswith('ivre ')
+                    else sys.argv)
             # we make sure we're in screen
             if os.environ['TERM'] != 'screen':
-                subprocess.call(['screen'] + sys.argv)
+                subprocess.call(['screen'] + argv)
                 sys.exit(0)
             # we run the sync process in another screen window
-            subprocess.call(['screen'] + sys.argv + ['--sync'])
+            subprocess.call(['screen'] + argv + ['--sync'])
         targets = ivre.target.target_from_args(args)
         if targets is None:
             parser.error(
