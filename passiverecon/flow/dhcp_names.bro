@@ -6,6 +6,7 @@
 @load policy/frameworks/software/windows-version-detection
 @load policy/protocols/ftp/detect
 
+
 @load policy/misc/known-devices
 
 module IvreFlow;
@@ -18,9 +19,6 @@ export {
     };
 
     global mac2name: table[string] of string &create_expire=1day &synchronized &redef;
-
-    redef FTP::default_capture_password = T;
-    redef HTTP::default_capture_password = T;
 }
 
 event dhcp_inform(c: connection, msg: dhcp_msg, host_name: string)
