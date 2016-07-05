@@ -66,6 +66,15 @@ ALL_DESCS = {
         "accumulators": {"source": ("{source}", 5)},
     },
 
+    "software": {
+        "labels": ["Software"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["software_type", "name", "version_major", "version_minor",
+                 "version_minor2", "version_minor3", "version_addl"],
+        "accumulators": {"unparsed_version": ("{unparsed_version}", 5)},
+        "kind": "host",
+    },
+
     "ssl": {
         "labels": ["SSL"],
         "keys": {"dport": "{id_resp_p}", "version": None,
@@ -74,7 +83,7 @@ ALL_DESCS = {
                  "next_protocol": None, "subject": None,
                  "issuer": None, "client_subject": None,
                  "client_issuer": None},
-        },
+    },
 
     "ssh": {
         "labels": ["SSH"],
@@ -135,7 +144,10 @@ def _bro2neo(rec):
     return rec
 
 
-def any2neo(desc, kind="flow"):
+def any2neo(desc, kind=None):
+    if kind is None:
+        kind = desc.get("kind", "flow")
+
     def inserter(bulk, rec):
         keys = desc["keys"]
         link_type = desc.get("link", "INTEL")
