@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains functions used for passive recon.
 """
@@ -155,7 +155,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 spec['value'] = '%s %s' % (authtype, ','.join(v))
             except:
                 pass
-        elif authtype.lower() in ['negotiate', 'kerberos', 'oauth']:
+        elif authtype.lower() in ['negotiate', 'kerberos', 'oauth', 'ntlm']:
             spec['value'] = authtype
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
