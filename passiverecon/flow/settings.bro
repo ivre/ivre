@@ -1,9 +1,3 @@
-#@load policy/frameworks/dpd/detect-protocols
-#@load policy/frameworks/intel/do_notice
-#@load policy/frameworks/intel/seen
-#@load policy/frameworks/software/windows-version-detection
-#@load policy/protocols/ftp/detect
-
 @load base/frameworks/software
 @load base/utils/directions-and-hosts
 
@@ -19,6 +13,13 @@
 
 @load policy/protocols/modbus/track-memmap
 @load policy/protocols/modbus/known-masters-slaves
+
+# Not sure about these ones
+@load policy/frameworks/dpd/detect-protocols
+@load policy/frameworks/intel/do_notice
+@load policy/frameworks/intel/seen
+@load policy/frameworks/software/windows-version-detection
+@load policy/protocols/ftp/detect
 
 module IvreFlow;
 
