@@ -52,6 +52,29 @@ ALL_DESCS = {
         "counters": ["request_body_len", "response_body_len"],
     },
 
+    "known_devices__name": {
+        "labels": ["Name"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["name"],
+        "accumulators": {"source": ("{source}", 5)},
+    },
+
+    "known_devices__mac": {
+        "labels": ["Mac"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["mac"],
+        "accumulators": {"source": ("{source}", 5)},
+    },
+
+    "software": {
+        "labels": ["Software"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["software_type", "name", "version_major", "version_minor",
+                 "version_minor2", "version_minor3", "version_addl"],
+        "accumulators": {"unparsed_version": ("{unparsed_version}", 5)},
+        "kind": "host",
+    },
+
     "ssl": {
         "labels": ["SSL"],
         "keys": {"dport": "{id_resp_p}", "version": None,
@@ -60,7 +83,7 @@ ALL_DESCS = {
                  "next_protocol": None, "subject": None,
                  "issuer": None, "client_subject": None,
                  "client_issuer": None},
-        },
+    },
 
     "ssh": {
         "labels": ["SSH"],
@@ -121,7 +144,10 @@ def _bro2neo(rec):
     return rec
 
 
-def any2neo(desc, kind="flow"):
+def any2neo(desc, kind=None):
+    if kind is None:
+        kind = desc.get("kind", "flow")
+
     def inserter(bulk, rec):
         keys = desc["keys"]
         link_type = desc.get("link", "INTEL")
@@ -129,7 +155,6 @@ def any2neo(desc, kind="flow"):
         accumulators = desc.get("accumulators", {})
         keys = utils.normalize_props(keys)
         counters = utils.normalize_props(counters)
-        accumulators = utils.normalize_props(accumulators)
         for props in (keys, counters, accumulators):
             for k, v in props.items():
                 if v[0] == '{' and v[-1] == '}':
@@ -218,9 +243,14 @@ def dns2neo(bulk, rec):
         tmp_rec["addr"] = addr
         any2neo(ALL_DESCS["dns"], "host")(bulk, tmp_rec)
 
+def knwon_devices2neo(bulk, rec):
+    any2neo(ALL_DESCS["known_devices__name"], "host")(bulk, rec)
+    any2neo(ALL_DESCS["known_devices__mac"], "host")(bulk, rec)
+
 FUNCTIONS = {
     "conn": conn2neo,
     "dns": dns2neo,
+    "known_devices": knwon_devices2neo,
 }
 
 
