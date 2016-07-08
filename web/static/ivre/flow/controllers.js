@@ -121,7 +121,7 @@ ivreWebUi.factory("graphService", function () {
         return s.split("").reduce(function(a,b){
             a=((a<<5)-a)+b.charCodeAt(0);
             return a&a
-        },0);              
+        },0);
     };
 
     function hex_color_to_rgba(hex, opacity){
@@ -376,7 +376,7 @@ ivreWebUi.factory("graphService", function () {
 
 
 ivreWebUi
-    .controller('IvreFlowCtrl', function ($scope, $http, $compile,
+    .controller('IvreFlowCtrl', function ($scope, $http, $compile, $timeout,
                                           graphService, hashSync) {
         // Menu things
         $scope.enable_tab = function (tab_id) {
@@ -632,18 +632,12 @@ ivreWebUi
                     rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
                     rect.attr("fill-opacity", 0.4);
                     // Highlight related flows
-                    var date = new Date(d - (d % time_prec));
-                    var to_highlight = Object.keys($scope.date_to_flow[date] ||
-                                                   {});
-                    to_highlight = $scope.sigma.graph.edges(to_highlight);
-                    graphService.set_visible($scope.sigma, [], to_highlight,
-                                             0.2);
+                    $scope.set_visible_from_date(d);
                 })
                 .on("mouseout", function(d) {
                     var rect = d3.select(this);
                     rect.attr("fill-opacity", rect.attr("old-fill-opacity"));
-                    graphService.set_visible($scope.sigma, [],
-                                             $scope.sigma.graph.edges());
+                    $scope.set_visible_from_date();
                 })
                 .append("svg:title")
                 .text(function(d, i) {
@@ -653,6 +647,18 @@ ivreWebUi
                             (count > 1 ? "s" : ""));
                 })
 
+        };
+
+        $scope.set_visible_from_date = function(date) {
+            if (date !== undefined) {
+                var date = new Date(date - (date % $scope.time_prec));
+                var to_highlight = Object.keys($scope.date_to_flow[date] || {});
+                to_highlight = $scope.sigma.graph.edges(to_highlight);
+                graphService.set_visible($scope.sigma, [], to_highlight, 0.2);
+            } else {
+                graphService.set_visible($scope.sigma, [],
+                                         $scope.sigma.graph.edges());
+            }
         };
 
         $scope.timeline_highlight_flow = function (elt) {
@@ -683,6 +689,43 @@ ivreWebUi
                         d3.select(this).attr("fill-opacity", 0);
                     }
                 });
+        };
+
+        $scope.play_id = 0;
+        $scope.play_props = {frame_duration: 300};
+        $scope.play_timeline = function () {
+            var dates = [];
+            var rects = [];
+            d3.selectAll(".timeline-highlight")
+                .each(function (d, i) {
+                    dates[i] = d;
+                    rects[i] = this;
+                });
+            $scope.play_id++;
+            var my_play_id = $scope.play_id;
+            var play_next = function(index) {
+                if ($scope.play_id == my_play_id) {
+                    // otherwise, another play is in progress
+                    if (index == dates.length) {
+                        $scope.set_visible_from_date();
+                        $scope.play_id = 0;
+                    } else {
+                        var rect = d3.select(rects[index]);
+                        // FIXME: the opacity update does not work, dunno why
+                        rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
+                        rect.attr("fill-opacity", 0.4);
+                        $scope.set_visible_from_date(dates[index]);
+                        $timeout(function () {play_next(index + 1)},
+                                 $scope.play_props.frame_duration);
+                    }
+                }
+
+                if (index > 0) {
+                    var rect = d3.select(rects[index - 1])
+                    rect.attr("fill-opacity", rect.attr("old-fill-opacity"));
+                }
+            };
+            play_next(0);
         };
 
         $scope.update_graph_data = function () {
@@ -720,8 +763,6 @@ ivreWebUi
             $scope.query[element_type].push(q);
             $scope.update_graph_data();
         };
-
-        //$scope._popover_filters = [[
 
         // Display things
         $scope.graph_formatters = { edges: {}, nodes: {} };
