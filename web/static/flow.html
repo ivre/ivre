@@ -194,11 +194,19 @@
                         </div>
                       </div>
 
-                      <div class="form-group">
+                      <div class="form-group" ng-if="!playing">
                         <button type="submit" class="col-xs-offset-2 col-xs-8 btn btn-default"
                           ng-click="play_timeline()">
                           <i class="glyphicon glyphicon-play black"></i>
                           Play timeline
+                        </button>
+                      </div>
+
+                      <div class="form-group" ng-if="playing">
+                        <button type="submit" class="col-xs-offset-2 col-xs-8 btn btn-default"
+                          ng-click="stop_timeline()">
+                          <i class="glyphicon glyphicon-stop black"></i>
+                          Stop playing
                         </button>
                       </div>
                     </form>

@@ -691,7 +691,7 @@ ivreWebUi
                 });
         };
 
-        $scope.play_id = 0;
+        $scope.playing = false;
         $scope.play_props = {frame_duration: 300};
         $scope.play_timeline = function () {
             var dates = [];
@@ -701,23 +701,19 @@ ivreWebUi
                     dates[i] = d;
                     rects[i] = this;
                 });
-            $scope.play_id++;
-            var my_play_id = $scope.play_id;
+            $scope.playing = true;
             var play_next = function(index) {
-                if ($scope.play_id == my_play_id) {
-                    // otherwise, another play is in progress
-                    if (index == dates.length) {
-                        $scope.set_visible_from_date();
-                        $scope.play_id = 0;
-                    } else {
-                        var rect = d3.select(rects[index]);
-                        // FIXME: the opacity update does not work, dunno why
-                        rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
-                        rect.attr("fill-opacity", 0.4);
-                        $scope.set_visible_from_date(dates[index]);
-                        $timeout(function () {play_next(index + 1)},
-                                 $scope.play_props.frame_duration);
-                    }
+                if ($scope.playing == false || index == dates.length) {
+                    $scope.set_visible_from_date();
+                    $scope.playing = false;
+                } else {
+                    var rect = d3.select(rects[index]);
+                    // FIXME: the opacity update does not work, dunno why
+                    rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
+                    rect.attr("fill-opacity", 0.4);
+                    $scope.set_visible_from_date(dates[index]);
+                    $timeout(function () {play_next(index + 1)},
+                             $scope.play_props.frame_duration);
                 }
 
                 if (index > 0) {
@@ -726,6 +722,11 @@ ivreWebUi
                 }
             };
             play_next(0);
+        };
+
+        $scope.stop_timeline = function () {
+            $scope.playing = false;
+            $scope.set_visible_from_date();
         };
 
         $scope.update_graph_data = function () {
