@@ -112,9 +112,9 @@ ivreWebUi.directive("eltDetails", function () {
 
 ivreWebUi.factory("graphService", function () {
     node_colors = {
-        "Host": ["#666", "#ddd"],
-        "Mac": ["#066", "#0dd"],
-    }
+        // [client, server, hidden_client, hidden_server]
+        "Host": ["#666", "#ddd", "#111", "#333"],
+    };
 
     // http://stackoverflow.com/questions/7616461
     function hashCode(s){
@@ -122,15 +122,68 @@ ivreWebUi.factory("graphService", function () {
             a=((a<<5)-a)+b.charCodeAt(0);
             return a&a
         },0);              
-    }
+    };
+
+    function hex_color_to_rgba(hex, opacity){
+        if (opacity === undefined) {
+            opacity = 1;
+        }
+
+	hex = hex.replace('#','');
+	r = parseInt(hex.substring(0,2), 16);
+	g = parseInt(hex.substring(2,4), 16);
+	b = parseInt(hex.substring(4,6), 16);
+
+	result = 'rgba('+r+','+g+','+b+','+opacity+')';
+	return result;
+    };
+
+    var NC = 8;
+    var EDGE_PALETTE = {
+        udp: sigma.plugins.colorbrewer.Paired[NC].map(hex_color_to_rgba),
+        tcp: sigma.plugins.colorbrewer.Dark2[NC].map(hex_color_to_rgba),
+        other: sigma.plugins.colorbrewer.Spectral[NC].map(hex_color_to_rgba),
+    };
 
     function str_to_color(str) {
-        return sigma.plugins.colorbrewer.Paired[8][hashCode(str) % 8];
-    }
+        return EDGE_PALETTE.other[hashCode(str) % 8];
+    };
 
+    function edge_color(s, edge) {
+        // s is unused here
+        if (edge.labels[0] === "Flow") {
+            var port = edge.data.dport,
+                proto = edge.data.proto;
+
+            if (proto in EDGE_PALETTE) {
+                key = proto;
+            } else {
+                key = "other";
+            }
+
+            if (typeof port === "undefined") {
+                port = hashCode(proto);
+            }
+
+            edge.color = EDGE_PALETTE[key][port % NC];
+        } else {
+            edge.color = str_to_color(edge.labels[0]);
+        }
+    };
+
+    function node_color(s, node, hidden) {
+        in_degree = s.graph.degree(node.id, "in");
+        color_panel = node_colors[node.labels[0]];
+        if (color_panel !== undefined) {
+            node.color = color_panel[(hidden?2:0) + (in_degree?1:0)];
+        } else {
+            node.color = hidden ? "#111" : str_to_color(node.labels[0] || "");
+        }
+    };
 
     // formatters is an object:
     // { edges: { attr: function }, nodes: { attr: function }}
+    // TODO: remove filters
     function update_display(s, formatters, filters) {
         filters = filters || {};
         if (formatters === undefined) {
@@ -139,30 +192,7 @@ ivreWebUi.factory("graphService", function () {
 
         // Patch edges for display
         s.graph.edges().forEach(function (edge) {
-            if (edge.labels[0] === "Flow") {
-                var n = 8,
-                    port = edge.data.dport,
-                    proto = edge.data.proto,
-                    palette = {
-                        udp: sigma.plugins.colorbrewer.Paired,
-                        tcp: sigma.plugins.colorbrewer.Dark2,
-                        other: sigma.plugins.colorbrewer.Spectral,
-                    };
-
-                if (proto in palette) {
-                    key = proto;
-                } else {
-                    key = "other";
-                }
-
-                if (typeof port === "undefined") {
-                    port = hashCode(proto);
-                }
-
-                edge.color = palette[key][n][port % n];
-            } else {
-                edge.color = str_to_color(edge.labels[0]);
-            }
+            edge_color(s, edge);
             //edge.type = "arrow";
             edge.type = "curvedArrow";
 
@@ -184,14 +214,7 @@ ivreWebUi.factory("graphService", function () {
 
         // Patch nodes for display
         s.graph.nodes().forEach(function (node) {
-            in_degree = s.graph.degree(node.id, "in");
-            //node.size = in_degree;
-            color_panel = node_colors[node.labels[0]];
-            if (color_panel !== undefined) {
-                node.color = color_panel[in_degree?1:0];
-            } else {
-                node.color = str_to_color(node.labels[0] || "");
-            }
+            node_color(s, node);
 
             filt = filters.nodes
             if (filt !== undefined) {
@@ -259,8 +282,7 @@ ivreWebUi.factory("graphService", function () {
       });
     };
 
-    // Inspired from linkurious example plugin-halo.html
-    function set_halo(s, nodes, edges) {
+    function expand_to_neighbors(s, nodes, edges) {
         var adjacentNodes = nodes,
             adjacentEdges = edges;
 
@@ -280,17 +302,47 @@ ivreWebUi.factory("graphService", function () {
                     s.graph.nodes([edge.source, edge.target]));
         });
 
+        return {nodes: adjacentNodes, edges: adjacentEdges};
+    }
+
+    // Inspired from linkurious example plugin-halo.html
+    function set_halo(s, nodes, edges) {
+        to_halo = expand_to_neighbors(s, nodes, edges);
+
         // Render halo
-        s.renderers[0].halo({
-            nodes: adjacentNodes,
-            edges: adjacentEdges
-        });
+        s.renderers[0].halo(to_halo);
     };
 
     function enable_halo(s) {
         s.bind('hovers', function(e) {
             set_halo(s, e.data.enter.nodes, e.data.enter.edges);
         });
+    };
+
+    function set_opacity(elt, alpha) {
+        // Change alpha component of rgba(r,g,b,a)
+        elt.color = elt.color.replace(/, *[\d.]+\)/, "," + alpha + ")");
+    };
+
+    function set_visible(s, nodes, edges, min, max) {
+        var min = min === undefined ? 0 : min;
+        var max = max === undefined ? 1 : max;
+        var to_set = expand_to_neighbors(s, nodes, edges);
+        var nodes = to_set.nodes;
+        var edges = to_set.edges;
+        s.graph.nodes().forEach(function(node) {
+            node_color(s, node, true);
+        });
+        s.graph.edges().forEach(function(edge) {
+            set_opacity(edge, min);
+        });
+        nodes.forEach(function(node) {
+            node_color(s, node, false);
+        });
+        edges.forEach(function(edge) {
+            set_opacity(edge, max);
+        });
+        s.refresh();
     };
 
     function has_details(s, elt) {
@@ -315,6 +367,8 @@ ivreWebUi.factory("graphService", function () {
         setup: setup,
         update_layout: update_layout,
         enable_halo: enable_halo,
+        set_halo: set_halo,
+        set_visible: set_visible,
         has_details: has_details,
         add_details: add_details,
     };
@@ -577,10 +631,19 @@ ivreWebUi
                     var rect = d3.select(this);
                     rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
                     rect.attr("fill-opacity", 0.4);
+                    // Highlight related flows
+                    var to_highlight = Object.keys($scope.date_to_flow[d] || {});
+                    to_highlight = $scope.sigma.graph.edges(to_highlight);
+                    //graphService.set_halo($scope.sigma, [], to_highlight);
+                    graphService.set_visible($scope.sigma, [], to_highlight,
+                                             0.2);
                 })
                 .on("mouseout", function(d) {
                     var rect = d3.select(this);
                     rect.attr("fill-opacity", rect.attr("old-fill-opacity"));
+                    //graphService.set_halo($scope.sigma, [], []);
+                    graphService.set_visible($scope.sigma, [],
+                                             $scope.sigma.graph.edges());
                 })
                 .append("svg:title")
                 .text(function(d, i) {
