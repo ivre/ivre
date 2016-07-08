@@ -634,14 +634,12 @@ ivreWebUi
                     // Highlight related flows
                     var to_highlight = Object.keys($scope.date_to_flow[d] || {});
                     to_highlight = $scope.sigma.graph.edges(to_highlight);
-                    //graphService.set_halo($scope.sigma, [], to_highlight);
                     graphService.set_visible($scope.sigma, [], to_highlight,
                                              0.2);
                 })
                 .on("mouseout", function(d) {
                     var rect = d3.select(this);
                     rect.attr("fill-opacity", rect.attr("old-fill-opacity"));
-                    //graphService.set_halo($scope.sigma, [], []);
                     graphService.set_visible($scope.sigma, [],
                                              $scope.sigma.graph.edges());
                 })
