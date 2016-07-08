@@ -632,7 +632,9 @@ ivreWebUi
                     rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
                     rect.attr("fill-opacity", 0.4);
                     // Highlight related flows
-                    var to_highlight = Object.keys($scope.date_to_flow[d] || {});
+                    var date = new Date(d - (d % time_prec));
+                    var to_highlight = Object.keys($scope.date_to_flow[date] ||
+                                                   {});
                     to_highlight = $scope.sigma.graph.edges(to_highlight);
                     graphService.set_visible($scope.sigma, [], to_highlight,
                                              0.2);
@@ -645,7 +647,7 @@ ivreWebUi
                 })
                 .append("svg:title")
                 .text(function(d, i) {
-                    var date = new Date(d - (d % time_prec))
+                    var date = new Date(d - (d % time_prec));
                     var count = (counts[date] || 0);
                     return (date + ": " + count + " flow" +
                             (count > 1 ? "s" : ""));
