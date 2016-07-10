@@ -62,6 +62,8 @@ def main():
                         help='Ouput at most LIMIT results.')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
+    parser.add_argument('--orderby', '-o', 
+                        help='Order of results ("src", "dst" or "flow")')
     parser.add_argument('--separator', '-s', help="Separator string.")
     parser.add_argument('--top', '-t', nargs="+",
                         help='Top flows for a given set of fields, e.g. '
@@ -114,9 +116,9 @@ def main():
     filters = {"nodes": args.node_filters or [],
                "edges": args.flow_filters or []}
 
-    query = db.flow.from_filters(filters, mode=args.mode,
-                                 timeline=args.timeline,
-                                 skip=args.skip, limit=args.limit)
+    query = db.flow.from_filters(filters, limit=args.limit, skip=args.skip,
+                                 orderby=args.orderby, mode=args.mode,
+                                 timeline=args.timeline)
     sep = args.separator or ' | '
     coma = ';' if args.separator else '; '
     coma2 = ',' if args.separator else ', '

@@ -66,6 +66,17 @@
                       </div>
                     </div>
                     <div class="form-group">
+                      <label for="query_orderby" class="col-md-4 control-label">
+                        Order by
+                      </label>
+                      <div class="col-md-8">
+                        <select class="form-control" id="query_orderby"
+                                ng-model="query.orderby"
+                                ng-options="orderby.id as orderby.label for orderby in query_orderbys">
+                        </select>
+                      </div>
+                    </div>
+                    <div class="form-group">
                       <label for="query_limit" class="col-md-4 control-label">
                         Limit
                       </label>

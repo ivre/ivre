@@ -197,6 +197,7 @@ class Query(object):
         self.clauses = []
         self._params = params
         self.ret = "RETURN *" if ret is None else ret
+        self.orderby = ""
         self.idcounter = -1
         self.meta_link = False
         self.meta_src = False
@@ -404,10 +405,11 @@ filter (no OR).
 
     @property
     def query(self):
-        return "%s\n%s\n%s\n%s%s" % (
+        return "%s\n%s\n%s\n%s\n%s%s" % (
             self.mline,
             "\n".join(self.all_clauses),
             self.ret,
+            self.orderby,
             # FIXME: param?
             "SKIP %d" % self.skip if self.skip else "",
             " LIMIT %d" % self.limit if self.limit else "",
@@ -523,25 +525,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         if config.DEBUG:
             sys.stderr.write(query.query + "\n")
         return self.run(query)
-
-    def count_flow(self, flt=None):
-        return self.query_flow(action="COUNT(flow)").next['COUNT(flow)']
-
-    def distinct_flow(self, fields, flt=None):
-        if isinstance(fields, basestring):
-            return (x[fields] for x in
-                    self.query_flow(action="DISTINCT %s" % fields))
-        return self.query_flow(action="DISTINCT %s" % ", ".join(fields))
-
-    def top_flow(self, field, sumfield=None, flt=None, limit=10):
-        return self.query_flow(
-            flt=flt,
-            project=[
-                ("DISTINCT %s" % field, "field"),
-                ("SUM(%s)" % "1" if sumfield is None else sumfield, "count"),
-            ],
-            action="* ORDER BY count DESC%s" % ("" if limit is None else " LIMIT %d" % limit),
-        )
 
     @classmethod
     def _update_times(cls, elt, on_create_set, on_match_set,
@@ -837,8 +820,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return node
 
     @classmethod
-    def _filters2cypher(cls, queries, mode=None, timeline=False, limit=None,
-                        skip=0):
+    def _filters2cypher(cls, queries, limit=None, skip=0, orderby="", mode=None,
+                        timeline=False):
         limit = config.WEB_GRAPH_LIMIT if limit is None else limit
         query = cls.query(
             skip=skip, limit=limit,
@@ -892,6 +875,17 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                     "       {elt: dst, meta: [] } as dst\n"
                 )
         query.ret = "RETURN src, link, dst"
+
+        if orderby == "src":
+            query.orderby = "ORDER BY src.elt.addr"
+        elif orderby == "dst":
+            query.orderby = "ORDER BY dst.elt.addr"
+        elif orderby == "flow":
+            # FIXME: link.elt.code?
+            query.orderby = "ORDER BY link.elt.dport, link.elt.proto"
+        elif orderby:
+            raise ValueError(
+                    "Unsupported orderby (should be 'src', 'dst' or 'flow')")
         return query
 
     @staticmethod
@@ -1045,11 +1039,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 "collected": row["collected"],
             }
 
-    def from_filters(self, filters, limit=None, timeline=False,
-                     skip=0, mode=None):
-        cypher_query = self._filters2cypher(filters, mode=mode,
-                                            timeline=timeline, limit=limit,
-                                            skip=skip)
+    def from_filters(self, filters, limit=None, skip=0, orderby="", mode=None,
+                     timeline=False):
+        cypher_query = self._filters2cypher(filters, limit=limit, skip=skip,
+                                            orderby=orderby, mode=mode,
+                                            timeline=timeline)
         return cypher_query
 
     def to_graph(self, query):
@@ -1063,6 +1057,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         old_limit = query.limit
         old_skip = query.skip
         old_ret = query.ret
+        old_orderby = query.orderby
         query.limit = None
         query.skip = None
         query.ret = (
@@ -1070,10 +1065,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             "       COUNT(DISTINCT link) as flows,\n"
             "       COUNT(DISTINCT dst) as servers\n"
         )
+        query.orderby = ""
         counts = self.cursor2count(self.run(query))
         query.limit = old_limit
         query.skip = old_skip
         query.ret = old_ret
+        query.orderby = old_orderby
         return counts
 
     def flow_daily(self, query):
@@ -1088,8 +1085,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             "WITH [link.proto, COALESCE(link.dport, link.type)] AS flow,\n"
             "     time_in_day, COUNT(*) AS count\n"
         )
-        query.ret = ("RETURN flow, time_in_day, count "
-                     "ORDER BY flow[0], flow[1], time_in_day")
+        query.ret = "RETURN flow, time_in_day, count"
+        query.orderby = "ORDER BY flow[0], flow[1], time_in_day"
         counts = self._cursor2flow_daily(self.run(query))
         return counts
 
@@ -1120,7 +1117,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
              "COUNT(*)" if not sumfields else cy_sumfields,
              "NULL" if not collect else "COLLECT(DISTINCT %s)" % cy_collect)
         )
-        query.ret = "RETURN fields, count, collected ORDER BY count DESC"
+        query.ret = "RETURN fields, count, collected"
+        query.orderby = "ORDER BY count DESC"
         top = self._cursor2top(self.run(query))
         return top
 
