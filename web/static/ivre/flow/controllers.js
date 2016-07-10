@@ -183,9 +183,7 @@ ivreWebUi.factory("graphService", function () {
 
     // formatters is an object:
     // { edges: { attr: function }, nodes: { attr: function }}
-    // TODO: remove filters
-    function update_display(s, formatters, filters) {
-        filters = filters || {};
+    function update_display(s, formatters) {
         if (formatters === undefined) {
             formatters = {nodes: {}, edges: {}};
         }
@@ -195,13 +193,6 @@ ivreWebUi.factory("graphService", function () {
             edge_color(s, edge);
             //edge.type = "arrow";
             edge.type = "curvedArrow";
-
-            filt = filters.edges
-            if (filt !== undefined) {
-                edge.hidden = !filt(edge);
-            } else {
-                edge.hidden = false;
-            }
 
             fmt = formatters.edges;
             for (var key in fmt) {
@@ -215,13 +206,6 @@ ivreWebUi.factory("graphService", function () {
         // Patch nodes for display
         s.graph.nodes().forEach(function (node) {
             node_color(s, node);
-
-            filt = filters.nodes
-            if (filt !== undefined) {
-                node.hidden = !filt(node);
-            } else {
-                node.hidden = false;
-            }
 
             fmt = formatters.nodes;
             for (var key in fmt) {
@@ -268,8 +252,8 @@ ivreWebUi.factory("graphService", function () {
     }
 
     // Post instanciation sigma conf
-    function setup(s, formatters, filters) {
-        update_display(s, formatters, filters);
+    function setup(s, formatters) {
+        update_display(s, formatters);
         console.log("Nodes: " + s.graph.nodes().length);
         update_layout(s);
 
@@ -485,8 +469,7 @@ ivreWebUi
         $scope.load_json = function(data) {
             $scope.sigma.graph.clear();
             $scope.sigma.graph.read(data);
-            graphService.setup($scope.sigma, $scope.graph_formatters,
-                               $scope.graph_filters);
+            graphService.setup($scope.sigma, $scope.graph_formatters);
             graphService.enable_halo($scope.sigma);
             $scope.update_graph_display();
             $scope.draw_timeline(data);
@@ -836,28 +819,6 @@ ivreWebUi
             $scope.graph_formatters[type][attr] = fmt;
         };
 
-        // Filtering
-        $scope.graph_filters = {};
-        $scope.gflt = { edges: [], nodes: [] };
-
-        $scope.gflt_parse_all = function() {
-            ["edges", "nodes"].forEach(function(type) {
-                var funcs = $scope.gflt[type].map(gfilter2func);
-                // Final filter is true if any filter is true
-                $scope.graph_filters[type] = function(elt) {
-                    if (funcs.length == 0) {
-                        return true;
-                    }
-                    for (i in funcs) {
-                        if (!funcs[i](elt)) {
-                            return false;
-                        }
-                    }
-                    return true;
-                }
-            });
-        }
-
         $scope.edge_size_scaling = 0;
         $scope.node_size_scaling = 2;
         $scope.max_time_slots = 100;
@@ -871,9 +832,7 @@ ivreWebUi
             $scope.sigma.settings("maxNodeSize",
                 $scope.node_size_scaling + $scope.sigma.settings("minNodeSize"));
             $scope.gfmt_parse_all();
-            $scope.gflt_parse_all();
-            graphService.update_display($scope.sigma, $scope.graph_formatters,
-                                $scope.graph_filters);
+            graphService.update_display($scope.sigma, $scope.graph_formatters);
         };
 
         $scope.is_array = angular.isArray;
