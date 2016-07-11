@@ -109,6 +109,7 @@
                   </form>
                 </ul>
               </div>
+
               <div role="tabpanel" class="tab-pane" id="menu-tab-layout">
                 <ul class="nav">
                   <form class="form-horizontal"
@@ -181,9 +182,38 @@
                                ng-model="max_time_slots"/>
                       </div>
                     </div>
+                    <form class="form-horizontal">
+                      <div class="form-group">
+                        <label for="play_frame_duration" class="col-md-4 control-label">
+                          Play frame duration (ms)
+                        </label>
+                        <div class="col-md-8">
+                          <input type="number" class="form-control"
+                                 id="play_frame_duration"
+                                 ng-model="play_props.frame_duration"/>
+                        </div>
+                      </div>
+
+                      <div class="form-group" ng-if="!playing">
+                        <button type="submit" class="col-xs-offset-2 col-xs-8 btn btn-default"
+                          ng-click="play_timeline()">
+                          <i class="glyphicon glyphicon-play black"></i>
+                          Play timeline
+                        </button>
+                      </div>
+
+                      <div class="form-group" ng-if="playing">
+                        <button type="submit" class="col-xs-offset-2 col-xs-8 btn btn-default"
+                          ng-click="stop_timeline()">
+                          <i class="glyphicon glyphicon-stop black"></i>
+                          Stop playing
+                        </button>
+                      </div>
+                    </form>
                   </form>
                 </ul>
               </div>
+
               <div role="tabpanel" class="tab-pane" id="menu-tab-details">
                 <div class="col-xs-12">
                   <div class="node-details">
