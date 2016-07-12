@@ -250,13 +250,10 @@ class MongoDB(DB):
             pipeline += [{"$skip": skip}]
         if limit is not None:
             pipeline += [{"$limit": limit}]
-        if specialproj is None:
-            project = {"_id": 0, field: 1}
-            if countfield is not None:
-                project[countfield] = 1
-            pipeline += [{"$project": project}]
-        else:
-            pipeline += [{"$project": specialproj}]
+        project = {"_id": 0, field: 1} if specialproj is None else specialproj
+        if countfield is not None:
+            project[countfield] = 1
+        pipeline += [{"$project": project}]
         # hack to allow nested values as field
         # see <http://stackoverflow.com/questions/13708857/
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
