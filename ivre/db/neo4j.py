@@ -265,6 +265,31 @@ class Query(object):
         """
         if not flt:
             return None
+
+        if flt[0] in "-!~":
+            neg = True
+            flt = flt[1:]
+        else:
+            neg = False
+
+        array_mode = None
+        len_mode = None
+        if flt.startswith("ANY "):
+            array_mode = "ANY"
+            flt = flt[4:]
+        elif flt.startswith("ALL "):
+            array_mode = "ALL"
+            flt = flt[4:]
+        elif flt.startswith("ONE "):
+            array_mode = "SINGLE"
+            flt = flt[4:]
+        elif flt.startswith("NONE "):
+            array_mode = "NONE"
+            flt = flt[5:]
+        elif flt.startswith("LEN "):
+            len_mode = "LENGTH"
+            flt = flt[4:]
+
         try:
             operator = self.operators_re.search(flt).group()
         except AttributeError:
@@ -273,11 +298,6 @@ class Query(object):
         else:
             attr, value = [elt.strip() for elt in flt.split(operator, 1)]
             value = utils.str2pyval(value)
-        if attr[0] in "-!~":
-            neg = True
-            attr = attr[1:]
-        else:
-            neg = False
         if attr[0] in "@#":
             qtype = attr[0]
             attr = attr[1:]
@@ -339,11 +359,28 @@ class Query(object):
         if qtype == "@":
             identifier = self.nextid()
             operator = self.operators[operator]
-            clause = " OR ".join(
-                "`%s`.`%s` %s {%s}"
-                "" % (elt, attr, operator, identifier)
-                for elt in elements
-            )
+
+            clauses = []
+            for elt in elements:
+                attr_expr = "%s.%s" % tuple(cypher_escape(s) for s in (elt, attr))
+                if array_mode is not None:
+                    lval = "x"
+                elif len_mode is not None:
+                    lval = "%s(%s)" % (len_mode, attr_expr)
+                else:
+                    lval = attr_expr
+                clause_part = "%s %s {%s}" % (lval, operator, identifier)
+                if array_mode is not None:
+                    if array_mode in ["ALL", "ANY", "SINGLE"]:
+                        prereq = "LENGTH(%s) <> 0 AND" % attr_expr
+                    elif array_mode in ["NONE"]:
+                        prereq = "LENGTH(%s) = 0 OR"
+                    clause_part = "%s %s(x IN %s WHERE %s)" % (
+                                  prereq, array_mode, attr_expr, clause_part)
+                clauses.append(clause_part)
+
+            clause = " OR ".join(clauses)
+
             if neg:
                 clause = "%s OR NOT (%s)" % (
                     " OR ".join("NOT EXISTS(`%s`.`%s`)" % (elt, attr)
