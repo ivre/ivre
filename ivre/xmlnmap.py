@@ -938,6 +938,9 @@ class NmapHandler(ContentHandler):
                                      "empty, got [%r]\n" % self._curtablepath)
                 self._curtable = {}
                 return
+            if ignore_script(self._curscript):
+                self._curscript = None
+                return
             infokey = self._curscript.get('id', None)
             infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
             if self._curtable:
@@ -1003,9 +1006,6 @@ class NmapHandler(ContentHandler):
                                 fname=full_fname,
                             )
                         )
-            if ignore_script(self._curscript):
-                self._curscript = None
-                return
             current.setdefault('scripts', []).append(self._curscript)
             self._curscript = None
         elif name in ['table', 'elem']:
