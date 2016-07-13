@@ -11,7 +11,7 @@ tools for passive recon (flow analytics relying on
 on Bro and [p0f](http://lcamtuf.coredump.cx/p0f/) and active recon
 (IVRE uses [Nmap](http://nmap.org/) to run scans, can use
 [ZMap](https://zmap.io/) as a pre-scanner; IVRE can also import XML
-output from Namp and
+output from Nmap and
 [Masscan](https://github.com/robertdavidgraham/masscan)).
 
 The advertising slogans are:
