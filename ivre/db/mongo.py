@@ -411,6 +411,8 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.smb-enum-shares.shares",
                   "ports.scripts.ls.volumes",
                   "ports.scripts.ls.volumes.files",
+                  "ports.scripts.mongodb-databases.databases",
+                  "ports.scripts.mongodb-databases.databases.shards",
                   "ports.screenwords",
                   "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",

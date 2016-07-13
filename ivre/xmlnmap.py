@@ -116,6 +116,157 @@ SCREENSHOTS_SCRIPTS = {
     "http-screenshot": http_screenshot_extract,
 }
 
+_MONGODB_DATABASES_CONVERTS = {"false": False, "true": True, "nil": None}
+
+_MONGODB_DATABASES_TYPES = {
+    "totalSize": float,
+    "totalSizeMb": float,
+    "empty": lambda x: _MONGODB_DATABASES_CONVERTS.get(x, x),
+    "sizeOnDisk": float,
+    "code": lambda x: (_MONGODB_DATABASES_CONVERTS.get(x, x)
+                       if isinstance(x, basestring) else float(x)),
+    "ok": lambda x: (_MONGODB_DATABASES_CONVERTS.get(x, x)
+                     if isinstance(x, basestring) else float(x)),
+}
+
+def _parse_mongodb_databases_kv(line, out, prefix=None, force_type=None,
+                                value_name=None):
+    """Parse 'key = value' lines from mongodb-databases output"""
+    try:
+        # Line can be 'key =' or 'key = value'
+        key, value = line.split(" =", 1)
+        value = value[1:]
+    except ValueError:
+        sys.stderr.write(
+            "WARNING: unknown keyword %r\r\n" % line
+        )
+        return
+
+    if key == "$err":
+        key = "errmsg"
+    if prefix is not None:
+        key = "%s_%s" % (prefix, key)
+
+    if force_type is not None:
+        value = force_type(value)
+    else:
+        value = _MONGODB_DATABASES_TYPES.get(key, lambda x: x)(value)
+
+    if isinstance(out, dict):
+        assert key not in out
+        out[key] = value
+    elif isinstance(out, list):
+        out.append({"name": key,
+                    value_name: value})
+
+
+def add_mongodb_databases_data(script):
+    """This function converts output from mongodb-databases to a structured one.
+    For instance, the output:
+
+    totalSizeMb = 123456
+    totalSize = 123456123
+    databases
+      1
+        name = test
+        empty = false
+        sizeOnDisk = 112233
+      0
+        sizeOnDisk = 445566
+        name = test_prod
+        empty = false
+        shards
+          my_shard_0001 = 778899
+          my_shard_0000 = 778877
+    ok = 1
+
+    is converted to:
+
+    {'databases': [{'empty': False, 'name': 'test', 'sizeOnDisk': 112233},
+                   {'empty': False,
+                    'name': 'test_prod',
+                    'shards': [{'name': 'my_shard_0000',
+                                'size': 778877},
+                               {'name': 'my_shard_0001',
+                                'size': 778899}],
+                    'sizeOnDisk': 445566}],
+     'ok': '1',
+     'totalSize': 123456123,
+     'totalSizeMb': 123456}
+    """
+
+    out = {}
+    # Global modes, see MODES[1]
+    cur_key = None
+    MODES = {
+        1: {"databases": list, "bad cmd": dict},
+        3: {"shards": list},
+    }
+
+    for line in script["output"].split("\n"):
+        # Handle mode based on indentation
+        line = line.rstrip()
+        indent = (len(line) - len(line.lstrip())) / 2
+        if indent == 0:
+            # Empty line
+            continue
+        line = line.lstrip()
+
+        # Parse structure
+        if indent == 1:
+            # Global
+            if line in MODES[indent]:
+                out[line] = MODES[indent][line]()
+                cur_key = line
+                continue
+            cur_dict = out
+
+        elif indent == 2:
+            if isinstance(out[cur_key], list):
+                # Databases enumeration, looks like:
+                #
+                # 0
+                #   name = XXX
+                # 1
+                #   name = XXX
+                #   size = 123
+                # code = 0
+
+                if line.isdigit():
+                    out[cur_key].append({})
+                else:
+                    _parse_mongodb_databases_kv(line, out, prefix=cur_key)
+                continue
+
+            if isinstance(out[cur_key], dict):
+                # Bad command, looks like:
+                #
+                # bad cmd
+                #   listDatabases = 1
+
+                cur_dict = out[cur_key]
+
+        elif indent == 3:
+            # Database information
+            if line in MODES[indent]:
+                out["databases"][-1][line] = MODES[indent][line]()
+                continue
+            cur_dict = out["databases"][-1]
+
+        elif indent == 4:
+            # Shards information, values are always float
+            _parse_mongodb_databases_kv(line, out["databases"][-1]["shards"],
+                                        force_type=float, value_name="size")
+            continue
+
+        else:
+            raise ValueError("Unable to parse %s" % line)
+
+        # Handle a "key = value" line
+        _parse_mongodb_databases_kv(line, cur_dict)
+
+    return out
+
 def add_ls_data(script):
     """This function calls the appropriate `add_*_data()` function to
     convert output from scripts that do not include a structured
@@ -368,6 +519,7 @@ ADD_TABLE_ELEMS = {
     'modbus-discover':
     re.compile('^ *DEVICE IDENTIFICATION: *(?P<deviceid>.*?) *$', re.M),
     'ls': add_ls_data,
+    'mongodb-databases': add_mongodb_databases_data,
 }
 
 def change_smb_enum_shares(table):
