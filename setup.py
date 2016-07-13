@@ -181,7 +181,6 @@ specialized scripts.
           'web/static/ivre/graph.js',
           'web/static/ivre/ivre.js',
           'web/static/ivre/params.js',
-          'web/static/ivre/parsers.js',
           'web/static/ivre/tooltip.js',
           'web/static/ivre/utils.js',
           'web/static/ivre/content.js']),
