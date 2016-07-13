@@ -58,7 +58,19 @@ Any of these tools can be called with '--init' to reinitialize the DB.
 
 ## Data exploration ##
 
-The main exploration tool is the Web UI (`<ivre-web-root>/flow.html`).
+The main exploration tool are the CLI (`ivre flowcli`) and the Web UI
+(`<ivre-web-root>/flow.html`).
+
+### CLI ###
+
+You can access the CLI through `ivre flowcli`. Features include:
+
+  - Searching for flows and nodes with filters (see the Flow Filters section of
+    this document)
+  - Producing top values for given criterias
+  - Plotting flows amounts over hours of days, on average.
+
+See `ivre flowcli -h` for usage details.
 
 ### Web UI ###
 
@@ -99,31 +111,8 @@ There are two ways of filtering the data:
   - Right click on a node or edge and `Filter by`/`Filter out` by attribute
   - Write filters yourself
 
-To write filters, the syntax is as follows:
-
-    [!][src.|dst.][meta.]<attribute> [<operator> <value>] [OR <other filter>]
-
-The `[src.|dst.]` part is only available for node filters.
-Some examples:
-
-  - Node filter `dst.addr = 192.168.1.1` will match all the flows whose
-    destination is a host with address `192.168.1.1`.
-  - Node filter `addr =~ 192\.168\.1\..*`  will match all the flows that come
-    from or go to a host whose address matches the `192\.168\.1\..*` regex
-    (sorry, CIDR masks are on their way to be implemented).
-  - Edge filter `dport > 10000` will match all the flows with a `dport`
-    (destination port) above 10000. `!dport <= 10000` will match the same
-    flows plus the ones that do not have any destination port.
-  - Edge filter `meta.query =~ .*google.*` will match all the flows that have
-    an associated metadata wich have a `query` attribute that match the
-    `.*google.*` regex.
-
-Available operators are:
-
-  - `=` or `:` (equality)
-  - `!=`
-  - `<`, `<=`, `>`, `>=`
-  - `=~`
+See the Flow Filter section of this document for more information on the filter
+syntax.
 
 The **Display** pane allows to change the size of nodes and edges based on some
 criterias:
@@ -156,3 +145,47 @@ RETURN [f.proto, f.dport], count(*) AS cnt
 ORDER BY cnt DESC
 ```
 
+### Flow Filters ###
+
+To write filters, the syntax is as follows:
+
+    [!][ANY|ALL|ONE|LEN ][src.|dst.][meta.]<attribute> [<operator> <value>]
+    [OR <other filter>]
+
+The `[src.|dst.]` part is only available for node filters.
+
+The special keywords `ANY`, `ALL`, `ONE` and `LEN` are for working with array
+attributes:
+
+  - ALL: matches if all the elements of the array fullfil the predicate
+  - ANY: the same if any of the elements match
+  - ONE: the same if exactly one of the elements match
+  - LEN: the predicate will use the len of the array
+
+Some examples:
+
+  - Node filter `dst.addr = 192.168.1.1` will match all the flows whose
+    destination is a host with address `192.168.1.1`.
+  - Node filter `addr =~ 192\.168\.1\..*`  will match all the flows that come
+    from or go to a host whose address matches the `192\.168\.1\..*` regex
+    (sorry, CIDR masks are on their way to be implemented).
+  - Edge filter `dport > 10000` will match all the flows with a `dport`
+    (destination port) above 10000. `!dport <= 10000` will match the same
+    flows plus the ones that do not have any destination port.
+  - Edge filter `meta.query =~ .*google.*` will match all the flows that have
+    an associated metadata wich have a `query` attribute that match the
+    `.*google.*` regex.
+  - Edge filter `ANY sports < 1024` will match flows with at least one source
+    port < 1024.
+  - Edge filter `LEN sports = 1` will match flows with only one known source
+    port.
+  - Filter `ANY meta.answers =~ .*example.com` will match any metadata that
+    contain an array attribute `answers` where at least one entry matches
+    `'.*example.com'`.
+
+Available operators are:
+
+  - `=` or `:` (equality)
+  - `!=`
+  - `<`, `<=`, `>`, `>=`
+  - `=~`
