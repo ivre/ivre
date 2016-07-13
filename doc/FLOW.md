@@ -88,6 +88,10 @@ connection from the same source to the same destination on the same destination
 port (so called `dport`) but with different source ports will be aggregated on
 the same edge.
 
+On the bottom of the graph, there is a timeline, representing the amount of
+different flows during some time ranges. This timeline can be played by going to
+the **Display** pane.
+
 On the left, there is a control pane with 3 tabs:
 
   - **Explore:** Allows to explore and reduce the dataset to display with
@@ -97,7 +101,7 @@ On the left, there is a control pane with 3 tabs:
     clients matching the current query. Note that servers can also be counted
     as clients if they have outgoing flows.
   - **Display:** Allows to change the way data is displayed (size of nodes
-    and edges for now).
+    and edges, timeline precision).
   - **Details:** Details on the currently selected item.
 
 #### Interaction ####
@@ -123,6 +127,10 @@ criterias:
     bytes from the server to the client).
 
 Do not forget to increase the `Size scale` to make the result more visible.
+
+The **Display** pane also allows to change the amount of time slots to represent
+on the timeline (capped by the actual time precision set in `ivre.conf`). The
+timeline can also be played on the graph by clicking the 'Play timeline' button.
 
 ### Raw Database queries ###
 
