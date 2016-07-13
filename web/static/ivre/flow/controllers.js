@@ -129,20 +129,24 @@ ivreWebUi.factory("graphService", function () {
             opacity = 1;
         }
 
-	hex = hex.replace('#','');
-	r = parseInt(hex.substring(0,2), 16);
-	g = parseInt(hex.substring(2,4), 16);
-	b = parseInt(hex.substring(4,6), 16);
+        hex = hex.replace('#','');
+        r = parseInt(hex.substring(0,2), 16);
+        g = parseInt(hex.substring(2,4), 16);
+        b = parseInt(hex.substring(4,6), 16);
 
-	result = 'rgba('+r+','+g+','+b+','+opacity+')';
-	return result;
+        result = 'rgba('+r+','+g+','+b+','+opacity+')';
+        return result;
+    };
+
+    function _hex_color_to_rgba_wrapper(value) {
+        return hex_color_to_rgba(value, 1);
     };
 
     var NC = 8;
     var EDGE_PALETTE = {
-        udp: sigma.plugins.colorbrewer.Paired[NC].map(hex_color_to_rgba),
-        tcp: sigma.plugins.colorbrewer.Dark2[NC].map(hex_color_to_rgba),
-        other: sigma.plugins.colorbrewer.Spectral[NC].map(hex_color_to_rgba),
+        udp: sigma.plugins.colorbrewer.Paired[NC].map(_hex_color_to_rgba_wrapper),
+        tcp: sigma.plugins.colorbrewer.Dark2[NC].map(_hex_color_to_rgba_wrapper),
+        other: sigma.plugins.colorbrewer.Spectral[NC].map(_hex_color_to_rgba_wrapper),
     };
 
     function str_to_color(str) {
