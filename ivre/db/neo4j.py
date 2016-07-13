@@ -258,7 +258,7 @@ class Query(object):
 
     def _add_clause_from_filter(self, flt, mode="node"):
         """Returns a WHERE clause (tuple (query, parameters)) from a single
-filter (no OR).
+        filter (no OR).
 
         Devs: `flt` **can** be set from an untrusted source.
 
@@ -357,7 +357,7 @@ filter (no OR).
             )
         raise ValueError()
 
-    splitter_re = re.compile('(?:[^\\s,"]|"(?:\\\\.|[^"])*")+')
+    splitter_re = re.compile('(?:[^\\s"]|"(?:\\\\.|[^"])*")+')
 
     @classmethod
     def _split_filter_or(cls, flt):
