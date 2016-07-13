@@ -463,6 +463,11 @@ IGNORE_SCRIPTS = {
     'drda-info': set(['The response contained no EXCSATRD']),
     'rdp-enum-encryption': set(['Received unhandled packet']),
     'ldap-search': set(['ERROR: Failed to bind as the anonymous user']),
+    'mongodb-databases': set([
+        'ERROR: Script execution failed (use -d to debug)',
+        'No Bson data returned',
+    ]),
+    'mongodb-info': set(['ERROR: Script execution failed (use -d to debug)']),
     # host scripts
     'firewalk': set(['None found']),
     'ipidseq': set(['Unknown']),
