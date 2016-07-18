@@ -504,6 +504,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 3: (4, self.migrate_schema_hosts_3_4),
                 4: (5, self.migrate_schema_hosts_4_5),
                 5: (6, self.migrate_schema_hosts_5_6),
+                6: (7, self.migrate_schema_hosts_6_7),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -749,6 +750,27 @@ creates the default indexes."""
                     if newtable != table:
                         script["vulns"] = newtable
                         updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_6_7(doc):
+        """Converts a record from version 6 to version 7. Version 7 creates a
+        structured output structured data for mongodb-databases script.
+
+        """
+        assert doc["schema_version"] == 6
+        update = {"$set": {"schema_version": 7}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "mongodb-databases":
+                    if 'mongodb-databases' not in script:
+                        data = xmlnmap.add_mongodb_databases_data(script)
+                        if data is not None:
+                            script['mongodb-databases'] = data
+                            updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update

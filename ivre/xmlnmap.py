@@ -34,7 +34,7 @@ import os
 import re
 import bson
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
