@@ -206,11 +206,11 @@ def add_mongodb_databases_data(script):
     for line in script["output"].split("\n"):
         # Handle mode based on indentation
         line = line.rstrip()
-        indent = (len(line) - len(line.lstrip())) / 2
-        if indent == 0:
-            # Empty line
+        if not line:
             continue
+        length = len(line)
         line = line.lstrip()
+        indent = (length - len(line)) / 2
 
         # Parse structure
         if indent == 1:
