@@ -505,6 +505,10 @@ var HELP_TOPVALUES = {
 	    "content": "enip.ip",
 	    "title": "<b>(!)</b>enip.ip"
 	},
+	"mongo.dbs.databases.name": {
+	    "content": "mongo.dbs.databases.name",
+	    "title": "<b>(!)</b>mongo.dbs.databases.name"
+	},
 	"countports:closed": {
 	    "content": "countports:closed",
 	    "title": "<b>(!)</b>countports:closed"
