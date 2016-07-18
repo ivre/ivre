@@ -1866,6 +1866,7 @@ have no effect if it is not expected)."""
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
+          - mongo.dbs.*
           - screenwords
           - file.* / file.*:scriptid
           - hop
@@ -2291,6 +2292,8 @@ have no effect if it is not expected)."""
                 "ip": "Device IP",
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
+        elif field.startswith('mongo.dbs.'):
+            field = 'ports.scripts.mongodb-databases.' + field[10:]
         elif (field == 'file' or field.startswith('file:')
               or field.startswith('file.')):
             if ":" in field:
