@@ -225,6 +225,22 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "country", "' + x[0] + '", true, true); setparam(FILTER, "city", "' + x[1] + '");';
 		};
 	    }
+	    else if(field === 'vulns.id') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "vuln", "' + x + '");';
+		};
+	    }
+	    else if(field.substr(0, 6) === 'vulns.') {
+		prepareoutput = function(x) {
+		    return x[1]
+		};
+		preparetitle = function(x) {
+		    return x[0];
+		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "vuln", "' + x[0] + '");';
+		};
+	    }
 	    else if(field === 'category') {
 		preparefilter = function(x) {
 		    return 'setparam(FILTER, "category", "' + x + '");';

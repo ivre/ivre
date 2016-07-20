@@ -413,6 +413,12 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.ls.volumes.files",
                   "ports.scripts.mongodb-databases.databases",
                   "ports.scripts.mongodb-databases.databases.shards",
+                  "ports.scripts.vulns",
+                  "ports.scripts.vulns.check_results",
+                  "ports.scripts.vulns.description",
+                  "ports.scripts.vulns.extra_info",
+                  "ports.scripts.vulns.ids",
+                  "ports.scripts.vulns.refs",
                   "ports.screenwords",
                   "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
@@ -463,6 +469,10 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('ports.scripts.ls.volumes.files.filename',
                    pymongo.ASCENDING)],
                  {"sparse": True}),
+                ([
+                    ('ports.scripts.vulns.id', pymongo.ASCENDING),
+                    ('ports.scripts.vulns.state', pymongo.ASCENDING),
+                ], {"sparse": True}),
                 ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
                  {"sparse": True}),
                 ([
@@ -505,6 +515,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 4: (5, self.migrate_schema_hosts_4_5),
                 5: (6, self.migrate_schema_hosts_5_6),
                 6: (7, self.migrate_schema_hosts_6_7),
+                7: (8, self.migrate_schema_hosts_7_8),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -757,7 +768,7 @@ creates the default indexes."""
     @staticmethod
     def migrate_schema_hosts_6_7(doc):
         """Converts a record from version 6 to version 7. Version 7 creates a
-        structured output structured data for mongodb-databases script.
+        structured output for mongodb-databases script.
 
         """
         assert doc["schema_version"] == 6
@@ -771,6 +782,30 @@ creates the default indexes."""
                         if data is not None:
                             script['mongodb-databases'] = data
                             updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_7_8(doc):
+        """Converts a record from version 7 to version 8. Version 8 fixes the
+        structured output for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 7
+        update = {"$set": {"schema_version": 8}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if 'vulns' in script:
+                    if any(elt in script['vulns'] for elt in
+                           ["ids", "refs", "description", "state", "title"]):
+                        script['vulns'] = [script['vulns']]
+                    else:
+                        script['vulns'] = [dict(tab, id=vulnid)
+                                           for vulnid, tab in
+                                           script['vulns'].iteritems()]
+                    updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update
@@ -1750,6 +1785,17 @@ have no effect if it is not expected)."""
         return {'ports.service_extrainfo': 'Anonymous bind OK'}
 
     @staticmethod
+    def searchvuln(vulnid=None, status=None):
+        if status is None:
+            return {'ports.scripts.vulns.id':
+                    {'$exists': True} if vulnid is None else vulnid}
+        if vulnid is None:
+            return {'ports.scripts.vulns.status': status}
+        return {'ports.scripts.vulns': {
+            '$elemMatch': {'id': vulnid, 'status': status}
+        }}
+
+    @staticmethod
     def searchtimeago(delta, neg=False):
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
@@ -1889,6 +1935,7 @@ have no effect if it is not expected)."""
           - cert.* / smb.* / sshkey.*
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
+          - vulns.*
           - screenwords
           - file.* / file.*:scriptid
           - hop
@@ -2315,7 +2362,28 @@ have no effect if it is not expected)."""
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
         elif field.startswith('mongo.dbs.'):
+            flt = self.flt_and(flt, self.searchscript(name="mongodb-databases"))
             field = 'ports.scripts.mongodb-databases.' + field[10:]
+        elif field.startswith('vulns.'):
+            flt = self.flt_and(flt, self.searchvuln())
+            subfield = field[6:]
+            if subfield == "id":
+                field = 'ports.scripts.vulns.id'
+            else:
+                field = "ports.scripts.vulns." + subfield
+                specialproj = {
+                    "_id": 0,
+                    "ports.scripts.vulns.id": 1,
+                    field: 1,
+                }
+                specialflt = [{"$project": {"_id": 0,
+                                            field: {"$concat": [
+                                                "$ports.scripts.vulns.id",
+                                                "###",
+                                                "$" + field,
+                                            ]}}}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': x['_id'].split('###', 1)}
         elif (field == 'file' or field.startswith('file:')
               or field.startswith('file.')):
             if ":" in field:
