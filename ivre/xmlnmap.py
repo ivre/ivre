@@ -1282,7 +1282,7 @@ class Nmap2Mongo(NmapHandler):
         self._collection = self._db.nmap.db[self._db.nmap.colname_hosts]
         self._scancollection = self._db.nmap.db[self._db.nmap.colname_scans]
         if gettoarchive is None:
-            self._gettoarchive = lambda c, a, s: []
+            self._gettoarchive = lambda a, s: []
         else:
             self._gettoarchive = gettoarchive
         self.merge = merge
