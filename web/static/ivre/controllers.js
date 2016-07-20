@@ -380,13 +380,16 @@ ivreWebUi
 	    switch(status) {
 	    case "open": return "label-success";
 	    case "closed": return "label-danger";
-	    case "filtered": return "label-warning";
+	    case "filtered":
+	    case "open|filtered":
+		 return "label-warning";
 	    }
 	};
 	$scope.short_port_status = function(status) {
-	    if(status === "filtered")
-		return "fltred";
-	    return status;
+	    return {
+		"filtered": "flt",
+		"open|filtered": "opn|flt"
+	    }[status] || status;
 	};
 	$scope.url_from_port = function(port, addr) {
 	    var result;
