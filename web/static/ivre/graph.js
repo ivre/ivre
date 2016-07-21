@@ -390,14 +390,16 @@ var GraphTopValues = (function(_super) {
 		.attr("width", 0)
 		.attr("height", y.rangeBand())
 		.attr("class", preparefilter === undefined ? "" : "clickable")
-		.attr("title", function(d, i) {
-		    if (preparetitle !== undefined)
-			return preparetitle(labels[i]);
-		})
 		.attr("onclick", function(d, i) {
 		    return (preparefilter === undefined ?
 			    undefined :
 			    preparefilter(labels[i]));
+		});
+
+	    bar.append("svg:title")
+		.text(function(d, i) {
+		    if (preparetitle !== undefined)
+			return preparetitle(labels[i]);
 		});
 
 	    bar.transition()
@@ -425,15 +427,16 @@ var GraphTopValues = (function(_super) {
 		    return x(d, i) < (w - 10) / 2 ? "start" : "end" ;
 		})
 		.text(function(d, i) {return prepareoutput(labels[i]);})
-		.attr("title", function(d, i) {
-		    if (preparetitle !== undefined)
-			return preparetitle(labels[i]);
-		})
 		.attr("class", preparefilter === undefined ? "" : "clickable")
 		.attr("onclick", function(d, i) {
 		    return (preparefilter === undefined ?
 			    undefined :
 			    preparefilter(labels[i]));
+		})
+		.append("svg:title")
+		.text(function(d, i) {
+		    if (preparetitle !== undefined)
+			return preparetitle(labels[i]);
 		});
 
 	    // var rules = vis.selectAll("g.rule")
@@ -548,15 +551,16 @@ var GraphMap = (function(_super) {
 		vis.selectAll("country")
 		    .data(world.features)
 		    .enter().append("path")
-		    .attr("title", function(d) {
-			return d.properties.name + " (" + d.id + ")";
-		    })
 		    .attr("class", "clickable")
 		    .attr("onclick", function(d) {
 			return 'setparam(FILTER, "country", "' + d.id + '", true);';
 		    })
 		    .attr("d", path)
-		    .attr("fill", "lightgrey");
+		    .attr("fill", "lightgrey")
+		    .append("svg:title")
+		    .text(function(d, i) {
+			return d.properties.name + " (" + d.id + ")";
+		    });
 		vis.selectAll("dot")
 		    .data(locations.features)
 		    .enter().append("svg:circle")
