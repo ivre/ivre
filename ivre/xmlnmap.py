@@ -617,6 +617,9 @@ IGNORE_SCRIPTS = {
         'No Bson data returned',
     ]),
     'mongodb-info': set(['ERROR: Script execution failed (use -d to debug)']),
+    # fixed in nmap commit 95f7b76d9f12d10832523e6f3db0e602a04b3a12
+    # https://github.com/nmap/nmap/commit/95f7b76d9f12d10832523e6f3db0e602a04b3a12
+    'snmp-hh3c-logins': set(['\n  baseoid: 1.3.6.1.4.1.25506.2.12.1.1.1']),
     # host scripts
     'firewalk': set(['None found']),
     'ipidseq': set(['Unknown']),
@@ -655,6 +658,14 @@ IGNORE_SCRIPTS_REGEXP = {
     ),
     'p2p-conficker': re.compile(
         re.escape('Host is CLEAN or ports are blocked')
+    ),
+    'dns-nsec-enum': re.compile(
+        "^" + re.escape("Can't determine domain for host ") + ".*" +
+        re.escape("; use dns-nsec-enum.domains script arg.") + "$"
+    ),
+    'dns-nsec3-enum': re.compile(
+        "^" + re.escape("Can't determine domain for host ") + ".*" +
+        re.escape("; use dns-nsec3-enum.domains script arg.") + "$"
     ),
 }
 
