@@ -620,6 +620,40 @@ IGNORE_SCRIPTS = {
     # fixed in nmap commit 95f7b76d9f12d10832523e6f3db0e602a04b3a12
     # https://github.com/nmap/nmap/commit/95f7b76d9f12d10832523e6f3db0e602a04b3a12
     'snmp-hh3c-logins': set(['\n  baseoid: 1.3.6.1.4.1.25506.2.12.1.1.1']),
+    'dns-nsec-enum': set(['\n  No NSEC records found\n']),
+    'dns-nsec3-enum': set(['\n  DNSSEC NSEC3 not supported\n']),
+    'http-csrf': set(["Couldn't find any CSRF vulnerabilities."]),
+    'http-devframework': set([
+        "Couldn't determine the underlying framework or CMS. Try increasing "
+        "'httpspider.maxpagecount' value to spider more pages.",
+    ]),
+    'http-dombased-xss': set(["Couldn't find any DOM based XSS."]),
+    'http-drupal-enum': set([
+        'Nothing found amongst the top 100 resources,use '
+        '--script-args number=<number|all> for deeper analysis)',
+    ]),
+    'http-errors': set(["Couldn't find any error pages."]),
+    'http-feed': set(["Couldn't find any feeds."]),
+    'http-litespeed-sourcecode-download': set([
+        'Request with null byte did not work. This web server might not be '
+        'vulnerable',
+        'Page: /index.php was not found. Try with an existing file.',
+    ]),
+    'http-sitemap-generator': set([
+        '\n  Directory structure:\n    /\n      Other: 1\n  Longest directory '
+        'structure:\n    Depth: 0\n    Dir: /\n  Total files found (by '
+        'extension):\n    Other: 1\n',
+        '\n  Directory structure:\n  Longest directory structure:\n    '
+        'Depth: 0\n    Dir: /\n  Total files found (by extension):\n    \n',
+    ]),
+    'http-stored-xss': set(["Couldn't find any stored XSS vulnerabilities."]),
+    'http-wordpress-enum': set([
+        'Nothing found amongst the top 100 resources,use '
+        '--script-args search-limit=<number|all> for deeper analysis)',
+    ]),
+    'http-wordpress-users': set(["[Error] Wordpress installation was not found"
+                                 ". We couldn't find wp-login.php"]),
+    'ssl-date': set(['TLS randomness does not represent time']),
     # host scripts
     'firewalk': set(['None found']),
     'ipidseq': set(['Unknown']),
@@ -666,6 +700,13 @@ IGNORE_SCRIPTS_REGEXP = {
     'dns-nsec3-enum': re.compile(
         "^" + re.escape("Can't determine domain for host ") + ".*" +
         re.escape("; use dns-nsec3-enum.domains script arg.") + "$"
+    ),
+    'http-vhosts': re.compile(
+        "^\\\n[0-9]+" + re.escape(" names had status ") +
+        ("(?:[0-9]{3}|ERROR)")
+    ),
+    'http-fileupload-exploiter': re.compile(
+        "^(" + re.escape("\n  \n    Couldn't find a file-type field.") + ")*$"
     ),
 }
 
@@ -735,8 +776,8 @@ def ignore_script(script):
             and IGNORE_SCRIPTS_REGEXP[sid].search(output)
     ):
         return True
-    if any(output is not None and expr.search(output)
-           for expr in IGNORE_SCRIPT_OUTPUTS_REGEXP):
+    if output is not None and any(expr.search(output)
+                                  for expr in IGNORE_SCRIPT_OUTPUTS_REGEXP):
         return True
     return False
 
