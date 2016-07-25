@@ -182,6 +182,12 @@ class MongoDB(DB):
             updated = False
             new_version, migration_function = self.schema_migrations[
                 colname][version]
+            if config.DEBUG:
+                sys.stderr.write(
+                    "INFO: migrating column %s from version %r to %r\n" % (
+                        colname, version, new_version,
+                    )
+                )
             # unlimited find()!
             for record in self.find(colname, self.searchversion(version)):
                 try:
@@ -212,6 +218,12 @@ class MongoDB(DB):
                                     exc.message)
                             )
             version = new_version
+            if config.DEBUG:
+                sys.stderr.write(
+                    "INFO: migration of column %s from version %r to %r DONE\n" % (
+                        colname, version, new_version,
+                    )
+                )
         if failed:
             sys.stderr.write("WARNING: failed to migrate %d documents"
                              "\n" % failed)
