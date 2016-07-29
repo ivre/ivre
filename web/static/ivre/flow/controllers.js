@@ -483,15 +483,13 @@ ivreWebUi
             $http.get(url).success($scope.load_json);
         };
 
-        $scope.cypher_query = "";
-        hashSync.sync($scope, 'cypher_query', 'cypher_query', 'ref');
-
         $scope.query = {
             nodes: [],
             edges: [],
             limit: 1000,
             skip: 0,
             mode: "default",
+            orderby: "",
             timeline: true,
         };
         hashSync.sync($scope, 'query', 'query', 'val');
@@ -506,6 +504,20 @@ ivreWebUi
         }, {
           label: "Talk Map",
           id: "talk_map",
+        }];
+
+        $scope.query_orderbys = [{
+          label: "None",
+          id: "",
+        }, {
+          label: "Source",
+          id: "src",
+        }, {
+          label: "Destination",
+          id: "dst",
+        }, {
+          label: "Flow",
+          id: "flow",
         }];
 
         $scope.flow_to_date = {};
