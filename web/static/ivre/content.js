@@ -277,6 +277,10 @@ var HELP_FILTERS = {
 	    "title": "torcert",
 	    "content": "Look for Tor certificates.",
 	},
+	"vuln": {
+	    "title": "vuln<b>(:[vuln id](:[status]))</b>",
+	    "content": "Look for vulnerabilities found by NSE scripts.",
+	},
 	"webfiles": {
 	    "title": "webfiles",
 	    "content": "Look for &quot;typical&quot; Web files. See also <code>file:</code>.",
@@ -508,6 +512,26 @@ var HELP_TOPVALUES = {
 	"mongo.dbs.databases.name": {
 	    "content": "mongo.dbs.databases.name",
 	    "title": "<b>(!)</b>mongo.dbs.databases.name"
+	},
+	"vulns.id": {
+	    "content": "vulns.id",
+	    "title": "<b>(!)</b>vulns.id"
+	},
+	"vulns.title": {
+	    "content": "vulns.title",
+	    "title": "<b>(!)</b>vulns.title"
+	},
+	"vulns.state": {
+	    "content": "vulns.state",
+	    "title": "<b>(!)</b>vulns.state"
+	},
+	"vulns.refs": {
+	    "content": "vulns.refs",
+	    "title": "<b>(!)</b>vulns.refs"
+	},
+	"vulns.extra_info": {
+	    "content": "vulns.extra_info",
+	    "title": "<b>(!)</b>vulns.extra_info"
 	},
 	"countports:closed": {
 	    "content": "countports:closed",

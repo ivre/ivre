@@ -459,6 +459,17 @@ def flt_from_query(query, base_flt=None):
                     flt = db.nmap.flt_and(flt, db.nmap.searchfile(
                         fname=utils.str2regexp(value[1]),
                         scripts=value[0].split(',')))
+        elif param == 'vuln':
+            try:
+                vulnid, status = value.split(':', 1)
+            except ValueError:
+                vulnid = value
+                status = None
+            except AttributeError:
+                vulnid = None
+                status = None
+            flt = db.nmap.flt_and(flt, db.nmap.searchvuln(vulnid=vulnid,
+                                                          status=status))
         elif not neg and param == 'geovision':
             flt = db.nmap.flt_and(flt, db.nmap.searchgeovision())
         elif param == 'httptitle':
