@@ -29,17 +29,17 @@ try:
 except ImportError:
     plt = None
 
+DESCRIPTION = 'Access and query the flows database. See doc/FLOW.md for more ' \
+              'information.'
+
 def main():
     try:
         import argparse
-        parser = argparse.ArgumentParser(
-            description='Access and query the flows database.',
-        )
+        parser = argparse.ArgumentParser(description=DESCRIPTION)
         USING_ARGPARSE = True
     except ImportError:
         import optparse
-        parser = optparse.OptionParser(
-            description='Access and query the flows database.')
+        parser = optparse.OptionParser(description=DESCRIPTION)
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
