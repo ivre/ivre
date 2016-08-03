@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,13 +22,13 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 import os
-try:
-    from collections import OrderedDict
-    USING_ORDEREDDICT = True
-except ImportError:
-    USING_ORDEREDDICT = False
 from datetime import datetime
 from xml.sax import saxutils
+try:
+    from collections import OrderedDict
+except ImportError:
+    # fallback to dict for Python 2.6
+    OrderedDict = dict
 
 
 HONEYD_ACTION_FROM_NMAP_STATE = {
@@ -438,20 +438,19 @@ def main():
                         help='update (host) schema. Use with --version to '
                         'specify your current version and run twice, once '
                         'with --archive.')
-    if USING_ORDEREDDICT:
-        parser.add_argument('--csv', metavar='TYPE',
-                            help='Output result as a CSV file. Supported '
-                            'values for type are currently "ports" and '
-                            '"hops".')
-        parser.add_argument('--csv-separator', metavar='SEPARATOR',
-                            default=",",
-                            help='Select separator for --csv output')
-        parser.add_argument('--csv-add-infos', action='store_true',
-                            help="Include country_code and as_number"
-                            "fields to CSV file")
-        parser.add_argument('--csv-na-str', default="NA",
-                            help='String to use for "Not Applicable" value '
-                            '(defaults to "NA")')
+    parser.add_argument('--csv', metavar='TYPE',
+                        help='Output result as a CSV file. Supported '
+                        'values for type are currently "ports" and '
+                        '"hops".')
+    parser.add_argument('--csv-separator', metavar='SEPARATOR',
+                        default=",",
+                        help='Select separator for --csv output')
+    parser.add_argument('--csv-add-infos', action='store_true',
+                        help="Include country_code and as_number"
+                        "fields to CSV file")
+    parser.add_argument('--csv-na-str', default="NA",
+                        help='String to use for "Not Applicable" value '
+                        '(defaults to "NA")')
     if USING_ARGPARSE:
         parser.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
                             help='Sort results according to FIELD; use ~FIELD '
@@ -505,6 +504,26 @@ def main():
                     entry['_id'] = "None"
             print "%(_id)s: %(count)d" % entry
         sys.exit(0)
+    if args.sort is not None:
+        sortkeys = [(field.startswith('~') and field[1:] or field,
+                     field.startswith('~') and -1 or 1)
+                    for field in args.sort]
+    if args.short:
+        for val in db.db.nmap.distinct("addr", flt=hostfilter, sortby=sortkeys,
+                                       limit=args.limit, skip=args.skip,
+                                       archive=args.archives):
+            try:
+                out.write(utils.int2ip(val) + '\n')
+            except:
+                out.write(str(val) + '\n')
+        sys.exit(0)
+    elif args.distinct is not None:
+        for val in db.db.nmap.distinct(args.distinct, flt=hostfilter,
+                                       sortby=sortkeys, limit=args.limit,
+                                       skip=args.skip, archive=args.archives,
+                                       outproc=str):
+            out.write(val + '\n')
+        sys.exit(0)
     if args.json:
         import json
 
@@ -529,13 +548,6 @@ def main():
                             'base64')
                 print json.dumps(h, indent=indent,
                                  default=db.db.nmap.serialize)
-    elif args.short:
-        def displayfunction(x):
-            for h in x.distinct('addr'):
-                try:
-                    out.write(utils.int2ip(h) + '\n')
-                except:
-                    out.write(str(h) + '\n')
     elif args.honeyd:
         def displayfunction(x):
             display_honeyd_preamble(out)
@@ -600,9 +612,6 @@ def main():
     elif args.count:
         def displayfunction(x):
             out.write(str(x.count()) + '\n')
-    elif args.distinct is not None:
-        def displayfunction(x):
-            out.write('\n'.join(map(str, x.distinct(args.distinct))) + '\n')
     elif args.explain:
         def displayfunction(x):
             out.write(db.db.nmap.explain(x, indent=4) + '\n')
@@ -620,7 +629,7 @@ def main():
         def displayfunction(x):
             for h in x:
                 db.db.nmap.archive(h, unarchive=True)
-    elif USING_ORDEREDDICT and args.csv is not None:
+    elif args.csv is not None:
         fields = {
             "ports": OrderedDict([
                 ["addr", utils.int2ip],
@@ -665,10 +674,6 @@ def main():
     else:
         def displayfunction(cursor):
             nmapout.displayhosts(cursor, out=out)
-    if args.sort is not None:
-        sortkeys = [(field.startswith('~') and field[1:] or field,
-                     field.startswith('~') and -1 or 1)
-                    for field in args.sort]
 
     if args.update_schema:
         db.db.nmap.migrate_schema(
@@ -679,9 +684,9 @@ def main():
         cursor = db.db.nmap.get(hostfilter, archive=args.archives)
         if sortkeys:
             cursor = cursor.sort(sortkeys)
-        if args.limit is not None:
-            cursor = cursor.limit(args.limit)
         if args.skip is not None:
             cursor = cursor.skip(args.skip)
+        if args.limit is not None:
+            cursor = cursor.limit(args.limit)
         displayfunction(cursor)
         sys.exit(0)
