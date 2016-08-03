@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -105,12 +105,12 @@ def disp_recs_std(flt):
 
 
 def disp_recs_short(flt):
-    for addr in db.passive.get(flt).distinct('addr'):
+    for addr in db.passive.distinct('addr', flt=flt):
         print ivre.utils.int2ip(addr)
 
 
 def disp_recs_distinct(field, flt):
-    for value in db.passive.get(flt).distinct(field):
+    for value in db.passive.distinct(field, flt=flt):
         print value
 
 
