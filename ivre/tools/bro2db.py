@@ -275,6 +275,9 @@ def main():
 
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
+    parser.add_argument("-C", "--no-cleanup",
+                        help="avoid port cleanup heuristics",
+                        action="store_true")
     args = parser.parse_args()
 
     if args.verbose:
@@ -308,5 +311,5 @@ def main():
                     continue
                 func(bulk, _bro2neo(line))
             bulk.commit()
-            if brof.path == "conn":
+            if brof.path == "conn" and not args.no_cleanup:
                 db.flow.cleanup_flows()
