@@ -613,10 +613,8 @@ IGNORE_SCRIPTS = {
     'rdp-enum-encryption': set(['Received unhandled packet']),
     'ldap-search': set(['ERROR: Failed to bind as the anonymous user']),
     'mongodb-databases': set([
-        'ERROR: Script execution failed (use -d to debug)',
         'No Bson data returned',
     ]),
-    'mongodb-info': set(['ERROR: Script execution failed (use -d to debug)']),
     # fixed in nmap commit 95f7b76d9f12d10832523e6f3db0e602a04b3a12
     # https://github.com/nmap/nmap/commit/95f7b76d9f12d10832523e6f3db0e602a04b3a12
     'snmp-hh3c-logins': set(['\n  baseoid: 1.3.6.1.4.1.25506.2.12.1.1.1']),
