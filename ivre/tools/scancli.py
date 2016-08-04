@@ -504,8 +504,7 @@ def main():
             print "%(_id)s: %(count)d" % entry
         sys.exit(0)
     if args.sort is not None:
-        sortkeys = [(field.startswith('~') and field[1:] or field,
-                     field.startswith('~') and -1 or 1)
+        sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
                     for field in args.sort]
     if args.short:
         for val in db.db.nmap.distinct("addr", flt=hostfilter, sortby=sortkeys,
