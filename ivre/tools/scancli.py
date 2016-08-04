@@ -439,9 +439,8 @@ def main():
                         'specify your current version and run twice, once '
                         'with --archive.')
     parser.add_argument('--csv', metavar='TYPE',
-                        help='Output result as a CSV file. Supported '
-                        'values for type are currently "ports" and '
-                        '"hops".')
+                        help='Output result as a CSV file',
+                        choices=['ports', 'hops'])
     parser.add_argument('--csv-separator', metavar='SEPARATOR',
                         default=",",
                         help='Select separator for --csv output')
