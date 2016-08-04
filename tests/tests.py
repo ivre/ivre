@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -286,11 +286,11 @@ class IvreTests(unittest.TestCase):
                          hosts_count)
         addrs = set()
         for net in ivre.utils.range2nets(map(ivre.utils.int2ip, addrrange)):
-            result = ivre.db.db.nmap.get(
-                ivre.db.db.nmap.searchnet(net))
-            addrs = addrs.union(
-                (ivre.utils.int2ip(addr)
-                 for addr in ivre.db.db.nmap.distinct(result, "addr")))
+            addrs.update(
+                ivre.utils.int2ip(addr) for addr in
+                ivre.db.db.nmap.distinct("addr",
+                                         flt=ivre.db.db.nmap.searchnet(net))
+            )
 
         count = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhosts(addrrange)).count()
@@ -310,12 +310,15 @@ class IvreTests(unittest.TestCase):
         nets = ivre.utils.range2nets(addrrange)
         count = 0
         for net in nets:
-            result = ivre.db.db.nmap.get(
-                ivre.db.db.nmap.searchnet(net))
-            count += result.count()
+            count += ivre.db.db.nmap.get(
+                ivre.db.db.nmap.searchnet(net)
+            ).count()
             start, stop = map(ivre.utils.ip2int,
                               ivre.utils.net2range(net))
-            for addr in ivre.db.db.nmap.distinct(result, "addr"):
+            for addr in ivre.db.db.nmap.distinct(
+                    "addr",
+                    flt=ivre.db.db.nmap.searchnet(net),
+            ):
                 self.assertTrue(start <= addr <= stop)
         self.assertEqual(count, addr_range_count)
         # Networks in `nets` are separated sets
@@ -642,9 +645,8 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(result.count(), 0)
 
         addrrange = sorted(
-            x for x in ivre.db.db.passive.get(
-                ivre.db.db.passive.flt_empty).distinct('addr')
-            if type(x) in [int, long] and x != 0
+            x for x in ivre.db.db.passive.distinct('addr')
+            if isinstance(x, (int, long)) and x
         )
         self.assertGreaterEqual(len(addrrange), 2)
         if len(addrrange) < 4:
@@ -652,28 +654,38 @@ class IvreTests(unittest.TestCase):
         else:
             addrrange = [addrrange[1], addrrange[-2]]
         result = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchrange(*addrrange))
+            ivre.db.db.passive.searchrange(*addrrange)
+        )
         self.assertGreaterEqual(result.count(), 2)
-        addresses_1 = result.distinct('addr')
-        result = ivre.db.db.passive.get(ivre.db.db.passive.flt_and(
-            ivre.db.db.passive.searchcmp("addr", addrrange[0], '>='),
-            ivre.db.db.passive.searchcmp("addr", addrrange[1], '<='),
+        addresses_1 = list(ivre.db.db.passive.distinct(
+            'addr',
+            flt=ivre.db.db.passive.searchrange(*addrrange),
         ))
-        addresses_2 = result.distinct('addr')
+        addresses_2 = list(ivre.db.db.passive.distinct(
+            'addr',
+            flt=ivre.db.db.passive.flt_and(
+                ivre.db.db.passive.searchcmp("addr", addrrange[0], '>='),
+                ivre.db.db.passive.searchcmp("addr", addrrange[1], '<='),
+            ),
+        ))
         self.assertItemsEqual(addresses_1, addresses_2)
-        result = ivre.db.db.passive.get(ivre.db.db.passive.flt_and(
-            ivre.db.db.passive.searchcmp("addr", addrrange[0] - 1, '>'),
-            ivre.db.db.passive.searchcmp("addr", addrrange[1] + 1, '<'),
+        addresses_2 = list(ivre.db.db.passive.distinct(
+            'addr',
+            flt=ivre.db.db.passive.flt_and(
+                ivre.db.db.passive.searchcmp("addr", addrrange[0] - 1, '>'),
+                ivre.db.db.passive.searchcmp("addr", addrrange[1] + 1, '<'),
+            ),
         ))
-        addresses_2 = result.distinct('addr')
         self.assertItemsEqual(addresses_1, addresses_2)
         addresses_2 = set()
         nets = ivre.utils.range2nets(addrrange)
         for net in nets:
-            result = ivre.db.db.passive.get(
-                ivre.db.db.passive.searchnet(net))
             addresses_2 = addresses_2.union(
-                ivre.db.db.passive.distinct(result, "addr"))
+                ivre.db.db.passive.distinct(
+                    "addr",
+                    flt=ivre.db.db.passive.searchnet(net),
+                )
+            )
         self.assertItemsEqual(addresses_1, addresses_2)
         count = 0
         for net in nets:
@@ -682,7 +694,10 @@ class IvreTests(unittest.TestCase):
             count += result.count()
             start, stop = map(ivre.utils.ip2int,
                               ivre.utils.net2range(net))
-            for addr in ivre.db.db.passive.distinct(result, "addr"):
+            for addr in ivre.db.db.passive.distinct(
+                    "addr",
+                    flt=ivre.db.db.passive.searchnet(net),
+            ):
                 self.assertTrue(start <= addr <= stop)
         result = ivre.db.db.passive.get(
             ivre.db.db.passive.flt_and(

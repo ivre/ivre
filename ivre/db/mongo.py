@@ -25,13 +25,17 @@ databases.
 from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
 from ivre import utils, xmlnmap, config
 
-import sys
-import pymongo
+import datetime
 import bson
 import json
-
+import pymongo
 import re
-import datetime
+import sys
+try:
+    from collections import OrderedDict
+except ImportError:
+    # fallback to dict for Python 2.6
+    OrderedDict = dict
 
 
 class MongoDB(DB):
@@ -158,10 +162,6 @@ class MongoDB(DB):
         return json.dumps(cursor.explain(), indent=indent,
                           default=self.serialize)
 
-    @staticmethod
-    def distinct(cursor, fieldname):
-        return cursor.distinct(fieldname)
-
     def create_indexes(self):
         for colname, indexes in self.indexes.iteritems():
             for index in indexes:
@@ -257,7 +257,7 @@ class MongoDB(DB):
         if flt:
             pipeline += [{"$match": flt}]
         if sortby is not None and ((limit is not None) or (skip is not None)):
-            pipeline += [{"$sort": dict(sortby)}]
+            pipeline += [{"$sort": OrderedDict(sortby)}]
         if skip is not None:
             pipeline += [{"$skip": skip}]
         if limit is not None:
@@ -293,6 +293,30 @@ class MongoDB(DB):
             pipeline += [{"$sort": {"count": -1}}]
         if topnbr is not None:
             pipeline += [{"$limit": topnbr}]
+        return pipeline
+
+    def _distinct(self, field, flt=None, sortby=None, limit=None, skip=None):
+        """This method makes use of the aggregation framework to
+        produce distinct values for a given field.
+
+        """
+        pipeline = []
+        if flt:
+            pipeline.append({'$match': flt})
+        if sortby:
+            pipeline.append({'$sort': OrderedDict(sortby)})
+        if skip is not None:
+            pipeline += [{"$skip": skip}]
+        if limit is not None:
+            pipeline += [{"$limit": limit}]
+        # hack to allow nested values as field
+        # see <http://stackoverflow.com/questions/13708857/
+        # mongodb-aggregation-framework-nested-arrays-subtract-expression>
+        for i in xrange(field.count('.'), -1, -1):
+            subfield = field.rsplit('.', i)[0]
+            if subfield in self.needunwind:
+                pipeline += [{"$unwind": "$" + subfield}]
+        pipeline.append({'$group': {'_id': '$%s' % field}})
         return pipeline
 
     # filters
@@ -1952,7 +1976,6 @@ have no effect if it is not expected)."""
           - file.* / file.*:scriptid
           - hop
         """
-        colname = self.colname_oldhosts if archive else self.colname_hosts
         outputproc = None
         if flt is None:
             flt = self.flt_empty
@@ -2444,11 +2467,30 @@ have no effect if it is not expected)."""
             specialproj=specialproj, specialflt=specialflt,
         )
         cursor = self.set_limits(
-            self.db[colname].aggregate(pipeline, cursor={})
+            self.db[self.colname_oldhosts
+                    if archive else
+                    self.colname_hosts].aggregate(pipeline, cursor={})
         )
         if outputproc is not None:
             return (outputproc(res) for res in cursor)
         return cursor
+
+    def distinct(self, field, flt=None, sortby=None, limit=None, skip=None,
+                 archive=False):
+        """This method makes use of the aggregation framework to
+        produce distinct values for a given field.
+
+        """
+        cursor = self.set_limits(
+            self.db[self.colname_oldhosts
+                    if archive else
+                    self.colname_hosts].aggregate(
+                        self._distinct(field, flt=flt, sortby=sortby,
+                                       limit=limit, skip=skip),
+                        cursor={},
+                    )
+        )
+        return (res['_id'] for res in cursor)
 
     def diff_categories(self, category1, category2, flt=None,
                         archive=False, include_both_open=True):
@@ -2765,18 +2807,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                  {'unique': True}),
             ],
         }
-        try:
-            from collections import OrderedDict
-        except ImportError:
-            self.hint_indexes = {
-                "addr": [("addr", 1), ("recontype", 1), ("port", 1)],
-                "targetval": [("targetval", 1)],
-            }
-        else:
-            self.hint_indexes = OrderedDict([
-                ["addr", [("addr", 1), ("recontype", 1), ("port", 1)]],
-                ["targetval", [("targetval", 1)]],
-            ])
+        self.hint_indexes = OrderedDict([
+            ["addr", [("addr", 1), ("recontype", 1), ("port", 1)]],
+            ["targetval", [("targetval", 1)]],
+        ])
 
     def init(self):
         """Initializes the "passive" columns, i.e., drops the columns, and
@@ -2966,6 +3000,20 @@ setting values according to the keyword arguments.
         return self.set_limits(
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
         )
+
+    def distinct(self, field, flt=None, sortby=None, limit=None, skip=None):
+        """This method makes use of the aggregation framework to
+        produce distinct values for a given field.
+
+        """
+        cursor = self.set_limits(
+            self.db[self.colname_passive].aggregate(
+                self._distinct(field, flt=flt, sortby=sortby,
+                               limit=limit, skip=skip),
+                cursor={},
+            )
+        )
+        return (res['_id'] for res in cursor)
 
     @staticmethod
     def searchsensor(sensor, neg=False):
