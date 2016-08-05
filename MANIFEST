@@ -102,7 +102,6 @@ web/dokuwiki/doc/tests.txt
 web/dokuwiki/doc/webui.txt
 web/dokuwiki/media/logo.png
 web/static/compare.html
-web/static/config.js
 web/static/droids.png
 web/static/favicon-loading.gif
 web/static/favicon.png

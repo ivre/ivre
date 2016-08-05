@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -145,7 +145,6 @@ specialized scripts.
           'web/static/flow.html',
           'web/static/report.html',
           'web/static/upload.html',
-          'web/static/config.js',
           'web/static/favicon-loading.gif',
           'web/static/favicon.png',
           'web/static/loading.gif',
