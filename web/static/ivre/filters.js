@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -114,7 +114,7 @@ var Filter = (function() {
         do_count: function() {
             var filterobject = this;
             $.ajax({
-                url: config.cgibase + '?action=count&q=' +
+                url: 'cgi-bin/scanjson.py?action=count&q=' +
                     encodeURIComponent(this.query),
                 jsonp: "callback",
                 dataType: "jsonp",
@@ -129,7 +129,7 @@ var Filter = (function() {
             var filterobject = this;
             if(this.callbacks.get_results.length > 0) {
                 $.ajax({
-                    url: config.cgibase + '?q=' +
+                    url: 'cgi-bin/scanjson.py?q=' +
                         encodeURIComponent(this.query),
                     jsonp: "callback",
                     dataType: "jsonp",

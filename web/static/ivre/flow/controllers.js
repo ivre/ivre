@@ -389,7 +389,7 @@ ivreWebUi
                     labels: elt.labels,
                     type: type,
                 };
-                url = config.cgibase + "?action=details&q=" +
+                url = "cgi-bin/flowjson.py?action=details&q=" +
                          encodeURIComponent(angular.toJson(q));
                 $http.get(url).success(function (data) {
                     graphService.add_details($scope.sigma, elt, data);
@@ -410,9 +410,6 @@ ivreWebUi
         };
 
         $scope.init_flow = function() {
-            config.cgibase = config.cgibase.replace(
-                                /scanjson.py/, "flowjson.py")
-
             $scope.sigma.bind('hovers', function(e) {
                 var node = e.data.enter.nodes[0];
                 var edge = e.data.enter.edges[0];
@@ -732,10 +729,10 @@ ivreWebUi
             r = $scope.query_ready;
             if (r.nodes && r.edges) {
                 $scope.query.count = false;
-                $scope.load_json_url(config.cgibase + "?q=" +
+                $scope.load_json_url("cgi-bin/flowjson.py?q=" +
                              encodeURIComponent(angular.toJson($scope.query)));
                 $scope.query.count = true;
-                $http.get(config.cgibase + "?q=" +
+                $http.get("cgi-bin/flowjson.py?q=" +
                           encodeURIComponent(angular.toJson($scope.query)))
                      .success(function (data) {
                          $scope.counts = data;

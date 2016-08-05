@@ -28,7 +28,7 @@ server {
         try_files $uri $uri/ =404;
     }
 
-    location ~ ^/cgi-bin/(scanjson|scanupload|flowjson)\.py$ {
+    location ~ ^/cgi-bin/(scanjson|scanupload|flowjson|jsconfig)\.py$ {
         root /usr/local/share/ivre/web/;
         fastcgi_pass unix:/var/run/fcgiwrap.socket;
         fastcgi_param REMOTE_USER $remote_user;

@@ -463,7 +463,7 @@ function load_params(filter){
 	unsetparam(filter, 'skip');
 	return false;
     }
-    if (getparam(filter, 'limit') == config.dflt.limit) {
+    if (getparam(filter, 'limit') == config.dflt_limit) {
 	unsetparam(filter, 'limit');
 	return false;
     }
