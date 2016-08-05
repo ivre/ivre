@@ -439,9 +439,8 @@ def main():
                         'specify your current version and run twice, once '
                         'with --archive.')
     parser.add_argument('--csv', metavar='TYPE',
-                        help='Output result as a CSV file. Supported '
-                        'values for type are currently "ports" and '
-                        '"hops".')
+                        help='Output result as a CSV file',
+                        choices=['ports', 'hops'])
     parser.add_argument('--csv-separator', metavar='SEPARATOR',
                         default=",",
                         help='Select separator for --csv output')
@@ -505,8 +504,7 @@ def main():
             print "%(_id)s: %(count)d" % entry
         sys.exit(0)
     if args.sort is not None:
-        sortkeys = [(field.startswith('~') and field[1:] or field,
-                     field.startswith('~') and -1 or 1)
+        sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
                     for field in args.sort]
     if args.short:
         for val in db.db.nmap.distinct("addr", flt=hostfilter, sortby=sortkeys,
