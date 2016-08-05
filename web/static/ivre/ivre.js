@@ -22,9 +22,7 @@ function setdefaultconfig() {
     var defaultconfig = {
         "notesbase": "/dokuwiki/#IP#",
         "cgibase": "/cgi-bin/scanjson.py",
-        "dflt": {
-            "limit": 10,
-        },
+        "dflt_limit": 10,
         "warn_dots_count": 20000,
         "publicsrv": false,
         "uploadok": false,
@@ -194,7 +192,7 @@ function load() {
         limit = getparam(FILTER, 'limit'),
         skip = getparam(FILTER, 'skip');
         if(limit === undefined)
-            limit = config.dflt.limit;
+            limit = config.dflt_limit;
         else
             limit = limit * 1;
         if(skip === undefined)

@@ -40,7 +40,7 @@ def main():
         'config.%s = %s;\n' % (key, json.dumps(value))
         for key, value in {
                 "notesbase": config.WEB_NOTES_BASE,
-                "dflt.limit": config.WEB_LIMIT,
+                "dflt_limit": config.WEB_LIMIT,
                 "warn_dots_count": config.WEB_WARN_DOTS_COUNT,
                 "publicsrv": config.WEB_PUBLIC_SRV,
                 "uploadok": config.WEB_UPLOAD_OK,
