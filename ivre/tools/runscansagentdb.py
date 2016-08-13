@@ -29,6 +29,7 @@ import time
 import signal
 
 def display_scan(scan, verbose=True):
+    scan['target'] = ivre.db.db.agent.get_scan_target(scan['_id'])
     print "scan:"
     if verbose:
         print "  - id: %s" % scan['_id']
