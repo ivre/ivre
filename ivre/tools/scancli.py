@@ -518,9 +518,8 @@ def main():
     elif args.distinct is not None:
         for val in db.db.nmap.distinct(args.distinct, flt=hostfilter,
                                        sortby=sortkeys, limit=args.limit,
-                                       skip=args.skip, archive=args.archives,
-                                       outproc=str):
-            out.write(val + '\n')
+                                       skip=args.skip, archive=args.archives):
+            out.write(str(val) + '\n')
         sys.exit(0)
     if args.json:
         import json
