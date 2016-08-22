@@ -418,7 +418,8 @@ class FileOpener(object):
             # By default we try to use zcat / bzcat, since they seem to be
             # (a lot) faster
             self.proc = subprocess.Popen([cmd_opener, fname],
-                                         stdout=subprocess.PIPE)
+                                         stdout=subprocess.PIPE,
+                                         stderr=open(os.devnull, 'w'))
             self.fdesc = self.proc.stdout
             return
         except OSError as exc:
