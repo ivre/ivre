@@ -627,24 +627,9 @@ def _set_ports():
 
     """
     global _PORTS, _PORTS_POPULATED
-    fdesc = None
-    for path in ['/usr/share/nmap', '/usr/local/share/nmap']:
-        try:
-            fdesc = open(os.path.join(path, 'nmap-services'))
-        except IOError:
-            pass
-    if fdesc is not None:
-        for line in fdesc:
-            try:
-                _, port, freq = line.split('#', 1)[0].split(None, 3)
-                port, proto = port.split('/', 1)
-                port = int(port)
-                freq = float(freq)
-            except ValueError:
-                continue
-            _PORTS.setdefault(proto, {})[port] = freq
-        fdesc.close()
-    else:
+    try:
+        fdesc = open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-services'))
+    except IOError, AttributeError:
         try:
             with open('/etc/services') as fdesc:
                 for line in fdesc:
@@ -657,6 +642,17 @@ def _set_ports():
                     _PORTS.setdefault(proto, {})[port] = 0.5
         except IOError:
             pass
+    else:
+        for line in fdesc:
+            try:
+                _, port, freq = line.split('#', 1)[0].split(None, 3)
+                port, proto = port.split('/', 1)
+                port = int(port)
+                freq = float(freq)
+            except ValueError:
+                continue
+            _PORTS.setdefault(proto, {})[port] = freq
+        fdesc.close()
     for proto, entry in config.KNOWN_PORTS.iteritems():
         for port, proba in entry.iteritems():
             _PORTS.setdefault(proto, {})[port] = proba
