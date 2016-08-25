@@ -1142,35 +1142,6 @@ class NmapHandler(ContentHandler):
                                      "empty, got [%r]\n" % self._curtablepath)
                 self._curtable = {}
                 return
-            if ignore_script(self._curscript):
-                self._curscript = None
-                return
-            infokey = self._curscript.get('id', None)
-            infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
-            if self._curtable:
-                if self._curtablepath:
-                    sys.stderr.write("WARNING, self._curtablepath should be "
-                                     "empty, got [%r]\n" % self._curtablepath)
-                if infokey in CHANGE_TABLE_ELEMS:
-                    self._curtable = CHANGE_TABLE_ELEMS[infokey](self._curtable)
-                self._curscript[infokey] = self._curtable
-                self._curtable = {}
-            elif infokey in ADD_TABLE_ELEMS:
-                infos = ADD_TABLE_ELEMS[infokey]
-                if isinstance(infos, utils.REGEXP_T):
-                    infos = infos.search(self._curscript.get('output', ''))
-                    if infos is not None:
-                        infosdict = infos.groupdict()
-                        if infosdict:
-                            self._curscript[infokey] = infosdict
-                        else:
-                            infos = list(infos.groups())
-                            if infos:
-                                self._curscript[infokey] = infos
-                elif hasattr(infos, "__call__"):
-                    infos = infos(self._curscript)
-                    if infos is not None:
-                        self._curscript[infokey] = infos
             if self._curscript['id'] in SCREENSHOTS_SCRIPTS:
                 fname = SCREENSHOTS_SCRIPTS[self._curscript['id']](
                     self._curscript
@@ -1210,6 +1181,35 @@ class NmapHandler(ContentHandler):
                                 fname=full_fname,
                             )
                         )
+            if ignore_script(self._curscript):
+                self._curscript = None
+                return
+            infokey = self._curscript.get('id', None)
+            infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
+            if self._curtable:
+                if self._curtablepath:
+                    sys.stderr.write("WARNING, self._curtablepath should be "
+                                     "empty, got [%r]\n" % self._curtablepath)
+                if infokey in CHANGE_TABLE_ELEMS:
+                    self._curtable = CHANGE_TABLE_ELEMS[infokey](self._curtable)
+                self._curscript[infokey] = self._curtable
+                self._curtable = {}
+            elif infokey in ADD_TABLE_ELEMS:
+                infos = ADD_TABLE_ELEMS[infokey]
+                if isinstance(infos, utils.REGEXP_T):
+                    infos = infos.search(self._curscript.get('output', ''))
+                    if infos is not None:
+                        infosdict = infos.groupdict()
+                        if infosdict:
+                            self._curscript[infokey] = infosdict
+                        else:
+                            infos = list(infos.groups())
+                            if infos:
+                                self._curscript[infokey] = infos
+                elif hasattr(infos, "__call__"):
+                    infos = infos(self._curscript)
+                    if infos is not None:
+                        self._curscript[infokey] = infos
             current.setdefault('scripts', []).append(self._curscript)
             self._curscript = None
         elif name in ['table', 'elem']:
