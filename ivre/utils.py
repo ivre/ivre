@@ -672,6 +672,93 @@ def guess_srv_port(port1, port2, proto="tcp"):
         return cmp(port2, port1)
     return cmpval
 
+
+_NMAP_PROBES = {}
+_NMAP_PROBES_POPULATED = False
+
+
+def _read_nmap_probes():
+    global _NMAP_CUR_PROBE, _NMAP_PROBES_POPULATED
+    _NMAP_CUR_PROBE = None
+    def parse_line(line):
+        global _NMAP_PROBES, _NMAP_CUR_PROBE
+        if line.startswith('match '):
+            line = line[6:]
+            soft = False
+        elif line.startswith('softmacth '):
+            line = line[10:]
+            soft = True
+        elif line.startswith('Probe '):
+            _NMAP_CUR_PROBE = []
+            proto, name, probe = line[6:].split(' ', 2)
+            _NMAP_PROBES.setdefault(proto.lower(), {})[name] = {
+                "probe": probe, "fp": _NMAP_CUR_PROBE
+            }
+            return
+        else:
+            return
+        service, data = line.split(' ', 1)
+        info = {"soft": soft}
+        while data:
+            if data.startswith('cpe:'):
+                key = 'cpe'
+                data = data[4:]
+            else:
+                key = data[0]
+                data = data[1:]
+            sep = data[0]
+            data = data[1:]
+            index = data.index(sep)
+            value = data[:index]
+            data = data[index + 1:]
+            flag = ''
+            if data:
+                if ' ' in data:
+                    flag, data = data.split(' ', 1)
+                else:
+                    flag, data = data, ''
+            if key == 'm':
+                if value.endswith('\\r\\n'):
+                    value = value[:-4] + '(?:\\r\\n|$)'
+                elif value.endswith('\\\\n'):
+                    value = value[:3] + '(?:\\\\n|$)'
+                elif value.endswith('\\n'):
+                    value = value[:-2] + '(?:\\n|$)'
+                value = re.compile(
+                    value,
+                    flags=sum(getattr(re, f) if hasattr(re, f) else 0 for f in flag.upper()),
+                )
+                flag = ''
+            info[key] = (value, flag)
+        _NMAP_CUR_PROBE.append((service, info))
+    try:
+        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes')) as fdesc:
+            for line in fdesc:
+                parse_line(line[:-1])
+    except (AttributeError, IOError) as exc:
+        sys.stderr.write('WARNING: cannot read Nmap service fingerprint file.')
+        sys.stderr.write(warn_exception(exc))
+    del _NMAP_CUR_PROBE
+    _NMAP_PROBES_POPULATED = True
+
+
+def get_nmap_svc_fp(proto="tcp", probe="NULL"):
+    global _NMAP_PROBES, _NMAP_PROBES_POPULATED
+    if not _NMAP_PROBES_POPULATED:
+        _read_nmap_probes()
+    return _NMAP_PROBES[proto][probe]
+
+
+def nmap_svc_fp_format_data(data, match):
+    for i, value in enumerate(match.groups()):
+        if value is None:
+            if '$%d' % (i + 1) in data:
+                return
+            continue
+        data = data.replace('$%d' % (i + 1), value)
+    return data
+
+
 def normalize_props(props):
     """Returns a normalized property list/dict so that (roughly):
         - a list gives {k: "{k}"}
