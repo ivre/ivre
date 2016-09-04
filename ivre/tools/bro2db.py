@@ -18,7 +18,6 @@
 
 """Update the flow database from Bro logs"""
 
-import itertools
 import os
 import re
 import sys

@@ -738,21 +738,65 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "unknown": "banner",
     "ssh": "banner",
     "vnc": "banner",
+    "imap": "banner",
+    "pop": "banner",
+    "X509": "ssl-cert"
+}
+
+MASSCAN_NMAP_SCRIPT_NMAP_PROBE = {
+    "banner": "NULL",
+    "http-headers": "GetRequest",
+}
+
+NMAP_FINGERPRINT_IVRE_KEY = {
+    # TODO: cpe
+    'd': 'service_devicetype',
+    'h': 'service_hostname',
+    'i': 'service_extrainfo',
+    'o': 'service_ostype',
+    'p': 'service_product',
+    'v': 'service_version',
 }
 
 MASSCAN_SERVICES_NMAP_SERVICES = {
-    "ftp": "ftp", # masscan can confuse smtp (for example) for ftp
+    "ftp": "ftp",
     "http": "http",
+    "title": "http",
     "ssh": "ssh",
     "vnc": "vnc",
+    "imap": "imap",
+    "pop": "pop3",
 }
 
 MASSCAN_ENCODING = re.compile(re.escape("\\x") + "([0-9a-f]{2})")
 
-def _masscan_decode(match):
+def _masscan_decode_print(match):
     char = match.groups()[0].decode('hex')
     return (char if (32 <= ord(char) <= 126 or char in "\t\r\n")
             else match.group())
+
+def _masscan_decode_raw(match):
+    return match.groups()[0].decode('hex')
+
+def masscan_x509(output):
+    """Produces an output similar to Nmap script ssl-cert from Masscan
+X509 "service" tag.
+
+    XXX WORK IN PROGRESS"""
+    certificate = output.decode('base64')
+    newout = []
+    for hashtype, hashname in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:
+        hashvalue = hashlib.new(hashtype, cert).hexdigest()
+        newout.append('%-7s%s\n' % (
+            hashname,
+            ' '.join(hashvalue[i:i + 4] for i in xrange(0, len(hashvalue), 4))),
+        )
+    b64cert = certificate.encode('base64')
+    newout.append('-----BEGIN CERTIFICATE-----\n')
+    newout.extend('%s\n' % b64cert[i:i + 64] for i in xrange(0, len(b64cert), 64))
+    newout.append('-----END CERTIFICATE-----\n')
+    return "".join(newout)
+
 
 def ignore_script(script):
     """Predicate that decides whether an Nmap script should be ignored
@@ -976,18 +1020,54 @@ class NmapHandler(ContentHandler):
                 return
             if self.scanner == "masscan":
                 # create fake scripts from masscan "service" tags
+                raw_output = MASSCAN_ENCODING.sub(
+                    _masscan_decode_raw,
+                    str(attrs["banner"]),
+                )
+                scriptid = MASSCAN_SERVICES_NMAP_SCRIPTS.get(attrs['name'],
+                                                             attrs['name'])
                 self._curport.setdefault('scripts', []).append({
-                    "id": MASSCAN_SERVICES_NMAP_SCRIPTS.get(attrs['name'],
-                                                            attrs['name']),
+                    "id": scriptid,
                     "output": MASSCAN_ENCODING.sub(
-                        _masscan_decode,
+                        _masscan_decode_print,
                         attrs["banner"],
-                    )
+                    ),
+                    "masscan": {
+                        "raw": self._to_binary(raw_output),
+                        "encoded": attrs["banner"],
+                    },
                 })
                 # get service name
                 service = MASSCAN_SERVICES_NMAP_SERVICES.get(attrs['name'])
                 if service is not None:
                     self._curport['service_name'] = service
+                if attrs['name'] in ["ssl", "X509"]:
+                    self._curport['service_tunnel'] = "ssl"
+                # attempt to use Nmap service fingerprints
+                try:
+                    fingerprints = utils.get_nmap_svc_fp(
+                        proto=self._curport['protocol'],
+                        probe=MASSCAN_NMAP_SCRIPT_NMAP_PROBE[scriptid],
+                    )['fp']
+                except KeyError:
+                    pass
+                else:
+                    softmatch = {}
+                    for service, fingerprint in fingerprints:
+                        match = fingerprint['m'][0].search(raw_output)
+                        if match is not None:
+                            doc = softmatch if fingerprint['soft'] else self._curport
+                            doc['service_name'] = service
+                            for elt, key in NMAP_FINGERPRINT_IVRE_KEY.iteritems():
+                                if elt in fingerprint:
+                                    doc[key] = utils.nmap_svc_fp_format_data(
+                                        fingerprint[elt][0], match
+                                    )
+                            if not fingerprint['soft']:
+                                break
+                            else:
+                                if softmatch:
+                                    self._curport.update(softmatch)
                 return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]

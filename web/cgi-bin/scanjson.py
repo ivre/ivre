@@ -246,6 +246,10 @@ def main():
         for port in rec.get('ports', []):
             if 'screendata' in port:
                 port['screendata'] = port['screendata'].encode('base64')
+            for script in port.get('scripts', []):
+                if "masscan" in script:
+                    try: del script['masscan']['raw']
+                    except KeyError: pass
         if not ipsasnumbers:
             if 'traces' in rec:
                 for trace in rec['traces']:
