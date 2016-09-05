@@ -2058,28 +2058,48 @@ have no effect if it is not expected)."""
                     "$infos.as_name",
                 ]}}
             field = "as"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
-        elif field == "port":
-            field = "ports.port"
-        elif field.startswith("port:"):
-            info = field.split(':', 1)[1]
-            flt_field = "ports.%s" % (
-                "state_state"
-                if info in ['open', 'filtered', 'closed'] else
-                "service_name"
-            )
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': [int(y) if i == 0 else y for i, y in
+                        enumerate(x['_id'].split('###'))],
+            }
+        elif field == "port" or field.startswith("port:"):
+            if field == "port":
+                info = {"$exists": True}
+                flt_field = "ports.state_state"
+            else:
+                info = field.split(':', 1)[1]
+                flt_field = "ports.%s" % (
+                    "state_state"
+                    if info in ['open', 'filtered', 'closed'] else
+                    "service_name"
+                )
             field = "ports.port"
             flt = self.flt_and(flt, {flt_field: info})
-            specialproj = {"_id": 0, field: 1, flt_field: 1}
+            specialproj = {"_id": 0, flt_field: 1, field: 1, "ports.protocol": 1}
             specialflt = [
                 {"$match": {flt_field: info}},
-                {"$project": {field: 1}}
+                {"$project": {field: {"$concat": [
+                    # hack to convert the integer to a
+                    # string and prevent the exception
+                    # "$concat only supports strings, not
+                    # NumberInt32"
+                    "$ports.protocol",
+                    "###",
+                    {"$toLower": "$ports.port"},
+                ]}}},
             ]
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': [int(y) if i == 1 else y for i, y in
+                        enumerate(x['_id'].split('###'))],
+            }
         elif field.startswith("portlist:"):
-            specialproj = {"ports.port": 1, "ports.state_state": 1}
+            specialproj = {"ports.port": 1, "ports.protocol": 1,
+                           "ports.state_state": 1}
             specialflt = [
-                {"$project": {"ports.port": 1, "ports.state_state": 1}},
+                {"$project": {"ports.port": 1, "ports.protocol": 1,
+                              "ports.state_state": 1}},
                 # if the host has no ports attribute, we create an empty list
                 {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
                 # We use $redact instead of $match to keep an empty
@@ -2100,9 +2120,15 @@ have no effect if it is not expected)."""
                                                "then": "$$KEEP",
                                                "else": "$$PRUNE"}},
                                        "else": "$$DESCEND"}}},
-                {"$project": {"portlist": "$ports.port"}},
+                {"$project": {"ports.port": 1, "ports.protocol": 1}},
+                {"$project": {"portlist": "$ports"}},
             ]
             field = "portlist"
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': [[y['protocol'], y['port']] for y in x['_id']],
+            }
+
         elif field.startswith('countports:'):
             state = field.split(':', 1)[1]
             if state == 'open':
