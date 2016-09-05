@@ -420,6 +420,11 @@ def target_from_args(args):
                                categories=args.categories,
                                maxnbr=args.limit,
                                state=args.state)
+    elif args.region is not None:
+        target = TargetRegion(args.region[0], args.region[1],
+                               categories=args.categories,
+                               maxnbr=args.limit,
+                               state=args.state)
     elif args.asnum is not None:
         target = TargetAS(args.asnum,
                           categories=args.categories,
