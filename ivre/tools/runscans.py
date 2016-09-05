@@ -378,8 +378,8 @@ def main():
                      "or --routable)" % args.output)
     targets = ivre.target.target_from_args(args)
     if targets is None:
-        parser.error('one argument of --country/--asnum/--range/--network/'
-                     '--routable/--file/--test is required')
+        parser.error('one argument of --country/--region/--asnum/--range/'
+                     '--network/--routable/--file/--test is required')
     if args.again is not None:
         accept_target_status = set(reduce(
             lambda x, y: x + y, [{
