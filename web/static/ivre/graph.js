@@ -136,14 +136,17 @@ var GraphTopValues = (function(_super) {
 		neg = false;
 	    if(field.substr(0, 9) === 'portlist:') {
 		prepareoutput = function(x) {
-		    return (x.length === 0) ? "None" : x.join(' / ');
+		    return (
+			x.length === 0) ? "None" :
+			x.map(function(x) {return x.join('/')}
+			     ).join(' / ');
 		};
 		if(field.substr(9) === 'open')
 		    preparefilter = function(x) {
 			if(x.length === 0)
 			    return 'setparam(FILTER, "countports", "0", true);';
 			else
-			    return 'setparam(FILTER, "open", "' + x + '", true, true); setparam(FILTER, "countports", "' + x.length + '", true);';
+			    return 'setparam(FILTER, "open", "' + x.map(function(x) {return x.join('/');}).join(',') + '", true, true); setparam(FILTER, "countports", "' + x.length + '", true);';
 		    };
 	    }
 	    else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
@@ -264,14 +267,22 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "script", "' + x + '");';
 		};
 	    }
+	    else if(field === 'port') {
+		prepareoutput = function(x) {
+		    return x.join(' / ');
+		};
+	    }
 	    else if(field.substr(0, 5) === 'port:') {
 		var info = field.substr(5);
+		prepareoutput = function(x) {
+		    return x.join(' / ');
+		};
 		switch(info) {
 		case "open":
 		case "filtered":
 		case "closed":
 		    preparefilter = function(x) {
-			return 'setparam(FILTER, "' + info + '", "' + x + '");';
+			return 'setparam(FILTER, "' + info + '", "' + x[0] + '/' + x[1] + '");';
 		    };
 		    break;
 		default:
