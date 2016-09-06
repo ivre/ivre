@@ -1116,8 +1116,7 @@ have no effect if it is not expected)."""
                         curport['scripts'].append(script)
                 if not curport['scripts']:
                     del curport['scripts']
-                if port.get('service_method') == 'probed' and \
-                   curport.get('service_method') != 'probed':
+                if 'service_name' in port and not 'service_name' in curport:
                     for key in port:
                         if key.startswith("service_"):
                             curport[key] = port[key]

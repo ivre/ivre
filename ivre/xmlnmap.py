@@ -761,7 +761,6 @@ NMAP_FINGERPRINT_IVRE_KEY = {
 MASSCAN_SERVICES_NMAP_SERVICES = {
     "ftp": "ftp",
     "http": "http",
-    "title": "http",
     "ssh": "ssh",
     "vnc": "vnc",
     "imap": "imap",
@@ -1065,9 +1064,9 @@ class NmapHandler(ContentHandler):
                                     )
                             if not fingerprint['soft']:
                                 break
-                            else:
-                                if softmatch:
-                                    self._curport.update(softmatch)
+                    else:
+                        if softmatch:
+                            self._curport.update(softmatch)
                 return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]
