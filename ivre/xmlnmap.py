@@ -761,7 +761,6 @@ NMAP_FINGERPRINT_IVRE_KEY = {
 MASSCAN_SERVICES_NMAP_SERVICES = {
     "ftp": "ftp",
     "http": "http",
-    "title": "http",
     "ssh": "ssh",
     "vnc": "vnc",
     "imap": "imap",
