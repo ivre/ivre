@@ -749,13 +749,21 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
     return _NMAP_PROBES[proto][probe]
 
 
+def _nmap_encode_data(data):
+    return "".join(
+        (d if " " <= d <= "~" else (repr(d)[1:-1] if d in '\r\n\t'
+                                    else ('\\x%02x' % ord(d))))
+        for d in data
+    )
+
+
 def nmap_svc_fp_format_data(data, match):
     for i, value in enumerate(match.groups()):
         if value is None:
             if '$%d' % (i + 1) in data:
                 return
             continue
-        data = data.replace('$%d' % (i + 1), value)
+        data = data.replace('$%d' % (i + 1), _nmap_encode_data(value))
     return data
 
 
