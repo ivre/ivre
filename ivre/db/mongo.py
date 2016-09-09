@@ -2054,7 +2054,8 @@ have no effect if it is not expected)."""
                     # strings, not NumberInt32"
                     {"$toLower": "$infos.as_num"},
                     "###",
-                    "$infos.as_name",
+                    {"$ifNull": ['$infos.as_name', ""]},
+                    #"$infos.as_name",
                 ]}}
             field = "as"
             outputproc = lambda x: {
