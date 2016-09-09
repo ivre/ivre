@@ -200,7 +200,7 @@ var GraphTopValues = (function(_super) {
 	    }
 	    else if(field === 'as') {
 		prepareoutput = function(x) {
-		    return x[1];
+		    return x[1] || ("AS" + x[0]);
 		};
 		preparetitle = function(x) {
 		    return x[0];
@@ -314,7 +314,7 @@ var GraphTopValues = (function(_super) {
 		preparetitle = function(x) {
 		    return x[0];
 		};
-		if(field[7] === ':') {
+		if(field[7] === ':' && field.substr(8) % 1 === 0) {
 		    preparefilter = function(x) {
 			return 'setparam(FILTER, "product", "' + x[0] + ':' + x[1] + field.substr(7) + '");';
 		    };
@@ -332,7 +332,7 @@ var GraphTopValues = (function(_super) {
 		preparetitle = function(x) {
 		    return x[0];
 		};
-		if(field[7] === ':') {
+		if(field[7] === ':' && field.substr(8) % 1 === 0) {
 		    preparefilter = function(x) {
 			return 'setparam(FILTER, "version", "' + x[0] + ':' + x[1] + ':' + x[2] + field.substr(7) + '");';
 		    };

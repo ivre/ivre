@@ -1025,7 +1025,7 @@ class NmapHandler(ContentHandler):
                 )
                 scriptid = MASSCAN_SERVICES_NMAP_SCRIPTS.get(attrs['name'],
                                                              attrs['name'])
-                self._curport.setdefault('scripts', []).append({
+                script = {
                     "id": scriptid,
                     "output": MASSCAN_ENCODING.sub(
                         _masscan_decode_print,
@@ -1035,13 +1035,18 @@ class NmapHandler(ContentHandler):
                         "raw": self._to_binary(raw_output),
                         "encoded": attrs["banner"],
                     },
-                })
+                }
+                self._curport.setdefault('scripts', []).append(script)
                 # get service name
-                service = MASSCAN_SERVICES_NMAP_SERVICES.get(attrs['name'])
-                if service is not None:
-                    self._curport['service_name'] = service
+                try:
+                    self._curport[
+                        'service_name'
+                    ] = MASSCAN_SERVICES_NMAP_SERVICES[attrs['name']]
+                except KeyError:
+                    pass
                 if attrs['name'] in ["ssl", "X509"]:
                     self._curport['service_tunnel'] = "ssl"
+                self.masscan_post_script(script)
                 # attempt to use Nmap service fingerprints
                 try:
                     fingerprints = utils.get_nmap_svc_fp(
@@ -1323,6 +1328,32 @@ class NmapHandler(ContentHandler):
             self._curtrace = None
         elif name == 'cpe':
             self._add_cpe_to_host()
+
+    def masscan_post_script(self, script):
+        try:
+            function = {
+                "http-headers": self.masscan_post_http,
+            }[script['id']]
+        except KeyError:
+            pass
+        else:
+            return function(script)
+
+    def masscan_post_http(self, script):
+        header = re.search(re.escape('\nServer:') + '[ \\\t]*([^\\\r\\\n]+)\\\r?(?:\\\n|$)',
+                           script['masscan']['raw'])
+        if header is None:
+            return
+        header = header.groups()[0]
+        self._curport.setdefault('scripts', []).append({
+            "id": "http-server-header",
+            "output": utils.nmap_encode_data(header),
+            "masscan": {
+                "raw": self._to_binary(header),
+            },
+        })
+        self._curport['service_product'] = utils.nmap_encode_data(header)
+
 
     def _add_cpe_to_host(self):
         """Adds the cpe in self._curdata to the host-wide cpe list, taking
