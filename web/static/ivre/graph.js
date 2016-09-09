@@ -200,7 +200,7 @@ var GraphTopValues = (function(_super) {
 	    }
 	    else if(field === 'as') {
 		prepareoutput = function(x) {
-		    return x[1];
+		    return x[1] || ("AS" + x[0]);
 		};
 		preparetitle = function(x) {
 		    return x[0];
