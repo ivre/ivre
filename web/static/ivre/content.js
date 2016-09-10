@@ -553,6 +553,14 @@ var HELP_TOPVALUES = {
 	    "content": "city",
 	    "title": "<b>(!)</b>city"
 	},
+	"net": {
+	    "content": "net",
+	    "title": "<b>(!)</b>net",
+	}
+	"net:": {
+	    "content": "net[:mask]",
+	    "title": "<b>(!)</b>net:",
+	}
 	"screenwords": {
 	    "content": "screenwords",
 	    "title": "<b>(!)</b>screenwords"
