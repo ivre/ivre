@@ -82,15 +82,24 @@ class MongoDB(DB):
                 return hint
 
     @property
-    def db(self):
+    def db_client(self):
         """The DB connection."""
+        try:
+            return self._db_client
+        except AttributeError:
+            self._db_client = pymongo.MongoClient(
+                host=self.host,
+                read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED
+            )
+            return self._db_client
+
+    @property
+    def db(self):
+        """The DB."""
         try:
             return self._db
         except AttributeError:
-            self._db = pymongo.MongoClient(
-                host=self.host,
-                read_preference=pymongo.ReadPreference.SECONDARY_PREFERRED
-            )[self.dbname]
+            self._db = self.db_client[self.dbname]
             if self.username is not None:
                 if self.password is not None:
                     self.db.authenticate(self.username, self.password)
@@ -101,6 +110,15 @@ class MongoDB(DB):
                     raise TypeError("provide either 'password' or 'mechanism'"
                                     " with 'username'")
             return self._db
+
+    @property
+    def server_info(self):
+        """Server information."""
+        try:
+            return self._server_info
+        except AttributeError:
+            self._server_info = self.db_client.server_info()
+            return self._server_info
 
     @property
     def find(self):
@@ -1956,7 +1974,7 @@ have no effect if it is not expected)."""
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / label / asnum / country
+          - category / label / asnum / country / net[:mask]
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -2062,6 +2080,30 @@ have no effect if it is not expected)."""
                 'count': x['count'],
                 '_id': [int(y) if i == 0 else y for i, y in
                         enumerate(x['_id'].split('###'))],
+            }
+        elif field == "net" or field.startswith("net:"):
+            field = "addr"
+            mask = int(field.split(':', 1)[1]) if ':' in field else 24
+            if self.server_info['versionArray'] >= [3, 2]:
+                specialproj = {
+                    "_id": 0,
+                    "addr": {"$floor": {"$divide": ["$addr",
+                                                    2 ** (32 - mask)]}},
+                }
+            else:
+                specialproj = {
+                    "_id": 0,
+                    "addr": {"$subtract": [{"$divide": ["$addr",
+                                                        2 ** (32 - mask)]},
+                                           {"$mod": [{"$divide": [
+                                               "$addr",
+                                               2 ** (32 - mask),
+                                           ]}, 1]}]},
+                }
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': '%s/%d' % (utils.int2ip(x['_id'] * 2 ** (32 - mask)),
+                                  mask),
             }
         elif field == "port" or field.startswith("port:"):
             if field == "port":
