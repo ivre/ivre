@@ -49,8 +49,9 @@ RUN apt-get -qy install bzip2 && \
     apt-get -qy --purge autoremove bzip2
 
 # Add our http-screenshot NSE script replacement
-ADD screenshot.js /usr/local/bin/screenshot.js
-ADD http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/bin/screenshot.js /usr/local/bin/screenshot.js
+RUN chmod +x /usr/local/bin/screenshot.js
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
 RUN nmap --script-update
 
 # Install bro
