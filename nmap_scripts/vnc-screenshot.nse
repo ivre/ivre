@@ -40,14 +40,30 @@ categories = {"discovery", "safe"}
 
 portrule = shortport.port_or_service(5900, "vnc")
 
-local function missing_data(buffer, height, width)
-   for i=1, height do
-      for j=1, width do
+local function missing_data(buffer, fb)
+   for i=1, fb.height do
+      for j=1, fb.width do
          if buffer[i][j] == nil then return true end
       end
    end
    return false
 end
+
+local function read_pixel(socket, fb)
+  local status, data
+  local pix = {}
+  status, data = socket:receive_buf(match.numbytes(fb.bytes_per_pixel), true)
+  if not status then
+    return
+  end
+  data = ("%sI%d"):format(fb.big_endian == 0 and "<" or ">",
+                          fb.bytes_per_pixel):unpack(data)
+  for _, col in pairs({"red", "green", "blue"}) do
+    pix[col] = ((data >> fb.shift[col]) % (fb.max[col] + 1)) * 255 // fb.max[col]
+  end
+  return ("BBB"):pack(pix.red, pix.green, pix.blue)
+end
+
 
 action = function(host, port)
   local socket = nmap.new_socket()
@@ -59,6 +75,7 @@ action = function(host, port)
   status, result = socket:receive_buf("\n", false)
 
   if not (status and result:match("^RFB %d%d%d.%d%d%d$")) then
+    stdnse.debug1('FAIL: invalid banner.')
     socket:close()
     return
   end
@@ -78,12 +95,14 @@ action = function(host, port)
   if version == "003.003" then
     status, result = socket:receive_buf(match.numbytes(4), true)
     if not status or result ~= "\000\000\000\001" then
+      stdnse.debug1('FAIL: socket error or authentication required.')
       socket:close()
       return
     end
   else
     status, result = socket:receive_buf(match.numbytes(1), true)
     if not status then
+      stdnse.debug1('FAIL: socket error.')
       socket:close()
       return
     end
@@ -108,88 +127,83 @@ action = function(host, port)
     socket:close()
     return
   end
-  local width, height, bytes_per_pixel, depth, big_endian, true_color, red_max,
-  green_max, blue_max, red_shift, green_shift, blue_shift, padding,
-  desktop_name_len = (">I2I2BBBBI2I2I2BBBc3I4"):unpack(result)
-  bytes_per_pixel = bytes_per_pixel // 8
-  local desktop_name
-  status, desktop_name = socket:receive_buf(match.numbytes(desktop_name_len), true)
+  local fb = {}
+  fb.max = {}
+  fb.shift = {}
+
+  fb.width, fb.height, fb.bytes_per_pixel, fb.depth, fb.big_endian,
+  fb.true_color, fb.max.red, fb.max.green, fb.max.blue, fb.shift.red,
+  fb.shift.green, fb.shift.blue, _,
+  fb.desktop_name_len = (">I2I2BBBBI2I2I2BBBc3I4"):unpack(result)
+  fb.bytes_per_pixel = fb.bytes_per_pixel // 8
+  status, fb.desktop_name = socket:receive_buf(match.numbytes(fb.desktop_name_len), true)
 
   socket:send('\000\000\000\000' .. result:sub(5, 17) .. '\000\000\000' ..
                 '\002\000\000\001\000\000\000\000\003\000\000\000\000\000' ..
                  result:sub(1, 4))
 
   local buffer = {}
-  for i = 1, height do
+  for i = 1, fb.height do
     buffer[i] = {}
-    for j = 1, width do
+    for j = 1, fb.width do
       buffer[i][j] = nil
     end
   end
 
-  while missing_data(buffer, height, width) do
-    local pix_r, pix_g, pix_b
+  while missing_data(buffer, fb) do
     status, result = socket:receive_buf(match.numbytes(4), true)
     if result:sub(1, 1) == '\001' then
       status, result = socket:receive_buf(match.numbytes(2), true)
       if not status then
-        socket:close()
-        return
+        goto draw
       end
       status, _ = socket:receive_buf(match.numbytes(6 * (">I2"):unpack(result)), true)
       if not status then
-        socket:close()
-        return
+        goto draw
       end
       goto next
     end
     if result:sub(1, 1) ~= '\000' then
-      socket:close()
-      return
+      goto draw
     end
     local count = (">I2"):unpack(result:sub(3))
     for ir = 1, count do
       status, result = socket:receive_buf(match.numbytes(12), true)
       if not status then
-        socket:close()
-        return
+        goto draw
       end
-      xpos, ypos, r_width, r_height, encoding = (">I2I2I2I2I4"):unpack(result)
+      local rect = {}
+      rect.xpos, rect.ypos, rect.width, rect.height, encoding = (">I2I2I2I2I4"):unpack(result)
       if encoding ~= 0 then
-        socket:close()
-        return
+        goto draw
       end
-      for ih = 1, r_height do
-        for iw = 1, r_width do
-	  status, result = socket:receive_buf(match.numbytes(bytes_per_pixel), true)
-          if not status then
-            socket:close()
-            return
+      for ih = 1, rect.height do
+        for iw = 1, rect.width do
+          pixel = read_pixel(socket, fb)
+          if pixel == nil then
+            goto draw
           end
-          result = ("%sI%d"):format(big_endian == 0 and "<" or ">",
-                                      bytes_per_pixel):unpack(result)
-          pix_r = ((result >> red_shift) % (red_max + 1)) * 255 // red_max
-          pix_g = ((result >> green_shift) % (green_max + 1)) * 255 // green_max
-          pix_b = ((result >> blue_shift) % (blue_max + 1)) * 255 // blue_max
-	  buffer[ypos + ih][xpos + iw] = ("BBB"):pack(pix_r, pix_g, pix_b)
-	end
+          buffer[rect.ypos + ih][rect.xpos + iw] = pixel
+        end
       end
     end
     ::next::
   end
 
+  ::draw::
+  socket:close()
   local f = assert(io.popen(
      ("convert -size %dx%d -depth 8 RGB:- %s"):format(
-       width, height, fname), "w"
+       fb.width, fb.height, fname), "w"
   ))
   local pixel
-  for i = 1, height do
-    for j = 1, width do
+  for i = 1, fb.height do
+    for j = 1, fb.width do
       pixel = buffer[i][j]
       if pixel == nil then
-	f:write("\000\000\000")
+        f:write("\000\000\000")
       else
-	f:write(buffer[i][j])
+        f:write(buffer[i][j])
       end
     end
   end
