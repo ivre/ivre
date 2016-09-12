@@ -25,6 +25,8 @@ Gets a screenshot from a VNC server.
 
 Imagemagick's `convert` tool must me installed somewhere in $PATH.
 
+This script requires Lua 5.3, which means at least Nmap 7.25BETA2.
+
 ]]
 
 author = "Pierre LALET <pierre@droids-corp.org>"
@@ -42,28 +44,36 @@ categories = {"discovery", "safe", "screenshot"}
 
 portrule = shortport.port_or_service(5900, "vnc")
 
+local function read_bytes(socket, nbytes)
+  local status, result = socket:receive_buf(match.numbytes(nbytes), true)
+  if not status then
+    stdnse.debug1("Socker error on receive: %s", result)
+  end
+  return status, result
+end
+
 local function missing_data(buffer, fb)
-   for i=1, fb.height do
-      for j=1, fb.width do
-         if buffer[i][j] == nil then return true end
-      end
-   end
-   return false
+  for i=1, fb.height do
+    for j=1, fb.width do
+      if buffer[i][j] == nil then return true end
+    end
+  end
+  return false
 end
 
 local function has_data(buffer, fb)
-   for i=1, fb.height do
-      for j=1, fb.width do
-         if buffer[i][j] ~= nil then return true end
-      end
-   end
-   return false
+  for i=1, fb.height do
+    for j=1, fb.width do
+      if buffer[i][j] ~= nil then return true end
+    end
+  end
+  return false
 end
 
 local function read_pixel(socket, fb)
   local status, data
   local pix = {}
-  status, data = socket:receive_buf(match.numbytes(fb.bytes_per_pixel), true)
+  status, data = read_bytes(socket, fb.bytes_per_pixel)
   if not status then
     return
   end
@@ -104,14 +114,14 @@ action = function(host, port)
   socket:send(("RFB %s\n"):format(version))
 
   if version == "003.003" then
-    status, result = socket:receive_buf(match.numbytes(4), true)
+    status, result = read_bytes(socket, 4)
     if not status or result ~= "\000\000\000\001" then
       stdnse.debug1('FAIL: socket error or authentication required.')
       socket:close()
       return
     end
   else
-    status, result = socket:receive_buf(match.numbytes(1), true)
+    status, result = read_bytes(socket, 1)
     if not status then
       stdnse.debug1('FAIL: socket error.')
       socket:close()
@@ -124,7 +134,7 @@ action = function(host, port)
     end
     socket:send("\001")
     if version == "003.008" then
-      status, result = socket:receive_buf(match.numbytes(4), true)
+      status, result = read_bytes(socket, 4)
       if not status or result ~= "\000\000\000\000" then
         socket:close()
         return
@@ -133,7 +143,7 @@ action = function(host, port)
   end
 
   socket:send("\001")
-  status, result = socket:receive_buf(match.numbytes(24), true)
+  status, result = read_bytes(socket, 24)
   if not status then
     socket:close()
     return
@@ -147,7 +157,7 @@ action = function(host, port)
   fb.shift.green, fb.shift.blue, _,
   fb.desktop_name_len = (">I2I2BBBBI2I2I2BBBc3I4"):unpack(result)
   fb.bytes_per_pixel = fb.bytes_per_pixel // 8
-  status, fb.desktop_name = socket:receive_buf(match.numbytes(fb.desktop_name_len), true)
+  status, fb.desktop_name = read_bytes(socket, fb.desktop_name_len)
   if not status then
     socket:close()
     return
@@ -155,7 +165,11 @@ action = function(host, port)
 
   socket:send('\000\000\000\000' .. result:sub(5, 17) .. '\000\000\000' ..
 		'\002\000\000\002\000\000\000\000\000\000\000\005\005\000' ..
-		'\000\000\000\000\003\000\000\000\000\000' .. result:sub(1, 4))
+		'\000\000\000\000')
+
+  stdnse.sleep(.5)
+
+  socket:send('\003\000\000\000\000\000' .. result:sub(1, 4))
 
   local buffer = {}
   for i = 1, fb.height do
@@ -166,12 +180,12 @@ action = function(host, port)
   end
 
   while missing_data(buffer, fb) do
-    status, result = socket:receive_buf(match.numbytes(4), true)
+    status, result = read_bytes(socket, 4)
     if not status then
       goto draw
     end
     if result:sub(1, 1) == '\001' then
-      status, result = socket:receive_buf(match.numbytes(2), true)
+      status, result = read_bytes(socket, 2)
       if not status then
         goto draw
       end
@@ -186,7 +200,7 @@ action = function(host, port)
     end
     local count = (">I2"):unpack(result:sub(3))
     for ir = 1, count do
-      status, result = socket:receive_buf(match.numbytes(12), true)
+      status, result = read_bytes(socket, 12)
       if not status then
         goto draw
       end
@@ -211,7 +225,7 @@ action = function(host, port)
 	local flags, tx, ty, back_col, fore_col, nsubrects, pix, subr_x, subr_y, subr_w, subr_h
 	for ty = 0, math.ceil(rect.height / 16) - 1 do
 	  for tx = 0, math.ceil(rect.width / 16) - 1 do
-	    status, data = socket:receive_buf(match.numbytes(1), true)
+	    status, data = read_bytes(socket, 1)
 	    if not status then
 	      goto draw
 	    end
@@ -232,27 +246,27 @@ action = function(host, port)
 	    end
 	    for ih = 1, math.min(rect.height - ty * 16, 16) do
 	      for iw = 1, math.min(rect.width - tx * 16, 16) do
-		 if buffer[rect.ypos + ty * 16 + ih][rect.xpos + tx * 16 + iw] == nil then
-		   buffer[rect.ypos + ty * 16 + ih][rect.xpos + tx * 16 + iw] = back_col
+		if buffer[rect.ypos + ty * 16 + ih][rect.xpos + tx * 16 + iw] == nil then
+		  buffer[rect.ypos + ty * 16 + ih][rect.xpos + tx * 16 + iw] = back_col
 		end
 	      end
 	    end
 	    if flags & 8 == 8 then
-	      status, nsubrects = socket:receive_buf(match.numbytes(1), true)
+	      status, nsubrects = read_bytes(socket, 1)
 	      if not status then
 		goto draw
 	      end
 	      nsubrects = nsubrects:byte()
 	      for _ = 1, nsubrects do
 		pix = (flags & 16) == 16 and read_pixel(socket, fb) or fore_col
-		status, data = socket:receive_buf(match.numbytes(1), true)
+		status, data = read_bytes(socket, 1)
 		if not status then
 		  goto draw
 		end
 		subr_x = data:byte()
 		subr_y = subr_x % 16
 		subr_x = subr_x >> 4
-		status, data = socket:receive_buf(match.numbytes(1), true)
+		status, data = read_bytes(socket, 1)
 		if not status then
 		  goto draw
 		end
@@ -280,9 +294,8 @@ action = function(host, port)
   ::draw::
   socket:close()
   if has_data(buffer, fb) then
-    local f = assert(io.popen(
-      ("convert -size %dx%d -depth 8 RGB:- %s"):format(
-         fb.width, fb.height, fname), "w"
+    local f = assert(io.popen(("convert -size %dx%d -depth 8 RGB:- %s"):format(
+			 fb.width, fb.height, fname), "w"
     ))
     local pixel
     for i = 1, fb.height do
