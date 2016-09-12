@@ -23,13 +23,13 @@ description = [[
 
 Gets a screenshot from a VNC server.
 
-Imagemagick's convert tool must me installed somewhere in $PATH.
+Imagemagick's `convert` tool must me installed somewhere in $PATH.
 
 ]]
 
 author = "Pierre LALET <pierre@droids-corp.org>"
 license = "GPLv3"
-categories = {"discovery", "safe"}
+categories = {"discovery", "safe", "screenshot"}
 
 ---
 -- @usage
