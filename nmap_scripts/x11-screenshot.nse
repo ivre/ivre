@@ -14,6 +14,8 @@
 -- You should have received a copy of the GNU General Public License
 -- along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+local stdnse = require "stdnse"
+
 description = [[
 
 Gets a screenshot from an X11 server using `convert`.
@@ -30,6 +32,9 @@ categories = {"discovery", "safe", "screenshot"}
 -- @usage
 -- nmap -n -p 6000 --script x11-screenshot 1.2.3.4
 --
+-- @args x11-screenshot.timeout timeout for the import process
+--       (default: 600s)
+--
 -- @output
 -- PORT     STATE SERVICE
 -- 6000/tcp open  X11
@@ -43,8 +48,9 @@ end
 
 action = function(host, port)
   local fname = ("screenshot-%s-%d.jpg"):format(host.ip, port.number)
-  os.execute(("import -silent -window root -display %s:%d %s"):format(
-      host.ip, port.number - 6000, fname))
+  local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 600
+  os.execute(("import -silent -window root -display %s:%d %s & CPID=${!}; (sleep %d; kill ${CPID}) & SPID=${!}; wait ${CPID} 2>/dev/null; kill ${SPID} 2>/dev/null"):format(
+      host.ip, port.number - 6000, fname, timeout))
   if os.rename(fname, fname) then
     return ("Saved to %s"):format(fname)
   end
