@@ -556,11 +556,11 @@ var HELP_TOPVALUES = {
 	"net": {
 	    "content": "net",
 	    "title": "<b>(!)</b>net",
-	}
+	},
 	"net:": {
 	    "content": "net[:mask]",
 	    "title": "<b>(!)</b>net:",
-	}
+	},
 	"screenwords": {
 	    "content": "screenwords",
 	    "title": "<b>(!)</b>screenwords"
