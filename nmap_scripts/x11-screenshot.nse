@@ -24,7 +24,7 @@ Imagemagick's `import` tool must me installed somewhere in $PATH.
 
 ]]
 
-author = "Pierre LALET <pierre@droids-corp.org>"
+author = "Pierre Lalet"
 license = "GPLv3"
 categories = {"discovery", "safe", "screenshot"}
 
@@ -40,6 +40,11 @@ categories = {"discovery", "safe", "screenshot"}
 -- 6000/tcp open  X11
 -- |_x11-screenshot: Saved to screenshot-1.2.3.4-6000.jpg
 
+local function sh_timeout(cmd, timeout)
+  return ("%s & CPID=${!}; (sleep %d; kill -9 ${CPID}) & SPID=${!}; wait ${CPID} 2>/dev/null; kill -9 ${SPID} 2>/dev/null"):format(cmd, timeout)
+end
+
+
 portrule = function(host, port)
   return (port.number >= 6000 and port.number <= 6019)
     or (port.service and port.service:match("^X11"))
@@ -49,8 +54,8 @@ end
 action = function(host, port)
   local fname = ("screenshot-%s-%d.jpg"):format(host.ip, port.number)
   local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 600
-  os.execute(("import -silent -window root -display %s:%d %s & CPID=${!}; (sleep %d; kill ${CPID}) & SPID=${!}; wait ${CPID} 2>/dev/null; kill ${SPID} 2>/dev/null"):format(
-      host.ip, port.number - 6000, fname, timeout))
+  os.execute(sh_timeout(("import -silent -window root -display %s:%d %s"):format(
+		 host.ip, port.number - 6000, fname), timeout))
   if os.rename(fname, fname) then
     return ("Saved to %s"):format(fname)
   end
