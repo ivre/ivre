@@ -21,7 +21,7 @@ ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get -q update
 RUN apt-get -qy install screen bzip2 openssl libfreetype6 libfontconfig1 \
-    fonts-dejavu imagemagick
+    fonts-dejavu imagemagick ffmpeg
 
 # Install Nmap. Use included libpcap because to use the workaround for
 # Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
@@ -53,8 +53,11 @@ RUN apt-get -qy install bzip2 && \
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/bin/screenshot.js /usr/local/bin/screenshot.js
 RUN chmod +x /usr/local/bin/screenshot.js
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/rtsp-screenshot.nse /usr/local/share/nmap/scripts/rtsp-screenshot.nse
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/vnc-screenshot.nse /usr/local/share/nmap/scripts/vnc-screenshot.nse
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/x11-screenshot.nse /usr/local/share/nmap/scripts/x11-screenshot.nse
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/patches/rtsp-url-brute.patch /tmp/rtsp-url-brute.patch
+RUN cd /usr/local/share/nmap/ && patch -p0 < /tmp/rtsp-url-brute.patch
 RUN nmap --script-update
 
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/agent/agent \
