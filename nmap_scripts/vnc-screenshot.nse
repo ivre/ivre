@@ -140,7 +140,7 @@ action = function(host, port)
   else
     status, result = read_bytes(socket, 1)
     if not status then return end
-    status, result = read_bytes(result:byte())
+    status, result = read_bytes(socket, result:byte())
     if not status then return end
     socket:send("\001")
     if version == "003.008" then
@@ -174,7 +174,9 @@ action = function(host, port)
                 '\002\000\000\002\000\000\000\000\000\000\000\005\005\000' ..
                 '\000\000\000\000')
 
-  stdnse.sleep(.5)
+  stdnse.sleep(2)
+  socket:send('\005\000\000\012\000\012')
+  stdnse.sleep(2)
 
   socket:send('\003\000\000\000\000\000' .. result:sub(1, 4))
 
