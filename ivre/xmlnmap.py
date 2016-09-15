@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the parser for nmap's XML output files.
 
@@ -107,14 +107,18 @@ ALIASES_TABLE_ELEMS = {
 }
 
 SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
+RTSP_SCREENSHOT_PATTERN = re.compile('^ *Saved [^ ]* to (.*)$', re.MULTILINE)
 
 def screenshot_extract(script):
-    fname = SCREENSHOT_PATTERN.search(script['output'])
+    fname = (RTSP_SCREENSHOT_PATTERN if script['id'] == 'rtsp-screenshot'
+             else SCREENSHOT_PATTERN).search(script['output'])
     return None if fname is None else fname.groups()[0]
 
 SCREENSHOTS_SCRIPTS = {
     "http-screenshot": screenshot_extract,
+    "rtsp-screenshot": screenshot_extract,
     "vnc-screenshot": screenshot_extract,
+    "x11-screenshot": screenshot_extract,
 }
 
 _MONGODB_DATABASES_CONVERTS = {"false": False, "true": True, "nil": None}
@@ -662,7 +666,8 @@ IGNORE_SCRIPTS = {
                        'SMB: ERROR: Server disconnected the connection']),
 }
 
-IGNORE_SCRIPTS_IDS = set(["http-screenshot", "vnc-screenshot"])
+IGNORE_SCRIPTS_IDS = set(["http-screenshot", "rtsp-screenshot",
+                          "vnc-screenshot", "x11-screenshot"])
 
 MSSQL_ERROR = re.compile('^ *(ERROR: )?('
                          'No login credentials|'
