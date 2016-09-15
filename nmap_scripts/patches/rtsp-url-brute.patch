@@ -1,0 +1,51 @@
+This file is part of IVRE.
+Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+
+IVRE is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+IVRE is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+License for more details.
+
+You should have received a copy of the GNU General Public License
+along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+--- scripts/rtsp-url-brute.nse
++++ scripts/rtsp-url-brute.nse
+@@ -143,11 +143,19 @@ action = function(host, port)
+   -- urls requiring authentication
+   -- local auth_urls = { name='URL requiring authentication' }
+ 
++  if host.registry['rtsp_urls'] == nil then
++    host.registry['rtsp_urls'] = {}
++    host.registry['rtsp_urls'][port.number] = {}
++  elseif host.registry['rtsp_urls'][port.number] == nil then
++    host.registry['rtsp_urls'][port.number] = {}
++  end
++
+   for _, r in ipairs(result) do
+     if ( r.status == -1 ) then
+       table.insert(failure_urls, r.url)
+     elseif ( r.status == 200 ) then
+       table.insert(success_urls, r.url)
++      table.insert(host.registry['rtsp_urls'][port.number], r.url)
+       -- elseif ( r.status == 401 ) then
+       --   table.insert(auth_urls, r.url )
+     end
+@@ -160,5 +168,12 @@ action = function(host, port)
+   --  table.insert(result, 2, auth_urls)
+   --end
+ 
++  if next(host.registry['rtsp_urls'][port.number]) == nil then
++    host.registry['rtsp_urls'][port.number] = nil
++    if next(host.registry['rtsp_urls']) == nil then
++      host.registry['rtsp_urls'] = nil
++    end
++  end
++
+   return stdnse.format_output(true, result )
+ end
