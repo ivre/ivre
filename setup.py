@@ -245,6 +245,8 @@ specialized scripts.
           'nmap_scripts/rtsp-screenshot.nse',
           'nmap_scripts/vnc-screenshot.nse',
           'nmap_scripts/x11-screenshot.nse']),
+        ('bin',
+         ['nmap_scripts/bin/ivre-http-screenshot.js']),
         ('share/ivre/nmap_scripts/patches',
          ['nmap_scripts/patches/rtsp-url-brute.patch']),
         ('share/doc/ivre',

@@ -50,8 +50,8 @@ RUN apt-get -qy install bzip2 && \
     apt-get -qy --purge autoremove bzip2
 
 # Add our *-screenshot NSE scripts
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/bin/screenshot.js /usr/local/bin/screenshot.js
-RUN chmod +x /usr/local/bin/screenshot.js
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/bin/ivre-http-screenshot.js /usr/local/bin/ivre-http-screenshot.js
+RUN chmod +x /usr/local/bin/ivre-http-screenshot.js
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/rtsp-screenshot.nse /usr/local/share/nmap/scripts/rtsp-screenshot.nse
 ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/vnc-screenshot.nse /usr/local/share/nmap/scripts/vnc-screenshot.nse
