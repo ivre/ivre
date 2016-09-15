@@ -83,6 +83,9 @@ ivre/tools/runscansagentdb.py
 ivre/tools/scan2db.py
 ivre/tools/scancli.py
 ivre/tools/scanstatus.py
+nmap_scripts/http-screenshot.nse
+nmap_scripts/vnc-screenshot.nse
+nmap_scripts/x11-screenshot.nse
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
 web/cgi-bin/flowjson.py

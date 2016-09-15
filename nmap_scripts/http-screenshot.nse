@@ -1,5 +1,5 @@
 -- This file is part of IVRE.
--- Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+-- Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 --
 -- IVRE is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by
@@ -35,7 +35,7 @@ that both can be used with IVRE.
 
 author = "Pierre LALET <pierre@droids-corp.org>"
 license = "GPLv3"
-categories = {"discovery", "safe"}
+categories = {"discovery", "safe", "screenshot"}
 
 ---
 -- @usage
@@ -43,6 +43,8 @@ categories = {"discovery", "safe"}
 --
 -- @args http-screenshot.vhost the vhost to use (default: use the
 --       provided hostname or IP address)
+-- @args http-screenshot.timeout timeout for the phantomjs script
+--       (default: 300s)
 --
 -- @output
 -- PORT   STATE SERVICE
@@ -57,6 +59,7 @@ local function get_hostname(host)
 end
 
 action = function(host, port)
+  local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 300
   local ssl = port.version.service_tunnel == "ssl"
   local port = port.number
   local fname, strport
@@ -71,9 +74,9 @@ action = function(host, port)
   else
     strport = string.format(":%d", port)
   end
-  os.execute(string.format("screenshot.js %s://%s%s %s >/dev/null 2>&1",
+  os.execute(string.format("screenshot.js %s://%s%s %s %d>/dev/null 2>&1",
 			   ssl and "https" or "http", hostname, strport,
-			   fname))
+			   fname, timeout))
   return (os.rename(fname, fname)
 	    and string.format("Saved to %s", fname)
 	    or "Failed")

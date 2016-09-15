@@ -106,14 +106,15 @@ ALIASES_TABLE_ELEMS = {
     "supermicro-ipmi-conf": "vulns",
 }
 
-HTTP_SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
+SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
 
-def http_screenshot_extract(script):
-    fname = HTTP_SCREENSHOT_PATTERN.search(script['output'])
+def screenshot_extract(script):
+    fname = SCREENSHOT_PATTERN.search(script['output'])
     return None if fname is None else fname.groups()[0]
 
 SCREENSHOTS_SCRIPTS = {
-    "http-screenshot": http_screenshot_extract,
+    "http-screenshot": screenshot_extract,
+    "vnc-screenshot": screenshot_extract,
 }
 
 _MONGODB_DATABASES_CONVERTS = {"false": False, "true": True, "nil": None}
@@ -661,7 +662,7 @@ IGNORE_SCRIPTS = {
                        'SMB: ERROR: Server disconnected the connection']),
 }
 
-IGNORE_SCRIPTS_IDS = set(["http-screenshot"])
+IGNORE_SCRIPTS_IDS = set(["http-screenshot", "vnc-screenshot"])
 
 MSSQL_ERROR = re.compile('^ *(ERROR: )?('
                          'No login credentials|'

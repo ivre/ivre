@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,13 +21,14 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
 RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
-    libfreetype6 libfontconfig1 fonts-dejavu bash-completion
+    libfreetype6 libfontconfig1 fonts-dejavu imagemagick bash-completion
 
 # Install Nmap. Use included libpcap because to use the workaround for
 # Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
 # not know which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-ADD https://nmap.org/dist/nmap-7.12.tgz ./nmap.tar.gz
+# Use 7.25BETA2 to have Lua 5.3
+ADD https://nmap.org/dist/nmap-7.25BETA2.tgz ./nmap.tar.gz
 RUN apt-get -qy install build-essential libssl-dev && \
     tar zxf nmap.tar.gz && \
     mv nmap-* nmap && \
@@ -48,9 +49,12 @@ RUN apt-get -qy install bzip2 && \
     rm -rf phantomjs-1.9.8-linux-x86_64* && \
     apt-get -qy --purge autoremove bzip2
 
-# Add our http-screenshot NSE script replacement
-ADD screenshot.js /usr/local/bin/screenshot.js
-ADD http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
+# Add our *-screenshot NSE scripts
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/bin/screenshot.js /usr/local/bin/screenshot.js
+RUN chmod +x /usr/local/bin/screenshot.js
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/vnc-screenshot.nse /usr/local/share/nmap/scripts/vnc-screenshot.nse
+ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/x11-screenshot.nse /usr/local/share/nmap/scripts/x11-screenshot.nse
 RUN nmap --script-update
 
 # Install bro
