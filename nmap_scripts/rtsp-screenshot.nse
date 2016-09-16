@@ -82,9 +82,10 @@ action = function(host, port)
   
   for counter, url in ipairs(host.registry['rtsp_urls'][port.number]) do
     fname = ("screenshot-%s-%d-%d.jpg"):format(host.ip, port.number, counter)
-    if os.execute(sh_timeout(
-		    ("ffmpeg -rtsp_transport tcp -y -i %s -frames 1 %s 2> /dev/null"):format(url, fname), timeout
-    )) then
+    os.execute(sh_timeout(
+		 ("ffmpeg -rtsp_transport tcp -y -i %s -frames 1 %s 2> /dev/null"):format(
+		   url, fname), timeout))
+    if os.rename(fname, fname) then
       table.insert(screenshots, ("Saved %s to %s"):format(url, fname))
     end
   end
