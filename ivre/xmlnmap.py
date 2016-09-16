@@ -1260,10 +1260,11 @@ class NmapHandler(ContentHandler):
                                     if screenwords is not None:
                                         current['screenwords'] = screenwords
                         except Exception as exc:
-                            exceptions.append(exc)
+                            exceptions.append((exc, full_fname))
                         else:
+                            exceptions = []
                             break
-                    for exc in exceptions:
+                    for exc, full_fname in exceptions:
                         sys.stderr.write(
                             utils.warn_exception(
                                 exc,
