@@ -154,22 +154,25 @@ or (sym)linked at these locations:
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/doc%%''\\
 -> ''%%/var/lib/dokuwiki/data/media/%%''
 
-==== Getting HTTP screenshots ====
+==== Getting screenshots ====
 
-Nmap does not take HTTP screenshots by default. To do so, you need to\\
-install the NSE script and the PhantomJS script manually which are\\
-included in the docker files. The NSE file needs to be installed in\\
-your nmap scripts folder. The ''%%ivre-http-screenshot.js%%'' needs to be copied\\
-somewhere according to your PATH environment variable. For example, on\\
-a Debian-based with nmap installed from sources:
+Nmap does not take application screenshots by default. To do so, you\\
+have to install the NSE screenshot scripts that come with IVRE. You\\
+will also need to install PhantomJS, ImageMagick and FFMPEG. Also,\\
+''%%vnc-screenshot.nse%%'' requires Nmap version >= 7.25BETA2. If both Nmap\\
+and IVRE have been installed in ''%%/usr%%'':
 
 <code>
-# cp docker/client/http-screenshot.nse /usr/local/share/nmap/scripts/
-# cp docker/client/ivre-http-screenshot.js /usr/local/bin/
+# cp /usr/share/ivre/nmap_scripts/*.nse /usr/share/nmap/scripts/
+# patch /usr/share/nmap/scripts/rtsp-url-brute.nse \
+> /usr/share/ivre/nmap_scripts/patches/rtsp-url-brute.patch
 # nmap --script-updatedb
 </code>
-You also need to install PhantomJS to be able to execute ''%%ivre-http-screenshot.js%%''.
+And now, you can play:
 
+<code>
+# nmap -sV --script screenshot [targets]
+</code>
 ====== Agent ======
 
 If you do not plan to run active scans with remote agents (where IVRE\\
@@ -188,6 +191,6 @@ information about that.
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2015\\
+This file is part of IVRE. Copyright 2011 - 2016\\
 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
