@@ -22,8 +22,8 @@ description = [[
 
 Gets a screenshot from a Web service using a simple phantomjs script.
 
-The script screenshot.js must me installed somewhere in $PATH, as well
-as phantomjs.
+The script ivre-http-screenshot.js must me installed somewhere in
+$PATH, as well as phantomjs.
 
 Adapted from the http-screenshot script by SpiderLabs, that uses
 wkhtmltoimage.
@@ -74,7 +74,7 @@ action = function(host, port)
   else
     strport = string.format(":%d", port)
   end
-  os.execute(string.format("screenshot.js %s://%s%s %s %d>/dev/null 2>&1",
+  os.execute(string.format("ivre-http-screenshot.js %s://%s%s %s %d>/dev/null 2>&1",
 			   ssl and "https" or "http", hostname, strport,
 			   fname, timeout))
   return (os.rename(fname, fname)

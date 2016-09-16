@@ -28,7 +28,7 @@
 
   Requires phantomjs.
 
-  Usage: screenshot.js URL FILENAME
+  Usage: ivre-http-screenshot.js URL FILENAME
  */
 
 var system = require('system');
