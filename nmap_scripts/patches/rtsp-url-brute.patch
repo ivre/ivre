@@ -16,9 +16,9 @@ along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 --- scripts/rtsp-url-brute.nse
 +++ scripts/rtsp-url-brute.nse
-@@ -143,11 +143,19 @@ action = function(host, port)
-   -- urls requiring authentication
-   -- local auth_urls = { name='URL requiring authentication' }
+@@ -172,11 +172,19 @@ action = function(host, port)
+   -- urls that got some non-404-type response
+   local urls_by_code = {}
  
 +  if host.registry['rtsp_urls'] == nil then
 +    host.registry['rtsp_urls'] = {}
@@ -33,12 +33,12 @@ along with IVRE. If not, see <http://www.gnu.org/licenses/>.
      elseif ( r.status == 200 ) then
        table.insert(success_urls, r.url)
 +      table.insert(host.registry['rtsp_urls'][port.number], r.url)
-       -- elseif ( r.status == 401 ) then
-       --   table.insert(auth_urls, r.url )
-     end
-@@ -160,5 +168,12 @@ action = function(host, port)
-   --  table.insert(result, 2, auth_urls)
-   --end
+     elseif r.status ~= status_404 then
+       local s = tostring(r.status)
+       urls_by_code[s] = urls_by_code[s] or {}
+@@ -195,6 +203,13 @@ action = function(host, port)
+     output["other responses"] = urls_by_code
+   end
  
 +  if next(host.registry['rtsp_urls'][port.number]) == nil then
 +    host.registry['rtsp_urls'][port.number] = nil
@@ -47,5 +47,6 @@ along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 +    end
 +  end
 +
-   return stdnse.format_output(true, result )
- end
+   if #output > 0 then
+     return output
+   end
