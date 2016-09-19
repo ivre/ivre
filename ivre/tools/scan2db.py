@@ -76,6 +76,10 @@ def main():
                         'and source. Useful to use multiple partial '
                         'scan results (e.g., one with -p 80, another '
                         'with -p 21).')
+    parser.add_argument('--masscan-probes', nargs='+', metavar='PROBE',
+                        help='Additional Nmap probes to use when trying to '
+                        'match Masscan results against Nmap service '
+                        'fingerprints.')
     parser.add_argument('--force-info', action='store_true',
                         help='Force information (AS, country, city, etc.)'
                         ' renewal (only useful with JSON format)')
@@ -112,7 +116,7 @@ def main():
                     categories=categories, source=args.source,
                     needports=args.ports, needopenports=args.open_ports,
                     gettoarchive=gettoarchive, force_info=args.force_info,
-                    merge=args.merge,
+                    merge=args.merge, masscan_probes=args.masscan_probes,
             ):
                 count += 1
         except Exception as exc:

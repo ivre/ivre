@@ -749,9 +749,9 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "X509": "ssl-cert"
 }
 
-MASSCAN_NMAP_SCRIPT_NMAP_PROBE = {
-    "banner": "NULL",
-    "http-headers": "GetRequest",
+MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
+    "banner": ["NULL"],
+    "http-headers": ["GetRequest"],
 }
 
 NMAP_FINGERPRINT_IVRE_KEY = {
@@ -877,7 +877,7 @@ class NmapHandler(ContentHandler):
     """
 
     def __init__(self, fname, filehash, needports=False, needopenports=False,
-                 **_):
+                 masscan_probes=None, **_):
         ContentHandler.__init__(self)
         self._needports = needports
         self._needopenports = needopenports
@@ -895,6 +895,7 @@ class NmapHandler(ContentHandler):
         self._filehash = filehash
         self.scanner = "nmap"
         self.need_scan_doc = False
+        self.masscan_probes = [] if masscan_probes is None else masscan_probes
         if config.DEBUG:
             sys.stderr.write("READING %r (%r)\n" % (fname, self._filehash))
 
@@ -1054,30 +1055,32 @@ class NmapHandler(ContentHandler):
                     self._curport['service_tunnel'] = "ssl"
                 self.masscan_post_script(script)
                 # attempt to use Nmap service fingerprints
-                try:
-                    fingerprints = utils.get_nmap_svc_fp(
-                        proto=self._curport['protocol'],
-                        probe=MASSCAN_NMAP_SCRIPT_NMAP_PROBE[scriptid],
-                    )['fp']
-                except KeyError:
-                    pass
-                else:
-                    softmatch = {}
-                    for service, fingerprint in fingerprints:
-                        match = fingerprint['m'][0].search(raw_output)
-                        if match is not None:
-                            doc = softmatch if fingerprint['soft'] else self._curport
-                            doc['service_name'] = service
-                            for elt, key in NMAP_FINGERPRINT_IVRE_KEY.iteritems():
-                                if elt in fingerprint:
-                                    doc[key] = utils.nmap_svc_fp_format_data(
-                                        fingerprint[elt][0], match
-                                    )
-                            if not fingerprint['soft']:
-                                break
+                probes = self.masscan_probes[:]
+                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES.get(scriptid, []))
+                softmatch = {}
+                for probe in probes:
+                    try:
+                        fingerprints = utils.get_nmap_svc_fp(
+                            proto=self._curport['protocol'],
+                            probe=probe,
+                        )['fp']
+                    except KeyError:
+                        pass
                     else:
-                        if softmatch:
-                            self._curport.update(softmatch)
+                        for service, fingerprint in fingerprints:
+                            match = fingerprint['m'][0].search(raw_output)
+                            if match is not None:
+                                doc = softmatch if fingerprint['soft'] else self._curport
+                                doc['service_name'] = service
+                                for elt, key in NMAP_FINGERPRINT_IVRE_KEY.iteritems():
+                                    if elt in fingerprint:
+                                        doc[key] = utils.nmap_svc_fp_format_data(
+                                            fingerprint[elt][0], match
+                                        )
+                                if not fingerprint['soft']:
+                                    return
+                if softmatch:
+                    self._curport.update(softmatch)
                 return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]
