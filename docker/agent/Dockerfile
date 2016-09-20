@@ -19,6 +19,8 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 ENV DEBIAN_FRONTEND noninteractive
 
+# backports: ffmpeg
+RUN echo deb http://httpredir.debian.org/debian stable-backports main contrib non-free >> /etc/apt/sources.list
 RUN apt-get -q update
 RUN apt-get -qy install screen bzip2 openssl libfreetype6 libfontconfig1 \
     fonts-dejavu imagemagick ffmpeg
