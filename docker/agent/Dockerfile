@@ -23,7 +23,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo deb http://httpredir.debian.org/debian stable-backports main contrib non-free >> /etc/apt/sources.list
 RUN apt-get -q update
 RUN apt-get -qy install screen bzip2 openssl libfreetype6 libfontconfig1 \
-    fonts-dejavu imagemagick ffmpeg
+    fonts-dejavu imagemagick ffmpeg patch
 
 # Install Nmap. Use included libpcap because to use the workaround for
 # Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
