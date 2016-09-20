@@ -24,7 +24,7 @@ RUN apt-get -q update
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
 RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
-    libfreetype6 libfontconfig1 fonts-dejavu imagemagick ffmpeg \
+    libfreetype6 libfontconfig1 fonts-dejavu imagemagick ffmpeg patch \
     bash-completion
 
 # Install Nmap. Use included libpcap because to use the workaround for
