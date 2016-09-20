@@ -397,7 +397,7 @@ class DBNmap(DB):
                         needports=False, needopenports=False,
                         categories=None, source=None,
                         gettoarchive=None, add_addr_infos=True,
-                        force_info=False, merge=False):
+                        force_info=False, merge=False, **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
