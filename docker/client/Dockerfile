@@ -18,6 +18,9 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Tools
+## backports: ffmpeg
+RUN echo deb http://httpredir.debian.org/debian stable-backports main contrib non-free >> /etc/apt/sources.list
+RUN apt-get -q update
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
 RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
