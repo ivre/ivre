@@ -1025,22 +1025,27 @@ class NmapHandler(ContentHandler):
                 # discard information from nmap-services
                 return
             if self.scanner == "masscan":
+                banner = attrs["banner"]
+                if attrs['name'] == 'vnc' and "=" in attrs["banner"]:
+                    # See also https://github.com/robertdavidgraham/masscan/pull/250
+                    banner = banner.split(' ')
+                    banner, vncinfo = '%s\\x0a' % ' '.join(banner[:2]), banner[2:]
+                    if vncinfo:
+                        self._curport.setdefault('scripts', []).append({
+                            'id': 'vnc-info', 'output': '\n'.join(vncinfo),
+                        })
                 # create fake scripts from masscan "service" tags
-                raw_output = MASSCAN_ENCODING.sub(
-                    _masscan_decode_raw,
-                    str(attrs["banner"]),
-                )
+                raw_output = MASSCAN_ENCODING.sub(_masscan_decode_raw,
+                                                  str(banner))
                 scriptid = MASSCAN_SERVICES_NMAP_SCRIPTS.get(attrs['name'],
                                                              attrs['name'])
                 script = {
                     "id": scriptid,
-                    "output": MASSCAN_ENCODING.sub(
-                        _masscan_decode_print,
-                        attrs["banner"],
-                    ),
+                    "output": MASSCAN_ENCODING.sub(_masscan_decode_print,
+                                                   banner),
                     "masscan": {
                         "raw": self._to_binary(raw_output),
-                        "encoded": attrs["banner"],
+                        "encoded": banner,
                     },
                 }
                 self._curport.setdefault('scripts', []).append(script)
