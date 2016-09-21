@@ -1031,8 +1031,23 @@ class NmapHandler(ContentHandler):
                     banner = banner.split(' ')
                     banner, vncinfo = '%s\\x0a' % ' '.join(banner[:2]), banner[2:]
                     if vncinfo:
+                        output = []
+                        while vncinfo:
+                            info = vncinfo.pop(0)
+                            if info.startswith('ERROR='):
+                                info = 'ERROR: ' + ' '.join(vncinfo)
+                                vncinfo = []
+                            elif '=[' in info:
+                                while vncinfo and not info.endswith(']'):
+                                    info += ' ' + vncinfo.pop(0)
+                                info = info.replace('=[', ': ', 1)
+                                if info.endswith(']'):
+                                    info = info[:-1]
+                            else:
+                                info = info.replace('=', ': ', 1)
+                            output.append(info)
                         self._curport.setdefault('scripts', []).append({
-                            'id': 'vnc-info', 'output': '\n'.join(vncinfo),
+                            'id': 'vnc-info', 'output': '\n'.join(output),
                         })
                 # create fake scripts from masscan "service" tags
                 raw_output = MASSCAN_ENCODING.sub(_masscan_decode_raw,
