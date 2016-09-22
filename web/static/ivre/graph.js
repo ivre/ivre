@@ -833,25 +833,31 @@ var GraphIpPort = (function(_super) {
 	},
 	draw: function(ips) {
 	    var chart = this.chart, graphobject = this,
-	    real_w = 500,
-	    real_h = 450,
-	    w = real_w - 100,
-	    h = real_h - 60,
-	    xmin = d3.min(ips, function(i) {return i[0];}),
-	    xmax = d3.max(ips, function(i) {return i[0];}),
-	    x = d3.scale.linear()
+		real_w = 500,
+		real_h = 450,
+		w = real_w - 100,
+		h = real_h - 60,
+		xmin = d3.min(ips, function(i) {return i[0];}),
+		xmax = d3.max(ips, function(i) {return i[0];}),
+		ymin = d3.min(ips, function(i) {
+		    return d3.min(i[1], function(j) {return j[0];});
+		}),
+		ymax = d3.max(ips, function(i) {
+		    return d3.max(i[1], function(j) {return j[0];});
+		}),
+		x = d3.scale.linear()
 		.domain(d3.extent(ips, function(i) {return i[0];}))
 		.range([0, w]),
-	    y = d3.scale.log()
-		.domain([1, 65535])
+		y = d3.scale.log()
+		.domain([ymin, ymax])
 		.range([h, 0]),
-	    ips_ports = ips.map(function(x) {
-		return x[1].map(function(t) {
-		    return [x[0], t[0], t[1]];
-		});
-	    }).reduce(function(x, y) {
-		return x.concat(y);
-	    }, []);
+		ips_ports = ips.map(function(x) {
+		    return x[1].map(function(t) {
+			return [x[0], t[0], t[1]];
+		    });
+		}).reduce(function(x, y) {
+		    return x.concat(y);
+		}, []);
 
 	    this.title.html("Ports status");
 
@@ -909,7 +915,7 @@ var GraphIpPort = (function(_super) {
 
 	    var yaxis = [];
 	    var ystep = Math.max(h / 10);
-	    for(i = 1; i <= h; i += ystep) {
+	    for(i = 0; i <= h; i += ystep) {
 		yaxis.push(i);
 	    }
 
