@@ -1247,8 +1247,9 @@ class NmapHandler(ContentHandler):
             elif self._curhost is not None:
                 current = self._curhost
             else:
-                sys.stderr.write("WARNING, script element without port or "
-                                 "host\n")
+                # We do not want to handle script tags outside host or
+                # port tags (usually scripts running on prerule /
+                # postrule)
                 self._curscript = None
                 if self._curtablepath:
                     sys.stderr.write("WARNING, self._curtablepath should be "
