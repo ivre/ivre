@@ -543,6 +543,10 @@ def main():
                     elif 'screendata' in port:
                         port['screendata'] = port['screendata'].encode(
                             'base64')
+                    for script in port.get('scripts', []):
+                        if 'masscan' in script and 'raw' in script['masscan']:
+                            script['masscan']['raw'] = script['masscan'][
+                                'raw'].encode('base64')
                 print json.dumps(h, indent=indent,
                                  default=db.db.nmap.serialize)
     elif args.honeyd:
