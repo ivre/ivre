@@ -579,18 +579,41 @@ def screenwords(imgdata):
             return result
 
 if USE_PIL:
+    def _img_size(bbox):
+        """Returns the size of a given `bbox`"""
+        return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+
+    def _trim_image(img, tolerance, minborder):
+        """Returns the tiniest `bbox` to trim `img`"""
+        result = None
+        for pixel in [(0, 0), (img.size[0] - 1, 0), (0, img.size[1] - 1),
+                      (img.size[0] - 1, img.size[1] - 1)]:
+            if result is not None and result[0] < pixel[0] < result[2] - 1 \
+               and result[1] < pixel[1] < result[3] - 1:
+                # This pixel is already removed by current result
+                continue
+            bkg = PIL.Image.new(img.mode, img.size, img.getpixel(pixel))
+            diffbkg = PIL.ImageChops.difference(img, bkg)
+            if tolerance:
+                diffbkg = PIL.ImageChops.add(diffbkg, diffbkg, 2.0, -tolerance)
+            bbox = diffbkg.getbbox()
+            if not bbox:
+                # Image no longer exists after trim
+                return
+            if result is None:
+                result = bbox
+            elif _img_size(bbox) < _img_size(result):
+                result = bbox
+        return result
+
     def trim_image(imgdata, tolerance=1, minborder=10):
-        """Trims the image, `tolerancean` is an integer from 0 (not
+        """Trims the image, `tolerance` is an integer from 0 (not
         tolerant, trims region with the exact same color) to 255
         (too tolerant, will trim the whole image).
 
         """
         img = PIL.Image.open(StringIO(imgdata))
-        bkg = PIL.Image.new(img.mode, img.size, img.getpixel((0, 0)))
-        diffbkg = PIL.ImageChops.difference(img, bkg)
-        if tolerance:
-            diffbkg = PIL.ImageChops.add(diffbkg, diffbkg, 2.0, -tolerance)
-        bbox = diffbkg.getbbox()
+        bbox = _trim_image(img, tolerance, minborder)
         if bbox:
             newbbox = (max(bbox[0] - minborder, 0),
                        max(bbox[1] - minborder, 0),
@@ -604,7 +627,7 @@ if USE_PIL:
             else:
                 # Image does not need to be modified
                 return True
-        # Image no longer exist after trim
+        # Image no longer exists after trim
         return False
 else:
     def trim_image(imgdata, _tolerance=1, _minborder=10):
