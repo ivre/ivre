@@ -1227,6 +1227,11 @@ class MetaDB(object):
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         except ImportError:
             pass
+        try:
+            from ivre.db.postgres import PostgresDBFlow
+            self.db_types["flow"]["postgresql"] = PostgresDBFlow
+        except ImportError:
+            pass
         if urls is None:
             urls = {}
         for datatype, dbtypes in self.db_types.iteritems():
