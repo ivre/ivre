@@ -1358,6 +1358,11 @@ have no effect if it is not expected)."""
                 port['screendata'] = bson.Binary(
                     port['screendata'].decode('base64')
                 )
+            for script in port.get('scripts', []):
+                if 'masscan' in script and 'raw' in script['masscan']:
+                    script['masscan']['raw'] = bson.Binary(
+                        script['masscan']['raw'].decode('base64')
+                    )
         return host
 
     @staticmethod
