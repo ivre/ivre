@@ -687,6 +687,11 @@ class DBPassive(DB):
 class DBData(DB):
     country_codes = None
 
+    def parse_line_country_codes(self, line):
+        assert line.endswith('"\n')
+        line = line[:-2].split(',"')
+        return {'code': line[0], 'name': line[1]}
+
     def parse_line_country(self, line, feedipdata=None,
                            createipdata=False):
         if line.endswith('\n'):

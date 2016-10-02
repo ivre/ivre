@@ -67,6 +67,7 @@ URLS = {
     # 'GeoIPASNumIPv6.csv':
     # 'http://download.maxmind.com/download/geoip/database/asnum/'
     # 'GeoIPASNum2v6.zip',
+    'iso3166.csv': 'http://dev.maxmind.com/static/csv/codes/iso3166.csv',
     # This one is not from maxmind -- see http://thyme.apnic.net/
     'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
 }
