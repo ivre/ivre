@@ -1221,22 +1221,26 @@ class MetaDB(object):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
                                        MongoDBData, MongoDBAgent)
+        except ImportError:
+            pass
+        else:
             self.db_types["nmap"]["mongodb"] = MongoDBNmap
             self.db_types["passive"]["mongodb"] = MongoDBPassive
             self.db_types["data"]["mongodb"] = MongoDBData
             self.db_types["agent"]["mongodb"] = MongoDBAgent
-        except ImportError:
-            pass
         try:
             from ivre.db.neo4j import Neo4jDBFlow
+        except ImportError:
+            pass
+        else:
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
-        except ImportError:
-            pass
         try:
-            from ivre.db.postgres import PostgresDBFlow
-            self.db_types["flow"]["postgresql"] = PostgresDBFlow
+            from ivre.db.postgres import PostgresDBFlow, PostgresDBData
         except ImportError:
             pass
+        else:
+            self.db_types["flow"]["postgresql"] = PostgresDBFlow
+            self.db_types["data"]["postgresql"] = PostgresDBData
         if urls is None:
             urls = {}
         for datatype, dbtypes in self.db_types.iteritems():

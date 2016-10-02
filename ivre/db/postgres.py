@@ -22,7 +22,7 @@ databases.
 
 """
 
-from ivre.db import DB, DBFlow
+from ivre.db import DB, DBFlow, DBData
 from ivre import config
 from ivre import utils
 
@@ -34,22 +34,28 @@ import sys
 import time
 import warnings
 
-from sqlalchemy import Column, DateTime, Integer, ForeignKey, String,\
+from sqlalchemy import func, Column, DateTime, Integer, ForeignKey, String,\
                        create_engine, Index, UniqueConstraint
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+class Context(Base):
+    __tablename__ = "context"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(32), index=True)
+
 class Host(Base):
     __tablename__ = "host"
     id = Column(Integer, primary_key=True)
-    source = Column(String(32), index=True, default="")
+    context = Column(Integer, ForeignKey('context.id'))
     addr = Column(postgresql.INET)
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
     __table_args__ = (
-        Index('category_addr', 'source', 'addr', unique=True),
+        Index('addr_context', 'addr', 'context', unique=True),
     )
 
 class Flow(Base):
@@ -69,6 +75,77 @@ class Flow(Base):
     __table_args__ = (
         #Index('host_idx_tag_addr', 'tag', 'addr', unique=True),
     )
+
+# Data
+
+class Country(Base):
+    __tablename__ = "country"
+    code = Column(String(2), primary_key=True)
+    name = Column(String(64), index=True)
+
+
+class AS(Base):
+    __tablename__ = "aut_sys"
+    num = Column(Integer, primary_key=True)
+    name = Column(String(128), index=True)
+
+
+class Point(UserDefinedType):
+
+    def get_col_spec(self):
+        return "POINT"
+
+    def bind_expression(self, bindvalue):
+        return func.Point_In(bindvalue, type_=self)
+
+    # def column_expression(self, col):
+    #     return func.ST_AsText(col, type_=self)
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return None
+            return "%f,%f" % value
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is None:
+                return None
+            return tuple(float(val) for val in value[6:-1].split())
+        return process
+
+
+class Location(Base):
+    __tablename__ = "location"
+    id = Column(Integer, primary_key=True)
+    country_code = Column(String(2), ForeignKey('country.code'))
+    city = Column(String(64))
+    coordinates = Column(Point) #, index=True
+    area_code = Column(Integer)
+    metro_code = Column(Integer)
+    postal_code = Column(String(16))
+    region_code = Column(String(2), index=True)
+    __table_args__ = (
+        Index('country_city', 'country_code', 'city'),
+    )
+
+
+class AS_Range(Base):
+    __tablename__ = "as_range"
+    id = Column(Integer, primary_key=True)
+    aut_sys = Column(Integer, ForeignKey('aut_sys.num'))
+    start = Column(postgresql.INET, index=True)
+    stop = Column(postgresql.INET)
+
+
+class Location_Range(Base):
+    __tablename__ = "location_range"
+    id = Column(Integer, primary_key=True)
+    location_id = Column(Integer, ForeignKey('location.id'))
+    start = Column(postgresql.INET, index=True)
+    stop = Column(postgresql.INET)
+
 
 class PostgresDB(DB):
     def __init__(self, url):
@@ -258,3 +335,53 @@ class PostgresDBFlow(PostgresDB, DBFlow):
 #    "Host": ["addr"],
 #    "Flow": [Neo4jDBFlow._flow2name],
 #})
+
+class PostgresDBData(PostgresDB, DBData):
+    indexes = {}
+
+    def __init__(self, url):
+        PostgresDB.__init__(self, url)
+        DBData.__init__(self)
+
+    def feed_geoip_city(self, fname, feedipdata=None,
+                        createipdata=False):
+        with open(fname) as fdesc:
+            ## bulk = self.start_bulk_insert()
+            # Skip the two first lines
+            fdesc.readline()
+            fdesc.readline()
+            for line in fdesc:
+                values = self.parse_line_city(line, feedipdata=feedipdata,
+                                              createipdata=createipdata)
+                values['start'] = utils.int2ip(values['start'])
+                values['stop'] = utils.int2ip(values['stop'])
+                self.db.execute(Location_Range.__table__.insert().values(
+                    values
+                ))
+
+    def feed_country_codes(self, fname):
+        with open(fname) as fdesc:
+            bulk = self.start_bulk_insert()
+            for line in fdesc:
+                bulk.append(Country.__table__.insert().values(
+                    **self.parse_line_country_codes(line)
+                ))
+            # missing from GeoIP file
+            bulk.append(Country.__table__.insert().values(
+                code="AN", name="Netherlands Antilles",
+            ))
+            bulk.close()
+
+    def feed_city_location(self, fname):
+        with open(fname) as fdesc:
+            bulk = self.start_bulk_insert()
+            # Skip the two first lines
+            fdesc.readline()
+            fdesc.readline()
+            for line in fdesc:
+                values = self.parse_line_city_location(line)
+                values['id'] = values.pop('location_id')
+                if 'loc' in values:
+                    values['coordinates'] = tuple(values.pop('loc')['coordinates'])
+                bulk.append(Location.__table__.insert().values(**values))
+            bulk.close()
