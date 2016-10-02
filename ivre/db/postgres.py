@@ -147,27 +147,35 @@ class BulkInsert(object):
         once, etc.
         """
         self.db = db
-        self.queries = []
         self.start_time = time.time()
         self.count = 0
         self.commited_count = 0
         self.size = config.POSTGRES_BATCH_SIZE if size is None else size
         self.retries = retries
         self.conn = db.connect()
+        self.trans = self.conn.begin()
 
-    def append(self, *args, **kargs):
-        self.queries.append((args, kargs))
-        self.count += 1
-        if self.count >= self.size:
-            self.commit()
+    def append(self, query):
+        s_query = str(query)
+        params = query.parameters
+        query.parameters = None
+        self.queries.setdefault(s_query,
+                                (query, []))[1].append(params)
+        if len(self.queries[s_query][1]) >= self.size:
+            self.commit(query=s_query)
 
-    def _commit_transaction(self):
-        # FIXME: not very batch :)
-        for query, params in self.queries:
-            self.conn.execute(query, **params)
+    def commit_transaction(self, query=None, renew=True):
+        if query is None:
+            last = len(self.queries) - 1
+            for i, query in enumerate(self.queries.keys()):
+                self.commit(query=query, renew=True if i < last else renew)
+            return
+        q_query, params = self.queries.pop(query)
+        self.conn.execute(q_query, *params)
+        self.trans.commit()
 
     def commit(self, renew=True):
-        self._commit_transaction()
+        self.commit_transaction()
         newtime = time.time()
         rate = self.size / (newtime - self.start_time)
         if config.DEBUG:
@@ -177,9 +185,9 @@ class BulkInsert(object):
             )
         if renew:
             self.start_time = newtime
-            self.queries = []
             self.commited_count += self.count
             self.count = 0
+            self.trans = self.conn.begin()
 
     def close(self):
         self.commit(renew=False)
