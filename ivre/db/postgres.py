@@ -469,3 +469,41 @@ class PostgresDBData(PostgresDB, DBData):
                 ['as_num', 'as_name'],
                 data[1:],
             )
+
+    def ipranges_bycountry(self, code):
+        """Returns a generator of every (start, stop) IP ranges for a country
+given its ISO-3166-1 "alpha-2" code or its name."""
+        if len(code) != 2:
+            return self.db.execute(
+                select([Location_Range.start, Location_Range.stop])\
+                .select_from(join(join(Location, Location_Range), Country))\
+                .where(Country.name == code)
+            )
+        return self.db.execute(
+            select([Location_Range.start, Location_Range.stop])\
+            .select_from(join(Location, Location_Range))\
+            .where(Location.country_code == code)
+        )
+
+    def ipranges_byas(self, asnum):
+        """Returns a generator of every (start, stop) IP ranges for an
+Autonomous System given its number or its name.
+
+        """
+        if isinstance(asnum, basestring):
+            try:
+                if asnum.startswith('AS'):
+                    asnum = int(asnum[2:])
+                else:
+                    asnum = int(asnum)
+            except ValueError:
+                # lookup by name
+                return self.db.execute(
+                    select([AS_Range.start, AS_Range.stop])\
+                    .select_from(join(AS, AS_Range))\
+                    .where(AS.name == asnum)
+                )
+        return self.db.execute(
+            select([AS_Range.start, AS_Range.stop])\
+            .where(AS_Range.aut_sys == asnum)
+        )
