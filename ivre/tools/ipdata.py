@@ -137,8 +137,7 @@ def main():
         if a.isdigit():
             a = int(a)
         print a
-        for i in [ivre.db.db.data.country_byip(a),
-                  ivre.db.db.data.as_byip(a),
+        for i in [ivre.db.db.data.as_byip(a),
                   ivre.db.db.data.location_byip(a)]:
             if i:
                 for f in i:

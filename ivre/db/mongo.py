@@ -3522,8 +3522,7 @@ class MongoDBData(MongoDB, DBData):
 
     def infos_byip(self, addr):
         infos = {}
-        for infos_byip in [self.country_byip,
-                           self.as_byip,
+        for infos_byip in [self.as_byip,
                            self.location_byip]:
             newinfos = infos_byip(addr)
             if newinfos is not None:
