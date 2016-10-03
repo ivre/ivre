@@ -34,8 +34,8 @@ import sys
 import time
 import warnings
 
-from sqlalchemy import func, Column, DateTime, Integer, ForeignKey, String,\
-                       create_engine, Index, UniqueConstraint
+from sqlalchemy import create_engine, func, join, select, Column, \
+    DateTime, Integer, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
@@ -98,9 +98,6 @@ class Point(UserDefinedType):
     def bind_expression(self, bindvalue):
         return func.Point_In(bindvalue, type_=self)
 
-    # def column_expression(self, col):
-    #     return func.ST_AsText(col, type_=self)
-
     def bind_processor(self, dialect):
         def process(value):
             if value is None:
@@ -112,7 +109,7 @@ class Point(UserDefinedType):
         def process(value):
             if value is None:
                 return None
-            return tuple(float(val) for val in value[6:-1].split())
+            return tuple(float(val) for val in value[6:-1].split(','))
         return process
 
 
@@ -157,7 +154,7 @@ class PostgresDB(DB):
         try:
             return self._db
         except AttributeError:
-            self._db = create_engine(self.dburl)
+            self._db = create_engine(self.dburl, echo=config.DEBUG)
             return self._db
 
     def drop(self):
@@ -212,6 +209,11 @@ class PostgresDB(DB):
             return datetime.datetime.fromtimestamp(ts)
         else:
             return ts
+
+    @staticmethod
+    def fmt_results(fields, result):
+        return dict((fld, value) for fld, value in zip(fields, result)
+                    if value is not None)
 
 
 class BulkInsert(object):
@@ -346,7 +348,7 @@ class PostgresDBData(PostgresDB, DBData):
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
         with open(fname) as fdesc:
-            ## bulk = self.start_bulk_insert()
+            bulk = self.start_bulk_insert()
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
@@ -355,9 +357,10 @@ class PostgresDBData(PostgresDB, DBData):
                                               createipdata=createipdata)
                 values['start'] = utils.int2ip(values['start'])
                 values['stop'] = utils.int2ip(values['stop'])
-                self.db.execute(Location_Range.__table__.insert().values(
+                bulk.append(Location_Range.__table__.insert().values(
                     values
                 ))
+            bulk.close()
 
     def feed_country_codes(self, fname):
         with open(fname) as fdesc:
@@ -385,3 +388,65 @@ class PostgresDBData(PostgresDB, DBData):
                     values['coordinates'] = tuple(values.pop('loc')['coordinates'])
                 bulk.append(Location.__table__.insert().values(**values))
             bulk.close()
+
+    def feed_geoip_asnum(self, fname, feedipdata=None,
+                         createipdata=False):
+        with open(fname) as fdesc:
+            bulk = self.start_bulk_insert()
+            asnums = set()
+            for line in fdesc:
+                values = self.parse_line_asnum(line)
+                if values['as_num'] not in asnums:
+                    bulk.append(AS.__table__.insert().values(
+                        num=values['as_num'], name=values.get('as_name'),
+                    ))
+                    asnums.add(values['as_num'])
+                bulk.append(AS_Range.__table__.insert().values(
+                    aut_sys=values['as_num'],
+                    start=utils.int2ip(values['start']),
+                    stop=utils.int2ip(values['stop']),
+                ))
+            bulk.close()
+
+    def country_byip(self, addr):
+        data = self.db.execute(
+            select([Location_Range.stop, Country.code, Country.name])\
+            .where(Location_Range.start <= addr)\
+            .select_from(join(join(Location, Location_Range), Country))\
+            .order_by(Location_Range.start.desc())
+        ).fetchone()
+        if utils.ip2int(addr) <= utils.ip2int(data[0]):
+            return self.fmt_results(
+                ['country_code', 'country_name'],
+                data[1:]
+            )
+
+    def location_byip(self, addr):
+        data = self.db.execute(
+            select([Location_Range.stop, Location.coordinates, Country.code,
+                    Country.name, Location.city, Location.area_code,
+                    Location.metro_code, Location.postal_code,
+                    Location.region_code])\
+            .select_from(join(join(Location, Location_Range), Country))\
+            .where(Location_Range.start <= addr)\
+            .order_by(Location_Range.start.desc())
+        ).fetchone()
+        if utils.ip2int(addr) <= utils.ip2int(data[0]):
+            return self.fmt_results(
+                ['coordinates', 'country_code', 'country_name', 'city',
+                 'area_code', 'metro_code', 'postal_code', 'region_code'],
+                data[1:],
+            )
+
+    def as_byip(self, addr):
+        data = self.db.execute(
+            select([AS_Range.stop, AS.num, AS.name])\
+            .where(AS_Range.start <= addr)\
+            .select_from(join(AS, AS_Range))\
+            .order_by(AS_Range.start.desc())
+        ).fetchone()
+        if utils.ip2int(addr) <= utils.ip2int(data[0]):
+            return self.fmt_results(
+                ['as_num', 'as_name'],
+                data[1:],
+            )
