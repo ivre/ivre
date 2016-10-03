@@ -385,7 +385,9 @@ class PostgresDBData(PostgresDB, DBData):
                 values = self.parse_line_city_location(line)
                 values['id'] = values.pop('location_id')
                 if 'loc' in values:
-                    values['coordinates'] = tuple(values.pop('loc')['coordinates'])
+                    values['coordinates'] = tuple(
+                        values.pop('loc')['coordinates']
+                    )
                 bulk.append(Location.__table__.insert().values(**values))
             bulk.close()
 
@@ -409,27 +411,41 @@ class PostgresDBData(PostgresDB, DBData):
             bulk.close()
 
     def country_byip(self, addr):
+        data_range = select([Location_Range.stop, Location_Range.location_id])\
+                     .where(Location_Range.start <= addr)\
+                     .order_by(Location_Range.start.desc())\
+                     .limit(1)\
+                     .cte("data_range")
+        location = select([Location.country_code])\
+                   .where(Location.id == select([data_range.c.location_id]))\
+                   .limit(1)\
+                   .cte("location")
         data = self.db.execute(
-            select([Location_Range.stop, Country.code, Country.name])\
-            .where(Location_Range.start <= addr)\
-            .select_from(join(join(Location, Location_Range), Country))\
-            .order_by(Location_Range.start.desc())
+            select([data_range.c.stop, location.c.country_code, Country.name])\
+            .where(location.c.country_code == Country.code)
         ).fetchone()
         if utils.ip2int(addr) <= utils.ip2int(data[0]):
             return self.fmt_results(
                 ['country_code', 'country_name'],
-                data[1:]
+                data[1:],
             )
 
     def location_byip(self, addr):
+        data_range = select([Location_Range.stop, Location_Range.location_id])\
+                     .where(Location_Range.start <= addr)\
+                     .order_by(Location_Range.start.desc())\
+                     .limit(1)\
+                     .cte("data_range")
+        location = select([Location])\
+                   .where(Location.id == select([data_range.c.location_id]))\
+                   .limit(1)\
+                   .cte("location")
         data = self.db.execute(
-            select([Location_Range.stop, Location.coordinates, Country.code,
-                    Country.name, Location.city, Location.area_code,
-                    Location.metro_code, Location.postal_code,
-                    Location.region_code])\
-            .select_from(join(join(Location, Location_Range), Country))\
-            .where(Location_Range.start <= addr)\
-            .order_by(Location_Range.start.desc())
+            select([data_range.c.stop, location.c.coordinates,
+                    location.c.country_code, Country.name, location.c.city,
+                    location.c.area_code, location.c.metro_code,
+                    location.c.postal_code, location.c.region_code])\
+            .where(location.c.country_code == Country.code)
         ).fetchone()
         if utils.ip2int(addr) <= utils.ip2int(data[0]):
             return self.fmt_results(
@@ -439,11 +455,14 @@ class PostgresDBData(PostgresDB, DBData):
             )
 
     def as_byip(self, addr):
+        data_range = select([AS_Range.stop, AS_Range.aut_sys])\
+                  .where(AS_Range.start <= addr)\
+                  .order_by(AS_Range.start.desc())\
+                  .limit(1)\
+                  .cte("data_range")
         data = self.db.execute(
-            select([AS_Range.stop, AS.num, AS.name])\
-            .where(AS_Range.start <= addr)\
-            .select_from(join(AS, AS_Range))\
-            .order_by(AS_Range.start.desc())
+            select([data_range.c.stop, data_range.c.aut_sys, AS.name])\
+            .where(AS.num == select([data_range.c.aut_sys]))
         ).fetchone()
         if utils.ip2int(addr) <= utils.ip2int(data[0]):
             return self.fmt_results(
