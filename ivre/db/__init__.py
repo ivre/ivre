@@ -1235,11 +1235,12 @@ class MetaDB(object):
         else:
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         try:
-            from ivre.db.postgres import PostgresDBFlow, PostgresDBData
+            from ivre.db.postgres import PostgresDBFlow, PostgresDBData, PostgresDBNmap
         except ImportError:
             pass
         else:
             self.db_types["flow"]["postgresql"] = PostgresDBFlow
+            self.db_types["nmap"]["postgresql"] = PostgresDBNmap
             self.db_types["data"]["postgresql"] = PostgresDBData
         if urls is None:
             urls = {}

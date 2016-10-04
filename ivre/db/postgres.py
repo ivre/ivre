@@ -22,7 +22,7 @@ databases.
 
 """
 
-from ivre.db import DB, DBFlow, DBData
+from ivre.db import DB, DBFlow, DBData, DBNmap
 from ivre import config
 from ivre import utils
 
@@ -34,8 +34,9 @@ import sys
 import time
 import warnings
 
-from sqlalchemy import create_engine, func, join, select, Column, \
-    DateTime, Integer, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import create_engine, delete, exists, func, join, select, \
+    not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
+    BLOB, DateTime, Integer, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
@@ -144,7 +145,93 @@ class Location_Range(Base):
     stop = Column(postgresql.INET)
 
 
+# Nmap
+
+class Association_Scan_ScanFile(Base):
+    __tablename__ = 'association_scan_scanfile'
+    scan = Column(Integer, ForeignKey('scan.id'), primary_key=True)
+    scan_file = Column(BLOB(32), ForeignKey('scan_file.sha256'), primary_key=True)
+
+class ScanFile(Base):
+    __tablename__ = "scan_file"
+    sha256 = Column(BLOB(32), primary_key=True)
+    args = Column(Text)
+    scaninfos = Column(postgresql.JSONB)
+    scanner = Column(String(16))
+    start = Column(DateTime)
+    version = Column(String(16))
+    xmloutputversion = Column(String(16))
+
+class Association_Scan_Category(Base):
+    __tablename__ = 'association_scan_category'
+    scan = Column(Integer, ForeignKey('scan.id'), primary_key=True)
+    category = Column(Integer, ForeignKey('category.id'), primary_key=True)
+
+class Category(Base):
+    __tablename__ = 'category'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(32), index=True)
+
+class Association_Scan_Source(Base):
+    __tablename__ = 'association_scan_source'
+    scan = Column(Integer, ForeignKey('scan.id'), primary_key=True)
+    source = Column(Integer, ForeignKey('source.id'), primary_key=True)
+
+class Source(Base):
+    __tablename__ = 'source'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(32), index=True)
+
+class Script(Base):
+    __tablename__ = 'service'
+    port = Column(Integer, ForeignKey('port.id'), primary_key=True)
+    name = Column(String(64), primary_key=True)
+    output = Column(Text)
+    data = Column(postgresql.JSONB)
+
+class Port(Base):
+    __tablename__ = 'port'
+    id = Column(Integer, primary_key=True)
+    scan = Column(Integer, ForeignKey('scan.id'))
+    port = Column(Integer)
+    protocol = Column(String(16))
+    state = Column(String(32))
+    state_reason = Column(String(32))
+    state_reason_ttl = Column(Integer)
+    # Service-related fields, _name & _tunnel are part of the unique
+    # index
+    service_name = Column(String(64))
+    service_tunnel = Column(String(16))
+    service_product = Column(String(256))
+    service_version = Column(String(256))
+    service_conf = Column(Integer)
+    service_devicetype = Column(String(64))
+    service_extrainfo = Column(Text)
+    service_hostname = Column(String(256))
+    service_ostype = Column(String(64))
+    service_fp = Column(Text)
+    __table_args__ = (
+        Index('port_status', 'port', 'protocol', 'state', 'service_name',
+              'service_tunnel', unique=True),
+    )
+
+class Scan(Base):
+    __tablename__ = "scan"
+    id = Column(Integer, primary_key=True)
+    host = Column(Integer, ForeignKey('host.id'))
+    info_asnum = Column(Integer, ForeignKey("aut_sys.num"))
+    info_location = Column(Integer, ForeignKey("location.id"))
+    time_start = Column(DateTime)
+    time_stop = Column(DateTime)
+    state = Column(String(32))
+    state_reason = Column(String(32))
+    state_reason_ttl = Column(Integer)
+
+
 class PostgresDB(DB):
+    tables = []
+    shared_tables = {}
+
     def __init__(self, url):
         self.dburl = url
 
@@ -158,11 +245,23 @@ class PostgresDB(DB):
             return self._db
 
     def drop(self):
-        Base.metadata.drop_all(self.db)
+        for table in reversed(self.tables):
+            table.__table__.drop(bind=self.db, checkfirst=True)
+        for table, tabfld, fields in self.shared_tables:
+            self.db.execute(delete(table)\
+                            .where(not_(exists(select([1])\
+                                               .where(not_(or_(*(
+                                                   tabfld == field
+                                                   for field in fields
+                                               ))))
+                            )))
+            )
 
     def init(self):
         self.drop()
-        Base.metadata.create_all(self.db)
+        for table in self.tables:
+            table.__table__.create(bind=self.db)
+        #Base.metadata.create_all(self.db)
         #self.create_indexes()
 
     def create_indexes(self):
@@ -274,7 +373,9 @@ class BulkInsert(object):
 
 
 class PostgresDBFlow(PostgresDB, DBFlow):
-    indexes = {}
+    tables = [Flow]
+    shared_tables = [(Host, Host.id, [Scan.host]),
+                     (Context, Context.id, [Host.context])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -339,7 +440,7 @@ class PostgresDBFlow(PostgresDB, DBFlow):
 #})
 
 class PostgresDBData(PostgresDB, DBData):
-    indexes = {}
+    tables = [Country, AS, Location, AS_Range, Location_Range]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -507,3 +608,9 @@ Autonomous System given its number or its name.
             select([AS_Range.start, AS_Range.stop])\
             .where(AS_Range.aut_sys == asnum)
         )
+
+class PostgresDBNmap(PostgresDB, DBNmap):
+    tables = [Association_Scan_ScanFile, ScanFile, Association_Scan_Category,
+              Category, Association_Scan_Source, Source, Script, Port, Scan]
+    shared_tables = [(Host, Host.id, [Flow.src, Flow.dst]),
+                     (Context, Context.id, [Host.context])]
