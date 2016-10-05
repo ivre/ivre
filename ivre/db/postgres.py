@@ -331,12 +331,12 @@ class BulkInsert(object):
         """
         self.db = db
         self.start_time = time.time()
-        self.count = 0
-        self.commited_count = 0
+        self.commited_counts = {}
         self.size = config.POSTGRES_BATCH_SIZE if size is None else size
         self.retries = retries
         self.conn = db.connect()
         self.trans = self.conn.begin()
+        self.queries = {}
 
     def append(self, query):
         s_query = str(query)
@@ -347,7 +347,7 @@ class BulkInsert(object):
         if len(self.queries[s_query][1]) >= self.size:
             self.commit(query=s_query)
 
-    def commit_transaction(self, query=None, renew=True):
+    def commit(self, query=None, renew=True):
         if query is None:
             last = len(self.queries) - 1
             for i, query in enumerate(self.queries.keys()):
@@ -356,20 +356,23 @@ class BulkInsert(object):
         q_query, params = self.queries.pop(query)
         self.conn.execute(q_query, *params)
         self.trans.commit()
-
-    def commit(self, renew=True):
-        self.commit_transaction()
         newtime = time.time()
-        rate = self.size / (newtime - self.start_time)
+        l_params = len(params)
+        try:
+            self.commited_counts[query] += l_params
+        except KeyError:
+            self.commited_counts[query] = l_params
+        rate = l_params / (newtime - self.start_time)
         if config.DEBUG:
             sys.stderr.write(
+                "%s\n" % query
+            )
+            sys.stderr.write(
                 "%d inserts, %f/sec (total %d)\n" % (
-                    self.count, rate, self.commited_count + self.count)
+                    l_params, rate, self.commited_counts[query])
             )
         if renew:
             self.start_time = newtime
-            self.commited_count += self.count
-            self.count = 0
             self.trans = self.conn.begin()
 
     def close(self):
