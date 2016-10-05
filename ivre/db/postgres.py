@@ -36,8 +36,8 @@ import sys
 import time
 import warnings
 
-from sqlalchemy import create_engine, delete, exists, func, join, select, \
-    not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
+from sqlalchemy import create_engine, delete, exists, func, insert, join, \
+    select, not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
     DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
@@ -105,6 +105,27 @@ class GeoIPCSVLocationFile(GeoIPCSVFile):
     @staticmethod
     def fixline(line):
         return line[:5] + ["%s,%s" % tuple(line[5:7])] + line[7:]
+
+class GeoIPCSVLocationRangeFile(GeoIPCSVFile):
+    @staticmethod
+    def fixline(line):
+        for i in xrange(2):
+            line[i] = utils.int2ip(int(line[i]))
+        return line
+
+class GeoIPCSVASFile(GeoIPCSVFile):
+    @staticmethod
+    def fixline(line):
+        line = line[2].split(' ', 1)
+        return [line[0][2:], '' if len(line) == 1 else line[1]]
+
+class GeoIPCSVASRangeFile(GeoIPCSVFile):
+    @staticmethod
+    def fixline(line):
+        for i in xrange(2):
+            line[i] = utils.int2ip(int(line[i]))
+        line[2] = line[2].split(' ', 1)[0][2:]
+        return line
 
 class Country(Base):
     __tablename__ = "country"
@@ -302,6 +323,19 @@ class PostgresDB(DB):
         trans.commit()
         conn.close()
 
+    def create_tmp_table(self, table):
+        cols = [c.copy() for c in table.__table__.columns]
+        for c in cols:
+            c.index = False
+            if c.primary_key:
+                c.primary_key = False
+                c.index = True
+        t = Table("tmp_%s" % table.__tablename__,
+                  table.__table__.metadata, *cols,
+                  prefixes=['TEMPORARY'])
+        t.create(bind=self.db)
+        return t
+
     def create_indexes(self):
         raise NotImplementedError()
 
@@ -493,20 +527,11 @@ class PostgresDBData(PostgresDB, DBData):
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
-        with open(fname) as fdesc:
-            bulk = self.start_bulk_insert()
-            # Skip the two first lines
-            fdesc.readline()
-            fdesc.readline()
-            for line in fdesc:
-                values = self.parse_line_city(line, feedipdata=feedipdata,
-                                              createipdata=createipdata)
-                values['start'] = utils.int2ip(values['start'])
-                values['stop'] = utils.int2ip(values['stop'])
-                bulk.append(Location_Range.__table__.insert().values(
-                    values
-                ))
-            bulk.close()
+        with GeoIPCSVLocationRangeFile(fname, skip=2) as fdesc:
+            self.copy_from(
+                fdesc, Location_Range.__tablename__, null='',
+                columns=['start', 'stop', 'location_id'],
+            )
 
     def feed_country_codes(self, fname):
         with GeoIPCSVFile(fname) as fdesc:
@@ -528,22 +553,16 @@ class PostgresDBData(PostgresDB, DBData):
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
-        with open(fname) as fdesc:
-            bulk = self.start_bulk_insert()
-            asnums = set()
-            for line in fdesc:
-                values = self.parse_line_asnum(line)
-                if values['as_num'] not in asnums:
-                    bulk.append(AS.__table__.insert().values(
-                        num=values['as_num'], name=values.get('as_name'),
-                    ))
-                    asnums.add(values['as_num'])
-                bulk.append(AS_Range.__table__.insert().values(
-                    aut_sys=values['as_num'],
-                    start=utils.int2ip(values['start']),
-                    stop=utils.int2ip(values['stop']),
-                ))
-            bulk.close()
+        with GeoIPCSVASFile(fname) as fdesc:
+            tmp = self.create_tmp_table(AS)
+            self.copy_from(fdesc, tmp.name, null='')
+        self.db.execute(insert(AS).from_select(['num', 'name'],
+                                               select([tmp]).distinct("num")))
+        with GeoIPCSVASRangeFile(fname) as fdesc:
+            self.copy_from(
+                fdesc, AS_Range.__tablename__, null='',
+                columns=['start', 'stop', 'aut_sys'],
+            )
 
     def country_byip(self, addr):
         data_range = select([Location_Range.stop, Location_Range.location_id])\
