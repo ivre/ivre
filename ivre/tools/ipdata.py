@@ -115,17 +115,19 @@ def main():
                       [args.location_csv], {}))
     if args.import_all:
         for function, fname, kwargs in [
-                (ivre.db.db.data.feed_geoip_city,
-                 'GeoIPCity-Blocks.csv',
-                 dbtofeed),
                 (ivre.db.db.data.feed_geoip_country,
                  'GeoIPCountry.csv',
+                 dbtofeed),
+                (ivre.db.db.data.feed_country_codes,
+                 'iso3166.csv', {}),
+                (ivre.db.db.data.feed_city_location,
+                 'GeoIPCity-Location.csv', {}),
+                (ivre.db.db.data.feed_geoip_city,
+                 'GeoIPCity-Blocks.csv',
                  dbtofeed),
                 (ivre.db.db.data.feed_geoip_asnum,
                  'GeoIPASNum.csv',
                  dbtofeed),
-                (ivre.db.db.data.feed_city_location,
-                 'GeoIPCity-Location.csv', {}),
         ]:
             TORUN.append((function,
                           [os.path.join(ivre.config.GEOIP_PATH,

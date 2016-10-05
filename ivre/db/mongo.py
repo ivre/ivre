@@ -3424,6 +3424,13 @@ class MongoDBData(MongoDB, DBData):
         self.db[self.colname_city_locations].drop()
         self.create_indexes()
 
+    def feed_country_codes(self, *_, **__):
+        """GeoIP Country database is used with MongoDB instead of a country
+code / name table
+
+        """
+        pass
+
     def feed_geoip_country(self, fname, feedipdata=None,
                            createipdata=False):
         self.country_codes = {}

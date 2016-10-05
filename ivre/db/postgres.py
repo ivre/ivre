@@ -440,11 +440,15 @@ class PostgresDBFlow(PostgresDB, DBFlow):
 #})
 
 class PostgresDBData(PostgresDB, DBData):
-    tables = [Country, AS, Location, AS_Range, Location_Range]
+    tables = [Country, Location, Location_Range, AS, AS_Range]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
         DBData.__init__(self)
+
+    def feed_geoip_country(self, *_, **__):
+        "Country database has been dropped in favor of Location/City"
+        pass
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
@@ -525,7 +529,7 @@ class PostgresDBData(PostgresDB, DBData):
             select([data_range.c.stop, location.c.country_code, Country.name])\
             .where(location.c.country_code == Country.code)
         ).fetchone()
-        if utils.ip2int(addr) <= utils.ip2int(data[0]):
+        if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
             return self.fmt_results(
                 ['country_code', 'country_name'],
                 data[1:],
@@ -548,7 +552,7 @@ class PostgresDBData(PostgresDB, DBData):
                     location.c.postal_code, location.c.region_code])\
             .where(location.c.country_code == Country.code)
         ).fetchone()
-        if utils.ip2int(addr) <= utils.ip2int(data[0]):
+        if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
             return self.fmt_results(
                 ['coordinates', 'country_code', 'country_name', 'city',
                  'area_code', 'metro_code', 'postal_code', 'region_code'],
@@ -565,7 +569,7 @@ class PostgresDBData(PostgresDB, DBData):
             select([data_range.c.stop, data_range.c.aut_sys, AS.name])\
             .where(AS.num == select([data_range.c.aut_sys]))
         ).fetchone()
-        if utils.ip2int(addr) <= utils.ip2int(data[0]):
+        if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
             return self.fmt_results(
                 ['as_num', 'as_name'],
                 data[1:],
