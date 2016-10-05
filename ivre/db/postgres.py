@@ -26,6 +26,8 @@ from ivre.db import DB, DBFlow, DBData, DBNmap
 from ivre import config
 from ivre import utils
 
+import codecs
+import csv
 import datetime
 import operator
 import random
@@ -36,7 +38,7 @@ import warnings
 
 from sqlalchemy import create_engine, delete, exists, func, join, select, \
     not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
-    DateTime, Integer, LargeBinary, String, Text, Float
+    DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
@@ -78,47 +80,31 @@ class Flow(Base):
     )
 
 # Data
-class GeoIPCSVFile(file):
-    sep = re.compile('[,\\n]')
-    def __init__(self, *args):
-        super(GeoIPCSVFile, self).__init__(*args)
-        self.state = 0
+class GeoIPCSVFile(object):
+    def __init__(self, fname, skip=0):
+        self.fdesc = codecs.open(fname, encoding='latin-1')
+        for _ in xrange(skip):
+            self.fdesc.readline()
+        self.inp = csv.reader(self.fdesc)
+    @staticmethod
+    def fixline(line):
+        return line
     def read(self, size=None):
-        sobj = super(GeoIPCSVFile, self)
-        data = sobj.read() if size is None else sobj.read(size)
-        data = data.decode('latin-1')
-        reconstructed = ""
-        while data:
-            if self.state == 0:
-                # outside quotes
-                if data.startswith('"'):
-                    self.state = 1
-                    data = data[1:]
-                    continue
-                data = data.split(',', 1)
-                if len(data) == 1:
-                    data = data[0].split('\n', 1)
-                    if len(data) == 1:
-                        return reconstructed + data[0]
-                    reconstructed += data[0] + '\n'
-                    data = data[1]
-                    continue
-                tmpdata = data[0].split('\n', 1)
-                if len(tmpdata) == 1:
-                    reconstructed += data[0] + '\t'
-                    data = data[1]
-                else:
-                    reconstructed += tmpdata[0] + '\n'
-                    data = tmpdata[1] + ',' + data[1]
-            elif self.state == 1:
-                data = data.split('"', 1)
-                if len(data) == 1:
-                    return reconstructed + data[0]
-                reconstructed += data[0]
-                data = data[1]
-                self.state = 0
-                continue
-        return reconstructed + data
+        try:
+            return '%s\n' % '\t'.join(self.fixline(self.inp.next()))
+        except StopIteration:
+            return ''
+    def readline(self):
+        return self.read()
+    def __exit__(self, *args):
+        self.fdesc.__exit__(*args)
+    def __enter__(self):
+        return self
+
+class GeoIPCSVLocationFile(GeoIPCSVFile):
+    @staticmethod
+    def fixline(line):
+        return line[:5] + ["%s,%s" % tuple(line[5:7])] + line[7:]
 
 class Country(Base):
     __tablename__ = "country"
@@ -160,9 +146,7 @@ class Location(Base):
     id = Column(Integer, primary_key=True)
     country_code = Column(String(2), ForeignKey('country.code'))
     city = Column(String(64))
-    #coordinates = Column(Point) #, index=True
-    coord_lat = Column(Float)
-    coord_lon = Column(Float)
+    coordinates = Column(Point) #, index=True
     area_code = Column(Integer)
     metro_code = Column(Integer)
     postal_code = Column(String(16))
@@ -309,8 +293,14 @@ class PostgresDB(DB):
             table.__table__.create(bind=self.db, checkfirst=True)
         for table in self.tables:
             table.__table__.create(bind=self.db)
-        #Base.metadata.create_all(self.db)
-        #self.create_indexes()
+
+    def copy_from(self, *args, **kargs):
+        cursor = self.db.raw_connection().cursor()
+        conn = self.db.connect()
+        trans = conn.begin()
+        cursor.copy_from(*args, **kargs)
+        trans.commit()
+        conn.close()
 
     def create_indexes(self):
         raise NotImplementedError()
@@ -519,34 +509,22 @@ class PostgresDBData(PostgresDB, DBData):
             bulk.close()
 
     def feed_country_codes(self, fname):
-        cursor = self.db.raw_connection().cursor()
-        conn = self.db.connect()
-        trans = conn.begin()
         with GeoIPCSVFile(fname) as fdesc:
-            cursor.copy_from(fdesc, Country.__tablename__,
-                             columns=['code', 'name'])
+            self.copy_from(fdesc, Country.__tablename__, null='')
         # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
-        conn.execute(Country.__table__.insert().values(
+        self.db.execute(Country.__table__.insert().values(
             code="AN",
             name="Netherlands Antilles",
         ))
-        trans.commit()
-        conn.close()
 
     def feed_city_location(self, fname):
-        cursor = self.db.raw_connection().cursor()
-        conn = self.db.connect()
-        trans = conn.begin()
-        with GeoIPCSVFile(fname) as fdesc:
-            # Skip the two first lines
-            fdesc.readline()
-            fdesc.readline()
-            cursor.copy_from(fdesc, Location.__tablename__, null='',
-                             columns=['id', 'country_code', 'region_code',
-                                      'city', 'postal_code', 'coord_lat',
-                                      'coord_lon', 'metro_code', 'area_code'])
-        trans.commit()
-        conn.close()
+        with GeoIPCSVLocationFile(fname, skip=2) as fdesc:
+            self.copy_from(
+                fdesc, Location.__tablename__, null='',
+                columns=['id', 'country_code', 'region_code', 'city',
+                         'postal_code', 'coordinates', 'metro_code',
+                         'area_code'],
+            )
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
