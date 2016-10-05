@@ -36,7 +36,7 @@ import warnings
 
 from sqlalchemy import create_engine, delete, exists, func, join, select, \
     not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
-    DateTime, Integer, LargeBinary, String, Text
+    DateTime, Integer, LargeBinary, String, Text, Float
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
@@ -78,6 +78,47 @@ class Flow(Base):
     )
 
 # Data
+class GeoIPCSVFile(file):
+    sep = re.compile('[,\\n]')
+    def __init__(self, *args):
+        super(GeoIPCSVFile, self).__init__(*args)
+        self.state = 0
+    def read(self, size=None):
+        sobj = super(GeoIPCSVFile, self)
+        data = sobj.read() if size is None else sobj.read(size)
+        data = data.decode('latin-1')
+        reconstructed = ""
+        while data:
+            if self.state == 0:
+                # outside quotes
+                if data.startswith('"'):
+                    self.state = 1
+                    data = data[1:]
+                    continue
+                data = data.split(',', 1)
+                if len(data) == 1:
+                    data = data[0].split('\n', 1)
+                    if len(data) == 1:
+                        return reconstructed + data[0]
+                    reconstructed += data[0] + '\n'
+                    data = data[1]
+                    continue
+                tmpdata = data[0].split('\n', 1)
+                if len(tmpdata) == 1:
+                    reconstructed += data[0] + '\t'
+                    data = data[1]
+                else:
+                    reconstructed += tmpdata[0] + '\n'
+                    data = tmpdata[1] + ',' + data[1]
+            elif self.state == 1:
+                data = data.split('"', 1)
+                if len(data) == 1:
+                    return reconstructed + data[0]
+                reconstructed += data[0]
+                data = data[1]
+                self.state = 0
+                continue
+        return reconstructed + data
 
 class Country(Base):
     __tablename__ = "country"
@@ -119,7 +160,9 @@ class Location(Base):
     id = Column(Integer, primary_key=True)
     country_code = Column(String(2), ForeignKey('country.code'))
     city = Column(String(64))
-    coordinates = Column(Point) #, index=True
+    #coordinates = Column(Point) #, index=True
+    coord_lat = Column(Float)
+    coord_lon = Column(Float)
     area_code = Column(Integer)
     metro_code = Column(Integer)
     postal_code = Column(String(16))
@@ -476,33 +519,34 @@ class PostgresDBData(PostgresDB, DBData):
             bulk.close()
 
     def feed_country_codes(self, fname):
-        with open(fname) as fdesc:
-            bulk = self.start_bulk_insert()
-            for line in fdesc:
-                bulk.append(Country.__table__.insert().values(
-                    **self.parse_line_country_codes(line)
-                ))
-            # missing from GeoIP file
-            bulk.append(Country.__table__.insert().values(
-                code="AN", name="Netherlands Antilles",
-            ))
-            bulk.close()
+        cursor = self.db.raw_connection().cursor()
+        conn = self.db.connect()
+        trans = conn.begin()
+        with GeoIPCSVFile(fname) as fdesc:
+            cursor.copy_from(fdesc, Country.__tablename__,
+                             columns=['code', 'name'])
+        # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
+        conn.execute(Country.__table__.insert().values(
+            code="AN",
+            name="Netherlands Antilles",
+        ))
+        trans.commit()
+        conn.close()
 
     def feed_city_location(self, fname):
-        with open(fname) as fdesc:
-            bulk = self.start_bulk_insert()
+        cursor = self.db.raw_connection().cursor()
+        conn = self.db.connect()
+        trans = conn.begin()
+        with GeoIPCSVFile(fname) as fdesc:
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
-            for line in fdesc:
-                values = self.parse_line_city_location(line)
-                values['id'] = values.pop('location_id')
-                if 'loc' in values:
-                    values['coordinates'] = tuple(
-                        values.pop('loc')['coordinates']
-                    )
-                bulk.append(Location.__table__.insert().values(**values))
-            bulk.close()
+            cursor.copy_from(fdesc, Location.__tablename__, null='',
+                             columns=['id', 'country_code', 'region_code',
+                                      'city', 'postal_code', 'coord_lat',
+                                      'coord_lon', 'metro_code', 'area_code'])
+        trans.commit()
+        conn.close()
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
