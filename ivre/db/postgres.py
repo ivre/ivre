@@ -36,7 +36,7 @@ import warnings
 
 from sqlalchemy import create_engine, delete, exists, func, join, select, \
     not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
-    BLOB, DateTime, Integer, String, Text
+    DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
@@ -150,11 +150,11 @@ class Location_Range(Base):
 class Association_Scan_ScanFile(Base):
     __tablename__ = 'association_scan_scanfile'
     scan = Column(Integer, ForeignKey('scan.id'), primary_key=True)
-    scan_file = Column(BLOB(32), ForeignKey('scan_file.sha256'), primary_key=True)
+    scan_file = Column(LargeBinary(32), ForeignKey('scan_file.sha256'), primary_key=True)
 
 class ScanFile(Base):
     __tablename__ = "scan_file"
-    sha256 = Column(BLOB(32), primary_key=True)
+    sha256 = Column(LargeBinary(32), primary_key=True)
     args = Column(Text)
     scaninfos = Column(postgresql.JSONB)
     scanner = Column(String(16))
@@ -230,6 +230,7 @@ class Scan(Base):
 
 class PostgresDB(DB):
     tables = []
+    required_tables = []
     shared_tables = {}
 
     def __init__(self, url):
@@ -259,6 +260,10 @@ class PostgresDB(DB):
 
     def init(self):
         self.drop()
+        for table in self.required_tables:
+            table.__table__.create(bind=self.db, checkfirst=True)
+        for table, _, _ in self.shared_tables:
+            table.__table__.create(bind=self.db, checkfirst=True)
         for table in self.tables:
             table.__table__.create(bind=self.db)
         #Base.metadata.create_all(self.db)
@@ -614,7 +619,14 @@ Autonomous System given its number or its name.
         )
 
 class PostgresDBNmap(PostgresDB, DBNmap):
-    tables = [Association_Scan_ScanFile, ScanFile, Association_Scan_Category,
-              Category, Association_Scan_Source, Source, Script, Port, Scan]
+    tables = [ScanFile, Category, Source, Scan, Port, Script,
+              Association_Scan_Source, Association_Scan_Category,
+              Association_Scan_ScanFile]
+    required_tables = [AS, Country, Location]
     shared_tables = [(Host, Host.id, [Flow.src, Flow.dst]),
                      (Context, Context.id, [Host.context])]
+    flt_empty = None
+
+    def __init__(self, url):
+        PostgresDB.__init__(self, url)
+        DBNmap.__init__(self)
