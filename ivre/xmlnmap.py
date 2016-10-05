@@ -1450,7 +1450,7 @@ class Nmap2Txt(NmapHandler):
         self._db.append(self._curhost)
 
 
-class Nmap2Mongo(NmapHandler):
+class Nmap2DB(NmapHandler):
 
     """Specific handler for MongoDB backend."""
 
@@ -1465,10 +1465,6 @@ class Nmap2Mongo(NmapHandler):
             self.categories = categories
         self._add_addr_infos = add_addr_infos
         self.source = source
-        # FIXME we should use self._db methods instead of that and
-        # rename this class as Nmap2DB
-        self._collection = self._db.nmap.db[self._db.nmap.colname_hosts]
-        self._scancollection = self._db.nmap.db[self._db.nmap.colname_scans]
         if gettoarchive is None:
             self._gettoarchive = lambda a, s: []
         else:
