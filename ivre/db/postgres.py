@@ -26,6 +26,7 @@ from ivre.db import DB, DBFlow, DBData, DBNmap
 from ivre import config
 from ivre import utils
 
+from bisect import bisect_left
 import codecs
 import csv
 import datetime
@@ -280,6 +281,46 @@ class PostgresDB(DB):
     tables = []
     required_tables = []
     shared_tables = {}
+    context_names = [
+        "Current-Net",
+        "Public",
+        "Private",
+        "Public",
+        "CGN",
+        "Public",
+        "Loopback",
+        "Link-Local",
+        "Public",
+        "Private",
+        "Public",
+        "IPv6-to-IPv4",
+        "Public",
+        "Private",
+        "Public",
+        "Multicast",
+        "Reserved",
+        "Broadcast",
+    ]
+    context_last_ips = [
+        utils.ip2int("0.255.255.255"),
+        utils.ip2int("9.255.255.255"),
+        utils.ip2int("10.255.255.255"),
+        utils.ip2int("100.63.255.255"),
+        utils.ip2int("100.127.255.255"),
+        utils.ip2int("126.255.255.255"),
+        utils.ip2int("127.255.255.255"),
+        utils.ip2int("169.254.255.255"),
+        utils.ip2int("172.15.255.255"),
+        utils.ip2int("172.31.255.255"),
+        utils.ip2int("192.88.98.255"),
+        utils.ip2int("192.88.99.255"),
+        utils.ip2int("192.167.255.255"),
+        utils.ip2int("192.168.255.255"),
+        utils.ip2int("223.255.255.255"),
+        utils.ip2int("239.255.255.255"),
+        utils.ip2int("255.255.255.254"),
+        utils.ip2int("255.255.255.255"),
+    ]
 
     def __init__(self, url):
         self.dburl = url
@@ -385,6 +426,15 @@ class PostgresDB(DB):
     def fmt_results(fields, result):
         return dict((fld, value) for fld, value in zip(fields, result)
                     if value is not None)
+
+    @classmethod
+    def default_context(cls, addr):
+        # default case:
+        try:
+            addr = utils.ip2int(addr)
+        except TypeError:
+            pass
+        return cls.context_names[bisect_left(cls.context_last_ips, addr)]
 
 
 class BulkInsert(object):
