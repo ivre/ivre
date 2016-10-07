@@ -1512,10 +1512,8 @@ class Nmap2DB(NmapHandler):
         # We are about to insert data based on this file, so we want
         # to save the scan document
         self.need_scan_doc = True
-        if self.merge and self._db.nmap.merge_host(self._curhost):
-            return
-        self._db.nmap.archive_from_func(self._curhost, self._gettoarchive)
-        self._db.nmap.store_host(self._curhost)
+        self._db.nmap.store_or_merge_host(self._curhost, self._gettoarchive,
+                                          merge=self.merge)
 
     def _storescan(self):
         ident = self._db.nmap.store_scan_doc(self._curscan)

@@ -1188,6 +1188,12 @@ have no effect if it is not expected)."""
             if self.find_one(colname_hosts, {'scanid': scanid}) is None:
                 self.db[colname_scans].remove(spec_or_id=scanid)
 
+    def store_or_merge_host(self, host, gettoarchive, merge=False):
+        if merge and self.merge_host(host):
+            return
+        self.archive_from_func(host, gettoarchive)
+        self.store_host(host)
+
     def archive(self, host, unarchive=False):
         """Archives (when `unarchive` is True, unarchives) a given
         host record. Also (un)archives the corresponding scan and

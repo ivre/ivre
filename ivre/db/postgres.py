@@ -23,8 +23,7 @@ databases.
 """
 
 from ivre.db import DB, DBFlow, DBData, DBNmap
-from ivre import config
-from ivre import utils
+from ivre import config, utils, xmlnmap
 
 from bisect import bisect_left
 import codecs
@@ -34,6 +33,7 @@ import operator
 import random
 import re
 import sys
+import struct
 import time
 import warnings
 
@@ -41,6 +41,7 @@ from sqlalchemy import create_engine, delete, exists, func, insert, join, \
     select, not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
     DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -49,7 +50,10 @@ Base = declarative_base()
 class Context(Base):
     __tablename__ = "context"
     id = Column(Integer, primary_key=True)
-    name = Column(String(32), index=True)
+    name = Column(String(32))
+    __table_args__ = (
+        Index('ix_context_name', 'name', unique=True),
+    )
 
 class Host(Base):
     __tablename__ = "host"
@@ -59,7 +63,7 @@ class Host(Base):
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
     __table_args__ = (
-        Index('addr_context', 'addr', 'context', unique=True),
+        Index('ix_host_addr_context', 'addr', 'context', unique=True),
     )
 
 class Flow(Base):
@@ -174,7 +178,7 @@ class Location(Base):
     postal_code = Column(String(16))
     region_code = Column(String(2), index=True)
     __table_args__ = (
-        Index('country_city', 'country_code', 'city'),
+        Index('ix_location_country_city', 'country_code', 'city'),
     )
 
 
@@ -219,7 +223,11 @@ class Association_Scan_Category(Base):
 class Category(Base):
     __tablename__ = 'category'
     id = Column(Integer, primary_key=True)
-    name = Column(String(32), index=True)
+    name = Column(String(32))
+    __table_args__ = (
+        Index('ix_category_name', 'name', unique=True),
+    )
+
 
 class Association_Scan_Source(Base):
     __tablename__ = 'association_scan_source'
@@ -229,10 +237,13 @@ class Association_Scan_Source(Base):
 class Source(Base):
     __tablename__ = 'source'
     id = Column(Integer, primary_key=True)
-    name = Column(String(32), index=True)
+    name = Column(String(32))
+    __table_args__ = (
+        Index('ix_source_name', 'name', unique=True),
+    )
 
 class Script(Base):
-    __tablename__ = 'service'
+    __tablename__ = 'script'
     port = Column(Integer, ForeignKey('port.id'), primary_key=True)
     name = Column(String(64), primary_key=True)
     output = Column(Text)
@@ -260,7 +271,7 @@ class Port(Base):
     service_ostype = Column(String(64))
     service_fp = Column(Text)
     __table_args__ = (
-        Index('port_status', 'port', 'protocol', 'state', 'service_name',
+        Index('ix_port_scan_port_status', 'scan', 'port', 'protocol', 'state', 'service_name',
               'service_tunnel', unique=True),
     )
 
@@ -268,13 +279,15 @@ class Scan(Base):
     __tablename__ = "scan"
     id = Column(Integer, primary_key=True)
     host = Column(Integer, ForeignKey('host.id'))
-    info_asnum = Column(Integer, ForeignKey("aut_sys.num"))
-    info_location = Column(Integer, ForeignKey("location.id"))
+    info = Column(postgresql.JSONB)
     time_start = Column(DateTime)
     time_stop = Column(DateTime)
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
+    __table_args__ = (
+        Index('ix_scan_info', 'info', postgresql_using='gin'),
+    )
 
 
 class PostgresDB(DB):
@@ -338,21 +351,33 @@ class PostgresDB(DB):
         for table in reversed(self.tables):
             table.__table__.drop(bind=self.db, checkfirst=True)
         for table, tabfld, fields in self.shared_tables:
-            self.db.execute(delete(table)\
-                            .where(not_(exists(select([1])\
-                                               .where(not_(or_(*(
-                                                   tabfld == field
-                                                   for field in fields
-                                               ))))
-                            )))
-            )
+            try:
+                self.db.execute(delete(table)\
+                                .where(not_(exists(select([1])\
+                                                   .where(not_(or_(*(
+                                                       tabfld == field
+                                                       for field in fields
+                                                   ))))
+                                )))
+                )
+            except ProgrammingError:
+                pass
 
     def init(self):
         self.drop()
         for table in self.required_tables:
             table.__table__.create(bind=self.db, checkfirst=True)
-        for table, _, _ in self.shared_tables:
-            table.__table__.create(bind=self.db, checkfirst=True)
+        # hack to handle dependencies in self.shared_tables
+        need_cont = True
+        max_loop = len(self.shared_tables)
+        while need_cont and max_loop:
+            need_cont = False
+            max_loop -= 1
+            for table, _, _ in self.shared_tables:
+                try:
+                    table.__table__.create(bind=self.db, checkfirst=True)
+                except ProgrammingError:
+                    need_cont = True
         for table in self.tables:
             table.__table__.create(bind=self.db)
 
@@ -376,6 +401,33 @@ class PostgresDB(DB):
                   prefixes=['TEMPORARY'])
         t.create(bind=self.db)
         return t
+
+    def store_host_context(self, addr, context, firstseen, lastseen):
+        insrt = postgresql.insert(Context)
+        ctxt = self.db.execute(insrt.values(name=context)\
+                               .on_conflict_do_update(
+                                   index_elements=['name'],
+                                   set_={'name': insrt.excluded.name}
+                               )\
+                               .returning(Context.id)).fetchone()[0]
+        insrt = postgresql.insert(Host)
+        return self.db.execute(insrt.values(context=ctxt,
+                                            addr=addr,
+                                            firstseen=firstseen,
+                                            lastseen=lastseen)\
+                               .on_conflict_do_update(
+                                   index_elements=['addr', 'context'],
+                                   set_={
+                                       'firstseen': func.least(
+                                           Host.firstseen,
+                                           insrt.excluded.firstseen,
+                                         ),
+                                       'lastseen': func.greatest(
+                                           Host.lastseen,
+                                           insrt.excluded.lastseen,
+                                       )},
+                               )\
+                               .returning(Host.id)).fetchone()[0]
 
     def create_indexes(self):
         raise NotImplementedError()
@@ -500,7 +552,7 @@ class BulkInsert(object):
 class PostgresDBFlow(PostgresDB, DBFlow):
     tables = [Flow]
     shared_tables = [(Host, Host.id, [Scan.host]),
-                     (Context, Context.id, [Host.context])]
+                     (Context, Context.name, [Host.context])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -615,6 +667,10 @@ class PostgresDBData(PostgresDB, DBData):
             )
 
     def country_byip(self, addr):
+        try:
+            addr = utils.int2ip(addr)
+        except (TypeError, struct.error):
+            pass
         data_range = select([Location_Range.stop, Location_Range.location_id])\
                      .where(Location_Range.start <= addr)\
                      .order_by(Location_Range.start.desc())\
@@ -635,6 +691,10 @@ class PostgresDBData(PostgresDB, DBData):
             )
 
     def location_byip(self, addr):
+        try:
+            addr = utils.int2ip(addr)
+        except (TypeError, struct.error):
+            pass
         data_range = select([Location_Range.stop, Location_Range.location_id])\
                      .where(Location_Range.start <= addr)\
                      .order_by(Location_Range.start.desc())\
@@ -659,6 +719,10 @@ class PostgresDBData(PostgresDB, DBData):
             )
 
     def as_byip(self, addr):
+        try:
+            addr = utils.int2ip(addr)
+        except (TypeError, struct.error):
+            pass
         data_range = select([AS_Range.stop, AS_Range.aut_sys])\
                   .where(AS_Range.start <= addr)\
                   .order_by(AS_Range.start.desc())\
@@ -718,9 +782,133 @@ class PostgresDBNmap(PostgresDB, DBNmap):
               Association_Scan_ScanFile]
     required_tables = [AS, Country, Location]
     shared_tables = [(Host, Host.id, [Flow.src, Flow.dst]),
-                     (Context, Context.id, [Host.context])]
+                     (Context, Context.name, [Host.context])]
     flt_empty = None
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
         DBNmap.__init__(self)
+        self.content_handler = xmlnmap.Nmap2DB
+
+    def get_context(self, addr, source=None):
+        ctxt = self.default_context(addr)
+        if source is None:
+            return ctx
+        return 'Public' if ctxt == 'Public' else '%s-%s' % (ctxt, source)
+
+    def store_host(self, host):
+        addr = host['addr']
+        context = self.get_context(addr, host['source'])
+        try:
+            addr = utils.int2ip(addr)
+        except (TypeError, struct.error):
+            pass
+        hostid = self.store_host_context(addr, context, host['starttime'], host['endtime'])
+        scanid =  self.db.execute(insert(Scan)\
+                                  .values(
+                                      host=hostid,
+                                      info=host.get('infos'),
+                                      time_start=host['starttime'],
+                                      time_stop=host['endtime'],
+                                      state=host['state'],
+                                      state_reason=host['state_reason'],
+                                      state_reason_ttl=host['state_reason_ttl'],
+                                  )\
+                                  .returning(Scan.id)).fetchone()[0]
+        if host.get('source'):
+            insrt = postgresql.insert(Source)
+            sourceid = self.db.execute(insrt.values(name=host['source'])\
+                                       .on_conflict_do_update(
+                                           index_elements=['name'],
+                                           set_={'name': insrt.excluded.name}
+                                       )\
+                                       .returning(Source.id)).fetchone()[0]
+            self.db.execute(postgresql.insert(Association_Scan_Source)\
+                            .values(scan=scanid, source=sourceid)\
+                            .on_conflict_do_nothing())
+        for category in host.get("categories", []):
+            insrt = postgresql.insert(Category)
+            catid = self.db.execute(insrt.values(name=category)\
+                                    .on_conflict_do_update(
+                                        index_elements=['name'],
+                                        set_={'name': insrt.excluded.name}
+                                    )\
+                                    .returning(Category.id)).fetchone()[0]
+            self.db.execute(postgresql.insert(Association_Scan_Category)\
+                            .values(scan=scanid, category=catid)\
+                            .on_conflict_do_nothing())
+        for port in host.get('ports', []):
+            # XXX FIXME
+            scripts = port.pop('scripts', [])
+            for fld in ['screendata', 'screenshot', 'screenwords', 'service_method']:
+                try:
+                    del port[fld]
+                except KeyError:
+                    pass
+            if 'service_servicefp' in port:
+                port['service_fp'] = port.pop('service_servicefp')
+            if 'state_state' in port:
+                port['state'] = port.pop('state_state')
+            portid = self.db.execute(insert(Port).values(scan=scanid, **port)\
+                                     .returning(Port.id)).fetchone()[0]
+            for script in scripts:
+                self.db.execute(insert(Script).values(
+                    port=portid,
+                    name=script.pop('id'),
+                    output=script.pop('output'),
+                    data=script
+                ))
+
+    def store_or_merge_host(self, host, gettoarchive, merge=False):
+        ## no merge / archive
+        assert merge == False
+        self.store_host(host)
+
+    def get(self, flt, archive=False, **kargs):
+        for scanrec in self.db.execute(select([Scan])):
+            rec = {}
+            (scanid, hostid, rec["infos"], rec["starttime"], rec["endtime"],
+             rec["state"], rec["state_reason"],
+             rec["state_reason_ttl"]) = scanrec
+            rec["addr"] = self.db.execute(
+                select([Host.addr]).where(Host.id == hostid)
+            ).fetchone()[0]
+            if not rec["infos"]:
+                del rec["infos"]
+
+            sources = select([Association_Scan_Source.source])\
+                      .where(Association_Scan_Source.scan == scanid)\
+                      .cte("sources")
+            sources = [src[0] for src in
+                       self.db.execute(select([Source.name])\
+                                       .where(Source.id == sources.c.source))]
+            if sources:
+                rec['source'] = ', '.join(sources)
+            categories = select([Association_Scan_Category.category])\
+                         .where(Association_Scan_Category.scan == scanid)\
+                         .cte("categories")
+            rec["categories"] = [src[0] for src in
+                                 self.db.execute(
+                                     select([Category.name])\
+                                     .where(Category.id == categories.c.category)
+                                 )]
+            for port in self.db.execute(select([Port]).where(Port.scan == scanid)):
+                recp = {}
+                (portid, _, recp["port"], recp["protocol"], recp["state_state"],
+                 recp["state_reason"], recp["state_reason_ttl"],
+                 recp["service_name"], recp["service_tunnel"],
+                 recp["service_product"], recp["service_version"],
+                 recp["service_conf"], recp["service_devicetype"],
+                 recp["service_extrainfo"], recp["service_hostname"],
+                 recp["service_ostype"], recp["service_servicefp"]) = port
+                for fld, value in recp.items():
+                    if value is None:
+                        del recp[fld]
+                for script in self.db.execute(select([Script.name, Script.output])\
+                                              .where(Script.port == portid)):
+                    recp.setdefault('scripts', []).append(
+                        {'id': script.name,
+                         'output': script.output}
+                    )
+                rec.setdefault('ports', []).append(recp)
+            yield rec
