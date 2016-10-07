@@ -257,6 +257,7 @@ class Port(Base):
     protocol = Column(String(16))
     state = Column(String(32))
     state_reason = Column(String(32))
+    state_reason_ip = Column(postgresql.INET)
     state_reason_ttl = Column(Integer)
     # Service-related fields, _name & _tunnel are part of the unique
     # index
@@ -793,12 +794,12 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def get_context(self, addr, source=None):
         ctxt = self.default_context(addr)
         if source is None:
-            return ctx
+            return ctxt
         return 'Public' if ctxt == 'Public' else '%s-%s' % (ctxt, source)
 
     def store_host(self, host):
         addr = host['addr']
-        context = self.get_context(addr, host['source'])
+        context = self.get_context(addr, source=host.get('source'))
         try:
             addr = utils.int2ip(addr)
         except (TypeError, struct.error):
@@ -875,7 +876,6 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             ).fetchone()[0]
             if not rec["infos"]:
                 del rec["infos"]
-
             sources = select([Association_Scan_Source.source])\
                       .where(Association_Scan_Source.scan == scanid)\
                       .cte("sources")
@@ -895,12 +895,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             for port in self.db.execute(select([Port]).where(Port.scan == scanid)):
                 recp = {}
                 (portid, _, recp["port"], recp["protocol"], recp["state_state"],
-                 recp["state_reason"], recp["state_reason_ttl"],
-                 recp["service_name"], recp["service_tunnel"],
-                 recp["service_product"], recp["service_version"],
-                 recp["service_conf"], recp["service_devicetype"],
-                 recp["service_extrainfo"], recp["service_hostname"],
-                 recp["service_ostype"], recp["service_servicefp"]) = port
+                 recp["state_reason"], recp["state_reason_ip"],
+                 recp["state_reason_ttl"], recp["service_name"],
+                 recp["service_tunnel"], recp["service_product"],
+                 recp["service_version"], recp["service_conf"],
+                 recp["service_devicetype"], recp["service_extrainfo"],
+                 recp["service_hostname"], recp["service_ostype"],
+                 recp["service_servicefp"]) = port
                 for fld, value in recp.items():
                     if value is None:
                         del recp[fld]
