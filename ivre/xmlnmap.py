@@ -899,7 +899,7 @@ class NmapHandler(ContentHandler):
         self._fname = fname
         self._filehash = filehash
         self.scanner = "nmap"
-        self.need_scan_doc = False
+        self.scan_doc_saved = False
         self.masscan_probes = [] if masscan_probes is None else masscan_probes
         if config.DEBUG:
             sys.stderr.write("READING %r (%r)\n" % (fname, self._filehash))
@@ -1225,8 +1225,6 @@ class NmapHandler(ContentHandler):
 
     def endElement(self, name):
         if name == 'nmaprun':
-            if self.need_scan_doc:
-                self._storescan()
             self._curscan = None
         elif name == 'host':
             # masscan -oX output has no "state" tag
@@ -1492,10 +1490,6 @@ class Nmap2DB(NmapHandler):
                              add_addr_infos=add_addr_infos, merge=merge,
                              **kargs)
 
-    @staticmethod
-    def _to_binary(data):
-        return bson.Binary(data)
-
     def _addhost(self):
         if self.categories:
             self._curhost['categories'] = self.categories[:]
@@ -1511,7 +1505,9 @@ class Nmap2DB(NmapHandler):
             self._curhost['source'] = self.source
         # We are about to insert data based on this file, so we want
         # to save the scan document
-        self.need_scan_doc = True
+        if not self.scan_doc_saved:
+            self.scan_doc_saved = True
+            self._storescan()
         self._db.nmap.store_or_merge_host(self._curhost, self._gettoarchive,
                                           merge=self.merge)
 
@@ -1526,3 +1522,15 @@ class Nmap2DB(NmapHandler):
             self._curscan['scaninfos'].append(i)
         else:
             self._curscan['scaninfos'] = [i]
+
+
+class Nmap2Mongo(Nmap2DB):
+    @staticmethod
+    def _to_binary(data):
+        return bson.Binary(data)
+
+
+class Nmap2Posgres(Nmap2DB):
+    @staticmethod
+    def _to_binary(data):
+        return data.encode('base64')

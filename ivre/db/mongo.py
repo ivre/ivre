@@ -487,7 +487,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2DB
+        self.content_handler = xmlnmap.Nmap2Mongo
         self.output_function = None
         self.colname_scans = colname_scans
         self.colname_hosts = colname_hosts

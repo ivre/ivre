@@ -22,28 +22,24 @@ databases.
 
 """
 
-from ivre.db import DB, DBFlow, DBData, DBNmap
-from ivre import config, utils, xmlnmap
-
 from bisect import bisect_left
 import codecs
 import csv
 import datetime
-import operator
-import random
-import re
 import sys
 import struct
 import time
-import warnings
 
 from sqlalchemy import create_engine, delete, exists, func, insert, join, \
-    select, not_, or_, Column, ForeignKey, Index, Table, UniqueConstraint, \
-    DateTime, Integer, LargeBinary, String, Text
+    select, update, and_, not_, or_, Column, ForeignKey, Index, Table, \
+    Boolean, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
+
+from ivre.db import DB, DBFlow, DBData, DBNmap
+from ivre import config, utils, xmlnmap
 
 Base = declarative_base()
 
@@ -163,7 +159,7 @@ class Point(UserDefinedType):
         def process(value):
             if value is None:
                 return None
-            return tuple(float(val) for val in value[6:-1].split(','))
+            return tuple(float(val) for val in value[1:-1].split(','))
         return process
 
 
@@ -272,8 +268,7 @@ class Port(Base):
     service_ostype = Column(String(64))
     service_fp = Column(Text)
     __table_args__ = (
-        Index('ix_port_scan_port_status', 'scan', 'port', 'protocol', 'state', 'service_name',
-              'service_tunnel', unique=True),
+        Index('ix_port_scan_port', 'scan', 'port', 'protocol', unique=True),
     )
 
 class Scan(Base):
@@ -286,8 +281,11 @@ class Scan(Base):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
+    archive = Column(Integer, nullable=False)
+    merge = Column(Boolean, nullable=False)
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
+        Index('ix_scan_host_archive', 'host', 'archive', unique=True),
     )
 
 
@@ -303,6 +301,7 @@ class PostgresDB(DB):
         "CGN",
         "Public",
         "Loopback",
+        "Public",
         "Link-Local",
         "Public",
         "Private",
@@ -323,6 +322,7 @@ class PostgresDB(DB):
         utils.ip2int("100.127.255.255"),
         utils.ip2int("126.255.255.255"),
         utils.ip2int("127.255.255.255"),
+        utils.ip2int("169.253.255.255"),
         utils.ip2int("169.254.255.255"),
         utils.ip2int("172.15.255.255"),
         utils.ip2int("172.31.255.255"),
@@ -437,7 +437,7 @@ class PostgresDB(DB):
         raise NotImplementedError()
 
     def start_bulk_insert(self, size=None, retries=0):
-        return BulkInsert(self.db)
+        return BulkInsert(self.db, size=size, retries=retries)
 
     @staticmethod
     def query(*args, **kargs):
@@ -640,7 +640,7 @@ class PostgresDBData(PostgresDB, DBData):
         with GeoIPCSVFile(fname) as fdesc:
             self.copy_from(fdesc, Country.__tablename__, null='')
         # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
-        self.db.execute(Country.__table__.insert().values(
+        self.db.execute(insert(Country).values(
             code="AN",
             name="Netherlands Antilles",
         ))
@@ -789,7 +789,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def __init__(self, url):
         PostgresDB.__init__(self, url)
         DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2DB
+        self.content_handler = xmlnmap.Nmap2Posgres
+        self.output_function = None
 
     def get_context(self, addr, source=None):
         ctxt = self.default_context(addr)
@@ -797,7 +798,30 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             return ctxt
         return 'Public' if ctxt == 'Public' else '%s-%s' % (ctxt, source)
 
-    def store_host(self, host):
+    def is_scan_present(self, scanid):
+        return bool(self.db.execute(select([True])\
+                                    .where(
+                                        ScanFile.sha256 == scanid.decode('hex')
+                                    )\
+                                    .limit(1)).fetchone())
+
+    def store_scan_doc(self, scan):
+        scan = scan.copy()
+        if 'start' in scan:
+            scan['start'] = datetime.datetime.utcfromtimestamp(
+                int(scan['start'])
+            )
+        scan["sha256"] = scan.pop('_id').decode('hex')
+        self.db.execute(insert(ScanFile).values(
+            **dict(
+                (key, scan[key])
+                for key in ['sha256', 'args', 'scaninfos', 'scanner', 'start',
+                            'version', 'xmloutputversion']
+                if key in scan
+            )
+        ))
+
+    def store_host(self, host, merge=False):
         addr = host['addr']
         context = self.get_context(addr, source=host.get('source'))
         try:
@@ -805,17 +829,69 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         except (TypeError, struct.error):
             pass
         hostid = self.store_host_context(addr, context, host['starttime'], host['endtime'])
-        scanid =  self.db.execute(insert(Scan)\
-                                  .values(
-                                      host=hostid,
-                                      info=host.get('infos'),
-                                      time_start=host['starttime'],
-                                      time_stop=host['endtime'],
-                                      state=host['state'],
-                                      state_reason=host['state_reason'],
-                                      state_reason_ttl=host['state_reason_ttl'],
-                                  )\
-                                  .returning(Scan.id)).fetchone()[0]
+        if merge:
+            insrt = postgresql.insert(Scan)
+            scanid, scan_tstop, merge = self.db.execute(
+                insrt.values(
+                    host=hostid,
+                    info=host.get('infos'),
+                    time_start=host['starttime'],
+                    time_stop=host['endtime'],
+                    archive=0,
+                    merge=False,
+                    **dict(
+                        (key, host[key]) for key in ['state', 'state_reason',
+                                                     'state_reason_ttl']
+                        if key in host
+                    )
+                )\
+                .on_conflict_do_update(
+                    index_elements=['host', 'archive'],
+                    set_={
+                        'time_start': func.least(
+                            Scan.time_start,
+                            insrt.excluded.time_start,
+                        ),
+                        'time_stop': func.greatest(
+                            Scan.time_stop,
+                            insrt.excluded.time_stop,
+                        ),
+                        'merge': True,
+                    },
+                )\
+                .returning(Scan.id, Scan.time_stop,
+                           Scan.merge)).fetchone()
+            if merge:
+                # Test should be ==, using <= in case of rounding
+                # issues.
+                newest = scan_tstop <= host['endtime']
+        else:
+            curarchive = self.db.execute(select([func.max(Scan.archive)])\
+                                         .where(Scan.host == hostid))\
+                                .fetchone()[0]
+            if curarchive is not None:
+                self.db.execute(update(Scan).where(and_(
+                    Scan.host == hostid,
+                    Scan.archive == 0,
+                )).values(archive=curarchive + 1))
+            scanid = self.db.execute(insert(Scan)\
+                                     .values(
+                                         host=hostid,
+                                         info=host.get('infos'),
+                                         time_start=host['starttime'],
+                                         time_stop=host['endtime'],
+                                         state=host['state'],
+                                         state_reason=host['state_reason'],
+                                         state_reason_ttl=host['state_reason_ttl'],
+                                         archive=0,
+                                         merge=False,
+                                     )\
+                                     .returning(Scan.id)).fetchone()[0]
+        insrt = postgresql.insert(Association_Scan_ScanFile)
+        self.db.execute(insrt\
+                        .values(scan=scanid,
+                                scan_file=host['scanid'].decode('hex'))\
+                        .on_conflict_do_nothing())
         if host.get('source'):
             insrt = postgresql.insert(Source)
             sourceid = self.db.execute(insrt.values(name=host['source'])\
@@ -839,8 +915,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                             .values(scan=scanid, category=catid)\
                             .on_conflict_do_nothing())
         for port in host.get('ports', []):
-            # XXX FIXME
             scripts = port.pop('scripts', [])
+            # FIXME: handle screenshots
             for fld in ['screendata', 'screenshot', 'screenwords', 'service_method']:
                 try:
                     del port[fld]
@@ -850,27 +926,71 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 port['service_fp'] = port.pop('service_servicefp')
             if 'state_state' in port:
                 port['state'] = port.pop('state_state')
-            portid = self.db.execute(insert(Port).values(scan=scanid, **port)\
-                                     .returning(Port.id)).fetchone()[0]
+            if merge:
+                insrt = postgresql.insert(Port)
+                portid = self.db.execute(insrt.values(scan=scanid, **port)\
+                                         .on_conflict_do_update(
+                                             index_elements=['scan', 'port',
+                                                             'protocol'],
+                                             set_=dict(
+                                                 scan=scanid,
+                                                 **(port if newest else {})
+                                             )
+                                         )\
+                                         .returning(Port.id)).fetchone()[0]
+            else:
+                portid = self.db.execute(insert(Port).values(scan=scanid,
+                                                             **port)\
+                                         .returning(Port.id)).fetchone()[0]
             for script in scripts:
-                self.db.execute(insert(Script).values(
-                    port=portid,
-                    name=script.pop('id'),
-                    output=script.pop('output'),
-                    data=script
-                ))
+                name, output = script.pop('id'), script.pop('output')
+                if merge:
+                    if newest:
+                        insrt = postgresql.insert(Script)
+                        self.db.execute(insrt\
+                                        .values(
+                                            port=portid,
+                                            name=name,
+                                            output=output,
+                                            data=script
+                                        )\
+                                        .on_conflict_do_update(
+                                            index_elements=['port', 'name'],
+                                            set_={
+                                                "output": insrt.excluded.output,
+                                                "data": insrt.excluded.data,
+                                            },
+                                        ))
+                    else:
+                        insrt = postgresql.insert(Script)
+                        self.db.execute(insrt\
+                                        .values(
+                                            port=portid,
+                                            name=name,
+                                            output=output,
+                                            data=script
+                                        )\
+                                        .on_conflict_do_nothing())
+                else:
+                    self.db.execute(insert(Script).values(
+                        port=portid,
+                        name=name,
+                        output=output,
+                        data=script
+                    ))
 
     def store_or_merge_host(self, host, gettoarchive, merge=False):
-        ## no merge / archive
-        assert merge == False
-        self.store_host(host)
+        self.store_host(host, merge=merge)
 
     def get(self, flt, archive=False, **kargs):
-        for scanrec in self.db.execute(select([Scan])):
+        req = select([Scan])
+        if not archive:
+            req = req.where(Scan.archive == 0)
+        for scanrec in self.db.execute(req):
             rec = {}
             (scanid, hostid, rec["infos"], rec["starttime"], rec["endtime"],
              rec["state"], rec["state_reason"],
-             rec["state_reason_ttl"]) = scanrec
+             rec["state_reason_ttl"], rec["archive"], rec["merge"]) = scanrec
             rec["addr"] = self.db.execute(
                 select([Host.addr]).where(Host.id == hostid)
             ).fetchone()[0]
