@@ -1680,22 +1680,6 @@ have no effect if it is not expected)."""
                 'service_extrainfo': {'$ne': 'access denied'}
             }}}
 
-    @staticmethod
-    def searchsmb(**args):
-        # key aliases
-        if 'dnsdomain' in args:
-            args['domain_dns'] = args.pop('dnsdomain')
-        if 'forest' in args:
-            args['forest_dns'] = args.pop('forest')
-        # Build the query. Do *not* iterate here since we are
-        # modifying the dictionary
-        for key in args.keys():
-            args['smb-os-discovery.%s' % key] = args.pop(key)
-        args['id'] = 'smb-os-discovery'
-        return {
-            'ports.scripts': {'$elemMatch': args}
-        }
-
     def searchfile(self, fname=None, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp), only from scripts using the "ls" NSE module.
@@ -1753,39 +1737,6 @@ have no effect if it is not expected)."""
             name={'$in': ['http-title', 'html-title']},
             output=title,
         )
-
-    @staticmethod
-    def searchservicescript(srv, port=None):
-        if port is None:
-            return {
-                'ports': {
-                    '$elemMatch': {
-                        'state_state': 'open',
-                        '$or': [
-                            {'service_name': srv},
-                            {'service_product': srv},
-                            {'service_version': srv},
-                            {'service_extrainfo': srv},
-                            {'service_hostname': srv},
-                            {'scripts.id': srv},
-                            {'scripts.output': srv}
-                        ]
-                    }}}
-        return {
-            'ports': {
-                '$elemMatch': {
-                    'state_state': 'open',
-                    'port': port,
-                    '$or': [
-                        {'service_name': srv},
-                        {'service_product': srv},
-                        {'service_version': srv},
-                        {'service_extrainfo': srv},
-                        {'service_hostname': srv},
-                        {'scripts.id': srv},
-                        {'scripts.output': srv}
-                    ]
-                }}}
 
     @staticmethod
     def searchos(txt):

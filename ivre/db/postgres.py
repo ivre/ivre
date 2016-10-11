@@ -30,8 +30,8 @@ import sys
 import struct
 import time
 
-from sqlalchemy import create_engine, delete, exists, func, insert, join, \
-    select, update, and_, not_, or_, Column, ForeignKey, Index, Table, \
+from sqlalchemy import create_engine, func, column, delete, exists, insert, \
+    join, select, update, and_, not_, or_, Column, ForeignKey, Index, Table, \
     ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
@@ -1233,6 +1233,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         )
 
     @classmethod
+    def searchcity(cls, city, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        city
+
+        """
+        return NmapFilter(
+            main=cls._searchstring_re(Scan.info['city'].astext,
+                                      city, neg=neg)
+        )
+
+    @classmethod
     def searchasnum(cls, asnum, neg=False):
         """Filters (if `neg` == True, filters out) one or more
         particular AS number(s).
@@ -1278,6 +1289,90 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                                      Port.protocol == protocol,
                                      Port.state == state)])
 
+    @staticmethod
+    def searchportsother(ports, protocol='tcp', state='open'):
+        """Filters records with at least one port other than those
+        listed in `ports` with state `state`.
+
+        """
+        return NmapFilter(port=[and_(or_(Port.port.notin_(ports),
+                                         Port.protocol != protocol),
+                                     Port.state == state)])
+
+    @classmethod
+    def searchports(cls, ports, protocol='tcp', state='open', neg=False):
+        return cls.flt_and(*(cls.searchport(port, protocol=protocol,
+                                            state=state, neg=neg)
+                      for port in ports))
+
+    @staticmethod
+    def searchcountopenports(minn=None, maxn=None, neg=False):
+        "Filters records with open port number between minn and maxn"
+        assert minn is not None or maxn is not None
+        req = select([column("scan")])\
+              .select_from(select([Port.scan.label("scan"),
+                                   func.count().label("count")])\
+                           .where(Port.state == "open")\
+                           .group_by(Port.scan).alias("pcnt"))
+        if minn == maxn:
+            if neg:
+                req = req.where(column("count") != minn)
+            else:
+                req = req.where(column("count") == minn)
+        else:
+            if minn is not None:
+                if neg:
+                    req = req.where(column("count") < minn)
+                else:
+                    req = req.where(column("count") >= minn)
+            if maxn is not None:
+                if neg:
+                    req = req.where(column("count") > maxn)
+                else:
+                    req = req.where(column("count") <= maxn)
+        return NmapFilter(main=Scan.id.in_(req))
+
+    @staticmethod
+    def searchopenport(neg=False):
+        "Filters records with at least one open port."
+        if neg:
+            req = select([column("scan")])\
+                  .select_from(select([Port.scan.label("scan")])\
+                               .where(Port.state == "open")\
+                               .group_by(Port.scan).alias("pcnt"))
+            return NmapFilter(main=Scan.id.notin_(req))
+            raise ValueError()
+        return NmapFilter(port=[Port.state == "open"])
+
+    @staticmethod
+    def searchservice(srv, port=None, protocol=None):
+        """Search an open port with a particular service."""
+        req = Port.service_name == srv
+        if port is not None:
+            req = and_(req, Port.port == port)
+        if protocol is not None:
+            req = and_(req, Port.protocol == protocol)
+        return NmapFilter(port=[req])
+
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None,
+                      protocol=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        req = Port.service_product == product
+        if version is not None:
+            req = and_(req, Port.service_version == version)
+        if service is not None:
+            req = and_(req, Port.service_name == service)
+        if port is not None:
+            req = and_(req, Port.port == port)
+        if protocol is not None:
+            req = and_(req, Port.protocol == protocol)
+        return NmapFilter(port=[req])
+
     @classmethod
     def searchscript(cls, name=None, output=None, values=None):
         """Search a particular content in the scripts results.
@@ -1288,7 +1383,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = and_(req, cls._searchstring_re(Script.name, name, neg=False))
         if output is not None:
             req = and_(req, cls._searchstring_re(Script.output, output, neg=False))
-        if values is not None:
+        if values:
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
@@ -1296,3 +1391,49 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 {xmlnmap.ALIASES_TABLE_ELEMS.get(name, name): values}
             ))
         return NmapFilter(script=[req])
+
+    @staticmethod
+    def searchsvchostname(srv):
+        return NmapFilter(port=[Port.service_hostname == srv])
+
+    @staticmethod
+    def searchwebmin():
+        return NmapFilter(
+            port=[and_(Port.service_name == 'http',
+                       Port.service_product == 'MiniServ',
+                       Port.service_extrainfo == 'Webmin httpd')]
+        )
+
+    @staticmethod
+    def searchx11():
+        return NmapFilter(
+            port=[and_(Port.service_name == 'X11',
+                       Port.service_extrainfo != 'access denied')]
+        )
+
+    @classmethod
+    def searchfile(cls, fname=None, scripts=None):
+        """Search shared files from a file name (either a string or a
+        regexp), only from scripts using the "ls" NSE module.
+
+        """
+        if fname is None:
+            req = Script.values.has_key('ls.volumes.files.filename')
+        else:
+            req = cls._searchstring_re(
+                Script.values['ls.volumes.files.filename'], fname
+            )
+        if scripts is None:
+            return NmapFilter(script=[req])
+        if isinstance(scripts, basestring):
+            scripts = [scripts]
+        if len(scripts) == 1:
+            return NmapFilter(script=[and_(Script.name == scripts.pop(), req)])
+        return NmapFilter(script=[and_(Script.name.in_(scripts), req)])
+
+    @classmethod
+    def searchhttptitle(cls, title):
+        return NmapFilter(script=[
+            Script.name.in_(['http-title', 'html-title']),
+            cls._searchstring_re(Script.output, title),
+        ])

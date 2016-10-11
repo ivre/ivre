@@ -651,15 +651,20 @@ class DBNmap(DB):
     def searchdevicetype(devtype):
         raise NotImplementedError
 
-    @staticmethod
-    def searchsmb(**args):
+    @classmethod
+    def searchsmb(cls, **args):
         """Search particular results from smb-os-discovery host
         script. Example:
 
         .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
 
         """
-        raise NotImplementedError
+        # key aliases
+        if 'dnsdomain' in args:
+            args['domain_dns'] = args.pop('dnsdomain')
+        if 'forest' in args:
+            args['forest_dns'] = args.pop('forest')
+        return cls.searchscript(name='smb-os-discovery', values=args)
 
     def parse_args(self, args, flt=None):
         if flt is None:
@@ -743,7 +748,8 @@ class DBNmap(DB):
         if args.service is not None:
             flt = self.flt_and(
                 flt,
-                self.searchservicescript(utils.str2regexp(args.service)))
+                self.searchservice(utils.str2regexp(args.service)),
+            )
         if args.label is not None:
             if ':' in args.label:
                 group, lab = map(utils.str2regexp, args.label.split(':', 1))
