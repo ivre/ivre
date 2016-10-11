@@ -30,9 +30,9 @@ import sys
 import struct
 import time
 
-from sqlalchemy import create_engine, func, column, delete, exists, insert, \
-    join, select, update, and_, not_, or_, Column, ForeignKey, Index, Table, \
-    ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text
+from sqlalchemy import create_engine, desc, func, column, delete, exists, \
+    insert, join, select, update, and_, not_, or_, Column, ForeignKey, Index, \
+    Table, ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -1141,6 +1141,80 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     )
                 rec.setdefault('ports', []).append(recp)
             yield rec
+
+    def topvalues(self, field, flt=None, topnbr=10, sortby=None,
+                  limit=None, skip=None, least=False, archive=False,
+                  aggrflt=None, specialproj=None, specialflt=None):
+        """
+        This method makes use of the aggregation framework to produce
+        top values for a given field or pseudo-field. Pseudo-fields are:
+          - category / label / asnum / country / net[:mask]
+          - port
+          - port:open / :closed / :filtered / :<servicename>
+          - portlist:open / :closed / :filtered
+          - countports:open / :closed / :filtered
+          - service / service:<portnbr>
+          - product / product:<portnbr>
+          - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
+          - devicetype / devicetype:<portnbr>
+          - script:<scriptid> / script:<port>:<scriptid>
+            / script:host:<scriptid>
+          - cert.* / smb.* / sshkey.*
+          - modbus.* / s7.* / enip.*
+          - mongo.dbs.*
+          - vulns.*
+          - screenwords
+          - file.* / file.*:scriptid
+          - hop
+        """
+        if flt is None:
+            flt = NmapFilter()
+        base = self.query_from_filter(
+            flt, archive,
+            select([Scan.id]).select_from(join(Scan, join(Host, Context))),
+        ).cte("base")
+        order = "count" if least else desc("count")
+        if field == "port":
+            field = (Port, [Port.protocol, Port.port], Port.state == "open")
+        elif field.startswith('port:'):
+            info = field[5:]
+            field = (Port, [Port.protocol, Port.port],
+                     (Port.state == info)
+                     if info in {'open', 'filtered', 'closed', 'open|filtered'}
+                     else (Port.service_name == info))
+        elif field == "service":
+            field = (Port, [Port.service_name], Port.state == "open")
+        elif field.startswith("service:"):
+            info = field[8:]
+            if '/' in info:
+                info = info.split('/', 1)
+                field = (Port, [Port.service_name],
+                         and_(Port.protocol == info[0],
+                              Port.port == int(info[1])))
+            else:
+                field = (Port, [Port.service_name], Port.port == int(info))
+        elif field == "product":
+            field = (Port, [Port.service_name, Port.service_product],
+                     Port.state == "open")
+        elif field == "version":
+            field = (Port, [Port.service_name, Port.service_product,
+                            Port.service_version],
+                     Port.state == "open")
+        else:
+            raise NotImplementedError()
+        s_from = {
+            Scan: Scan,
+            Port: join(Port, Scan),
+        }
+        req = select([func.count().label("count")] + field[1])\
+              .select_from(s_from[field[0]])\
+              .group_by(*field[1])\
+              .where(Scan.id.in_(base))
+        if field[2] is not None:
+            req = req.where(field[2])
+        return ({"count": result[0], "_id": result[1:] if len(result) > 2 else result[1]}
+                for result in self.db.execute(req.order_by(order).limit(topnbr)))
+
 
     @staticmethod
     def _flt_and(flt1, flt2):
