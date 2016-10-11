@@ -866,6 +866,9 @@ creates the default indexes."""
             update["$set"]["ports"] = doc['ports']
         return update
 
+    def count(self, flt, archive=False, **kargs):
+        return self.get(flt, archive=False, **kargs).count()
+
     def get(self, flt, archive=False, **kargs):
         """Queries the active column (the old one if "archive" is set to True)
 with the provided filter "flt", and returns a MongoDB cursor.

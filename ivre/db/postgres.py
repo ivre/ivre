@@ -1054,8 +1054,15 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def store_or_merge_host(self, host, gettoarchive, merge=False):
         self.store_host(host, merge=merge)
 
-    def get(self, flt, archive=False, **kargs):
-        req = select([join(Scan, join(Host, Context))])
+    def count(self, flt, archive, **kargs):
+        return self.get(flt, archive, count=True, **kargs)
+
+    def get(self, flt, archive=False, count=False, **kargs):
+        req = join(Scan, join(Host, Context))
+        if count:
+            req = select([func.count()]).select_from(req)
+        else:
+            req = select([req])
         if flt.main is not None:
             req = req.where(flt.main)
         if not archive:
@@ -1077,51 +1084,55 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             cte = select([Port.scan]).select_from(join(Script, Port))\
                                      .where(scrflt).cte("script_%d" % idx)
             req = req.where(Scan.id.in_(select([cte.c.scan])))
-        for scanrec in self.db.execute(req):
-            rec = {}
-            (scanid, _, rec["infos"], rec["starttime"], rec["endtime"],
-             rec["state"], rec["state_reason"], rec["state_reason_ttl"],
-             rec["archive"], rec["merge"], hostid, _, rec["addr"], _, _, _,
-             rec["host_context"]) = scanrec
-            if not rec["infos"]:
-                del rec["infos"]
-            sources = select([Association_Scan_Source.source])\
-                      .where(Association_Scan_Source.scan == scanid)\
-                      .cte("sources")
-            sources = [src[0] for src in
-                       self.db.execute(select([Source.name])\
-                                       .where(Source.id == sources.c.source))]
-            if sources:
-                rec['source'] = ', '.join(sources)
-            categories = select([Association_Scan_Category.category])\
-                         .where(Association_Scan_Category.scan == scanid)\
-                         .cte("categories")
-            rec["categories"] = [src[0] for src in
-                                 self.db.execute(
-                                     select([Category.name])\
-                                     .where(Category.id == categories.c.category)
-                                 )]
-            for port in self.db.execute(select([Port]).where(Port.scan == scanid)):
-                recp = {}
-                (portid, _, recp["port"], recp["protocol"], recp["state_state"],
-                 recp["state_reason"], recp["state_reason_ip"],
-                 recp["state_reason_ttl"], recp["service_name"],
-                 recp["service_tunnel"], recp["service_product"],
-                 recp["service_version"], recp["service_conf"],
-                 recp["service_devicetype"], recp["service_extrainfo"],
-                 recp["service_hostname"], recp["service_ostype"],
-                 recp["service_servicefp"]) = port
-                for fld, value in recp.items():
-                    if value is None:
-                        del recp[fld]
-                for script in self.db.execute(select([Script.name, Script.output])\
-                                              .where(Script.port == portid)):
-                    recp.setdefault('scripts', []).append(
-                        {'id': script.name,
-                         'output': script.output}
-                    )
-                rec.setdefault('ports', []).append(recp)
-            yield rec
+        if count:
+            return self.db.execute(req).fetchone()[0]
+        def _gen():
+            for scanrec in self.db.execute(req):
+                rec = {}
+                (scanid, _, rec["infos"], rec["starttime"], rec["endtime"],
+                 rec["state"], rec["state_reason"], rec["state_reason_ttl"],
+                 rec["archive"], rec["merge"], hostid, _, rec["addr"], _, _, _,
+                 rec["host_context"]) = scanrec
+                if not rec["infos"]:
+                    del rec["infos"]
+                sources = select([Association_Scan_Source.source])\
+                          .where(Association_Scan_Source.scan == scanid)\
+                          .cte("sources")
+                sources = [src[0] for src in
+                           self.db.execute(select([Source.name])\
+                                           .where(Source.id == sources.c.source))]
+                if sources:
+                    rec['source'] = ', '.join(sources)
+                categories = select([Association_Scan_Category.category])\
+                             .where(Association_Scan_Category.scan == scanid)\
+                             .cte("categories")
+                rec["categories"] = [src[0] for src in
+                                     self.db.execute(
+                                         select([Category.name])\
+                                         .where(Category.id == categories.c.category)
+                                     )]
+                for port in self.db.execute(select([Port]).where(Port.scan == scanid)):
+                    recp = {}
+                    (portid, _, recp["port"], recp["protocol"], recp["state_state"],
+                     recp["state_reason"], recp["state_reason_ip"],
+                     recp["state_reason_ttl"], recp["service_name"],
+                     recp["service_tunnel"], recp["service_product"],
+                     recp["service_version"], recp["service_conf"],
+                     recp["service_devicetype"], recp["service_extrainfo"],
+                     recp["service_hostname"], recp["service_ostype"],
+                     recp["service_servicefp"]) = port
+                    for fld, value in recp.items():
+                        if value is None:
+                            del recp[fld]
+                    for script in self.db.execute(select([Script.name, Script.output])\
+                                                  .where(Script.port == portid)):
+                        recp.setdefault('scripts', []).append(
+                            {'id': script.name,
+                             'output': script.output}
+                        )
+                    rec.setdefault('ports', []).append(recp)
+                yield rec
+        return _gen()
 
     @staticmethod
     def _flt_and(flt1, flt2):

@@ -194,15 +194,17 @@ def main():
         exit(0)
 
     # generic request
-    result = db.nmap.get(flt, archive=archive,
-                         limit=limit, skip=skip, sort=sortby)
-
     if action == "count":
         if callback is None:
-            sys.stdout.write("%d\n" % result.count())
+            sys.stdout.write("%d\n" % db.nmap.count(flt, archive=archive))
         else:
-            sys.stdout.write("%s(%d);\n" % (callback, result.count()))
+            sys.stdout.write("%s(%d);\n" % (callback,
+                                            db.nmap.count(flt,
+                                                          archive=archive)))
         exit(0)
+
+    result = db.nmap.get(flt, archive=archive,
+                         limit=limit, skip=skip, sort=sortby)
 
     if unused:
         msg = 'Option%s not understood: %s' % (
