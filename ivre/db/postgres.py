@@ -32,7 +32,7 @@ import time
 
 from sqlalchemy import create_engine, delete, exists, func, insert, join, \
     select, update, and_, not_, or_, Column, ForeignKey, Index, Table, \
-    Boolean, DateTime, Integer, LargeBinary, String, Text
+    ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -271,6 +271,18 @@ class Port(Base):
         Index('ix_port_scan_port', 'scan', 'port', 'protocol', unique=True),
     )
 
+class Hostname(Base):
+    __tablename__ = "hostname"
+    id = Column(Integer, primary_key=True)
+    scan = Column(Integer, ForeignKey('scan.id'))
+    domains = Column(ARRAY(String(255)), index=True)
+    name = Column(String(255), index=True)
+    type = Column(String(16), index=True)
+    __table_args__ = (
+        Index('ix_hostname_scan_name_type', 'scan', 'name', 'type',
+              unique=True),
+    )
+
 class Scan(Base):
     __tablename__ = "scan"
     id = Column(Integer, primary_key=True)
@@ -403,6 +415,19 @@ class PostgresDB(DB):
         t.create(bind=self.db)
         return t
 
+    @staticmethod
+    def convert_ip(addr):
+        try:
+            return utils.int2ip(addr)
+        except (TypeError, struct.error):
+            return addr
+
+    def flt_and(*args):
+        return and_(*args)
+
+    def flt_or(*args):
+        return or_(*args)
+
     def store_host_context(self, addr, context, firstseen, lastseen):
         insrt = postgresql.insert(Context)
         ctxt = self.db.execute(insrt.values(name=context)\
@@ -488,6 +513,31 @@ class PostgresDB(DB):
         except TypeError:
             pass
         return cls.context_names[bisect_left(cls.context_last_ips, addr)]
+
+    @classmethod
+    def searchhost(cls, addr, neg=False):
+        """Filters (if `neg` == True, filters out) one particular host
+        (IP address).
+
+        """
+
+        if neg:
+            return Host.addr != cls.convert_ip(addr)
+        return Host.addr == cls.convert_ip(addr)
+
+    @classmethod
+    def searchhosts(cls, hosts, neg=False):
+        hosts = [cls.convert_ip(host) for host in hosts]
+        if neg:
+            return Host.addr.notin_(hosts)
+        return Host.addr.in_(hosts)
+
+    @staticmethod
+    def searchrange(start, stop, neg=False):
+        start, stop = self.convert_ip(start), self.convert_ip(stop)
+        if neg:
+            return or_(Host.addr < start, Host.addr > stop)
+        return and_(Host.addr >= start, Host.addr <= stop)
 
 
 class BulkInsert(object):
@@ -777,6 +827,28 @@ Autonomous System given its number or its name.
             .where(AS_Range.aut_sys == asnum)
         )
 
+
+class NmapFilter(object):
+    def __init__(self, main=None, category=None, source=None, port=None,
+                 script=None):
+        self.main = main
+        self.category = [] if category is None else category
+        self.source = [] if source is None else source
+        self.port = [] if port is None else port
+        self.script = [] if script is None else script
+    @staticmethod
+    def fltand(flt1, flt2):
+        return flt1 if flt2 is None else flt2 if flt1 is None else and_(flt1, flt2)
+    def __and__(self, other):
+        return self.__class__(
+            main=self.fltand(self.main, other.main),
+            category=self.category + other.category,
+            source=self.source + other.source,
+            port=self.port + other.port,
+            script=self.script + other.script,
+        )
+
+
 class PostgresDBNmap(PostgresDB, DBNmap):
     tables = [ScanFile, Category, Source, Scan, Port, Script,
               Association_Scan_Source, Association_Scan_Category,
@@ -784,13 +856,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     required_tables = [AS, Country, Location]
     shared_tables = [(Host, Host.id, [Flow.src, Flow.dst]),
                      (Context, Context.name, [Host.context])]
-    flt_empty = None
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
         DBNmap.__init__(self)
         self.content_handler = xmlnmap.Nmap2Posgres
         self.output_function = None
+        self.flt_empty = NmapFilter()
 
     def get_context(self, addr, source=None):
         ctxt = self.default_context(addr)
@@ -983,17 +1055,34 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         self.store_host(host, merge=merge)
 
     def get(self, flt, archive=False, **kargs):
-        req = select([Scan])
+        req = select([join(Scan, join(Host, Context))])
+        if flt.main is not None:
+            req = req.where(flt.main)
         if not archive:
             req = req.where(Scan.archive == 0)
+        for idx, catflt in enumerate(flt.category):
+            cte = select([Association_Scan_Category.scan])\
+                  .select_from(join(Category, Association_Scan_Category))\
+                  .where(catflt).cte("category_%d" % idx)
+            req = req.where(Scan.id.in_(select([cte.c.scan])))
+        for idx, srcflt in enumerate(flt.source):
+            cte = select([Association_Scan_Source.scan])\
+                  .select_from(join(Source, Association_Scan_Source))\
+                  .where(srcflt).cte("source_%d" % idx)
+            req = req.where(Scan.id.in_(select([cte.c.scan])))
+        for idx, prtflt in enumerate(flt.port):
+            cte = select([Port.scan]).where(prtflt).cte("port_%d" % idx)
+            req = req.where(Scan.id.in_(select([cte.c.scan])))
+        for idx, scrflt in enumerate(flt.script):
+            cte = select([Port.scan]).select_from(join(Script, Port))\
+                                     .where(scrflt).cte("script_%d" % idx)
+            req = req.where(Scan.id.in_(select([cte.c.scan])))
         for scanrec in self.db.execute(req):
             rec = {}
-            (scanid, hostid, rec["infos"], rec["starttime"], rec["endtime"],
-             rec["state"], rec["state_reason"],
-             rec["state_reason_ttl"], rec["archive"], rec["merge"]) = scanrec
-            rec["addr"] = self.db.execute(
-                select([Host.addr]).where(Host.id == hostid)
-            ).fetchone()[0]
+            (scanid, _, rec["infos"], rec["starttime"], rec["endtime"],
+             rec["state"], rec["state_reason"], rec["state_reason_ttl"],
+             rec["archive"], rec["merge"], hostid, _, rec["addr"], _, _, _,
+             rec["host_context"]) = scanrec
             if not rec["infos"]:
                 del rec["infos"]
             sources = select([Association_Scan_Source.source])\
@@ -1033,3 +1122,161 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     )
                 rec.setdefault('ports', []).append(recp)
             yield rec
+
+    @staticmethod
+    def _flt_and(flt1, flt2):
+        return flt1 & flt2
+
+    @staticmethod
+    def _flt_or(flt1, flt2):
+        return flt1 | flt2
+
+    @classmethod
+    def flt_and(cls, *args):
+        """Returns a condition that is true iff all of the given
+        conditions is true.
+
+        """
+        return reduce(cls._flt_and, args)
+
+    @classmethod
+    def flt_or(cls, *args):
+        """Returns a condition that is true iff any of the given
+        conditions is true.
+
+        """
+        return reduce(self._flt_or, args)
+
+    @staticmethod
+    def _searchstring_re(field, value, neg=False):
+        if isinstance(value, utils.REGEXP_T):
+            flt = field.op('~')(value.pattern)
+            if neg:
+                return not_(flt)
+            return flt
+        if neg:
+            return field != value
+        return field == value
+
+    @staticmethod
+    def _searchstring_list(field, value, neg=False, map_=None):
+        if not isinstance(value, basestring) and hasattr(value, '__iter__'):
+            if map_ is not None:
+                value = map(map_, value)
+            if neg:
+                return field.notin_(value)
+            return field.in_(value)
+        if map_ is not None:
+            value = map_(value)
+        if neg:
+            return field != value
+        return field == value
+
+    @classmethod
+    def searchhost(addr, neg=False):
+        return NmapFilter(main=PostgresDB.searchhost(addr, neg=neg))
+
+    @classmethod
+    def searchhosts(hosts, neg=False):
+        return NmapFilter(main=PostgresDB.searchhosts(hosts, neg=neg))
+
+    @classmethod
+    def searchrange(start, stop, neg=False):
+        return NmapFilter(main=PostgresDB.searchhosts(addr, neg=neg))
+
+    @classmethod
+    def searchdomain(cls, name, neg=False):
+        return NmapFilter(main=cls._searchstring_re(Scan.domainname, name,
+                                                    neg=neg))
+
+    @classmethod
+    def searchhostname(cls, name, neg=False):
+        return NmapFilter(main=cls._searchstring_re(Scan.hostname, name,
+                                                    neg=neg))
+
+    @classmethod
+    def searchcategory(cls, cat, neg=False):
+        return NmapFilter(category=[cls._searchstring_re(Category.name, cat,
+                                                         neg=neg)])
+
+    @classmethod
+    def searchsource(cls, src, neg=False):
+        return NmapFilter(source=[cls._searchstring_re(Source.name, src,
+                                                       neg=neg)])
+
+    @classmethod
+    def searchcountry(cls, country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        return NmapFilter(
+            main=cls._searchstring_list(Scan.info['country_code'].astext,
+                                        country, neg=neg)
+        )
+
+    @classmethod
+    def searchasnum(cls, asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        return NmapFilter(
+            main=cls._searchstring_list(Scan.info['as_num'], asnum,
+                                        neg=neg, map_=str)
+        )
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        return NmapFilter(
+            main=cls._searchstring_re(Scan.info['as_name'].astext, asname,
+                                      neg=neg)
+        )
+
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        """Filters (if `neg` == True, filters out) records with
+        specified protocol/port at required state. Be aware that when
+        a host has a lot of ports filtered or closed, it will not
+        report all of them, but only a summary, and thus the filter
+        might not work as expected. This filter will always work to
+        find open ports.
+
+        """
+        if port == "host":
+            return NmapFilter(port=[(Port.port >= 0) if neg
+                                    else (Port.port == -1)])
+        if neg:
+            return NmapFilter(
+                port=[or_(and_(Port.port == port, Port.protocol == protocol,
+                               Port.state != state),
+                          not_(exists(and_(Port.port == port,
+                                           Port.protocol == protocol))))]
+            )
+        return NmapFilter(port=[and_(Port.port == port,
+                                     Port.protocol == protocol,
+                                     Port.state == state)])
+
+    @classmethod
+    def searchscript(cls, name=None, output=None, values=None):
+        """Search a particular content in the scripts results.
+
+        """
+        req = True
+        if name is not None:
+            req = and_(req, cls._searchstring_re(Script.name, name, neg=False))
+        if output is not None:
+            req = and_(req, cls._searchstring_re(Script.output, output, neg=False))
+        if values is not None:
+            if name is None:
+                raise TypeError(".searchscript() needs a `name` arg "
+                                "when using a `values` arg")
+            req = and_(req, Script.data.contains(
+                {xmlnmap.ALIASES_TABLE_ELEMS.get(name, name): values}
+            ))
+        return NmapFilter(script=[req])

@@ -227,6 +227,10 @@ class DB(object):
     def serialize(obj):
         return utils.serialize(obj)
 
+    @staticmethod
+    def cmp_schema_version(*_):
+        return 0
+
 
 class DBNmap(DB):
 
@@ -796,6 +800,14 @@ class DBNmap(DB):
             flt = self.flt_and(flt, self.searchsshkey(
                 fingerprint=utils.str2regexp(args.sshkey)))
         return flt
+
+    @staticmethod
+    def cmp_schema_version_host(*_):
+        return 0
+
+    @staticmethod
+    def cmp_schema_version_scan(*_):
+        return 0
 
 
 class DBPassive(DB):
