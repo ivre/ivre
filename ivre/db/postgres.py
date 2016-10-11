@@ -1057,7 +1057,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def count(self, flt, archive, **kargs):
         return self.get(flt, archive, count=True, **kargs)
 
-    def get(self, flt, archive=False, count=False, **kargs):
+    def get(self, flt, archive=False, count=False, limit=None, skip=None,
+            **kargs):
         req = join(Scan, join(Host, Context))
         if count:
             req = select([func.count()]).select_from(req)
@@ -1086,6 +1087,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = req.where(Scan.id.in_(select([cte.c.scan])))
         if count:
             return self.db.execute(req).fetchone()[0]
+        if skip is not None:
+            req = req.offset(skip)
+        if limit is not None:
+            req = req.limit(limit)
         def _gen():
             for scanrec in self.db.execute(req):
                 rec = {}
