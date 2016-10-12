@@ -532,9 +532,9 @@ class PostgresDB(DB):
             return Host.addr.notin_(hosts)
         return Host.addr.in_(hosts)
 
-    @staticmethod
-    def searchrange(start, stop, neg=False):
-        start, stop = self.convert_ip(start), self.convert_ip(stop)
+    @classmethod
+    def searchrange(cls, start, stop, neg=False):
+        start, stop = cls.convert_ip(start), cls.convert_ip(stop)
         if neg:
             return or_(Host.addr < start, Host.addr > stop)
         return and_(Host.addr >= start, Host.addr <= stop)
@@ -1265,17 +1265,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             return field != value
         return field == value
 
-    @classmethod
+    @staticmethod
     def searchhost(addr, neg=False):
         return NmapFilter(main=PostgresDB.searchhost(addr, neg=neg))
 
-    @classmethod
+    @staticmethod
     def searchhosts(hosts, neg=False):
         return NmapFilter(main=PostgresDB.searchhosts(hosts, neg=neg))
 
-    @classmethod
+    @staticmethod
     def searchrange(start, stop, neg=False):
-        return NmapFilter(main=PostgresDB.searchhosts(addr, neg=neg))
+        return NmapFilter(main=PostgresDB.searchrange(start, stop, neg=neg))
 
     @classmethod
     def searchdomain(cls, name, neg=False):
