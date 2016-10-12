@@ -32,7 +32,7 @@ import time
 
 from sqlalchemy import create_engine, desc, func, column, delete, exists, \
     insert, join, select, update, and_, not_, or_, Column, ForeignKey, Index, \
-    Table, ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text
+    Table, ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -1088,6 +1088,45 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             )
         ).fetchone()[0]
 
+    def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
+        req = self.query_from_filter(
+            flt, archive,
+            select([Scan.id]).select_from(join(Scan, join(Host, Context)))
+        )
+        if skip is not None:
+            req = req.offset(skip)
+        if limit is not None:
+            req = req.limit(limit)
+        base = req.cte("base")
+        return (
+            {"addr": rec[2], "starttime": rec[1],
+             "openports": {"count": rec[0]}}
+            for rec in
+            self.db.execute(
+                select([func.count(Port.id), Scan.time_start, Host.addr])\
+                .select_from(join(Port, join(Scan, Host)))\
+                .where(Port.state == "open")\
+                .group_by(Host.addr, Scan.time_start)\
+                .where(Scan.id.in_(base))
+            )
+        )
+
+    def getlocations(self, flt, archive=False, limit=None, skip=None):
+        req = self.query_from_filter(
+            flt, archive,
+            select([func.count(Scan.id), Scan.info['coordinates'].astext])\
+            .select_from(join(Scan, join(Host, Context)))\
+            .where(Scan.info.has_key('coordinates'))
+        )
+        if skip is not None:
+            req = req.offset(skip)
+        if limit is not None:
+            req = req.limit(limit)
+        return ({'_id': Point().result_processor(None, None)(rec[1])[::-1],
+                 'count': rec[0]}
+                for rec in
+                self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
+
     def get(self, flt, archive=False, limit=None, skip=None, **kargs):
         req = self.query_from_filter(
             flt, archive, select([join(Scan, join(Host, Context))])
@@ -1182,6 +1221,44 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                      (Port.state == info)
                      if info in {'open', 'filtered', 'closed', 'open|filtered'}
                      else (Port.service_name == info))
+        elif field.startswith('countports:'):
+            info = field[11:]
+            return ({"count": result[0], "_id": result[1]}
+                    for result in self.db.execute(
+                            select([func.count().label("count"),
+                                    column('cnt')])\
+                            .select_from(select([func.count().label('cnt')])\
+                                         .select_from(Port)\
+                                         .where(and_(Port.state == info,
+                                                     Port.scan.in_(base)))\
+                                         .group_by(Port.scan)\
+                                         .alias('cnt'))\
+                            .group_by('cnt').order_by(order).limit(topnbr)
+                    ))
+        elif field.startswith('portlist:'):
+            info = field[9:]
+            return ({"count": result[0], "_id": [
+                (proto, int(port)) for proto, port in (
+                    elt.split(',') for elt in result[1][3:-3].split(')","(')
+                )
+            ]}
+                    for result in self.db.execute(
+                            select([func.count().label("count"),
+                                    column('ports')])\
+                            .select_from(select([
+                                func.array_agg(postgresql.aggregate_order_by(
+                                    tuple_(Port.protocol, Port.port).label('a'),
+                                    tuple_(Port.protocol, Port.port).label('a')
+                                )).label('ports'),
+                            ])\
+                                         .where(and_(
+                                             Port.state == info,
+                                             Port.scan.in_(base),
+                                         ))\
+                                         .group_by(Port.scan)\
+                                         .alias('ports'))\
+                            .group_by('ports').order_by(order).limit(topnbr)
+                    ))
         elif field == "service":
             field = (Port, [Port.service_name], Port.state == "open")
         elif field.startswith("service:"):
@@ -1200,6 +1277,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             field = (Port, [Port.service_name, Port.service_product,
                             Port.service_version],
                      Port.state == "open")
+        elif field == "as":
+            field = (Scan, [Scan.info["as_num"], Scan.info["as_name"]], None)
+        elif field == "country":
+            field = (Scan, [Scan.info["country_code"],
+                            Scan.info["country_name"]], None)
+        elif field == "city":
+            field = (Scan, [Scan.info["country_code"], Scan.info["city"]], None)
         else:
             raise NotImplementedError()
         s_from = {

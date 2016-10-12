@@ -16,8 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-import sys
 import json
+import socket
+import struct
+import sys
 
 try:
     from ivre import utils, webutils, config
@@ -33,6 +35,18 @@ except Exception as exc:
     sys.exit(0)
 
 webutils.check_referer()
+
+def force_ip_int(addr):
+    try:
+        return utils.ip2int(addr)
+    except (TypeError, struct.error):
+        return addr
+
+def force_ip_str(addr):
+    try:
+        return utils.int2ip(addr)
+    except (TypeError, socket.error):
+        return addr
 
 def main():
     # write headers
@@ -87,22 +101,25 @@ def main():
         postamble = "]\n"
         r2res = lambda x: x
         if action == "timeline":
-            result = db.nmap.get(
-                flt, archive=archive,
-                fields=['addr', 'starttime', 'openports.count']
-            )
-            count = result.count()
+            if hasattr(db.nmap, "get_open_port_count"):
+                result = list(db.nmap.get_open_port_count(flt, archive=archive))
+                count = len(result)
+            else:
+                result = db.nmap.get(
+                    flt, archive=archive,
+                    fields=['addr', 'starttime', 'openports.count']
+                )
+                count = result.count()
             if params.get("modulo") is None:
                 r2time = lambda r: int(r['starttime'].strftime('%s'))
             else:
                 r2time = lambda r: (int(r['starttime'].strftime('%s'))
                                     % int(params.get("modulo")))
             if ipsasnumbers:
-                r2res = lambda r: [r2time(r), r['addr'],
+                r2res = lambda r: [r2time(r), force_ip_int(r['addr']),
                                    r['openports']['count']]
             else:
-                r2res = lambda r: [r2time(r),
-                                   utils.int2ip(r['addr']),
+                r2res = lambda r: [r2time(r), force_ip_str(r['addr']),
                                    r['openports']['count']]
         elif action == "coordinates":
             preamble = '{"type": "GeometryCollection", "geometries": ['
@@ -115,13 +132,21 @@ def main():
                 "properties": {"count": r['count']},
             }
         elif action == "countopenports":
-            result = db.nmap.get(flt, archive=archive,
-                                 fields=['addr', 'openports.count'])
-            count = result.count()
-            if ipsasnumbers:
-                r2res = lambda r: [r['addr'], r['openports']['count']]
+            if hasattr(db.nmap, "get_open_port_count"):
+                result = db.nmap.get_open_port_count(flt, archive=archive)
             else:
-                r2res = lambda r: [utils.int2ip(r['addr']),
+                result = db.nmap.get(flt, archive=archive,
+                                     fields=['addr', 'openports.count'])
+            if hasattr(result, "count"):
+                count = result.count()
+            else:
+                count = db.nmap.count(flt, archive=archive,
+                                      fields=['addr', 'openports.count'])
+            if ipsasnumbers:
+                r2res = lambda r: [force_ip_int(r['addr']),
+                                   r['openports']['count']]
+            else:
+                r2res = lambda r: [force_ip_str(r['addr']),
                                    r['openports']['count']]
         elif action == "ipsports":
             result = db.nmap.get(
@@ -146,7 +171,10 @@ def main():
                 ]
         elif action == "onlyips":
             result = db.nmap.get(flt, archive=archive, fields=['addr'])
-            count = result.count()
+            if hasattr(result, "count"):
+                count = result.count()
+            else:
+                count = db.nmap.count(flt, archive=archive, fields=['addr'])
             if ipsasnumbers:
                 r2res = lambda r: r['addr']
             else:
