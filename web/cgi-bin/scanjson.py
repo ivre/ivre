@@ -149,22 +149,26 @@ def main():
                 r2res = lambda r: [force_ip_str(r['addr']),
                                    r['openports']['count']]
         elif action == "ipsports":
-            result = db.nmap.get(
-                flt, archive=archive,
-                fields=['addr', 'ports.port', 'ports.state_state']
-            )
-            count = sum(len(host.get('ports', [])) for host in result)
-            result.rewind()
+            if hasattr(db.nmap, "get_ips_ports"):
+                result = list(db.nmap.get_ips_ports(flt, archive=archive))
+                count = sum(len(host.get('ports', [])) for host in result)
+            else:
+                result = db.nmap.get(
+                    flt, archive=archive,
+                    fields=['addr', 'ports.port', 'ports.state_state']
+                )
+                count = sum(len(host.get('ports', [])) for host in result)
+                result.rewind()
             if ipsasnumbers:
                 r2res = lambda r: [
-                    r['addr'],
+                    force_ip_int(r['addr']),
                     [[p['port'], p['state_state']]
                      for p in r.get('ports', [])
                      if 'state_state' in p]
                 ]
             else:
                 r2res = lambda r: [
-                    utils.int2ip(r['addr']),
+                    force_ip_str(r['addr']),
                     [[p['port'], p['state_state']]
                      for p in r.get('ports', [])
                      if 'state_state' in p]

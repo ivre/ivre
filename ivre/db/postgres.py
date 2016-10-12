@@ -30,9 +30,10 @@ import sys
 import struct
 import time
 
-from sqlalchemy import create_engine, desc, func, column, delete, exists, \
-    insert, join, select, update, and_, not_, or_, Column, ForeignKey, Index, \
-    Table, ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text, tuple_
+from sqlalchemy import create_engine, desc, func, text, column, delete, \
+    exists, insert, join, select, update, and_, not_, or_, Column, ForeignKey, \
+    Index, Table, ARRAY, Boolean, DateTime, Integer, LargeBinary, String, Text, \
+    tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -1111,6 +1112,40 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             )
         )
 
+    def get_ips_ports(self, flt, archive=False, limit=None, skip=None):
+        req = self.query_from_filter(
+            flt, archive,
+            select([Scan.id]).select_from(join(Scan, join(Host, Context)))
+        )
+        if skip is not None:
+            req = req.offset(skip)
+        if limit is not None:
+            req = req.limit(limit)
+        base = req.cte("base")
+        return (
+            {"addr": rec[2], "starttime": rec[1],
+             "ports": [
+                 {"proto": proto, "port": int(port), "state_state": state}
+                 for proto, port, state in (
+                         elt.split(',') for elt in rec[0][3:-3].split(')","(')
+                 )
+             ]}
+            for rec in
+            self.db.execute(
+                select([
+                    func.array_agg(postgresql.aggregate_order_by(
+                                    tuple_(Port.protocol, Port.port,
+                                           Port.state).label('a'),
+                                    tuple_(Port.protocol, Port.port).label('a')
+                                )).label('ports'),
+                    Scan.time_start, Host.addr,
+                ])\
+                .select_from(join(Port, join(Scan, Host)))\
+                .group_by(Host.addr, Scan.time_start)\
+                .where(Scan.id.in_(base))
+            )
+        )
+
     def getlocations(self, flt, archive=False, limit=None, skip=None):
         req = self.query_from_filter(
             flt, archive,
@@ -1277,6 +1312,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             field = (Port, [Port.service_name, Port.service_product,
                             Port.service_version],
                      Port.state == "open")
+        elif field == "asnum":
+            field = (Scan, [Scan.info["as_num"]], None)
         elif field == "as":
             field = (Scan, [Scan.info["as_num"], Scan.info["as_name"]], None)
         elif field == "country":
@@ -1284,11 +1321,16 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                             Scan.info["country_name"]], None)
         elif field == "city":
             field = (Scan, [Scan.info["country_code"], Scan.info["city"]], None)
+        elif field == "net" or field.startswith("net:"):
+            info = field[4:]
+            info = int(info) if info else 24
+            field = (Host, [func.set_masklen(text("host.addr::cidr"), info)], None)
         else:
             raise NotImplementedError()
         s_from = {
             Scan: Scan,
             Port: join(Port, Scan),
+            Host: join(Scan, Host),
         }
         req = select([func.count().label("count")] + field[1])\
               .select_from(s_from[field[0]])\
@@ -1505,29 +1547,29 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             raise ValueError()
         return NmapFilter(port=[Port.state == "open"])
 
-    @staticmethod
-    def searchservice(srv, port=None, protocol=None):
+    @classmethod
+    def searchservice(cls, srv, port=None, protocol=None):
         """Search an open port with a particular service."""
-        req = Port.service_name == srv
+        req = cls._searchstring_re(Port.service_name, srv)
         if port is not None:
             req = and_(req, Port.port == port)
         if protocol is not None:
             req = and_(req, Port.protocol == protocol)
         return NmapFilter(port=[req])
 
-    @staticmethod
-    def searchproduct(product, version=None, service=None, port=None,
+    @classmethod
+    def searchproduct(cls, product, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        req = Port.service_product == product
+        req = cls._searchstring_re(Port.service_product, product)
         if version is not None:
-            req = and_(req, Port.service_version == version)
+            req = and_(req, cls._searchstring_re(Port.service_version, version))
         if service is not None:
-            req = and_(req, Port.service_name == service)
+            req = and_(req, cls._searchstring_re(Port.service_name, service))
         if port is not None:
             req = and_(req, Port.port == port)
         if protocol is not None:
