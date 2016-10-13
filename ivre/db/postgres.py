@@ -1248,8 +1248,21 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             select([Scan.id]).select_from(join(Scan, join(Host, Context))),
         ).cte("base")
         order = "count" if least else desc("count")
+        outputproc = None
         if field == "port":
             field = (Port, [Port.protocol, Port.port], Port.state == "open")
+        elif field == "ttl":
+            field = (Port, [Port.state_reason_ttl],
+                     Port.state_reason_ttl != None)
+        elif field == "ttlinit":
+            field = (
+                Port,
+                [func.least(255, func.power(2, func.ceil(
+                    func.log(2, Port.state_reason_ttl)
+                )))],
+                Port.state_reason_ttl != None,
+            )
+            outputproc = int
         elif field.startswith('port:'):
             info = field[5:]
             field = (Port, [Port.protocol, Port.port],
@@ -1308,6 +1321,24 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         elif field == "product":
             field = (Port, [Port.service_name, Port.service_product],
                      Port.state == "open")
+        elif field.startswith("product:"):
+            info = field[8:]
+            if info.isdigit():
+                info = int(info)
+                flt = self.flt_and(flt, self.searchport(info))
+                field = (Port, [Port.service_name, Port.service_product],
+                         and_(Port.state == "open", Port.port == info))
+            elif info.startswith('tcp/') or info.startswith('udp/'):
+                info = (info[:3], int(info[4:]))
+                flt = self.flt_and(flt, self.searchport(info[1],
+                                                        protocol=info[0]))
+                field = (Port, [Port.service_name, Port.service_product],
+                         and_(Port.state == "open", Port.port == info[1],
+                              Port.protocol == info[0]))
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                field = (Port, [Port.service_name, Port.service_product],
+                         and_(Port.state == "open", Port.service_name == info))
         elif field == "version":
             field = (Port, [Port.service_name, Port.service_product,
                             Port.service_version],
@@ -1325,10 +1356,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             info = field[4:]
             info = int(info) if info else 24
             field = (Host, [func.set_masklen(text("host.addr::cidr"), info)], None)
+        elif field == "script" or field.startswith("script:"):
+            info = field[7:]
+            if info:
+                field = (Script, [Script.output], Script.name == info)
+            else:
+                field = (Script, [Script.name], None)
         else:
             raise NotImplementedError()
         s_from = {
             Scan: Scan,
+            Script: join(Script, join(Port, Scan)),
             Port: join(Port, Scan),
             Host: join(Scan, Host),
         }
@@ -1338,8 +1376,15 @@ class PostgresDBNmap(PostgresDB, DBNmap):
               .where(Scan.id.in_(base))
         if field[2] is not None:
             req = req.where(field[2])
-        return ({"count": result[0], "_id": result[1:] if len(result) > 2 else result[1]}
-                for result in self.db.execute(req.order_by(order).limit(topnbr)))
+        if outputproc is None:
+            return ({"count": result[0],
+                     "_id": result[1:] if len(result) > 2 else result[1]}
+                    for result in self.db.execute(req.order_by(order).limit(topnbr)))
+        else:
+            return ({"count": result[0],
+                     "_id": outputproc(result[1:] if len(result) > 2
+                                       else result[1])}
+                    for result in self.db.execute(req.order_by(order).limit(topnbr)))
 
 
     @staticmethod
