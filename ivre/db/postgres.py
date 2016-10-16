@@ -1527,11 +1527,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             return NmapFilter(port=[(Port.port >= 0) if neg
                                     else (Port.port == -1)])
         if neg:
+            raise ValueError("Filter port with negation is not implemented yet")
             return NmapFilter(
                 port=[or_(and_(Port.port == port, Port.protocol == protocol,
                                Port.state != state),
-                          not_(exists(and_(Port.port == port,
-                                           Port.protocol == protocol))))]
+                          not_(exists([Port.port == port,
+                                       Port.protocol == protocol,
+                                       Port.scan == Scan.id])))]
             )
         return NmapFilter(port=[and_(Port.port == port,
                                      Port.protocol == protocol,
