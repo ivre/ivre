@@ -294,7 +294,7 @@ class Scan(Base):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
-    archive = Column(Integer, nullable=False)
+    archive = Column(Integer, nullable=False, index=True)
     merge = Column(Boolean, nullable=False)
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
@@ -831,12 +831,14 @@ Autonomous System given its number or its name.
 
 class NmapFilter(object):
     def __init__(self, main=None, category=None, source=None, port=None,
-                 script=None):
+                 script=None, uses_host=False, uses_context=False):
         self.main = main
         self.category = [] if category is None else category
         self.source = [] if source is None else source
         self.port = [] if port is None else port
         self.script = [] if script is None else script
+        self.uses_host = uses_host
+        self.uses_context = uses_context
     @staticmethod
     def fltand(flt1, flt2):
         return flt1 if flt2 is None else flt2 if flt1 is None else and_(flt1, flt2)
@@ -848,6 +850,13 @@ class NmapFilter(object):
             port=self.port + other.port,
             script=self.script + other.script,
         )
+    @property
+    def select_from(self):
+        if self.uses_context:
+            return join(Scan, join(Host, Context))
+        if self.uses_host:
+            return join(Scan, Host)
+        return Scan
 
 
 class PostgresDBNmap(PostgresDB, DBNmap):
@@ -1085,7 +1094,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             self.query_from_filter(
                 flt, archive,
                 select([func.count()])\
-                .select_from(join(Scan, join(Host, Context)))
+                .select_from(flt.select_from)
             )
         ).fetchone()[0]
 
@@ -1245,7 +1254,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             flt = NmapFilter()
         base = self.query_from_filter(
             flt, archive,
-            select([Scan.id]).select_from(join(Scan, join(Host, Context))),
+            select([Scan.id]).select_from(flt.select_from),
         ).cte("base")
         order = "count" if least else desc("count")
         outputproc = None
@@ -1438,15 +1447,18 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @staticmethod
     def searchhost(addr, neg=False):
-        return NmapFilter(main=PostgresDB.searchhost(addr, neg=neg))
+        return NmapFilter(main=PostgresDB.searchhost(addr, neg=neg),
+                                                     uses_host=True)
 
     @staticmethod
     def searchhosts(hosts, neg=False):
-        return NmapFilter(main=PostgresDB.searchhosts(hosts, neg=neg))
+        return NmapFilter(main=PostgresDB.searchhosts(hosts, neg=neg),
+                                                      uses_host=True)
 
     @staticmethod
     def searchrange(start, stop, neg=False):
-        return NmapFilter(main=PostgresDB.searchrange(start, stop, neg=neg))
+        return NmapFilter(main=PostgresDB.searchrange(start, stop, neg=neg),
+                                                      uses_host=True)
 
     @classmethod
     def searchdomain(cls, name, neg=False):
