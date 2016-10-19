@@ -610,9 +610,6 @@ def main():
                 )
                 for n in entry_nodes:
                     g.glow(utils.int2ip(n))
-    elif args.count:
-        def displayfunction(x):
-            out.write(str(x.count()) + '\n')
     elif args.explain:
         def displayfunction(x):
             out.write(db.db.nmap.explain(x, indent=4) + '\n')
@@ -680,6 +677,10 @@ def main():
         db.db.nmap.migrate_schema(
             db.db.nmap.colname_oldhosts if args.archives
             else db.db.nmap.colname_hosts, args.version
+        )
+    elif args.count:
+        out.write(
+            str(db.db.nmap.count(hostfilter, archive=args.archives)) + '\n'
         )
     else:
         cursor = db.db.nmap.get(hostfilter, archive=args.archives)
