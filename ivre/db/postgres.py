@@ -256,8 +256,6 @@ class Port(Base):
     state_reason = Column(String(32))
     state_reason_ip = Column(postgresql.INET)
     state_reason_ttl = Column(Integer)
-    # Service-related fields, _name & _tunnel are part of the unique
-    # index
     service_name = Column(String(64))
     service_tunnel = Column(String(16))
     service_product = Column(String(256))
@@ -832,9 +830,10 @@ Autonomous System given its number or its name.
 
 
 class NmapFilter(object):
-    def __init__(self, main=None, category=None, source=None, port=None,
-                 script=None, uses_host=False, uses_context=False):
+    def __init__(self, main=None, hostname=None, category=None, source=None,
+                 port=None, script=None, uses_host=False, uses_context=False):
         self.main = main
+        self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
         self.source = [] if source is None else source
         self.port = [] if port is None else port
@@ -847,6 +846,7 @@ class NmapFilter(object):
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
+            hostname=self.hostname + other.hostname,
             category=self.category + other.category,
             source=self.source + other.source,
             port=self.port + other.port,
@@ -1463,13 +1463,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @classmethod
     def searchdomain(cls, name, neg=False):
-        return NmapFilter(main=cls._searchstring_re(Scan.domainname, name,
-                                                    neg=neg))
+        return NmapFilter(hostname=[cls._searchstring_re(Hostname.domains,
+                                                         name, neg=neg)])
 
     @classmethod
     def searchhostname(cls, name, neg=False):
-        return NmapFilter(main=cls._searchstring_re(Scan.hostname, name,
-                                                    neg=neg))
+        return NmapFilter(hostname=[cls._searchstring_re(Hostname.name,
+                                                         name, neg=neg)])
 
     @classmethod
     def searchcategory(cls, cat, neg=False):
