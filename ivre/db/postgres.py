@@ -423,9 +423,11 @@ class PostgresDB(DB):
         except (TypeError, struct.error):
             return addr
 
+    @staticmethod
     def flt_and(*args):
         return and_(*args)
 
+    @staticmethod
     def flt_or(*args):
         return or_(*args)
 
@@ -1089,7 +1091,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = req.where(Scan.id.in_(select([cte.c.scan])))
         return req
 
-    def count(self, flt, archive, **kargs):
+    def count(self, flt, archive=False, **_):
         return self.db.execute(
             self.query_from_filter(
                 flt, archive,
@@ -1183,7 +1185,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             rec = {}
             (scanid, _, rec["infos"], rec["starttime"], rec["endtime"],
              rec["state"], rec["state_reason"], rec["state_reason_ttl"],
-             rec["archive"], rec["merge"], hostid, _, rec["addr"], _, _, _,
+             rec["archive"], rec["merge"], _, _, rec["addr"], _, _, _,
              rec["host_context"]) = scanrec
             if not rec["infos"]:
                 del rec["infos"]
@@ -1226,8 +1228,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             yield rec
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
-                  limit=None, skip=None, least=False, archive=False,
-                  aggrflt=None, specialproj=None, specialflt=None):
+                  limit=None, skip=None, least=False, archive=False):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
@@ -1418,7 +1419,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         conditions is true.
 
         """
-        return reduce(self._flt_or, args)
+        return reduce(cls._flt_or, args)
 
     @staticmethod
     def _searchstring_re(field, value, neg=False):
@@ -1680,10 +1681,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
         """
         if fname is None:
-            req = Script.values.has_key('ls.volumes.files.filename')
+            req = Script.data.has_key('ls.volumes.files.filename')
         else:
             req = cls._searchstring_re(
-                Script.values['ls.volumes.files.filename'], fname
+                Script.data['ls.volumes.files.filename'], fname
             )
         if scripts is None:
             return NmapFilter(script=[req])
