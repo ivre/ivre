@@ -851,6 +851,8 @@ class NmapFilter(object):
             source=self.source + other.source,
             port=self.port + other.port,
             script=self.script + other.script,
+            uses_host=self.uses_host or other.uses_host,
+            uses_context=self.uses_context or other.uses_context,
         )
     @property
     def select_from(self):
