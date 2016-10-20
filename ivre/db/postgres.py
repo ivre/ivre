@@ -1072,23 +1072,35 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = req.where(flt.main)
         if not archive:
             req = req.where(Scan.archive == 0)
-        ctes = [select([Association_Scan_Category.scan])\
+        # See https://stackoverflow.com/questions/17112345/using-intersect-with-tables-from-a-with-clause
+        for subflt in flt.category:
+            req = req.where(exists(
+                select([1])\
                 .select_from(join(Category, Association_Scan_Category))\
-                .where(catflt).cte("category_%d" % idx)
-                for idx, catflt in enumerate(flt.category)]
-        ctes.extend(select([Association_Scan_Source.scan])\
-                    .select_from(join(Source, Association_Scan_Source))\
-                    .where(srcflt).cte("source_%d" % idx)
-                    for idx, srcflt in enumerate(flt.source))
-        ctes.extend(select([Port.scan]).where(prtflt).cte("port_%d" % idx)
-                    for idx, prtflt in enumerate(flt.port))
-        ctes.extend(select([Port.scan]).select_from(join(Script, Port))\
-                    .where(scrflt).cte("script_%d" % idx)
-                    for idx, scrflt in enumerate(flt.script))
-        if ctes:
-            req = req.where(Scan.id.in_(intersect(*(
-                select([cte]) for cte in ctes
-            ))))
+                .where(subflt)\
+                .where(Association_Scan_Category.scan == Scan.id)
+            ))
+        for subflt in flt.source:
+            req = req.where(exists(
+                select([1])\
+                .select_from(join(Source, Association_Scan_Source))\
+                .where(subflt)\
+                .where(Association_Scan_Source.scan == Scan.id)
+            ))
+        for subflt in flt.port:
+            req = req.where(exists(
+                select([1])\
+                .select_from(Port)\
+                .where(subflt)\
+                .where(Port.scan == Scan.id)
+            ))
+        for subflt in flt.script:
+            req = req.where(exists(
+                select([1])\
+                .select_from(join(Script, Port))\
+                .where(subflt)\
+                .where(Port.scan == Scan.id)
+            ))
         return req
 
     def count(self, flt, archive=False, **_):
