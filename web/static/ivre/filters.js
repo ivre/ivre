@@ -118,6 +118,9 @@ var Filter = (function() {
                     encodeURIComponent(this.query),
                 jsonp: "callback",
                 dataType: "jsonp",
+                beforeSend: function() {
+		    filterobject.count = undefined;
+                },
                 success: function(data) {
                     filterobject.count = data;
                     filterobject.update_scopes();
