@@ -467,6 +467,8 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.ls.volumes.files",
                   "ports.scripts.mongodb-databases.databases",
                   "ports.scripts.mongodb-databases.databases.shards",
+                  "ports.scripts.ike-info.transforms",
+                  "ports.scripts.ike-info.vendor_ids",
                   "ports.scripts.vulns",
                   "ports.scripts.vulns.check_results",
                   "ports.scripts.vulns.description",
@@ -1990,7 +1992,7 @@ have no effect if it is not expected)."""
           - devicetype / devicetype:<portnbr>
           - script:<scriptid> / script:<port>:<scriptid>
             / script:host:<scriptid>
-          - cert.* / smb.* / sshkey.*
+          - cert.* / smb.* / sshkey.* / ike.*
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -2491,6 +2493,9 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchsshkey())
             subfield = field[7:]
             field = 'ports.scripts.ssh-hostkey.' + subfield
+        elif field.startswith('ike.'):
+            flt = self.flt_and(flt, self.searchscript(name="ike-info"))
+            field = "ports.scripts.ike-info." + field[4:]
         elif field.startswith('modbus.'):
             subfield = field[7:]
             field = 'ports.scripts.modbus-discover.' + subfield

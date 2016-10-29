@@ -772,6 +772,45 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
     return _NMAP_PROBES[proto][probe]
 
 
+_IKESCAN_VENDOR_IDS = {}
+_IKESCAN_VENDOR_IDS_POPULATED = False
+
+
+def _read_ikescan_vendor_ids():
+    global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
+    try:
+        with open(os.path.join(config.IKESCAN_SHARE_PATH,
+                               'ike-vendor-ids')) as fdesc:
+            sep = re.compile('\\t+')
+            _IKESCAN_VENDOR_IDS = [
+                (line[0], re.compile(line[1], re.I))
+                for line in (
+                        sep.split(line, 1)
+                        for line in (line.strip().split('#', 1)[0]
+                                     for line in fdesc)
+                        if line
+                )
+            ]
+    except (AttributeError, IOError) as exc:
+        sys.stderr.write('WARNING: cannot read ike-scan vendor IDs file.')
+        sys.stderr.write(warn_exception(exc))
+    _IKESCAN_VENDOR_IDS_POPULATED = True
+
+
+def get_ikescan_vendor_ids():
+    global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
+    if not _IKESCAN_VENDOR_IDS_POPULATED:
+        _read_ikescan_vendor_ids()
+    return _IKESCAN_VENDOR_IDS
+
+
+def find_ike_vendor_id(vendorid):
+    vid = vendorid.encode('hex')
+    for name, sig in get_ikescan_vendor_ids():
+        if sig.search(vid):
+            return name
+
+
 def nmap_encode_data(data):
     return "".join(
         (d if " " <= d <= "~" else (repr(d)[1:-1] if d in '\r\n\t'

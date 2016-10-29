@@ -111,7 +111,7 @@ specialized scripts.
     extras_require={
         'Flow':  ["py2neo>=3"],
     },
-    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser'],
+    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser', 'ivre/analyzer'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',

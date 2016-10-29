@@ -26,6 +26,7 @@ This sub-module contains the parser for nmap's XML output files.
 """
 
 from ivre import utils, config, nmapout
+from ivre.analyzer import ike
 
 from xml.sax.handler import ContentHandler, EntityResolver
 import datetime
@@ -1076,6 +1077,13 @@ class NmapHandler(ContentHandler):
                 if attrs['name'] in ["ssl", "X509"]:
                     self._curport['service_tunnel'] = "ssl"
                 self.masscan_post_script(script)
+                # UDP/500: let's use ike-scan FP
+                if self._curport.get('port') == 500 \
+                   and self._curport.get('protocol') == 'udp':
+                    self._curport.update(ike.analyze_ike_payload(
+                        script['masscan']['raw']
+                    ))
+                    return
                 # attempt to use Nmap service fingerprints
                 probes = self.masscan_probes[:]
                 probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES.get(scriptid, []))

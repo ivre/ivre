@@ -44,9 +44,10 @@ AGENT_MASTER_PATH = "/var/lib/ivre/master"
 TESSERACT_CMD = "tesseract"
 GZ_CMD = "zcat"
 BZ2_CMD = "bzcat"
-# specific: if no value is specified, tries /usr/local/share/nmap,
-# then /usr/share/nmap.
+# specific: if no value is specified, tries /usr/local/share/<soft>,
+# /opt/<soft>/share/<soft>, then /usr/share/<soft>.
 NMAP_SHARE_PATH = None
+IKESCAN_SHARE_PATH = None
 
 # Default Nmap scan template, see below how to add templates:
 NMAP_SCAN_TEMPLATES = {
@@ -196,8 +197,10 @@ def guess_prefix(directory=None):
         if candidate is not None:
             return candidate
 
-def guess_nmap_share():
-    for path in ['/usr/local/share/nmap', '/usr/share/nmap']:
+def guess_share(soft):
+    for path in ['/usr/local/share/%s' % soft,
+                 '/opt/%s/share/%s' % (soft, soft),
+                 '/usr/share/%s' % soft]:
         if os.path.isdir(path):
             return path
 
@@ -208,4 +211,7 @@ if HONEYD_IVRE_SCRIPTS_PATH is None:
     HONEYD_IVRE_SCRIPTS_PATH = guess_prefix('honeyd')
 
 if NMAP_SHARE_PATH is None:
-    NMAP_SHARE_PATH = guess_nmap_share()
+    NMAP_SHARE_PATH = guess_share('nmap')
+
+if IKESCAN_SHARE_PATH is None:
+    IKESCAN_SHARE_PATH = guess_share('ike-scan')
