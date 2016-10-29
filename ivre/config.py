@@ -44,6 +44,9 @@ AGENT_MASTER_PATH = "/var/lib/ivre/master"
 TESSERACT_CMD = "tesseract"
 GZ_CMD = "zcat"
 BZ2_CMD = "bzcat"
+MD5_CMD = "md5sum"
+SHA1_CMD = "sha1sum"
+SHA256_CMD = "sha256sum"
 # specific: if no value is specified, tries /usr/local/share/<soft>,
 # /opt/<soft>/share/<soft>, then /usr/share/<soft>.
 NMAP_SHARE_PATH = None
