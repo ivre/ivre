@@ -800,7 +800,8 @@ def _read_ikescan_vendor_ids():
                                'ike-vendor-ids')) as fdesc:
             sep = re.compile('\\t+')
             _IKESCAN_VENDOR_IDS = [
-                (line[0], re.compile(line[1], re.I))
+                (line[0], re.compile(line[1].replace('[[:xdigit:]]',
+                                                     '[0-9a-f]'), re.I))
                 for line in (
                         sep.split(line, 1)
                         for line in (line.strip().split('#', 1)[0]
