@@ -369,6 +369,14 @@ var HELP_FILTERS = {
 	    "title": "notes",
 	    "content": "Search results with an associated note.",
 	},
+	"ike.vendor_id.name": {
+	    "title": "ike.vendor_id.name",
+	    "content": "Search results with a specific IKE Vendor ID.",
+	},
+	"ike.vendor_id.value": {
+	    "title": "ike.vendor_id.value",
+	    "content": "Search results with a specific IKE Vendor ID.",
+	},
 	/* sort */
 	"skip:": {
 	    "title": "skip:<b>[count]</b>",

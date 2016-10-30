@@ -379,6 +379,9 @@ var GraphTopValues = (function(_super) {
 		preparetitle = function(x) {
 		    return x[0];
 		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "ike.vendor_id.value", "' + x[0] + '");';
+		};
 	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
