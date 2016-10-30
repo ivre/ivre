@@ -2000,6 +2000,7 @@ have no effect if it is not expected)."""
           - file.* / file.*:scriptid
           - hop
         """
+        null_if_empty = lambda val: val if val else None
         outputproc = None
         if flt is None:
             flt = self.flt_empty
@@ -2493,6 +2494,22 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchsshkey())
             subfield = field[7:]
             field = 'ports.scripts.ssh-hostkey.' + subfield
+        elif field == 'ike.vendor_ids':
+            flt = self.flt_and(flt, self.searchscript(name="ike-info"))
+            specialproj = {"ports.scripts.ike-info.vendor_ids.value": 1,
+                           "ports.scripts.ike-info.vendor_ids.name": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.ike-info.vendor_ids": {
+                    "$concat": [
+                        "$ports.scripts.ike-info.vendor_ids.value",
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.vendor_ids.name", ""]},
+                    ]}}}]
+            field = "ports.scripts.ike-info.vendor_ids"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': map(null_if_empty,
+                                               x['_id'].split('###'))}
         elif field.startswith('ike.'):
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
