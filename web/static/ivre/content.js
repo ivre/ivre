@@ -369,12 +369,12 @@ var HELP_FILTERS = {
 	    "title": "notes",
 	    "content": "Search results with an associated note.",
 	},
-	"ike.vendor_id.name": {
-	    "title": "ike.vendor_id.name",
+	"ike.vendor_id.name:": {
+	    "title": "ike.vendor_id.name:<b>parsed name</b>",
 	    "content": "Search results with a specific IKE Vendor ID.",
 	},
-	"ike.vendor_id.value": {
-	    "title": "ike.vendor_id.value",
+	"ike.vendor_id.value:": {
+	    "title": "ike.vendor_id.value:<b>raw value</b>",
 	    "content": "Search results with a specific IKE Vendor ID.",
 	},
 	/* sort */
@@ -704,6 +704,10 @@ var HELP_TOPVALUES = {
 	"enip.serial": {
 	    "content": "enip.serial",
 	    "title": "<b>(!)</b>enip.serial"
+	},
+	"ike.transforms": {
+	    "content": "ike.transforms",
+	    "title": "<b>(!)</b>ike.transforms"
 	},
 	"ike.transforms.Authentication": {
 	    "content": "ike.transforms.Authentication",

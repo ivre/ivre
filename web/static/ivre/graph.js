@@ -383,6 +383,11 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "ike.vendor_id.value", "' + x[0] + '");';
 		};
 	    }
+	    else if(field === 'ike.transforms') {
+		prepareoutput = function(x) {
+		    return x.join(" / ");
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 

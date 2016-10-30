@@ -2510,6 +2510,37 @@ have no effect if it is not expected)."""
             outputproc = lambda x: {'count': x['count'],
                                     '_id': map(null_if_empty,
                                                x['_id'].split('###'))}
+        elif field == 'ike.transforms':
+            flt = self.flt_and(flt, self.searchscript(
+                name="ike-info",
+                values={"transforms": {"$exists": True}},
+            ))
+            specialproj = {"ports.scripts.ike-info.transforms.Authentication": 1,
+                           "ports.scripts.ike-info.transforms.Encryption": 1,
+                           "ports.scripts.ike-info.transforms.GroupDesc": 1,
+                           "ports.scripts.ike-info.transforms.Hash": 1,
+                           "ports.scripts.ike-info.transforms.LifeDuration": 1,
+                           "ports.scripts.ike-info.transforms.LifeType": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.ike-info.transforms": {
+                    "$concat": [
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Authentication", ""]},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Encryption", ""]},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.GroupDesc", ""]},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Hash", ""]},
+                        "###",
+                        {"$toLower": "$ports.scripts.ike-info.transforms.LifeDuration"},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.LifeType", ""]},
+                    ]}}}]
+            field = "ports.scripts.ike-info.transforms"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': map(null_if_empty,
+                                               x['_id'].split('###'))}
         elif field.startswith('ike.'):
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
