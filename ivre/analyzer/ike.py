@@ -100,15 +100,19 @@ def analyze_ike_payload(payload):
                 service['service_product'] = 'ZyXEL ZyWALL USG 100'
                 service['service_devicetype'] = 'firewall'
             elif name.startswith('Linux FreeS/WAN '):
-                service['service_product'] = 'Linux FreeS/WAN'
+                service['service_product'] = 'FreeS/WAN'
                 service['service_version'] = name.split(None, 2)[2]
                 service['service_ostype'] = 'Unix'
-            elif name.startswith('Openswan '):
+            elif name.startswith('Openswan ') or name.startswith('Linux Openswan '):
                 service['service_product'] = 'Openswan'
-                service['service_version'] = name.split(None, 1)[1]
+                version = name.split('Openswan ', 1)[1].split(None, 1)
+                service['service_version'] = version[0]
+                if len(version) == 2:
+                    service['service_extrainfo'] = version[1]
                 service['service_ostype'] = 'Unix'
-            elif name == 'FreeS/WAN or OpenSWAN':
-                service['service_product'] = 'Linux FreeS/WAN or Openswan'
+            elif name in ['FreeS/WAN or OpenSWAN',
+                          'FreeS/WAN or OpenSWAN or Libreswan']:
+                service['service_product'] = 'FreeS/WAN or Openswan or Libreswan'
                 service['service_ostype'] = 'Unix'
             elif name.startswith('Libreswan '):
                 service['service_product'] = 'Libreswan'
