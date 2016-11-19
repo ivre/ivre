@@ -753,8 +753,10 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
 }
 
 MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
-    "banner": ["NULL"],
-    "http-headers": ["GetRequest"],
+    "tcp": {
+        "banner": ["NULL"],
+        "http-headers": ["GetRequest"],
+    },
 }
 
 NMAP_FINGERPRINT_IVRE_KEY = {
@@ -1077,18 +1079,19 @@ class NmapHandler(ContentHandler):
                 if attrs['name'] in ["ssl", "X509"]:
                     self._curport['service_tunnel'] = "ssl"
                 self.masscan_post_script(script)
-                # UDP/500: let's use ike-scan FP
-                if self._curport.get('port') == 500 \
-                   and self._curport.get('protocol') == 'udp':
-                    self._curport.update(ike.analyze_ike_payload(
-                        script['masscan']['raw']
-                    ))
-                    return
                 # attempt to use Nmap service fingerprints
                 probes = self.masscan_probes[:]
-                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES.get(scriptid, []))
+                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES\
+                              .get(self._curport['protocol'], {})\
+                              .get(scriptid, []))
                 softmatch = {}
                 for probe in probes:
+                    # udp/ike: let's use ike-scan FP
+                    if self._curport['protocol'] == 'udp' and probe == 'ike':
+                        self._curport.update(ike.analyze_ike_payload(
+                            script['masscan']['raw']
+                        ))
+                        return
                     try:
                         fingerprints = utils.get_nmap_svc_fp(
                             proto=self._curport['protocol'],
