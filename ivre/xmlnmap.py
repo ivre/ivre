@@ -1087,10 +1087,14 @@ class NmapHandler(ContentHandler):
                 softmatch = {}
                 for probe in probes:
                     # udp/ike: let's use ike-scan FP
-                    if self._curport['protocol'] == 'udp' and probe == 'ike':
+                    if self._curport['protocol'] == 'udp' and \
+                       probe in ['ike', 'ike-ipsec-nat-t']:
+                        masscan_data = script["masscan"]
                         self._curport.update(ike.analyze_ike_payload(
-                            script['masscan']['raw']
+                            script['masscan']['raw'], probe=probe
                         ))
+                        if self._curport.get('service_name') == 'isakmp':
+                            self._curport['scripts'][0]['masscan'] = masscan_data
                         return
                     try:
                         fingerprints = utils.get_nmap_svc_fp(

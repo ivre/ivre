@@ -21,9 +21,16 @@ from scapy.layers.isakmp import ISAKMP, ISAKMP_payload_SA, \
 
 from ivre.utils import find_ike_vendor_id
 
-def analyze_ike_payload(payload):
+def analyze_ike_payload(payload, probe='ike'):
     try:
-        payload = ISAKMP(payload)
+        if probe == 'ike-ipsec-nat-t':
+            if not payload.startswith('\x00\x00\x00\x00'):
+                encap_info = "Non-null non-ESP marker %s" % payload[:4].encode(
+                    'hex'
+                )
+            payload = ISAKMP(payload[4:])
+        else:
+            payload = ISAKMP(payload)
     except:
         return {}
     output = {}
@@ -159,8 +166,11 @@ def analyze_ike_payload(payload):
             txtoutput.append("  - %s" % vid.get('name', vid['value']))
     if output:
         # sth identified, let's assume it was correct
-        service["service_name"] = "isakmp"
-        output = {"scripts": [{"id": "ike-info", "output": "\n".join(txtoutput),
-                               "ike-info": output}]} if output else {}
-        output.update(service)
+        output = {
+            "service_name": "isakmp",
+            "scripts": [
+                {"id": "ike-info", "output": "\n".join(txtoutput),
+                 "ike-info": output}
+            ]
+        }
     return output
