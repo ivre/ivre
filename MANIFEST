@@ -87,7 +87,6 @@ nmap_scripts/http-screenshot.nse
 nmap_scripts/rtsp-screenshot.nse
 nmap_scripts/vnc-screenshot.nse
 nmap_scripts/x11-screenshot.nse
-nmap_scripts/bin/ivre-http-screenshot.js
 nmap_scripts/patches/rtsp-url-brute.patch
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example

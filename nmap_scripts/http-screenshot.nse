@@ -15,15 +15,13 @@
 -- along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 local shortport = require "shortport"
-local string = require "string"
 local stdnse = require "stdnse"
 
 description = [[
 
 Gets a screenshot from a Web service using a simple phantomjs script.
 
-The script ivre-http-screenshot.js must me installed somewhere in
-$PATH, as well as phantomjs.
+The program phantomjs must me installed somewhere in $PATH.
 
 Adapted from the http-screenshot script by SpiderLabs, that uses
 wkhtmltoimage.
@@ -65,19 +63,37 @@ action = function(host, port)
   local fname, strport
   local hostname = get_hostname(host)
   if hostname == host.ip then
-    fname = string.format("screenshot-%s-%d.jpg", host.ip, port)
+    fname = ("screenshot-%s-%d.jpg"):format(host.ip, port)
   else
-    fname = string.format("screenshot-%s-%s-%d.jpg", host.ip, hostname, port)
+    fname = ("screenshot-%s-%s-%d.jpg"):format(host.ip, hostname, port)
   end
   if (port == 80 and not ssl) or (port == 443 and ssl) then
     strport = ""
   else
-    strport = string.format(":%d", port)
+    strport = (":%d"):format(port)
   end
-  os.execute(string.format("ivre-http-screenshot.js %s://%s%s %s %d>/dev/null 2>&1",
-			   ssl and "https" or "http", hostname, strport,
-			   fname, timeout))
+  local tmpfname = os.tmpname()
+  local tmpfdesc = io.open(tmpfname, "w")
+  tmpfdesc:write(([[
+var system = require('system');
+var webpage = require('webpage');
+function capture(url, fname) {
+    var page = webpage.create();
+    page.open(url, function() {
+        page.evaluate(function(){
+            document.body.bgColor = 'white';
+        });
+        page.render(fname, {format: 'jpeg', quality: '90'});
+        phantom.exit();
+    });
+}
+capture("%s://%s%s", "%s");
+setTimeout(phantom.exit, %d * 1000);
+]]):format(ssl and "https" or "http", hostname, strport, fname, timeout))
+  tmpfdesc:close()
+  os.execute(("phantomjs %s >/dev/null 2>&1"):format(tmpfname))
+  os.remove(tmpfname)
   return (os.rename(fname, fname)
-	    and string.format("Saved to %s", fname)
+	    and ("Saved to %s"):format(fname)
 	    or "Failed")
 end
