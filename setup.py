@@ -242,6 +242,8 @@ specialized scripts.
           'web/cgi-bin/scanupload.py']),
         ('share/ivre/nmap_scripts',
          ['nmap_scripts/http-screenshot.nse',
+          'nmap_scripts/mainframe-banner.nse',
+          'nmap_scripts/mainframe-screenshot.nse',
           'nmap_scripts/rtsp-screenshot.nse',
           'nmap_scripts/vnc-screenshot.nse',
           'nmap_scripts/x11-screenshot.nse']),

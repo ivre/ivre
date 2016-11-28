@@ -116,6 +116,7 @@ def screenshot_extract(script):
 
 SCREENSHOTS_SCRIPTS = {
     "http-screenshot": screenshot_extract,
+    "mainframe-screenshot": screenshot_extract,
     "rtsp-screenshot": screenshot_extract,
     "vnc-screenshot": screenshot_extract,
     "x11-screenshot": screenshot_extract,
@@ -666,8 +667,9 @@ IGNORE_SCRIPTS = {
                        'SMB: ERROR: Server disconnected the connection']),
 }
 
-IGNORE_SCRIPTS_IDS = set(["http-screenshot", "rtsp-screenshot",
-                          "vnc-screenshot", "x11-screenshot"])
+IGNORE_SCRIPTS_IDS = set(["http-screenshot", "mainframe-screenshot",
+                          "rtsp-screenshot", "vnc-screenshot",
+                          "x11-screenshot"])
 
 MSSQL_ERROR = re.compile('^ *(ERROR: )?('
                          'No login credentials|'

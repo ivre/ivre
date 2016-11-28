@@ -84,6 +84,8 @@ ivre/tools/scan2db.py
 ivre/tools/scancli.py
 ivre/tools/scanstatus.py
 nmap_scripts/http-screenshot.nse
+nmap_scripts/mainframe-banner.nse
+nmap_scripts/mainframe-screenshot.nse
 nmap_scripts/rtsp-screenshot.nse
 nmap_scripts/vnc-screenshot.nse
 nmap_scripts/x11-screenshot.nse
