@@ -15,19 +15,16 @@
 -- along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 local shortport = require "shortport"
-local stdnse = require "stdnse"
 
 description = [[
 
-Gets a screenshot from a Web service using a simple phantomjs script.
+Gets a screenshot from a Telnet service using s3270 (from the x3270
+package) and a simple phantomjs script.
 
-The program phantomjs must me installed somewhere in $PATH.
+The programs phantomjs and s3270 must me installed somewhere in $PATH.
 
-Adapted from the http-screenshot script by SpiderLabs, that uses
-wkhtmltoimage.
-
-The output of the script is similar to the one from SpiderLabs, so
-that both can be used with IVRE.
+Adapted from the 3270_screen_grab script by mainframed, which creates
+HTML pages.
 
 ]]
 
@@ -37,40 +34,26 @@ categories = {"discovery", "safe", "screenshot"}
 
 ---
 -- @usage
--- nmap -n -p 80 --script http-screenshot www.google.com
---
--- @args http-screenshot.vhost the vhost to use (default: use the
---       provided hostname or IP address)
--- @args http-screenshot.timeout timeout for the phantomjs script
---       (default: 300s)
+-- nmap -n -p 23 --script mainframe-screenshot 1.2.3.4
 --
 -- @output
 -- PORT   STATE SERVICE
--- 80/tcp open  http
--- |_http-screenshot: Saved to screenshot-173.194.45.82-www.google.com-80.jpg
+-- 23/tcp open  telnet
+-- |_mainframe-screenshot: Saved to screenshot-1.2.3.4-23.jpg
 
-portrule = shortport.http
-
-local function get_hostname(host)
-  local arg = stdnse.get_script_args(SCRIPT_NAME .. '.vhost')
-  return arg or host.targetname or host.ip
+portrule = function(host, port)
+  return shortport.port_or_service({23, 992},
+    {'telnet', 'ssl/telnet', 'telnets'}) and
+    port.version.product:match("IBM")
 end
 
 action = function(host, port)
-  local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 300
-  local ssl = port.version.service_tunnel == "ssl"
-  local port = port.number
-  local fname, strport
-  local hostname = get_hostname(host)
-  if hostname == host.ip then
-    fname = ("screenshot-%s-%d.jpg"):format(host.ip, port)
-  else
-    fname = ("screenshot-%s-%s-%d.jpg"):format(host.ip, hostname, port)
-  end
-  if (port == 80 and not ssl) or (port == 443 and ssl) then
-    strport = ""
-  else
-    strport = (":%d"):format(port)
+  local fname = ("screenshot-%s-%d."):format(host.ip, port.number)
+  local proc = io.popen("s3270 >/dev/null 2>&1", "w")
+  proc:write('Connect(' .. host.ip .. ':' .. port.number ..
+	       ')\nPrintText(html, ' .. fname .. 'html)\nQuit\n')
+  if not proc:close() then
+    return "Failed"
   end
   local tmpfname = os.tmpname()
   local tmpfdesc = io.open(tmpfname, "w")
@@ -81,18 +64,23 @@ function capture(url, fname) {
     var page = webpage.create();
     page.open(url, function() {
         page.evaluate(function(){
-            document.body.bgColor = 'white';
+            var pre = document.getElementsByTagName('pre')[0];
+            pre.style.margin = "0px";
+            document.body.innerHTML = pre.outerHTML;
+            document.body.style.margin = "0px";
+
         });
         page.render(fname, {format: 'jpeg', quality: '90'});
         phantom.exit();
     });
 }
-capture("%s://%s%s", "%s");
-setTimeout(phantom.exit, %d * 1000);
-]]):format(ssl and "https" or "http", hostname, strport, fname, timeout))
+capture("%shtml", "%sjpg");
+]]):format(fname, fname))
   tmpfdesc:close()
   os.execute(("phantomjs %s >/dev/null 2>&1"):format(tmpfname))
   os.remove(tmpfname)
+  os.remove(("%shtml"):format(fname))
+  fname = ("%sjpg"):format(fname)
   return (os.rename(fname, fname)
 	    and ("Saved to %s"):format(fname)
 	    or "Failed")
