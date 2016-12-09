@@ -33,9 +33,8 @@ except ImportError:
     USING_ARGPARSE = False
 
 if USING_ARGPARSE:
-    argparser.add_argument('--nmap-template', metavar='NAME',
-                           help="Select Nmap scan template",
-                           choices=config.NMAP_SCAN_TEMPLATES.keys(),
+    argparser.add_argument('--nmap-template', help="Select Nmap scan template",
+                           choices=config.NMAP_SCAN_TEMPLATES,
                            default="default")
 
 NMAP_OPT_PORTS = {
