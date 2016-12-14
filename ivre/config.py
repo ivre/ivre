@@ -38,6 +38,7 @@ DEBUG = False
 # specific: if no value is specified for *_PATH variables, they are
 # going to be constructed by guessing the installation PREFIX (see the
 # end of this file).
+DATA_PATH = None
 GEOIP_PATH = None
 HONEYD_IVRE_SCRIPTS_PATH = None
 AGENT_MASTER_PATH = "/var/lib/ivre/master"
@@ -50,7 +51,6 @@ SHA256_CMD = "sha256sum"
 # specific: if no value is specified, tries /usr/local/share/<soft>,
 # /opt/<soft>/share/<soft>, then /usr/share/<soft>.
 NMAP_SHARE_PATH = None
-IKESCAN_SHARE_PATH = None
 
 # Default Nmap scan template, see below how to add templates:
 NMAP_SCAN_TEMPLATES = {
@@ -210,11 +210,11 @@ def guess_share(soft):
 if GEOIP_PATH is None:
     GEOIP_PATH = guess_prefix('geoip')
 
+if DATA_PATH is None:
+    DATA_PATH = guess_prefix('data')
+
 if HONEYD_IVRE_SCRIPTS_PATH is None:
-    HONEYD_IVRE_SCRIPTS_PATH = guess_prefix('honeyd')
+    HONEYD_IVRE_SCRIPTS_PATH = os.path.join(DATA_PATH, 'honeyd')
 
 if NMAP_SHARE_PATH is None:
     NMAP_SHARE_PATH = guess_share('nmap')
-
-if IKESCAN_SHARE_PATH is None:
-    IKESCAN_SHARE_PATH = guess_share('ike-scan')

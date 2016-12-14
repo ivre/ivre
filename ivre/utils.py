@@ -796,8 +796,7 @@ _IKESCAN_VENDOR_IDS_POPULATED = False
 def _read_ikescan_vendor_ids():
     global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     try:
-        with open(os.path.join(config.IKESCAN_SHARE_PATH,
-                               'ike-vendor-ids')) as fdesc:
+        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids')) as fdesc:
             sep = re.compile('\\t+')
             _IKESCAN_VENDOR_IDS = [
                 (line[0], re.compile(line[1].replace('[[:xdigit:]]',
