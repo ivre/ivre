@@ -2541,6 +2541,12 @@ have no effect if it is not expected)."""
             outputproc = lambda x: {'count': x['count'],
                                     '_id': map(null_if_empty,
                                                x['_id'].split('###'))}
+        elif field == 'ike.notification':
+            flt = self.flt_and(flt, self.searchscript(
+                name="ike-info",
+                values={"notification_type": {"$exists": True}},
+            ))
+            field = "ports.scripts.ike-info.notification_type"
         elif field.startswith('ike.'):
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]

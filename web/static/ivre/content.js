@@ -369,6 +369,10 @@ var HELP_FILTERS = {
 	    "title": "notes",
 	    "content": "Search results with an associated note.",
 	},
+	"ike.notification:": {
+	    "title": "ike.notification:<b>NOTIFICATION TYPE</b>",
+	    "content": "Search results with a specific notification received.",
+	},
 	"ike.vendor_id.name:": {
 	    "title": "ike.vendor_id.name:<b>parsed name</b>",
 	    "content": "Search results with a specific IKE Vendor ID.",
@@ -704,6 +708,10 @@ var HELP_TOPVALUES = {
 	"enip.serial": {
 	    "content": "enip.serial",
 	    "title": "<b>(!)</b>enip.serial"
+	},
+	"ike.notification": {
+	    "content": "ike.notification",
+	    "title": "<b>(!)</b>ike.notification"
 	},
 	"ike.transforms": {
 	    "content": "ike.transforms",

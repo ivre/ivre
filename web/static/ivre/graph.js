@@ -388,6 +388,11 @@ var GraphTopValues = (function(_super) {
 		    return x.join(" / ");
 		};
 	    }
+	    else if(field === 'ike.notification') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "ike.notification", "' + x + '");';
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 
