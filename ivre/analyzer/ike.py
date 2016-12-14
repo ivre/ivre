@@ -177,6 +177,12 @@ TRANSFORM_VALUES = {
 
 
 def info_from_notification(payload, service, output):
+    payload_len = len(payload)
+    if payload_len < 12:
+        output.setdefault("protocol", []).append(
+            "ISAKMP: Notification payload to short (%d bytes)" % payload_len
+        )
+        return
     output.update({
         "DOI": DOI[struct.unpack(">I", payload[4:8])[0]],
         "protocol_id": PROTO[ord(payload[8])],
@@ -284,6 +290,12 @@ def info_from_vendorid(payload, service, output):
     output.setdefault('vendor_ids', []).append(entry)
 
 def info_from_sa(payload, service, output):
+    payload_len = len(payload)
+    if payload_len < 20:
+        output.setdefault("protocol", []).append(
+            "ISAKMP: SA payload to short (%d bytes)" % payload_len
+        )
+        return
     output.update({
         "DOI": DOI[struct.unpack(">I", payload[4:8])[0]],
     })
@@ -340,9 +352,20 @@ def analyze_ike_payload(payload, probe='ike'):
             output.setdefault("protocol", []).append(
                 "ike-ipsec-nat-t: missing non-ESP marker"
             )
+    payload_len = len(payload)
+    if payload_len < 28:
+        return {}
+    payload_len_proto = struct.unpack('>I', payload[24:28])[0]
+    if payload_len < payload_len_proto:
+        output.setdefault("protocol", []).append(
+            "ISAKMP: missing data (%d bytes, should be %d)" % (
+                payload_len,
+                payload_len_proto,
+            )
+        )
     payload_type = ord(payload[16])
     payload = payload[28:]
-    while payload_type and payload:
+    while payload_type and len(payload) >= 4:
         payload_length = struct.unpack(">H", payload[2:4])[0]
         if payload_type in PAYLOADS:
             specific_parser, type_name = PAYLOADS[payload_type]
