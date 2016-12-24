@@ -108,8 +108,9 @@ web/dokuwiki/doc/screenshots.txt
 web/dokuwiki/doc/tests.txt
 web/dokuwiki/doc/webui.txt
 web/dokuwiki/media/logo.png
+web/static/cea.png
+web/static/cea-white.png
 web/static/compare.html
-web/static/droids.png
 web/static/favicon-loading.gif
 web/static/favicon.png
 web/static/flow.html

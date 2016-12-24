@@ -22,19 +22,19 @@
     <div class="navbar-ivre">
       <!-- The logo + app name -->
       <a href="#"><img alt="Logo" src="logo.png" class="logo"/></a>
-      <a href="#" class="navbar-brand visible-lg">
+      <a href="#" class="navbar-brand visible-lg visible-xs">
 	IVRE
       </a>
     </div>
   </div>
 
   <!-- The menu -->
-  <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11">
+  <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11 hidden-xs">
 
     <li ng-repeat="item1 in MENU.items" class="dropdown">
       <a ng-class="{'dropdown-toggle': item1.items != undefined}" class="clickable"
 	 data-toggle="dropdown" ng-click="eval_action(item1.action)">
-	<i ng-if="item1.icon" class="glyphicon glyphicon-{{item1.icon}} white"></i>
+	<i ng-if="item1.icon" class="glyphicon glyphicon-{{item1.icon}} white hidden-sm hidden-md"></i>
 	<span ng-class="{'menu-single': item1.items == undefined}">
 	  {{item1.title}}
 	</span>
@@ -54,9 +54,9 @@
     </li>
 
     <!-- Share -->
-    <li ng-if="MENU.share" class="dropdown">
+    <li ng-if="MENU.share" class="dropdown hidden-xs hidden-sm">
       <a class="dropdown-toggle clickable" data-toggle="dropdown">
-	<i class="glyphicon glyphicon-share white"></i> Share<b class="caret"></b>
+	<i class="glyphicon glyphicon-share white hidden-md"></i> Share<b class="caret"></b>
       </a>
       <ul class="dropdown-menu">
 	<li><a id="share-newtab" target="_blank" ng-href="{{get_href()}}">
@@ -86,13 +86,12 @@
     </li>
   </ul>
 
-  <!-- Droids Corp web site -->
   <ul class="nav navbar-nav col-lg-1 col-md-1 visible-lg visible-md">
-    <a title="Droids Corporation"
-       href="http://droids-corp.org/"
+    <a title="Commissariat &agrave; l'&eacute;nergie atomique et aux &eacute;nergies alternatives"
+       href="http://www.cea.fr/"
        target="_blank"
        class="navbar-link">
-      <img alt="Droids Corp" src="droids.png" class="logo"/>
+      <img alt="CEA" src="cea-white.png" class="logo"/>
     </a>
   </ul>
 </div>
