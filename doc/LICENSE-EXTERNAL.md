@@ -67,14 +67,14 @@ and [World Atlas](https://github.com/mbostock/world-atlas.git) from
 data published by [Natural Eath](http://www.naturalearthdata.com/) in
 the public domain.
 
-## Droids Corporation Logo ##
+## CEA Logo ##
 
-The files `web/dokuwiki/media/logo.png` and `web/static/logo.png` are the
-work of Olivier MATZ (Droids Corporation) and are released under the
-[CC BY-NC-ND license](http://creativecommons.org/licenses/by-nc-nd/3.0/).
+The file `web/static/cea.png` and `web/static/cea-white.png` are the
+logo of the French Alternative Energies and Atomic Energy
+Commission. It is not covered by IVRE license.
 
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2015
+This file is part of IVRE. Copyright 2011 - 2016
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
