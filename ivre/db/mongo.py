@@ -2803,6 +2803,8 @@ have no effect if it is not expected)."""
                 utils.str2regexp(args.asname)))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
+        if args.version is not None:
+            flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.timeago))
         if args.id is not None:
