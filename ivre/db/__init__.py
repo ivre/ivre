@@ -955,7 +955,7 @@ class DBAgent(DB):
             )
             self.globaldb.nmap.store_scan(
                 fdesc.name,
-                categories=scan['target'].target.infos['categories'],
+                categories=scan['target_info']['categories'],
                 source=agent['source'],
             )
             # TODO gettoarchive parameter
@@ -972,7 +972,7 @@ class DBAgent(DB):
                 "Could not acquire lock for scan %s" % scanid
             )
         # TODO: handle "onhold" targets
-        target = scan['target']
+        target = self.get_scan_target(scanid)
         try:
             for agentid in scan['agents']:
                 if self.get_agent(agentid)['master'] == masterid:
@@ -1056,6 +1056,7 @@ class DBAgent(DB):
     def add_scan(self, target, assign_to_free_agents=True):
         scan = {
             "target": pickle.dumps(target.__iter__()),
+            "target_info": target.infos,
             "agents": [],
             "results": 0,
             "lock": None
@@ -1068,15 +1069,15 @@ class DBAgent(DB):
     def _add_scan(self, scan):
         raise NotImplementedError
 
-    def get_scan(self, scanid):
-        scan = self._get_scan(scanid)
-        scan['target'] = pickle.loads(scan['target'])
-        return scan
+    def get_scan_target(self, scanid):
+        return pickle.loads(self._get_scan_target(self, scanid))
+
+    def _get_scan_target(self, scanid):
+        raise NotImplementedError
 
     def lock_scan(self, scanid):
         lockid = uuid.uuid1()
         scan = self._lock_scan(scanid, None, lockid.bytes)
-        scan['target'] = pickle.loads(scan['target'])
         if scan['lock'] is not None:
             scan['lock'] = uuid.UUID(bytes=scan['lock'])
         if scan['lock'] == lockid:
@@ -1090,9 +1091,6 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def get_scans(self):
-        raise NotImplementedError
-
-    def _get_scan(self, scanid):
         raise NotImplementedError
 
     def assign_agent(self, agentid, scanid,

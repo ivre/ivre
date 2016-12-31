@@ -2086,8 +2086,10 @@ have no effect if it is not expected)."""
             field = "as"
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': [int(y) if i == 0 else y for i, y in
-                        enumerate(x['_id'].split('###'))],
+                '_id': [None, None] if x['_id'] is None else [
+                    int(y) if i == 0 else y for i, y in
+                    enumerate(x['_id'].split('###'))
+                ],
             }
         elif field == "net" or field.startswith("net:"):
             field = "addr"
@@ -3664,34 +3666,58 @@ class MongoDBAgent(MongoDB, DBAgent):
     def _add_scan(self, scan):
         return self.db[self.colname_scans].insert(scan)
 
-    def _get_scan(self, scanid):
-        return self.find_one(self.colname_scans, {"_id": scanid})
+    def get_scan(self, scanid):
+        scan = self.find_one(self.colname_scans, {"_id": scanid},
+                             fields={'target': 0})
+        if "target_info" not in scan:
+            target = self.get_scan_target(scanid)
+            if target is not None:
+                target_info = target.target.infos
+                self.db[self.colname_scans].update(
+                    {"_id": scanid},
+                    {"$set": {"target_info": target_info}},
+                )
+                scan["target_info"] = target_info
+        return scan
+
+    def _get_scan_target(self, scanid):
+        scan = self.find_one(self.colname_scans, {"_id": scanid}, fields={'target': 1, '_id': 0})
+        return None if scan is None else scan['target']
 
     def _lock_scan(self, scanid, oldlockid, newlockid):
         if oldlockid is not None:
             oldlockid = bson.Binary(oldlockid)
         if newlockid is not None:
             newlockid = bson.Binary(newlockid)
-        result = self.db[self.colname_scans].find_and_modify({
+        scan = self.db[self.colname_scans].find_and_modify({
             "_id": scanid,
             "lock": oldlockid,
         }, {
-            "$set": {"lock": newlockid}
-        }, full_response=True, new=True)['value']
-        if result is not None and result['lock'] is not None:
-            result['lock'] = str(result['lock'])
-        return result
+            "$set": {"lock": newlockid},
+        }, full_response=True, fields={'target': False}, new=True)['value']
+        if "target_info" not in scan:
+            target = self.get_scan_target(scanid)
+            if target is not None:
+                target_info = target.target.infos
+                self.db[self.colname_scans].update(
+                    {"_id": scanid},
+                    {"$set": {"target_info": target_info}},
+                )
+                scan["target_info"] = target_info
+        if scan is not None and scan['lock'] is not None:
+            scan['lock'] = str(scan['lock'])
+        return scan
 
     def _unlock_scan(self, scanid, lockid):
-        result = self.db[self.colname_scans].find_and_modify({
+        scan = self.db[self.colname_scans].find_and_modify({
             "_id": scanid,
             "lock": bson.Binary(lockid),
         }, {
             "$set": {"lock": None}
         }, full_response=True, new=True)['value']
-        if result is not None and result['lock'] is not None:
-            result['lock'] = str(result['lock'])
-        return result
+        if scan is not None and scan['lock'] is not None:
+            scan['lock'] = str(scan['lock'])
+        return scan
 
     def get_scans(self):
         return (x['_id'] for x in
