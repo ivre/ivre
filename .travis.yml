@@ -43,6 +43,8 @@ before_script:
   - cp tests/results-public-samples tests/samples/results
   ## Nmap Internet-wide Modbus scan (JSON format)
   - wget -O tests/samples/Nmap-Modbus-IPv4.json.bz2 http://pierre.droids-corp.org/p0rn/Nmap-Modbus-IPv4.json.bz2 # JSON files w/ Nmap scan results
+  ## Masscan sample scans (XML format)
+  - for file in test-probe-ike-ipsec-nat-t-probe-U4500.xml.bz2 test-probe-ike-probe-U500.xml.bz2 test-T22.xml.bz2 ; do wget "http://pierre.droids-corp.org/p0rn/$file" -O "tests/samples/$file" ; done
   ## PCAP files from the Wireshark project
   - wget -O tests/samples/http.pcap "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=http.cap"
   - wget -O tests/samples/telnet-raw.pcap "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap"

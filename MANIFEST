@@ -3,6 +3,8 @@ setup.cfg
 setup.py
 bash_completion/ivre
 bin/ivre
+data/honeyd/sshd
+data/ike-vendor-ids
 doc/AGENT.md
 doc/DOCKER.md
 doc/FAST-INSTALL-AND-FIRST-RUN.md
@@ -36,7 +38,6 @@ docker/web/doku-conf-users.auth.php
 docker/web/nginx-default-site
 docker/web-apache/Dockerfile
 docker/web-apache/doku-conf-local.php
-honeyd/sshd
 ivre/__init__.py
 ivre/analyzer.py
 ivre/cliutils.py
@@ -53,6 +54,8 @@ ivre/target.py
 ivre/utils.py
 ivre/webutils.py
 ivre/xmlnmap.py
+ivre/analyzer/__init__.py
+ivre/analyzer/ike.py
 ivre/db/__init__.py
 ivre/db/mongo.py
 ivre/db/neo4j.py

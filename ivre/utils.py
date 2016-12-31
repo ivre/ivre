@@ -460,13 +460,30 @@ class FileOpener(object):
 def open_file(fname):
     return FileOpener(fname)
 
+_HASH_COMMANDS = {
+    'md5': config.MD5_CMD,
+    'sha1': config.SHA1_CMD,
+    'sha256': config.SHA256_CMD,
+}
+
 def hash_file(fname, hashtype="sha1"):
     """Compute a hash of data from a given file"""
-    result = hashlib.new(hashtype)
     with open_file(fname) as fdesc:
+        if hashtype in _HASH_COMMANDS:
+            try:
+                # By default we try to use {md5,sha1,sha256}sum
+                # command, since they seem to be (a lot) faster
+                return subprocess.Popen(
+                    [_HASH_COMMANDS[hashtype]], stdin=fdesc,
+                    stdout=subprocess.PIPE, stderr=open(os.devnull, 'w')
+                ).communicate()[0].split()[0]
+            except OSError as exc:
+                if exc.errno != errno.ENOENT:
+                    raise
+        result = hashlib.new(hashtype)
         for data in iter(lambda: fdesc.read(1048576), ""):
             result.update(data)
-        return result
+        return result.hexdigest()
 
 def serialize(obj):
     """Return a JSON-compatible representation for `obj`"""
@@ -770,6 +787,45 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return _NMAP_PROBES[proto][probe]
+
+
+_IKESCAN_VENDOR_IDS = {}
+_IKESCAN_VENDOR_IDS_POPULATED = False
+
+
+def _read_ikescan_vendor_ids():
+    global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
+    try:
+        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids')) as fdesc:
+            sep = re.compile('\\t+')
+            _IKESCAN_VENDOR_IDS = [
+                (line[0], re.compile(line[1].replace('[[:xdigit:]]',
+                                                     '[0-9a-f]'), re.I))
+                for line in (
+                        sep.split(line, 1)
+                        for line in (line.strip().split('#', 1)[0]
+                                     for line in fdesc)
+                        if line
+                )
+            ]
+    except (AttributeError, IOError) as exc:
+        sys.stderr.write('WARNING: cannot read ike-scan vendor IDs file.')
+        sys.stderr.write(warn_exception(exc))
+    _IKESCAN_VENDOR_IDS_POPULATED = True
+
+
+def get_ikescan_vendor_ids():
+    global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
+    if not _IKESCAN_VENDOR_IDS_POPULATED:
+        _read_ikescan_vendor_ids()
+    return _IKESCAN_VENDOR_IDS
+
+
+def find_ike_vendor_id(vendorid):
+    vid = vendorid.encode('hex')
+    for name, sig in get_ikescan_vendor_ids():
+        if sig.search(vid):
+            return name
 
 
 def nmap_encode_data(data):

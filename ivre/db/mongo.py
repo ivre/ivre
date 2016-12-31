@@ -467,6 +467,8 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.ls.volumes.files",
                   "ports.scripts.mongodb-databases.databases",
                   "ports.scripts.mongodb-databases.databases.shards",
+                  "ports.scripts.ike-info.transforms",
+                  "ports.scripts.ike-info.vendor_ids",
                   "ports.scripts.vulns",
                   "ports.scripts.vulns.check_results",
                   "ports.scripts.vulns.description",
@@ -1990,7 +1992,7 @@ have no effect if it is not expected)."""
           - devicetype / devicetype:<portnbr>
           - script:<scriptid> / script:<port>:<scriptid>
             / script:host:<scriptid>
-          - cert.* / smb.* / sshkey.*
+          - cert.* / smb.* / sshkey.* / ike.*
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -1998,6 +2000,7 @@ have no effect if it is not expected)."""
           - file.* / file.*:scriptid
           - hop
         """
+        null_if_empty = lambda val: val if val else None
         outputproc = None
         if flt is None:
             flt = self.flt_empty
@@ -2491,6 +2494,62 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchsshkey())
             subfield = field[7:]
             field = 'ports.scripts.ssh-hostkey.' + subfield
+        elif field == 'ike.vendor_ids':
+            flt = self.flt_and(flt, self.searchscript(name="ike-info"))
+            specialproj = {"ports.scripts.ike-info.vendor_ids.value": 1,
+                           "ports.scripts.ike-info.vendor_ids.name": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.ike-info.vendor_ids": {
+                    "$concat": [
+                        "$ports.scripts.ike-info.vendor_ids.value",
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.vendor_ids.name", ""]},
+                    ]}}}]
+            field = "ports.scripts.ike-info.vendor_ids"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': map(null_if_empty,
+                                               x['_id'].split('###'))}
+        elif field == 'ike.transforms':
+            flt = self.flt_and(flt, self.searchscript(
+                name="ike-info",
+                values={"transforms": {"$exists": True}},
+            ))
+            specialproj = {"ports.scripts.ike-info.transforms.Authentication": 1,
+                           "ports.scripts.ike-info.transforms.Encryption": 1,
+                           "ports.scripts.ike-info.transforms.GroupDesc": 1,
+                           "ports.scripts.ike-info.transforms.Hash": 1,
+                           "ports.scripts.ike-info.transforms.LifeDuration": 1,
+                           "ports.scripts.ike-info.transforms.LifeType": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.ike-info.transforms": {
+                    "$concat": [
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Authentication", ""]},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Encryption", ""]},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.GroupDesc", ""]},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Hash", ""]},
+                        "###",
+                        {"$toLower": "$ports.scripts.ike-info.transforms.LifeDuration"},
+                        "###",
+                        {"$ifNull": ["$ports.scripts.ike-info.transforms.LifeType", ""]},
+                    ]}}}]
+            field = "ports.scripts.ike-info.transforms"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': map(null_if_empty,
+                                               x['_id'].split('###'))}
+        elif field == 'ike.notification':
+            flt = self.flt_and(flt, self.searchscript(
+                name="ike-info",
+                values={"notification_type": {"$exists": True}},
+            ))
+            field = "ports.scripts.ike-info.notification_type"
+        elif field.startswith('ike.'):
+            flt = self.flt_and(flt, self.searchscript(name="ike-info"))
+            field = "ports.scripts.ike-info." + field[4:]
         elif field.startswith('modbus.'):
             subfield = field[7:]
             field = 'ports.scripts.modbus-discover.' + subfield
@@ -2744,6 +2803,8 @@ have no effect if it is not expected)."""
                 utils.str2regexp(args.asname)))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
+        if args.version is not None:
+            flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.timeago))
         if args.id is not None:

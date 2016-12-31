@@ -59,6 +59,22 @@ It includes the European flag from [pull request
 These files are licensed under [[https://en.wikipedia.org/wiki/MIT_License|MIT\\
 license]].
 
+===== ike-scan Vendor ID database =====
+
+The file ''%%data/ike-vendor-ids%%'' come from the\\
+[[https://github.com/royhills/ike-scan|ike-scan]] project.
+
+It includes new fingerprints discovered during Internet-wide ISAKMP\\
+scans. Those fingerprints are of course\\
+[[https://github.com/royhills/ike-scan/pull/18|contributed to ike-scan]],\\
+but have not been accepted by the project yet.
+
+This file is licensed under\\
+[[https://www.gnu.org/licenses/gpl-3.0.en.html|GPL v3 license]].
+
+See also\\
+[[https://github.com/royhills/ike-scan/issues/19|Use of ike-vendor-ids in other (open-source) softwares]].
+
 ===== Natural Earth =====
 
 The file ''%%web/static/world-110m.json%%'' has been generated with the\\

@@ -553,6 +553,27 @@ def flt_from_query(query, base_flt=None):
         elif param == 'hopdomain':
             flt = db.nmap.flt_and(flt,
                                   db.nmap.searchhopdomain(value, neg=neg))
+        elif not neg and param in ["ike.vendor_id.name",
+                                   "ike.vendor_id.value"]:
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchscript(
+                    name="ike-info",
+                    values={
+                        'vendor_ids.%s' % param[14:]: utils.str2regexp(value)
+                    },
+                ),
+            )
+        elif not neg and param == "ike.notification":
+            flt = db.nmap.flt_and(
+                flt,
+                db.nmap.searchscript(
+                    name="ike-info",
+                    values={
+                        'notification_type': utils.str2regexp(value)
+                    },
+                ),
+            )
         # sort
         elif param == 'sortby':
             if neg:

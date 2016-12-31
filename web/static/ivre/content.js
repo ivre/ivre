@@ -369,6 +369,18 @@ var HELP_FILTERS = {
 	    "title": "notes",
 	    "content": "Search results with an associated note.",
 	},
+	"ike.notification:": {
+	    "title": "ike.notification:<b>NOTIFICATION TYPE</b>",
+	    "content": "Search results with a specific notification received.",
+	},
+	"ike.vendor_id.name:": {
+	    "title": "ike.vendor_id.name:<b>parsed name</b>",
+	    "content": "Search results with a specific IKE Vendor ID.",
+	},
+	"ike.vendor_id.value:": {
+	    "title": "ike.vendor_id.value:<b>raw value</b>",
+	    "content": "Search results with a specific IKE Vendor ID.",
+	},
 	/* sort */
 	"skip:": {
 	    "title": "skip:<b>[count]</b>",
@@ -696,6 +708,50 @@ var HELP_TOPVALUES = {
 	"enip.serial": {
 	    "content": "enip.serial",
 	    "title": "<b>(!)</b>enip.serial"
+	},
+	"ike.notification": {
+	    "content": "ike.notification",
+	    "title": "<b>(!)</b>ike.notification"
+	},
+	"ike.transforms": {
+	    "content": "ike.transforms",
+	    "title": "<b>(!)</b>ike.transforms"
+	},
+	"ike.transforms.Authentication": {
+	    "content": "ike.transforms.Authentication",
+	    "title": "<b>(!)</b>ike.transforms.Authentication"
+	},
+	"ike.transforms.Encryption": {
+	    "content": "ike.transforms.Encryption",
+	    "title": "<b>(!)</b>ike.transforms.Encryption"
+	},
+	"ike.transforms.GroupDesc": {
+	    "content": "ike.transforms.GroupDesc",
+	    "title": "<b>(!)</b>ike.transforms.GroupDesc"
+	},
+	"ike.transforms.Hash": {
+	    "content": "ike.transforms.Hash",
+	    "title": "<b>(!)</b>ike.transforms.Hash"
+	},
+	"ike.transforms.LifeDuration": {
+	    "content": "ike.transforms.LifeDuration",
+	    "title": "<b>(!)</b>ike.transforms.LifeDuration"
+	},
+	"ike.transforms.LifeType": {
+	    "content": "ike.transforms.LifeType",
+	    "title": "<b>(!)</b>ike.transforms.LifeType"
+	},
+	"ike.vendor_ids": {
+	    "content": "ike.vendor_ids",
+	    "title": "<b>(!)</b>ike.vendor_ids"
+	},
+	"ike.vendor_ids.name": {
+	    "content": "ike.vendor_ids.name",
+	    "title": "<b>(!)</b>ike.vendor_ids.name"
+	},
+	"ike.vendor_ids.value": {
+	    "content": "ike.vendor_ids.value",
+	    "title": "<b>(!)</b>ike.vendor_ids.value"
 	},
     }
 };

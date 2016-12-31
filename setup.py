@@ -111,7 +111,7 @@ specialized scripts.
     extras_require={
         'Flow':  ["py2neo>=3"],
     },
-    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser'],
+    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser', 'ivre/analyzer'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',
@@ -122,8 +122,10 @@ specialized scripts.
           'bro/flow/dhcp_names.bro',
           'bro/flow/rpc.bro',
           'bro/flow/settings.bro']),
-        ('share/ivre/honeyd', ['honeyd/sshd']),
+        ('share/ivre/honeyd', []),
         ('share/ivre/geoip', []),
+        ('share/ivre/data', ['data/ike-vendor-ids']),
+        ('share/ivre/data/honeyd', ['data/honeyd/sshd']),
         ('share/ivre/docker', ['docker/Vagrantfile']),
         ('share/ivre/docker/agent', ['docker/agent/Dockerfile']),
         ('share/ivre/docker/base', ['docker/base/Dockerfile',

@@ -103,6 +103,18 @@ class IvreTests(unittest.TestCase):
             self.new_results.add(name)
         self.assertEqual(value, self.results[name])
 
+    def check_value_cmd(self, name, cmd, errok=False):
+        res, out, err = RUN(cmd)
+        self.assertTrue(errok or not err)
+        self.assertEqual(res, 0)
+        self.check_value(name, out)
+
+    def check_int_value_cmd(self, name, cmd, errok=False):
+        res, out, err = RUN(cmd)
+        self.assertTrue(errok or not err)
+        self.assertEqual(res, 0)
+        self.check_value(name, int(out))
+
     @classmethod
     def setUpClass(cls):
         cls.nmap_files = (
@@ -142,8 +154,12 @@ class IvreTests(unittest.TestCase):
         scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
-            res, _, err = RUN(["ivre", "scan2db", "--port",
-                               "-c", "TEST", "-s", "SOURCE", fname])
+            options = ["ivre", "scan2db", "--port", "-c", "TEST",
+                       "-s", "SOURCE"]
+            if "-probe-" in fname:
+                options.extend(["--masscan-probes", fname.split('-probe-')[1]])
+            options.extend(["--", fname])
+            res, _, err = RUN(options)
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(err))
             scan_counter += sum(1 for _ in scan_stored.finditer(err))
@@ -396,8 +412,11 @@ class IvreTests(unittest.TestCase):
         ]
         for query in queries:
             result = ivre.db.db.nmap.get(query)
-            nscanned = json.loads(
-                ivre.db.db.nmap.explain(result))['nscanned']
+            nscanned = json.loads(ivre.db.db.nmap.explain(result))
+            try:
+                nscanned = nscanned['nscanned']
+            except KeyError:
+                nscanned = nscanned['executionStats']['totalDocsExamined']
             self.assertEqual(result.count(), nscanned)
             self.assertEqual(
                 query,
@@ -528,6 +547,18 @@ class IvreTests(unittest.TestCase):
         count = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchldapanon()).count()
         self.check_value("nmap_ldapanon_count", count)
+        self.check_int_value_cmd(
+            "nmap_isakmp_count",
+            ["ivre", "scancli", "--count", "--service", "isakmp"],
+        )
+        self.check_value_cmd(
+            "nmap_isakmp_top_products",
+            ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
+        )
+        self.check_value_cmd(
+            "nmap_ssh_top_port",
+            ["ivre", "scancli", "--top", "port:ssh"],
+        )
 
         categories = ivre.db.db.nmap.topvalues("category")
         category = categories.next()

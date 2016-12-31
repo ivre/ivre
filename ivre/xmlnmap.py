@@ -26,6 +26,7 @@ This sub-module contains the parser for nmap's XML output files.
 """
 
 from ivre import utils, config, nmapout
+from ivre.analyzer import ike
 
 from xml.sax.handler import ContentHandler, EntityResolver
 import datetime
@@ -752,8 +753,10 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
 }
 
 MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
-    "banner": ["NULL"],
-    "http-headers": ["GetRequest"],
+    "tcp": {
+        "banner": ["NULL"],
+        "http-headers": ["GetRequest"],
+    },
 }
 
 NMAP_FINGERPRINT_IVRE_KEY = {
@@ -1078,9 +1081,21 @@ class NmapHandler(ContentHandler):
                 self.masscan_post_script(script)
                 # attempt to use Nmap service fingerprints
                 probes = self.masscan_probes[:]
-                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES.get(scriptid, []))
+                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES\
+                              .get(self._curport['protocol'], {})\
+                              .get(scriptid, []))
                 softmatch = {}
                 for probe in probes:
+                    # udp/ike: let's use ike-scan FP
+                    if self._curport['protocol'] == 'udp' and \
+                       probe in ['ike', 'ike-ipsec-nat-t']:
+                        masscan_data = script["masscan"]
+                        self._curport.update(ike.analyze_ike_payload(
+                            script['masscan']['raw'], probe=probe
+                        ))
+                        if self._curport.get('service_name') == 'isakmp':
+                            self._curport['scripts'][0]['masscan'] = masscan_data
+                        return
                     try:
                         fingerprints = utils.get_nmap_svc_fp(
                             proto=self._curport['protocol'],

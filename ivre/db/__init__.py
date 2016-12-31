@@ -322,7 +322,7 @@ class DBNmap(DB):
         store_scan_* method to parse (and store) the scan result.
 
         """
-        scanid = utils.hash_file(fname, hashtype="sha256").hexdigest()
+        scanid = utils.hash_file(fname, hashtype="sha256")
         if self.is_scan_present(scanid):
             if config.DEBUG:
                 sys.stderr.write("WARNING: Scan already present in Database"

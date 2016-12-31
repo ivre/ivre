@@ -372,6 +372,27 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "domain", "' + x + '");';
 		};
 	    }
+	    else if(field === 'ike.vendor_ids') {
+		prepareoutput = function(x) {
+		    return x[1];
+		};
+		preparetitle = function(x) {
+		    return x[0];
+		};
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "ike.vendor_id.value", "' + x[0] + '");';
+		};
+	    }
+	    else if(field === 'ike.transforms') {
+		prepareoutput = function(x) {
+		    return x.join(" / ");
+		};
+	    }
+	    else if(field === 'ike.notification') {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "ike.notification", "' + x + '");';
+		};
+	    }
 
 	    this.title.html(data.length + (neg ? " least" : " most") + " common " + field.replace(/</g, '&lt;').replace(/>/g, '&gt;') + " value" + (data.length >= 2 ? "s" : ""));
 
