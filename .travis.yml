@@ -21,6 +21,7 @@ install:
   - until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
   - pip install .
   - pip install -r requirements.txt
+  - pip install coverage codecov
 
 # We need MongoDB 2.6
 # https://github.com/travis-ci/travis-ci/issues/2246
@@ -51,4 +52,7 @@ before_script:
   - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
   - for file in telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file" ; done
 
-script: cd tests/ && travis_wait 30 python tests.py
+script: cd tests/ && travis_wait 30 python tests.py --coverage
+
+after_success:
+  - codecov
