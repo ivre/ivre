@@ -4,6 +4,7 @@
 build/
 dist/
 docker/base-local/ivre.tar
+ivre/VERSION
 tests/samples*
 tests/htmlcov*
 tests/.coverage

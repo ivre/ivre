@@ -38,6 +38,7 @@ docker/web/doku-conf-users.auth.php
 docker/web/nginx-default-site
 docker/web-apache/Dockerfile
 docker/web-apache/doku-conf-local.php
+ivre/VERSION
 ivre/__init__.py
 ivre/analyzer.py
 ivre/cliutils.py

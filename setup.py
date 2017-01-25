@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -68,7 +68,7 @@ class smart_install_data(install_data):
 
 setup(
     name='ivre',
-    version='0.9.3',
+    version=__import__('ivre').VERSION,
     author='Pierre LALET',
     author_email='pierre@droids-corp.org',
     url='https://ivre.rocks/',
@@ -265,5 +265,8 @@ specialized scripts.
           'doc/WEBUI.md']),
         ('etc/bash_completion.d', ['bash_completion/ivre']),
     ],
+    package_data={
+        'ivre': ['VERSION'],
+    },
     cmdclass={'install_data':smart_install_data},
 )
