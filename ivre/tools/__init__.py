@@ -40,6 +40,7 @@ __all__ = [
     'scan2db',
     'scancli',
     'scanstatus',
+    'version',
 ]
 
 ALIASES = {

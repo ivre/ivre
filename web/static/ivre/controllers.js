@@ -136,6 +136,7 @@ ivreWebUi
 
 ivreWebUi
     .controller('IvreMenuCtrl', function ($scope) {
+	$scope.version = config.version;
 	$scope.get_href = function(page, drop_hash) {
 	    if(page === undefined)
 		return document.location.href;

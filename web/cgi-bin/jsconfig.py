@@ -20,7 +20,7 @@ import json
 import sys
 
 try:
-    from ivre import webutils, config
+    from ivre import webutils, config, VERSION
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
     sys.stdout.write(
@@ -45,6 +45,7 @@ def main():
                 "publicsrv": config.WEB_PUBLIC_SRV,
                 "uploadok": config.WEB_UPLOAD_OK,
                 "flow_time_precision": config.FLOW_TIME_PRECISION,
+                "version": VERSION,
         }.iteritems()
     )
 

@@ -3,8 +3,12 @@ setup.cfg
 setup.py
 bash_completion/ivre
 bin/ivre
-data/honeyd/sshd
+bro/flow/__load__.bro
+bro/flow/dhcp_names.bro
+bro/flow/rpc.bro
+bro/flow/settings.bro
 data/ike-vendor-ids
+data/honeyd/sshd
 doc/AGENT.md
 doc/DOCKER.md
 doc/FAST-INSTALL-AND-FIRST-RUN.md
@@ -87,6 +91,7 @@ ivre/tools/runscansagentdb.py
 ivre/tools/scan2db.py
 ivre/tools/scancli.py
 ivre/tools/scanstatus.py
+ivre/tools/version.py
 nmap_scripts/http-screenshot.nse
 nmap_scripts/mainframe-banner.nse
 nmap_scripts/mainframe-screenshot.nse
@@ -112,8 +117,8 @@ web/dokuwiki/doc/screenshots.txt
 web/dokuwiki/doc/tests.txt
 web/dokuwiki/doc/webui.txt
 web/dokuwiki/media/logo.png
-web/static/cea.png
 web/static/cea-white.png
+web/static/cea.png
 web/static/compare.html
 web/static/favicon-loading.gif
 web/static/favicon.png
@@ -393,7 +398,6 @@ web/static/ivre/graph.js
 web/static/ivre/ivre.css
 web/static/ivre/ivre.js
 web/static/ivre/params.js
-web/static/ivre/parsers.js
 web/static/ivre/tooltip.js
 web/static/ivre/utils.js
 web/static/ivre/flow/controllers.js
