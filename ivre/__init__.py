@@ -63,7 +63,7 @@ def _version():
         pass
     try:
         with open(_VERSION_FILE) as fdesc:
-            return tag
+            return fdesc.read()
     except IOError:
         pass
     hashval, refnames = '$Format:%h %D$'.split(' ', 1)

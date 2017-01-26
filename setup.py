@@ -28,8 +28,11 @@ $ python setup.py build
 
 from distutils.core import setup
 from distutils.command.install_data import install_data
+from distutils.command.install_lib import install_lib
 import os
 import sys
+
+VERSION = __import__('ivre').VERSION
 
 class smart_install_data(install_data):
     """Replacement for distutils.command.install_data to handle
@@ -66,9 +69,32 @@ class smart_install_data(install_data):
                     os.unlink(tmpfname)
         return result
 
+class smart_install_lib(install_lib):
+    """Replacement for distutils.command.install_lib to handle
+    version file.
+
+    """
+    def run(self):
+        result = install_lib.run(self)
+        fullfname = os.path.join(self.install_dir, 'ivre', '__init__.py')
+        tmpfname = "%s.tmp" % fullfname
+        stat = os.stat(fullfname)
+        os.rename(fullfname, tmpfname)
+        with open(fullfname, 'w') as newf:
+            with open(tmpfname) as oldf:
+                for line in oldf:
+                    if line.startswith('import '):
+                        newf.write('VERSION = %r\n' % VERSION)
+                        break
+                    newf.write(line)
+        os.chown(fullfname, stat.st_uid, stat.st_gid)
+        os.chmod(fullfname, stat.st_mode)
+        os.unlink(tmpfname)
+        return result
+
 setup(
     name='ivre',
-    version=__import__('ivre').VERSION,
+    version=VERSION,
     author='Pierre LALET',
     author_email='pierre@droids-corp.org',
     url='https://ivre.rocks/',
@@ -268,5 +294,6 @@ specialized scripts.
     package_data={
         'ivre': ['VERSION'],
     },
-    cmdclass={'install_data':smart_install_data},
+    cmdclass={'install_data': smart_install_data,
+              'install_lib': smart_install_lib},
 )
