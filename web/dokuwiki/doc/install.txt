@@ -36,7 +36,7 @@ screenshots.
 
 ===== Installation =====
 
-The installation of [[README.md|IVRE]] itself can be done by:
+The installation of [[doc:readme.txt|IVRE]] itself can be done by:
 
   * using the ''%%setup.py%%'' (classical ''%%./setup.py build; sudo ./setup.py install%%'') script.
   * using [[https://pypi.python.org/pypi/pip|pip]]: on a Debian-based\\
@@ -47,7 +47,7 @@ Package Index).
   * building an RPM package (you can use the provided ''%%buildrpm%%''\\
 script, or use the ''%%setup.py%%'' script with your own options) and\\
 then installing it.
-  * using [[DOCKER.md|Docker]] (in this case you do not need to follow\\
+  * using [[doc:docker.txt|Docker]] (in this case you do not need to follow\\
 the following instructions, as the Docker containers are already\\
 configured).
 
@@ -185,7 +185,7 @@ The agent is only needed when you cannot install IVRE on the machine\\
 used to scan or when you want to use many machines to run one scan.
 
 It requires a POSIX environment, and the commands ''%%screen%%'', ''%%rsync%%''\\
-and ''%%nmap%%'' (of course). See the [[AGENT.md|AGENT]] file for more\\
+and ''%%nmap%%'' (of course). See the [[doc:agent.txt|AGENT]] file for more\\
 information about that.
 
 

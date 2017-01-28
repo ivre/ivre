@@ -4,7 +4,7 @@ Docker is an open-source platform that automates the deployment of\\
 applications inside containers. See the [[http://www.docker.com/|official\\
 website]].
 
-This document describes the (easy) installation of [[README.md|IVRE]]\\
+This document describes the (easy) installation of [[doc:readme.txt|IVRE]]\\
 using Docker containers, including the database and web servers.
 
 ====== Using Vagrant ======
@@ -53,7 +53,7 @@ You can detach from the container (without stopping it) by using ''%%C-p C-q%%''
 
 To initialize the database and start playing with IVRE, you need to\\
 enter some commands described in the\\
-[[#a-command-line-client|related section below]].
+[[#a_command_line_client|related section below]].
 
 ====== Without Vagrant ======
 

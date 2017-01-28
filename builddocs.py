@@ -1,0 +1,91 @@
+#! /usr/bin/env python2
+
+# This file is part of IVRE.
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+"""This file is part of IVRE.
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+
+This program is used to convert files in doc/ from Github Markdown
+format to files in web/dokuwiki/doc in Dokuwiki format.
+
+It uses Pandoc to convert from Github Markdown to Pandoc native
+format, fixes and convert the internal links (thanks to the function
+fixlink()), and uses Pandoc again to convert the modified file from
+Pandoc native format to Dokuwiki.
+
+"""
+
+import glob
+import os
+import re
+import subprocess
+
+LINK = re.compile('(?P<start>[\\,\\[])(?P<tag>Image|Link)'
+                  #+ re.escape(' ("",[],[]) [Str "')
+                  + re.escape(' ("",[],[]) [')
+                  #+ '(?P<name>[^"]*)'
+                  + '(?P<name>[^\\]]*)'
+                  #+ re.escape('"] ("')
+                  + re.escape('] ("')
+                  + '(?P<link>[^"]*)'
+                  + re.escape('","")')
+                  + '(?P<stop>[\\,\\[])')
+
+
+def fixlink(mobj):
+    mobj = mobj.groupdict()
+    link = mobj['link']
+    if '://' not in link:
+        if '#' in link:
+            link, anchor = link.split('#', 1)
+            anchor = '#%s' % anchor.replace('-', '_')
+        else:
+            anchor = ''
+        if link:
+            link = 'doc:%s' % link.lower().replace('/', ':')
+            if link.endswith('.md'):
+                link = '%s.txt' % link[:-3]
+        mobj['link'] = "%s%s" % (link, anchor)
+    return '%(start)s%(tag)s ("",[],[]) [%(name)s] ("%(link)s","")%(stop)s' % mobj
+
+
+def convert(fname):
+    outfname = os.path.join(
+        'web/dokuwiki/doc',
+        os.path.basename(fname).lower().replace('.md', '.txt'),
+    )
+    proc1 = subprocess.Popen(
+        ["pandoc", "-f", "markdown_github", "-t", "native", fname],
+        stdout=subprocess.PIPE,
+    )
+    proc2 = subprocess.Popen(
+        ["pandoc", "-f", "native", "-t", "dokuwiki"],
+        stdin=subprocess.PIPE,
+        stdout=open(outfname, 'w'),
+    )
+    for line in proc1.stdout:
+        proc2.stdin.write(LINK.sub(fixlink, line))
+    proc2.stdin.close()
+
+
+def main():
+    for fname in glob.glob('doc/*.md'):
+        convert(fname)
+
+
+if __name__ == '__main__':
+    main()
