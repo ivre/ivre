@@ -24,10 +24,13 @@ Taullier".
 
 # Overview #
 
-Have a look at the [project homepage](https://ivre.rocks/), and at the
-**[screenshot gallery](doc/SCREENSHOTS.md)** for an overview of the
-Web interface. We have a **demonstration instance**, just
-[contact us](#contact) to get an access.
+You can have a look at the [project homepage](https://ivre.rocks/),
+the **[screenshot gallery](doc/SCREENSHOTS.md)**, and the
+[quick video introducion](https://www.youtube.com/watch?v=GBu5QMq6ewY)
+for an overview of the Web interface.
+
+We have a **demonstration instance**, just [contact us](#contact) to
+get an access.
 
 A few
 **[blog posts](http://pierre.droids-corp.org/blog/html/tags/ivre.html)**
@@ -93,7 +96,39 @@ You can also try to use the e-mail `dev` on the domain `ivre.rocks`,
 or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
+# Talking about IVRE #
+
+## Research ##
+
+If you are using IVRE in you research, please cite it as follows:
+
+Pierre Lalet, Florent Monjalet, and Camille Mougey. *IVRE, a network
+recon framework*.
+[https://github.com/cea-sec/ivre](https://github.com/cea-sec/ivre),
+2011-2017.
+
+Here is the appropriate bibtex entry:
+
+    @MISC{ivre,
+        title = {{IVRE}, a network recon framework},
+        author={Lalet, Pierre and Monjalet, Florent and Mougey, Camille},
+        url = {https://ivre.rocks/},
+        howpublished = {\url{https://github.com/cea-sec/ivre/}},
+        institution = {{CEA}: the French Alternative Energies and Atomic Energy Commission},
+        year = {2011--2017},
+    }
+
+## Technical documents, blog posts, etc. ##
+
+You can mention "IVRE, a network recon framework", together with the
+project homepage, [https://ivre.rocks/](https://ivre.rocks/) and/or
+the repository,
+[https://github.com/cea-sec/ivre](https://github.com/cea-sec/ivre).
+
+On twitter, you can follow and/or mention
+[@IvreRocks](https://twitter.com/IvreRocks).
+
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2016 [Pierre LALET](mailto:pierre.lalet@cea.fr).
+This file is part of IVRE. Copyright 2011 - 2017 [Pierre LALET](mailto:pierre.lalet@cea.fr).
