@@ -27,7 +27,7 @@ RUN rm var/www/html/index.html && \
     ln -s /usr/local/share/ivre/dokuwiki/doc var/lib/dokuwiki/data/pages && \
     ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/lib/dokuwiki/data/media/wiki && \
     mkdir var/lib/dokuwiki/data/media/doc && \
-    ln -s /usr/local/share/doc/ivre/screenshots var/lib/dokuwiki/data/media/doc/ && \
+    ln -s /usr/local/share/doc/ivre/screenshots var/lib/dokuwiki/data/media/doc/
 
 # Configure IVRE
 RUN echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
