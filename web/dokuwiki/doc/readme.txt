@@ -247,6 +247,8 @@ site]].
 Try ''%%ivre help%%'' for the CLI commands, ''%%help()%%'' under Python and the\\
 "HELP" button in the web interface.
 
+Have a look at the [[FAQ.md|FAQ]]!
+
 Feel free to contact the author and offer him a beer if you need help!
 
 If you don't like beer, a good scotch or any other good alcoholic\\

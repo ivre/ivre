@@ -197,3 +197,9 @@ Available operators are:
   - `!=`
   - `<`, `<=`, `>`, `>=`
   - `=~`
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2017
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

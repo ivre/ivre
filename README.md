@@ -71,6 +71,8 @@ site](http://www.gnu.org/licenses/).
 Try `--help` for the CLI tools, `help()` under Python and the "HELP"
 button in the web interface.
 
+Have a look at the [FAQ](doc/FAQ.md)!
+
 Feel free to contact the author and offer him a beer if you need help!
 
 If you don't like beer, a good scotch or any other good alcoholic
