@@ -35,21 +35,18 @@ import re
 import subprocess
 
 LINK = re.compile('(?P<start>[\\,\\[])(?P<tag>Image|Link)'
-                  #+ re.escape(' ("",[],[]) [Str "')
                   + re.escape(' ("",[],[]) [')
-                  #+ '(?P<name>[^"]*)'
                   + '(?P<name>[^\\]]*)'
-                  #+ re.escape('"] ("')
                   + re.escape('] ("')
                   + '(?P<link>[^"]*)'
                   + re.escape('","")')
-                  + '(?P<stop>[\\,\\[])')
+                  + '(?P<stop>[\\,\\]])')
 
 
 def fixlink(mobj):
     mobj = mobj.groupdict()
     link = mobj['link']
-    if '://' not in link:
+    if not ('://' in link or link.startswith('mailto:')):
         if '#' in link:
             link, anchor = link.split('#', 1)
             anchor = '#%s' % anchor.replace('-', '_')
@@ -58,7 +55,7 @@ def fixlink(mobj):
         if link:
             link = 'doc:%s' % link.lower().replace('/', ':')
             if link.endswith('.md'):
-                link = '%s.txt' % link[:-3]
+                link = link[:-3]
         mobj['link'] = "%s%s" % (link, anchor)
     return '%(start)s%(tag)s ("",[],[]) [%(name)s] ("%(link)s","")%(stop)s' % mobj
 

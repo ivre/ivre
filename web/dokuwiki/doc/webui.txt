@@ -1,6 +1,6 @@
 ====== Introduction ======
 
-[[doc:readme.txt|IVRE]] (Instrument de veille sur les réseaux extérieurs) or\\
+[[doc:readme|IVRE]] (Instrument de veille sur les réseaux extérieurs) or\\
 DRUNK (Dynamic Recon of UNKnown networks) is a network recon\\
 framework, including tools for passive recon (flow analytics relying\\
 on [[https://www.bro.org/|Bro]], [[http://qosient.com/argus/|Argus]],\\

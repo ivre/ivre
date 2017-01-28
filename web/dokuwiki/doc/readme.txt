@@ -67,7 +67,7 @@ if you plan to add screenshots to your Nmap scan results
   * optionally [[http://www.docker.com/|Docker]] &\\
 [[https://www.vagrantup.com/|Vagrant]] (version 1.6 minimum)
 
-IVRE comes with (refer to the [[doc:license-external.txt|LICENSE-EXTERNAL]]\\
+IVRE comes with (refer to the [[doc:license-external|LICENSE-EXTERNAL]]\\
 file for the licenses):
 
   * [[https://angularjs.org/|AngularJS]]
@@ -79,8 +79,8 @@ file for the licenses):
 
 ====== Installation ======
 
-See the [[doc:install.txt|INSTALL]] file. You can also try to use\\
-[[doc:docker.txt|Docker]] to easily setup and run an IVRE architecture.
+See the [[doc:install|INSTALL]] file. You can also try to use\\
+[[doc:docker|Docker]] to easily setup and run an IVRE architecture.
 
 ====== Passive recon ======
 
@@ -191,7 +191,7 @@ database).
 
 There is an alternative to installing IVRE on the scanning machine\\
 that allows to use several agents from one master. See the\\
-[[doc:agent.txt|AGENT]] file, the program ''%%ivre runscansagent%%'' for the\\
+[[doc:agent|AGENT]] file, the program ''%%ivre runscansagent%%'' for the\\
 master and the ''%%agent/%%'' directory in the source tree.
 
 ===== Using the results =====
@@ -225,7 +225,7 @@ For more, run ''%%help(db.nmap)%%'' from the Python shell.
 ==== Web interface ====
 
 The interface is meant to be easy to use, it has its own\\
-[[doc:webui.txt|documentation]].
+[[doc:webui|documentation]].
 
 ====== License ======
 
@@ -240,7 +240,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\\
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License\\
-[[doc:license.txt|along with IVRE]]. If not, see [[http://www.gnu.org/licenses/|the gnu.org web\\
+[[doc:license|along with IVRE]]. If not, see [[http://www.gnu.org/licenses/|the gnu.org web\\
 site]].
 
 ====== Support ======
@@ -248,7 +248,7 @@ site]].
 Try ''%%ivre help%%'' for the CLI commands, ''%%help()%%'' under Python and the\\
 "HELP" button in the web interface.
 
-Have a look at the [[doc:faq.txt|FAQ]]!
+Have a look at the [[doc:faq|FAQ]]!
 
 Feel free to contact the author and offer him a beer if you need help!
 

@@ -30,10 +30,12 @@ RUN tar --transform='s#^dokuwiki-\([^/]*\)#var/www/dokuwiki#' -zxf ./dokuwiki-st
 RUN apt-get -qy install patch && \
     patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/dokuwiki/backlinks.patch && \
     apt-get -qy --purge autoremove patch
-RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc
-RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png
-RUN ln -s /usr/local/share/ivre/dokuwiki/media/doc var/www/dokuwiki/data/media/wiki/doc
-RUN echo 'WEB_GET_NOTEPAD_PAGES = ("localdokuwiki", ("/var/www/dokuwiki/data/pages",))' >> /etc/ivre.conf
+RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc && \
+    ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png && \
+    mkdir var/lib/dokuwiki/data/media/doc
+    ln -s /usr/local/share/doc/ivre/screenshots var/www/dokuwiki/data/media/doc/ && \
+    ln -s /usr/local/share/ivre/dokuwiki/media/doc var/www/dokuwiki/data/media/wiki/doc && \
+    echo 'WEB_GET_NOTEPAD_PAGES = ("localdokuwiki", ("/var/www/dokuwiki/data/pages",))' >> /etc/ivre.conf
 
 # Configure Dokuwiki
 RUN rm var/www/dokuwiki/install.php
