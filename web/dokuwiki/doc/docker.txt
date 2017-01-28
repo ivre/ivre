@@ -4,7 +4,7 @@ Docker is an open-source platform that automates the deployment of\\
 applications inside containers. See the [[http://www.docker.com/|official\\
 website]].
 
-This document describes the (easy) installation of [[doc:readme.txt|IVRE]]\\
+This document describes the (easy) installation of [[doc:readme|IVRE]]\\
 using Docker containers, including the database and web servers.
 
 ====== Using Vagrant ======

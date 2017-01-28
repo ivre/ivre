@@ -21,11 +21,13 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 RUN apt-get -qy install apache2 dokuwiki
 
 # Add links for IVRE Web UI
-RUN rm var/www/html/index.html
-RUN ln -s /usr/local/share/ivre/web/static/* var/www/html
-RUN ln -s /usr/local/share/ivre/web/cgi-bin/* usr/lib/cgi-bin
-RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/lib/dokuwiki/data/pages
-RUN ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/lib/dokuwiki/data/media/wiki
+RUN rm var/www/html/index.html && \
+    ln -s /usr/local/share/ivre/web/static/* var/www/html && \
+    ln -s /usr/local/share/ivre/web/cgi-bin/* usr/lib/cgi-bin && \
+    ln -s /usr/local/share/ivre/dokuwiki/doc var/lib/dokuwiki/data/pages && \
+    ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/lib/dokuwiki/data/media/wiki && \
+    mkdir var/lib/dokuwiki/data/media/doc && \
+    ln -s /usr/local/share/doc/ivre/screenshots var/lib/dokuwiki/data/media/doc/ && \
 
 # Configure IVRE
 RUN echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
