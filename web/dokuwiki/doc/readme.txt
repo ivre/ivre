@@ -60,13 +60,14 @@ web server is now distributed with IVRE (''%%ivre httpd%%'')
 free databases
   * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]],\\
 if you plan to add screenshots to your Nmap scan results
-  * optionally [[XXX%20TODO|neo4j]] (version >= 2) & [[XXX%20TODO|py2neo]]\\
+  * optionally [[https://neo4j.com/|neo4j]] (version >= 2) & [[http://py2neo.org|py2neo]]\\
 (version >= 3) for ivre flow related tools
-  * optionally [[XXX%20TODO|argus]] and/or [[XXX%20TODO|nfdump]] for ivre flow2db
+  * optionally [[http://qosient.com/argus/index.shtml|argus]] and/or\\
+[[http://nfdump.sourceforge.net/|nfdump]] for ivre flow2db
   * optionally [[http://www.docker.com/|Docker]] &\\
 [[https://www.vagrantup.com/|Vagrant]] (version 1.6 minimum)
 
-IVRE comes with (refer to the [[LICENSE-EXTERNAL.md|LICENSE-EXTERNAL]]\\
+IVRE comes with (refer to the [[doc:license-external.txt|LICENSE-EXTERNAL]]\\
 file for the licenses):
 
   * [[https://angularjs.org/|AngularJS]]
@@ -78,8 +79,8 @@ file for the licenses):
 
 ====== Installation ======
 
-See the [[INSTALL.md|INSTALL]] file. You can also try to use\\
-[[DOCKER.md|Docker]] to easily setup and run an IVRE architecture.
+See the [[doc:install.txt|INSTALL]] file. You can also try to use\\
+[[doc:docker.txt|Docker]] to easily setup and run an IVRE architecture.
 
 ====== Passive recon ======
 
@@ -190,7 +191,7 @@ database).
 
 There is an alternative to installing IVRE on the scanning machine\\
 that allows to use several agents from one master. See the\\
-[[AGENT.md|AGENT]] file, the program ''%%ivre runscansagent%%'' for the\\
+[[doc:agent.txt|AGENT]] file, the program ''%%ivre runscansagent%%'' for the\\
 master and the ''%%agent/%%'' directory in the source tree.
 
 ===== Using the results =====
@@ -224,7 +225,7 @@ For more, run ''%%help(db.nmap)%%'' from the Python shell.
 ==== Web interface ====
 
 The interface is meant to be easy to use, it has its own\\
-[[WEBUI.md|documentation]].
+[[doc:webui.txt|documentation]].
 
 ====== License ======
 
@@ -239,13 +240,15 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the\\
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License\\
-[[LICENSE.md|along with IVRE]]. If not, see [[http://www.gnu.org/licenses/|the gnu.org web\\
+[[doc:license.txt|along with IVRE]]. If not, see [[http://www.gnu.org/licenses/|the gnu.org web\\
 site]].
 
 ====== Support ======
 
 Try ''%%ivre help%%'' for the CLI commands, ''%%help()%%'' under Python and the\\
 "HELP" button in the web interface.
+
+Have a look at the [[doc:faq.txt|FAQ]]!
 
 Feel free to contact the author and offer him a beer if you need help!
 

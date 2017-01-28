@@ -70,10 +70,11 @@ IVRE relies on:
   * optionally [Tesseract](https://github.com/tesseract-ocr/tesseract),
     if you plan to add screenshots to your Nmap scan results
 
-  * optionally [neo4j](XXX TODO) (version >= 2) & [py2neo](XXX TODO)
+  * optionally [neo4j](https://neo4j.com/) (version >= 2) & [py2neo](http://py2neo.org)
     (version >= 3) for ivre flow related tools
 
-  * optionally [argus](XXX TODO) and/or [nfdump](XXX TODO) for ivre flow2db
+  * optionally [argus](http://qosient.com/argus/index.shtml) and/or
+    [nfdump](http://nfdump.sourceforge.net/) for ivre flow2db
 
   * optionally [Docker](http://www.docker.com/) &
     [Vagrant](https://www.vagrantup.com/) (version 1.6 minimum)
@@ -254,6 +255,8 @@ site](http://www.gnu.org/licenses/).
 
 Try `ivre help` for the CLI commands, `help()` under Python and the
 "HELP" button in the web interface.
+
+Have a look at the [FAQ](FAQ.md)!
 
 Feel free to contact the author and offer him a beer if you need help!
 

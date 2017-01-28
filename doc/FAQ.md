@@ -1,0 +1,42 @@
+# Web interface #
+
+## Help / Dokuwiki shows "Forbidden" ##
+
+**I cannot access the help pages or the notepad (the Dokuwiki content),
+and get a "Forbidden" message.**
+
+You need to configure your web server to allow access from other hosts
+on the network to the Dokuwiki content. It is often restricted, by
+default, to local users only.
+
+## How can I restrict access to IVRE's Web interface ##
+
+**I want to prevent unauthorized access to IVRE's results.**
+
+First, you have to configure your web server to authenticate remote
+users. The most important, of course, is to protect access to CGI
+files (the static files are publicly available and do not contain any
+result).
+
+In an AD or Kerberos environment for example, Apache can be configured
+to provide SSO authentication.
+
+Then, if you want to restrict access to the results based on the user
+login or domain, you can add the following lines to `/etc/ivre.conf`:
+
+    WEB_DEFAULT_INIT_QUERY = 'noaccess'
+    WEB_INIT_QUERIES = {
+        'admin@SUBNETWORK.NETWORK.AD': 'category:SubNetwork',
+        '@ADMIN.NETWORK.AD': 'full',
+    }
+
+By default, users won't have access to any result. The user
+`admin@SUBNETWORK.NETWORK.AD` will have access to the results in the
+category `SubNetwork`. The users in the `ADMIN.NETWORK.AD` realm will
+have access to all the results.
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2017
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

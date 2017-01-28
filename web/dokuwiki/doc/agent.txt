@@ -1,6 +1,6 @@
 ====== Introduction ======
 
-[[README.md|IVRE]] agent is meant to be run in an environment not\\
+[[doc:readme.txt|IVRE]] agent is meant to be run in an environment not\\
 totally controlled (e.g., during a pentest, on a machine you have just\\
 owned and want to use to do some network recon without installing\\
 IVRE).
@@ -11,7 +11,7 @@ IVRE agent only requires nmap (of course), screen and rsync (plus\\
 ====== Installation ======
 
 On the "master", install IVRE following the instructions of the\\
-[[INSTALL.md|INSTALL]] file. Install also ''%%screen%%''.
+[[doc:install.txt|INSTALL]] file. Install also ''%%screen%%''.
 
 On the "slave(s)", the ''%%agent%%'' script must be deployed, together with\\
 ''%%nmap%%'', ''%%screen%%'' and ''%%rsync%%''.
@@ -78,7 +78,7 @@ $ ivre runscansagent --routable --limit 1000 \
 >     agenthost1:/path/to/agent/dir      \
 >     agenthost2:/path/to/agent/dir      \
 </code>
-You can now import the results as if you had run the "regular" ''%%ivre runscans%%'' program to scan locally, see [[README.md|README]]. The\\
+You can now import the results as if you had run the "regular" ''%%ivre runscans%%'' program to scan locally, see [[doc:readme.txt|README]]. The\\
 results are stored under ''%%agentsdata/output/%%''
 
 ==== ivre runscansagentdb, the "modern" (but probably broken) one ====

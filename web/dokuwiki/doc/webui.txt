@@ -1,9 +1,9 @@
 ====== Introduction ======
 
-IVRE (Instrument de veille sur les réseaux extérieurs) or DRUNK\\
-(Dynamic Recon of UNKnown networks) is a network recon framework,\\
-including tools for passive recon (flow analytics relying on\\
-[[https://www.bro.org/|Bro]], [[http://qosient.com/argus/|Argus]],\\
+[[doc:readme.txt|IVRE]] (Instrument de veille sur les réseaux extérieurs) or\\
+DRUNK (Dynamic Recon of UNKnown networks) is a network recon\\
+framework, including tools for passive recon (flow analytics relying\\
+on [[https://www.bro.org/|Bro]], [[http://qosient.com/argus/|Argus]],\\
 [[http://nfdump.sourceforge.net/|Nfdump]], fingerprint analytics based\\
 on Bro and [[http://lcamtuf.coredump.cx/p0f/|p0f]] and active recon\\
 (IVRE uses [[http://nmap.org/|Nmap]] to run scans, can use\\
