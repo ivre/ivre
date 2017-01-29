@@ -11,7 +11,9 @@ data/ike-vendor-ids
 data/honeyd/sshd
 doc/AGENT.md
 doc/DOCKER.md
+doc/FAQ.md
 doc/FAST-INSTALL-AND-FIRST-RUN.md
+doc/FLOW.md
 doc/INSTALL.md
 doc/LICENSE-EXTERNAL.md
 doc/LICENSE.md
@@ -108,7 +110,9 @@ web/cgi-bin/scanupload.py
 web/dokuwiki/backlinks.patch
 web/dokuwiki/doc/agent.txt
 web/dokuwiki/doc/docker.txt
+web/dokuwiki/doc/faq.txt
 web/dokuwiki/doc/fast-install-and-first-run.txt
+web/dokuwiki/doc/flow.txt
 web/dokuwiki/doc/install.txt
 web/dokuwiki/doc/license-external.txt
 web/dokuwiki/doc/license.txt
