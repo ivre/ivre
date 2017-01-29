@@ -34,6 +34,7 @@ import os
 import re
 import subprocess
 
+
 LINK = re.compile('(?P<start>[\\,\\[])(?P<tag>Image|Link)'
                   + re.escape(' ("",[],[]) [')
                   + '(?P<name>[^\\]]*)'
@@ -41,6 +42,8 @@ LINK = re.compile('(?P<start>[\\,\\[])(?P<tag>Image|Link)'
                   + '(?P<link>[^"]*)'
                   + re.escape('","")')
                   + '(?P<stop>[\\,\\]])')
+
+LINEBREAK = re.compile('(?P<start>[\\,\\[])LineBreak(?P<stop>[\\,\\]])')
 
 
 def fixlink(mobj):
@@ -60,6 +63,10 @@ def fixlink(mobj):
     return '%(start)s%(tag)s ("",[],[]) [%(name)s] ("%(link)s","")%(stop)s' % mobj
 
 
+def removelinebreak(mobj):
+    return '%(start)sSpace%(stop)s' % mobj.groupdict()
+
+
 def convert(fname):
     outfname = os.path.join(
         'web/dokuwiki/doc',
@@ -75,7 +82,8 @@ def convert(fname):
         stdout=open(outfname, 'w'),
     )
     for line in proc1.stdout:
-        proc2.stdin.write(LINK.sub(fixlink, line))
+        proc2.stdin.write(LINEBREAK.sub(removelinebreak,
+                                        LINK.sub(fixlink, line)))
     proc2.stdin.close()
 
 
