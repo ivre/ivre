@@ -206,7 +206,7 @@ class ScanFile(Base):
     __tablename__ = "scan_file"
     sha256 = Column(LargeBinary(32), primary_key=True)
     args = Column(Text)
-    scaninfos = Column(postgresql.JSONB)
+    scaninfo = Column(postgresql.JSONB)
     scanner = Column(String(16))
     start = Column(DateTime)
     version = Column(String(16))
@@ -898,10 +898,11 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 int(scan['start'])
             )
         scan["sha256"] = scan.pop('_id').decode('hex')
+        scan["scaninfo"] = scan.pop('scaninfos')
         self.db.execute(insert(ScanFile).values(
             **dict(
                 (key, scan[key])
-                for key in ['sha256', 'args', 'scaninfos', 'scanner', 'start',
+                for key in ['sha256', 'args', 'scaninfo', 'scanner', 'start',
                             'version', 'xmloutputversion']
                 if key in scan
             )
@@ -910,10 +911,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def store_host(self, host, merge=False):
         addr = host['addr']
         context = self.get_context(addr, source=host.get('source'))
-        try:
-            addr = utils.int2ip(addr)
-        except (TypeError, struct.error):
-            pass
+        addr = self.convert_ip(addr)
         hostid = self.store_host_context(addr, context, host['starttime'], host['endtime'])
         if merge:
             insrt = postgresql.insert(Scan)
@@ -1012,6 +1010,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 port['service_fp'] = port.pop('service_servicefp')
             if 'state_state' in port:
                 port['state'] = port.pop('state_state')
+            if 'state_reason_ip' in port:
+                port['state_reason_ip'] = self.convert_ip(port['state_reason_ip'])
             if merge:
                 insrt = postgresql.insert(Port)
                 portid = self.db.execute(insrt.values(scan=scanid, **port)\
