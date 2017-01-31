@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,19 +19,22 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains math functions missing from Python's math
 module that might be usefull to any other sub-module or script.
 """
 
-from Crypto.Util.number import GCD as gcd
 
-# http://code.activestate.com/recipes/117119/
+from fractions import gcd
 
 
 def genprimes():
-    '''Yields the sequence of prime numbers via the Sieve of Eratosthenes.'''
+    '''Yields the sequence of prime numbers via the Sieve of Eratosthenes.
+
+http://code.activestate.com/recipes/117119/
+
+    '''
     D = {}  # map composite integers to primes witnessing their compositeness
     q = 2   # first integer to test for primality
     while 1:
