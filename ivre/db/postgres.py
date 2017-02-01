@@ -1070,6 +1070,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @staticmethod
     def query_from_filter(flt, archive, req):
+        # TODO: improve performances
+        #   - use a materialized view for `Scan` with `archive == 0`?
         if flt.main is not None:
             req = req.where(flt.main)
         if not archive:
@@ -1301,13 +1303,35 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                                     column('cnt')])\
                             .select_from(select([func.count().label('cnt')])\
                                          .select_from(Port)\
-                                         .where(and_(Port.state == info,
-                                                     Port.scan.in_(base)))\
+                                         .where(and_(
+                                             Port.state == info,
+                                             # Port.scan.in_(base),
+                                             exists(select([1])\
+                                                    .select_from(base)\
+                                                    .where(
+                                                        Port.scan == base.c.id
+                                                    )),
+                                         ))\
                                          .group_by(Port.scan)\
                                          .alias('cnt'))\
                             .group_by('cnt').order_by(order).limit(topnbr)
                     ))
         elif field.startswith('portlist:'):
+            ### Deux options pour filtrer:
+            ###   -1- Port.scan.in_(base),
+            ###   -2- exists(select([1])\
+            ###       .select_from(base)\
+            ###       .where(
+            ###         Port.scan == base.c.id
+            ###       )),
+            ###
+            ### D'après quelques tests, l'option -1- est plus beaucoup
+            ### rapide quand (base) est pas ou peu sélectif, l'option
+            ### -2- un peu plus rapide quand (base) est très sélectif
+            ###
+            ### TODO: vérifier si c'est pareil pour:
+            ###  - countports:open
+            ###  - tous les autres
             info = field[9:]
             return ({"count": result[0], "_id": [
                 (proto, int(port)) for proto, port in (
@@ -1326,6 +1350,11 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                                          .where(and_(
                                              Port.state == info,
                                              Port.scan.in_(base),
+                                             # exists(select([1])\
+                                             #        .select_from(base)\
+                                             #        .where(
+                                             #            Port.scan == base.c.id
+                                             #        )),
                                          ))\
                                          .group_by(Port.scan)\
                                          .alias('ports'))\
@@ -1389,15 +1418,28 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         else:
             raise NotImplementedError()
         s_from = {
-            Scan: Scan,
-            Script: join(Script, join(Port, Scan)),
-            Port: join(Port, Scan),
-            Host: join(Scan, Host),
+            Script: join(Script, Port),
+            Port: Port,
+            Host: Host,
         }
-        req = select([func.count().label("count")] + field[1])\
-              .select_from(s_from[field[0]])\
-              .group_by(*field[1])\
-              .where(Scan.id.in_(base))
+        where_clause = {
+            Script: Port.scan == base.c.id,
+            Port: Port.scan == base.c.id,
+            Host: Scan.host == base.c.id,
+        }
+        if field[0] == Scan:
+            req = self.query_from_filter(
+                flt, archive,
+                select([func.count().label("count")] + field[1])\
+                .select_from(Scan)\
+                .group_by(*field[1])
+            )
+        else:
+            req = select([func.count().label("count")] + field[1])\
+                  .select_from(s_from[field[0]])\
+                  .group_by(*field[1])\
+                  .where(exists(select([1]).select_from(base)\
+                                .where(where_clause[field[0]])))
         if field[2] is not None:
             req = req.where(field[2])
         if outputproc is None:
