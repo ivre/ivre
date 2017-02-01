@@ -26,6 +26,8 @@ from bisect import bisect_left
 import codecs
 import csv
 import datetime
+import json
+import re
 import sys
 import struct
 import time
@@ -82,7 +84,8 @@ class Flow(Base):
     )
 
 # Data
-class GeoIPCSVFile(object):
+
+class CSVFile(object):
     def __init__(self, fname, skip=0):
         self.fdesc = codecs.open(fname, encoding='latin-1')
         for _ in xrange(skip):
@@ -103,25 +106,25 @@ class GeoIPCSVFile(object):
     def __enter__(self):
         return self
 
-class GeoIPCSVLocationFile(GeoIPCSVFile):
+class GeoIPCSVLocationFile(CSVFile):
     @staticmethod
     def fixline(line):
         return line[:5] + ["%s,%s" % tuple(line[5:7])] + line[7:]
 
-class GeoIPCSVLocationRangeFile(GeoIPCSVFile):
+class GeoIPCSVLocationRangeFile(CSVFile):
     @staticmethod
     def fixline(line):
         for i in xrange(2):
             line[i] = utils.int2ip(int(line[i]))
         return line
 
-class GeoIPCSVASFile(GeoIPCSVFile):
+class GeoIPCSVASFile(CSVFile):
     @staticmethod
     def fixline(line):
         line = line[2].split(' ', 1)
         return [line[0][2:], '' if len(line) == 1 else line[1]]
 
-class GeoIPCSVASRangeFile(GeoIPCSVFile):
+class GeoIPCSVASRangeFile(CSVFile):
     @staticmethod
     def fixline(line):
         for i in xrange(2):
@@ -196,6 +199,51 @@ class Location_Range(Base):
 
 
 # Nmap
+
+class ScanCSVFile(CSVFile):
+    def __init__(self, hostgen, get_context, table, merge):
+        self.get_context = get_context
+        self.table = table
+        self.inp = hostgen
+        self.merge = merge
+    def fixline(self, line):
+        for field in ["cpes", "extraports", "openports", "os", "traces"]:
+            line.pop(field, None)
+        line["context"] = self.get_context(line['addr'],
+                                           source=line.get('source'))
+        line["addr"] = PostgresDB.convert_ip(line['addr'])
+        scanfileid = line.pop('scanid')
+        if isinstance(scanfileid, basestring):
+            scanfileid = [scanfileid]
+        line["scanfileid"] = '{%s}' % ','.join('"\\x%s"' % fid
+                                               for fid in scanfileid)
+        line["time_start"] = line.pop('starttime')
+        line["time_stop"] = line.pop('endtime')
+        line["info"] = line.pop('infos', None)
+        if line["info"].get("city") == "Norwood" and ('\xad' in repr(line['info']) or 'xad' in repr(line['info'])):
+            print line["info"]
+        line["archive"] = 0
+        line["merge"] = False
+        for field in ["categories"]:
+            if field in line:
+                line[field] = "{%s}" % json.dumps(line[field])[1:-1]
+        for port in line.get('ports', []):
+            for script in port.get('scripts', []):
+                if 'masscan' in script and 'raw' in script['masscan']:
+                    script['masscan']['raw'] = script['masscan']['raw'].encode(
+                        'base64'
+                    ).replace('\n', '')
+            if 'screendata' in port:
+                port['screendata'] = port['screendata'].encode('base64')\
+                                                       .replace('\n', '')
+        for field in ["hostnames", "ports", "info"]:
+            if field in line:
+                line[field] = json.dumps(line[field]).replace('\\', '\\\\')
+        return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
+                for col in self.table.columns]
+    def __exit__(self, *args):
+        pass
+
 
 class Association_Scan_ScanFile(Base):
     __tablename__ = 'association_scan_scanfile'
@@ -401,13 +449,17 @@ class PostgresDB(DB):
         trans.commit()
         conn.close()
 
-    def create_tmp_table(self, table):
+    def create_tmp_table(self, table, extracols=None):
         cols = [c.copy() for c in table.__table__.columns]
         for c in cols:
             c.index = False
+            c.nullable = True
+            c.foreign_keys = None
             if c.primary_key:
                 c.primary_key = False
                 c.index = True
+        if extracols is not None:
+            cols.extend(extracols)
         t = Table("tmp_%s" % table.__tablename__,
                   table.__table__.metadata, *cols,
                   prefixes=['TEMPORARY'])
@@ -688,7 +740,7 @@ class PostgresDBData(PostgresDB, DBData):
             )
 
     def feed_country_codes(self, fname):
-        with GeoIPCSVFile(fname) as fdesc:
+        with CSVFile(fname) as fdesc:
             self.copy_from(fdesc, Country.__tablename__, null='')
         # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
         self.db.execute(insert(Country).values(
@@ -869,7 +921,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
               Association_Scan_ScanFile]
     required_tables = [AS, Country, Location]
     shared_tables = [(Host, Host.id, [Flow.src, Flow.dst]),
-                     (Context, Context.name, [Host.context])]
+                     (Context, Context.id, [Host.context])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -907,6 +959,24 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 if key in scan
             )
         ))
+
+    def store_hosts(self, hosts, merge=False):
+        tmp = self.create_tmp_table(Scan, extracols=[
+            Column("context", String(32)),
+            Column("scanfileid", ARRAY(LargeBinary(32))),
+            Column("categories", ARRAY(String(32))),
+            Column("source", String(32)),
+            #Column("cpe", postgresql.JSONB),
+            #Column("extraports", postgresql.JSONB),
+            Column("hostnames", postgresql.JSONB),
+            # openports
+            #Column("os", postgresql.JSONB),
+            Column("ports", postgresql.JSONB),
+            #Column("traceroutes", postgresql.JSONB),
+        ])
+        print tmp
+        with ScanCSVFile(hosts, self.get_context, tmp, merge) as fdesc:
+            self.copy_from(fdesc, tmp.name)
 
     def store_host(self, host, merge=False):
         addr = host['addr']
