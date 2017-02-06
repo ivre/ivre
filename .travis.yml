@@ -1,7 +1,8 @@
 sudo: false
+
 env:
-  global:
-    - MONGODB_VERSION=2.6.10
+  - DB=mongo MONGODB_VERSION=2.6.10
+  - DB=mongo MONGODB_VERSION=3.4.2
 
 language: python
 

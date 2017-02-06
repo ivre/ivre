@@ -50,7 +50,8 @@ IVRE relies on:
     [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
     with version 3) for the passive fingerprint and flow modules.
 
-  * [MongoDB](http://www.mongodb.org/), version 2.6 minimum
+  * [MongoDB](http://www.mongodb.org/), version 2.6 minimum (tests are
+    run with versions 2.6.10 and 3.4.2)
 
   * [Neo4j](http://neo4j.com/) for the flow module
 
