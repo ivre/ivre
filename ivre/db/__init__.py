@@ -818,8 +818,7 @@ class DBAgent(DB):
         master = self.get_master(masterid)
         localpath = tempfile.mkdtemp(prefix="", dir=master['path'])
         for dirname in ["input"] + [os.path.join("remote", dname)
-                                    for dname in "input", "cur",
-                                    "output"]:
+                                    for dname in ["input", "cur", "output"]]:
             utils.makedirs(os.path.join(localpath, dirname))
         agent = {
             "host": host,
