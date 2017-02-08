@@ -43,24 +43,43 @@ def _get_version_from_git():
                             stdout=subprocess.PIPE, stderr=open(os.devnull),
                             cwd=os.path.join(_DIR, os.path.pardir))
     out, err = proc.communicate()
-    if proc.returncode == 0:
-        tag = out.strip()
-        match = re.match(r'^v?(.+?)-(\d+)-g[a-f0-9]+$', tag)
-        if match:
-            # remove the 'v' prefix and add a '.devN' suffix
-            return '%s.dev%s' % match.groups()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, err)
+    tag = out.strip()
+    proc = subprocess.Popen(['git', 'branch', '--contains', 'HEAD'],
+                            stdout=subprocess.PIPE, stderr=open(os.devnull),
+                            cwd=os.path.join(_DIR, os.path.pardir))
+    out, err = proc.communicate()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, err)
+    try:
+        branch = (branch[1:].strip() for branch in out.splitlines()
+                  if branch.startswith('*')).next()
+    except StopIteration:
+        branch = "master"
+    match = re.match(r'^v?(.+?)-(\d+)-g[a-f0-9]+$', tag)
+    if match:
+        # remove the 'v' prefix and add a '.devN' suffix
+        value = '%s.dev%s' % match.groups()
+    else:
         # just remove the 'v' prefix
-        return tag[1:] if tag.startswith('v') else tag
-    raise subprocess.CalledProcessError(proc.returncode, err)
+        value = tag[1:] if tag.startswith('v') else tag
+    if branch == 'master':
+        return value
+    return '%s-%s' % (value, branch)
 
 def _version():
     try:
         tag = _get_version_from_git()
-        with open(_VERSION_FILE, 'w') as fdesc:
-            fdesc.write(tag)
-        return tag
-    except:
+    except subprocess.CalledProcessError as exc:
         pass
+    else:
+        try:
+            with open(_VERSION_FILE, 'w') as fdesc:
+                fdesc.write(tag)
+        except IOError:
+            pass
+        return tag
     try:
         with open(_VERSION_FILE) as fdesc:
             return fdesc.read()
