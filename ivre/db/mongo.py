@@ -2886,12 +2886,12 @@ setting values according to the keyword arguments.
             )
 
     def insert_or_update_bulk(self, specs, getinfos=None):
-        """Like `.insert_or_update()`, but `specs` parameter has to be
-        an iterable of (timestamp, spec) values. This will perform
-        bulk MongoDB inserts with the major drawback that the
-        `getinfos` parameter will be called (if it is not `None`) for
-        each spec, the spec already exists in the database and the
-        call was hence unnecessary.
+        """Like `.insert_or_update()`, but `specs` parameter has to be an
+        iterable of (timestamp, spec) values. This will perform bulk
+        MongoDB inserts with the major drawback that the `getinfos`
+        parameter will be called (if it is not `None`) for each spec,
+        even when the spec already exists in the database and the call
+        was hence unnecessary.
 
         It's up to you to decide whether having bulk insert is worth
         it or if you want to go with the regular `.insert_or_update()`

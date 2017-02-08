@@ -359,6 +359,35 @@ class Scan(Base):
 
 # Passive
 
+class P0fCSVFile(CSVFile):
+    columns = {"addr", "context", "host", "sensor", "count", "firstseen",
+               "lastseen", "info", "port", "recontype", "source", "targetval",
+               "value"}
+    def __init__(self, siggen, get_context, table):
+        self.get_context = get_context
+        self.table = table
+        self.inp = siggen
+        self.fdesc = None
+    def fixline(self, line):
+        timestamp, line = line
+        addr = line["addr"]
+        line["context"] = self.get_context(addr, sensor=line.get('sensor'))
+        line["addr"] = PostgresDB.convert_ip(addr)
+        timestamp = datetime.datetime.fromtimestamp(timestamp)
+        line["firstseen"] = line["lastseen"] = timestamp
+        line["recontype"] = RECONTYPES[line["recontype"]]
+        line.setdefault("count", 1)
+        line.setdefault("port", 0)
+        for key in ["sensor", "value", "source", "targetval"]:
+            line.setdefault(key, "")
+        line["info"] = "%s" % json.dumps(dict(
+            (key, line.pop(key)) for key in list(line)
+            if key not in self.columns
+        ))
+        return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
+                for col in self.table.columns]
+
+
 class Recontype(enum.Enum):
     UNKNOWN = "UNKNOWN"
     HTTP_CLIENT_HEADER = "HTTP_CLIENT_HEADER"
@@ -501,7 +530,7 @@ class PostgresDB(DB):
         t = Table("tmp_%s" % table.__tablename__,
                   table.__table__.metadata, *cols,
                   prefixes=['TEMPORARY'])
-        t.create(bind=self.db)
+        t.create(bind=self.db, checkfirst=True)
         return t
 
     @staticmethod
@@ -1986,6 +2015,94 @@ returns the first result, or None if no result exists."""
                     'lastseen': func.greatest(
                         Passive.lastseen,
                         timestamp,
+                    ),
+                    'count': Passive.count + insrt.excluded.count,
+                },
+            )
+        )
+
+    def insert_or_update_bulk(self, specs, getinfos=None):
+        """Like `.insert_or_update()`, but `specs` parameter has to be an
+        iterable of (timestamp, spec) values. This will perform
+        PostgreSQL COPY FROM inserts with the major drawback that the
+        `getinfos` parameter will be called (if it is not `None`) for
+        each spec, even when the spec already exists in the database
+        and the call was hence unnecessary.
+
+        It's up to you to decide whether having bulk insert is worth
+        it or if you want to go with the regular `.insert_or_update()`
+        method.
+
+        """
+        tmp = self.create_tmp_table(Passive, extracols=[
+                Column("addr", postgresql.INET),
+                Column("context", String(32)),
+        ])
+        with P0fCSVFile(specs, self.get_context, tmp) as fdesc:
+            self.copy_from(fdesc, tmp.name)
+        self.db.execute(postgresql.insert(Context).from_select(
+            ['name'],
+            select([column("context")]).select_from(tmp)\
+            .distinct(column("context")),
+        ).on_conflict_do_nothing())
+        insrt = postgresql.insert(Host)
+        self.db.execute(
+            insrt\
+            .from_select(
+                [column(col) for col in ['context', 'addr', 'firstseen',
+                                         'lastseen']],
+                select([Context.id, column("addr"),
+                        func.min_(column("firstseen")),
+                        func.max_(column("lastseen"))])\
+                .select_from(join(Context, tmp,
+                                  Context.name == column("context")))\
+                .group_by(Context.id, column("addr"))
+            )\
+            .on_conflict_do_update(
+                index_elements=['addr', 'context'],
+                set_={
+                    'firstseen': func.least(
+                        Host.firstseen,
+                        insrt.excluded.firstseen,
+                    ),
+                    'lastseen': func.greatest(
+                        Host.lastseen,
+                        insrt.excluded.lastseen,
+                    )},
+            )
+        )
+        insrt = postgresql.insert(Passive)
+        self.db.execute(
+            insrt\
+            .from_select(
+                [column(col) for col in ['host', 'count', 'firstseen',
+                                         'lastseen', 'sensor', 'info', 'port',
+                                         'recontype', 'source', 'targetval',
+                                         'value']],
+                select([Host.id, func.sum_(tmp.columns['count']),
+                        func.min_(tmp.columns['firstseen']),
+                        func.max_(tmp.columns['lastseen'])] + [
+                            tmp.columns[col] for col in [
+                                'sensor', 'info', 'port',
+                                'recontype', 'source', 'targetval', 'value']])\
+                .select_from(join(tmp, join(Context, Host),
+                                  (Context.name == tmp.columns["context"]) &
+                                  (Host.addr == tmp.columns["addr"])))\
+                .group_by(Host.id, *(tmp.columns[col] for col in [
+                    'sensor', 'recontype', 'port', 'source', 'value',
+                    'targetval', 'info']))
+            )\
+            .on_conflict_do_update(
+                index_elements=['host', 'sensor', 'recontype', 'port',
+                                'source', 'value', 'targetval', 'info'],
+                set_={
+                    'firstseen': func.least(
+                        Passive.firstseen,
+                        insrt.excluded.firstseen,
+                    ),
+                    'lastseen': func.greatest(
+                        Passive.lastseen,
+                        insrt.excluded.lastseen,
                     ),
                     'count': Passive.count + insrt.excluded.count,
                 },
