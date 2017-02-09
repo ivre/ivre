@@ -87,18 +87,41 @@ class Flow(Base):
 # Data
 
 class CSVFile(object):
-    def __init__(self, fname, skip=0):
+    """A file like object generating CSV lines suitable for use with
+PostgresDB.copy_from(). Reads (at most `limit`, when it's not None)
+lines from `fname`, skipping `skip` first lines.
+
+When .read() returns the empty string, the attribute `.more_to_read`
+is set to True when the `limit` has been reached, and to False when
+there is no more data to read from the input.
+
+    """
+    def __init__(self, fname, skip=0, limit=None):
         self.fdesc = codecs.open(fname, encoding='latin-1')
         for _ in xrange(skip):
             self.fdesc.readline()
+        self.limit = limit
+        if limit is not None:
+            self.count =  0
+        self.more_to_read = None
         self.inp = csv.reader(self.fdesc)
     @staticmethod
     def fixline(line):
+        """Subclasses can override this method to generate the CSV line from
+the original line.
+
+        """
         return line
     def read(self, size=None):
+        if self.limit is not None:
+            if self.count >= self.limit:
+                self.more_to_read = True
+                return ''
         try:
+            self.count += 1
             return '%s\n' % '\t'.join(self.fixline(self.inp.next()))
         except StopIteration:
+            self.more_to_read = False
             return ''
     def readline(self):
         return self.read()
@@ -363,11 +386,14 @@ class P0fCSVFile(CSVFile):
     columns = {"addr", "context", "host", "sensor", "count", "firstseen",
                "lastseen", "info", "port", "recontype", "source", "targetval",
                "value"}
-    def __init__(self, siggen, get_context, table):
+    def __init__(self, siggen, get_context, table, limit=None):
         self.get_context = get_context
         self.table = table
         self.inp = siggen
         self.fdesc = None
+        self.limit = limit
+        if limit is not None:
+            self.count = 0
     def fixline(self, line):
         timestamp, line = line
         addr = line["addr"]
@@ -2034,80 +2060,85 @@ returns the first result, or None if no result exists."""
         method.
 
         """
+        more_to_read = True
         tmp = self.create_tmp_table(Passive, extracols=[
-                Column("addr", postgresql.INET),
-                Column("context", String(32)),
+            Column("addr", postgresql.INET),
+            Column("context", String(32)),
         ])
-        with P0fCSVFile(specs, self.get_context, tmp) as fdesc:
-            self.copy_from(fdesc, tmp.name)
-        self.db.execute(postgresql.insert(Context).from_select(
-            ['name'],
-            select([column("context")]).select_from(tmp)\
-            .distinct(column("context")),
-        ).on_conflict_do_nothing())
-        insrt = postgresql.insert(Host)
-        self.db.execute(
-            insrt\
-            .from_select(
-                [column(col) for col in ['context', 'addr', 'firstseen',
-                                         'lastseen']],
-                select([Context.id, column("addr"),
-                        func.min_(column("firstseen")),
-                        func.max_(column("lastseen"))])\
-                .select_from(join(Context, tmp,
-                                  Context.name == column("context")))\
-                .group_by(Context.id, column("addr"))
-            )\
-            .on_conflict_do_update(
-                index_elements=['addr', 'context'],
-                set_={
-                    'firstseen': func.least(
-                        Host.firstseen,
-                        insrt.excluded.firstseen,
-                    ),
-                    'lastseen': func.greatest(
-                        Host.lastseen,
-                        insrt.excluded.lastseen,
-                    )},
+        while more_to_read:
+            with P0fCSVFile(specs, self.get_context, tmp,
+                            limit=config.POSTGRES_BATCH_SIZE) as fdesc:
+                self.copy_from(fdesc, tmp.name)
+                more_to_read = fdesc.more_to_read
+            self.db.execute(postgresql.insert(Context).from_select(
+                ['name'],
+                select([column("context")]).select_from(tmp)\
+                .distinct(column("context")),
+            ).on_conflict_do_nothing())
+            insrt = postgresql.insert(Host)
+            self.db.execute(
+                insrt\
+                .from_select(
+                    [column(col) for col in ['context', 'addr', 'firstseen',
+                                             'lastseen']],
+                    select([Context.id, column("addr"),
+                            func.min_(column("firstseen")),
+                            func.max_(column("lastseen"))])\
+                    .select_from(join(Context, tmp,
+                                      Context.name == column("context")))\
+                    .group_by(Context.id, column("addr"))
+                )\
+                .on_conflict_do_update(
+                    index_elements=['addr', 'context'],
+                    set_={
+                        'firstseen': func.least(
+                            Host.firstseen,
+                            insrt.excluded.firstseen,
+                        ),
+                        'lastseen': func.greatest(
+                            Host.lastseen,
+                            insrt.excluded.lastseen,
+                        )},
+                )
             )
-        )
-        insrt = postgresql.insert(Passive)
-        self.db.execute(
-            insrt\
-            .from_select(
-                [column(col) for col in ['host', 'count', 'firstseen',
-                                         'lastseen', 'sensor', 'info', 'port',
-                                         'recontype', 'source', 'targetval',
-                                         'value']],
-                select([Host.id, func.sum_(tmp.columns['count']),
-                        func.min_(tmp.columns['firstseen']),
-                        func.max_(tmp.columns['lastseen'])] + [
-                            tmp.columns[col] for col in [
-                                'sensor', 'info', 'port',
-                                'recontype', 'source', 'targetval', 'value']])\
-                .select_from(join(tmp, join(Context, Host),
-                                  (Context.name == tmp.columns["context"]) &
-                                  (Host.addr == tmp.columns["addr"])))\
-                .group_by(Host.id, *(tmp.columns[col] for col in [
-                    'sensor', 'recontype', 'port', 'source', 'value',
-                    'targetval', 'info']))
-            )\
-            .on_conflict_do_update(
-                index_elements=['host', 'sensor', 'recontype', 'port',
-                                'source', 'value', 'targetval', 'info'],
-                set_={
-                    'firstseen': func.least(
-                        Passive.firstseen,
-                        insrt.excluded.firstseen,
-                    ),
-                    'lastseen': func.greatest(
-                        Passive.lastseen,
-                        insrt.excluded.lastseen,
-                    ),
-                    'count': Passive.count + insrt.excluded.count,
-                },
+            insrt = postgresql.insert(Passive)
+            self.db.execute(
+                insrt\
+                .from_select(
+                    [column(col) for col in ['host', 'count', 'firstseen',
+                                             'lastseen', 'sensor', 'info', 'port',
+                                             'recontype', 'source', 'targetval',
+                                             'value']],
+                    select([Host.id, func.sum_(tmp.columns['count']),
+                            func.min_(tmp.columns['firstseen']),
+                            func.max_(tmp.columns['lastseen'])] + [
+                                tmp.columns[col] for col in [
+                                    'sensor', 'info', 'port',
+                                    'recontype', 'source', 'targetval', 'value']])\
+                    .select_from(join(tmp, join(Context, Host),
+                                      (Context.name == tmp.columns["context"]) &
+                                      (Host.addr == tmp.columns["addr"])))\
+                    .group_by(Host.id, *(tmp.columns[col] for col in [
+                        'sensor', 'recontype', 'port', 'source', 'value',
+                        'targetval', 'info']))
+                )\
+                .on_conflict_do_update(
+                    index_elements=['host', 'sensor', 'recontype', 'port',
+                                    'source', 'value', 'targetval', 'info'],
+                    set_={
+                        'firstseen': func.least(
+                            Passive.firstseen,
+                            insrt.excluded.firstseen,
+                        ),
+                        'lastseen': func.greatest(
+                            Passive.lastseen,
+                            insrt.excluded.lastseen,
+                        ),
+                        'count': Passive.count + insrt.excluded.count,
+                    },
+                )
             )
-        )
+            self.db.execute(delete(tmp))
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, distinct=False):
