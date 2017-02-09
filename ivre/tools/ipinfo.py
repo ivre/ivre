@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,14 +19,15 @@
 import ivre.utils
 from ivre.db import db
 
-import re
-import time
+import datetime
 import functools
+import os
+import re
+import struct
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
-import os
-import datetime
+import time
 try:
     import argparse
     USING_ARGPARSE = True
@@ -36,10 +37,13 @@ except ImportError:
 
 def disp_rec(h):
     print '\t',
-    if 'port' in h:
+    if 'port' in h and h['port']:
         print h['port'],
     if 'recontype' in h:
-        print h['recontype'],
+        try:
+            print h['recontype'].value,
+        except AttributeError:
+            print h['recontype'],
     if 'source' in h:
         print h['source'],
     if 'infos' not in h and 'value' in h:
@@ -55,8 +59,11 @@ def disp_rec(h):
     if 'count' in h:
         print "(%d time%s)" % (h['count'], h['count'] > 1 and 's' or ''),
     if 'firstseen' in h and 'lastseen' in h:
-        print datetime.datetime.fromtimestamp(int(h['firstseen'])), '-',
-        print datetime.datetime.fromtimestamp(int(h['lastseen'])),
+        if isinstance(h['firstseen'], datetime.datetime):
+            print h['firstseen'], '-', h['lastseen'],
+        else:
+            print datetime.datetime.fromtimestamp(int(h['firstseen'])), '-',
+            print datetime.datetime.fromtimestamp(int(h['lastseen'])),
     if 'sensor' in h:
         print h['sensor'],
     print
@@ -71,16 +78,19 @@ def disp_rec(h):
 
 def disp_recs_std(flt):
     oa = None
-    c = db.passive.get(flt)
-    for h in c.sort([('addr', 1), ('recontype', 1), ('source', 1),
-                     ('port', 1)]):
+    c = db.passive.get(flt, sort=[('addr', 1), ('recontype', 1), ('source', 1),
+                                  ('port', 1)])
+    for h in c:
         if not 'addr' in h or h['addr'] == 0:
             continue
         if oa != h['addr']:
             if oa is not None:
                 print
             oa = h['addr']
-            print ivre.utils.int2ip(oa)
+            try:
+                print ivre.utils.int2ip(oa)
+            except struct.error:
+                pass
             c = db.data.infos_byip(oa)
             if c:
                 if 'country_code' in c:
@@ -204,7 +214,7 @@ def main():
             return res[0]
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
-    baseflt = {}
+    baseflt = db.passive.flt_empty
     disp_recs = disp_recs_std
     # DB
     parser.add_argument('--init', '--purgedb', action='store_true',

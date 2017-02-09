@@ -518,18 +518,18 @@ class PostgresDB(DB):
     def drop(self):
         for table in reversed(self.tables):
             table.__table__.drop(bind=self.db, checkfirst=True)
-        for table in self.shared_tables:
-            try:
-                self.db.execute(delete(table))
-            except ProgrammingError:
-                pass
+        for table, othercols in self.shared_tables:
+            if table.__table__.exists(bind=self.db):
+                base = union(*(select([col]) for col in othercols
+                               if col.table.exists(bind=self.db))).cte("base")
+                self.db.execute(delete(table).where(table.id.in_(base)))
 
 
     def init(self):
         self.drop()
         for table in self.required_tables:
             table.__table__.create(bind=self.db, checkfirst=True)
-        for table in self.shared_tables[::-1]:
+        for table, _ in self.shared_tables[::-1]:
             table.__table__.create(bind=self.db, checkfirst=True)
         for table in self.tables:
             table.__table__.create(bind=self.db, checkfirst=True)
@@ -797,7 +797,8 @@ class BulkInsert(object):
 
 class PostgresDBFlow(PostgresDB, DBFlow):
     tables = [Flow]
-    shared_tables = [Host, Context]
+    shared_tables = [(Host, [Scan.host, Passive.host]),
+                     (Context, [Host.context])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -1057,6 +1058,43 @@ class NmapFilter(Filter):
         if self.uses_host:
             return join(Scan, Host)
         return Scan
+    def query(self, archive, req):
+        # TODO: improve performances
+        #   - use a materialized view for `Scan` with `archive == 0`?
+        if self.main is not None:
+            req = req.where(self.main)
+        if not archive:
+            req = req.where(Scan.archive == 0)
+        # See https://stackoverflow.com/questions/17112345/using-intersect-with-tables-from-a-with-clause
+        for subflt in self.category:
+            req = req.where(exists(
+                select([1])\
+                .select_from(join(Category, Association_Scan_Category))\
+                .where(subflt)\
+                .where(Association_Scan_Category.scan == Scan.id)
+            ))
+        for subflt in self.source:
+            req = req.where(exists(
+                select([1])\
+                .select_from(join(Source, Association_Scan_Source))\
+                .where(subflt)\
+                .where(Association_Scan_Source.scan == Scan.id)
+            ))
+        for subflt in self.port:
+            req = req.where(exists(
+                select([1])\
+                .select_from(Port)\
+                .where(subflt)\
+                .where(Port.scan == Scan.id)
+            ))
+        for subflt in self.script:
+            req = req.where(exists(
+                select([1])\
+                .select_from(join(Script, Port))\
+                .where(subflt)\
+                .where(Port.scan == Scan.id)
+            ))
+        return req
 
 
 class PostgresDBNmap(PostgresDB, DBNmap):
@@ -1064,7 +1102,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
               Association_Scan_Source, Association_Scan_Category,
               Association_Scan_ScanFile]
     required_tables = [AS, Country, Location]
-    shared_tables = [Host, Context]
+    shared_tables = [(Host, [Flow.src, Flow.dst, Passive.host]),
+                     (Context, [Host.id])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -1280,57 +1319,15 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def store_or_merge_host(self, host, gettoarchive, merge=False):
         self.store_host(host, merge=merge)
 
-    @staticmethod
-    def query_from_filter(flt, archive, req):
-        # TODO: improve performances
-        #   - use a materialized view for `Scan` with `archive == 0`?
-        if flt.main is not None:
-            req = req.where(flt.main)
-        if not archive:
-            req = req.where(Scan.archive == 0)
-        # See https://stackoverflow.com/questions/17112345/using-intersect-with-tables-from-a-with-clause
-        for subflt in flt.category:
-            req = req.where(exists(
-                select([1])\
-                .select_from(join(Category, Association_Scan_Category))\
-                .where(subflt)\
-                .where(Association_Scan_Category.scan == Scan.id)
-            ))
-        for subflt in flt.source:
-            req = req.where(exists(
-                select([1])\
-                .select_from(join(Source, Association_Scan_Source))\
-                .where(subflt)\
-                .where(Association_Scan_Source.scan == Scan.id)
-            ))
-        for subflt in flt.port:
-            req = req.where(exists(
-                select([1])\
-                .select_from(Port)\
-                .where(subflt)\
-                .where(Port.scan == Scan.id)
-            ))
-        for subflt in flt.script:
-            req = req.where(exists(
-                select([1])\
-                .select_from(join(Script, Port))\
-                .where(subflt)\
-                .where(Port.scan == Scan.id)
-            ))
-        return req
-
     def count(self, flt, archive=False, **_):
         return self.db.execute(
-            self.query_from_filter(
-                flt, archive,
-                select([func.count()])\
-                .select_from(flt.select_from)
-            )
+            flt.query(archive, select([func.count()]))\
+            .select_from(flt.select_from)
         ).fetchone()[0]
 
     def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
-        req = self.query_from_filter(
-            flt, archive,
+        req = flt.query(
+            archive,
             select([Scan.id]).select_from(join(Scan, join(Host, Context)))
         )
         if skip is not None:
@@ -1352,8 +1349,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         )
 
     def get_ips_ports(self, flt, archive=False, limit=None, skip=None):
-        req = self.query_from_filter(
-            flt, archive,
+        req = flt.query(
+            archive,
             select([Scan.id]).select_from(join(Scan, join(Host, Context)))
         )
         if skip is not None:
@@ -1386,8 +1383,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         )
 
     def getlocations(self, flt, archive=False, limit=None, skip=None):
-        req = self.query_from_filter(
-            flt, archive,
+        req = flt.query(
+            archive,
             select([func.count(Scan.id), Scan.info['coordinates'].astext])\
             .select_from(join(Scan, join(Host, Context)))\
             .where(Scan.info.has_key('coordinates'))
@@ -1402,8 +1399,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
     def get(self, flt, archive=False, limit=None, skip=None, **kargs):
-        req = self.query_from_filter(
-            flt, archive, select([join(Scan, join(Host, Context))])
+        req = flt.query(
+            archive, select([join(Scan, join(Host, Context))])
         )
         if skip is not None:
             req = req.offset(skip)
@@ -1481,8 +1478,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         """
         if flt is None:
             flt = NmapFilter()
-        base = self.query_from_filter(
-            flt, archive,
+        base = flt.query(
+            archive,
             select([Scan.id]).select_from(flt.select_from),
         ).cte("base")
         order = "count" if least else desc("count")
@@ -1640,8 +1637,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             Host: Scan.host == base.c.id,
         }
         if field[0] == Scan:
-            req = self.query_from_filter(
-                flt, archive,
+            req = flt.query(
+                archive,
                 select([func.count().label("count")] + field[1])\
                 .select_from(Scan)\
                 .group_by(*field[1])
@@ -1926,11 +1923,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
 class PassiveFilter(Filter):
     def __init__(self, main=None, location=None, aut_sys=None,
-                 uses_host=False, uses_country=False):
+                 uses_country=False):
         self.main = main
         self.location = location
         self.aut_sys = aut_sys
-        self.uses_host = uses_host
         self.uses_country = uses_country
     def __and__(self, other):
         return self.__class__(
@@ -1950,14 +1946,21 @@ class PassiveFilter(Filter):
             ]
         if self.aut_sys is not None:
             return [join(Passive, Host), join(AS, AS_Range)]
-        if self.uses_host:
-            return join(Passive, Host)
-        return Passive
+        return join(Passive, Host)
+    def query(self, req):
+        if self.main is not None:
+            req = req.where(self.main)
+        if self.location is not None:
+            req = req.where(self.location)
+        if self.aut_sys is not None:
+            req = req.where(ftl.aut_sys)
+        return req
 
 
 class PostgresDBPassive(PostgresDB, DBPassive):
     tables = [Passive]
-    shared_tables = [Host, Context]
+    shared_tables = [(Host, [Flow.src, Flow.dst, Scan.host]),
+                     (Context, [Host.id])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -1970,33 +1973,31 @@ class PostgresDBPassive(PostgresDB, DBPassive):
             return ctxt
         return 'Public' if ctxt == 'Public' else '%s-%s' % (ctxt, sensor)
 
-    def query_from_filter(self, flt, req):
-        if flt.main is not None:
-            req = req.where(flt.main)
-        if flt.location is not None:
-            req = req.where(flt.location)
-        if flt.aut_sys is not None:
-            req = req.where(ftl.aut_sys)
-
     def count(self, flt):
         return self.db.execute(
-            self.query_from_filter(
-                flt, select([func.count()]).select_from(flt.select_from)
+            flt.query(
+                select([func.count()]).select_from(flt.select_from)
             )
         ).fetchone()[0]
 
-    def get(self, flt, limit=None, skip=None):
+    def get(self, flt, limit=None, skip=None, sort=None):
         """Queries the passive database with the provided filter "flt", and
 returns a generator.
 
         """
-        req = self.query_from_filter(
-            flt, select(Passive).select_from(ftl.select_from)
+        req = flt.query(
+            select([Host.addr, Passive.sensor, Passive.count, Passive.firstseen,
+                    Passive.lastseen, Passive.info, Passive.port,
+                    Passive.recontype, Passive.source, Passive.targetval,
+                    Passive.value]).select_from(flt.select_from)
         )
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(skip)
+        if sort is not None:
+            for key, way in sort:
+                req = req.order_by(key if way >= 0 else desc(key))
         return self.db.execute(req)
 
     def get_one(self, flt, limit=None, skip=None):
@@ -2153,13 +2154,11 @@ returns the first result, or None if no result exists."""
         outputproc = None
         if flt is None:
             flt = PassiveFilter()
-        base = self.query_from_filter(
-            flt,
+        base = flt.query_from_filter(
             select([Passive.id]).select_from(flt.select_from),
         ).cte("base")
         order = "count" if least else desc("count")
-        req = self.query_from_filter(
-            flt,
+        req = flt.query_from_filter(
             select([func.count().label("count"), field])\
             .select_from(flt.select_from)\
             .group_by(field)
