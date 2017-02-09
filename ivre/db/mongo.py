@@ -170,6 +170,9 @@ class MongoDB(DB):
     def getid(record):
         return record['_id']
 
+    def count(self, *args, **kargs):
+        return self.get(*args, **kargs).count()
+
     @staticmethod
     def serialize(obj):
         if type(obj) is bson.ObjectId:
@@ -865,9 +868,6 @@ creates the default indexes."""
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update
-
-    def count(self, flt, archive=False, **kargs):
-        return self.get(flt, archive=False, **kargs).count()
 
     def get(self, flt, archive=False, **kargs):
         """Queries the active column (the old one if "archive" is set to True)

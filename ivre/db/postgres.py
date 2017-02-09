@@ -1058,7 +1058,7 @@ class NmapFilter(Filter):
         if self.uses_host:
             return join(Scan, Host)
         return Scan
-    def query(self, archive, req):
+    def query(self, req, archive=False):
         # TODO: improve performances
         #   - use a materialized view for `Scan` with `archive == 0`?
         if self.main is not None:
@@ -1321,14 +1321,14 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     def count(self, flt, archive=False, **_):
         return self.db.execute(
-            flt.query(archive, select([func.count()]))\
+            flt.query(select([func.count()]), archive=archive)\
             .select_from(flt.select_from)
         ).fetchone()[0]
 
     def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(
-            archive,
-            select([Scan.id]).select_from(join(Scan, join(Host, Context)))
+            select([Scan.id]).select_from(join(Scan, join(Host, Context))),
+            archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -1350,8 +1350,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     def get_ips_ports(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(
-            archive,
-            select([Scan.id]).select_from(join(Scan, join(Host, Context)))
+            select([Scan.id]).select_from(join(Scan, join(Host, Context))),
+            archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -1384,10 +1384,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     def getlocations(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(
-            archive,
             select([func.count(Scan.id), Scan.info['coordinates'].astext])\
             .select_from(join(Scan, join(Host, Context)))\
-            .where(Scan.info.has_key('coordinates'))
+            .where(Scan.info.has_key('coordinates')),
+            archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -1400,7 +1400,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     def get(self, flt, archive=False, limit=None, skip=None, **kargs):
         req = flt.query(
-            archive, select([join(Scan, join(Host, Context))])
+            select([join(Scan, join(Host, Context))]), archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -1479,8 +1479,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         if flt is None:
             flt = NmapFilter()
         base = flt.query(
-            archive,
             select([Scan.id]).select_from(flt.select_from),
+            archive=archive,
         ).cte("base")
         order = "count" if least else desc("count")
         outputproc = None
@@ -1638,10 +1638,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         }
         if field[0] == Scan:
             req = flt.query(
-                archive,
                 select([func.count().label("count")] + field[1])\
                 .select_from(Scan)\
-                .group_by(*field[1])
+                .group_by(*field[1]),
+                archive=archive,
             )
         else:
             req = select([func.count().label("count")] + field[1])\

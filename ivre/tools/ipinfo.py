@@ -125,7 +125,7 @@ def disp_recs_distinct(field, flt):
 
 
 def disp_recs_count(flt):
-    print db.passive.get(flt).count()
+    print db.passive.count(flt)
 
 
 def _disp_recs_tail(flt, field, n):
