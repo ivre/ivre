@@ -33,10 +33,10 @@ import sys
 import struct
 import time
 
-from sqlalchemy import create_engine, desc, func, text, column, delete, \
-    exists, insert, intersect, join, select, union, update, and_, not_, or_, \
-    Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Enum, Integer, \
-    LargeBinary, String, Text, tuple_
+from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
+    exists, insert, intersect, join, select, union, update, null, and_, not_, \
+    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Enum, \
+    Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -65,6 +65,11 @@ class Host(Base):
     __table_args__ = (
         Index('ix_host_addr_context', 'addr', 'context', unique=True),
     )
+
+def _after_host_create(target, connection, **kwargs):
+    connection.execute(insert(Host).values(id=0))
+
+event.listen(Host.__table__, "after_create", _after_host_create)
 
 class Flow(Base):
     __tablename__ = "flow"
@@ -118,8 +123,11 @@ the original line.
                 self.more_to_read = True
                 return ''
         try:
+            line = None
+            while line is None:
+                line = self.fixline(self.inp.next())
             self.count += 1
-            return '%s\n' % '\t'.join(self.fixline(self.inp.next()))
+            return '%s\n' % '\t'.join(line)
         except StopIteration:
             self.more_to_read = False
             return ''
@@ -384,8 +392,9 @@ class Scan(Base):
 
 class P0fCSVFile(CSVFile):
     columns = {"addr", "context", "host", "sensor", "count", "firstseen",
-               "lastseen", "info", "port", "recontype", "source", "targetval",
-               "value"}
+               "lastseen", "port", "recontype", "source", "targetval",
+               "value", "fullvalue", "info"}
+    info_columns = {"distance", "signature", "version"}
     def __init__(self, siggen, get_context, table, limit=None):
         self.get_context = get_context
         self.table = table
@@ -396,9 +405,13 @@ class P0fCSVFile(CSVFile):
             self.count = 0
     def fixline(self, line):
         timestamp, line = line
-        addr = line["addr"]
-        line["context"] = self.get_context(addr, sensor=line.get('sensor'))
-        line["addr"] = PostgresDB.convert_ip(addr)
+        if "addr" in line:
+            addr = line["addr"]
+            line["context"] = self.get_context(addr, sensor=line.get('sensor'))
+            line["addr"] = PostgresDB.convert_ip(addr)
+        else:
+            line["addr"] = None
+            line["context"] = None
         timestamp = datetime.datetime.fromtimestamp(timestamp)
         line["firstseen"] = line["lastseen"] = timestamp
         line["recontype"] = RECONTYPES[line["recontype"]]
@@ -407,6 +420,10 @@ class P0fCSVFile(CSVFile):
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
         line["info"] = "%s" % json.dumps(dict(
+            (key, line.pop(key)) for key in list(line)
+            if key in self.info_columns
+        ))
+        line["moreinfo"] = "%s" % json.dumps(dict(
             (key, line.pop(key)) for key in list(line)
             if key not in self.columns
         ))
@@ -444,12 +461,16 @@ class Passive(Base):
     count = Column(Integer)
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
-    info = Column(postgresql.JSONB)
     port = Column(Integer)
     recontype = Column(Enum(Recontype))
     source = Column(String(64))
     targetval = Column(Text)
     value = Column(Text)
+    fullvalue = Column(Text)
+    info = Column(postgresql.JSONB)
+    # moreinfo contains data that is not tested for unicity on
+    # insertion
+    moreinfo = Column(postgresql.JSONB)
     __table_args__ = (
         Index('ix_passive_record', 'host', 'sensor', 'recontype', 'port',
               'source', 'value', 'targetval', 'info', unique=True),
@@ -520,9 +541,13 @@ class PostgresDB(DB):
             table.__table__.drop(bind=self.db, checkfirst=True)
         for table, othercols in self.shared_tables:
             if table.__table__.exists(bind=self.db):
-                base = union(*(select([col]) for col in othercols
-                               if col.table.exists(bind=self.db))).cte("base")
-                self.db.execute(delete(table).where(table.id.in_(base)))
+                basevals = [select([col]) for col in othercols
+                            if col.table.exists(bind=self.db)]
+                if basevals:
+                    base = union(*(basevals)).cte("base")
+                    self.db.execute(delete(table).where(table.id.notin_(base)))
+                else:
+                    table.__table__.drop(bind=self.db, checkfirst=True)
 
 
     def init(self):
@@ -2011,12 +2036,40 @@ returns the first result, or None if no result exists."""
     def insert_or_update(self, timestamp, spec, getinfos=None):
         if spec is None:
             return
-        addr = spec.pop("addr")
-        context = self.get_context(addr, sensor=spec.get('sensor'))
-        addr = self.convert_ip(addr)
+        # change to
+        # spec.update(getinfos(spec)['infos'])
+        additional_info = getinfos(spec)
+        if additional_info:
+            spec.update(additional_info.pop('infos'))
+            assert not additional_info
+        addr = spec.pop("addr", None)
         timestamp = datetime.datetime.fromtimestamp(timestamp)
-        hostid = self.store_host_context(addr, context, timestamp, timestamp)
+        if addr:
+            addr = self.convert_ip(addr)
+            context = self.get_context(addr, sensor=spec.get('sensor'))
+            hostid = self.store_host_context(addr, context, timestamp, timestamp)
+        else:
+            hostid = 0
         insrt = postgresql.insert(Passive)
+        otherfields = dict(
+            (key, spec.pop(key, "")) for key in ["sensor", "value",
+                                                 "source", "targetval"]
+        )
+        info = "%s" % json.dumps(dict(
+            (key, spec.pop(key)) for key in ["distance", "signature", "version"]
+            if key in spec
+        ))
+        upsert = {
+            'firstseen': func.least(
+                Passive.firstseen,
+                timestamp,
+            ),
+            'lastseen': func.greatest(
+                Passive.lastseen,
+                timestamp,
+            ),
+            'count': Passive.count + insrt.excluded.count,
+        }
         self.db.execute(
             insrt.values(
                 host=hostid,
@@ -2025,26 +2078,15 @@ returns the first result, or None if no result exists."""
                 lastseen=timestamp,
                 recontype=RECONTYPES[spec.pop("recontype")],
                 port=spec.pop("port", 0),
-                **dict(
-                    ((key, spec.pop(key, "")) for key in ["sensor", "value",
-                                                          "source", "targetval"]),
-                    info=spec
-                )
+                fullvalue=spec.pop("fullvalue", None),
+                info=info,
+                moreinfo="%s" % json.dumps(spec),
+                **otherfields
             )\
             .on_conflict_do_update(
-                index_elements=['host', 'sensor', 'recontype', 'port',
-                                'source', 'value', 'targetval', 'info'],
-                set_={
-                    'firstseen': func.least(
-                        Passive.firstseen,
-                        timestamp,
-                    ),
-                    'lastseen': func.greatest(
-                        Passive.lastseen,
-                        timestamp,
-                    ),
-                    'count': Passive.count + insrt.excluded.count,
-                },
+                index_elements=['host', 'sensor', 'recontype', 'port', 'source',
+                                'value', 'targetval', 'info'],
+                set_=upsert,
             )
         )
 
