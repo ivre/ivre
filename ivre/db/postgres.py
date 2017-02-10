@@ -390,7 +390,7 @@ class Scan(Base):
 
 # Passive
 
-class P0fCSVFile(CSVFile):
+class PassiveCSVFile(CSVFile):
     columns = {"addr", "context", "host", "sensor", "count", "firstseen",
                "lastseen", "port", "recontype", "source", "targetval",
                "value", "fullvalue", "info"}
@@ -2109,13 +2109,14 @@ returns the first result, or None if no result exists."""
             Column("context", String(32)),
         ])
         while more_to_read:
-            with P0fCSVFile(specs, self.get_context, tmp,
-                            limit=config.POSTGRES_BATCH_SIZE) as fdesc:
+            with PassiveCSVFile(specs, self.get_context, tmp,
+                                limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
                 more_to_read = fdesc.more_to_read
             self.db.execute(postgresql.insert(Context).from_select(
                 ['name'],
                 select([column("context")]).select_from(tmp)\
+                .where(tmp.columns["context"].isnot(null()))\
                 .distinct(column("context")),
             ).on_conflict_do_nothing())
             insrt = postgresql.insert(Host)
@@ -2129,6 +2130,7 @@ returns the first result, or None if no result exists."""
                             func.max_(column("lastseen"))])\
                     .select_from(join(Context, tmp,
                                       Context.name == column("context")))\
+                    .where(tmp.columns["addr"].isnot(null()))\
                     .group_by(Context.id, column("addr"))
                 )\
                 .on_conflict_do_update(
