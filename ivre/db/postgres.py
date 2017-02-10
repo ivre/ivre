@@ -447,14 +447,18 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
+        for key, value in line.iteritems():
+            if key not in ["info", "moreinfo"] and \
+               isinstance(value, basestring):
+                line[key] = value.replace('\\', '\\\\')
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
                  if key in self.info_fields),
-        ).replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
+        ).replace('\\', '\\\\') #.replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
         line["moreinfo"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
                  if key not in self.table.columns),
-        ).replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
+        ).replace('\\', '\\\\') #.replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
         return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
                 for col in self.table.columns]
 
@@ -587,6 +591,15 @@ class PostgresDB(DB):
             table.__table__.create(bind=self.db, checkfirst=True)
         for table in self.tables:
             table.__table__.create(bind=self.db, checkfirst=True)
+        # Make sur we always have the 0 record
+        try:
+            _after_context_create(None, self.db)
+        except:
+            pass
+        try:
+            _after_host_create(None, self.db)
+        except:
+            pass
 
     def copy_from(self, *args, **kargs):
         cursor = self.db.raw_connection().cursor()
@@ -2154,12 +2167,19 @@ returns the first result, or None if no result exists."""
             Column("addr", postgresql.INET),
             Column("context", String(32)),
         ])
+        if config.DEBUG:
+            total_upserted = 0
+            total_start_time = time.time()
         while more_to_read:
+            if config.DEBUG:
+                start_time = time.time()
             with PassiveCSVFile(specs, self.get_context, tmp, getinfos=getinfos,
-                                separated_timestamps=separated_timestamps,
-                                limit=config.POSTGRES_BATCH_SIZE) as fdesc:
+                               separated_timestamps=separated_timestamps,
+                               limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
                 more_to_read = fdesc.more_to_read
+                if config.DEBUG:
+                    count_upserted = fdesc.count
             self.db.execute(postgresql.insert(Context).from_select(
                 ['name'],
                 select([column("context")]).select_from(tmp)\
@@ -2241,6 +2261,21 @@ returns the first result, or None if no result exists."""
                 )
             )
             self.db.execute(delete(tmp))
+            if config.DEBUG:
+                stop_time = time.time()
+                time_spent = stop_time - start_time
+                total_upserted += count_upserted
+                total_time_spent = stop_time - total_start_time
+                sys.stderr.write(
+                    "\n\n>>>> PERFORMANCE STATS >>>> %s upserts, %f s, %f/s\n"
+                    ">>>> PERFORMANCE STATS >>>>    total: %d upserts, %f s, "
+                    "%f/s\n\n\n" % (
+                        utils.num2readable(count_upserted), time_spent,
+                        utils.num2readable(count_upserted / time_spent),
+                        utils.num2readable(total_upserted), total_time_spent,
+                        utils.num2readable(total_upserted / total_time_spent),
+                    )
+                )
 
     def migrate_from_db(self, db, flt=None, limit=None, skip=None, sort=None):
         if flt is None:
@@ -2259,8 +2294,21 @@ passive table."""
                     del line['_id']
                 except KeyError:
                     pass
+                line.update(line.pop('infos', {}))
+                line.update(line.pop('fullinfos', {}))
                 if isinstance(line.get('addr'), dict):
                     line['addr'] = int(line['addr']['$numberLong'])
+                # for key, value in line.iteritems():
+                #     if isinstance(value, basestring) and '\\' in value:
+                #         # GIVE ME MORE BACKSLASHES!
+                #         line[key] = value.replace('\\', '\\\\')
+                #     elif isinstance(value, list) and any(
+                #             isinstance(elt, basestring) and '\\' in elt
+                #             for elt in value
+                #     ):
+                #         line[key] = [elt.replace('\\', '\\\\')
+                #                      if isinstance(elt, basestring) else elt
+                #                      for elt in value]
                 yield line
         self.insert_or_update_bulk(_backupgen(backupfdesc), getinfos=None,
                                    separated_timestamps=False)

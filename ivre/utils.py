@@ -36,6 +36,7 @@ import bz2
 import subprocess
 import traceback
 import ast
+import math
 from cStringIO import StringIO
 try:
     import PIL.Image
@@ -860,5 +861,23 @@ def normalize_props(props):
     )
     return props
 
+
 def datetime2timestamp(dt):
     return float(dt.strftime("%s.%f"))
+
+
+_UNITS = ['']
+_UNITS.extend('kMGTPEZY')
+
+def num2readable(value):
+    idx = int(math.log(value, 1000))
+    try:
+        unit = _UNITS[idx]
+    except IndexError:
+        unit = 'Y'
+        idx = 1000 ** 8
+    else:
+        idx = 1000 ** idx
+    if isinstance(value, float):
+        return '%.3f%s' % (value / idx, unit)
+    return '%d%s' % (value / idx, unit)
