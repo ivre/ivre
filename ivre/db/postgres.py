@@ -1982,6 +1982,15 @@ class PassiveFilter(Filter):
         self.location = location
         self.aut_sys = aut_sys
         self.uses_country = uses_country
+    def __nonzero__(self):
+        return self.main or self.location or self.aut_sys or self.uses_country
+    def copy(self):
+        return self.__class__(
+            main=self.main,
+            location=self.location,
+            aut_sys=self.aut_sys,
+            uses_country=self.uses_country,
+        )
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
@@ -2292,15 +2301,12 @@ passive table."""
         (IP address).
 
         """
-        return PassiveFilter(main=PostgresDB.searchhost(addr, neg=neg),
-                             uses_host=True)
+        return PassiveFilter(main=PostgresDB.searchhost(addr, neg=neg))
 
     @staticmethod
     def searchhosts(hosts, neg=False):
-        return PassiveFilter(main=PostgresDB.searchhosts(hosts, neg=neg),
-                             uses_host=True)
+        return PassiveFilter(main=PostgresDB.searchhosts(hosts, neg=neg))
 
     @staticmethod
     def searchrange(start, stop, neg=False):
-        return PassiveFilter(main=PostgresDB.searchrange(start, stop, neg=neg),
-                             uses_host=True)
+        return PassiveFilter(main=PostgresDB.searchrange(start, stop, neg=neg))

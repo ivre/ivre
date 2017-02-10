@@ -90,7 +90,7 @@ def disp_recs_std(flt):
             try:
                 print ivre.utils.int2ip(oa)
             except struct.error:
-                pass
+                print oa
             c = db.data.infos_byip(oa)
             if c:
                 if 'country_code' in c:
