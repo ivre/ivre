@@ -55,6 +55,12 @@ class Context(Base):
         Index('ix_context_name', 'name', unique=True),
     )
 
+def _after_context_create(target, connection, **kwargs):
+    connection.execute(insert(Context).values(id=0))
+
+event.listen(Context.__table__, "after_create", _after_context_create)
+
+
 class Host(Base):
     __tablename__ = "host"
     id = Column(Integer, primary_key=True)
@@ -67,9 +73,10 @@ class Host(Base):
     )
 
 def _after_host_create(target, connection, **kwargs):
-    connection.execute(insert(Host).values(id=0))
+    connection.execute(insert(Host).values(id=0, context=0))
 
 event.listen(Host.__table__, "after_create", _after_host_create)
+
 
 class Flow(Base):
     __tablename__ = "flow"
@@ -2161,8 +2168,12 @@ returns the first result, or None if no result exists."""
                                     'sensor', 'info', 'port',
                                     'recontype', 'source', 'targetval', 'value']])\
                     .select_from(join(tmp, join(Context, Host),
-                                      (Context.name == tmp.columns["context"]) &
-                                      (Host.addr == tmp.columns["addr"])))\
+                                      ((Context.name == tmp.columns["context"]) |
+                                       (Context.name.is_(null()) &
+                                        tmp.columns["context"].is_(null()))) &
+                                      ((Host.addr == tmp.columns["addr"]) |
+                                       (Host.addr.is_(null()) &
+                                        tmp.columns["addr"].is_(null())))))\
                     .group_by(Host.id, *(tmp.columns[col] for col in [
                         'sensor', 'recontype', 'port', 'source', 'value',
                         'targetval', 'info']))
