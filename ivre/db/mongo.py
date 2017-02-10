@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3012,6 +3012,10 @@ setting values according to the keyword arguments.
         return (res['_id'] for res in cursor)
 
     @staticmethod
+    def searchrecontype(rectype):
+        return {'recontype': rectype}
+
+    @staticmethod
     def searchsensor(sensor, neg=False):
         if neg:
             if type(sensor) is utils.REGEXP_T:
@@ -3346,16 +3350,6 @@ code / name table
         locid = self.locationid_byip(addr)
         if locid:
             return self.location_byid(locid.get('location_id'))
-
-    def infos_byip(self, addr):
-        infos = {}
-        for infos_byip in [self.as_byip,
-                           self.location_byip]:
-            newinfos = infos_byip(addr)
-            if newinfos is not None:
-                infos.update(newinfos)
-        if infos:
-            return infos
 
     def ipranges_bycountry(self, code):
         return [

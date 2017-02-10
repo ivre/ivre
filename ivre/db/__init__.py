@@ -845,6 +845,22 @@ class DBPassive(DB):
 class DBData(DB):
     country_codes = None
 
+    def infos_byip(self, addr):
+        infos = {}
+        for infos_byip in [self.as_byip,
+                           self.location_byip]:
+            newinfos = infos_byip(addr)
+            if newinfos is not None:
+                infos.update(newinfos)
+        if infos:
+            return infos
+
+    def as_byip(self, addr):
+        raise NotImplementedError
+
+    def location_byip(self, addr):
+        raise NotImplementedError
+
     def parse_line_country_codes(self, line):
         assert line.endswith('"\n')
         line = line[:-2].split(',"')

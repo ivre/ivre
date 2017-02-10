@@ -509,7 +509,7 @@ class Passive(Base):
 class PostgresDB(DB):
     tables = []
     required_tables = []
-    shared_tables = {}
+    shared_tables = []
     context_names = [
         "Current-Net",
         "Public",
@@ -2310,3 +2310,29 @@ passive table."""
     @staticmethod
     def searchrange(start, stop, neg=False):
         return PassiveFilter(main=PostgresDB.searchrange(start, stop, neg=neg))
+
+    @staticmethod
+    def searchrecontype(rectype):
+        return PassiveFilter(main=(Passive.recontype == rectype))
+
+    @staticmethod
+    def searchdns(name, reverse=False, subdomains=False):
+        return PassiveFilter(main=(
+            (Passive.recontype == 'DNS_ANSWER') &
+            (
+                (Passive.moreinfo['domaintarget'
+                                  if reverse else
+                                  'domain'].has_key(name))
+                if subdomains else
+                (cls._searchstring_re(Passive.targetval
+                                      if reverse else Passive.value), name)
+            )
+        ))
+
+    @classmethod
+    def searchuseragent(cls, useragent):
+        return PassiveFilter(main=(
+            (Passive.recontype == 'HTTP_CLIENT_HEADER') &
+            (Passive.source == 'USER-AGENT') &
+            (cls._searchstring_re(Passive.value, useragent))
+        ))
