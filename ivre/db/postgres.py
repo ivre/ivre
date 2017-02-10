@@ -398,11 +398,8 @@ class Scan(Base):
 # Passive
 
 class PassiveCSVFile(CSVFile):
-    columns = {"addr", "context", "host", "sensor", "count", "firstseen",
-               "lastseen", "port", "recontype", "source", "targetval",
-               "value", "fullvalue", "info"}
-    info_columns = {"distance", "signature", "version"}
-    def __init__(self, siggen, get_context, table, limit=None):
+    info_fields = {"distance", "signature", "version"}
+    def __init__(self, siggen, get_context, table, limit=None, getinfos=None):
         self.get_context = get_context
         self.table = table
         self.inp = siggen
@@ -410,8 +407,19 @@ class PassiveCSVFile(CSVFile):
         self.limit = limit
         if limit is not None:
             self.count = 0
+        self.getinfos = getinfos
     def fixline(self, line):
         timestamp, line = line
+        if self.getinfos is not None:
+            additional_info = self.getinfos(line)
+            try:
+                line.update(additional_info['infos'])
+            except KeyError:
+                pass
+            try:
+                line.update(additional_info['fullinfos'])
+            except KeyError:
+                pass
         if "addr" in line:
             addr = line["addr"]
             line["context"] = self.get_context(addr, sensor=line.get('sensor'))
@@ -426,14 +434,14 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
-        line["info"] = "%s" % json.dumps(dict(
-            (key, line.pop(key)) for key in list(line)
-            if key in self.info_columns
-        ))
-        line["moreinfo"] = "%s" % json.dumps(dict(
-            (key, line.pop(key)) for key in list(line)
-            if key not in self.columns
-        ))
+        line["info"] = "%s" % json.dumps(
+            dict((key, line.pop(key)) for key in list(line)
+                 if key in self.info_fields),
+        ).replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
+        line["moreinfo"] = "%s" % json.dumps(
+            dict((key, line.pop(key)) for key in list(line)
+                 if key not in self.table.columns),
+        ).replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
         return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
                 for col in self.table.columns]
 
@@ -475,9 +483,10 @@ class Passive(Base):
     value = Column(Text)
     fullvalue = Column(Text)
     info = Column(postgresql.JSONB)
-    # moreinfo contains data that is not tested for unicity on
-    # insertion
     moreinfo = Column(postgresql.JSONB)
+    # moreinfo and fullvalue contain data that are not tested for
+    # unicity on insertion (the unicity is guaranteed by the value)
+    # for performance reasons
     __table_args__ = (
         Index('ix_passive_record', 'host', 'sensor', 'recontype', 'port',
               'source', 'value', 'targetval', 'info', unique=True),
@@ -2043,12 +2052,16 @@ returns the first result, or None if no result exists."""
     def insert_or_update(self, timestamp, spec, getinfos=None):
         if spec is None:
             return
-        # change to
-        # spec.update(getinfos(spec)['infos'])
-        additional_info = getinfos(spec)
-        if additional_info:
-            spec.update(additional_info.pop('infos'))
-            assert not additional_info
+        if getinfos is not None:
+            additional_info = getinfos(spec)
+            try:
+                spec.update(additional_info['infos'])
+            except KeyError:
+                pass
+            try:
+                spec.update(additional_info['fullinfos'])
+            except KeyError:
+                pass
         addr = spec.pop("addr", None)
         timestamp = datetime.datetime.fromtimestamp(timestamp)
         if addr:
@@ -2059,13 +2072,13 @@ returns the first result, or None if no result exists."""
             hostid = 0
         insrt = postgresql.insert(Passive)
         otherfields = dict(
-            (key, spec.pop(key, "")) for key in ["sensor", "value",
-                                                 "source", "targetval"]
+            (key, spec.pop(key, "")) for key in ["sensor", "source",
+                                                 "targetval", "value"]
         )
-        info = "%s" % json.dumps(dict(
+        info = dict(
             (key, spec.pop(key)) for key in ["distance", "signature", "version"]
             if key in spec
-        ))
+        )
         upsert = {
             'firstseen': func.least(
                 Passive.firstseen,
@@ -2080,14 +2093,16 @@ returns the first result, or None if no result exists."""
         self.db.execute(
             insrt.values(
                 host=hostid,
+                # sensor: otherfields
                 count=spec.pop("count", 1),
                 firstseen=timestamp,
                 lastseen=timestamp,
-                recontype=RECONTYPES[spec.pop("recontype")],
                 port=spec.pop("port", 0),
+                recontype=RECONTYPES[spec.pop("recontype")],
+                # source, targetval, value: otherfields
                 fullvalue=spec.pop("fullvalue", None),
                 info=info,
-                moreinfo="%s" % json.dumps(spec),
+                moreinfo=spec,
                 **otherfields
             )\
             .on_conflict_do_update(
@@ -2116,7 +2131,7 @@ returns the first result, or None if no result exists."""
             Column("context", String(32)),
         ])
         while more_to_read:
-            with PassiveCSVFile(specs, self.get_context, tmp,
+            with PassiveCSVFile(specs, self.get_context, tmp, getinfos=getinfos,
                                 limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
                 more_to_read = fdesc.more_to_read
@@ -2157,16 +2172,22 @@ returns the first result, or None if no result exists."""
             self.db.execute(
                 insrt\
                 .from_select(
-                    [column(col) for col in ['host', 'count', 'firstseen',
-                                             'lastseen', 'sensor', 'info', 'port',
-                                             'recontype', 'source', 'targetval',
-                                             'value']],
+                    [column(col) for col in [
+                        # Host.id
+                        'host',
+                        # sum / min / max
+                        'count', 'firstseen', 'lastseen',
+                        # grouped
+                        'sensor', 'port', 'recontype', 'source', 'targetval',
+                        'value', 'fullvalue', 'info', 'moreinfo'
+                    ]],
                     select([Host.id, func.sum_(tmp.columns['count']),
                             func.min_(tmp.columns['firstseen']),
                             func.max_(tmp.columns['lastseen'])] + [
                                 tmp.columns[col] for col in [
-                                    'sensor', 'info', 'port',
-                                    'recontype', 'source', 'targetval', 'value']])\
+                                    'sensor', 'port', 'recontype', 'source',
+                                    'targetval', 'value', 'fullvalue', 'info',
+                                    'moreinfo']])\
                     .select_from(join(tmp, join(Context, Host),
                                       ((Context.name == tmp.columns["context"]) |
                                        (Context.name.is_(null()) &
@@ -2175,8 +2196,8 @@ returns the first result, or None if no result exists."""
                                        (Host.addr.is_(null()) &
                                         tmp.columns["addr"].is_(null())))))\
                     .group_by(Host.id, *(tmp.columns[col] for col in [
-                        'sensor', 'recontype', 'port', 'source', 'value',
-                        'targetval', 'info']))
+                        'sensor', 'port', 'recontype', 'source', 'targetval',
+                        'value', 'fullvalue', 'info', 'moreinfo']))
                 )\
                 .on_conflict_do_update(
                     index_elements=['host', 'sensor', 'recontype', 'port',
