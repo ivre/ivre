@@ -66,6 +66,7 @@ ivre/analyzer/ike.py
 ivre/db/__init__.py
 ivre/db/mongo.py
 ivre/db/neo4j.py
+ivre/db/postgres.py
 ivre/parser/__init__.py
 ivre/parser/airodump.py
 ivre/parser/argus.py

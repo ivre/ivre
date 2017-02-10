@@ -133,7 +133,8 @@ the original line.
             line = None
             while line is None:
                 line = self.fixline(self.inp.next())
-            self.count += 1
+            if self.limit is not None:
+                self.count += 1
             return '%s\n' % '\t'.join(line)
         except StopIteration:
             self.more_to_read = False
@@ -399,7 +400,8 @@ class Scan(Base):
 
 class PassiveCSVFile(CSVFile):
     info_fields = {"distance", "signature", "version"}
-    def __init__(self, siggen, get_context, table, limit=None, getinfos=None):
+    def __init__(self, siggen, get_context, table, limit=None, getinfos=None,
+                 separated_timestamps=True):
         self.get_context = get_context
         self.table = table
         self.inp = siggen
@@ -408,8 +410,21 @@ class PassiveCSVFile(CSVFile):
         if limit is not None:
             self.count = 0
         self.getinfos = getinfos
+        self.timestamps = separated_timestamps
     def fixline(self, line):
-        timestamp, line = line
+        if self.timestamps:
+            timestamp, line = line
+            if isinstance(timestamp, datetime.datetime):
+                line["firstseen"] = line["lastseen"] = timestamp
+            else:
+                line["firstseen"] = line["lastseen"] = datetime\
+                                                       .datetime\
+                                                       .fromtimestamp(timestamp)
+        else:
+            if not isinstance(line["firstseen"], datetime.datetime):
+                line["firstseen"] = datetime.datetime.fromtimestamp(line["firstseen"])
+            if not isinstance(line["lastseen"], datetime.datetime):
+                line["lastseen"] = datetime.datetime.fromtimestamp(line["lastseen"])
         if self.getinfos is not None:
             additional_info = self.getinfos(line)
             try:
@@ -427,8 +442,6 @@ class PassiveCSVFile(CSVFile):
         else:
             line["addr"] = None
             line["context"] = None
-        timestamp = datetime.datetime.fromtimestamp(timestamp)
-        line["firstseen"] = line["lastseen"] = timestamp
         line["recontype"] = RECONTYPES[line["recontype"]]
         line.setdefault("count", 1)
         line.setdefault("port", 0)
@@ -2112,9 +2125,11 @@ returns the first result, or None if no result exists."""
             )
         )
 
-    def insert_or_update_bulk(self, specs, getinfos=None):
+    def insert_or_update_bulk(self, specs, getinfos=None,
+                              separated_timestamps=True):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
-        iterable of (timestamp, spec) values. This will perform
+        iterable of `(timestamp, spec)` (if `separated_timestamps` is
+        True) or `spec` (if it is False) values. This will perform
         PostgreSQL COPY FROM inserts with the major drawback that the
         `getinfos` parameter will be called (if it is not `None`) for
         each spec, even when the spec already exists in the database
@@ -2132,6 +2147,7 @@ returns the first result, or None if no result exists."""
         ])
         while more_to_read:
             with PassiveCSVFile(specs, self.get_context, tmp, getinfos=getinfos,
+                                separated_timestamps=separated_timestamps,
                                 limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
                 more_to_read = fdesc.more_to_read
@@ -2216,6 +2232,29 @@ returns the first result, or None if no result exists."""
                 )
             )
             self.db.execute(delete(tmp))
+
+    def migrate_from_db(self, db, flt=None, limit=None, skip=None, sort=None):
+        if flt is None:
+            flt = db.flt_empty
+        self.insert_or_update_bulk(db.get(flt, limit=limit, skip=skip,
+                                          sort=sort),
+                                   separated_timestamps=False, getinfos=None)
+
+    def migrate_from_mongodb_backup(self, backupfdesc):
+        """This function uses a MongoDB backup file as a source to feed the
+passive table."""
+        def _backupgen(fdesc):
+            for line in fdesc:
+                line = json.loads(line)
+                try:
+                    del line['_id']
+                except KeyError:
+                    pass
+                if isinstance(line.get('addr'), dict):
+                    line['addr'] = int(line['addr']['$numberLong'])
+                yield line
+        self.insert_or_update_bulk(_backupgen(backupfdesc), getinfos=None,
+                                   separated_timestamps=False)
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, distinct=False):
