@@ -454,11 +454,11 @@ class PassiveCSVFile(CSVFile):
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
                  if key in self.info_fields),
-        ).replace('\\', '\\\\') #.replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
+        ).replace('\\', '\\\\')
         line["moreinfo"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
                  if key not in self.table.columns),
-        ).replace('\\', '\\\\') #.replace('\\\\x', '\\\\\\\\x')  # GIVE ME MORE BACKSLASHES!
+        ).replace('\\', '\\\\')
         return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
                 for col in self.table.columns]
 
@@ -2296,19 +2296,10 @@ passive table."""
                     pass
                 line.update(line.pop('infos', {}))
                 line.update(line.pop('fullinfos', {}))
-                if isinstance(line.get('addr'), dict):
-                    line['addr'] = int(line['addr']['$numberLong'])
-                # for key, value in line.iteritems():
-                #     if isinstance(value, basestring) and '\\' in value:
-                #         # GIVE ME MORE BACKSLASHES!
-                #         line[key] = value.replace('\\', '\\\\')
-                #     elif isinstance(value, list) and any(
-                #             isinstance(elt, basestring) and '\\' in elt
-                #             for elt in value
-                #     ):
-                #         line[key] = [elt.replace('\\', '\\\\')
-                #                      if isinstance(elt, basestring) else elt
-                #                      for elt in value]
+                for key, value in line.iteritems():
+                    if isinstance(value, dict) and len(value) == 1 \
+                       and "$numberLong" in value:
+                        line[key] = int(value['$numberLong'])
                 yield line
         self.insert_or_update_bulk(_backupgen(backupfdesc), getinfos=None,
                                    separated_timestamps=False)
