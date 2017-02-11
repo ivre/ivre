@@ -450,7 +450,9 @@ class PassiveCSVFile(CSVFile):
         for key, value in line.iteritems():
             if key not in ["info", "moreinfo"] and \
                isinstance(value, basestring):
-                line[key] = value.replace('\\', '\\\\')
+                line[key] = "".join(c if ' ' <= c <= '~' else
+                                    ('\\x%s' % c.encode('hex'))
+                                    for c in value).replace('\\', '\\\\')
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
                  if key in self.info_fields),
