@@ -450,6 +450,11 @@ class PassiveCSVFile(CSVFile):
         for key, value in line.iteritems():
             if key not in ["info", "moreinfo"] and \
                isinstance(value, basestring):
+                if isinstance(value, unicode):
+                    try:
+                        value = value.encode('latin-1')
+                    except:
+                        pass
                 line[key] = "".join(c if ' ' <= c <= '~' else
                                     ('\\x%s' % c.encode('hex'))
                                     for c in value).replace('\\', '\\\\')
