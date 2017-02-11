@@ -2269,9 +2269,9 @@ returns the first result, or None if no result exists."""
                 total_upserted += count_upserted
                 total_time_spent = stop_time - total_start_time
                 sys.stderr.write(
-                    "\n\n>>>> PERFORMANCE STATS >>>> %s upserts, %f s, %f/s\n"
-                    ">>>> PERFORMANCE STATS >>>>    total: %d upserts, %f s, "
-                    "%f/s\n\n\n" % (
+                    "\n\n>>>> PERFORMANCE STATS >>>> %s upserts, %f s, %s/s\n"
+                    ">>>> PERFORMANCE STATS >>>>    total: %s upserts, %f s, "
+                    "%s/s\n\n\n" % (
                         utils.num2readable(count_upserted), time_spent,
                         utils.num2readable(count_upserted / time_spent),
                         utils.num2readable(total_upserted), total_time_spent,
