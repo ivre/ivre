@@ -2299,7 +2299,13 @@ returns the first result, or None if no result exists."""
 passive table."""
         def _backupgen(fdesc):
             for line in fdesc:
-                line = json.loads(line)
+                try:
+                    line = json.loads(line)
+                except ValueError:
+                    sys.stderr.write(
+                        "WARNING: ignoring line [%r]\n" % line
+                    )
+                    continue
                 try:
                     del line['_id']
                 except KeyError:
