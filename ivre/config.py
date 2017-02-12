@@ -214,7 +214,7 @@ if GEOIP_PATH is None:
 if DATA_PATH is None:
     DATA_PATH = guess_prefix('data')
 
-if HONEYD_IVRE_SCRIPTS_PATH is None:
+if HONEYD_IVRE_SCRIPTS_PATH is None and DATA_PATH is not None:
     HONEYD_IVRE_SCRIPTS_PATH = os.path.join(DATA_PATH, 'honeyd')
 
 if NMAP_SHARE_PATH is None:

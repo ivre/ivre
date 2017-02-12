@@ -860,6 +860,7 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(all(is_prime(x) for x in factors))
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
+
 def parse_args():
     global SAMPLES, USE_COVERAGE
     try:
@@ -883,9 +884,26 @@ def parse_args():
     USE_COVERAGE = args.coverage
     sys.argv = [sys.argv[0]]
 
+
+DATABASES = {
+    # **excluded** tests
+    #"mongo": ["flow"],
+    "postgres": ["nmap"],
+}
+
+
+def parse_env():
+    database = os.getenv("DB")
+    for test in DATABASES.get(database, []):
+        sys.stderr.write("Desactivating test %r for database %r."
+                         "\n" % (test, database))
+        delattr(IvreTests, "test_%s" % test)
+
+
 if __name__ == '__main__':
     SAMPLES = None
     parse_args()
+    parse_env()
     import ivre.config
     import ivre.db
     import ivre.utils

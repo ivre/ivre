@@ -574,7 +574,8 @@ class PostgresDB(DB):
         try:
             return self._db
         except AttributeError:
-            self._db = create_engine(self.dburl, echo=config.DEBUG)
+            # echo on debug disabled for tests
+            self._db = create_engine(self.dburl)  #, echo=config.DEBUG)
             return self._db
 
     def drop(self):

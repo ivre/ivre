@@ -3,6 +3,8 @@ sudo: false
 env:
   - DB=mongo MONGODB_VERSION=2.6.10
   - DB=mongo MONGODB_VERSION=3.4.2
+  - DB=postgres POSTGRES_VERSION=9.6.2
+  - DB=postgres POSTGRES_VERSION=9.5.6
 
 language: python
 
@@ -10,19 +12,10 @@ python:
   - 2.7
 
 install:
-  # use MongoDB 2.6 without sudo
-  # https://gist.github.com/roidrage/14e45c24b5a134e1f165
-  - wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz
-  - tar xfz mongodb-linux-x86_64-$MONGODB_VERSION.tgz
-  - export PATH=`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH
-  - mkdir -p data/db
-  - mongod --dbpath=data/db >/dev/null 2>&1 &
-  # Wait for MongoDB
-  # https://github.com/travis-ci/travis-ci/issues/2246#issuecomment-51685471
-  - until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
-  - pip install .
-  - pip install -r requirements.txt
-  - pip install coverage codecov
+  - source ./.travis/install_${DB}.sh
+  - pip install $PIP_INSTALL_OPTIONS .
+  - pip install $PIP_INSTALL_OPTIONS -r requirements.txt
+  - pip install $PIP_INSTALL_OPTIONS coverage codecov
 
 # We need MongoDB 2.6
 # https://github.com/travis-ci/travis-ci/issues/2246
@@ -33,7 +26,7 @@ before_script:
   - ivre ipinfo --init < /dev/null
   - ivre scancli --init < /dev/null
   - ivre ipdata --init < /dev/null
-  - echo "DEBUG = True" > ~/.ivre.conf
+  - echo "DEBUG = True" >> ~/.ivre.conf
   # install p0f & Bro (.tar files)
   - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 ; do wget http://pierre.droids-corp.org/p0rn/${archive}.tar.bz2 -O - | tar jxf - ; done
   - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:$PATH"
