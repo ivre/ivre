@@ -30,6 +30,7 @@ import enum
 import json
 import re
 import sys
+import socket
 import struct
 import time
 
@@ -730,8 +731,9 @@ class PostgresDB(DB):
         # default case:
         try:
             addr = utils.ip2int(addr)
-        except TypeError:
-            pass
+        except (TypeError, socket.error):
+            # FIXME no IPv6 support
+            return "Public"
         return cls.context_names[bisect_left(cls.context_last_ips, addr)]
 
     @classmethod
