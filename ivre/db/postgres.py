@@ -2005,7 +2005,8 @@ class PassiveFilter(Filter):
         self.aut_sys = aut_sys
         self.uses_country = uses_country
     def __nonzero__(self):
-        return self.main or self.location or self.aut_sys or self.uses_country
+        return self.main is not None or self.location is not None \
+            or self.aut_sys is not None or self.uses_country is not None
     def copy(self):
         return self.__class__(
             main=self.main,
