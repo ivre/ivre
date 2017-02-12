@@ -2391,3 +2391,17 @@ passive table."""
             (Passive.source == 'USER-AGENT') &
             (cls._searchstring_re(Passive.value, useragent))
         ))
+
+    @staticmethod
+    def searchftpauth():
+        return PassiveFilter(main=(
+            (Passive.recontype == 'FTP_CLIENT') |
+            (Passive.recontype == 'FTP_SERVER')
+        ))
+
+    @staticmethod
+    def searchpopauth():
+        return PassiveFilter(main=(
+            (Passive.recontype == 'POP_CLIENT') |
+            (Passive.recontype == 'POP_SERVER')
+        ))
