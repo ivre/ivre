@@ -923,7 +923,7 @@ def parse_args():
 DATABASES = {
     # **excluded** tests
     #"mongo": ["flow"],
-    "postgres": ["nmap"],
+    #"postgres": ["nmap"],
 }
 
 
