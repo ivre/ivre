@@ -2085,7 +2085,19 @@ class PostgresDBPassive(PostgresDB, DBPassive):
         "count": Passive.count,
         "firstseen": Passive.firstseen,
         "lastseen": Passive.lastseen,
-        "infos": Passive.info,
+        "distance": Passive.info.op('->>')('distance'),
+        "signature": Passive.info.op('->>')('signature'),
+        "version": Passive.info.op('->>')('version'),
+        "infos": Passive.moreinfo,
+        "infos.domain": Passive.moreinfo.op('->>')('domain'),
+        "infos.issuer": Passive.moreinfo.op('->>')('issuer'),
+        "infos.md5hash": Passive.moreinfo.op('->>')('md5hash'),
+        "infos.pubkeyalgo": Passive.moreinfo.op('->>')('pubkeyalgo'),
+        "infos.sha1hash": Passive.moreinfo.op('->>')('sha1hash'),
+        "infos.subject": Passive.moreinfo.op('->>')('subject'),
+        "infos.domaintarget": Passive.moreinfo.op('->>')('domaintarget'),
+        "infos.username": Passive.moreinfo.op('->>')('username'),
+        "infos.password": Passive.moreinfo.op('->>')('password'),
         "port": Passive.port,
         "recontype": Passive.recontype,
         "source": Passive.source,
@@ -2120,7 +2132,7 @@ returns a generator.
             select([Host.addr, Passive.sensor, Passive.count, Passive.firstseen,
                     Passive.lastseen, Passive.info, Passive.port,
                     Passive.recontype, Passive.source, Passive.targetval,
-                    Passive.value]).select_from(flt.select_from)
+                    Passive.value, Passive.moreinfo]).select_from(flt.select_from)
         )
         if skip is not None:
             req = req.offset(skip)
@@ -2452,4 +2464,27 @@ passive table."""
         return PassiveFilter(main=(
             (Passive.recontype == 'POP_CLIENT') |
             (Passive.recontype == 'POP_SERVER')
+        ))
+
+    @staticmethod
+    def searchcert():
+        return PassiveFilter(main=(
+            (Passive.recontype == 'SSL_SERVER') &
+            (Passive.source == 'cert')
+        ))
+
+    @classmethod
+    def searchcertsubject(cls, expr):
+        return PassiveFilter(main=(
+            (Passive.recontype == 'SSL_SERVER') &
+            (Passive.source == 'cert') &
+            (cls._searchstring_re(Passive.moreinfo.op('->>')('subject'), expr))
+        ))
+
+    @classmethod
+    def searchcertissuer(cls):
+        return PassiveFilter(main=(
+            (Passive.recontype == 'SSL_SERVER') &
+            (Passive.source == 'cert') &
+            (cls._searchstring_re(Passive.moreinfo.op('->>')('issuer'), expr))
         ))
