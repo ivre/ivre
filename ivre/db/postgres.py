@@ -2096,10 +2096,7 @@ returns a generator.
     def get_one(self, flt, limit=None, skip=None):
         """Queries the passive database with the provided filter "flt", and
 returns the first result, or None if no result exists."""
-        try:
-            self.get(flt, limit=limit, skip=skip)[0]
-        except:
-            return None
+        return self.get(flt, limit=limit, skip=skip).fetchone()
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
         if spec is None:
