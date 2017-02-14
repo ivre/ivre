@@ -1124,6 +1124,9 @@ class Filter(object):
     @staticmethod
     def fltand(flt1, flt2):
         return flt1 if flt2 is None else flt2 if flt1 is None else and_(flt1, flt2)
+    @staticmethod
+    def fltor(flt1, flt2):
+        return flt1 if flt2 is None else flt2 if flt1 is None else or_(flt1, flt2)
 
 
 class NmapFilter(Filter):
@@ -2040,6 +2043,13 @@ class PassiveFilter(Filter):
             main=self.fltand(self.main, other.main),
             location=self.fltand(self.location, other.location),
             aut_sys=self.fltand(self.aut_sys, other.aut_sys),
+            uses_country=self.uses_country or other.uses_country,
+        )
+    def __or__(self, other):
+        return self.__class__(
+            main=self.fltor(self.main, other.main),
+            location=self.fltor(self.location, other.location),
+            aut_sys=self.fltor(self.aut_sys, other.aut_sys),
             uses_country=self.uses_country or other.uses_country,
         )
     @property
