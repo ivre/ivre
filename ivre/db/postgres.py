@@ -748,6 +748,20 @@ class PostgresDB(DB):
             return Host.addr != cls.convert_ip(addr)
         return Host.addr == cls.convert_ip(addr)
 
+    def distinct(self, field, flt=None):
+        """This method produces a generator of distinct values for a given
+field.
+
+        """
+        if isinstance(field, basestring):
+            field = self.fields[field]
+        if flt is None:
+            flt = self.flt_empty
+        req = flt.query(
+            select([field.distinct()]).select_from(flt.select_from)
+        )
+        return (res.itervalues().next() for res in self.db.execute(req))
+
     def get(self, *args, **kargs):
         cur = self._get(*args, **kargs)
         # mimic MongoDB cursor.count()
@@ -2054,6 +2068,20 @@ class PostgresDBPassive(PostgresDB, DBPassive):
     tables = [Passive]
     shared_tables = [(Host, [Flow.src, Flow.dst, Scan.host]),
                      (Context, [Host.id])]
+    fields = {
+        "_id": Passive.id,
+        "addr": Host.addr,
+        "sensor": Passive.sensor,
+        "count": Passive.count,
+        "firstseen": Passive.firstseen,
+        "lastseen": Passive.lastseen,
+        "infos": Passive.info,
+        "port": Passive.port,
+        "recontype": Passive.recontype,
+        "source": Passive.source,
+        "targetval": Passive.targetval,
+        "value": Passive.value,
+    }
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
