@@ -26,7 +26,6 @@ from bisect import bisect_left
 import codecs
 import csv
 import datetime
-import enum
 import json
 import re
 import sys
@@ -36,8 +35,8 @@ import time
 
 from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
     exists, insert, intersect, join, select, union, update, null, and_, not_, \
-    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Enum, \
-    Integer, LargeBinary, String, Text, tuple_
+    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Integer, \
+    LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -443,7 +442,6 @@ class PassiveCSVFile(CSVFile):
         else:
             line["addr"] = None
             line["context"] = None
-        line["recontype"] = RECONTYPES[line["recontype"]]
         line.setdefault("count", 1)
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
@@ -471,28 +469,6 @@ class PassiveCSVFile(CSVFile):
                 for col in self.table.columns]
 
 
-class Recontype(enum.Enum):
-    UNKNOWN = "UNKNOWN"
-    HTTP_CLIENT_HEADER = "HTTP_CLIENT_HEADER"
-    HTTP_SERVER_HEADER = "HTTP_SERVER_HEADER"
-    HTTP_CLIENT_HEADER_SERVER = "HTTP_CLIENT_HEADER_SERVER"
-    SSH_CLIENT = "SSH_CLIENT"
-    SSH_SERVER = "SSH_SERVER"
-    SSL_SERVER = "SSL_SERVER"
-    DNS_ANSWER = "DNS_ANSWER"
-    FTP_CLIENT = "FTP_CLIENT"
-    FTP_SERVER = "FTP_SERVER"
-    POP_CLIENT = "POP_CLIENT"
-    POP_SERVER = "POP_SERVER"
-    P0F2_SYN = "P0F2-SYN"
-    P0F2_SYNACK = "P0F2-SYN+ACK"
-    P0F2_RST = "P0F2-RST+"
-    P0F2_ACK = "P0F2-ACK"
-
-
-RECONTYPES = dict((x.value, x.name) for x in Recontype)
-
-
 class Passive(Base):
     __tablename__ = "passive"
     id = Column(Integer, primary_key=True)
@@ -502,7 +478,7 @@ class Passive(Base):
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
     port = Column(Integer)
-    recontype = Column(Enum(Recontype))
+    recontype = Column(String(64))
     source = Column(String(64))
     targetval = Column(Text)
     value = Column(Text)
@@ -2203,7 +2179,7 @@ returns the first result, or None if no result exists."""
                 firstseen=timestamp,
                 lastseen=timestamp,
                 port=spec.pop("port", 0),
-                recontype=RECONTYPES[spec.pop("recontype")],
+                recontype=spec.pop("recontype"),
                 # source, targetval, value: otherfields
                 fullvalue=spec.pop("fullvalue", None),
                 info=info,
