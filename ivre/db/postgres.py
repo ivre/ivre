@@ -2382,6 +2382,12 @@ passive table."""
             for result in self.db.execute(req.order_by(order).limit(topnbr))
         )
 
+    @classmethod
+    def searchcmp(cls, key, val, cmpop):
+        if isinstance(key, basestring):
+            key = cls.fields[key]
+        return PassiveFilter(main=key.op(cmpop)(val))
+
     @staticmethod
     def searchhost(addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
