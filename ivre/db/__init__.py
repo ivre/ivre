@@ -413,7 +413,7 @@ class DBNmap(DB):
         """
         if categories is None:
             categories = []
-        need_scan_doc = False
+        scan_doc_saved = False
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = self.json2dbrec(json.loads(line))
@@ -440,14 +440,14 @@ class DBNmap(DB):
                      host.get('openports', {}).get('count'))):
                     # We are about to insert data based on this file,
                     # so we want to save the scan document
-                    need_scan_doc = True
+                    if not scan_doc_saved:
+                        self.store_scan_doc({'_id': filehash})
+                        scan_doc_saved = True
                     if merge and self.merge_host(host):
                         pass
                     else:
                         self.archive_from_func(host, gettoarchive)
                         self.store_host(host)
-        if need_scan_doc:
-            self.store_scan_doc({'_id': filehash})
         return True
 
     @staticmethod

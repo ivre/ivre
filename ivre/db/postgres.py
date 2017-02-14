@@ -1207,16 +1207,26 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             scan['start'] = datetime.datetime.utcfromtimestamp(
                 int(scan['start'])
             )
+        if 'scaninfos' in scan:
+            scan["scaninfo"] = scan.pop('scaninfos')
         scan["sha256"] = scan.pop('_id').decode('hex')
-        scan["scaninfo"] = scan.pop('scaninfos')
-        self.db.execute(insert(ScanFile).values(
+        insrt = insert(ScanFile).values(
             **dict(
                 (key, scan[key])
                 for key in ['sha256', 'args', 'scaninfo', 'scanner', 'start',
                             'version', 'xmloutputversion']
                 if key in scan
             )
-        ))
+        )
+        if config.DEBUG:
+            scanfileid = self.db.execute(
+                insrt.returning(ScanFile.sha256)
+            ).fetchone()[0]
+            sys.stderr.write(
+                "SCAN STORED: %r\n" % scanfileid.encode('hex')
+            )
+        else:
+            self.db.execute(insrt)
 
     def store_hosts(self, hosts, merge=False):
         tmp = self.create_tmp_table(Scan, extracols=[
@@ -1391,6 +1401,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                         output=output,
                         data=script
                     ))
+        if config.DEBUG:
+            sys.stderr.write(
+                "HOST STORED: %r\n" % (scanid)
+            )
 
     def store_or_merge_host(self, host, gettoarchive, merge=False):
         self.store_host(host, merge=merge)
@@ -1474,7 +1488,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 for rec in
                 self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
-    def _get(self, flt, archive=False, limit=None, skip=None, **kargs):
+    def get(self, flt, archive=False, limit=None, skip=None, **kargs):
         req = flt.query(
             select([join(Scan, join(Host, Context))]), archive=archive,
         )
