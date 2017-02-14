@@ -2467,6 +2467,25 @@ passive table."""
         ))
 
     @staticmethod
+    def searchbasicauth():
+        return PassiveFilter(main=(
+            ((Passive.recontype == 'HTTP_CLIENT_HEADER') |
+             (Passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
+            ((Passive.source == 'AUTHORIZATION') |
+             (Passive.source == 'PROXY-AUTHORIZATION')) &
+            Passive.value.op('~')('^Basic')
+        ))
+
+    @staticmethod
+    def searchhttpauth():
+        return PassiveFilter(main=(
+            ((Passive.recontype == 'HTTP_CLIENT_HEADER') |
+             (Passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
+            ((Passive.source == 'AUTHORIZATION') |
+             (Passive.source == 'PROXY-AUTHORIZATION'))
+        ))
+
+    @staticmethod
     def searchcert():
         return PassiveFilter(main=(
             (Passive.recontype == 'SSL_SERVER') &
@@ -2488,3 +2507,9 @@ passive table."""
             (Passive.source == 'cert') &
             (cls._searchstring_re(Passive.moreinfo.op('->>')('issuer'), expr))
         ))
+
+    @classmethod
+    def searchsensor(cls, sensor, neg=False):
+        return PassiveFilter(
+            main=(cls._searchstring_re(Passive.sensor, sensor, neg=neg)),
+        )
