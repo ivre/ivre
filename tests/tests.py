@@ -659,21 +659,25 @@ class IvreTests(unittest.TestCase):
                             )
 
         # Counting
-        total_count = ivre.db.db.passive.get(
-            ivre.db.db.passive.flt_empty).count()
+        total_count = ivre.db.db.passive.count(
+            ivre.db.db.passive.flt_empty
+        )
         self.assertGreater(total_count, 0)
         self.check_value("passive_count", total_count)
 
         # Filters
-        addr = ivre.db.db.passive.get(
-            ivre.db.db.passive.flt_empty)[0].get("addr")
-        result = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchhost(addr))
-        self.assertGreater(result.count(), 0)
+        addr = ivre.db.db.passive.get_one(
+            ivre.db.db.passive.flt_empty
+        )["addr"]
+        result = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchhost(addr)
+        )
+        self.assertGreater(result, 0)
 
-        result = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchhost(-1))
-        self.assertEqual(result.count(), 0)
+        result = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchhost(-1)
+        )
+        self.assertEqual(result, 0)
 
         addrrange = sorted(
             x for x in ivre.db.db.passive.distinct('addr')
@@ -684,10 +688,10 @@ class IvreTests(unittest.TestCase):
             addrrange = [addrrange[0], addrrange[-1]]
         else:
             addrrange = [addrrange[1], addrrange[-2]]
-        result = ivre.db.db.passive.get(
+        result = ivre.db.db.passive.count(
             ivre.db.db.passive.searchrange(*addrrange)
         )
-        self.assertGreaterEqual(result.count(), 2)
+        self.assertGreaterEqual(result, 2)
         addresses_1 = list(ivre.db.db.passive.distinct(
             'addr',
             flt=ivre.db.db.passive.searchrange(*addrrange),
@@ -720,9 +724,10 @@ class IvreTests(unittest.TestCase):
         self.assertItemsEqual(addresses_1, addresses_2)
         count = 0
         for net in nets:
-            result = ivre.db.db.passive.get(
-                ivre.db.db.passive.searchnet(net))
-            count += result.count()
+            result = ivre.db.db.passive.count(
+                ivre.db.db.passive.searchnet(net)
+            )
+            count += result
             start, stop = map(ivre.utils.ip2int,
                               ivre.utils.net2range(net))
             for addr in ivre.db.db.passive.distinct(
@@ -730,48 +735,58 @@ class IvreTests(unittest.TestCase):
                     flt=ivre.db.db.passive.searchnet(net),
             ):
                 self.assertTrue(start <= addr <= stop)
-        result = ivre.db.db.passive.get(
+        result = ivre.db.db.passive.count(
             ivre.db.db.passive.flt_and(
                 *(ivre.db.db.passive.searchnet(net) for net in nets)
             ))
-        self.assertEqual(result.count(), 0)
-        result = ivre.db.db.passive.get(
+        self.assertEqual(result, 0)
+        result = ivre.db.db.passive.count(
             ivre.db.db.passive.flt_or(
                 *(ivre.db.db.passive.searchnet(net) for net in nets)
             ))
-        self.assertEqual(result.count(), count)
+        self.assertEqual(result, count)
 
-        count = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchtorcert()).count()
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchtorcert()
+        )
         self.check_value("passive_torcert_count", count)
-        count = ivre.db.db.passive.get(
+        count = ivre.db.db.passive.count(
             ivre.db.db.passive.searchcertsubject(
-                re.compile('google', re.I))).count()
+                re.compile('google', re.I)
+            )
+        )
         self.check_value("passive_cert_google", count)
-        count = ivre.db.db.passive.get(
+        count = ivre.db.db.passive.count(
             ivre.db.db.passive.searchcertsubject(
-                re.compile('microsoft', re.I))).count()
+                re.compile('microsoft', re.I)
+            )
+        )
         self.check_value("passive_cert_microsoft", count)
-        count = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchjavaua()).count()
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchjavaua()
+        )
         self.check_value("passive_javaua_count", count)
 
-        count = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchsensor("TEST")).count()
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchsensor("TEST")
+        )
         self.assertEqual(count, total_count)
-        count = ivre.db.db.passive.get(
-            ivre.db.db.passive.searchsensor("TEST", neg=True)).count()
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchsensor("TEST", neg=True)
+        )
         self.assertEqual(count, 0)
-        count = ivre.db.db.passive.get(
+        count = ivre.db.db.passive.count(
             ivre.db.db.passive.searchsensor(
-                re.compile("^TEST$"), neg=True)).count()
+                re.compile("^TEST$"), neg=True)
+        )
         self.assertEqual(count, 0)
 
         for auth_type in ["basic", "http", "pop", "ftp"]:
-            count = ivre.db.db.passive.get(
+            count = ivre.db.db.passive.count(
                 getattr(
                     ivre.db.db.passive, "search%sauth" % auth_type
-                )()).count()
+                )()
+            )
             self.check_value("passive_%sauth_count" % auth_type, count)
 
         # Top values
@@ -791,12 +806,13 @@ class IvreTests(unittest.TestCase):
 
         # Delete
         flt = ivre.db.db.passive.searchcert()
-        count = ivre.db.db.passive.get(flt).count()
+        count = ivre.db.db.passive.count(flt)
         # Test case OK?
         self.assertGreater(count, 0)
         ivre.db.db.passive.remove(flt)
-        new_count = ivre.db.db.passive.get(
-            ivre.db.db.passive.flt_empty).count()
+        new_count = ivre.db.db.passive.count(
+            ivre.db.db.passive.flt_empty
+        )
         self.assertEqual(count + new_count, total_count)
 
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],

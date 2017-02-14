@@ -748,6 +748,12 @@ class PostgresDB(DB):
             return Host.addr != cls.convert_ip(addr)
         return Host.addr == cls.convert_ip(addr)
 
+    def get(self, *args, **kargs):
+        cur = self._get(*args, **kargs)
+        # mimic MongoDB cursor.count()
+        cur.count = lambda: cur.rowcount
+        return cur
+
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         hosts = [cls.convert_ip(host) for host in hosts]
@@ -1475,7 +1481,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 for rec in
                 self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
-    def get(self, flt, archive=False, limit=None, skip=None, **kargs):
+    def _get(self, flt, archive=False, limit=None, skip=None, **kargs):
         req = flt.query(
             select([join(Scan, join(Host, Context))]), archive=archive,
         )
@@ -2067,7 +2073,7 @@ class PostgresDBPassive(PostgresDB, DBPassive):
             )
         ).fetchone()[0]
 
-    def get(self, flt, limit=None, skip=None, sort=None):
+    def _get(self, flt, limit=None, skip=None, sort=None):
         """Queries the passive database with the provided filter "flt", and
 returns a generator.
 
