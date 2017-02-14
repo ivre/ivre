@@ -2375,7 +2375,7 @@ passive table."""
                                    separated_timestamps=False)
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
-                  limit=None, skip=None, least=False, distinct=False):
+                  limit=None, skip=None, least=False, distinct=True):
         """This method makes use of the aggregation framework to
         produce top values for a given field.
 
@@ -2384,15 +2384,18 @@ passive table."""
         the "count" field.
 
         """
+        if isinstance(field, basestring):
+            field = self.fields[field]
         outputproc = None
         if flt is None:
             flt = PassiveFilter()
-        base = flt.query_from_filter(
+        base = flt.query(
             select([Passive.id]).select_from(flt.select_from),
         ).cte("base")
         order = "count" if least else desc("count")
-        req = flt.query_from_filter(
-            select([func.count().label("count"), field])\
+        req = flt.query(
+            select([(func.count() if distinct else func.sum(Passive.count))\
+                    .label("count"), field])\
             .select_from(flt.select_from)\
             .group_by(field)
         )
