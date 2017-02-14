@@ -2123,6 +2123,12 @@ class PostgresDBPassive(PostgresDB, DBPassive):
             )
         ).fetchone()[0]
 
+    def remove(self, flt):
+        base = flt.query(
+            select([Passive.id]).select_from(flt.select_from)
+        ).cte("base")
+        self.db.execute(delete(Passive).where(Passive.id.in_(base)))
+
     def _get(self, flt, limit=None, skip=None, sort=None):
         """Queries the passive database with the provided filter "flt", and
 returns a generator.
