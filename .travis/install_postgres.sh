@@ -17,6 +17,7 @@ initdb -D data/db
 pg_ctl -D data/db -l postgresql-logfile -o '-p 54321' start
 
 until nc -z localhost 54321 ; do echo Waiting for PostgreSQL; sleep 1; done
+sleep 2
 
 echo 'DB = "postgresql://ivre@localhost:54321/ivre"' >> ~/.ivre.conf
 

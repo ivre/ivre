@@ -675,13 +675,15 @@ class IvreTests(unittest.TestCase):
         self.assertGreater(result, 0)
 
         result = ivre.db.db.passive.count(
-            ivre.db.db.passive.searchhost(-1)
+            ivre.db.db.passive.searchhost("127.12.34.56")
         )
         self.assertEqual(result, 0)
 
         addrrange = sorted(
-            x for x in ivre.db.db.passive.distinct('addr')
-            if isinstance(x, (int, long)) and x
+            (x for x in ivre.db.db.passive.distinct('addr')
+             if isinstance(x, (int, long, basestring)) and x),
+            key=lambda x: (ivre.utils.ip2int(x)
+                           if isinstance(x, basestring) else x),
         )
         self.assertGreaterEqual(len(addrrange), 2)
         if len(addrrange) < 4:
@@ -707,8 +709,19 @@ class IvreTests(unittest.TestCase):
         addresses_2 = list(ivre.db.db.passive.distinct(
             'addr',
             flt=ivre.db.db.passive.flt_and(
-                ivre.db.db.passive.searchcmp("addr", addrrange[0] - 1, '>'),
-                ivre.db.db.passive.searchcmp("addr", addrrange[1] + 1, '<'),
+                ivre.db.db.passive.searchcmp(
+                    "addr",
+                    ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1)
+                    if isinstance(addrrange[0], basestring) else
+                    addrrange[0] - 1,
+                    '>',
+                ),
+                ivre.db.db.passive.searchcmp(
+                    "addr",
+                    ivre.utils.int2ip(ivre.utils.ip2int(addrrange[1]) + 1)
+                    if isinstance(addrrange[1], basestring) else
+                    addrrange[1] + 1,
+                    '<'),
             ),
         ))
         self.assertItemsEqual(addresses_1, addresses_2)
@@ -734,7 +747,11 @@ class IvreTests(unittest.TestCase):
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
             ):
-                self.assertTrue(start <= addr <= stop)
+                self.assertTrue(
+                    start <= (ivre.utils.ip2int(addr)
+                              if isinstance(addr, basestring)
+                              else addr) <= stop
+                )
         result = ivre.db.db.passive.count(
             ivre.db.db.passive.flt_and(
                 *(ivre.db.db.passive.searchnet(net) for net in nets)
@@ -796,6 +813,8 @@ class IvreTests(unittest.TestCase):
                                                   topnbr=1).next()
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
+                ivre.utils.ip2int(values["_id"])
+                if isinstance(values["_id"], basestring) else
                 values["_id"],
             )
             self.check_value(
