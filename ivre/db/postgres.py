@@ -1498,14 +1498,14 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = req.limit(limit)
         for scanrec in self.db.execute(req):
             rec = {}
-            (scanid, _, rec["infos"], rec["starttime"], rec["endtime"],
+            (rec["_id"], _, rec["infos"], rec["starttime"], rec["endtime"],
              rec["state"], rec["state_reason"], rec["state_reason_ttl"],
              rec["archive"], rec["merge"], _, _, rec["addr"], _, _, _,
              rec["host_context"]) = scanrec
             if not rec["infos"]:
                 del rec["infos"]
             sources = select([Association_Scan_Source.source])\
-                      .where(Association_Scan_Source.scan == scanid)\
+                      .where(Association_Scan_Source.scan == rec["_id"])\
                       .cte("sources")
             sources = [src[0] for src in
                        self.db.execute(select([Source.name])\
@@ -1513,14 +1513,15 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             if sources:
                 rec['source'] = ', '.join(sources)
             categories = select([Association_Scan_Category.category])\
-                         .where(Association_Scan_Category.scan == scanid)\
+                         .where(Association_Scan_Category.scan == rec["_id"])\
                          .cte("categories")
             rec["categories"] = [src[0] for src in
                                  self.db.execute(
                                      select([Category.name])\
                                      .where(Category.id == categories.c.category)
                                  )]
-            for port in self.db.execute(select([Port]).where(Port.scan == scanid)):
+            for port in self.db.execute(select([Port])\
+                                        .where(Port.scan == rec["_id"])):
                 recp = {}
                 (portid, _, recp["port"], recp["protocol"], recp["state_state"],
                  recp["state_reason"], recp["state_reason_ip"],
@@ -1541,6 +1542,27 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     )
                 rec.setdefault('ports', []).append(recp)
             yield rec
+
+    def remove(self, host):
+        """Removes the host scan result. "host" must be a record as yielded by
+        .get() or a valid NmapFilter() instance.
+
+        The scan files that are no longer linked to a scan are removed
+        at the end of the call.
+
+        """
+        if isinstance(host, dict):
+            base = [host['_id']]
+        else:
+            base = flt.query(
+                select([Passive.id]).select_from(join(Scan, join(Host,
+                                                                 Context)),
+                                                 archive=archive)
+            ).cte("base")
+        self.db.execute(delete(Scan).where(Scan.id.in_(base)))
+        # remove unused scan files
+        base = select([Association_Scan_ScanFile.scan_file]).cte('base')
+        self.db.execute(delete(ScanFile).where(ScanFile.sha256.notin_(base)))
 
     def topvalues(self, field, flt=None, topnbr=10, sortby=None,
                   limit=None, skip=None, least=False, archive=False):
