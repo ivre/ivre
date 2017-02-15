@@ -54,7 +54,7 @@ before_script:
   - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
   - for file in telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file" ; done
 
-script: cd tests/ && travis_wait 30 python tests.py --coverage
+script: cd tests/ && travis_wait 60 python tests.py --coverage
 
 after_success:
   - codecov
