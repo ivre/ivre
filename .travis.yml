@@ -1,10 +1,18 @@
 sudo: false
 
 env:
-  - DB=mongo MONGODB_VERSION=2.6.10
-  - DB=mongo MONGODB_VERSION=3.4.2
-  - DB=postgres POSTGRES_VERSION=9.6.2
+  # PostgreSQL
   - DB=postgres POSTGRES_VERSION=9.5.6
+  - DB=postgres POSTGRES_VERSION=9.6.2
+  # MongoDB
+  ## Previous releases
+  - DB=mongo MONGODB_VERSION=2.6.12
+  - DB=mongo MONGODB_VERSION=3.0.14
+  - DB=mongo MONGODB_VERSION=3.2.12
+  ## Current stable
+  - DB=mongo MONGODB_VERSION=3.4.2
+  ## Development release
+  - DB=mongo MONGODB_VERSION=3.5.3
 
 language: python
 

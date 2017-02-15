@@ -54,11 +54,12 @@ IVRE relies on:
     with version 3) for the passive fingerprint and flow modules.
 
   * [MongoDB](http://www.mongodb.org/), version 2.6 minimum (tests are
-    run with versions 2.6.10 and 3.4.2).
+    run with versions 2.6.12, 3.0.14, 3.2.12, 3.4.2 and 3.5.3).
 
   * optionnaly [Neo4j](http://neo4j.com/) for the flow module.
 
-  * optionnaly [PostgreSQL](https://www.postgresql.org/) for the
+  * optionnaly [PostgreSQL](https://www.postgresql.org/), version 9.5
+    minimum (tests are run with versions 9.5.6 and 9.6.2), for the
     **experimental** PostgreSQL backend.
 
   * a web server (successfully tested with

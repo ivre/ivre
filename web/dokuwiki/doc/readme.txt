@@ -26,9 +26,9 @@ IVRE relies on:
   * [[http://nmap.org/|Nmap]]
   * optionnaly [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
   * [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://qosient.com/argus/|Argus]], [[http://nfdump.sourceforge.net/|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
-  * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.10 and 3.4.2).
+  * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.12, 3.0.14, 3.2.12, 3.4.2 and 3.5.3).
   * optionnaly [[http://neo4j.com/|Neo4j]] for the flow module.
-  * optionnaly [[https://www.postgresql.org/|PostgreSQL]] for the **experimental** PostgreSQL backend.
+  * optionnaly [[https://www.postgresql.org/|PostgreSQL]], version 9.5 minimum (tests are run with versions 9.5.6 and 9.6.2), for the **experimental** PostgreSQL backend.
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%ivre httpd%%'').
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]]).
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases.
