@@ -191,14 +191,22 @@ class DB(object):
         typically implemented in the backend-specific subclasses
 
         """
-        raise NotImplementedError
+        return record['_id']
 
-    @staticmethod
-    def searchid(idval, neg=False):
+    @classmethod
+    def searchid(cls, oid, neg=False):
         """Gets a specific record given its unique identifier `idval`.
 
-        The type of the identifier is backend-specific, and this is
-        typically implemented in the backend-specific subclasses
+        Alias for .searchobjectid().
+
+        """
+        return cls.searchobjectid(oid, neg=neg)
+
+    @classmethod
+    def searchobjectid(cls, oid, neg=False):
+        """Filters records by their ObjectID.  `oid` can be a single or many
+        (as a list or any iterable) object ID(s), specified as strings
+        or an `ObjectID`s.
 
         """
         raise NotImplementedError

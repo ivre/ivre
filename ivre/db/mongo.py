@@ -166,10 +166,6 @@ class MongoDB(DB):
                 self._find_one = _find_one
             return self._find_one
 
-    @staticmethod
-    def getid(record):
-        return record['_id']
-
     def count(self, *args, **kargs):
         return self.get(*args, **kargs).count()
 
@@ -387,12 +383,19 @@ class MongoDB(DB):
         return {'$or': args} if len(args) > 1 else args[0]
 
     @staticmethod
-    def searchid(idval, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        record, given its id.
+    def searchobjectid(oid, neg=False):
+        """Filters records by their ObjectID.  `oid` can be a single or many
+        (as a list or any iterable) object ID(s), specified as strings
+        or an `ObjectID`s.
 
         """
-        return {"_id": {'$ne': idval} if neg else idval}
+        if isinstance(oid, (basestring, bson.objectid.ObjectId)):
+            oid = [bson.objectid.ObjectId(oid)]
+        else:
+            oid = [bson.objectid.ObjectId(elt) for elt in oid]
+        if len(oid) == 1:
+            return {'_id': {'$ne': oid[0]} if neg else oid[0]}
+        return {'_id': {'$nin' if neg else '$in': oid}}
 
     @staticmethod
     def searchversion(version):
@@ -1563,19 +1566,6 @@ have no effect if it is not expected)."""
             self.searchport(port, protocol=protocol,
                             state=state, neg=neg)['ports']
             for port in ports]}}
-
-    @staticmethod
-    def searchobjectid(oid, neg=False):
-        """Filters records by their ObjectID.
-        `oid` can be a single or many (as a list or any iterable) object ID(s),
-        specified as strings or an `ObjectID`s."""
-        if isinstance(oid, (basestring, bson.objectid.ObjectId)):
-            oid = [bson.objectid.ObjectId(oid)]
-        else:
-            oid = [bson.objectid.ObjectId(elt) for elt in oid]
-        if len(oid) == 1:
-            return {'_id': {'$ne': oid[0]} if neg else oid[0]}
-        return {'_id': {'$nin' if neg else '$in': oid}}
 
     @staticmethod
     def searchcountopenports(minn=None, maxn=None, neg=False):

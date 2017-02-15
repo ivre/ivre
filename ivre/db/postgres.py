@@ -714,6 +714,23 @@ class PostgresDB(DB):
         return cls.context_names[bisect_left(cls.context_last_ips, addr)]
 
     @classmethod
+    def searchobjectid(cls, oid, neg=False):
+        """Filters records by their ObjectID.  `oid` can be a single or many
+        (as a list or any iterable) object ID(s), specified as strings
+        or an `ObjectID`s.
+
+        """
+        if isinstance(oid, (basestring, int, long)):
+            oid = [int(oid)]
+        else:
+            oid = [int(oid) for oid in oid]
+        return cls._searchobjectid(oid, neg=neg)
+
+    @staticmethod
+    def _searchobjectid(oid, neg=False):
+        raise NotImplementedError
+
+    @classmethod
     def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
@@ -1777,15 +1794,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     for result in self.db.execute(req.order_by(order).limit(topnbr)))
 
     @staticmethod
-    def searchobjectid(oid, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        record, given its id.
-
-        """
-        if isinstance(oid, (basestring, int, long)):
-            oid = [int(oid)]
-        else:
-            oid = [int(oid) for oid in oid]
+    def _searchobjectid(oid, neg=False):
         if len(oid) == 1:
             return NmapFilter(main=(Scan.id != oid[0]) if neg else
                               (Scan.id == oid[0]))
@@ -2433,6 +2442,14 @@ passive table."""
              "_id": outputproc(result[1:] if len(result) > 2 else result[1])}
             for result in self.db.execute(req.order_by(order).limit(topnbr))
         )
+
+    @staticmethod
+    def _searchobjectid(oid, neg=False):
+        if len(oid) == 1:
+            return PassiveFilter(main=(Passive.id != oid[0]) if neg else
+                                 (Passive.id == oid[0]))
+        return PassiveFilter(main=(Passive.id.notin_(oid[0])) if neg else
+                             (Passive.id.in_(oid[0])))
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):
