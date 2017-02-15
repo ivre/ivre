@@ -683,12 +683,13 @@ def main():
             str(db.db.nmap.count(hostfilter, archive=args.archives)) + '\n'
         )
     else:
-        cursor = db.db.nmap.get(hostfilter, archive=args.archives)
-        if sortkeys:
-            cursor = cursor.sort(sortkeys)
-        if args.skip is not None:
-            cursor = cursor.skip(args.skip)
+        kargs = {"archive": args.archives}
         if args.limit is not None:
-            cursor = cursor.limit(args.limit)
+            kargs["limit"] = args.limit
+        if args.skip is not None:
+            kargs["skip"] = args.skip
+        if sortkeys:
+            kargs["sort"] = sortkeys
+        cursor = db.db.nmap.get(hostfilter, **kargs)
         displayfunction(cursor)
         sys.exit(0)

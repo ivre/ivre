@@ -1488,7 +1488,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 for rec in
                 self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
-    def get(self, flt, archive=False, limit=None, skip=None, **kargs):
+    def get(self, flt, archive=False, limit=None, skip=None, sort=None,
+            **kargs):
         req = flt.query(
             select([join(Scan, join(Host, Context))]), archive=archive,
         )
@@ -1496,6 +1497,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
+        for key, way in sort or []:
+            req = req.order_by(key if way >= 0 else desc(key))
         for scanrec in self.db.execute(req):
             rec = {}
             (rec["_id"], _, rec["infos"], rec["starttime"], rec["endtime"],
@@ -2156,9 +2159,8 @@ returns a generator.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(skip)
-        if sort is not None:
-            for key, way in sort:
-                req = req.order_by(key if way >= 0 else desc(key))
+        for key, way in sort or []:
+            req = req.order_by(key if way >= 0 else desc(key))
         return self.db.execute(req)
 
     def get_one(self, flt, limit=None, skip=None):
