@@ -1928,22 +1928,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                            .where(Port.state == "open")\
                            .group_by(Port.scan).alias("pcnt"))
         if minn == maxn:
-            if neg:
-                req = req.where(column("count") != minn)
-            else:
-                req = req.where(column("count") == minn)
+            req = req.where(column("count") == minn)
         else:
             if minn is not None:
-                if neg:
-                    req = req.where(column("count") < minn)
-                else:
-                    req = req.where(column("count") >= minn)
+                req = req.where(column("count") >= minn)
             if maxn is not None:
-                if neg:
-                    req = req.where(column("count") > maxn)
-                else:
-                    req = req.where(column("count") <= maxn)
-        return NmapFilter(main=Scan.id.in_(req))
+                req = req.where(column("count") <= maxn)
+        return NmapFilter(main=Scan.id.notin_(req) if neg else Scan.id.in_(req))
 
     @staticmethod
     def searchopenport(neg=False):
