@@ -1156,7 +1156,9 @@ class NmapFilter(Filter):
         #   - use a materialized view for `Scan` with `archive == 0`?
         if self.main is not None:
             req = req.where(self.main)
-        if not archive:
+        if archive:
+            req = req.where(Scan.archive > 0)
+        else:
             req = req.where(Scan.archive == 0)
         # See https://stackoverflow.com/questions/17112345/using-intersect-with-tables-from-a-with-clause
         for subflt in self.category:

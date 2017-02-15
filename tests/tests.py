@@ -205,7 +205,7 @@ class IvreTests(unittest.TestCase):
         oid = str(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(json.loads(out)['addr']),
             limit=1, fields=["_id"],
-        )[0]['_id'])
+        ).next()['_id'])
         res, out, _ = RUN(["ivre", "scancli", "--count", "--id", oid])
         self.assertEqual(res, 0)
         self.assertEqual(int(out), 1)
@@ -246,60 +246,68 @@ class IvreTests(unittest.TestCase):
 
         # Filters
         addr = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty, fields=["addr"])[0].get('addr')
+            ivre.db.db.nmap.flt_empty, fields=["addr"]
+        ).next()['addr']
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhost(addr)
+        )
+        self.assertEqual(count, 1)
         result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhost(addr))
-        self.assertEqual(result.count(), 1)
-        result = result[0]
+            ivre.db.db.nmap.searchhost(addr)
+        ).next()
         self.assertEqual(result['addr'], addr)
-        result = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_and(
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchhost(addr),
             ivre.db.db.nmap.searchhost(addr),
         ))
-        self.assertEqual(result.count(), 1)
+        self.assertEqual(count, 1)
         # Remove
         result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhost(addr))[0]
+            ivre.db.db.nmap.searchhost(addr)
+        ).next()
         ivre.db.db.nmap.remove(result)
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhost(addr))
-        self.assertEqual(result.count(), 0)
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhost(addr)
+        )
+        self.assertEqual(count, 0)
         hosts_count -= 1
         recid = ivre.db.db.nmap.getid(
-            ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)[0])
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchid(recid))
-        self.assertEqual(result.count(), 1)
+            ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty).next()
+        )
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchid(recid)
+        )
+        self.assertEqual(count, 1)
         self.assertIsNotNone(
             ivre.db.db.nmap.getscan(
                 ivre.db.db.nmap.get(
                     ivre.db.db.nmap.flt_empty)[0]['scanid']))
 
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhost(-1))
-        self.assertEqual(result.count(), 0)
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhost("127.12.34.56")
+        )
+        self.assertEqual(count, 0)
 
-        addrrange = sorted(x.get('addr') for x in
-                           ivre.db.db.nmap.get(
-                               ivre.db.db.nmap.flt_empty)[:2])
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchrange(*addrrange))
-        addr_range_count = result.count()
+        generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
+        addrrange = sorted(x['addr'] for x in [generator.next(), generator.next()])
+        addr_range_count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchrange(*addrrange)
+        )
         self.assertGreaterEqual(addr_range_count, 2)
-        result = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_and(
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchcmp("addr", addrrange[0], '>='),
             ivre.db.db.nmap.searchcmp("addr", addrrange[1], '<='),
         ))
-        self.assertEqual(result.count(), addr_range_count)
-        result = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_and(
+        self.assertEqual(count, addr_range_count)
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchcmp("addr", addrrange[0] - 1, '>'),
             ivre.db.db.nmap.searchcmp("addr", addrrange[1] + 1, '<'),
         ))
-        self.assertEqual(result.count(), addr_range_count)
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchrange(*addrrange, neg=True))
-        self.assertEqual(result.count() + addr_range_count,
-                         hosts_count)
+        self.assertEqual(count, addr_range_count)
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchrange(*addrrange, neg=True)
+        )
+        self.assertEqual(count + addr_range_count, hosts_count)
         addrs = set()
         for net in ivre.utils.range2nets(map(ivre.utils.int2ip, addrrange)):
             addrs.update(
@@ -308,27 +316,31 @@ class IvreTests(unittest.TestCase):
                                          flt=ivre.db.db.nmap.searchnet(net))
             )
 
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhosts(addrrange)).count()
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhosts(addrrange)
+        )
         self.assertEqual(count, 2)
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhosts(addrrange, neg=True))
-        self.assertEqual(count + result.count(), hosts_count)
+        count_cmpl = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhosts(addrrange, neg=True)
+        )
+        self.assertEqual(count + count_cmpl, hosts_count)
 
-        count = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchtimerange(
                 0, ivre.db.db.nmap.get(
                     ivre.db.db.nmap.flt_empty,
                     fields=['endtime'],
-                    sort=[['endtime', -1]])[0]['endtime'])).count()
+                    sort=[['endtime', -1]])[0]['endtime']
+            )
+        )
         self.assertEqual(count, hosts_count)
 
         nets = ivre.utils.range2nets(addrrange)
         count = 0
         for net in nets:
-            count += ivre.db.db.nmap.get(
+            count += ivre.db.db.nmap.count(
                 ivre.db.db.nmap.searchnet(net)
-            ).count()
+            )
             start, stop = map(ivre.utils.ip2int,
                               ivre.utils.net2range(net))
             for addr in ivre.db.db.nmap.distinct(
@@ -338,50 +350,56 @@ class IvreTests(unittest.TestCase):
                 self.assertTrue(start <= addr <= stop)
         self.assertEqual(count, addr_range_count)
         # Networks in `nets` are separated sets
-        result = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.flt_and(
                 *(ivre.db.db.nmap.searchnet(net) for net in nets)
             ))
-        self.assertEqual(result.count(), 0)
-        result = ivre.db.db.nmap.get(
+        self.assertEqual(count, 0)
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.flt_or(
                 *(ivre.db.db.nmap.searchnet(net) for net in nets)
-            ))
-        self.assertEqual(result.count(), addr_range_count)
+            )
+        )
+        self.assertEqual(count, addr_range_count)
 
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchscript(name="http-robots.txt"))
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchscript(name="http-robots.txt")
+        )
         # Test case OK?
-        count = result.count()
         self.assertGreater(count, 0)
         self.check_value("nmap_robots.txt_count", count)
 
-        addr = result[0]['addr']
-        result = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_and(
+        result = ivre.db.db.nmap.get(
+            ivre.db.db.nmap.searchscript(name="http-robots.txt")
+        )
+        addr = result.next()['addr']
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchscript(name="http-robots.txt"),
             ivre.db.db.nmap.searchhost(addr),
         ))
-        self.assertEqual(result.count(), 1)
-        count = ivre.db.db.nmap.get(
+        self.assertEqual(count, 1)
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchscript(
                 name="http-robots.txt",
                 output=ivre.utils.str2regexp("/cgi-bin"),
-            )).count()
+            ))
         self.assertGreater(count, 0)
         self.check_value("nmap_robots.txt_cgi_count", count)
 
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchftpanon()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchftpanon())
         # Test case OK?
         self.assertGreater(count, 0)
         self.check_value("nmap_anonftp_count", count)
 
-        result = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhopdomain(re.compile('.')))
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhopdomain(re.compile('.'))
+        )
         # Test case OK?
-        count = result.count()
         self.assertGreater(count, 0)
         self.check_value("nmap_trace_hostname_count", count)
+        result = ivre.db.db.nmap.get(
+            ivre.db.db.nmap.searchhopdomain(re.compile('.'))
+        )
         hop = random.choice([
             hop for hop in
             reduce(lambda x, y: x['hops'] + y['hops'],
@@ -389,14 +407,14 @@ class IvreTests(unittest.TestCase):
                    {'hops': []})
             if 'domains' in hop
         ])
-        result = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhop(hop['ipaddr'])
         )
-        self.assertGreaterEqual(result.count(), 1)
-        result = ivre.db.db.nmap.get(
+        self.assertGreaterEqual(count, 1)
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhopdomain(hop['domains'][0])
         )
-        self.assertGreaterEqual(result.count(), 1)
+        self.assertGreaterEqual(count, 1)
 
         # Indexes
         addr = ivre.db.db.nmap.get(
@@ -410,142 +428,129 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchrange(max(addr - 256, 0),
                                         min(addr + 256, 4294967295)),
         ]
-        for query in queries:
-            result = ivre.db.db.nmap.get(query)
-            nscanned = json.loads(ivre.db.db.nmap.explain(result))
-            try:
-                nscanned = nscanned['nscanned']
-            except KeyError:
-                nscanned = nscanned['executionStats']['totalDocsExamined']
-            self.assertEqual(result.count(), nscanned)
-            self.assertEqual(
-                query,
-                ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
-            )
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchx11()).count()
+        if DATABASE == "mongo":
+            for query in queries:
+                result = ivre.db.db.nmap.get(query)
+                nscanned = json.loads(ivre.db.db.nmap.explain(result))
+                try:
+                    nscanned = nscanned['nscanned']
+                except KeyError:
+                    nscanned = nscanned['executionStats']['totalDocsExamined']
+                self.assertEqual(result.count(), nscanned)
+                self.assertEqual(
+                    query,
+                    ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
+                )
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchx11access()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11access())
         self.check_value("nmap_x11access_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchnfs()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchnfs())
         self.check_value("nmap_nfs_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchypserv()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchypserv())
         self.check_value("nmap_nis_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchphpmyadmin()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchphpmyadmin())
         self.check_value("nmap_phpmyadmin_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchwebfiles()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchwebfiles())
         self.check_value("nmap_webfiles_count", count)
-        count = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchbanner(re.compile("^SSH-"))
-        ).count()
+        )
         self.check_value("nmap_ssh_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchvncauthbypass()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchvncauthbypass())
         self.check_value("nmap_vncauthbypass_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchmssqlemptypwd()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchmssqlemptypwd())
         self.check_value("nmap_mssql_emptypwd_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchmysqlemptypwd()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchmysqlemptypwd())
         self.check_value("nmap_mysql_emptypwd_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchxp445()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchxp445())
         self.check_value("nmap_xp445_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchxp445()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchxp445())
         self.check_value("nmap_xp445_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchtorcert()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchtorcert())
         self.check_value("nmap_torcert_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchgeovision()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchgeovision())
         self.check_value("nmap_geovision_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchwebcam()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchwebcam())
         self.check_value("nmap_webcam_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchphonedev()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchphonedev())
         self.check_value("nmap_phonedev_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchnetdev()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchnetdev())
         self.check_value("nmap_netdev_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchdomain("com")).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchdomain("com"))
         # Test case OK?
         self.assertGreater(count, 0)
         self.check_value("nmap_domain_com_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchdomain("com", neg=True)).count()
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchdomain("com", neg=True)
+        )
         self.check_value("nmap_not_domain_com_count", count)
-        count = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchdomain(re.compile("^(com|net)$"),
-                                         neg=True)).count()
+                                         neg=True)
+        )
         self.check_value("nmap_not_domain_com_or_net_count", count)
         name = ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
             'com'))[0]['hostnames'][0]['name']
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhostname(name)).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchhostname(name))
         self.assertGreater(count, 0)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchcategory("TEST")).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchcategory("TEST"))
         self.assertEqual(count, hosts_count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchcategory("TEST", neg=True)).count()
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchcategory("TEST", neg=True)
+        )
         self.assertEqual(count, 0)
-        count = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchcategory(re.compile("^TEST$"),
-                                           neg=True)).count()
+                                           neg=True)
+        )
         self.assertEqual(count, 0)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchsource("SOURCE")).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchsource("SOURCE"))
         self.assertEqual(count, hosts_count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchsource("SOURCE", neg=True)).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchsource("SOURCE",
+                                                                   neg=True))
         self.assertEqual(count, 0)
-        count = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchsource(re.compile("^SOURCE$"),
-                                         neg=True)).count()
+                                         neg=True)
+        )
         self.assertEqual(count, 0)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchport(80)).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchport(80))
         self.check_value("nmap_80_count", count)
-        neg_count = ivre.db.db.nmap.get(
+        neg_count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchport(80,
-                                       neg=True)).count()
+                                       neg=True)
+        )
         self.assertEqual(count + neg_count, hosts_count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchports([80, 443])).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchports([80, 443]))
         self.check_value("nmap_80_443_count", count)
-        neg_count = ivre.db.db.nmap.get(
+        neg_count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchports([80, 443],
-                                        neg=True)).count()
+                                        neg=True)
+        )
         self.check_value("nmap_not_80_443_count", neg_count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchopenport()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchopenport())
         self.check_value("nmap_openport_count", count)
-        count = ivre.db.db.nmap.get(
+        count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhttpauth(newscript=True,
-                                           oldscript=True)).count()
+                                           oldscript=True)
+        )
         self.check_value("nmap_httpauth_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchwebmin()).count()
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchwebmin()
+        )
         self.check_value("nmap_webmin_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchowa()).count()
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchowa()
+        )
         self.check_value("nmap_owa_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhttptitle(re.compile('.'))).count()
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhttptitle(re.compile('.'))
+        )
         self.check_value("nmap_http_title_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchvsftpdbackdoor()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchvsftpdbackdoor())
         self.check_value("nmap_vsftpbackdoor_count", count)
-        count = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchldapanon()).count()
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchldapanon())
         self.check_value("nmap_ldapanon_count", count)
         self.check_int_value_cmd(
             "nmap_isakmp_count",
@@ -609,7 +614,7 @@ class IvreTests(unittest.TestCase):
         # Init DB
         self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], "0\n")
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
-                              stdin=open(os.devnull))[0], 0)
+                             stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], "0\n")
 
         # p0f & Bro insertion
@@ -928,10 +933,11 @@ DATABASES = {
 
 
 def parse_env():
-    database = os.getenv("DB")
-    for test in DATABASES.get(database, []):
+    global DATABASE
+    DATABASE = os.getenv("DB")
+    for test in DATABASES.get(DATABASE, []):
         sys.stderr.write("Desactivating test %r for database %r."
-                         "\n" % (test, database))
+                         "\n" % (test, DATABASE))
         delattr(IvreTests, "test_%s" % test)
 
 
