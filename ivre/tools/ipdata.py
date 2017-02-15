@@ -82,8 +82,9 @@ def main():
                 'This will remove any country/AS information in your '
                 'database. Process ? [y/N] ')
             ans = raw_input()
-            if ans.lower() == 'y':
-                ivre.db.db.data.init()
+            if ans.lower() != 'y':
+                exit(0)
+        ivre.db.db.data.init()
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
