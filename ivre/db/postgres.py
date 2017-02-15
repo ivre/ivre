@@ -1777,6 +1777,22 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     for result in self.db.execute(req.order_by(order).limit(topnbr)))
 
     @staticmethod
+    def searchobjectid(oid, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        record, given its id.
+
+        """
+        if isinstance(oid, (basestring, int, long)):
+            oid = [int(oid)]
+        else:
+            oid = [int(oid) for oid in oid]
+        if len(oid) == 1:
+            return NmapFilter(main=(Scan.id != oid[0]) if neg else
+                              (Scan.id == oid[0]))
+        return NmapFilter(main=(Scan.id.notin_(oid[0])) if neg else
+                          (Scan.id.in_(oid[0])))
+
+    @staticmethod
     def searchhost(addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
