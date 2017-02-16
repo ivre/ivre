@@ -292,7 +292,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
 
         generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
-        addrrange = sorted(x['addr'] for x in [generator.next(), generator.next()])
+        addrrange = sorted((x['addr'] for x in [generator.next(),
+                                                generator.next()]),
+                           key=lambda x: (ivre.utils.ip2int(x)
+                                          if isinstance(x, basestring) else x))
         addr_range_count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchrange(*addrrange)
         )
@@ -302,9 +305,15 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchcmp("addr", addrrange[1], '<='),
         ))
         self.assertEqual(count, addr_range_count)
+        addrrange2 = [
+            ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1)
+            if isinstance(addrrange[0], basestring) else addrrange[0] - 1,
+            ivre.utils.int2ip(ivre.utils.ip2int(addrrange[1]) + 1)
+            if isinstance(addrrange[1], basestring) else addrrange[1] + 1,
+        ]
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
-            ivre.db.db.nmap.searchcmp("addr", addrrange[0] - 1, '>'),
-            ivre.db.db.nmap.searchcmp("addr", addrrange[1] + 1, '<'),
+            ivre.db.db.nmap.searchcmp("addr", addrrange2[0], '>'),
+            ivre.db.db.nmap.searchcmp("addr", addrrange2[1], '<'),
         ))
         self.assertEqual(count, addr_range_count)
         count = ivre.db.db.nmap.count(
