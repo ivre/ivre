@@ -373,7 +373,14 @@ class IvreTests(unittest.TestCase):
                     "addr",
                     flt=ivre.db.db.nmap.searchnet(net),
             ):
-                self.assertTrue(start <= addr <= stop)
+                self.assertTrue(
+                    (ivre.utils.ip2int(start) if isinstance(start, basestring)
+                     else start)
+                    <= (ivre.utils.ip2int(addr) if isinstance(addr, basestring)
+                        else addr)
+                    <= (ivre.utils.ip2int(stop) if isinstance(stop, basestring)
+                        else stop)
+                )
         self.assertEqual(count, addr_range_count)
         # Networks in `nets` are separated sets
         count = ivre.db.db.nmap.count(
