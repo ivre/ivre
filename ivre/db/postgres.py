@@ -2095,6 +2095,19 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                        Port.service_extrainfo != 'access denied')]
         )
 
+    def searchtimerange(self, start, stop, neg=False):
+        if not isinstance(start, datetime.datetime):
+            start = datetime.datetime.fromtimestamp(start)
+        if not isinstance(stop, datetime.datetime):
+            stop = datetime.datetime.fromtimestamp(stop)
+        if neg:
+            return NmapFilter(
+                main=(Scan.time_start < start) | (Scan.time_stop > stop)
+            )
+        return NmapFilter(
+            main=(Scan.time_start >= start) & (Scan.time_stop <= stop)
+        )
+
     @classmethod
     def searchfile(cls, fname=None, scripts=None):
         """Search shared files from a file name (either a string or a

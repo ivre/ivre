@@ -355,7 +355,8 @@ class IvreTests(unittest.TestCase):
                 0, ivre.db.db.nmap.get(
                     ivre.db.db.nmap.flt_empty,
                     fields=['endtime'],
-                    sort=[['endtime', -1]])[0]['endtime']
+                    sort=[['endtime', -1]]
+                ).next()['endtime']
             )
         )
         self.assertEqual(count, hosts_count)
