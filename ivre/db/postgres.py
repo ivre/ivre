@@ -744,15 +744,19 @@ class PostgresDB(DB):
             return Host.addr != cls.convert_ip(addr)
         return Host.addr == cls.convert_ip(addr)
 
+    def _distinct(self, field, flt=None):
+        if isinstance(field, basestring):
+            field = self.fields[field]
+        if flt is None:
+            flt = self.flt_empty
+        return field, flt
+
     def distinct(self, field, flt=None):
         """This method produces a generator of distinct values for a given
 field.
 
         """
-        if isinstance(field, basestring):
-            field = self.fields[field]
-        if flt is None:
-            flt = self.flt_empty
+        field, flt = self._distinct(field, flt=flt)
         req = flt.query(
             select([field.distinct()]).select_from(flt.select_from)
         )
@@ -1136,6 +1140,17 @@ class NmapFilter(Filter):
         self.script = [] if script is None else script
         self.uses_host = uses_host
         self.uses_context = uses_context
+    def copy(self):
+        return self.__class__(
+            main=self.main,
+            hostname=self.hostname[:],
+            category=self.category[:],
+            source=self.source[:],
+            port=self.port[:],
+            script=self.script[:],
+            uses_host=self.uses_host,
+            uses_context=self.uses_context,
+        )
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
@@ -1449,6 +1464,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             flt.query(select([func.count()]), archive=archive)\
             .select_from(flt.select_from)
         ).fetchone()[0]
+
+    def _distinct(self, field, flt=None):
+        field, flt = super(PostgresDBNmap, self)._distinct(field, flt=flt)
+        flt = flt.copy()
+        flt.uses_host |= field.table is Host.__table__
+        flt.uses_context |= field.table is Context.__table__
+        return field, flt
 
     def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(

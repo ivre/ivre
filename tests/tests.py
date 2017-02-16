@@ -320,13 +320,26 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchrange(*addrrange, neg=True)
         )
         self.assertEqual(count + addr_range_count, hosts_count)
-        addrs = set()
-        for net in ivre.utils.range2nets(map(ivre.utils.int2ip, addrrange)):
-            addrs.update(
-                ivre.utils.int2ip(addr) for addr in
-                ivre.db.db.nmap.distinct("addr",
-                                         flt=ivre.db.db.nmap.searchnet(net))
+        count = sum(
+            ivre.db.db.nmap.count(ivre.db.db.nmap.searchnet(net))
+            for net in ivre.utils.range2nets(
+                    [x if isinstance(x, basestring) else ivre.utils.int2ip(x)
+                     for x in addrrange]
             )
+        )
+        self.assertEqual(count, addr_range_count)
+
+        addrs = set(
+            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr)
+            for net in ivre.utils.range2nets(
+                [x if isinstance(x, basestring) else ivre.utils.int2ip(x)
+                 for x in addrrange]
+            )
+            for addr in ivre.db.db.nmap.distinct(
+                    "addr", flt=ivre.db.db.nmap.searchnet(net),
+            )
+        )
+        self.assertTrue(len(addrs) <= addr_range_count)
 
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhosts(addrrange)
