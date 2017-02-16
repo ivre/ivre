@@ -1539,11 +1539,16 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             categories = select([Association_Scan_Category.category])\
                          .where(Association_Scan_Category.scan == rec["_id"])\
                          .cte("categories")
-            rec["categories"] = [src[0] for src in
+            rec["categories"] = [cat[0] for cat in
                                  self.db.execute(
                                      select([Category.name])\
                                      .where(Category.id == categories.c.category)
                                  )]
+            rec["scanid"] = [
+                scanfile[0] for scanfile in self.db.execute(
+                    select([Association_Scan_ScanFile.scan_file])\
+                    .where(Association_Scan_ScanFile.scan == rec["_id"]))
+            ]
             for port in self.db.execute(select([Port])\
                                         .where(Port.scan == rec["_id"])):
                 recp = {}
@@ -1796,6 +1801,16 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                      "_id": outputproc(result[1:] if len(result) > 2
                                        else result[1])}
                     for result in self.db.execute(req.order_by(order).limit(topnbr)))
+
+    @staticmethod
+    def getscanids(host):
+        return host['scanid']
+
+    def getscan(self, scanid, archive=False):
+        if isinstance(scanid, basestring) and len(scanid) == 64:
+            scanid = scanid.decode('hex')
+        return self.db.execute(select([ScanFile])\
+                               .where(ScanFile.sha256 == scanid)).fetchone()
 
     @staticmethod
     def _searchobjectid(oid, neg=False):

@@ -898,11 +898,10 @@ have no effect if it is not expected)."""
             return scanids
         return [scanids]
 
-    def getscan(self, scanid, archive=False, **kargs):
+    def getscan(self, scanid, archive=False):
         return self.find_one(
             self.colname_oldscans if archive else self.colname_scans,
             {'_id': scanid},
-            **kargs
         )
 
     @staticmethod

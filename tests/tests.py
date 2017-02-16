@@ -280,8 +280,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 1)
         self.assertIsNotNone(
             ivre.db.db.nmap.getscan(
-                ivre.db.db.nmap.get(
-                    ivre.db.db.nmap.flt_empty)[0]['scanid']))
+                ivre.db.db.nmap.getscanids(
+                    ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty).next()
+                )[0]
+            )
+        )
 
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhost("127.12.34.56")
