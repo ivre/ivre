@@ -1765,17 +1765,25 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 field = (Script, [Script.output], Script.name == info)
             else:
                 field = (Script, [Script.name], None)
+        elif field in ["category", "categories"]:
+            field = (Category, [Category.name], None)
+        elif field == "source":
+            field = (Source, [Source.name], None)
         else:
             raise NotImplementedError()
         s_from = {
             Script: join(Script, Port),
             Port: Port,
             Host: Host,
+            Category: join(Association_Scan_Category, Category),
+            Source: join(Association_Scan_Source, Source),
         }
         where_clause = {
             Script: Port.scan == base.c.id,
             Port: Port.scan == base.c.id,
             Host: Scan.host == base.c.id,
+            Category: Association_Scan_Category.scan == base.c.id,
+            Source: Association_Scan_Source.scan == base.c.id,
         }
         if field[0] == Scan:
             req = flt.query(
