@@ -559,7 +559,7 @@ class PostgresDB(DB):
             table.__table__.drop(bind=self.db, checkfirst=True)
         for table, othercols in self.shared_tables:
             if table.__table__.exists(bind=self.db):
-                basevals = [select([col]) for col in othercols
+                basevals = [select([col.distinct()]) for col in othercols
                             if col.table.exists(bind=self.db)]
                 if basevals:
                     base = union(*(basevals)).cte("base")
@@ -567,9 +567,7 @@ class PostgresDB(DB):
                 else:
                     table.__table__.drop(bind=self.db, checkfirst=True)
 
-
-    def init(self):
-        self.drop()
+    def create(self):
         for table in self.required_tables:
             table.__table__.create(bind=self.db, checkfirst=True)
         for table, _ in self.shared_tables[::-1]:
@@ -585,6 +583,10 @@ class PostgresDB(DB):
             _after_host_create(None, self.db)
         except:
             pass
+
+    def init(self):
+        self.drop()
+        self.create()
 
     def copy_from(self, *args, **kargs):
         cursor = self.db.raw_connection().cursor()
@@ -1198,7 +1200,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
               Association_Scan_ScanFile]
     required_tables = [AS, Country, Location]
     shared_tables = [(Host, [Flow.src, Flow.dst, Passive.host]),
-                     (Context, [Host.id])]
+                     (Context, [Host.context])]
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -2110,7 +2112,7 @@ class PassiveFilter(Filter):
 class PostgresDBPassive(PostgresDB, DBPassive):
     tables = [Passive]
     shared_tables = [(Host, [Flow.src, Flow.dst, Scan.host]),
-                     (Context, [Host.id])]
+                     (Context, [Host.context])]
     fields = {
         "_id": Passive.id,
         "addr": Host.addr,
