@@ -498,6 +498,7 @@ class PostgresDB(DB):
     tables = []
     required_tables = []
     shared_tables = []
+    fields = {}
     context_names = [
         "Current-Net",
         "Public",
@@ -1201,6 +1202,19 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     required_tables = [AS, Country, Location]
     shared_tables = [(Host, [Flow.src, Flow.dst, Passive.host]),
                      (Context, [Host.context])]
+    fields = {
+        "_id": Scan.id,
+        "addr": Host.addr,
+        "scanid": Association_Scan_ScanFile.scan_file,
+        "starttime": Scan.time_start,
+        "endtime": Scan.time_stop,
+        "infos": Scan.info,
+        "state": Scan.state_reason_ttl,
+        "state_reason": Scan.state_reason_ttl,
+        "state_reason_ttl": Scan.state_reason_ttl,
+        "categories": Category.name,
+        "source": Source.name,
+    }
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -1827,6 +1841,14 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                               (Scan.id == oid[0]))
         return NmapFilter(main=(Scan.id.notin_(oid[0])) if neg else
                           (Scan.id.in_(oid[0])))
+
+    @classmethod
+    def searchcmp(cls, key, val, cmpop):
+        if isinstance(key, basestring):
+            key = cls.fields[key]
+        return NmapFilter(main=key.op(cmpop)(val),
+                          uses_host=key.table is Host.__table__,
+                          uses_context=key.table is Context.__table__)
 
     @staticmethod
     def searchhost(addr, neg=False):
