@@ -318,7 +318,6 @@ class Category(Base):
         Index('ix_category_name', 'name', unique=True),
     )
 
-
 class Association_Scan_Source(Base):
     __tablename__ = 'association_scan_source'
     scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
@@ -1154,6 +1153,28 @@ class NmapFilter(Filter):
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
+            hostname=self.hostname + other.hostname,
+            category=self.category + other.category,
+            source=self.source + other.source,
+            port=self.port + other.port,
+            script=self.script + other.script,
+            uses_host=self.uses_host or other.uses_host,
+            uses_context=self.uses_context or other.uses_context,
+        )
+    def __or__(self, other):
+        # FIXME: this has to be implemented
+        if self.hostname and other.hostname:
+            raise ValueError("Cannot 'OR' two filters on hostname")
+        if self.category and other.category:
+            raise ValueError("Cannot 'OR' two filters on category")
+        if self.source and other.source:
+            raise ValueError("Cannot 'OR' two filters on source")
+        if self.port and other.port:
+            raise ValueError("Cannot 'OR' two filters on port")
+        if self.script and other.script:
+            raise ValueError("Cannot 'OR' two filters on script")
+        return self.__class__(
+            main=self.fltor(self.main, other.main),
             hostname=self.hostname + other.hostname,
             category=self.category + other.category,
             source=self.source + other.source,
