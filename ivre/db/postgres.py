@@ -1555,6 +1555,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         if limit is not None:
             req = req.limit(limit)
         for key, way in sort or []:
+            if isinstance(key, basestring) and key in self.fields:
+                key = self.fields[key]
             req = req.order_by(key if way >= 0 else desc(key))
         for scanrec in self.db.execute(req):
             rec = {}
