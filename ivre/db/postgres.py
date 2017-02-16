@@ -35,8 +35,8 @@ import time
 
 from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
     exists, insert, intersect, join, select, union, update, null, and_, not_, \
-    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Integer, \
-    LargeBinary, String, Text, tuple_
+    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
+    Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -375,6 +375,35 @@ class Hostname(Base):
     __table_args__ = (
         Index('ix_hostname_scan_name_type', 'scan', 'name', 'type',
               unique=True),
+    )
+
+class Association_Scan_Hostname(Base):
+    __tablename__ = 'association_scan_hostname'
+    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
+                  primary_key=True)
+    hostname = Column(Integer, ForeignKey('hostname.id', ondelete='CASCADE'),
+                      primary_key=True)
+
+class Trace(Base):
+    # FIXME: unicity (scan, port, protocol) to handle merge. Special
+    # value for port when not present?
+    __tablename__ = "trace"
+    id = Column(Integer, primary_key=True)
+    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'))
+    port = Column(Integer)
+    protocol = Column(String(16))
+
+class Hop(Base):
+    __tablename__ = "hop"
+    id = Column(Integer, primary_key=True)
+    trace = Column(Integer, ForeignKey('trace.id', ondelete='CASCADE'))
+    ipaddr = Column(postgresql.INET)
+    ttl = Column(Integer)
+    rtt = Column(Float)
+    host = Column(String(255), index=True)
+    domains = Column(ARRAY(String(255)), index=True)
+    __table_args__ = (
+        Index('ix_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
     )
 
 class Scan(Base):
@@ -1130,13 +1159,15 @@ class Filter(object):
 
 class NmapFilter(Filter):
     def __init__(self, main=None, hostname=None, category=None, source=None,
-                 port=None, script=None, uses_host=False, uses_context=False):
+                 port=None, script=None, trace=None, uses_host=False,
+                 uses_context=False):
         self.main = main
         self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
         self.source = [] if source is None else source
         self.port = [] if port is None else port
         self.script = [] if script is None else script
+        self.trace = [] if trace is None else trace
         self.uses_host = uses_host
         self.uses_context = uses_context
     def copy(self):
@@ -1147,6 +1178,7 @@ class NmapFilter(Filter):
             source=self.source[:],
             port=self.port[:],
             script=self.script[:],
+            trace=self.trace[:],
             uses_host=self.uses_host,
             uses_context=self.uses_context,
         )
@@ -1158,6 +1190,7 @@ class NmapFilter(Filter):
             source=self.source + other.source,
             port=self.port + other.port,
             script=self.script + other.script,
+            trace=self.trace + other.trace,
             uses_host=self.uses_host or other.uses_host,
             uses_context=self.uses_context or other.uses_context,
         )
@@ -1173,6 +1206,8 @@ class NmapFilter(Filter):
             raise ValueError("Cannot 'OR' two filters on port")
         if self.script and other.script:
             raise ValueError("Cannot 'OR' two filters on script")
+        if self.trace and other.trace:
+            raise ValueError("Cannot 'OR' two filters on trace")
         return self.__class__(
             main=self.fltor(self.main, other.main),
             hostname=self.hostname + other.hostname,
@@ -1180,16 +1215,22 @@ class NmapFilter(Filter):
             source=self.source + other.source,
             port=self.port + other.port,
             script=self.script + other.script,
+            trace=self.trace + other.trace,
             uses_host=self.uses_host or other.uses_host,
             uses_context=self.uses_context or other.uses_context,
         )
     @property
     def select_from(self):
+        res = Scan
         if self.uses_context:
-            return join(Scan, join(Host, Context))
-        if self.uses_host:
-            return join(Scan, Host)
-        return Scan
+            res = join(res, join(Host, Context))
+        elif self.uses_host:
+            res = join(res, Host)
+        if self.hostname:
+            res = join(res, Hostname)
+        if self.trace:
+            res = join(res, Trace)
+        return res
     def query(self, req, archive=False):
         # TODO: improve performances
         #   - use a materialized view for `Scan` with `archive == 0`?
@@ -1200,6 +1241,13 @@ class NmapFilter(Filter):
         else:
             req = req.where(Scan.archive == 0)
         # See https://stackoverflow.com/questions/17112345/using-intersect-with-tables-from-a-with-clause
+        for subflt in self.hostname:
+            req = req.where(exists(
+                select([1])\
+                .select_from(Hostname)\
+                .where(subflt)\
+                .where(Hostname.scan == Scan.id)
+            ))
         for subflt in self.category:
             req = req.where(exists(
                 select([1])\
@@ -1228,13 +1276,20 @@ class NmapFilter(Filter):
                 .where(subflt)\
                 .where(Port.scan == Scan.id)
             ))
+        for subflt in self.trace:
+            req = req.where(exists(
+                select([1])\
+                .select_from(join(Trace, Hop))\
+                .where(subflt)\
+                .where(Trace.scan == Scan.id)
+            ))
         return req
 
 
 class PostgresDBNmap(PostgresDB, DBNmap):
-    tables = [ScanFile, Category, Source, Scan, Port, Script,
-              Association_Scan_Source, Association_Scan_Category,
-              Association_Scan_ScanFile]
+    tables = [ScanFile, Category, Source, Scan, Hostname, Port, Script, Trace,
+              Hop, Association_Scan_Hostname, Association_Scan_Source,
+              Association_Scan_Category, Association_Scan_ScanFile]
     required_tables = [AS, Country, Location]
     shared_tables = [(Host, [Flow.src, Flow.dst, Passive.host]),
                      (Context, [Host.context])]
@@ -1317,6 +1372,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             self.copy_from(fdesc, tmp.name)
 
     def store_host(self, host, merge=False):
+        # FIXME: insert hostnames
         addr = host['addr']
         context = self.get_context(addr, source=host.get('source'))
         addr = self.convert_ip(addr)
@@ -1357,6 +1413,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 # Test should be ==, using <= in case of rounding
                 # issues.
                 newest = scan_tstop <= host['endtime']
+            else:
+                newest = None
         else:
             curarchive = self.db.execute(select([func.max(Scan.archive)])\
                                          .where(Scan.host == hostid))\
@@ -1472,6 +1530,23 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                         output=output,
                         data=script
                     ))
+        if not merge:
+            # FIXME: handle traceroutes on merge
+            for trace in host.get('traces', []):
+                traceid = self.db.execute(insert(Trace).values(
+                    scan=scanid,
+                    port=trace.get('port'),
+                    protocol=trace['protocol']
+                ).returning(Trace.id)).fetchone()[0]
+                for hop in trace.get('hops'):
+                    hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
+                    self.db.execute(insert(Hop).values(
+                        ipaddr = self.convert_ip(hop['ipaddr']),
+                        ttl=hop["ttl"],
+                        rtt=None if hop["rtt"] == '--' else hop["rtt"],
+                        host=hop.get("host"),
+                        domains=hop.get("domains"),
+                    ))
         if config.DEBUG:
             sys.stderr.write(
                 "HOST STORED: %r\n" % (scanid)
@@ -1580,6 +1655,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 key = self.fields[key]
             req = req.order_by(key if way >= 0 else desc(key))
         for scanrec in self.db.execute(req):
+            # FIXME: fetch hostnames and traceroute results
             rec = {}
             (rec["_id"], _, rec["infos"], rec["starttime"], rec["endtime"],
              rec["state"], rec["state_reason"], rec["state_reason_ttl"],
@@ -2158,6 +2234,32 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             cls._searchstring_re(Script.output, title),
         ])
 
+    @classmethod
+    def searchhostname(cls, name, neg=False):
+        return NmapFilter(hostname=[cls._searchstring_re(Hostname.domains,
+                                                         name, neg=neg)])
+
+    @classmethod
+    def searchhostname(cls, name, neg=False):
+        return NmapFilter(hostname=[cls._searchstring_re(Hostname.name,
+                                                         name, neg=neg)])
+
+    @classmethod
+    def searchhop(cls, hop, ttl=None, neg=False):
+        res = Hop.ipaddr == cls.convert_ip(hop)
+        if ttl is not None:
+            res &= Hop.ttl == ttl
+        return NmapFilter(trace=[not_(res) if neg else res])
+
+    @classmethod
+    def searchhopdomain(cls, hop, neg=False):
+        return NmapFilter(trace=[cls._searchstring_re(Hop.domains,
+                                                      hop, neg=neg)])
+
+    @classmethod
+    def searchhopname(cls, hop, neg=False):
+        return NmapFilter(trace=[cls._searchstring_re(Hop.name,
+                                                      hop, neg=neg)])
 
 class PassiveFilter(Filter):
     def __init__(self, main=None, location=None, aut_sys=None,
