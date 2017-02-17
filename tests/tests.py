@@ -462,19 +462,21 @@ class IvreTests(unittest.TestCase):
                                         min(ivre.utils.ip2int(addr) + 256,
                                             4294967295)),
         ]
-        if DATABASE == "mongo":
-            for query in queries:
-                result = ivre.db.db.nmap.get(query)
+        for query in queries:
+            result = ivre.db.db.nmap.get(query)
+            count = ivre.db.db.nmap.count(query)
+            if DATABASE == "mongo":
                 nscanned = json.loads(ivre.db.db.nmap.explain(result))
                 try:
                     nscanned = nscanned['nscanned']
                 except KeyError:
                     nscanned = nscanned['executionStats']['totalDocsExamined']
-                self.assertEqual(result.count(), nscanned)
+                self.assertEqual(count, nscanned)
                 self.assertEqual(
                     query,
                     ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
                 )
+            # FIXME: test PostgreSQL indexes
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11access())
