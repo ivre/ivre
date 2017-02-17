@@ -2251,10 +2251,26 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = Script.data.op('@>')('{"ls": {"volumes": [{"files": []}]}}')
         else:
             if isinstance(fname, utils.REGEXP_T):
-                raise ValueError("Regexp not supported here")
-            req = Script.data.op('@>')(json.dumps(
-                {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
-            ))
+                base1 = select([
+                    Script.port,
+                    func.jsonb_array_elements(
+                        func.jsonb_array_elements(
+                            Script.data['ls']['volumes']
+                        ).op('->')('files')
+                    ).op('->>')('filename').label('filename')])\
+                    .where(Script.data.op('@>')(
+                        '{"ls": {"volumes": [{"files": []}]}}'
+                    ))\
+                    .cte('base1')
+                base2 = select([column('port')])\
+                        .select_from(base1)\
+                        .where(column('filename').op('~')(fname.pattern))\
+                        .cte('base2')
+                return NmapFilter(port=[Port.id.in_(base2)])
+            else:
+                req = Script.data.op('@>')(json.dumps(
+                    {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
+                ))
         if scripts is None:
             return NmapFilter(script=[req])
         if isinstance(scripts, basestring):
