@@ -904,15 +904,6 @@ have no effect if it is not expected)."""
             {'_id': scanid},
         )
 
-    @staticmethod
-    def getscreenshot(port):
-        """Returns the content of a port's screenshot."""
-        url = port.get('screenshot')
-        if url is None:
-            return None
-        if url == "field":
-            return port.get('screendata')
-
     def set_label(self, flt, group, label, archive=False):
         """Adds `label` in `group` to every host matching `flt`"""
         colname = self.colname_oldhosts if archive else self.colname_hosts

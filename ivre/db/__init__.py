@@ -241,13 +241,24 @@ class DB(object):
 
 
 class DBNmap(DB):
-
     def __init__(self, output_mode="json", output=sys.stdout):
         self.content_handler = xmlnmap.Nmap2Txt
         self.output_function = {
             "normal": nmapout.displayhosts,
         }.get(output_mode, nmapout.displayhosts_json)
         self.output = output
+        self.__schema_migrations = {
+            "hosts": {
+                None: (1, self.__migrate_schema_hosts_0_1),
+                1: (2, self.__migrate_schema_hosts_1_2),
+                2: (3, self.__migrate_schema_hosts_2_3),
+                3: (4, self.__migrate_schema_hosts_3_4),
+                4: (5, self.__migrate_schema_hosts_4_5),
+                5: (6, self.__migrate_schema_hosts_5_6),
+                6: (7, self.__migrate_schema_hosts_6_7),
+                7: (8, self.__migrate_schema_hosts_7_8),
+            },
+        }
         try:
             import argparse
             self.argparser = argparse.ArgumentParser(add_help=False)
@@ -446,6 +457,18 @@ class DBNmap(DB):
                 if ((not needports or 'ports' in host) and
                     (not needopenports or
                      host.get('openports', {}).get('count'))):
+                    # Update schema if/as needed.
+                    while host.get(
+                            "schema_version"
+                    ) in self.__schema_migrations["hosts"]:
+                        oldvers = host.get("schema_version")
+                        self.__schema_migrations["hosts"][oldvers][1](host)
+                        if oldvers == host.get("schema_version"):
+                            sys.stderr.write("WARNING: [%r] could not migrate host "
+                                             "from version %r [%r]"
+                                             "\n" % (self.__class__, oldvers, host))
+                            fdsfds
+                            break
                     # We are about to insert data based on this file,
                     # so we want to save the scan document
                     if not scan_doc_saved:
@@ -457,6 +480,181 @@ class DBNmap(DB):
                         self.archive_from_func(host, gettoarchive)
                         self.store_host(host)
         return True
+
+    @staticmethod
+    def getscreenshot(port):
+        """Returns the content of a port's screenshot."""
+        url = port.get('screenshot')
+        if url is None:
+            return None
+        if url == "field":
+            return port.get('screendata')
+
+    @classmethod
+    def __migrate_schema_hosts_0_1(cls, doc):
+        """Converts a record from version 0 (no "schema_version" key
+        in the document) to version 1 (`doc["schema_version"] ==
+        1`). Version 1 adds an "openports" nested document to ease
+        open ports based researches.
+
+        """
+        assert "schema_version" not in doc
+        assert "openports" not in doc
+        doc["schema_version"] = 1
+        openports = {"count": 0}
+        for port in doc.get("ports", []):
+            # populate openports
+            if port.get('state_state') == 'open':
+                openports.setdefault(port["protocol"], {}).setdefault(
+                    "ports", []).append(port["port"])
+            # create the screenwords attribute
+            if 'screenshot' in port and 'screenwords' not in port:
+                screenwords = utils.screenwords(cls.getscreenshot(port))
+                if screenwords is not None:
+                    port['screenwords'] = screenwords
+        for proto in openports.keys():
+            if proto == 'count':
+                continue
+            count = len(openports[proto]["ports"])
+            openports[proto]["count"] = count
+            openports["count"] += count
+        doc["openports"] = openports
+
+    @staticmethod
+    def __migrate_schema_hosts_1_2(doc):
+        """Converts a record from version 1 to version 2. Version 2
+        discards service names when they have been found from
+        nmap-services file.
+
+        """
+        assert doc["schema_version"] == 1
+        doc["schema_version"] = 2
+        for port in doc.get("ports", []):
+            if port.get("service_method") == "table":
+                for key in port.keys():
+                    if key.startswith('service_'):
+                        del port[key]
+
+    @staticmethod
+    def __migrate_schema_hosts_2_3(doc):
+        """Converts a record from version 2 to version 3. Version 3
+        uses new Nmap structured data for scripts using the ls
+        library.
+
+        """
+        assert doc["schema_version"] == 2
+        doc["schema_version"] = 3
+        migrate_scripts = set([
+            "afp-ls", "nfs-ls", "smb-ls", "ftp-anon", "http-ls"
+        ])
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    if script['id'] in script:
+                        script["ls"] = xmlnmap.change_ls(
+                            script.pop(script['id']))
+                    elif "ls" not in script:
+                        data = xmlnmap.add_ls_data(script)
+                        if data is not None:
+                            script['ls'] = data
+        for script in doc.get('scripts', []):
+            if script['id'] in migrate_scripts:
+                data = xmlnmap.add_ls_data(script)
+                if data is not None:
+                    script['ls'] = data
+
+    @staticmethod
+    def __migrate_schema_hosts_3_4(doc):
+        """Converts a record from version 3 to version 4. Version 4
+        creates a "fake" port entry to store host scripts.
+
+        """
+        assert doc["schema_version"] == 3
+        doc["schema_version"] = 4
+        if 'scripts' in doc:
+            doc.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": doc.pop('scripts'),
+            })
+
+    @staticmethod
+    def __migrate_schema_hosts_4_5(doc):
+        """Converts a record from version 4 to version 5. Version 5
+        uses the magic value -1 instead of "host" for "port" in the
+        "fake" port entry used to store host scripts (see
+        `migrate_schema_hosts_3_4()`). Moreover, it changes the
+        structure of the values of "extraports" from [totalcount,
+        {"state": count}] to {"total": totalcount, "state": count}.
+
+        """
+        assert doc["schema_version"] == 4
+        doc["schema_version"] = 5
+        for port in doc.get('ports', []):
+            if port['port'] == 'host':
+                port['port'] = -1
+        for state, (total, counts) in doc.get('extraports', {}).items():
+            doc['extraports'][state] = {"total": total, "reasons": counts}
+
+    @staticmethod
+    def __migrate_schema_hosts_5_6(doc):
+        """Converts a record from version 5 to version 6. Version 6 uses Nmap
+        structured data for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 5
+        doc["schema_version"] = 6
+        migrate_scripts = set(script for script, alias
+                              in xmlnmap.ALIASES_TABLE_ELEMS.iteritems()
+                              if alias == 'vulns')
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    table = None
+                    if script['id'] in script:
+                        table = script.pop(script['id'])
+                        script["vulns"] = table
+                    elif "vulns" in script:
+                        table = script["vulns"]
+                    else:
+                        continue
+                    newtable = xmlnmap.change_vulns(table)
+                    if newtable != table:
+                        script["vulns"] = newtable
+
+    @staticmethod
+    def __migrate_schema_hosts_6_7(doc):
+        """Converts a record from version 6 to version 7. Version 7 creates a
+        structured output for mongodb-databases script.
+
+        """
+        assert doc["schema_version"] == 6
+        doc["schema_version"] = 7
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "mongodb-databases":
+                    if 'mongodb-databases' not in script:
+                        data = xmlnmap.add_mongodb_databases_data(script)
+                        if data is not None:
+                            script['mongodb-databases'] = data
+
+    @staticmethod
+    def __migrate_schema_hosts_7_8(doc):
+        """Converts a record from version 7 to version 8. Version 8 fixes the
+        structured output for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 7
+        doc["schema_version"] = 8
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if 'vulns' in script:
+                    if any(elt in script['vulns'] for elt in
+                           ["ids", "refs", "description", "state", "title"]):
+                        script['vulns'] = [script['vulns']]
+                    else:
+                        script['vulns'] = [dict(tab, id=vulnid)
+                                           for vulnid, tab in
+                                           script['vulns'].iteritems()]
 
     @staticmethod
     def json2dbrec(host):
