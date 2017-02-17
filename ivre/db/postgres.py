@@ -842,12 +842,13 @@ field.
             # FIXME
             raise ValueError("Not implemented")
         if isinstance(value, utils.REGEXP_T):
+            operator = '~*' if (value.flags & re.IGNORECASE) else '~'
             value = value.pattern
             base1 = select([idfield.label('id'),
                             func.unnest(field).label('field')]).cte('base1')
             base2 = select([column('id')])\
                 .select_from(base1)\
-                .where(column('field').op('~')(value))\
+                .where(column('field').op(operator)(value))\
                 .cte('base2')
             return idfield.in_(base2)
         return field.any(value)
@@ -855,7 +856,9 @@ field.
     @staticmethod
     def _searchstring_re(field, value, neg=False):
         if isinstance(value, utils.REGEXP_T):
-            flt = field.op('~')(value.pattern)
+            flt = field.op(
+                '~*' if (value.flags & re.IGNORECASE) else '~'
+            )(value.pattern)
             if neg:
                 return not_(flt)
             return flt
@@ -2264,7 +2267,9 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     .cte('base1')
                 base2 = select([column('port')])\
                         .select_from(base1)\
-                        .where(column('filename').op('~')(fname.pattern))\
+                        .where(column('filename').op(
+                            '~*' if (fname.flags & re.IGNORECASE) else '~'
+                        )(fname.pattern))\
                         .cte('base2')
                 return NmapFilter(port=[Port.id.in_(base2)])
             else:
@@ -2772,7 +2777,7 @@ passive table."""
              (Passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
             ((Passive.source == 'AUTHORIZATION') |
              (Passive.source == 'PROXY-AUTHORIZATION')) &
-            Passive.value.op('~')('^Basic')
+            Passive.value.op('~*')('^Basic')
         ))
 
     @staticmethod

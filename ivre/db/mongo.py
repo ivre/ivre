@@ -3043,7 +3043,7 @@ setting values according to the keyword arguments.
                                   'HTTP_CLIENT_HEADER_SERVER']},
             'source': {'$in': ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']},
-            'value': re.compile('^Basic'),
+            'value': re.compile('^Basic', re.I),
         }
 
     @staticmethod
