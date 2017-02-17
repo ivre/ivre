@@ -451,15 +451,16 @@ class IvreTests(unittest.TestCase):
 
         # Indexes
         addr = ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty)[0].get('addr')
+            ivre.db.db.nmap.flt_empty
+        ).next()['addr']
+        if not isinstance(addr, basestring):
+            addr = ivre.utils.int2ip(addr)
         queries = [
             ivre.db.db.nmap.searchhost(addr),
-            ivre.db.db.nmap.searchnet(
-                '.'.join(
-                    ivre.utils.int2ip(addr).split('.')[:3]
-                )+'.0/24'),
-            ivre.db.db.nmap.searchrange(max(addr - 256, 0),
-                                        min(addr + 256, 4294967295)),
+            ivre.db.db.nmap.searchnet('.'.join(addr.split('.')[:3]) + '.0/24'),
+            ivre.db.db.nmap.searchrange(max(ivre.utils.ip2int(addr) - 256, 0),
+                                        min(ivre.utils.ip2int(addr) + 256,
+                                            4294967295)),
         ]
         if DATABASE == "mongo":
             for query in queries:
