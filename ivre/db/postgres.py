@@ -1674,7 +1674,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 key = self.fields[key]
             req = req.order_by(key if way >= 0 else desc(key))
         for scanrec in self.db.execute(req):
-            # FIXME: fetch hostnames and traceroute results
+            # FIXME: fetch hostnames
             rec = {}
             (rec["_id"], _, rec["infos"], rec["starttime"], rec["endtime"],
              rec["state"], rec["state_reason"], rec["state_reason_ttl"],
@@ -1724,6 +1724,20 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                          'output': script.output}
                     )
                 rec.setdefault('ports', []).append(recp)
+            for trace in self.db.execute(select([Trace])\
+                                         .where(Trace.scan == rec["_id"])):
+                curtrace = {}
+                rec.setdefault('traces', []).append(curtrace)
+                curtrace['port'] = trace['port']
+                curtrace['protocol'] = trace['protocol']
+                curtrace['hops'] = []
+                for hop in self.db.execute(select([Hop])\
+                                           .where(Hop.trace == trace['id'])\
+                                           .order_by(Hop.ttl)):
+                    curtrace['hops'].append(dict(
+                        (key, hop[key]) for key in ['ipaddr', 'ttl', 'rtt',
+                                                    'host', 'domains']
+                    ))
             yield rec
 
     def remove(self, host):
