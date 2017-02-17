@@ -436,7 +436,7 @@ class IvreTests(unittest.TestCase):
         hop = random.choice([
             hop for hop in
             reduce(lambda x, y: x['hops'] + y['hops'],
-                   result[0]['traces'],
+                   result.next()['traces'],
                    {'hops': []})
             if 'domains' in hop
         ])
