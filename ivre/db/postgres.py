@@ -2248,11 +2248,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
         """
         if fname is None:
-            req = Script.data.has_key('ls.volumes.files.filename')
+            req = Script.data.op('@>')('{"ls": {"volumes": [{"files": []}]}}')
         else:
-            req = cls._searchstring_re(
-                Script.data['ls.volumes.files.filename'], fname
-            )
+            if isinstance(fname, utils.REGEXP_T):
+                raise ValueError("Regexp not supported here")
+            req = Script.data.op('@>')(json.dumps(
+                {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
+            ))
         if scripts is None:
             return NmapFilter(script=[req])
         if isinstance(scripts, basestring):
