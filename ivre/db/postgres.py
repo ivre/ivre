@@ -389,14 +389,16 @@ class Trace(Base):
     # value for port when not present?
     __tablename__ = "trace"
     id = Column(Integer, primary_key=True)
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'))
+    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
+                  nullable=False)
     port = Column(Integer)
     protocol = Column(String(16))
 
 class Hop(Base):
     __tablename__ = "hop"
     id = Column(Integer, primary_key=True)
-    trace = Column(Integer, ForeignKey('trace.id', ondelete='CASCADE'))
+    trace = Column(Integer, ForeignKey('trace.id', ondelete='CASCADE'),
+                   nullable=False)
     ipaddr = Column(postgresql.INET)
     ttl = Column(Integer)
     rtt = Column(Float)
@@ -833,6 +835,22 @@ field.
 
         """
         return reduce(cls._flt_or, args)
+
+    @staticmethod
+    def _searchstring_re_inarray(idfield, field, value, neg=False):
+        if neg:
+            # FIXME
+            raise ValueError("Not implemented")
+        if isinstance(value, utils.REGEXP_T):
+            value = value.pattern
+            base1 = select([idfield.label('id'),
+                            func.unnest(field).label('field')]).cte('base1')
+            base2 = select([column('id')])\
+                .select_from(base1)\
+                .where(column('field').op('~')(value))\
+                .cte('base2')
+            return idfield.in_(base2)
+        return field.any(value)
 
     @staticmethod
     def _searchstring_re(field, value, neg=False):
@@ -1541,6 +1559,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 for hop in trace.get('hops'):
                     hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
                     self.db.execute(insert(Hop).values(
+                        trace=traceid,
                         ipaddr = self.convert_ip(hop['ipaddr']),
                         ttl=hop["ttl"],
                         rtt=None if hop["rtt"] == '--' else hop["rtt"],
@@ -1992,8 +2011,9 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @classmethod
     def searchdomain(cls, name, neg=False):
-        return NmapFilter(hostname=[cls._searchstring_re(Hostname.domains,
-                                                         name, neg=neg)])
+        return NmapFilter(hostname=[cls._searchstring_re_inarray(
+            Hostname.id, Hostname.domains, name, neg=neg
+        )])
 
     @classmethod
     def searchhostname(cls, name, neg=False):
@@ -2235,16 +2255,6 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         ])
 
     @classmethod
-    def searchhostname(cls, name, neg=False):
-        return NmapFilter(hostname=[cls._searchstring_re(Hostname.domains,
-                                                         name, neg=neg)])
-
-    @classmethod
-    def searchhostname(cls, name, neg=False):
-        return NmapFilter(hostname=[cls._searchstring_re(Hostname.name,
-                                                         name, neg=neg)])
-
-    @classmethod
     def searchhop(cls, hop, ttl=None, neg=False):
         res = Hop.ipaddr == cls.convert_ip(hop)
         if ttl is not None:
@@ -2253,8 +2263,9 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @classmethod
     def searchhopdomain(cls, hop, neg=False):
-        return NmapFilter(trace=[cls._searchstring_re(Hop.domains,
-                                                      hop, neg=neg)])
+        return NmapFilter(trace=[cls._searchstring_re_inarray(
+            Hop.id, Hop.domains, hop, neg=neg
+        )])
 
     @classmethod
     def searchhopname(cls, hop, neg=False):
