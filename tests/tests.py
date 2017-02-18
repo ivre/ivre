@@ -501,8 +501,6 @@ class IvreTests(unittest.TestCase):
         self.check_value("nmap_mysql_emptypwd_count", count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchxp445())
         self.check_value("nmap_xp445_count", count)
-        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchxp445())
-        self.check_value("nmap_xp445_count", count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchtorcert())
         self.check_value("nmap_torcert_count", count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchgeovision())
