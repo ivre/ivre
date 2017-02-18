@@ -2317,6 +2317,38 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             cls._searchstring_re(Port.service_devicetype, devtype)
         ])
 
+    @staticmethod
+    def searchnetdev():
+        return NmapFilter(port=[
+            Port.service_devicetype.in_([
+                'bridge',
+                'broadband router',
+                'firewall',
+                'hub',
+                'load balancer',
+                'proxy server',
+                'router',
+                'switch',
+                'WAP',
+            ])
+        ])
+
+    @staticmethod
+    def searchphonedev():
+        return NmapFilter(port=[
+            Port.service_devicetype.in_([
+                'PBX',
+                'phone',
+                'telecom-misc',
+                'VoIP adapter',
+                'VoIP phone',
+            ])
+        ])
+
+    @staticmethod
+    def searchldapanon():
+        return NmapFilter(port=[Port.service_extrainfo == 'Anonymous bind OK'])
+
 
 class PassiveFilter(Filter):
     def __init__(self, main=None, location=None, aut_sys=None,
