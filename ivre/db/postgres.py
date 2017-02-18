@@ -1915,6 +1915,26 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 flt = self.flt_and(flt, self.searchservice(info))
                 field = (Port, [Port.service_name, Port.service_product],
                          and_(Port.state == "open", Port.service_name == info))
+        elif field == "devicetype":
+            field = (Port, [Port.service_devicetype], Port.state == "open")
+        elif field.startswith("devicetype:"):
+            info = field[11:]
+            if info.isdigit():
+                info = int(info)
+                flt = self.flt_and(flt, self.searchport(info))
+                field = (Port, [Port.service_devicetype],
+                         and_(Port.state == "open", Port.port == info))
+            elif info.startswith('tcp/') or info.startswith('udp/'):
+                info = (info[:3], int(info[4:]))
+                flt = self.flt_and(flt, self.searchport(info[1],
+                                                        protocol=info[0]))
+                field = (Port, [Port.service_devicetype],
+                         and_(Port.state == "open", Port.port == info[1],
+                              Port.protocol == info[0]))
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                field = (Port, [Port.service_devicetype],
+                         and_(Port.state == "open", Port.service_name == info))
         elif field == "version":
             field = (Port, [Port.service_name, Port.service_product,
                             Port.service_version],

@@ -611,18 +611,26 @@ class IvreTests(unittest.TestCase):
         self.check_value(
             "nmap_topsrv_80",
             ivre.db.db.nmap.topvalues("service:80").next()['_id'])
-        self.check_value(
-            "nmap_topprod",
-            ivre.db.db.nmap.topvalues("product").next()['_id'])
-        self.check_value(
-            "nmap_topprod_80",
-            ivre.db.db.nmap.topvalues("product:80").next()['_id'])
-        self.check_value(
-            "nmap_topdevtype",
-            ivre.db.db.nmap.topvalues("devicetype").next()['_id'])
-        self.check_value(
-            "nmap_topdevtype_80",
-            ivre.db.db.nmap.topvalues("devicetype:80").next()['_id'])
+        topgen = ivre.db.db.nmap.topvalues("product")
+        topval = topgen.next()['_id']
+        while topval[1] is None:
+            topval = topgen.next()['_id']
+        self.check_value("nmap_topprod", topval)
+        topgen = ivre.db.db.nmap.topvalues("product:80")
+        topval = topgen.next()['_id']
+        while topval[1] is None:
+            topval = topgen.next()['_id']
+        self.check_value("nmap_topprod_80", topval)
+        topgen = ivre.db.db.nmap.topvalues("devicetype")
+        topval = topgen.next()['_id']
+        while topval is None:
+            topval = topgen.next()['_id']
+        self.check_value("nmap_topdevtype", topval)
+        topgen = ivre.db.db.nmap.topvalues("devicetype:80")
+        topval = topgen.next()['_id']
+        while topval is None:
+            topval = topgen.next()['_id']
+        self.check_value("nmap_topdevtype_80", topval)
         self.check_value(
             "nmap_topdomain",
             ivre.db.db.nmap.topvalues("domains").next()['_id'])
