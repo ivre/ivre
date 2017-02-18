@@ -2309,6 +2309,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         return NmapFilter(trace=[cls._searchstring_re(Hop.name,
                                                       hop, neg=neg)])
 
+    @classmethod
+    def searchdevicetype(cls, devtype):
+        return NmapFilter(port=[
+            cls._searchstring_re(Port.service_devicetype, devtype)
+        ])
+
+
 class PassiveFilter(Filter):
     def __init__(self, main=None, location=None, aut_sys=None,
                  uses_country=False):
