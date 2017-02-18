@@ -420,9 +420,11 @@ class Scan(Base):
     state_reason_ttl = Column(Integer)
     archive = Column(Integer, nullable=False, index=True)
     merge = Column(Boolean, nullable=False)
+    schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
         Index('ix_scan_host_archive', 'host', 'archive', unique=True),
+        Index('ix_scan_time', 'time_start', 'time_stop'),
     )
 
 
@@ -1681,8 +1683,8 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             rec = {}
             (rec["_id"], _, rec["infos"], rec["starttime"], rec["endtime"],
              rec["state"], rec["state_reason"], rec["state_reason_ttl"],
-             rec["archive"], rec["merge"], _, _, rec["addr"], _, _, _,
-             rec["host_context"]) = scanrec
+             rec["archive"], rec["merge"], rec["schema_version"], _, _,
+             rec["addr"], _, _, _, rec["host_context"]) = scanrec
             if not rec["infos"]:
                 del rec["infos"]
             sources = select([Association_Scan_Source.source])\
