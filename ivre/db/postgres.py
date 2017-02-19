@@ -852,10 +852,10 @@ field.
 
     @staticmethod
     def _searchstring_re_inarray(idfield, field, value, neg=False):
-        if neg:
-            # FIXME
-            raise ValueError("Not implemented")
         if isinstance(value, utils.REGEXP_T):
+            if neg:
+                # FIXME
+                raise ValueError("Not implemented")
             operator = '~*' if (value.flags & re.IGNORECASE) else '~'
             value = value.pattern
             base1 = select([idfield.label('id'),
@@ -865,7 +865,7 @@ field.
                 .where(column('field').op(operator)(value))\
                 .cte('base2')
             return idfield.in_(base2)
-        return field.any(value)
+        return not_(field.any(value)) if neg else field.any(value)
 
     @staticmethod
     def _searchstring_re(field, value, neg=False):
