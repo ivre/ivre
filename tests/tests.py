@@ -100,6 +100,7 @@ class IvreTests(unittest.TestCase):
     def check_value(self, name, value):
         if name not in self.results:
             self.results[name] = value
+            sys.stderr.write("NEW VALUE for key %r: %r\n" % (name, value))
             self.new_results.add(name)
         self.assertEqual(value, self.results[name])
 
@@ -597,6 +598,11 @@ class IvreTests(unittest.TestCase):
         self.check_value_cmd(
             "nmap_ssh_top_port",
             ["ivre", "scancli", "--top", "port:ssh"],
+        )
+        self.check_value_cmd(
+            "nmap_domains_pttsh_tw",
+            ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
+             "--distinct", "hostnames.name"]
         )
 
         categories = ivre.db.db.nmap.topvalues("category")
