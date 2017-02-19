@@ -34,11 +34,10 @@ import struct
 import time
 
 from sqlalchemy import event, create_engine, desc, func, text, column, \
-    literal_column, delete, exists, insert, intersect, join, select, union, \
-    update, null, and_, not_, or_, Column, ForeignKey, Index, Table, ARRAY, \
-    Boolean, DateTime, Float, Integer, LargeBinary, String, Text, tuple_
+    literal_column, delete, exists, insert, join, select, union, update, null, \
+    and_, not_, or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, \
+    DateTime, Float, Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -114,7 +113,7 @@ there is no more data to read from the input.
             self.fdesc.readline()
         self.limit = limit
         if limit is not None:
-            self.count =  0
+            self.count = 0
         self.more_to_read = None
         self.inp = csv.reader(self.fdesc)
     @staticmethod
@@ -262,7 +261,9 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        if line["info"].get("city") == "Norwood" and ('\xad' in repr(line['info']) or 'xad' in repr(line['info'])):
+        if line["info"].get("city") == "Norwood" and (
+                '\xad' in repr(line['info']) or 'xad' in repr(line['info'])
+        ):
             print line["info"]
         line["archive"] = 0
         line["merge"] = False
@@ -680,7 +681,7 @@ class PostgresDB(DB):
                                        'firstseen': func.least(
                                            Host.firstseen,
                                            insrt.excluded.firstseen,
-                                         ),
+                                       ),
                                        'lastseen': func.greatest(
                                            Host.lastseen,
                                            insrt.excluded.lastseen,
@@ -1263,7 +1264,8 @@ class NmapFilter(Filter):
             req = req.where(Scan.archive > 0)
         else:
             req = req.where(Scan.archive == 0)
-        # See https://stackoverflow.com/questions/17112345/using-intersect-with-tables-from-a-with-clause
+        # See <http://stackoverflow.com/q/17112345/3223422> - "Using
+        # INTERSECT with tables from a WITH clause"
         for subflt in self.hostname:
             req = req.where(exists(
                 select([1])\
@@ -1566,7 +1568,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
                     self.db.execute(insert(Hop).values(
                         trace=traceid,
-                        ipaddr = self.convert_ip(hop['ipaddr']),
+                        ipaddr=self.convert_ip(hop['ipaddr']),
                         ttl=hop["ttl"],
                         rtt=None if hop["rtt"] == '--' else hop["rtt"],
                         host=hop.get("host"),
@@ -1639,17 +1641,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
              "ports": [
                  {"proto": proto, "port": int(port), "state_state": state}
                  for proto, port, state in (
-                         elt.split(',') for elt in rec[0][3:-3].split(')","(')
+                     elt.split(',') for elt in rec[0][3:-3].split(')","(')
                  )
              ]}
             for rec in
             self.db.execute(
                 select([
                     func.array_agg(postgresql.aggregate_order_by(
-                                    tuple_(Port.protocol, Port.port,
-                                           Port.state).label('a'),
-                                    tuple_(Port.protocol, Port.port).label('a')
-                                )).label('ports'),
+                        tuple_(Port.protocol, Port.port,
+                               Port.state).label('a'),
+                        tuple_(Port.protocol, Port.port).label('a')
+                    )).label('ports'),
                     Scan.time_start, Host.addr,
                 ])\
                 .select_from(join(Port, join(Scan, Host)))\
@@ -1761,7 +1763,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 ))
             yield rec
 
-    def remove(self, host):
+    def remove(self, host, archive=False):
         """Removes the host scan result. "host" must be a record as yielded by
         .get() or a valid NmapFilter() instance.
 
@@ -1772,7 +1774,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         if isinstance(host, dict):
             base = [host['_id']]
         else:
-            base = flt.query(
+            base = host.query(
                 select([Passive.id]).select_from(join(Scan, join(Host,
                                                                  Context)),
                                                  archive=archive)
@@ -1838,22 +1840,22 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             info = field[11:]
             return ({"count": result[0], "_id": result[1]}
                     for result in self.db.execute(
-                            select([func.count().label("count"),
-                                    column('cnt')])\
-                            .select_from(select([func.count().label('cnt')])\
-                                         .select_from(Port)\
-                                         .where(and_(
-                                             Port.state == info,
-                                             # Port.scan.in_(base),
-                                             exists(select([1])\
-                                                    .select_from(base)\
-                                                    .where(
-                                                        Port.scan == base.c.id
-                                                    )),
-                                         ))\
-                                         .group_by(Port.scan)\
-                                         .alias('cnt'))\
-                            .group_by('cnt').order_by(order).limit(topnbr)
+                        select([func.count().label("count"),
+                                column('cnt')])\
+                        .select_from(select([func.count().label('cnt')])\
+                                     .select_from(Port)\
+                                     .where(and_(
+                                         Port.state == info,
+                                         # Port.scan.in_(base),
+                                         exists(select([1])\
+                                                .select_from(base)\
+                                                .where(
+                                                    Port.scan == base.c.id
+                                                )),
+                                     ))\
+                                     .group_by(Port.scan)\
+                                     .alias('cnt'))\
+                        .group_by('cnt').order_by(order).limit(topnbr)
                     ))
         elif field.startswith('portlist:'):
             ### Deux options pour filtrer:
@@ -1878,26 +1880,26 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 )
             ]}
                     for result in self.db.execute(
-                            select([func.count().label("count"),
-                                    column('ports')])\
-                            .select_from(select([
-                                func.array_agg(postgresql.aggregate_order_by(
-                                    tuple_(Port.protocol, Port.port).label('a'),
-                                    tuple_(Port.protocol, Port.port).label('a')
-                                )).label('ports'),
-                            ])\
-                                         .where(and_(
-                                             Port.state == info,
-                                             Port.scan.in_(base),
-                                             # exists(select([1])\
-                                             #        .select_from(base)\
-                                             #        .where(
-                                             #            Port.scan == base.c.id
-                                             #        )),
-                                         ))\
-                                         .group_by(Port.scan)\
-                                         .alias('ports'))\
-                            .group_by('ports').order_by(order).limit(topnbr)
+                        select([func.count().label("count"),
+                                column('ports')])\
+                        .select_from(select([
+                            func.array_agg(postgresql.aggregate_order_by(
+                                tuple_(Port.protocol, Port.port).label('a'),
+                                tuple_(Port.protocol, Port.port).label('a')
+                            )).label('ports'),
+                        ])\
+                                     .where(and_(
+                                         Port.state == info,
+                                         Port.scan.in_(base),
+                                         # exists(select([1])\
+                                         #        .select_from(base)\
+                                         #        .where(
+                                         #            Port.scan == base.c.id
+                                         #        )),
+                                     ))\
+                                     .group_by(Port.scan)\
+                                     .alias('ports'))\
+                        .group_by('ports').order_by(order).limit(topnbr)
                     ))
         elif field == "service":
             field = (Port, [Port.service_name], Port.state == "open")
@@ -2170,7 +2172,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def searchports(cls, ports, protocol='tcp', state='open', neg=False):
         return cls.flt_and(*(cls.searchport(port, protocol=protocol,
                                             state=state, neg=neg)
-                      for port in ports))
+                             for port in ports))
 
     @staticmethod
     def searchcountopenports(minn=None, maxn=None, neg=False):
@@ -2435,7 +2437,7 @@ class PassiveFilter(Filter):
         if self.location is not None:
             req = req.where(self.location)
         if self.aut_sys is not None:
-            req = req.where(ftl.aut_sys)
+            req = req.where(self.aut_sys)
         return req
 
 
@@ -2608,8 +2610,8 @@ returns the first result, or None if no result exists."""
             if config.DEBUG:
                 start_time = time.time()
             with PassiveCSVFile(specs, self.get_context, tmp, getinfos=getinfos,
-                               separated_timestamps=separated_timestamps,
-                               limit=config.POSTGRES_BATCH_SIZE) as fdesc:
+                                separated_timestamps=separated_timestamps,
+                                limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
                 more_to_read = fdesc.more_to_read
                 if config.DEBUG:
@@ -2811,8 +2813,8 @@ passive table."""
     def searchrecontype(rectype):
         return PassiveFilter(main=(Passive.recontype == rectype))
 
-    @staticmethod
-    def searchdns(name, reverse=False, subdomains=False):
+    @classmethod
+    def searchdns(cls, name, reverse=False, subdomains=False):
         return PassiveFilter(main=(
             (Passive.recontype == 'DNS_ANSWER') &
             (
@@ -2882,7 +2884,7 @@ passive table."""
         ))
 
     @classmethod
-    def searchcertissuer(cls):
+    def searchcertissuer(cls, expr):
         return PassiveFilter(main=(
             (Passive.recontype == 'SSL_SERVER') &
             (Passive.source == 'cert') &
