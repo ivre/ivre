@@ -295,8 +295,8 @@ class DBNmap(DB):
             self.argparser.add_argument('--no-id', metavar='ID', help='show '
                                         'only results WITHOUT this ID')
         self.argparser.add_argument('--host', metavar='IP')
-        self.argparser.add_argument('--hostname')
-        self.argparser.add_argument('--domain')
+        self.argparser.add_argument('--hostname', metavar='NAME / ~NAME')
+        self.argparser.add_argument('--domain', metavar='NAME / ~NAME')
         self.argparser.add_argument('--net', metavar='IP/MASK')
         self.argparser.add_argument('--range', metavar='IP', nargs=2)
         self.argparser.add_argument('--hop', metavar='IP')
@@ -900,15 +900,30 @@ class DBNmap(DB):
         if args.host is not None:
             flt = self.flt_and(flt, self.searchhost(args.host))
         if args.hostname is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchhostname(utils.str2regexp(args.hostname))
-            )
+            if args.hostname[:1] in '!~':
+                flt = self.flt_and(
+                    flt,
+                    self.searchhostname(utils.str2regexp(args.hostname[1:]),
+                                        neg=True)
+                )
+                pass
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchhostname(utils.str2regexp(args.hostname))
+                )
         if args.domain is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchdomain(utils.str2regexp(args.domain))
-            )
+            if args.domain[:1] in '!~':
+                flt = self.flt_and(
+                    flt,
+                    self.searchdomain(utils.str2regexp(args.domain[1:]),
+                                      neg=True)
+                )
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchdomain(utils.str2regexp(args.domain))
+                )
         if args.net is not None:
             flt = self.flt_and(flt, self.searchnet(args.net))
         if args.range is not None:
