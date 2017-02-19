@@ -1277,15 +1277,17 @@ class NmapFilter(Filter):
             req = req.where(Scan.archive == 0)
         # See <http://stackoverflow.com/q/17112345/3223422> - "Using
         # INTERSECT with tables from a WITH clause"
-        for subflt in self.hostname:
-            req = req.where(exists(
-                select([1])\
-                .select_from(Hostname)\
-                .where(subflt)\
-                .where(Hostname.scan == literal_column(
-                    "%s.id" % Scan.__tablename__
-                ))
-            ))
+        for incl, subflt in self.hostname:
+            subreq = select([1])\
+                     .select_from(Hostname)\
+                     .where(subflt)\
+                     .where(Hostname.scan == literal_column(
+                         "%s.id" % Scan.__tablename__
+                     ))
+            if incl:
+                req = req.where(exists(subreq))
+            else:
+                req = req.where(not_(exists(subreq)))
         for subflt in self.category:
             req = req.where(exists(
                 select([1])\
@@ -1343,6 +1345,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         "state_reason_ttl": Scan.state_reason_ttl,
         "categories": Category.name,
         "source": Source.name,
+        "hostnames.name": Hostname.name,
     }
 
     def __init__(self, url):
@@ -2082,14 +2085,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @classmethod
     def searchdomain(cls, name, neg=False):
-        return NmapFilter(hostname=[cls._searchstring_re_inarray(
-            Hostname.id, Hostname.domains, name, neg=neg
-        )])
+        return NmapFilter(hostname=[
+            (not neg, cls._searchstring_re_inarray(Hostname.id,
+                                                   Hostname.domains, name,
+                                                   neg=False)),
+        ])
 
     @classmethod
     def searchhostname(cls, name, neg=False):
-        return NmapFilter(hostname=[cls._searchstring_re(Hostname.name,
-                                                         name, neg=neg)])
+        return NmapFilter(hostname=[
+            (not neg, cls._searchstring_re(Hostname.name, name, neg=False)),
+        ])
 
     @classmethod
     def searchcategory(cls, cat, neg=False):
