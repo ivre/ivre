@@ -33,10 +33,10 @@ import socket
 import struct
 import time
 
-from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
-    exists, insert, intersect, join, select, union, update, null, and_, not_, \
-    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
-    Integer, LargeBinary, String, Text, tuple_
+from sqlalchemy import event, create_engine, desc, func, text, column, \
+    literal_column, delete, exists, insert, intersect, join, select, union, \
+    update, null, and_, not_, or_, Column, ForeignKey, Index, Table, ARRAY, \
+    Boolean, DateTime, Float, Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.types import UserDefinedType
@@ -1269,7 +1269,9 @@ class NmapFilter(Filter):
                 select([1])\
                 .select_from(Hostname)\
                 .where(subflt)\
-                .where(Hostname.scan == Scan.id)
+                .where(Hostname.scan == literal_column(
+                    "%s.id" % Scan.__tablename__
+                ))
             ))
         for subflt in self.category:
             req = req.where(exists(
@@ -1395,7 +1397,6 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             self.copy_from(fdesc, tmp.name)
 
     def store_host(self, host, merge=False):
-        # FIXME: insert hostnames
         addr = host['addr']
         context = self.get_context(addr, source=host.get('source'))
         addr = self.convert_ip(addr)
@@ -1571,6 +1572,14 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                         host=hop.get("host"),
                         domains=hop.get("domains"),
                     ))
+            # FIXME: handle hostnames on merge
+            for hostname in host.get('hostnames', []):
+                self.db.execute(insert(Hostname).values(
+                    scan=scanid,
+                    domains=hostname.get('domains'),
+                    name=hostname.get('name'),
+                    type=hostname.get('type'),
+                ))
         if config.DEBUG:
             sys.stderr.write(
                 "HOST STORED: %r\n" % (scanid)
@@ -1743,6 +1752,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                         (key, hop[key]) for key in ['ipaddr', 'ttl', 'rtt',
                                                     'host', 'domains']
                     ))
+            for hostname in self.db.execute(
+                    select([Hostname])\
+                    .where(Hostname.scan == rec["_id"])
+            ):
+                rec.setdefault('hostnames', []).append(dict(
+                    (key, hostname[key]) for key in ['name', 'type', 'domains']
+                ))
             yield rec
 
     def remove(self, host):
