@@ -507,7 +507,7 @@ def main():
         sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
                     for field in args.sort]
     if args.short:
-        for val in db.db.nmap.distinct("addr", flt=hostfilter, sortby=sortkeys,
+        for val in db.db.nmap.distinct("addr", flt=hostfilter, sort=sortkeys,
                                        limit=args.limit, skip=args.skip,
                                        archive=args.archives):
             try:
@@ -517,7 +517,7 @@ def main():
         sys.exit(0)
     elif args.distinct is not None:
         for val in db.db.nmap.distinct(args.distinct, flt=hostfilter,
-                                       sortby=sortkeys, limit=args.limit,
+                                       sort=sortkeys, limit=args.limit,
                                        skip=args.skip, archive=args.archives):
             out.write(str(val) + '\n')
         sys.exit(0)

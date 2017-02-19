@@ -257,7 +257,7 @@ class MongoDB(DB):
             document.get("schema_version", 0),
         )
 
-    def _topvalues(self, field, flt=None, topnbr=10, sortby=None,
+    def _topvalues(self, field, flt=None, topnbr=10, sort=None,
                    limit=None, skip=None, least=False, aggrflt=None,
                    specialproj=None, specialflt=None, countfield=None):
         """This method makes use of the aggregation framework to
@@ -273,8 +273,8 @@ class MongoDB(DB):
         pipeline = []
         if flt:
             pipeline += [{"$match": flt}]
-        if sortby is not None and ((limit is not None) or (skip is not None)):
-            pipeline += [{"$sort": OrderedDict(sortby)}]
+        if sort is not None and ((limit is not None) or (skip is not None)):
+            pipeline += [{"$sort": OrderedDict(sort)}]
         if skip is not None:
             pipeline += [{"$skip": skip}]
         if limit is not None:
@@ -312,7 +312,7 @@ class MongoDB(DB):
             pipeline += [{"$limit": topnbr}]
         return pipeline
 
-    def _distinct(self, field, flt=None, sortby=None, limit=None, skip=None):
+    def _distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
 
@@ -320,8 +320,8 @@ class MongoDB(DB):
         pipeline = []
         if flt:
             pipeline.append({'$match': flt})
-        if sortby:
-            pipeline.append({'$sort': OrderedDict(sortby)})
+        if sort:
+            pipeline.append({'$sort': OrderedDict(sort)})
         if skip is not None:
             pipeline += [{"$skip": skip}]
         if limit is not None:
@@ -1915,7 +1915,7 @@ have no effect if it is not expected)."""
         else:
             return {"cpes": {"$elemMatch": flt}}
 
-    def topvalues(self, field, flt=None, topnbr=10, sortby=None,
+    def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, archive=False,
                   aggrflt=None, specialproj=None, specialflt=None):
         """
@@ -2576,7 +2576,7 @@ have no effect if it is not expected)."""
             outputproc = lambda x: {'count': x['count'],
                                     '_id': utils.int2ip(x['_id'])}
         pipeline = self._topvalues(
-            field, flt=flt, topnbr=topnbr, sortby=sortby, limit=limit,
+            field, flt=flt, topnbr=topnbr, sort=sort, limit=limit,
             skip=skip, least=least, aggrflt=aggrflt,
             specialproj=specialproj, specialflt=specialflt,
         )
@@ -2589,7 +2589,7 @@ have no effect if it is not expected)."""
             return (outputproc(res) for res in cursor)
         return cursor
 
-    def distinct(self, field, flt=None, sortby=None, limit=None, skip=None,
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None,
                  archive=False):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
@@ -2599,7 +2599,7 @@ have no effect if it is not expected)."""
             self.db[self.colname_oldhosts
                     if archive else
                     self.colname_hosts].aggregate(
-                        self._distinct(field, flt=flt, sortby=sortby,
+                        self._distinct(field, flt=flt, sort=sort,
                                        limit=limit, skip=skip),
                         cursor={},
                     )
@@ -2977,14 +2977,14 @@ setting values according to the keyword arguments.
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
         )
 
-    def distinct(self, field, flt=None, sortby=None, limit=None, skip=None):
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
 
         """
         cursor = self.set_limits(
             self.db[self.colname_passive].aggregate(
-                self._distinct(field, flt=flt, sortby=sortby,
+                self._distinct(field, flt=flt, sort=sort,
                                limit=limit, skip=skip),
                 cursor={},
             )

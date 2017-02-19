@@ -777,22 +777,33 @@ class PostgresDB(DB):
             return Host.addr != cls.convert_ip(addr)
         return Host.addr == cls.convert_ip(addr)
 
-    def _distinct(self, field, flt=None):
-        if isinstance(field, basestring):
-            field = self.fields[field]
-        if flt is None:
-            flt = self.flt_empty
-        return field, flt
+    @staticmethod
+    def _distinct_req(field, flt):
+        return flt.query(
+            select([field.distinct()]).select_from(flt.select_from)
+        )
 
-    def distinct(self, field, flt=None):
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None,
+                 **kargs):
         """This method produces a generator of distinct values for a given
 field.
 
         """
-        field, flt = self._distinct(field, flt=flt)
-        req = flt.query(
-            select([field.distinct()]).select_from(flt.select_from)
-        )
+        if isinstance(field, basestring):
+            field = self.fields[field]
+        if flt is None:
+            flt = self.flt_empty
+        sort = [
+            (self.fields[key] if isinstance(key, basestring) else key, way)
+            for key, way in sort or []
+        ]
+        req = self._distinct_req(field, flt, **kargs)
+        for key, way in sort:
+            req = req.order_by(key if wat >= 0 else desc(key))
+        if skip is not None:
+            req = req.offset(skip)
+        if limit is not None:
+            req = req.limit(limit)
         return (res.itervalues().next() for res in self.db.execute(req))
 
     def get(self, *args, **kargs):
@@ -1596,12 +1607,15 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             .select_from(flt.select_from)
         ).fetchone()[0]
 
-    def _distinct(self, field, flt=None):
-        field, flt = super(PostgresDBNmap, self)._distinct(field, flt=flt)
+    @staticmethod
+    def _distinct_req(field, flt, archive=False):
         flt = flt.copy()
         flt.uses_host |= field.table is Host.__table__
         flt.uses_context |= field.table is Context.__table__
-        return field, flt
+        return flt.query(
+            select([field.distinct()]).select_from(flt.select_from),
+            archive=archive
+        )
 
     def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(
@@ -1681,14 +1695,14 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         req = flt.query(
             select([join(Scan, join(Host, Context))]), archive=archive,
         )
-        if skip is not None:
-            req = req.offset(skip)
-        if limit is not None:
-            req = req.limit(limit)
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
             req = req.order_by(key if way >= 0 else desc(key))
+        if skip is not None:
+            req = req.offset(skip)
+        if limit is not None:
+            req = req.limit(limit)
         for scanrec in self.db.execute(req):
             # FIXME: fetch hostnames
             rec = {}
@@ -1784,7 +1798,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         base = select([Association_Scan_ScanFile.scan_file]).cte('base')
         self.db.execute(delete(ScanFile).where(ScanFile.sha256.notin_(base)))
 
-    def topvalues(self, field, flt=None, topnbr=10, sortby=None,
+    def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, archive=False):
         """
         This method makes use of the aggregation framework to produce
@@ -2746,7 +2760,7 @@ passive table."""
         self.insert_or_update_bulk(_backupgen(backupfdesc), getinfos=None,
                                    separated_timestamps=False)
 
-    def topvalues(self, field, flt=None, topnbr=10, sortby=None,
+    def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, distinct=True):
         """This method makes use of the aggregation framework to
         produce top values for a given field.
