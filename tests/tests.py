@@ -526,7 +526,8 @@ class IvreTests(unittest.TestCase):
         )
         self.check_value("nmap_not_domain_com_or_net_count", count)
         name = ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
-            'com'))[0]['hostnames'][0]['name']
+            'com'
+        )).next()['hostnames'][0]['name']
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchhostname(name))
         self.assertGreater(count, 0)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchcategory("TEST"))
