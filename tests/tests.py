@@ -612,12 +612,16 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(category["count"], hosts_count)
         with self.assertRaises(StopIteration):
             categories.next()
-        self.check_value(
-            "nmap_topsrv",
-            ivre.db.db.nmap.topvalues("service").next()['_id'])
-        self.check_value(
-            "nmap_topsrv_80",
-            ivre.db.db.nmap.topvalues("service:80").next()['_id'])
+        topgen = ivre.db.db.nmap.topvalues("service")
+        topval = topgen.next()['_id']
+        while topval is None:
+            topval = topgen.next()['_id']
+        self.check_value("nmap_topsrv", topval)
+        topgen = ivre.db.db.nmap.topvalues("service:80")
+        topval = topgen.next()['_id']
+        while topval is None:
+            topval = topgen.next()['_id']
+        self.check_value("nmap_topsrv_80", topval)
         topgen = ivre.db.db.nmap.topvalues("product")
         topval = topgen.next()['_id']
         while topval[1] is None:

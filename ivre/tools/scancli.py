@@ -496,7 +496,7 @@ def main():
         for entry in db.db.nmap.topvalues(field, flt=hostfilter,
                                           topnbr=topnbr,
                                           archive=args.archives):
-            if isinstance(entry['_id'], list):
+            if isinstance(entry['_id'], (list, tuple)):
                 if entry['_id']:
                     entry['_id'] = ' / '.join(str(elt) for elt in entry['_id'])
                 else:

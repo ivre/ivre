@@ -2146,64 +2146,68 @@ have no effect if it is not expected)."""
                 ]
                 field = "countports"
         elif field == "service":
-            flt = self.flt_and(flt, self.searchservice({'$exists': True}))
+            flt = self.flt_and(flt, self.searchopenport())
+            specialproj = {
+                "_id": 0,
+                "ports.state_state": 1,
+                "ports.service_name": 1,
+            }
+            specialflt = [
+                {"$match": {"ports.state_state": "open"}},
+                {"$project":
+                 {"ports.service_name":
+                  {"$ifNull": ["$ports.service_name", ""]},
+                 }},
+            ]
             field = "ports.service_name"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'] if x['_id'] else None}
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
-            flt = self.flt_and(
-                flt,
-                self.searchservice({'$exists': True}, port=port),
-            )
+            flt = self.flt_and(flt, self.searchport(port))
             specialproj = {"_id": 0, "ports.port": 1, "ports.service_name": 1}
             specialflt = [
                 {"$match": {"ports.port": port}},
-                {"$project": {"ports.service_name": 1}}
+                {"$project":
+                 {"ports.service_name":
+                  {"$ifNull": ["$ports.service_name", ""]},
+                 }},
             ]
             field = "ports.service_name"
         elif field == 'product':
-            flt = self.flt_and(flt, self.searchproduct(
-                {'$exists': True},
-                service={'$exists': True},
-            ))
+            flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
                 "_id": 0,
+                "ports.state_state": 1,
                 "ports.service_name": 1,
                 "ports.service_product": 1,
             }
             specialflt = [
-                {"$match": {"ports.service_product": {"$exists": True}}},
+                {"$match": {"ports.state_state": "open"}},
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                   ]}}}
             ]
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field.startswith('product:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
                 port = int(service)
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service={'$exists': True},
-                    port=port,
-                ))
+                flt = self.flt_and(flt, self.searchport(port))
                 specialflt = [
-                    {"$match": {"ports.port": port,
-                                "ports.service_product": {"$exists": True}}},
+                    {"$match": {"ports.port": port}},
                 ]
             else:
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service=service,
-                ))
+                flt = self.flt_and(flt, self.searchservice(service))
                 specialflt = [
-                    {"$match": {"ports.service_name": service,
-                                "ports.service_product": {"$exists": True}}},
+                    {"$match": {"ports.service_name": service}},
                 ]
             specialproj = {
                 "_id": 0,
@@ -2215,79 +2219,62 @@ have no effect if it is not expected)."""
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                   ]}}}
             )
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field == 'version':
-            flt = self.flt_and(flt, self.searchproduct(
-                {'$exists': True},
-                service={'$exists': True},
-                version={'$exists': True},
-            ))
+            flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
                 "_id": 0,
+                "ports.state_state": 1,
                 "ports.service_name": 1,
                 "ports.service_product": 1,
                 "ports.service_version": 1,
             }
             specialflt = [
-                {"$match": {"ports.service_product": {"$exists": True},
-                            "ports.service_version": {"$exists": True}}},
+                {"$match": {"ports.state_state": "open"}},
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                       "###",
-                      "$ports.service_version",
+                      {"$ifNull": ["$ports.service_version", ""]},
                   ]}}}
             ]
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field.startswith('version:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
                 port = int(service)
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service={'$exists': True},
-                    version={'$exists': True},
-                    port=port,
-                ))
+                flt = self.flt_and(flt, self.searchport(port))
                 specialflt = [
-                    {"$match": {"ports.port": port,
-                                "ports.service_product": {"$exists": True},
-                                "ports.service_version": {"$exists": True}}},
+                    {"$match": {"ports.port": port}},
                 ]
             elif ":" in service:
                 service, product = service.split(':', 1)
                 flt = self.flt_and(flt, self.searchproduct(
                     product,
                     service=service,
-                    version={'$exists': True},
                 ))
                 specialflt = [
                     {"$match": {"ports.service_name": service,
-                                "ports.service_product": product,
-                                "ports.service_version": {"$exists": True}}},
+                                "ports.service_product": product}},
                 ]
             else:
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service=service,
-                    version={'$exists': True},
-                ))
+                flt = self.flt_and(flt, self.searchservice(service))
                 specialflt = [
-                    {"$match": {"ports.service_name": service,
-                                "ports.service_product": {"$exists": True},
-                                "ports.service_version": {"$exists": True}}},
+                    {"$match": {"ports.service_name": service}},
                 ]
             specialproj = {
                 "_id": 0,
@@ -2300,16 +2287,17 @@ have no effect if it is not expected)."""
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                       "###",
-                      "$ports.service_version",
+                      {"$ifNull": ["$ports.service_version", ""]},
                   ]}}}
             )
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field.startswith("cpe"):
             try:
                 field, cpeflt = field.split(":", 1)
