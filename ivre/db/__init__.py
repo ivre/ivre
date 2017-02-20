@@ -762,20 +762,23 @@ class DBNmap(DB):
         )
 
     def searchhttpauth(self, newscript=True, oldscript=False):
-        # $or queries are too slow, by default support only new script
-        # output.
-        res = []
         if newscript:
-            res.append(self.searchscript(
+            if oldscript:
+                return self.searchscript(
+                    name=re.compile('^http-(default-accounts|auth)$'),
+                    output=re.compile('credentials\\ found|'
+                                      'HTTP\\ server\\ may\\ accept'),
+                )
+            return self.searchscript(
                 name='http-default-accounts',
-                output=re.compile('credentials\\ found')))
+                output=re.compile('credentials\\ found'),
+            )
         if oldscript:
-            res.append(self.searchscript(
+            return self.searchscript(
                 name='http-auth',
-                output=re.compile('HTTP\\ server\\ may\\ accept')))
-        if not res:
-            raise Exception('"newscript" and "oldscript" are both False')
-        return self.flt_or(*res)
+                output=re.compile('HTTP\\ server\\ may\\ accept'),
+            )
+        raise Exception('"newscript" and "oldscript" are both False')
 
     def searchowa(self):
         return self.flt_or(
