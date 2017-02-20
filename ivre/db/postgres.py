@@ -1261,10 +1261,6 @@ class NmapFilter(Filter):
             res = join(res, join(Host, Context))
         elif self.uses_host:
             res = join(res, Host)
-        if self.hostname:
-            res = join(res, Hostname)
-        if self.trace:
-            res = join(res, Trace)
         return res
     def query(self, req, archive=False):
         # TODO: improve performances
@@ -1275,19 +1271,14 @@ class NmapFilter(Filter):
             req = req.where(Scan.archive > 0)
         else:
             req = req.where(Scan.archive == 0)
+        for incl, subflt in self.hostname:
+            base = select([Hostname.scan]).where(subflt).cte("base")
+            if incl:
+                req = req.where(Scan.id.in_(base))
+            else:
+                req = req.where(Scan.id.notin_(base))
         # See <http://stackoverflow.com/q/17112345/3223422> - "Using
         # INTERSECT with tables from a WITH clause"
-        for incl, subflt in self.hostname:
-            subreq = select([1])\
-                     .select_from(Hostname)\
-                     .where(subflt)\
-                     .where(Hostname.scan == literal_column(
-                         "%s.id" % Scan.__tablename__
-                     ))
-            if incl:
-                req = req.where(exists(subreq))
-            else:
-                req = req.where(not_(exists(subreq)))
         for subflt in self.category:
             req = req.where(exists(
                 select([1])\
