@@ -1091,7 +1091,7 @@ class NmapHandler(ContentHandler):
                        probe in ['ike', 'ike-ipsec-nat-t']:
                         masscan_data = script["masscan"]
                         self._curport.update(ike.analyze_ike_payload(
-                            script['masscan']['raw'], probe=probe
+                            raw_output, probe=probe,
                         ))
                         if self._curport.get('service_name') == 'isakmp':
                             self._curport['scripts'][0]['masscan'] = masscan_data
