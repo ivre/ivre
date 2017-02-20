@@ -781,30 +781,9 @@ class DBNmap(DB):
         raise Exception('"newscript" and "oldscript" are both False')
 
     def searchowa(self):
-        return self.flt_or(
-            self.searchscript(
-                name='http-headers',
-                output=re.compile(
-                    '^ *(Location:.*(owa|exchweb)|X-OWA-Version)',
-                    flags=re.MULTILINE | re.I,
-                ),
-            ),
-            self.searchscript(
-                name='http-auth-finder',
-                output=re.compile('/(owa|exchweb)', flags=re.I),
-            ),
-            self.searchscript(
-                name='http-title',
-                output=re.compile('Outlook Web A|(Requested resource was|'
-                                  'Did not follow redirect to ).*'
-                                  '/(owa|exchweb)', flags=re.I),
-            ),
-            self.searchscript(
-                name='html-title',
-                output=re.compile('Outlook Web A|(Requested resource was|'
-                                  'Did not follow redirect to ).*'
-                                  '/(owa|exchweb)', flags=re.I),
-            ),
+        return self.searchscript(
+            name=re.compile('^(http-(headers|auth-finder|title)|html-title)$'),
+            output=re.compile('[ /](owa|exchweb)|X-OWA-Version|Outlook Web A', re.I)
         )
 
     def searchxp445(self):
