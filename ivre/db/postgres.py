@@ -2395,6 +2395,16 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             True, Port.service_extrainfo == 'Anonymous bind OK',
         )])
 
+    @staticmethod
+    def searchvsftpdbackdoor():
+        return NmapFilter(port=[(
+            True,
+            and_(Port.protocol == 'tcp',
+                 Port.state == 'open',
+                 Port.service_product == 'vsftpd',
+                 Port.service_version == '2.3.4')
+        )])
+
 
 class PassiveFilter(Filter):
     def __init__(self, main=None, location=None, aut_sys=None,
