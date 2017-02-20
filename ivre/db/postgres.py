@@ -2265,7 +2265,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         return NmapFilter(
             port=[(True, and_(Port.service_name == 'http',
                               Port.service_product == 'MiniServ',
-                              Port.service_extrainfo == 'Webmin httpd'))]
+                              Port.service_extrainfo != 'Webmin httpd'))]
         )
 
     @staticmethod
