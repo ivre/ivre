@@ -1293,13 +1293,17 @@ class NmapFilter(Filter):
                 .where(subflt)\
                 .where(Association_Scan_Source.scan == Scan.id)
             ))
-        for subflt in self.port:
-            req = req.where(exists(
-                select([1])\
-                .select_from(Port)\
-                .where(subflt)\
-                .where(Port.scan == Scan.id)
-            ))
+        for incl, subflt in self.port:
+            if incl:
+                req = req.where(exists(
+                    select([1])\
+                    .select_from(Port)\
+                    .where(subflt)\
+                    .where(Port.scan == Scan.id)
+                ))
+            else:
+                base = select([Port.scan]).where(subflt).cte("base")
+                req = req.where(Scan.id.notin_(base))
         for subflt in self.script:
             req = req.where(exists(
                 select([1])\
@@ -2154,20 +2158,15 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
         """
         if port == "host":
-            return NmapFilter(port=[(Port.port >= 0) if neg
-                                    else (Port.port == -1)])
-        if neg:
-            raise ValueError("Filter port with negation is not implemented yet")
-            return NmapFilter(
-                port=[or_(and_(Port.port == port, Port.protocol == protocol,
-                               Port.state != state),
-                          not_(exists([Port.port == port,
-                                       Port.protocol == protocol,
-                                       Port.scan == Scan.id])))]
-            )
-        return NmapFilter(port=[and_(Port.port == port,
-                                     Port.protocol == protocol,
-                                     Port.state == state)])
+            return NmapFilter(port=[
+                (True, (Port.port >= 0) if neg else (Port.port == -1)),
+            ])
+        return NmapFilter(port=[
+            (not neg,
+             and_(Port.port == port,
+                  Port.protocol == protocol,
+                  Port.state == state)),
+        ])
 
     @staticmethod
     def searchportsother(ports, protocol='tcp', state='open'):
@@ -2175,9 +2174,10 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         listed in `ports` with state `state`.
 
         """
-        return NmapFilter(port=[and_(or_(Port.port.notin_(ports),
-                                         Port.protocol != protocol),
-                                     Port.state == state)])
+        return NmapFilter(port=[(True,
+                                 and_(or_(Port.port.notin_(ports),
+                                          Port.protocol != protocol),
+                                      Port.state == state))])
 
     @classmethod
     def searchports(cls, ports, protocol='tcp', state='open', neg=False):
@@ -2206,14 +2206,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     @staticmethod
     def searchopenport(neg=False):
         "Filters records with at least one open port."
-        if neg:
-            req = select([column("scan")])\
-                  .select_from(select([Port.scan.label("scan")])\
-                               .where(Port.state == "open")\
-                               .group_by(Port.scan).alias("pcnt"))
-            return NmapFilter(main=Scan.id.notin_(req))
-            raise ValueError()
-        return NmapFilter(port=[Port.state == "open"])
+        return NmapFilter(port=[(not neg, Port.state == "open")])
 
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
@@ -2223,7 +2216,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = and_(req, Port.port == port)
         if protocol is not None:
             req = and_(req, Port.protocol == protocol)
-        return NmapFilter(port=[req])
+        return NmapFilter(port=[(True, req)])
 
     @classmethod
     def searchproduct(cls, product, version=None, service=None, port=None,
@@ -2242,7 +2235,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             req = and_(req, Port.port == port)
         if protocol is not None:
             req = and_(req, Port.protocol == protocol)
-        return NmapFilter(port=[req])
+        return NmapFilter(port=[(True, req)])
 
     @classmethod
     def searchscript(cls, name=None, output=None, values=None):
@@ -2265,21 +2258,21 @@ class PostgresDBNmap(PostgresDB, DBNmap):
 
     @staticmethod
     def searchsvchostname(srv):
-        return NmapFilter(port=[Port.service_hostname == srv])
+        return NmapFilter(port=[(True, Port.service_hostname == srv)])
 
     @staticmethod
     def searchwebmin():
         return NmapFilter(
-            port=[and_(Port.service_name == 'http',
-                       Port.service_product == 'MiniServ',
-                       Port.service_extrainfo == 'Webmin httpd')]
+            port=[(True, and_(Port.service_name == 'http',
+                              Port.service_product == 'MiniServ',
+                              Port.service_extrainfo == 'Webmin httpd'))]
         )
 
     @staticmethod
     def searchx11():
         return NmapFilter(
-            port=[and_(Port.service_name == 'X11',
-                       Port.service_extrainfo != 'access denied')]
+            port=[(True, and_(Port.service_name == 'X11',
+                              Port.service_extrainfo != 'access denied'))]
         )
 
     def searchtimerange(self, start, stop, neg=False):
@@ -2322,7 +2315,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                             '~*' if (fname.flags & re.IGNORECASE) else '~'
                         )(fname.pattern))\
                         .cte('base2')
-                return NmapFilter(port=[Port.id.in_(base2)])
+                return NmapFilter(port=[(True, Port.id.in_(base2))])
             else:
                 req = Script.data.op('@>')(json.dumps(
                     {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
@@ -2363,12 +2356,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     @classmethod
     def searchdevicetype(cls, devtype):
         return NmapFilter(port=[
-            cls._searchstring_re(Port.service_devicetype, devtype)
+            (True, cls._searchstring_re(Port.service_devicetype, devtype))
         ])
 
     @staticmethod
     def searchnetdev():
-        return NmapFilter(port=[
+        return NmapFilter(port=[(
+            True,
             Port.service_devicetype.in_([
                 'bridge',
                 'broadband router',
@@ -2380,11 +2374,12 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 'switch',
                 'WAP',
             ])
-        ])
+        )])
 
     @staticmethod
     def searchphonedev():
-        return NmapFilter(port=[
+        return NmapFilter(port=[(
+            True,
             Port.service_devicetype.in_([
                 'PBX',
                 'phone',
@@ -2392,11 +2387,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 'VoIP adapter',
                 'VoIP phone',
             ])
-        ])
+        )])
 
     @staticmethod
     def searchldapanon():
-        return NmapFilter(port=[Port.service_extrainfo == 'Anonymous bind OK'])
+        return NmapFilter(port=[(
+            True, Port.service_extrainfo == 'Anonymous bind OK',
+        )])
 
 
 class PassiveFilter(Filter):
