@@ -1254,14 +1254,27 @@ class NmapFilter(Filter):
             uses_host=self.uses_host or other.uses_host,
             uses_context=self.uses_context or other.uses_context,
         )
+    def select_from_base(self, base=Scan):
+        uses_host = self.uses_host
+        uses_context = self.uses_context
+        if base in [Scan, Scan.__mapper__]:
+            base = Scan
+        elif base in [Host, Host.__mapper__]:
+            base = Scan
+            uses_host =  True
+        elif base in [Context, Context.__mapper__]:
+            base = Scan
+            uses_context = True
+        else:
+            base = join(Scan, base)
+        if self.uses_context:
+            base = join(base, join(Host, Context))
+        elif self.uses_host:
+            base = join(base, Host)
+        return base
     @property
     def select_from(self):
-        res = Scan
-        if self.uses_context:
-            res = join(res, join(Host, Context))
-        elif self.uses_host:
-            res = join(res, Host)
-        return res
+        return self.select_from_base()
     def query(self, req, archive=False):
         # TODO: improve performances
         #   - use a materialized view for `Scan` with `archive == 0`?
@@ -1611,7 +1624,9 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         flt.uses_host |= field.table is Host.__table__
         flt.uses_context |= field.table is Context.__table__
         return flt.query(
-            select([field.distinct()]).select_from(flt.select_from),
+            select([field.distinct()]).select_from(
+                flt.select_from_base(field.parent)
+            ),
             archive=archive
         )
 
