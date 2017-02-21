@@ -799,7 +799,7 @@ field.
         ]
         req = self._distinct_req(field, flt, **kargs)
         for key, way in sort:
-            req = req.order_by(key if wat >= 0 else desc(key))
+            req = req.order_by(key if way >= 0 else desc(key))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
