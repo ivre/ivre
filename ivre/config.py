@@ -36,6 +36,7 @@ BULK_UPSERTS_MAXSIZE = 100
 NEO4J_BATCH_SIZE = 1000
 POSTGRES_BATCH_SIZE = 10000
 DEBUG = False
+DEBUG_DB = False
 # specific: if no value is specified for *_PATH variables, they are
 # going to be constructed by guessing the installation PREFIX (see the
 # end of this file).

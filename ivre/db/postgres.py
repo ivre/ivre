@@ -585,7 +585,7 @@ class PostgresDB(DB):
             return self._db
         except AttributeError:
             # echo on debug disabled for tests
-            self._db = create_engine(self.dburl)  #, echo=config.DEBUG)
+            self._db = create_engine(self.dburl, echo=config.DEBUG_DB)
             return self._db
 
     def drop(self):
@@ -938,7 +938,7 @@ class BulkInsert(object):
         except KeyError:
             self.commited_counts[query] = l_params
         rate = l_params / (newtime - self.start_time)
-        if config.DEBUG:
+        if config.DEBUG_DB:
             sys.stderr.write(
                 "%s\n" % query
             )
@@ -2658,18 +2658,18 @@ returns the first result, or None if no result exists."""
             Column("addr", postgresql.INET),
             Column("context", String(32)),
         ])
-        if config.DEBUG:
+        if config.DEBUG_DB:
             total_upserted = 0
             total_start_time = time.time()
         while more_to_read:
-            if config.DEBUG:
+            if config.DEBUG_DB:
                 start_time = time.time()
             with PassiveCSVFile(specs, self.get_context, tmp, getinfos=getinfos,
                                 separated_timestamps=separated_timestamps,
                                 limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
                 more_to_read = fdesc.more_to_read
-                if config.DEBUG:
+                if config.DEBUG_DB:
                     count_upserted = fdesc.count
             self.db.execute(postgresql.insert(Context).from_select(
                 ['name'],
@@ -2752,7 +2752,7 @@ returns the first result, or None if no result exists."""
                 )
             )
             self.db.execute(delete(tmp))
-            if config.DEBUG:
+            if config.DEBUG_DB:
                 stop_time = time.time()
                 time_spent = stop_time - start_time
                 total_upserted += count_upserted
