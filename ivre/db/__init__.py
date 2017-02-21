@@ -373,6 +373,7 @@ class DBNmap(DB):
 
         """
         parser = xml.sax.make_parser()
+        self.start_store_hosts()
         try:
             content_handler = self.content_handler(fname, **kargs)
         except Exception as exc:
@@ -383,7 +384,9 @@ class DBNmap(DB):
             parser.parse(utils.open_file(fname))
             if self.output_function is not None:
                 self.output_function(content_handler._db, out=self.output)
+            self.stop_store_hosts()
             return True
+        self.stop_store_hosts()
         return False
 
     @staticmethod
@@ -416,6 +419,20 @@ class DBNmap(DB):
         self.remove(rec)
         return True
 
+    def start_store_hosts(self):
+        """Backend-specific subclasses may use this method to create some bulk
+insert structures.
+
+        """
+        pass
+
+    def stop_store_hosts(self):
+        """Backend-specific subclasses may use this method to commit bulk
+insert structures.
+
+        """
+        pass
+
     def store_scan_json(self, fname, filehash=None,
                         needports=False, needopenports=False,
                         categories=None, source=None,
@@ -433,6 +450,7 @@ class DBNmap(DB):
         if categories is None:
             categories = []
         scan_doc_saved = False
+        self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = self.json2dbrec(json.loads(line))
@@ -467,7 +485,6 @@ class DBNmap(DB):
                             sys.stderr.write("WARNING: [%r] could not migrate host "
                                              "from version %r [%r]"
                                              "\n" % (self.__class__, oldvers, host))
-                            fdsfds
                             break
                     # We are about to insert data based on this file,
                     # so we want to save the scan document
@@ -479,6 +496,7 @@ class DBNmap(DB):
                     else:
                         self.archive_from_func(host, gettoarchive)
                         self.store_host(host)
+        self.stop_store_hosts()
         return True
 
     @staticmethod

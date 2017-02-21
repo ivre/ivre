@@ -1363,6 +1363,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         self.content_handler = xmlnmap.Nmap2Posgres
         self.output_function = None
         self.flt_empty = NmapFilter()
+        self.bulk = None
 
     def get_context(self, addr, source=None):
         ctxt = self.default_context(addr)
@@ -1420,6 +1421,21 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         ])
         with ScanCSVFile(hosts, self.get_context, tmp, merge) as fdesc:
             self.copy_from(fdesc, tmp.name)
+
+    def start_store_hosts(self):
+        """Backend-specific subclasses may use this method to create some bulk
+insert structures.
+
+        """
+        self.bulk = self.start_bulk_insert()
+
+    def stop_store_hosts(self):
+        """Backend-specific subclasses may use this method to commit bulk
+insert structures.
+
+        """
+        self.bulk.close()
+        self.bulk = None
 
     def store_host(self, host, merge=False):
         addr = host['addr']
@@ -1548,32 +1564,32 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 if merge:
                     if newest:
                         insrt = postgresql.insert(Script)
-                        self.db.execute(insrt\
-                                        .values(
-                                            port=portid,
-                                            name=name,
-                                            output=output,
-                                            data=script
-                                        )\
-                                        .on_conflict_do_update(
-                                            index_elements=['port', 'name'],
-                                            set_={
-                                                "output": insrt.excluded.output,
-                                                "data": insrt.excluded.data,
-                                            },
-                                        ))
+                        self.bulk.append(insrt\
+                                         .values(
+                                             port=portid,
+                                             name=name,
+                                             output=output,
+                                             data=script
+                                         )\
+                                         .on_conflict_do_update(
+                                             index_elements=['port', 'name'],
+                                             set_={
+                                                 "output": insrt.excluded.output,
+                                                 "data": insrt.excluded.data,
+                                             },
+                                         ))
                     else:
                         insrt = postgresql.insert(Script)
-                        self.db.execute(insrt\
-                                        .values(
-                                            port=portid,
-                                            name=name,
-                                            output=output,
-                                            data=script
-                                        )\
-                                        .on_conflict_do_nothing())
+                        self.bulk.append(insrt\
+                                         .values(
+                                             port=portid,
+                                             name=name,
+                                             output=output,
+                                             data=script
+                                         )\
+                                         .on_conflict_do_nothing())
                 else:
-                    self.db.execute(insert(Script).values(
+                    self.bulk.append(insert(Script).values(
                         port=portid,
                         name=name,
                         output=output,
@@ -1589,7 +1605,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                 ).returning(Trace.id)).fetchone()[0]
                 for hop in trace.get('hops'):
                     hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
-                    self.db.execute(insert(Hop).values(
+                    self.bulk.append(insert(Hop).values(
                         trace=traceid,
                         ipaddr=self.convert_ip(hop['ipaddr']),
                         ttl=hop["ttl"],
@@ -1599,7 +1615,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                     ))
             # FIXME: handle hostnames on merge
             for hostname in host.get('hostnames', []):
-                self.db.execute(insert(Hostname).values(
+                self.bulk.append(insert(Hostname).values(
                     scan=scanid,
                     domains=hostname.get('domains'),
                     name=hostname.get('name'),
