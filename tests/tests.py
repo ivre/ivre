@@ -625,12 +625,12 @@ class IvreTests(unittest.TestCase):
         topgen = ivre.db.db.nmap.topvalues("product")
         topval = topgen.next()['_id']
         while topval[1] is None:
-            topval = topgen.next()['_id']
+            topval = list(topgen.next()['_id'])
         self.check_value("nmap_topprod", topval)
         topgen = ivre.db.db.nmap.topvalues("product:80")
         topval = topgen.next()['_id']
         while topval[1] is None:
-            topval = topgen.next()['_id']
+            topval = list(topgen.next()['_id'])
         self.check_value("nmap_topprod_80", topval)
         topgen = ivre.db.db.nmap.topvalues("devicetype")
         topval = topgen.next()['_id']
