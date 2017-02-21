@@ -2027,6 +2027,12 @@ class PostgresDBNmap(PostgresDB, DBNmap):
                             .order_by(order)\
                             .limit(topnbr)
                     ))
+        elif field == "hop":
+            field = (Hop, [Hop.ipaddr], None)
+        elif field.startswith('hop') and field[3] in ':>':
+            ttl = int(field[4:])
+            field = (Hop, [Hop.ipaddr],
+                     (Hop.ttl > ttl) if field[3] == '>' else (Hop.ttl == ttl))
         else:
             raise NotImplementedError()
         s_from = {
@@ -2036,6 +2042,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             Category: join(Association_Scan_Category, Category),
             Source: join(Association_Scan_Source, Source),
             Hostname: Hostname,
+            Hop: join(Trace, Hop),
         }
         where_clause = {
             Script: Port.scan == base.c.id,
@@ -2044,6 +2051,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             Category: Association_Scan_Category.scan == base.c.id,
             Source: Association_Scan_Source.scan == base.c.id,
             Hostname: Hostname.scan == base.c.id,
+            Hop: Trace.scan == base.c.id
         }
         if field[0] == Scan:
             req = flt.query(
