@@ -1354,6 +1354,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         "categories": Category.name,
         "source": Source.name,
         "hostnames.name": Hostname.name,
+        "hostnames.domains": Hostname.domains,
     }
 
     def __init__(self, url):
@@ -2007,6 +2008,25 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             field = (Category, [Category.name], None)
         elif field == "source":
             field = (Source, [Source.name], None)
+        elif field == "domains":
+            field = (Hostname, [func.unnest(Hostname.domains)], None)
+        elif field.startswith("domains:"):
+            level = int(field[8:]) - 1
+            base1 = select([func.unnest(Hostname.domains).label("domains")])\
+                   .where(exists(select([1])\
+                                 .select_from(base)\
+                                 .where(Hostname.scan == base.c.id)))\
+                   .cte("base1")
+            return ({"count": result[1], "_id": result[0]}
+                    for result in self.db.execute(
+                            select([base1.c.domains, func.count().label("count")])\
+                            .where(base1.c.domains.op('~')(
+                                '^([^\\.]+\\.){%d}[^\\.]+$' % level
+                            ))\
+                            .group_by(base1.c.domains)\
+                            .order_by(order)\
+                            .limit(topnbr)
+                    ))
         else:
             raise NotImplementedError()
         s_from = {
@@ -2015,6 +2035,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             Host: Host,
             Category: join(Association_Scan_Category, Category),
             Source: join(Association_Scan_Source, Source),
+            Hostname: Hostname,
         }
         where_clause = {
             Script: Port.scan == base.c.id,
@@ -2022,6 +2043,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             Host: Scan.host == base.c.id,
             Category: Association_Scan_Category.scan == base.c.id,
             Source: Association_Scan_Source.scan == base.c.id,
+            Hostname: Hostname.scan == base.c.id,
         }
         if field[0] == Scan:
             req = flt.query(
