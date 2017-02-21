@@ -448,7 +448,7 @@ class IvreTests(unittest.TestCase):
             reduce(lambda x, y: x['hops'] + y['hops'],
                    result.next()['traces'],
                    {'hops': []})
-            if 'domains' in hop
+            if 'domains' in hop and hop['domains']
         ])
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhop(hop['ipaddr'])
