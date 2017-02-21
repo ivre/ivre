@@ -97,18 +97,27 @@ class IvreTests(unittest.TestCase):
                 for valname in self.new_results:
                     fdesc.write("%s = %r\n" % (valname, self.results[valname]))
 
-    def check_value(self, name, value):
+    def check_value(self, name, value, check=None):
+        if check is None:
+            check = self.assertEqual
         if name not in self.results:
             self.results[name] = value
             sys.stderr.write("NEW VALUE for key %r: %r\n" % (name, value))
             self.new_results.add(name)
-        self.assertEqual(value, self.results[name])
+        check(value, self.results[name])
 
     def check_value_cmd(self, name, cmd, errok=False):
         res, out, err = RUN(cmd)
         self.assertTrue(errok or not err)
         self.assertEqual(res, 0)
         self.check_value(name, out)
+
+    def check_lines_value_cmd(self, name, cmd, errok=False):
+        res, out, err = RUN(cmd)
+        self.assertTrue(errok or not err)
+        self.assertEqual(res, 0)
+        self.check_value(name, [line for line in out.split('\n') if line],
+                         check=self.assertItemsEqual)
 
     def check_int_value_cmd(self, name, cmd, errok=False):
         res, out, err = RUN(cmd)
@@ -600,7 +609,7 @@ class IvreTests(unittest.TestCase):
             "nmap_ssh_top_port",
             ["ivre", "scancli", "--top", "port:ssh"],
         )
-        self.check_value_cmd(
+        self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
              "--distinct", "hostnames.name"]
