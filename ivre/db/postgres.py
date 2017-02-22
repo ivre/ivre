@@ -319,21 +319,6 @@ class Category(Base):
         Index('ix_category_name', 'name', unique=True),
     )
 
-class Association_Scan_Source(Base):
-    __tablename__ = 'association_scan_source'
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
-                  primary_key=True)
-    source = Column(Integer, ForeignKey('source.id', ondelete='CASCADE'),
-                    primary_key=True)
-
-class Source(Base):
-    __tablename__ = 'source'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(32))
-    __table_args__ = (
-        Index('ix_source_name', 'name', unique=True),
-    )
-
 class Script(Base):
     __tablename__ = 'script'
     port = Column(Integer, ForeignKey('port.id', ondelete='CASCADE'),
@@ -412,7 +397,8 @@ class Hop(Base):
 class Scan(Base):
     __tablename__ = "scan"
     id = Column(Integer, primary_key=True)
-    host = Column(Integer, ForeignKey('host.id', ondelete='CASCADE'))
+    addr = Column(postgresql.INET, nullable=False)
+    source = Column(String(32), nullable=False)
     info = Column(postgresql.JSONB)
     time_start = Column(DateTime)
     time_stop = Column(DateTime)
@@ -424,7 +410,7 @@ class Scan(Base):
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_scan_host_archive', 'host', 'archive', unique=True),
+        Index('ix_scan_host_archive', 'addr', 'source', 'archive', unique=True),
         Index('ix_scan_time', 'time_start', 'time_stop'),
     )
 
@@ -957,7 +943,7 @@ class BulkInsert(object):
 
 class PostgresDBFlow(PostgresDB, DBFlow):
     tables = [Flow]
-    shared_tables = [(Host, [Scan.host, Passive.host]),
+    shared_tables = [(Host, [Passive.host]),
                      (Context, [Host.context])]
 
     def __init__(self, url):
@@ -1194,8 +1180,7 @@ class Filter(object):
 
 class NmapFilter(Filter):
     def __init__(self, main=None, hostname=None, category=None, source=None,
-                 port=None, script=None, trace=None, uses_host=False,
-                 uses_context=False):
+                 port=None, script=None, trace=None):
         self.main = main
         self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
@@ -1203,8 +1188,6 @@ class NmapFilter(Filter):
         self.port = [] if port is None else port
         self.script = [] if script is None else script
         self.trace = [] if trace is None else trace
-        self.uses_host = uses_host
-        self.uses_context = uses_context
     def copy(self):
         return self.__class__(
             main=self.main,
@@ -1214,8 +1197,6 @@ class NmapFilter(Filter):
             port=self.port[:],
             script=self.script[:],
             trace=self.trace[:],
-            uses_host=self.uses_host,
-            uses_context=self.uses_context,
         )
     def __and__(self, other):
         return self.__class__(
@@ -1226,8 +1207,6 @@ class NmapFilter(Filter):
             port=self.port + other.port,
             script=self.script + other.script,
             trace=self.trace + other.trace,
-            uses_host=self.uses_host or other.uses_host,
-            uses_context=self.uses_context or other.uses_context,
         )
     def __or__(self, other):
         # FIXME: this has to be implemented
@@ -1251,26 +1230,12 @@ class NmapFilter(Filter):
             port=self.port + other.port,
             script=self.script + other.script,
             trace=self.trace + other.trace,
-            uses_host=self.uses_host or other.uses_host,
-            uses_context=self.uses_context or other.uses_context,
         )
     def select_from_base(self, base=Scan):
-        uses_host = self.uses_host
-        uses_context = self.uses_context
         if base in [Scan, Scan.__mapper__]:
             base = Scan
-        elif base in [Host, Host.__mapper__]:
-            base = Scan
-            uses_host =  True
-        elif base in [Context, Context.__mapper__]:
-            base = Scan
-            uses_context = True
         else:
             base = join(Scan, base)
-        if self.uses_context:
-            base = join(base, join(Host, Context))
-        elif self.uses_host:
-            base = join(base, Host)
         return base
     @property
     def select_from(self):
@@ -1298,13 +1263,6 @@ class NmapFilter(Filter):
                 .select_from(join(Category, Association_Scan_Category))\
                 .where(subflt)\
                 .where(Association_Scan_Category.scan == Scan.id)
-            ))
-        for subflt in self.source:
-            req = req.where(exists(
-                select([1])\
-                .select_from(join(Source, Association_Scan_Source))\
-                .where(subflt)\
-                .where(Association_Scan_Source.scan == Scan.id)
             ))
         for incl, subflt in self.port:
             if incl:
@@ -1335,15 +1293,13 @@ class NmapFilter(Filter):
 
 
 class PostgresDBNmap(PostgresDB, DBNmap):
-    tables = [ScanFile, Category, Source, Scan, Hostname, Port, Script, Trace,
-              Hop, Association_Scan_Hostname, Association_Scan_Source,
-              Association_Scan_Category, Association_Scan_ScanFile]
-    required_tables = [AS, Country, Location]
-    shared_tables = [(Host, [Flow.src, Flow.dst, Passive.host]),
-                     (Context, [Host.context])]
+    tables = [ScanFile, Category, Scan, Hostname, Port, Script, Trace, Hop,
+              Association_Scan_Hostname, Association_Scan_Category,
+              Association_Scan_ScanFile]
     fields = {
         "_id": Scan.id,
-        "addr": Host.addr,
+        "addr": Scan.addr,
+        "source": Scan.source,
         "scanid": Association_Scan_ScanFile.scan_file,
         "starttime": Scan.time_start,
         "endtime": Scan.time_stop,
@@ -1352,7 +1308,6 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         "state_reason": Scan.state_reason_ttl,
         "state_reason_ttl": Scan.state_reason_ttl,
         "categories": Category.name,
-        "source": Source.name,
         "hostnames.name": Hostname.name,
         "hostnames.domains": Hostname.domains,
     }
@@ -1439,14 +1394,14 @@ insert structures.
 
     def store_host(self, host, merge=False):
         addr = host['addr']
-        context = self.get_context(addr, source=host.get('source'))
         addr = self.convert_ip(addr)
-        hostid = self.store_host_context(addr, context, host['starttime'], host['endtime'])
+        source = host.get('source', '')
         if merge:
             insrt = postgresql.insert(Scan)
             scanid, scan_tstop, merge = self.db.execute(
                 insrt.values(
-                    host=hostid,
+                    addr=addr,
+                    source=source,
                     info=host.get('infos'),
                     time_start=host['starttime'],
                     time_stop=host['endtime'],
@@ -1459,7 +1414,7 @@ insert structures.
                     )
                 )\
                 .on_conflict_do_update(
-                    index_elements=['host', 'archive'],
+                    index_elements=['addr', 'source', 'archive'],
                     set_={
                         'time_start': func.least(
                             Scan.time_start,
@@ -1482,16 +1437,19 @@ insert structures.
                 newest = None
         else:
             curarchive = self.db.execute(select([func.max(Scan.archive)])\
-                                         .where(Scan.host == hostid))\
+                                         .where(and_(Scan.addr == addr,
+                                                     Scan.source == source)))\
                                 .fetchone()[0]
             if curarchive is not None:
                 self.db.execute(update(Scan).where(and_(
-                    Scan.host == hostid,
+                    Scan.addr == addr,
+                    Scan.source == source,
                     Scan.archive == 0,
                 )).values(archive=curarchive + 1))
             scanid = self.db.execute(insert(Scan)\
                                      .values(
-                                         host=hostid,
+                                         addr=addr,
+                                         source=source,
                                          info=host.get('infos'),
                                          time_start=host['starttime'],
                                          time_stop=host['endtime'],
@@ -1507,17 +1465,6 @@ insert structures.
                         .values(scan=scanid,
                                 scan_file=host['scanid'].decode('hex'))\
                         .on_conflict_do_nothing())
-        if host.get('source'):
-            insrt = postgresql.insert(Source)
-            sourceid = self.db.execute(insrt.values(name=host['source'])\
-                                       .on_conflict_do_update(
-                                           index_elements=['name'],
-                                           set_={'name': insrt.excluded.name}
-                                       )\
-                                       .returning(Source.id)).fetchone()[0]
-            self.db.execute(postgresql.insert(Association_Scan_Source)\
-                            .values(scan=scanid, source=sourceid)\
-                            .on_conflict_do_nothing())
         for category in host.get("categories", []):
             insrt = postgresql.insert(Category)
             catid = self.db.execute(insrt.values(name=category)\
@@ -1638,8 +1585,6 @@ insert structures.
     @staticmethod
     def _distinct_req(field, flt, archive=False):
         flt = flt.copy()
-        flt.uses_host |= field.table is Host.__table__
-        flt.uses_context |= field.table is Context.__table__
         return flt.query(
             select([field.distinct()]).select_from(
                 flt.select_from_base(field.parent)
@@ -1648,10 +1593,7 @@ insert structures.
         )
 
     def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
-        req = flt.query(
-            select([Scan.id]).select_from(join(Scan, join(Host, Context))),
-            archive=archive,
-        )
+        req = flt.query(select([Scan.id]), archive=archive)
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -1662,19 +1604,16 @@ insert structures.
              "openports": {"count": rec[0]}}
             for rec in
             self.db.execute(
-                select([func.count(Port.id), Scan.time_start, Host.addr])\
-                .select_from(join(Port, join(Scan, Host)))\
+                select([func.count(Port.id), Scan.time_start, Scan.addr])\
+                .select_from(join(Port, Scan))\
                 .where(Port.state == "open")\
-                .group_by(Host.addr, Scan.time_start)\
+                .group_by(Scan.addr, Scan.time_start)\
                 .where(Scan.id.in_(base))
             )
         )
 
     def get_ips_ports(self, flt, archive=False, limit=None, skip=None):
-        req = flt.query(
-            select([Scan.id]).select_from(join(Scan, join(Host, Context))),
-            archive=archive,
-        )
+        req = flt.query(select([Scan.id]), archive=archive)
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -1696,10 +1635,10 @@ insert structures.
                                Port.state).label('a'),
                         tuple_(Port.protocol, Port.port).label('a')
                     )).label('ports'),
-                    Scan.time_start, Host.addr,
+                    Scan.time_start, Scan.addr,
                 ])\
-                .select_from(join(Port, join(Scan, Host)))\
-                .group_by(Host.addr, Scan.time_start)\
+                .select_from(join(Port, Scan))\
+                .group_by(Scan.addr, Scan.time_start)\
                 .where(Scan.id.in_(base))
             )
         )
@@ -1707,7 +1646,6 @@ insert structures.
     def getlocations(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(
             select([func.count(Scan.id), Scan.info['coordinates'].astext])\
-            .select_from(join(Scan, join(Host, Context)))\
             .where(Scan.info.has_key('coordinates')),
             archive=archive,
         )
@@ -1722,9 +1660,7 @@ insert structures.
 
     def get(self, flt, archive=False, limit=None, skip=None, sort=None,
             **kargs):
-        req = flt.query(
-            select([join(Scan, join(Host, Context))]), archive=archive,
-        )
+        req = flt.query(select([Scan]), archive=archive)
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
@@ -1734,22 +1670,13 @@ insert structures.
         if limit is not None:
             req = req.limit(limit)
         for scanrec in self.db.execute(req):
-            # FIXME: fetch hostnames
             rec = {}
-            (rec["_id"], _, rec["infos"], rec["starttime"], rec["endtime"],
-             rec["state"], rec["state_reason"], rec["state_reason_ttl"],
-             rec["archive"], rec["merge"], rec["schema_version"], _, _,
-             rec["addr"], _, _, _, rec["host_context"]) = scanrec
+            (rec["_id"], rec["addr"], rec["source"], rec["infos"],
+             rec["starttime"], rec["endtime"], rec["state"], rec["state_reason"],
+             rec["state_reason_ttl"], rec["archive"], rec["merge"],
+             rec["schema_version"]) = scanrec
             if not rec["infos"]:
                 del rec["infos"]
-            sources = select([Association_Scan_Source.source])\
-                      .where(Association_Scan_Source.scan == rec["_id"])\
-                      .cte("sources")
-            sources = [src[0] for src in
-                       self.db.execute(select([Source.name])\
-                                       .where(Source.id == sources.c.source))]
-            if sources:
-                rec['source'] = ', '.join(sources)
             categories = select([Association_Scan_Category.category])\
                          .where(Association_Scan_Category.scan == rec["_id"])\
                          .cte("categories")
@@ -1818,11 +1745,7 @@ insert structures.
         if isinstance(host, dict):
             base = [host['_id']]
         else:
-            base = host.query(
-                select([Passive.id]).select_from(join(Scan, join(Host,
-                                                                 Context)),
-                                                 archive=archive)
-            ).cte("base")
+            base = host.query(select([Scan.id]), archive=archive).cte("base")
         self.db.execute(delete(Scan).where(Scan.id.in_(base)))
         # remove unused scan files
         base = select([Association_Scan_ScanFile.scan_file]).cte('base')
@@ -2013,7 +1936,7 @@ insert structures.
         elif field == "net" or field.startswith("net:"):
             info = field[4:]
             info = int(info) if info else 24
-            field = (Host, [func.set_masklen(text("host.addr::cidr"), info)], None)
+            field = (Scan, [func.set_masklen(text("scan.addr::cidr"), info)], None)
         elif field == "script" or field.startswith("script:"):
             info = field[7:]
             if info:
@@ -2023,7 +1946,7 @@ insert structures.
         elif field in ["category", "categories"]:
             field = (Category, [Category.name], None)
         elif field == "source":
-            field = (Source, [Source.name], None)
+            field = (Scan, [Scan.source], None)
         elif field == "domains":
             field = (Hostname, [func.unnest(Hostname.domains)], None)
         elif field.startswith("domains:"):
@@ -2035,13 +1958,13 @@ insert structures.
                    .cte("base1")
             return ({"count": result[1], "_id": result[0]}
                     for result in self.db.execute(
-                            select([base1.c.domains, func.count().label("count")])\
-                            .where(base1.c.domains.op('~')(
-                                '^([^\\.]+\\.){%d}[^\\.]+$' % level
-                            ))\
-                            .group_by(base1.c.domains)\
-                            .order_by(order)\
-                            .limit(topnbr)
+                        select([base1.c.domains, func.count().label("count")])\
+                        .where(base1.c.domains.op('~')(
+                            '^([^\\.]+\\.){%d}[^\\.]+$' % level
+                        ))\
+                        .group_by(base1.c.domains)\
+                        .order_by(order)\
+                        .limit(topnbr)
                     ))
         elif field == "hop":
             field = (Hop, [Hop.ipaddr], None)
@@ -2054,18 +1977,14 @@ insert structures.
         s_from = {
             Script: join(Script, Port),
             Port: Port,
-            Host: Host,
             Category: join(Association_Scan_Category, Category),
-            Source: join(Association_Scan_Source, Source),
             Hostname: Hostname,
             Hop: join(Trace, Hop),
         }
         where_clause = {
             Script: Port.scan == base.c.id,
             Port: Port.scan == base.c.id,
-            Host: Scan.host == base.c.id,
             Category: Association_Scan_Category.scan == base.c.id,
-            Source: Association_Scan_Source.scan == base.c.id,
             Hostname: Hostname.scan == base.c.id,
             Hop: Trace.scan == base.c.id
         }
@@ -2116,28 +2035,31 @@ insert structures.
     def searchcmp(cls, key, val, cmpop):
         if isinstance(key, basestring):
             key = cls.fields[key]
-        return NmapFilter(main=key.op(cmpop)(val),
-                          uses_host=key.table is Host.__table__,
-                          uses_context=key.table is Context.__table__)
+        return NmapFilter(main=key.op(cmpop)(val))
 
-    @staticmethod
-    def searchhost(addr, neg=False):
+    @classmethod
+    def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
 
         """
-        return NmapFilter(main=PostgresDB.searchhost(addr, neg=neg),
-                          uses_host=True)
+        if neg:
+            return NmapFilter(main=Scan.addr != cls.convert_ip(addr))
+        return NmapFilter(main=Scan.addr == cls.convert_ip(addr))
 
-    @staticmethod
-    def searchhosts(hosts, neg=False):
-        return NmapFilter(main=PostgresDB.searchhosts(hosts, neg=neg),
-                          uses_host=True)
+    @classmethod
+    def searchhosts(cls, hosts, neg=False):
+        hosts = [cls.convert_ip(host) for host in hosts]
+        if neg:
+            return NmapFilter(main=Scan.addr.notin_(hosts))
+        return NmapFilter(main=Scan.addr.in_(hosts))
 
-    @staticmethod
-    def searchrange(start, stop, neg=False):
-        return NmapFilter(main=PostgresDB.searchrange(start, stop, neg=neg),
-                          uses_host=True)
+    @classmethod
+    def searchrange(cls, start, stop, neg=False):
+        start, stop = cls.convert_ip(start), cls.convert_ip(stop)
+        if neg:
+            return NmapFilter(main=or_(Scan.addr < start, Scan.addr > stop))
+        return NmapFilter(main=and_(Scan.addr >= start, Scan.addr <= stop))
 
     @classmethod
     def searchdomain(cls, name, neg=False):
@@ -2160,8 +2082,8 @@ insert structures.
 
     @classmethod
     def searchsource(cls, src, neg=False):
-        return NmapFilter(source=[cls._searchstring_re(Source.name, src,
-                                                       neg=neg)])
+        return NmapFilter(main=cls._searchstring_re(Scan.source, src,
+                                                    neg=neg))
 
     @classmethod
     def searchcountry(cls, country, neg=False):
@@ -2411,7 +2333,7 @@ insert structures.
 
     @classmethod
     def searchhopname(cls, hop, neg=False):
-        return NmapFilter(trace=[cls._searchstring_re(Hop.name,
+        return NmapFilter(trace=[cls._searchstring_re(Hop.host,
                                                       hop, neg=neg)])
 
     @classmethod
@@ -2522,7 +2444,7 @@ class PassiveFilter(Filter):
 
 class PostgresDBPassive(PostgresDB, DBPassive):
     tables = [Passive]
-    shared_tables = [(Host, [Flow.src, Flow.dst, Scan.host]),
+    shared_tables = [(Host, [Flow.src, Flow.dst]),
                      (Context, [Host.context])]
     fields = {
         "_id": Passive.id,
