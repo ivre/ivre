@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -34,7 +34,9 @@ DB = "mongodb:///ivre"
 DB_FLOW = "neo4j://neo4j:neo4j@localhost:7474/"
 BULK_UPSERTS_MAXSIZE = 100
 NEO4J_BATCH_SIZE = 1000
+POSTGRES_BATCH_SIZE = 10000
 DEBUG = False
+DEBUG_DB = False
 # specific: if no value is specified for *_PATH variables, they are
 # going to be constructed by guessing the installation PREFIX (see the
 # end of this file).
@@ -213,7 +215,7 @@ if GEOIP_PATH is None:
 if DATA_PATH is None:
     DATA_PATH = guess_prefix('data')
 
-if HONEYD_IVRE_SCRIPTS_PATH is None:
+if HONEYD_IVRE_SCRIPTS_PATH is None and DATA_PATH is not None:
     HONEYD_IVRE_SCRIPTS_PATH = os.path.join(DATA_PATH, 'honeyd')
 
 if NMAP_SHARE_PATH is None:

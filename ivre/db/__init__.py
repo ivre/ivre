@@ -191,14 +191,22 @@ class DB(object):
         typically implemented in the backend-specific subclasses
 
         """
-        raise NotImplementedError
+        return record['_id']
 
-    @staticmethod
-    def searchid(idval, neg=False):
+    @classmethod
+    def searchid(cls, oid, neg=False):
         """Gets a specific record given its unique identifier `idval`.
 
-        The type of the identifier is backend-specific, and this is
-        typically implemented in the backend-specific subclasses
+        Alias for .searchobjectid().
+
+        """
+        return cls.searchobjectid(oid, neg=neg)
+
+    @classmethod
+    def searchobjectid(cls, oid, neg=False):
+        """Filters records by their ObjectID.  `oid` can be a single or many
+        (as a list or any iterable) object ID(s), specified as strings
+        or an `ObjectID`s.
 
         """
         raise NotImplementedError
@@ -227,15 +235,30 @@ class DB(object):
     def serialize(obj):
         return utils.serialize(obj)
 
+    @staticmethod
+    def cmp_schema_version(*_):
+        return 0
+
 
 class DBNmap(DB):
-
     def __init__(self, output_mode="json", output=sys.stdout):
         self.content_handler = xmlnmap.Nmap2Txt
         self.output_function = {
             "normal": nmapout.displayhosts,
         }.get(output_mode, nmapout.displayhosts_json)
         self.output = output
+        self.__schema_migrations = {
+            "hosts": {
+                None: (1, self.__migrate_schema_hosts_0_1),
+                1: (2, self.__migrate_schema_hosts_1_2),
+                2: (3, self.__migrate_schema_hosts_2_3),
+                3: (4, self.__migrate_schema_hosts_3_4),
+                4: (5, self.__migrate_schema_hosts_4_5),
+                5: (6, self.__migrate_schema_hosts_5_6),
+                6: (7, self.__migrate_schema_hosts_6_7),
+                7: (8, self.__migrate_schema_hosts_7_8),
+            },
+        }
         try:
             import argparse
             self.argparser = argparse.ArgumentParser(add_help=False)
@@ -272,8 +295,8 @@ class DBNmap(DB):
             self.argparser.add_argument('--no-id', metavar='ID', help='show '
                                         'only results WITHOUT this ID')
         self.argparser.add_argument('--host', metavar='IP')
-        self.argparser.add_argument('--hostname')
-        self.argparser.add_argument('--domain')
+        self.argparser.add_argument('--hostname', metavar='NAME / ~NAME')
+        self.argparser.add_argument('--domain', metavar='NAME / ~NAME')
         self.argparser.add_argument('--net', metavar='IP/MASK')
         self.argparser.add_argument('--range', metavar='IP', nargs=2)
         self.argparser.add_argument('--hop', metavar='IP')
@@ -350,6 +373,7 @@ class DBNmap(DB):
 
         """
         parser = xml.sax.make_parser()
+        self.start_store_hosts()
         try:
             content_handler = self.content_handler(fname, **kargs)
         except Exception as exc:
@@ -360,7 +384,9 @@ class DBNmap(DB):
             parser.parse(utils.open_file(fname))
             if self.output_function is not None:
                 self.output_function(content_handler._db, out=self.output)
+            self.stop_store_hosts()
             return True
+        self.stop_store_hosts()
         return False
 
     @staticmethod
@@ -393,6 +419,20 @@ class DBNmap(DB):
         self.remove(rec)
         return True
 
+    def start_store_hosts(self):
+        """Backend-specific subclasses may use this method to create some bulk
+insert structures.
+
+        """
+        pass
+
+    def stop_store_hosts(self):
+        """Backend-specific subclasses may use this method to commit bulk
+insert structures.
+
+        """
+        pass
+
     def store_scan_json(self, fname, filehash=None,
                         needports=False, needopenports=False,
                         categories=None, source=None,
@@ -409,7 +449,8 @@ class DBNmap(DB):
         """
         if categories is None:
             categories = []
-        need_scan_doc = False
+        scan_doc_saved = False
+        self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = self.json2dbrec(json.loads(line))
@@ -434,17 +475,210 @@ class DBNmap(DB):
                 if ((not needports or 'ports' in host) and
                     (not needopenports or
                      host.get('openports', {}).get('count'))):
+                    # Update schema if/as needed.
+                    while host.get(
+                            "schema_version"
+                    ) in self.__schema_migrations["hosts"]:
+                        oldvers = host.get("schema_version")
+                        self.__schema_migrations["hosts"][oldvers][1](host)
+                        if oldvers == host.get("schema_version"):
+                            sys.stderr.write("WARNING: [%r] could not migrate host "
+                                             "from version %r [%r]"
+                                             "\n" % (self.__class__, oldvers, host))
+                            break
                     # We are about to insert data based on this file,
                     # so we want to save the scan document
-                    need_scan_doc = True
+                    if not scan_doc_saved:
+                        self.store_scan_doc({'_id': filehash})
+                        scan_doc_saved = True
                     if merge and self.merge_host(host):
                         pass
                     else:
                         self.archive_from_func(host, gettoarchive)
                         self.store_host(host)
-        if need_scan_doc:
-            self.store_scan_doc({'_id': filehash})
+        self.stop_store_hosts()
         return True
+
+    @staticmethod
+    def getscreenshot(port):
+        """Returns the content of a port's screenshot."""
+        url = port.get('screenshot')
+        if url is None:
+            return None
+        if url == "field":
+            return port.get('screendata')
+
+    def migrate_schema(self, archive, version):
+        """Implemented in backend-specific classes.
+
+        """
+        pass
+
+    @classmethod
+    def __migrate_schema_hosts_0_1(cls, doc):
+        """Converts a record from version 0 (no "schema_version" key
+        in the document) to version 1 (`doc["schema_version"] ==
+        1`). Version 1 adds an "openports" nested document to ease
+        open ports based researches.
+
+        """
+        assert "schema_version" not in doc
+        assert "openports" not in doc
+        doc["schema_version"] = 1
+        openports = {"count": 0}
+        for port in doc.get("ports", []):
+            # populate openports
+            if port.get('state_state') == 'open':
+                openports.setdefault(port["protocol"], {}).setdefault(
+                    "ports", []).append(port["port"])
+            # create the screenwords attribute
+            if 'screenshot' in port and 'screenwords' not in port:
+                screenwords = utils.screenwords(cls.getscreenshot(port))
+                if screenwords is not None:
+                    port['screenwords'] = screenwords
+        for proto in openports.keys():
+            if proto == 'count':
+                continue
+            count = len(openports[proto]["ports"])
+            openports[proto]["count"] = count
+            openports["count"] += count
+        doc["openports"] = openports
+
+    @staticmethod
+    def __migrate_schema_hosts_1_2(doc):
+        """Converts a record from version 1 to version 2. Version 2
+        discards service names when they have been found from
+        nmap-services file.
+
+        """
+        assert doc["schema_version"] == 1
+        doc["schema_version"] = 2
+        for port in doc.get("ports", []):
+            if port.get("service_method") == "table":
+                for key in port.keys():
+                    if key.startswith('service_'):
+                        del port[key]
+
+    @staticmethod
+    def __migrate_schema_hosts_2_3(doc):
+        """Converts a record from version 2 to version 3. Version 3
+        uses new Nmap structured data for scripts using the ls
+        library.
+
+        """
+        assert doc["schema_version"] == 2
+        doc["schema_version"] = 3
+        migrate_scripts = set([
+            "afp-ls", "nfs-ls", "smb-ls", "ftp-anon", "http-ls"
+        ])
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    if script['id'] in script:
+                        script["ls"] = xmlnmap.change_ls(
+                            script.pop(script['id']))
+                    elif "ls" not in script:
+                        data = xmlnmap.add_ls_data(script)
+                        if data is not None:
+                            script['ls'] = data
+        for script in doc.get('scripts', []):
+            if script['id'] in migrate_scripts:
+                data = xmlnmap.add_ls_data(script)
+                if data is not None:
+                    script['ls'] = data
+
+    @staticmethod
+    def __migrate_schema_hosts_3_4(doc):
+        """Converts a record from version 3 to version 4. Version 4
+        creates a "fake" port entry to store host scripts.
+
+        """
+        assert doc["schema_version"] == 3
+        doc["schema_version"] = 4
+        if 'scripts' in doc:
+            doc.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": doc.pop('scripts'),
+            })
+
+    @staticmethod
+    def __migrate_schema_hosts_4_5(doc):
+        """Converts a record from version 4 to version 5. Version 5
+        uses the magic value -1 instead of "host" for "port" in the
+        "fake" port entry used to store host scripts (see
+        `migrate_schema_hosts_3_4()`). Moreover, it changes the
+        structure of the values of "extraports" from [totalcount,
+        {"state": count}] to {"total": totalcount, "state": count}.
+
+        """
+        assert doc["schema_version"] == 4
+        doc["schema_version"] = 5
+        for port in doc.get('ports', []):
+            if port['port'] == 'host':
+                port['port'] = -1
+        for state, (total, counts) in doc.get('extraports', {}).items():
+            doc['extraports'][state] = {"total": total, "reasons": counts}
+
+    @staticmethod
+    def __migrate_schema_hosts_5_6(doc):
+        """Converts a record from version 5 to version 6. Version 6 uses Nmap
+        structured data for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 5
+        doc["schema_version"] = 6
+        migrate_scripts = set(script for script, alias
+                              in xmlnmap.ALIASES_TABLE_ELEMS.iteritems()
+                              if alias == 'vulns')
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    table = None
+                    if script['id'] in script:
+                        table = script.pop(script['id'])
+                        script["vulns"] = table
+                    elif "vulns" in script:
+                        table = script["vulns"]
+                    else:
+                        continue
+                    newtable = xmlnmap.change_vulns(table)
+                    if newtable != table:
+                        script["vulns"] = newtable
+
+    @staticmethod
+    def __migrate_schema_hosts_6_7(doc):
+        """Converts a record from version 6 to version 7. Version 7 creates a
+        structured output for mongodb-databases script.
+
+        """
+        assert doc["schema_version"] == 6
+        doc["schema_version"] = 7
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "mongodb-databases":
+                    if 'mongodb-databases' not in script:
+                        data = xmlnmap.add_mongodb_databases_data(script)
+                        if data is not None:
+                            script['mongodb-databases'] = data
+
+    @staticmethod
+    def __migrate_schema_hosts_7_8(doc):
+        """Converts a record from version 7 to version 8. Version 8 fixes the
+        structured output for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 7
+        doc["schema_version"] = 8
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if 'vulns' in script:
+                    if any(elt in script['vulns'] for elt in
+                           ["ids", "refs", "description", "state", "title"]):
+                        script['vulns'] = [script['vulns']]
+                    else:
+                        script['vulns'] = [dict(tab, id=vulnid)
+                                           for vulnid, tab in
+                                           script['vulns'].iteritems()]
 
     @staticmethod
     def json2dbrec(host):
@@ -552,46 +786,28 @@ class DBNmap(DB):
         )
 
     def searchhttpauth(self, newscript=True, oldscript=False):
-        # $or queries are too slow, by default support only new script
-        # output.
-        res = []
         if newscript:
-            res.append(self.searchscript(
+            if oldscript:
+                return self.searchscript(
+                    name=re.compile('^http-(default-accounts|auth)$'),
+                    output=re.compile('credentials\\ found|'
+                                      'HTTP\\ server\\ may\\ accept'),
+                )
+            return self.searchscript(
                 name='http-default-accounts',
-                output=re.compile('credentials\\ found')))
+                output=re.compile('credentials\\ found'),
+            )
         if oldscript:
-            res.append(self.searchscript(
+            return self.searchscript(
                 name='http-auth',
-                output=re.compile('HTTP\\ server\\ may\\ accept')))
-        if not res:
-            raise Exception('"newscript" and "oldscript" are both False')
-        return self.flt_or(*res)
+                output=re.compile('HTTP\\ server\\ may\\ accept'),
+            )
+        raise Exception('"newscript" and "oldscript" are both False')
 
     def searchowa(self):
-        return self.flt_or(
-            self.searchscript(
-                name='http-headers',
-                output=re.compile(
-                    '^ *(Location:.*(owa|exchweb)|X-OWA-Version)',
-                    flags=re.MULTILINE | re.I,
-                ),
-            ),
-            self.searchscript(
-                name='http-auth-finder',
-                output=re.compile('/(owa|exchweb)', flags=re.I),
-            ),
-            self.searchscript(
-                name='http-title',
-                output=re.compile('Outlook Web A|(Requested resource was|'
-                                  'Did not follow redirect to ).*'
-                                  '/(owa|exchweb)', flags=re.I),
-            ),
-            self.searchscript(
-                name='html-title',
-                output=re.compile('Outlook Web A|(Requested resource was|'
-                                  'Did not follow redirect to ).*'
-                                  '/(owa|exchweb)', flags=re.I),
-            ),
+        return self.searchscript(
+            name=re.compile('^(http-(headers|auth-finder|title)|html-title)$'),
+            output=re.compile('[ /](owa|exchweb)|X-OWA-Version|Outlook Web A', re.I)
         )
 
     def searchxp445(self):
@@ -647,15 +863,184 @@ class DBNmap(DB):
     def searchdevicetype(devtype):
         raise NotImplementedError
 
-    @staticmethod
-    def searchsmb(**args):
+    @classmethod
+    def searchsmb(cls, **args):
         """Search particular results from smb-os-discovery host
         script. Example:
 
         .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
 
         """
-        raise NotImplementedError
+        # key aliases
+        if 'dnsdomain' in args:
+            args['domain_dns'] = args.pop('dnsdomain')
+        if 'forest' in args:
+            args['forest_dns'] = args.pop('forest')
+        return cls.searchscript(name='smb-os-discovery', values=args)
+
+    def parse_args(self, args, flt=None):
+        if flt is None:
+            flt = self.flt_empty
+        if args.category is not None:
+            flt = self.flt_and(flt, self.searchcategory(
+                utils.str2list(args.category)))
+        if args.country is not None:
+            flt = self.flt_and(flt, self.searchcountry(
+                utils.str2list(args.country)))
+        if args.asnum is not None:
+            flt = self.flt_and(flt, self.searchasnum(
+                utils.str2list(args.asnum)))
+        if args.asname is not None:
+            flt = self.flt_and(flt, self.searchasname(
+                utils.str2regexp(args.asname)))
+        if args.source is not None:
+            flt = self.flt_and(flt, self.searchsource(args.source))
+        if args.version is not None:
+            flt = self.flt_and(flt, self.searchversion(args.version))
+        if args.timeago is not None:
+            flt = self.flt_and(flt, self.searchtimeago(args.timeago))
+        if args.id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.id))
+        if args.no_id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
+        if args.host is not None:
+            flt = self.flt_and(flt, self.searchhost(args.host))
+        if args.hostname is not None:
+            if args.hostname[:1] in '!~':
+                flt = self.flt_and(
+                    flt,
+                    self.searchhostname(utils.str2regexp(args.hostname[1:]),
+                                        neg=True)
+                )
+                pass
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchhostname(utils.str2regexp(args.hostname))
+                )
+        if args.domain is not None:
+            if args.domain[:1] in '!~':
+                flt = self.flt_and(
+                    flt,
+                    self.searchdomain(utils.str2regexp(args.domain[1:]),
+                                      neg=True)
+                )
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchdomain(utils.str2regexp(args.domain))
+                )
+        if args.net is not None:
+            flt = self.flt_and(flt, self.searchnet(args.net))
+        if args.range is not None:
+            flt = self.flt_and(flt, self.searchrange(*args.range))
+        if args.hop is not None:
+            flt = self.flt_and(flt, self.searchhop(args.hop))
+        if args.port is not None:
+            port = args.port.replace('_', '/')
+            if '/' in port:
+                proto, port = port.split('/', 1)
+            else:
+                proto = 'tcp'
+            port = int(port)
+            flt = self.flt_and(
+                flt,
+                self.searchport(port=port, protocol=proto))
+        if args.not_port is not None:
+            not_port = args.not_port.replace('_', '/')
+            if '/' in not_port:
+                not_proto, not_port = not_port.split('/', 1)
+            else:
+                not_proto = 'tcp'
+            not_port = int(not_port)
+            flt = self.flt_and(
+                flt,
+                self.searchport(port=not_port, protocol=not_proto,
+                                neg=True))
+        if args.openport:
+            flt = self.flt_and(flt, self.searchopenport())
+        if args.no_openport:
+            flt = self.flt_and(flt, self.searchopenport(neg=True))
+        if args.countports:
+            minn, maxn = int(args.countports[0]), int(args.countports[1])
+            flt = self.flt_and(flt,
+                               self.searchcountopenports(minn=minn,
+                                                         maxn=maxn))
+        if args.no_countports:
+            minn, maxn = int(args.no_countports[0]), int(args.no_countports[1])
+            flt = self.flt_and(flt,
+                               self.searchcountopenports(minn=minn,
+                                                         maxn=maxn,
+                                                         neg=True))
+        if args.service is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchservice(utils.str2regexp(args.service)),
+            )
+        if args.label is not None:
+            if ':' in args.label:
+                group, lab = map(utils.str2regexp, args.label.split(':', 1))
+            else:
+                group, lab = utils.str2regexp(args.label), None
+            flt = self.flt_and(flt, self.searchlabel(group=group,
+                                                     label=lab, neg=False))
+        if args.no_label is not None:
+            if ':' in args.no_label:
+                group, lab = map(utils.str2regexp, args.no_label.split(':', 1))
+            else:
+                group, lab = utils.str2regexp(args.no_label), None
+            flt = self.flt_and(flt, self.searchlabel(group=group,
+                                                     label=lab, neg=True))
+        if args.script is not None:
+            if ':' in args.script:
+                name, output = (utils.str2regexp(string) for
+                                string in args.script.split(':', 1))
+            else:
+                name, output = utils.str2regexp(args.script), None
+            flt = self.flt_and(flt, self.searchscript(name=name,
+                                                      output=output))
+        if args.svchostname is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchsvchostname(utils.str2regexp(args.svchostname)))
+        if args.os is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchos(utils.str2regexp(args.os)))
+        if args.anonftp:
+            flt = self.flt_and(flt, self.searchftpanon())
+        if args.anonldap:
+            flt = self.flt_and(flt, self.searchldapanon())
+        if args.authhttp:
+            flt = self.flt_and(flt, self.searchhttpauth())
+        if args.authbypassvnc:
+            flt = self.flt_and(flt, self.searchvncauthbypass())
+        if args.ypserv:
+            flt = self.flt_and(flt, self.searchypserv())
+        if args.nfs:
+            flt = self.flt_and(flt, self.searchnfs())
+        if args.x11:
+            flt = self.flt_and(flt, self.searchx11access())
+        if args.xp445:
+            flt = self.flt_and(flt, self.searchxp445())
+        if args.owa:
+            flt = self.flt_and(flt, self.searchowa())
+        if args.vuln_boa:
+            flt = self.flt_and(flt, self.searchvulnintersil())
+        if args.torcert:
+            flt = self.flt_and(flt, self.searchtorcert())
+        if args.sshkey is not None:
+            flt = self.flt_and(flt, self.searchsshkey(
+                fingerprint=utils.str2regexp(args.sshkey)))
+        return flt
+
+    @staticmethod
+    def cmp_schema_version_host(*_):
+        return 0
+
+    @staticmethod
+    def cmp_schema_version_scan(*_):
+        return 0
 
 
 class DBPassive(DB):
@@ -686,6 +1071,27 @@ class DBPassive(DB):
 
 class DBData(DB):
     country_codes = None
+
+    def infos_byip(self, addr):
+        infos = {}
+        for infos_byip in [self.as_byip,
+                           self.location_byip]:
+            newinfos = infos_byip(addr)
+            if newinfos is not None:
+                infos.update(newinfos)
+        if infos:
+            return infos
+
+    def as_byip(self, addr):
+        raise NotImplementedError
+
+    def location_byip(self, addr):
+        raise NotImplementedError
+
+    def parse_line_country_codes(self, line):
+        assert line.endswith('"\n')
+        line = line[:-2].split(',"')
+        return {'code': line[0], 'name': line[1]}
 
     def parse_line_country(self, line, feedipdata=None,
                            createipdata=False):
@@ -1216,17 +1622,29 @@ class MetaDB(object):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
                                        MongoDBData, MongoDBAgent)
+        except ImportError:
+            pass
+        else:
             self.db_types["nmap"]["mongodb"] = MongoDBNmap
             self.db_types["passive"]["mongodb"] = MongoDBPassive
             self.db_types["data"]["mongodb"] = MongoDBData
             self.db_types["agent"]["mongodb"] = MongoDBAgent
-        except ImportError:
-            pass
         try:
             from ivre.db.neo4j import Neo4jDBFlow
-            self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         except ImportError:
             pass
+        else:
+            self.db_types["flow"]["neo4j"] = Neo4jDBFlow
+        try:
+            from ivre.db.postgres import (PostgresDBFlow, PostgresDBData,
+                                          PostgresDBNmap, PostgresDBPassive)
+        except ImportError:
+            pass
+        else:
+            self.db_types["flow"]["postgresql"] = PostgresDBFlow
+            self.db_types["nmap"]["postgresql"] = PostgresDBNmap
+            self.db_types["data"]["postgresql"] = PostgresDBData
+            self.db_types["passive"]["postgresql"] = PostgresDBPassive
         if urls is None:
             urls = {}
         for datatype, dbtypes in self.db_types.iteritems():

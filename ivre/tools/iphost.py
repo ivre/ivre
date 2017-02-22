@@ -41,22 +41,30 @@ def convert_ip(addr):
 
 
 def disp_rec(r):
-    if 'addr' in r:
+    firstseen = r['firstseen']
+    if not isinstance(firstseen, datetime.datetime):
+        firstseen = datetime.datetime.fromtimestamp(firstseen)
+    lastseen = r['lastseen']
+    if not isinstance(lastseen, datetime.datetime):
+        lastseen = datetime.datetime.fromtimestamp(lastseen)
+    if 'addr' in r and r['addr']:
         if r['source'].startswith('PTR-'):
             print '%s PTR %s (%s, %s time%s, %s - %s)' % (
                 convert_ip(r['addr']),
                 r['value'], r['source'][4:], r['count'],
                 r['count'] > 1 and 's' or '',
-                datetime.datetime.fromtimestamp(int(r['firstseen'])),
-                datetime.datetime.fromtimestamp(int(r['lastseen'])))
+                firstseen,
+                lastseen,
+            )
         elif r['source'].startswith('A-'):
             print '%s A %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
                 convert_ip(r['addr']),
                 r['source'][2:], r['count'],
                 r['count'] > 1 and 's' or '',
-                datetime.datetime.fromtimestamp(int(r['firstseen'])),
-                datetime.datetime.fromtimestamp(int(r['lastseen'])))
+                firstseen,
+                lastseen,
+            )
         else:
             print 'WARNING', r
     else:
@@ -68,13 +76,14 @@ def disp_rec(r):
                 ':'.join(r['source'].split('-')[1:]),
                 r['count'],
                 r['count'] > 1 and 's' or '',
-                datetime.datetime.fromtimestamp(int(r['firstseen'])),
-                datetime.datetime.fromtimestamp(int(r['lastseen'])))
+                firstseen,
+                lastseen,
+            )
         else:
             print 'WARNING', r
 
 def main():
-    baseflt = {'recontype': 'DNS_ANSWER'}
+    baseflt = db.passive.searchrecontype('DNS_ANSWER')
     subdomains = False
     try:
         opts, args = getopt.getopt(sys.argv[1:],

@@ -38,6 +38,9 @@ IVRE relies on:
       trim screenshots.
     * optionally [py2neo](http://py2neo.org/v3/) to use the flow
       module, version 3 minimum.
+    * optionally [sqlalchemy](http://www.sqlalchemy.org/) and
+      [psycopg2](http://initd.org/psycopg/) to use the
+      **experimental** PostgreSQL backend.
 
   * [Nmap](http://nmap.org/)
 
@@ -51,22 +54,26 @@ IVRE relies on:
     with version 3) for the passive fingerprint and flow modules.
 
   * [MongoDB](http://www.mongodb.org/), version 2.6 minimum (tests are
-    run with versions 2.6.10 and 3.4.2)
+    run with versions 2.6.12, 3.0.14, 3.2.12, 3.4.2 and 3.5.3).
 
-  * [Neo4j](http://neo4j.com/) for the flow module
+  * optionnaly [Neo4j](http://neo4j.com/) for the flow module.
+
+  * optionnaly [PostgreSQL](https://www.postgresql.org/), version 9.5
+    minimum (tests are run with versions 9.5.6 and 9.6.2), for the
+    **experimental** PostgreSQL backend.
 
   * a web server (successfully tested with
     [Apache](https://httpd.apache.org/) and
     [Nginx](http://nginx.org/), should work with anything capable of
     serving static files and run a Python-based CGI), although a test
-    web server is now distributed with IVRE (`ivre httpd`)
+    web server is now distributed with IVRE (`ivre httpd`).
 
   * a web browser (successfully tested with recent versions of
     [Firefox](https://www.mozilla.org/firefox/) and
-    [Chromium](http://www.chromium.org/))
+    [Chromium](http://www.chromium.org/)).
 
   * Maxmind [GeoIP](https://www.maxmind.com/en/geolocation_landing)
-    free databases
+    free databases.
 
   * optionally [Tesseract](https://github.com/tesseract-ocr/tesseract),
     if you plan to add screenshots to your Nmap scan results
@@ -287,5 +294,5 @@ or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2015
+This file is part of IVRE. Copyright 2011 - 2017
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

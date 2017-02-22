@@ -1,3 +1,5 @@
 pymongo>=2.7.2
 py2neo>=3
 pycrypto
+sqlalchemy
+psycopg2

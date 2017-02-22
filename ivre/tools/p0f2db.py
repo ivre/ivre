@@ -52,7 +52,7 @@ def process_file(fname, sensor, bulk, mode):
     mode = ivre.passive.P0F_MODES[mode]
     recontype = 'P0F2-%s' % mode['name']
     p0fprocess = subprocess.Popen(
-        ['p0f', '-l', '-S', '-ttt'] + fname
+        ['p0f', '-q', '-l', '-S', '-ttt'] + fname
         + mode['options'] + [mode['filter']],
         stdout=subprocess.PIPE,
         preexec_fn=os.setpgrp,
@@ -91,7 +91,9 @@ def main():
                         choices=ivre.passive.P0F_MODES.keys(),
                         default="SYN")
     parser.add_argument('--bulk', action='store_true',
-                        help='Use bulk inserts')
+                        help='Use bulk inserts (this is the default)')
+    parser.add_argument('--no-bulk', action='store_true',
+                        help='Do not use bulk inserts')
     if USING_ARGPARSE:
         parser.add_argument(
             'filenames', nargs="+", metavar='filename',
@@ -99,4 +101,5 @@ def main():
         )
     args = parser.parse_args()
     for filename in args.filenames:
-        process_file(filename, args.sensor, args.bulk, args.mode)
+        process_file(filename, args.sensor, (not args.no_bulk) or args.bulk,
+                     args.mode)

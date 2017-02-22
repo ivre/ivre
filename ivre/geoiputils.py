@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the classes and functions to handle
 information about IP addresses (mostly from Maxmind GeoIP files).
@@ -30,7 +30,7 @@ from ivre import utils, config
 
 import zlib
 import zipfile
-import urllib
+import urllib2
 import os.path
 import sys
 import functools
@@ -67,6 +67,7 @@ URLS = {
     # 'GeoIPASNumIPv6.csv':
     # 'http://download.maxmind.com/download/geoip/database/asnum/'
     # 'GeoIPASNum2v6.zip',
+    'iso3166.csv': 'http://dev.maxmind.com/static/csv/codes/iso3166.csv',
     # This one is not from maxmind -- see http://thyme.apnic.net/
     'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
 }
@@ -140,6 +141,8 @@ PARSERS = [
 
 def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
+    opener = urllib2.build_opener()
+    opener.addheaders = [('User-agent', 'IVRE/1.0 +https://ivre.rocks/')]
     for fname, url in URLS.iteritems():
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
@@ -150,7 +153,7 @@ def download_all(verbose=False):
         else:
             decode = lambda x: x
         with open(outfile, 'w') as wdesc:
-            udesc = urllib.urlopen(url)
+            udesc = opener.open(url)
             wdesc.write(decode(udesc.read()))
             if verbose:
                 sys.stdout.write("done.\n")

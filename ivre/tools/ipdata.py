@@ -82,8 +82,9 @@ def main():
                 'This will remove any country/AS information in your '
                 'database. Process ? [y/N] ')
             ans = raw_input()
-            if ans.lower() == 'y':
-                ivre.db.db.data.init()
+            if ans.lower() != 'y':
+                exit(0)
+        ivre.db.db.data.init()
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -115,17 +116,19 @@ def main():
                       [args.location_csv], {}))
     if args.import_all:
         for function, fname, kwargs in [
-                (ivre.db.db.data.feed_geoip_city,
-                 'GeoIPCity-Blocks.csv',
-                 dbtofeed),
                 (ivre.db.db.data.feed_geoip_country,
                  'GeoIPCountry.csv',
+                 dbtofeed),
+                (ivre.db.db.data.feed_country_codes,
+                 'iso3166.csv', {}),
+                (ivre.db.db.data.feed_city_location,
+                 'GeoIPCity-Location.csv', {}),
+                (ivre.db.db.data.feed_geoip_city,
+                 'GeoIPCity-Blocks.csv',
                  dbtofeed),
                 (ivre.db.db.data.feed_geoip_asnum,
                  'GeoIPASNum.csv',
                  dbtofeed),
-                (ivre.db.db.data.feed_city_location,
-                 'GeoIPCity-Location.csv', {}),
         ]:
             TORUN.append((function,
                           [os.path.join(ivre.config.GEOIP_PATH,
@@ -137,8 +140,7 @@ def main():
         if a.isdigit():
             a = int(a)
         print a
-        for i in [ivre.db.db.data.country_byip(a),
-                  ivre.db.db.data.as_byip(a),
+        for i in [ivre.db.db.data.as_byip(a),
                   ivre.db.db.data.location_byip(a)]:
             if i:
                 for f in i:

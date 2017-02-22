@@ -496,7 +496,7 @@ def main():
         for entry in db.db.nmap.topvalues(field, flt=hostfilter,
                                           topnbr=topnbr,
                                           archive=args.archives):
-            if isinstance(entry['_id'], list):
+            if isinstance(entry['_id'], (list, tuple)):
                 if entry['_id']:
                     entry['_id'] = ' / '.join(str(elt) for elt in entry['_id'])
                 else:
@@ -507,7 +507,7 @@ def main():
         sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
                     for field in args.sort]
     if args.short:
-        for val in db.db.nmap.distinct("addr", flt=hostfilter, sortby=sortkeys,
+        for val in db.db.nmap.distinct("addr", flt=hostfilter, sort=sortkeys,
                                        limit=args.limit, skip=args.skip,
                                        archive=args.archives):
             try:
@@ -517,7 +517,7 @@ def main():
         sys.exit(0)
     elif args.distinct is not None:
         for val in db.db.nmap.distinct(args.distinct, flt=hostfilter,
-                                       sortby=sortkeys, limit=args.limit,
+                                       sort=sortkeys, limit=args.limit,
                                        skip=args.skip, archive=args.archives):
             out.write(str(val) + '\n')
         sys.exit(0)
@@ -610,9 +610,6 @@ def main():
                 )
                 for n in entry_nodes:
                     g.glow(utils.int2ip(n))
-    elif args.count:
-        def displayfunction(x):
-            out.write(str(x.count()) + '\n')
     elif args.explain:
         def displayfunction(x):
             out.write(db.db.nmap.explain(x, indent=4) + '\n')
@@ -677,17 +674,19 @@ def main():
             nmapout.displayhosts(cursor, out=out)
 
     if args.update_schema:
-        db.db.nmap.migrate_schema(
-            db.db.nmap.colname_oldhosts if args.archives
-            else db.db.nmap.colname_hosts, args.version
+        db.db.nmap.migrate_schema(args.archives, args.version)
+    elif args.count:
+        out.write(
+            str(db.db.nmap.count(hostfilter, archive=args.archives)) + '\n'
         )
     else:
-        cursor = db.db.nmap.get(hostfilter, archive=args.archives)
-        if sortkeys:
-            cursor = cursor.sort(sortkeys)
-        if args.skip is not None:
-            cursor = cursor.skip(args.skip)
+        kargs = {"archive": args.archives}
         if args.limit is not None:
-            cursor = cursor.limit(args.limit)
+            kargs["limit"] = args.limit
+        if args.skip is not None:
+            kargs["skip"] = args.skip
+        if sortkeys:
+            kargs["sort"] = sortkeys
+        cursor = db.db.nmap.get(hostfilter, **kargs)
         displayfunction(cursor)
         sys.exit(0)

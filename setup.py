@@ -136,6 +136,7 @@ specialized scripts.
     ],
     extras_require={
         'Flow':  ["py2neo>=3"],
+        'PostgreSQL': ["sqlalchemy", "psycopg2"],
     },
     packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser', 'ivre/analyzer'],
     scripts=['bin/ivre'],

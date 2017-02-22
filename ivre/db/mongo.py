@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -166,9 +166,8 @@ class MongoDB(DB):
                 self._find_one = _find_one
             return self._find_one
 
-    @staticmethod
-    def getid(record):
-        return record['_id']
+    def count(self, *args, **kargs):
+        return self.get(*args, **kargs).count()
 
     @staticmethod
     def serialize(obj):
@@ -258,7 +257,7 @@ class MongoDB(DB):
             document.get("schema_version", 0),
         )
 
-    def _topvalues(self, field, flt=None, topnbr=10, sortby=None,
+    def _topvalues(self, field, flt=None, topnbr=10, sort=None,
                    limit=None, skip=None, least=False, aggrflt=None,
                    specialproj=None, specialflt=None, countfield=None):
         """This method makes use of the aggregation framework to
@@ -274,8 +273,8 @@ class MongoDB(DB):
         pipeline = []
         if flt:
             pipeline += [{"$match": flt}]
-        if sortby is not None and ((limit is not None) or (skip is not None)):
-            pipeline += [{"$sort": OrderedDict(sortby)}]
+        if sort is not None and ((limit is not None) or (skip is not None)):
+            pipeline += [{"$sort": OrderedDict(sort)}]
         if skip is not None:
             pipeline += [{"$skip": skip}]
         if limit is not None:
@@ -313,7 +312,7 @@ class MongoDB(DB):
             pipeline += [{"$limit": topnbr}]
         return pipeline
 
-    def _distinct(self, field, flt=None, sortby=None, limit=None, skip=None):
+    def _distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
 
@@ -321,8 +320,8 @@ class MongoDB(DB):
         pipeline = []
         if flt:
             pipeline.append({'$match': flt})
-        if sortby:
-            pipeline.append({'$sort': OrderedDict(sortby)})
+        if sort:
+            pipeline.append({'$sort': OrderedDict(sort)})
         if skip is not None:
             pipeline += [{"$skip": skip}]
         if limit is not None:
@@ -384,12 +383,19 @@ class MongoDB(DB):
         return {'$or': args} if len(args) > 1 else args[0]
 
     @staticmethod
-    def searchid(idval, neg=False):
-        """Filters (if `neg` == True, filters out) one particular
-        record, given its id.
+    def searchobjectid(oid, neg=False):
+        """Filters records by their ObjectID.  `oid` can be a single or many
+        (as a list or any iterable) object ID(s), specified as strings
+        or an `ObjectID`s.
 
         """
-        return {"_id": {'$ne': idval} if neg else idval}
+        if isinstance(oid, (basestring, bson.objectid.ObjectId)):
+            oid = [bson.objectid.ObjectId(oid)]
+        else:
+            oid = [bson.objectid.ObjectId(elt) for elt in oid]
+        if len(oid) == 1:
+            return {'_id': {'$ne': oid[0]} if neg else oid[0]}
+        return {'_id': {'$nin' if neg else '$in': oid}}
 
     @staticmethod
     def searchversion(version):
@@ -487,7 +493,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2DB
+        self.content_handler = xmlnmap.Nmap2Mongo
         self.output_function = None
         self.colname_scans = colname_scans
         self.colname_hosts = colname_hosts
@@ -652,6 +658,18 @@ creates the default indexes."""
 
         """
         return self.cmp_schema_version(self.colname_scans, scan)
+
+    def migrate_schema(self, archive, version):
+        """Process to schema migrations in column `colname_hosts` or
+        `colname_oldhosts` depending on `archive`archive value,
+        starting from `version`.
+
+        """
+        MongoDB.migrate_schema(
+            self,
+            db.db.nmap.colname_oldhosts if args.archives else
+            db.db.nmap.colname_hosts
+        )
 
     def migrate_schema_hosts_0_1(self, doc):
         """Converts a record from version 0 (no "schema_version" key
@@ -892,21 +910,11 @@ have no effect if it is not expected)."""
             return scanids
         return [scanids]
 
-    def getscan(self, scanid, archive=False, **kargs):
+    def getscan(self, scanid, archive=False):
         return self.find_one(
             self.colname_oldscans if archive else self.colname_scans,
             {'_id': scanid},
-            **kargs
         )
-
-    @staticmethod
-    def getscreenshot(port):
-        """Returns the content of a port's screenshot."""
-        url = port.get('screenshot')
-        if url is None:
-            return None
-        if url == "field":
-            return port.get('screendata')
 
     def set_label(self, flt, group, label, archive=False):
         """Adds `label` in `group` to every host matching `flt`"""
@@ -1187,6 +1195,12 @@ have no effect if it is not expected)."""
         for scanid in self.getscanids(host):
             if self.find_one(colname_hosts, {'scanid': scanid}) is None:
                 self.db[colname_scans].remove(spec_or_id=scanid)
+
+    def store_or_merge_host(self, host, gettoarchive, merge=False):
+        if merge and self.merge_host(host):
+            return
+        self.archive_from_func(host, gettoarchive)
+        self.store_host(host)
 
     def archive(self, host, unarchive=False):
         """Archives (when `unarchive` is True, unarchives) a given
@@ -1556,19 +1570,6 @@ have no effect if it is not expected)."""
             for port in ports]}}
 
     @staticmethod
-    def searchobjectid(oid, neg=False):
-        """Filters records by their ObjectID.
-        `oid` can be a single or many (as a list or any iterable) object ID(s),
-        specified as strings or an `ObjectID`s."""
-        if isinstance(oid, (basestring, bson.objectid.ObjectId)):
-            oid = [bson.objectid.ObjectId(oid)]
-        else:
-            oid = [bson.objectid.ObjectId(elt) for elt in oid]
-        if len(oid) == 1:
-            return {'_id': {'$ne': oid[0]} if neg else oid[0]}
-        return {'_id': {'$nin' if neg else '$in': oid}}
-
-    @staticmethod
     def searchcountopenports(minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert minn is not None or maxn is not None
@@ -1671,22 +1672,6 @@ have no effect if it is not expected)."""
                 'service_extrainfo': {'$ne': 'access denied'}
             }}}
 
-    @staticmethod
-    def searchsmb(**args):
-        # key aliases
-        if 'dnsdomain' in args:
-            args['domain_dns'] = args.pop('dnsdomain')
-        if 'forest' in args:
-            args['forest_dns'] = args.pop('forest')
-        # Build the query. Do *not* iterate here since we are
-        # modifying the dictionary
-        for key in args.keys():
-            args['smb-os-discovery.%s' % key] = args.pop(key)
-        args['id'] = 'smb-os-discovery'
-        return {
-            'ports.scripts': {'$elemMatch': args}
-        }
-
     def searchfile(self, fname=None, scripts=None):
         """Search shared files from a file name (either a string or a
         regexp), only from scripts using the "ls" NSE module.
@@ -1744,39 +1729,6 @@ have no effect if it is not expected)."""
             name={'$in': ['http-title', 'html-title']},
             output=title,
         )
-
-    @staticmethod
-    def searchservicescript(srv, port=None):
-        if port is None:
-            return {
-                'ports': {
-                    '$elemMatch': {
-                        'state_state': 'open',
-                        '$or': [
-                            {'service_name': srv},
-                            {'service_product': srv},
-                            {'service_version': srv},
-                            {'service_extrainfo': srv},
-                            {'service_hostname': srv},
-                            {'scripts.id': srv},
-                            {'scripts.output': srv}
-                        ]
-                    }}}
-        return {
-            'ports': {
-                '$elemMatch': {
-                    'state_state': 'open',
-                    'port': port,
-                    '$or': [
-                        {'service_name': srv},
-                        {'service_product': srv},
-                        {'service_version': srv},
-                        {'service_extrainfo': srv},
-                        {'service_hostname': srv},
-                        {'scripts.id': srv},
-                        {'scripts.output': srv}
-                    ]
-                }}}
 
     @staticmethod
     def searchos(txt):
@@ -1975,7 +1927,7 @@ have no effect if it is not expected)."""
         else:
             return {"cpes": {"$elemMatch": flt}}
 
-    def topvalues(self, field, flt=None, topnbr=10, sortby=None,
+    def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, archive=False,
                   aggrflt=None, specialproj=None, specialflt=None):
         """
@@ -2206,64 +2158,68 @@ have no effect if it is not expected)."""
                 ]
                 field = "countports"
         elif field == "service":
-            flt = self.flt_and(flt, self.searchservice({'$exists': True}))
+            flt = self.flt_and(flt, self.searchopenport())
+            specialproj = {
+                "_id": 0,
+                "ports.state_state": 1,
+                "ports.service_name": 1,
+            }
+            specialflt = [
+                {"$match": {"ports.state_state": "open"}},
+                {"$project":
+                 {"ports.service_name":
+                  {"$ifNull": ["$ports.service_name", ""]},
+                 }},
+            ]
             field = "ports.service_name"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'] if x['_id'] else None}
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
-            flt = self.flt_and(
-                flt,
-                self.searchservice({'$exists': True}, port=port),
-            )
+            flt = self.flt_and(flt, self.searchport(port))
             specialproj = {"_id": 0, "ports.port": 1, "ports.service_name": 1}
             specialflt = [
                 {"$match": {"ports.port": port}},
-                {"$project": {"ports.service_name": 1}}
+                {"$project":
+                 {"ports.service_name":
+                  {"$ifNull": ["$ports.service_name", ""]},
+                 }},
             ]
             field = "ports.service_name"
         elif field == 'product':
-            flt = self.flt_and(flt, self.searchproduct(
-                {'$exists': True},
-                service={'$exists': True},
-            ))
+            flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
                 "_id": 0,
+                "ports.state_state": 1,
                 "ports.service_name": 1,
                 "ports.service_product": 1,
             }
             specialflt = [
-                {"$match": {"ports.service_product": {"$exists": True}}},
+                {"$match": {"ports.state_state": "open"}},
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                   ]}}}
             ]
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field.startswith('product:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
                 port = int(service)
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service={'$exists': True},
-                    port=port,
-                ))
+                flt = self.flt_and(flt, self.searchport(port))
                 specialflt = [
-                    {"$match": {"ports.port": port,
-                                "ports.service_product": {"$exists": True}}},
+                    {"$match": {"ports.port": port}},
                 ]
             else:
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service=service,
-                ))
+                flt = self.flt_and(flt, self.searchservice(service))
                 specialflt = [
-                    {"$match": {"ports.service_name": service,
-                                "ports.service_product": {"$exists": True}}},
+                    {"$match": {"ports.service_name": service}},
                 ]
             specialproj = {
                 "_id": 0,
@@ -2275,79 +2231,62 @@ have no effect if it is not expected)."""
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                   ]}}}
             )
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field == 'version':
-            flt = self.flt_and(flt, self.searchproduct(
-                {'$exists': True},
-                service={'$exists': True},
-                version={'$exists': True},
-            ))
+            flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
                 "_id": 0,
+                "ports.state_state": 1,
                 "ports.service_name": 1,
                 "ports.service_product": 1,
                 "ports.service_version": 1,
             }
             specialflt = [
-                {"$match": {"ports.service_product": {"$exists": True},
-                            "ports.service_version": {"$exists": True}}},
+                {"$match": {"ports.state_state": "open"}},
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                       "###",
-                      "$ports.service_version",
+                      {"$ifNull": ["$ports.service_version", ""]},
                   ]}}}
             ]
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field.startswith('version:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
                 port = int(service)
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service={'$exists': True},
-                    version={'$exists': True},
-                    port=port,
-                ))
+                flt = self.flt_and(flt, self.searchport(port))
                 specialflt = [
-                    {"$match": {"ports.port": port,
-                                "ports.service_product": {"$exists": True},
-                                "ports.service_version": {"$exists": True}}},
+                    {"$match": {"ports.port": port}},
                 ]
             elif ":" in service:
                 service, product = service.split(':', 1)
                 flt = self.flt_and(flt, self.searchproduct(
                     product,
                     service=service,
-                    version={'$exists': True},
                 ))
                 specialflt = [
                     {"$match": {"ports.service_name": service,
-                                "ports.service_product": product,
-                                "ports.service_version": {"$exists": True}}},
+                                "ports.service_product": product}},
                 ]
             else:
-                flt = self.flt_and(flt, self.searchproduct(
-                    {'$exists': True},
-                    service=service,
-                    version={'$exists': True},
-                ))
+                flt = self.flt_and(flt, self.searchservice(service))
                 specialflt = [
-                    {"$match": {"ports.service_name": service,
-                                "ports.service_product": {"$exists": True},
-                                "ports.service_version": {"$exists": True}}},
+                    {"$match": {"ports.service_name": service}},
                 ]
             specialproj = {
                 "_id": 0,
@@ -2360,16 +2299,17 @@ have no effect if it is not expected)."""
                 {"$project":
                  {"ports.service_product":
                   {"$concat": [
-                      "$ports.service_name",
+                      {"$ifNull": ["$ports.service_name", ""]},
                       "###",
-                      "$ports.service_product",
+                      {"$ifNull": ["$ports.service_product", ""]},
                       "###",
-                      "$ports.service_version",
+                      {"$ifNull": ["$ports.service_version", ""]},
                   ]}}}
             )
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': [elt if elt else None for elt in
+                                            x['_id'].split('###')]}
         elif field.startswith("cpe"):
             try:
                 field, cpeflt = field.split(":", 1)
@@ -2636,7 +2576,7 @@ have no effect if it is not expected)."""
             outputproc = lambda x: {'count': x['count'],
                                     '_id': utils.int2ip(x['_id'])}
         pipeline = self._topvalues(
-            field, flt=flt, topnbr=topnbr, sortby=sortby, limit=limit,
+            field, flt=flt, topnbr=topnbr, sort=sort, limit=limit,
             skip=skip, least=least, aggrflt=aggrflt,
             specialproj=specialproj, specialflt=specialflt,
         )
@@ -2649,7 +2589,7 @@ have no effect if it is not expected)."""
             return (outputproc(res) for res in cursor)
         return cursor
 
-    def distinct(self, field, flt=None, sortby=None, limit=None, skip=None,
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None,
                  archive=False):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
@@ -2659,7 +2599,7 @@ have no effect if it is not expected)."""
             self.db[self.colname_oldhosts
                     if archive else
                     self.colname_hosts].aggregate(
-                        self._distinct(field, flt=flt, sortby=sortby,
+                        self._distinct(field, flt=flt, sort=sort,
                                        limit=limit, skip=skip),
                         cursor={},
                     )
@@ -2787,146 +2727,6 @@ have no effect if it is not expected)."""
                 {'$set': updatespec},
                 multi=True,
             )
-
-    def parse_args(self, args, flt=None):
-        if flt is None:
-            flt = self.flt_empty
-        if args.category is not None:
-            flt = self.flt_and(flt, self.searchcategory(
-                utils.str2list(args.category)))
-        if args.country is not None:
-            flt = self.flt_and(flt, self.searchcountry(
-                utils.str2list(args.country)))
-        if args.asnum is not None:
-            flt = self.flt_and(flt, self.searchasnum(
-                utils.str2list(args.asnum)))
-        if args.asname is not None:
-            flt = self.flt_and(flt, self.searchasname(
-                utils.str2regexp(args.asname)))
-        if args.source is not None:
-            flt = self.flt_and(flt, self.searchsource(args.source))
-        if args.version is not None:
-            flt = self.flt_and(flt, self.searchversion(args.version))
-        if args.timeago is not None:
-            flt = self.flt_and(flt, self.searchtimeago(args.timeago))
-        if args.id is not None:
-            flt = self.flt_and(flt, self.searchobjectid(args.id))
-        if args.no_id is not None:
-            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
-        if args.host is not None:
-            flt = self.flt_and(flt, self.searchhost(args.host))
-        if args.hostname is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchhostname(utils.str2regexp(args.hostname))
-            )
-        if args.domain is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchdomain(utils.str2regexp(args.domain))
-            )
-        if args.net is not None:
-            flt = self.flt_and(flt, self.searchnet(args.net))
-        if args.range is not None:
-            flt = self.flt_and(flt, self.searchrange(*args.range))
-        if args.hop is not None:
-            flt = self.flt_and(flt, self.searchhop(args.hop))
-        if args.port is not None:
-            port = args.port.replace('_', '/')
-            if '/' in port:
-                proto, port = port.split('/', 1)
-            else:
-                proto = 'tcp'
-            port = int(port)
-            flt = self.flt_and(
-                flt,
-                self.searchport(port=port, protocol=proto))
-        if args.not_port is not None:
-            not_port = args.not_port.replace('_', '/')
-            if '/' in not_port:
-                not_proto, not_port = not_port.split('/', 1)
-            else:
-                not_proto = 'tcp'
-            not_port = int(not_port)
-            flt = self.flt_and(
-                flt,
-                self.searchport(port=not_port, protocol=not_proto,
-                                neg=True))
-        if args.openport:
-            flt = self.flt_and(flt, self.searchopenport())
-        if args.no_openport:
-            flt = self.flt_and(flt, self.searchopenport(neg=True))
-        if args.countports:
-            minn, maxn = int(args.countports[0]), int(args.countports[1])
-            flt = self.flt_and(flt,
-                               self.searchcountopenports(minn=minn,
-                                                         maxn=maxn))
-        if args.no_countports:
-            minn, maxn = int(args.no_countports[0]), int(args.no_countports[1])
-            flt = self.flt_and(flt,
-                               self.searchcountopenports(minn=minn,
-                                                         maxn=maxn,
-                                                         neg=True))
-        if args.service is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchservicescript(utils.str2regexp(args.service)))
-        if args.label is not None:
-            if ':' in args.label:
-                group, lab = map(utils.str2regexp, args.label.split(':', 1))
-            else:
-                group, lab = utils.str2regexp(args.label), None
-            flt = self.flt_and(flt, self.searchlabel(group=group,
-                                                     label=lab, neg=False))
-        if args.no_label is not None:
-            if ':' in args.no_label:
-                group, lab = map(utils.str2regexp, args.no_label.split(':', 1))
-            else:
-                group, lab = utils.str2regexp(args.no_label), None
-            flt = self.flt_and(flt, self.searchlabel(group=group,
-                                                     label=lab, neg=True))
-        if args.script is not None:
-            if ':' in args.script:
-                name, output = (utils.str2regexp(string) for
-                                string in args.script.split(':', 1))
-            else:
-                name, output = utils.str2regexp(args.script), None
-            flt = self.flt_and(flt, self.searchscript(name=name,
-                                                      output=output))
-        if args.svchostname is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchsvchostname(utils.str2regexp(args.svchostname)))
-        if args.os is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchos(utils.str2regexp(args.os)))
-        if args.anonftp:
-            flt = self.flt_and(flt, self.searchftpanon())
-        if args.anonldap:
-            flt = self.flt_and(flt, self.searchldapanon())
-        if args.authhttp:
-            flt = self.flt_and(flt, self.searchhttpauth())
-        if args.authbypassvnc:
-            flt = self.flt_and(flt, self.searchvncauthbypass())
-        if args.ypserv:
-            flt = self.flt_and(flt, self.searchypserv())
-        if args.nfs:
-            flt = self.flt_and(flt, self.searchnfs())
-        if args.x11:
-            flt = self.flt_and(flt, self.searchx11access())
-        if args.xp445:
-            flt = self.flt_and(flt, self.searchxp445())
-        if args.owa:
-            flt = self.flt_and(flt, self.searchowa())
-        if args.vuln_boa:
-            flt = self.flt_and(flt, self.searchvulnintersil())
-        if args.torcert:
-            flt = self.flt_and(flt, self.searchtorcert())
-        if args.sshkey is not None:
-            flt = self.flt_and(flt, self.searchsshkey(
-                fingerprint=utils.str2regexp(args.sshkey)))
-        return flt
 
 
 class MongoDBPassive(MongoDB, DBPassive):
@@ -3066,12 +2866,12 @@ setting values according to the keyword arguments.
             )
 
     def insert_or_update_bulk(self, specs, getinfos=None):
-        """Like `.insert_or_update()`, but `specs` parameter has to be
-        an iterable of (timestamp, spec) values. This will perform
-        bulk MongoDB inserts with the major drawback that the
-        `getinfos` parameter will be called (if it is not `None`) for
-        each spec, the spec already exists in the database and the
-        call was hence unnecessary.
+        """Like `.insert_or_update()`, but `specs` parameter has to be an
+        iterable of (timestamp, spec) values. This will perform bulk
+        MongoDB inserts with the major drawback that the `getinfos`
+        parameter will be called (if it is not `None`) for each spec,
+        even when the spec already exists in the database and the call
+        was hence unnecessary.
 
         It's up to you to decide whether having bulk insert is worth
         it or if you want to go with the regular `.insert_or_update()`
@@ -3177,19 +2977,23 @@ setting values according to the keyword arguments.
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
         )
 
-    def distinct(self, field, flt=None, sortby=None, limit=None, skip=None):
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
 
         """
         cursor = self.set_limits(
             self.db[self.colname_passive].aggregate(
-                self._distinct(field, flt=flt, sortby=sortby,
+                self._distinct(field, flt=flt, sort=sort,
                                limit=limit, skip=skip),
                 cursor={},
             )
         )
         return (res['_id'] for res in cursor)
+
+    @staticmethod
+    def searchrecontype(rectype):
+        return {'recontype': rectype}
 
     @staticmethod
     def searchsensor(sensor, neg=False):
@@ -3239,7 +3043,7 @@ setting values according to the keyword arguments.
                                   'HTTP_CLIENT_HEADER_SERVER']},
             'source': {'$in': ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']},
-            'value': re.compile('^Basic'),
+            'value': re.compile('^Basic', re.I),
         }
 
     @staticmethod
@@ -3424,6 +3228,13 @@ class MongoDBData(MongoDB, DBData):
         self.db[self.colname_city_locations].drop()
         self.create_indexes()
 
+    def feed_country_codes(self, *_, **__):
+        """GeoIP Country database is used with MongoDB instead of a country
+code / name table
+
+        """
+        pass
+
     def feed_geoip_country(self, fname, feedipdata=None,
                            createipdata=False):
         self.country_codes = {}
@@ -3519,17 +3330,6 @@ class MongoDBData(MongoDB, DBData):
         locid = self.locationid_byip(addr)
         if locid:
             return self.location_byid(locid.get('location_id'))
-
-    def infos_byip(self, addr):
-        infos = {}
-        for infos_byip in [self.country_byip,
-                           self.as_byip,
-                           self.location_byip]:
-            newinfos = infos_byip(addr)
-            if newinfos is not None:
-                infos.update(newinfos)
-        if infos:
-            return infos
 
     def ipranges_bycountry(self, code):
         return [
