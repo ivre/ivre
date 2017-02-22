@@ -52,7 +52,7 @@ def process_file(fname, sensor, bulk, mode):
     mode = ivre.passive.P0F_MODES[mode]
     recontype = 'P0F2-%s' % mode['name']
     p0fprocess = subprocess.Popen(
-        ['p0f', '-l', '-S', '-ttt'] + fname
+        ['p0f', '-q', '-l', '-S', '-ttt'] + fname
         + mode['options'] + [mode['filter']],
         stdout=subprocess.PIPE,
         preexec_fn=os.setpgrp,
