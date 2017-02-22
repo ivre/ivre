@@ -659,6 +659,18 @@ creates the default indexes."""
         """
         return self.cmp_schema_version(self.colname_scans, scan)
 
+    def migrate_schema(self, archive, version):
+        """Process to schema migrations in column `colname_hosts` or
+        `colname_oldhosts` depending on `archive`archive value,
+        starting from `version`.
+
+        """
+        MongoDB.migrate_schema(
+            self,
+            db.db.nmap.colname_oldhosts if args.archives else
+            db.db.nmap.colname_hosts
+        )
+
     def migrate_schema_hosts_0_1(self, doc):
         """Converts a record from version 0 (no "schema_version" key
         in the document) to version 1 (`doc["schema_version"] ==

@@ -508,6 +508,12 @@ insert structures.
         if url == "field":
             return port.get('screendata')
 
+    def migrate_schema(self, archive, version):
+        """Implemented in backend-specific classes.
+
+        """
+        pass
+
     @classmethod
     def __migrate_schema_hosts_0_1(cls, doc):
         """Converts a record from version 0 (no "schema_version" key

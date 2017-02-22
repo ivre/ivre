@@ -674,10 +674,7 @@ def main():
             nmapout.displayhosts(cursor, out=out)
 
     if args.update_schema:
-        db.db.nmap.migrate_schema(
-            db.db.nmap.colname_oldhosts if args.archives
-            else db.db.nmap.colname_hosts, args.version
-        )
+        db.db.nmap.migrate_schema(args.archives, args.version)
     elif args.count:
         out.write(
             str(db.db.nmap.count(hostfilter, archive=args.archives)) + '\n'
