@@ -637,7 +637,7 @@ class IvreTests(unittest.TestCase):
             topval = list(topgen.next()['_id'])
         self.check_value("nmap_topprod", topval)
         topgen = ivre.db.db.nmap.topvalues("product:80")
-        topval = topgen.next()['_id']
+        topval = list(topgen.next()['_id'])
         while topval[1] is None:
             topval = list(topgen.next()['_id'])
         self.check_value("nmap_topprod_80", topval)
