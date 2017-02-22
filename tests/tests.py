@@ -246,6 +246,10 @@ class IvreTests(unittest.TestCase):
                            "--no-countports", "10", "100"])
         self.assertEqual(res, 0)
         portsnb_not_10_100 = int(out)
+        self.check_int_value_cmd(
+            "nmap_extended_eu_count",
+            ["ivre", "scancli", "--count", "--country=EU*,CH,NO"],
+        )
 
         self.assertEqual(portsnb_10_100 + portsnb_not_10_100, host_counter)
 

@@ -560,10 +560,14 @@ def country_unalias(country):
         of the European Union member states.
 
     """
-    if type(country) in [str, unicode]:
+    if isinstance(country, basestring):
         return COUNTRY_ALIASES.get(country, country)
     if hasattr(country, '__iter__'):
-        return [country_unalias(country_elt) for country_elt in country]
+        return reduce(
+            lambda x, y: x + (y if isinstance(y, list) else [y]),
+            (country_unalias(country_elt) for country_elt in country),
+            [],
+        )
     return country
 
 def screenwords(imgdata):
