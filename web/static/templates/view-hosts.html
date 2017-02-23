@@ -44,7 +44,8 @@
   </dd>
   <!-- ports w/ scripts, etc. -->
   <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
-      ng-if="::port.port !== -1">
+      ng-if="::port.port !== -1"
+      class="port">
     <div port-summary=""></div>
   </dt>
   <dd ng-repeat-end ng-if="port.port !== -1">
