@@ -58,11 +58,13 @@ def main():
     else:
         if command.lower() in HELP_COMMANDS:
             output = sys.stdout
+            retcode = 0
         else:
             output = sys.stderr
             output.write("%s command: %s\n\n" %  (
                 "Ambiguous" if possible_commands else "Unknown", command
             ))
+            retcode = 1
         version()
         output.write("usage: %s [COMMAND]\n\n" % executable)
         output.write("%s commands:\n" % ("matching" if possible_commands
@@ -72,7 +74,7 @@ def main():
             output.write("  %s\n" % availcmd)
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)
-        
+        exit(retcode)
         
 if __name__ == "__main__":
     main()
