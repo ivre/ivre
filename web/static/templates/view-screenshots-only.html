@@ -23,7 +23,8 @@
   <div class="full">
     <!-- ports w/ scripts, etc. -->
     <dt ng-repeat="port in ::host.ports | orderBy:['protocol','port']"
-        ng-if="::port.port !== -1 && port.screenshot">
+        ng-if="::port.port !== -1 && port.screenshot"
+        class="port">
       <div port-summary=""></div>
     </dt>
   </div>

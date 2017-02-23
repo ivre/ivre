@@ -23,7 +23,8 @@
   <div class="full">
     <!-- ports w/ scripts, etc. -->
     <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
-	ng-if="::port.port !== -1 && script_display_mode_needed_scripts_group(port.scripts)">
+	ng-if="::port.port !== -1 && script_display_mode_needed_scripts_group(port.scripts)"
+	class="port">
       <div port-summary=""></div>
     </dt>
     <dd ng-repeat-end
