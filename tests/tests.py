@@ -930,6 +930,17 @@ class IvreTests(unittest.TestCase):
         self.assertIsNotNone(ivre.config.guess_prefix())
         self.assertIsNone(ivre.config.guess_prefix("inexistant"))
 
+        # Version / help
+        res, out1, err = RUN(["ivre"])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        res, out2, err = RUN(["ivre", "help"])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        self.assertEqual(out1, out2)
+        res, _, _ = RUN(["ivre", "inexistant"])
+        self.assertTrue(res)
+
         # IP addresses manipulation utils
         with self.assertRaises(ValueError):
             ivre.utils.range2nets((2, 1))
