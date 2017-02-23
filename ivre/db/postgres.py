@@ -2508,18 +2508,18 @@ returns a generator.
                     Passive.recontype, Passive.source, Passive.targetval,
                     Passive.value, Passive.moreinfo]).select_from(flt.select_from)
         )
+        for key, way in sort or []:
+            req = req.order_by(key if way >= 0 else desc(key))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
-            req = req.limit(skip)
-        for key, way in sort or []:
-            req = req.order_by(key if way >= 0 else desc(key))
+            req = req.limit(limit)
         return self.db.execute(req)
 
     def get_one(self, flt, limit=None, skip=None):
         """Queries the passive database with the provided filter "flt", and
 returns the first result, or None if no result exists."""
-        return self.get(flt, limit=limit, skip=skip).fetchone()
+        return self._get(flt, limit=1, skip=skip).fetchone()
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
         if spec is None:
