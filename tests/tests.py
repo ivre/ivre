@@ -740,12 +740,26 @@ class IvreTests(unittest.TestCase):
 
         # Filters
         addr = ivre.db.db.passive.get_one(
-            ivre.db.db.passive.flt_empty
+            ivre.db.db.passive.searchnet('0.0.0.0/0')
         )["addr"]
         result = ivre.db.db.passive.count(
             ivre.db.db.passive.searchhost(addr)
         )
         self.assertGreater(result, 0)
+        ret, out, err = RUN([
+            "ivre", "ipinfo", "--count",
+            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr),
+        ])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertEqual(int(out.strip()), result)
+        ret, out, err = RUN([
+            "ivre", "ipinfo",
+            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr),
+        ])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertGreater(out.count('\n'), result)
 
         result = ivre.db.db.passive.count(
             ivre.db.db.passive.searchhost("127.12.34.56")
