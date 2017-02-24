@@ -973,11 +973,32 @@ class IvreTests(unittest.TestCase):
         )
         self.assertEqual(ivre.utils.ports2nmapspec(ports), '1-6,80,110-111')
 
+        # Nmap fingerprints
+        ivre.config.NMAP_SHARE_PATH = './share/nmap/'
+        ivre.utils.makedirs(ivre.config.NMAP_SHARE_PATH)
+        with open(os.path.join(ivre.config.NMAP_SHARE_PATH,
+                               'nmap-service-probes'), 'w') as fdesc:
+            fdesc.write(
+                "Probe TCP NULL q||\n"
+                "match test m|^test$|\n"
+                "softmatch softtest m|^softtest$|\n"
+            )
+        ## We need to have at least one "hard" and one soft match
+        self.assertTrue(any(
+            not fp[1]['soft'] for fp in
+            ivre.utils.get_nmap_svc_fp()['fp']
+        ))
+        self.assertTrue(any(
+            fp[1]['soft'] for fp in
+            ivre.utils.get_nmap_svc_fp()['fp']
+        ))
+        ivre.utils.cleandir(ivre.config.NMAP_SHARE_PATH)
+
         # Math utils
         # http://stackoverflow.com/a/15285588/3223422
         def is_prime(n):
             if n == 2 or n == 3: return True
-            if n < 2 or n%2 == 0: return False
+            if n < 2 or n % 2 == 0: return False
             if n < 9: return True
             if n % 3 == 0: return False
             r = int(n**0.5)
@@ -990,6 +1011,7 @@ class IvreTests(unittest.TestCase):
         for _ in xrange(3):
             nbr = random.randint(2, 1000)
             factors = list(ivre.mathutils.factors(nbr))
+            self.assertTrue(is_prime(nbr) or len(factors) > 1)
             self.assertTrue(all(is_prime(x) for x in factors))
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
