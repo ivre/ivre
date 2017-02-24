@@ -22,22 +22,22 @@ This sub-module contains functions that might be usefull to any other
 sub-module or script.
 """
 
-import struct
-import socket
-import datetime
-import re
-import os
-import sys
-import shutil
-import errno
-import hashlib
-import gzip
-import bz2
-import subprocess
-import traceback
 import ast
-import math
+import bz2
 from cStringIO import StringIO
+import datetime
+import errno
+import gzip
+import hashlib
+import math
+import os
+import re
+import shutil
+import socket
+import struct
+import subprocess
+import sys
+import traceback
 try:
     import PIL.Image
     import PIL.ImageChops
@@ -107,9 +107,9 @@ def net2range(network):
 def range2nets(rng):
     """Converts a (start, stop) tuple to a list of networks."""
     start, stop = rng
-    if type(start) is str:
+    if isinstance(start, basestring):
         start = ip2int(start)
-    if type(stop) is str:
+    if isinstance(stop, basestring):
         stop = ip2int(stop)
     if stop < start:
         raise ValueError()
@@ -161,7 +161,7 @@ def regexp2pattern(string):
     and value are regexp.
 
     """
-    if type(string) is REGEXP_T:
+    if isinstance(string, REGEXP_T):
         flags = string.flags
         string = string.pattern
         if string.startswith('^'):
@@ -199,6 +199,7 @@ _PYVALS = {
     "null": None,
     "none": None,
 }
+
 
 def str2pyval(string):
     """This function takes a string and returns a Python object"""
@@ -258,7 +259,7 @@ def makedirs(dirname):
         os.makedirs(dirname)
     except OSError as exception:
         if not (exception.errno == errno.EEXIST and os.path.isdir(dirname)):
-            raise exception
+            raise
 
 
 def cleandir(dirname):
@@ -270,7 +271,7 @@ def cleandir(dirname):
         shutil.rmtree(dirname)
     except OSError as exception:
         if exception.errno != errno.ENOENT:
-            raise exception
+            raise
 
 
 def isfinal(elt):
@@ -278,8 +279,8 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return type(elt) in [str, int, float, unicode,
-                         datetime.datetime, REGEXP_T]
+    return isinstance(elt, (basestring, int, long, float,
+                            datetime.datetime, REGEXP_T))
 
 
 def diff(doc1, doc2):
@@ -349,7 +350,7 @@ def doc2csv(doc, fields, nastr="NA"):
     for field, subfields in fields.iteritems():
         if subfields is True:
             value = doc.get(field)
-            if type(value) is list:
+            if isinstance(value, list):
                 lines = [line + [nastr if valelt is None else valelt]
                          for line in lines for valelt in value]
             else:
@@ -357,7 +358,7 @@ def doc2csv(doc, fields, nastr="NA"):
                          for line in lines]
         elif callable(subfields):
             value = doc.get(field)
-            if type(value) is list:
+            if isinstance(value, list):
                 lines = [line + [nastr if valelt is None
                                  else subfields(valelt)]
                          for line in lines for valelt in value]
@@ -366,7 +367,7 @@ def doc2csv(doc, fields, nastr="NA"):
                          for line in lines]
         elif isinstance(subfields, dict):
             subdoc = doc.get(field)
-            if type(subdoc) is list:
+            if isinstance(subdoc, list):
                 lines = [line + newline
                          for line in lines
                          for subdocelt in subdoc
@@ -461,11 +462,13 @@ class FileOpener(object):
 def open_file(fname):
     return FileOpener(fname)
 
+
 _HASH_COMMANDS = {
     'md5': config.MD5_CMD,
     'sha1': config.SHA1_CMD,
     'sha256': config.SHA256_CMD,
 }
+
 
 def hash_file(fname, hashtype="sha1"):
     """Compute a hash of data from a given file"""
@@ -486,18 +489,18 @@ def hash_file(fname, hashtype="sha1"):
             result.update(data)
         return result.hexdigest()
 
+
 def serialize(obj):
     """Return a JSON-compatible representation for `obj`"""
-    if type(obj) is REGEXP_T:
+    if isinstance(obj, REGEXP_T):
         return '/%s/%s' % (
             obj.pattern,
             ''.join(x.lower() for x in 'ILMSXU'
                     if getattr(re, x) & obj.flags),
-            )
-    if type(obj) is datetime.datetime:
+        )
+    if isinstance(obj, datetime.datetime):
         return str(obj)
-    raise TypeError("Don't know what to do with %r (%r)" % (
-        obj, type(obj)))
+    raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
 
 
 def warn_exception(exc, **kargs):
@@ -547,6 +550,7 @@ COUNTRY_ALIASES = {
     ],
 }
 
+
 def country_unalias(country):
     """Takes either a country code (or an iterator of country codes)
     and returns either a country code or a list of country codes.
@@ -569,6 +573,7 @@ def country_unalias(country):
             [],
         )
     return country
+
 
 def screenwords(imgdata):
     """Takes an image and returns a list of the words seen by the OCR"""
@@ -605,7 +610,7 @@ if USE_PIL:
         """Returns the size of a given `bbox`"""
         return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
 
-    def _trim_image(img, tolerance, minborder):
+    def _trim_image(img, tolerance):
         """Returns the tiniest `bbox` to trim `img`"""
         result = None
         for pixel in [(0, 0), (img.size[0] - 1, 0), (0, img.size[1] - 1),
@@ -635,7 +640,7 @@ if USE_PIL:
 
         """
         img = PIL.Image.open(StringIO(imgdata))
-        bbox = _trim_image(img, tolerance, minborder)
+        bbox = _trim_image(img, tolerance)
         if bbox:
             newbbox = (max(bbox[0] - minborder, 0),
                        max(bbox[1] - minborder, 0),
@@ -646,9 +651,8 @@ if USE_PIL:
                 img.crop(newbbox).save(out, format='jpeg')
                 out.seek(0)
                 return out.read()
-            else:
-                # Image does not need to be modified
-                return True
+            # Image does not need to be modified
+            return True
         # Image no longer exists after trim
         return False
 else:
@@ -674,7 +678,7 @@ def _set_ports():
     global _PORTS, _PORTS_POPULATED
     try:
         fdesc = open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-services'))
-    except IOError, AttributeError:
+    except (IOError, AttributeError):
         try:
             with open('/etc/services') as fdesc:
                 for line in fdesc:
@@ -720,6 +724,7 @@ def guess_srv_port(port1, port2, proto="tcp"):
 
 _NMAP_PROBES = {}
 _NMAP_PROBES_POPULATED = False
+_NMAP_CUR_PROBE = None
 
 
 def _read_nmap_probes():
@@ -771,7 +776,8 @@ def _read_nmap_probes():
                     value = value[:-2] + '(?:\\n|$)'
                 value = re.compile(
                     value,
-                    flags=sum(getattr(re, f) if hasattr(re, f) else 0 for f in flag.upper()),
+                    flags=sum(getattr(re, f) if hasattr(re, f) else 0
+                              for f in flag.upper()),
                 )
                 flag = ''
             info[key] = (value, flag)
@@ -807,10 +813,10 @@ def _read_ikescan_vendor_ids():
                 (line[0], re.compile(line[1].replace('[[:xdigit:]]',
                                                      '[0-9a-f]'), re.I))
                 for line in (
-                        sep.split(line, 1)
-                        for line in (line.strip().split('#', 1)[0]
-                                     for line in fdesc)
-                        if line
+                    sep.split(line, 1)
+                    for line in (line.strip().split('#', 1)[0]
+                                 for line in fdesc)
+                    if line
                 )
             ]
     except (AttributeError, IOError) as exc:
@@ -866,12 +872,13 @@ def normalize_props(props):
     return props
 
 
-def datetime2timestamp(dt):
-    return float(dt.strftime("%s.%f"))
+def datetime2timestamp(dtetme):
+    return float(dtetme.strftime("%s.%f"))
 
 
 _UNITS = ['']
 _UNITS.extend('kMGTPEZY')
+
 
 def num2readable(value):
     idx = int(math.log(value, 1000))
