@@ -29,6 +29,7 @@ import datetime
 import errno
 import gzip
 import hashlib
+import logging
 import math
 import os
 import re
@@ -36,7 +37,6 @@ import shutil
 import socket
 import struct
 import subprocess
-import sys
 import traceback
 try:
     import PIL.Image
@@ -59,7 +59,11 @@ from ivre import config
 # seen, it seems that (1) is right.
 MAXVALLEN = 1000
 
+LOGGER = logging.getLogger("ivre")
 REGEXP_T = type(re.compile(''))
+
+
+logging.basicConfig()
 
 
 def ip2int(ipstr):
@@ -503,22 +507,34 @@ def serialize(obj):
     raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
 
 
-def warn_exception(exc, **kargs):
-    """This function returns a WARNING line based on the exception
-    `exc` and the optional extra information.
-
-    If config.DEBUG is True, the function will append to the result
-    the full stacktrace.
+class LogFilter(logging.Filter):
+    """A logging filter that prevents dupplicate warnings and only reports
+messages with level lower than INFO when config.DEBUG (or
+config.DEBUG_DB) is True.
 
     """
-    return "WARNING: %s [%r]%s\n%s" % (
-        exc, exc,
-        " [%s]" % ", ".join("%s=%s" % (key, value)
-                            for key, value in kargs.iteritems())
-        if kargs else "",
-        "\t%s\n" % "\n\t".join(traceback.format_exc().splitlines())
-        if config.DEBUG else "",
-    )
+    MAX_WARNINGS_STORED = 100
+    def __init__(self):
+        super(LogFilter, self).__init__()
+        self.warnings = set()
+    def filter(self, record):
+        """Decides whether we should log a record"""
+        if record.levelno < logging.INFO:
+            if record.msg.startswith('DB:'):
+                return config.DEBUG_DB
+            return config.DEBUG
+        if record.levelno != logging.WARNING:
+            return True
+        if record.msg in self.warnings:
+            return False
+        if len(self.warnings) > self.MAX_WARNINGS_STORED:
+            self.warnings = set()
+        self.warnings.add(record.msg)
+        return True
+
+
+LOGGER.addFilter(LogFilter())
+LOGGER.setLevel(1 if config.DEBUG or config.DEBUG_DB else 20)
 
 
 class FakeArgparserParent(object):
@@ -658,9 +674,7 @@ if USE_PIL:
 else:
     def trim_image(imgdata, _tolerance=1, _minborder=10):
         """Stub function used when PIL cannot be found"""
-        if config.DEBUG:
-            sys.stdout.write('WARNING: Python PIL not found, '
-                             'screenshots will not be trimmed')
+        LOGGER.warning('Python PIL not found, screenshots will not be trimmed')
         return imgdata
 
 
@@ -786,9 +800,9 @@ def _read_nmap_probes():
         with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes')) as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
-    except (AttributeError, IOError) as exc:
-        sys.stderr.write('WARNING: cannot read Nmap service fingerprint file.')
-        sys.stderr.write(warn_exception(exc))
+    except (AttributeError, IOError):
+        LOGGER.warning('Cannot read Nmap service fingerprint file.',
+                       exc_info=True)
     del _NMAP_CUR_PROBE
     _NMAP_PROBES_POPULATED = True
 
@@ -820,8 +834,7 @@ def _read_ikescan_vendor_ids():
                 )
             ]
     except (AttributeError, IOError) as exc:
-        sys.stderr.write('WARNING: cannot read ike-scan vendor IDs file.')
-        sys.stderr.write(warn_exception(exc))
+        LOGGER.warning('Cannot read ike-scan vendor IDs file.', exc_info=True)
     _IKESCAN_VENDOR_IDS_POPULATED = True
 
 

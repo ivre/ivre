@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -30,9 +30,9 @@ except Exception as exc:
         'alert("ERROR: Could not import ivre. Check the server\'s logs!");'
     )
     sys.stderr.write(
-        "IVRE: ERROR: cannot import ivre [%s (%r)].\n" % (exc.message, exc)
+        "CRITICAL:ivre:Cannot import ivre [%s (%r)].\n" % (exc.message, exc)
     )
-    sys.exit(0)
+    sys.exit(1)
 
 webutils.check_referer()
 
@@ -244,17 +244,17 @@ def main():
             ', '.join(unused),
         )
         sys.stdout.write(webutils.js_alert("param-unused", "warning", msg))
-        sys.stderr.write('IVRE: WARNING: %r\n' % msg)
+        utils.LOGGER.warning(msg)
     elif callback is not None:
         sys.stdout.write(webutils.js_del_alert("param-unused"))
 
     if config.DEBUG:
         msg = "filter: %r" % flt
         sys.stdout.write(webutils.js_alert("filter", "info", msg))
-        sys.stderr.write('IVRE: INFO: %r\n' % msg)
+        utils.LOGGER.debug(msg)
         msg = "user: %r" % webutils.get_user()
         sys.stdout.write(webutils.js_alert("user", "info", msg))
-        sys.stderr.write('IVRE: INFO: %r\n' % msg)
+        utils.LOGGER.debug(msg)
 
     version_mismatch = {}
     if callback is None:
@@ -319,7 +319,7 @@ def main():
             webutils.js_alert("version-mismatch-%d" % ((mismatch + 1) / 2),
                               "warning", message)
         )
-        sys.stderr.write('IVRE: WARNING: %r\n' % message)
+        utils.LOGGER.warning(message)
 
 
 if __name__ == '__main__':

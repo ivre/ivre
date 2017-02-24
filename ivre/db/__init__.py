@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -347,9 +347,7 @@ class DBNmap(DB):
         """
         scanid = utils.hash_file(fname, hashtype="sha256")
         if self.is_scan_present(scanid):
-            if config.DEBUG:
-                sys.stderr.write("WARNING: Scan already present in Database"
-                                 " (%r).\n" % fname)
+            utils.LOGGER.debug("Scan already present in Database (%r).", fname)
             return False
         with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
@@ -376,8 +374,8 @@ class DBNmap(DB):
         self.start_store_hosts()
         try:
             content_handler = self.content_handler(fname, **kargs)
-        except Exception as exc:
-            sys.stderr.write(utils.warn_exception(exc, fname=fname))
+        except Exception:
+            utils.LOGGER.warning('Exception (file %r)', fname, exc_info=True)
         else:
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
@@ -482,9 +480,10 @@ insert structures.
                         oldvers = host.get("schema_version")
                         self.__schema_migrations["hosts"][oldvers][1](host)
                         if oldvers == host.get("schema_version"):
-                            sys.stderr.write("WARNING: [%r] could not migrate host "
-                                             "from version %r [%r]"
-                                             "\n" % (self.__class__, oldvers, host))
+                            utils.LOGGER.warning(
+                                "[%r] could not migrate host from version %r [%r]",
+                                self.__class__, oldvers, host
+                            )
                             break
                     # We are about to insert data based on this file,
                     # so we want to save the scan document

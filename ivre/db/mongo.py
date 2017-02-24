@@ -199,23 +199,19 @@ class MongoDB(DB):
             updated = False
             new_version, migration_function = self.schema_migrations[
                 colname][version]
-            if config.DEBUG:
-                sys.stderr.write(
-                    "INFO: migrating column %s from version %r to %r\n" % (
-                        colname, version, new_version,
-                    )
-                )
+            utils.LOGGER.info(
+                "Migrating column %s from version %r to %r",
+                colname, version, new_version,
+            )
             # unlimited find()!
             for record in self.find(colname, self.searchversion(version)):
                 try:
                     update = migration_function(record)
                 except Exception as exc:
-                    if config.DEBUG:
-                        sys.stderr.write(
-                            "WARNING: cannot migrate host %s [%s: %s]\n" % (
-                                record['_id'], exc.__class__.__name__,
-                                exc.message)
-                        )
+                    utils.LOGGER.warning(
+                        "Cannot migrate host %s [%s: %s]", record['_id'],
+                        exc.__class__.__name__, exc.message,
+                    )
                     failed += 1
                 else:
                     if update is not None:
@@ -229,21 +225,17 @@ class MongoDB(DB):
                         try:
                             function(idx[0], **idx[1])
                         except pymongo.errors.OperationFailure as exc:
-                            sys.stderr.write(
-                                "WARNING: cannot %s index %s [%s: %s]\n" % (
-                                    action, idx, exc.__class__.__name__,
-                                    exc.message)
+                            utils.LOGGER.warning(
+                                "Cannot %s index %s [%s: %s]", action, idx,
+                                exc.__class__.__name__, exc.message,
                             )
             version = new_version
-            if config.DEBUG:
-                sys.stderr.write(
-                    "INFO: migration of column %s from version %r to %r DONE\n" % (
-                        colname, version, new_version,
-                    )
-                )
+            utils.LOGGER.info(
+                "Migration of column %s from version %r to %r DONE",
+                colname, version, new_version,
+            )
         if failed:
-            sys.stderr.write("WARNING: failed to migrate %d documents"
-                             "\n" % failed)
+            utils.LOGGER.info("Failed to migrate %d documents", failed)
 
     def cmp_schema_version(self, colname, document):
         """Returns 0 if the `document`'s schema version matches the
@@ -1061,18 +1053,12 @@ have no effect if it is not expected)."""
 
     def store_host(self, host):
         ident = self.db[self.colname_hosts].insert(host)
-        if config.DEBUG:
-            sys.stderr.write(
-                "HOST STORED: %r in %r\n" % (ident, self.colname_hosts)
-            )
+        utils.LOGGER.debug("HOST STORED: %r in %r", ident, self.colname_hosts)
         return ident
 
     def store_scan_doc(self, scan):
         ident = self.db[self.colname_scans].insert(scan)
-        if config.DEBUG:
-            sys.stderr.write(
-                "SCAN STORED: %r in %r\n" % (ident, self.colname_scans)
-            )
+        utils.LOGGER.debug("SCAN STORED: %r in %r", ident, self.colname_scans)
         return ident
 
     def merge_host_docs(self, rec1, rec2):
@@ -1218,31 +1204,20 @@ have no effect if it is not expected)."""
              self.colname_oldhosts, self.colname_oldscans)
         )
         if self.find_one(col_from_hosts, {"_id": host['_id']}) is None:
-            if config.DEBUG:
-                sys.stderr.write(
-                    "WARNING: cannot %sarchive: host %s does not exist"
-                    " in %r\n" % ("un" if unarchive else "",
-                                  host['_id'], col_from_hosts)
-                )
+            utils.LOGGER.warning(
+                "Cannot %sarchive: host %s does not exist in %r",
+                "un" if unarchive else "", host['_id'], col_from_hosts
+            )
         # store the host in the archive hosts collection
         self.db[col_to_hosts].insert(host)
-        if config.DEBUG:
-            sys.stderr.write(
-                "HOST %sARCHIVED: %s in %r\n" % (
-                    "UN" if unarchive else "",
-                    host['_id'],
-                    col_to_hosts,
-                )
-            )
+        utils.LOGGER.debug(
+            "HOST %sARCHIVED: %s in %r", "UN" if unarchive else "",
+            host['_id'], col_to_hosts,
+        )
         # remove the host from the (not archived) hosts collection
         self.db[col_from_hosts].remove(spec_or_id=host['_id'])
-        if config.DEBUG:
-            sys.stderr.write(
-                "HOST REMOVED: %s from %r\n" % (
-                    host['_id'],
-                    col_from_hosts,
-                )
-            )
+        utils.LOGGER.debug("HOST REMOVED: %s from %r", host['_id'],
+                           col_from_hosts)
         for scanid in self.getscanids(host):
             scan = self.find_one(col_from_scans, {'_id': scanid})
             if scan is not None:
@@ -1251,27 +1226,19 @@ have no effect if it is not expected)."""
                 if self.find_one(col_to_scans,
                                  {'_id': scanid}) is None:
                     self.db[col_to_scans].insert(scan)
-                    if config.DEBUG:
-                        sys.stderr.write(
-                            "SCAN %sARCHIVED: %s in %r\n" % (
-                                "UN" if unarchive else "",
-                                scanid,
-                                col_to_scans,
-                            )
-                        )
+                    utils.LOGGER.debug(
+                        "SCAN %sARCHIVED: %s in %r\n",
+                        "UN" if unarchive else "", scanid, col_to_scans,
+                    )
                 # remove the scan from the (not archived) scans
                 # collection if there is no more hosts related to this
                 # scan in the hosts collection
                 if self.find_one(col_from_hosts,
                                  {'scanid': scanid}) is None:
                     self.db[col_from_scans].remove(spec_or_id=scanid)
-                    if config.DEBUG:
-                        sys.stderr.write(
-                            "SCAN REMOVED: %s in %r" % (
-                                scanid,
-                                col_from_scans,
-                            )
-                        )
+                    utils.logger.DEBUG(
+                        "SCAN REMOVED: %s in %r", scanid, col_from_scans,
+                    )
 
     def archive_from_func(self, host, gettoarchive):
         if gettoarchive is None:
@@ -2895,10 +2862,7 @@ setting values according to the keyword arguments.
                     bulk.find(spec).upsert().update(updatespec)
                     count += 1
                     if count >= config.BULK_UPSERTS_MAXSIZE:
-                        if config.DEBUG:
-                            sys.stderr.write(
-                                "MongoDB bulk upsert: %d\n" % count
-                            )
+                        utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", count)
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
                                    .initialize_unordered_bulk_op()
@@ -2906,8 +2870,7 @@ setting values according to the keyword arguments.
         except IOError:
             pass
         if count > 0:
-            if config.DEBUG:
-                sys.stderr.write("MongoDB bulk upsert: %d (final)\n" % count)
+            utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", count)
             bulk.execute()
 
     def insert_or_update_mix(self, spec, getinfos=None):

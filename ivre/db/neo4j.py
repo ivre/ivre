@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -109,13 +109,13 @@ class Neo4jDB(DB):
         return Query(*args, **kargs)
 
     def run(self, query):
-        if config.DEBUG:
-            sys.stderr.write("Executing query:\n%s\nWith params: %s\n" %
-                             (query.query, query.params))
+        if config.DEBUG_DB:
+            utils.LOGGER.debug("DB:Executing query:\n%s\nWith params: %s",
+                               query.query, query.params)
             t1 = time.time()
         res = self.db.run(query.query, **query.params)
-        if config.DEBUG:
-            sys.stderr.write("result in %s\n" % (time.time() - t1))
+        if config.DEBUG_DB:
+            utils.LOGGER.debug("DB:Result in %s", time.time() - t1)
         return res
 
     @classmethod
@@ -242,12 +242,14 @@ class Query(object):
             keys = [key for key in set(params).intersection(self._params)
                     if params[key] != self._params[key]]
             if keys:
-                sys.stderr.write('WARNING: parameter%s overwritten:'
-                                 '\n' % ("s" if len(keys) > 1 else ""))
-                for key in keys:
-                    sys.stderr.write('  - %r [%r -> %r]'
-                                     '\n' % (key, self._params[key],
-                                             params[key]))
+                utils.LOGGER.warning(
+                    'Parameter%s overwritten:%s',
+                    "s" if len(keys) > 1 else "",
+                    ("\n%" % "\n".join(
+                        '  - %r [%r -> %r]' % (key, self._params[key], params[key])
+                        for key in keys
+                    )) if keys else "",
+                )
         self._params.update(params)
         if isinstance(clause, basestring):
             self.clauses.append(clause)
@@ -492,9 +494,9 @@ class BulkInsert(object):
             except TransientError as e:
                 try_count -= 1
                 if self.retries == 0 or try_count > 0:
-                    if config.DEBUG:
-                        sys.stderr.write(
-                            "DB concurrent access error (%r), retrying.\n" % e)
+                    utils.LOGGER.debug(
+                        "DB:Concurrent access error (%r), retrying.", e,
+                    )
                     # Reduce contention with a little sleep
                     time.sleep(random.random()/10)
                 else:
@@ -504,11 +506,8 @@ class BulkInsert(object):
         self._commit_transaction()
         newtime = time.time()
         rate = self.size / (newtime - self.start_time)
-        if config.DEBUG:
-            sys.stderr.write(
-                "%d inserts, %f/sec (total %d)\n" % (
-                    self.count, rate, self.commited_count + self.count)
-            )
+        utils.LOGGER.debug("%d inserts, %f/sec (total %d)\n",
+                           self.count, rate, self.commited_count + self.count)
         if renew:
             self.start_time = newtime
             self.queries = []
@@ -559,8 +558,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             query.add_clause("WITH %s" % ", ".join(
                 fld if alias is None else "%s AS %s" % (fld, alias)
                 for fld, alias in project))
-        if config.DEBUG:
-            sys.stderr.write(query.query + "\n")
+        utils.LOGGER.debug("DB:%s", query.query)
         return self.run(query)
 
     @classmethod
@@ -719,8 +717,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     def add_flow(self, *args, **kargs):
         kargs.setdefault("counters", [])
         query = self._add_flow(*args, **kargs)
-        #if config.DEBUG:
-        #    sys.stderr.write(query + "\n")
+        #utils.LOGGER.debug("DB:%s", query)
         return query
 
     @classmethod
@@ -1221,12 +1218,12 @@ DETACH DELETE df
             "MATCH (df)-[:SEEN]->(t:Time)\n"
             "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME else "",
         )
-        if config.DEBUG:
-            sys.stderr.write("Fixing client/server ports...\n")
+        if config.DEBUG_DB:
+            utils.LOGGER.debug("DB:Fixing client/server ports...")
             tstamp = time.time()
         self.db.run(q)
-        if config.DEBUG:
-            sys.stderr.write("Took %f secs\n" % (time.time() - tstamp))
+        if config.DEBUG_DB:
+            utils.LOGGER.debug("DB:Took %f secs", (time.time() - tstamp))
             tstamp = time.time()
 
     def _cleanup_phase2(self):
@@ -1276,12 +1273,12 @@ DETACH DELETE old_f
             "MERGE (new_f)-[:SEEN]->(t)" if config.FLOW_TIME else "",
         )
 
-        if config.DEBUG:
-            sys.stderr.write("Second (slower) pass...\n")
+        if config.DEBUG_DB:
+            utils.LOGGER.debug("DB:Second (slower) pass...")
             tstamp = time.time()
         self.db.run(q)
         if config.DEBUG:
-            sys.stderr.write("Took %f secs\n" % (time.time() - tstamp))
+            utils.LOGGER.debug("DB:Took %f secs", time.time() - tstamp)
 
 Neo4jDBFlow.LABEL2NAME.update({
     "Host": ["addr"],

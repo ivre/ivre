@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 from ivre.db import db
+from ivre import utils
 
 import sys
 reload(sys)
@@ -88,7 +89,7 @@ def main():
     out = sys.stdout
 
     if args.plot and plt is None:
-        sys.stderr.write("Error: matplotlib is required for --plot\n")
+        utils.LOGGING.critical("Matplotlib is required for --plot")
         sys.exit(-1)
 
     if args.init:

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -154,14 +154,15 @@ class IvreTests(unittest.TestCase):
         scan_counter = 0
         host_counter_test = 0
         scan_warning = 0
-        host_stored = re.compile("^HOST STORED: ", re.M)
-        scan_stored = re.compile("^SCAN STORED: ", re.M)
+        host_stored = re.compile("^DEBUG:ivre:HOST STORED: ", re.M)
+        scan_stored = re.compile("^DEBUG:ivre:SCAN STORED: ", re.M)
         def host_stored_test(line):
             try:
                 return len(json.loads(line))
             except ValueError:
                 return 0
-        scan_duplicate = re.compile("^WARNING: Scan already present in Database", re.M)
+        scan_duplicate = re.compile("^DEBUG:ivre:Scan already present in "
+                                    "Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
             options = ["ivre", "scan2db", "--port", "-c", "TEST",
@@ -694,7 +695,7 @@ class IvreTests(unittest.TestCase):
         for fname in self.pcap_files:
             for mode in ivre.passive.P0F_MODES.values():
                 p0fprocess = subprocess.Popen(
-                    ['p0f', '-l', '-S', '-ttt', '-s',
+                    ['p0f', '-q', '-l', '-S', '-ttt', '-s',
                      fname] + mode['options'] + [mode['filter']],
                     stdout=subprocess.PIPE)
                 for line in p0fprocess.stdout:

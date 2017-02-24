@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains functions used for passive recon.
 """
@@ -115,10 +115,8 @@ def _split_digest_auth(data):
                 state = 0
             curdata.append(char)
     values.append(''.join(curdata).strip())
-    if state == 1 and config.DEBUG:
-        sys.stderr.write(
-            "IVRE: WARNING: could not parse Digest auth data [%r]" % data
-        )
+    if state == 1:
+        utils.LOGGER.DEBUG("Could not parse Digest auth data [%r]", data)
     return values
 
 

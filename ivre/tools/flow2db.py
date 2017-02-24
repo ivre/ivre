@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -100,9 +100,8 @@ def main():
                 try:
                     fileparser = PARSERS_MAGIC[fdesc.read(4)]
                 except KeyError:
-                    sys.stderr.write(
-                        'WARNING: cannot find the appropriate parser for file'
-                        ' %r\n' % fname
+                    utils.LOGGING.warning(
+                        'Cannot find the appropriate parser for file %r', fname,
                     )
                     continue
         bulk = db.flow.start_bulk_insert()
