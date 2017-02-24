@@ -563,8 +563,6 @@ class PostgresDB(DB):
 
     def __init__(self, url):
         self.dburl = url
-        utils.LOGGER.warning("PostgreSQL backend is experimental. "
-                             "Do not use in production.")
 
     @property
     def db(self):
