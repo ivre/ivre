@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -730,7 +730,7 @@ def _read_nmap_probes():
         if line.startswith('match '):
             line = line[6:]
             soft = False
-        elif line.startswith('softmacth '):
+        elif line.startswith('softmatch '):
             line = line[10:]
             soft = True
         elif line.startswith('Probe '):

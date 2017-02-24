@@ -973,6 +973,27 @@ class IvreTests(unittest.TestCase):
         )
         self.assertEqual(ivre.utils.ports2nmapspec(ports), '1-6,80,110-111')
 
+        # Nmap fingerprints
+        ivre.config.NMAP_SHARE_PATH = './share/nmap/'
+        ivre.utils.makedirs(ivre.config.NMAP_SHARE_PATH)
+        with open(os.path.join(ivre.config.NMAP_SHARE_PATH,
+                               'nmap-service-probes'), 'w') as fdesc:
+            fdesc.write(
+                "Probe TCP NULL q||\n"
+                "match test m|^test$|\n"
+                "softmatch softtest m|^softtest$|\n"
+            )
+        ## We need to have at least one "hard" and one soft match
+        self.assertTrue(any(
+            not fp[1]['soft'] for fp in
+            ivre.utils.get_nmap_svc_fp()['fp']
+        ))
+        self.assertTrue(any(
+            fp[1]['soft'] for fp in
+            ivre.utils.get_nmap_svc_fp()['fp']
+        ))
+        ivre.utils.cleandir(ivre.config.NMAP_SHARE_PATH)
+
         # Math utils
         # http://stackoverflow.com/a/15285588/3223422
         def is_prime(n):
