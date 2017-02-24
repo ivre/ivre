@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 import sys
 import os
 
-from ivre import tools
+from ivre import utils, tools
 from ivre.tools.version import main as version
 
 HELP_COMMANDS = ["-h", "--help", "h", "help"]
@@ -33,11 +33,9 @@ def main():
         # hack for blackarch package
         executable = executable[5:]
     if executable in tools.__all__ or executable in tools.ALIASES:
-        sys.stderr.write(
-            "WARNING: command %s deprecated. Use 'ivre %s' instead.\n" % (
-                executable, tools.ALIASES.get(executable, executable)
-            )
-        )
+        utils.LOGGER.warning("command %s deprecated. Use 'ivre %s' instead.",
+                             executable,
+                             tools.ALIASES.get(executable, executable))
         command = tools.ALIASES.get(executable, executable)
     elif len(sys.argv) == 1:
         command = "help"

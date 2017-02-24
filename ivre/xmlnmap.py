@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the parser for nmap's XML output files.
 
@@ -144,9 +144,7 @@ def _parse_mongodb_databases_kv(line, out, prefix=None, force_type=None,
         key, value = line.split(" =", 1)
         value = value[1:]
     except ValueError:
-        sys.stderr.write(
-            "WARNING: unknown keyword %r\r\n" % line
-        )
+        utils.LOGGER.warning("Unknown keyword %r", line)
         return
 
     if key == "$err":
@@ -284,9 +282,8 @@ def add_ls_data(script):
 
     """
     def notimplemented(script):
-        sys.stderr.write(
-            "WARNING: migration not implemented for script %(id)r\n" % script
-        )
+        utils.LOGGER.warning("Migration not implemented for script %r",
+                             script['id'])
         raise NotImplementedError
     return {
         "smb-ls": add_smb_ls_data,
@@ -314,17 +311,13 @@ def add_smb_ls_data(script):
         if state == 0: # outside a volume
             if line.startswith('Directory of '):
                 if cur_vol is not None:
-                    sys.stderr.write(
-                        "WARNING: cur_vol should be None here [got %r] "
-                        "[fname=%s]\n" % cur_vol
-                    )
+                    utils.LOGGER.warning("cur_vol should be None here [got %r]",
+                                         cur_vol)
                 cur_vol = {"volume": line[13:], "files": []}
                 state = 1 # listing
             elif line:
-                sys.stderr.write(
-                    "WARNING: unexpected line [%r] outside a volume"
-                    "\n" % line
-                )
+                utils.LOGGER.warning("Unexpected line [%r] outside a volume",
+                                     line)
         elif state == 1: # listing
             if line == "Total Files Listed:":
                 state = 2 # total values
@@ -345,9 +338,7 @@ def add_smb_ls_data(script):
                 result["volumes"].append(cur_vol)
                 cur_vol = None
     if state != 0:
-        sys.stderr.write(
-            "WARNING: expected state == 0, got %r\n" % state
-        )
+        utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
 def add_nfs_ls_data(script):
@@ -368,10 +359,8 @@ def add_nfs_ls_data(script):
         if state == 0: # outside a volume
             if line.startswith('NFS Export: '):
                 if cur_vol is not None:
-                    sys.stderr.write(
-                        "WARNING: cur_vol should be None here [got %r] "
-                        "[fname=%s]\n" % cur_vol
-                    )
+                    utils.LOGGER.warning("cur_vol should be None here [got %r]",
+                                         cur_vol)
                 cur_vol = {"volume": line[12:], "files": []}
                 state = 1 # volume info
             # We silently discard any other lines
@@ -402,9 +391,7 @@ def add_nfs_ls_data(script):
         result["volumes"].append(cur_vol)
         cur_vol = None
     if state != 0:
-        sys.stderr.write(
-            "WARNING: expected state == 0, got %r\n" % state
-        )
+        utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
 
 def add_afp_ls_data(script):
@@ -426,8 +413,8 @@ def add_afp_ls_data(script):
                 pass
             elif line.startswith('    '):
                 if cur_vol is None:
-                    sys.stderr.write("WARNING: skip file entry outside a "
-                                     "volume [%r]\n" % line[4:])
+                    utils.LOGGER.warning("Skip file entry outside a "
+                                         "volume [%r]", line[4:])
                 else:
                     (permission, uid, gid, size, date, time,
                      fname) = line[4:].split(None, 6)
@@ -453,8 +440,7 @@ def add_afp_ls_data(script):
                 result.setdefault("info", []).append(line[3].lower()
                                                      + line[4:])
             else:
-                sys.stderr.write("WARNING: skip not understood line "
-                                 "[%r]\n" % line)
+                utils.LOGGER.warning("Skip not understood line [%r]", line)
     return result if result["volumes"] else None
 
 def add_ftp_anon_data(script):
@@ -901,8 +887,7 @@ class NmapHandler(ContentHandler):
         self.scanner = "nmap"
         self.scan_doc_saved = False
         self.masscan_probes = [] if masscan_probes is None else masscan_probes
-        if config.DEBUG:
-            sys.stderr.write("READING %r (%r)\n" % (fname, self._filehash))
+        utils.LOGGER.debug("READING %r (%r)", (fname, self._filehash))
 
     @staticmethod
     def _to_binary(data):
@@ -936,8 +921,8 @@ class NmapHandler(ContentHandler):
     def startElement(self, name, attrs):
         if name == 'nmaprun':
             if self._curscan is not None:
-                sys.stderr.write("WARNING, self._curscan should be None at "
-                                 "this point (got %r)\n" % self._curscan)
+                utils.LOGGER.warning("self._curscan should be None at "
+                                     "this point (got %r)", self._curscan)
             self._curscan = dict(attrs)
             self.scanner = self._curscan.get("scanner", self.scanner)
             if self.scanner == "masscan":
@@ -949,8 +934,8 @@ class NmapHandler(ContentHandler):
             self._addscaninfo(dict(attrs))
         elif name == 'host':
             if self._curhost is not None:
-                sys.stderr.write("WARNING, self._curhost should be None at "
-                                 "this point (got %r)\n" % self._curhost)
+                utils.LOGGER.warning("self._curhost should be None at "
+                                     "this point (got %r)", self._curhost)
             self._curhost = {"schema_version": SCHEMA_VERSION}
             if self._curscan:
                 self._curhost['scanid'] = self._curscan['_id']
@@ -976,14 +961,13 @@ class NmapHandler(ContentHandler):
                     self._curhost['addr'] = attrs['addr']
         elif name == 'hostnames':
             if self._curhostnames is not None:
-                sys.stderr.write("WARNING, self._curhostnames should be None "
-                                 "at this point "
-                                 "(got %r)\n" % self._curhostnames)
+                utils.LOGGER.warning("self._curhostnames should be None at this"
+                                     "point (got %r)", self._curhostnames)
             self._curhostnames = []
         elif name == 'hostname':
             if self._curhostnames is None:
-                sys.stderr.write("WARNING, self._curhostnames should NOT be "
-                                 "None at this point\n")
+                utils.LOGGER.warning("self._curhostnames should NOT be "
+                                     "None at this point")
                 self._curhostnames = []
             hostname = dict(attrs)
             if 'name' in attrs:
@@ -997,9 +981,8 @@ class NmapHandler(ContentHandler):
                 self._curhost['state_reason_ttl'] = int(attrs['reason_ttl'])
         elif name == 'extraports':
             if self._curextraports is not None:
-                sys.stderr.write("WARNING, self._curextraports should be None"
-                                 " at this point "
-                                 "(got %r)\n" % self._curextraports)
+                utils.LOGGER.warning("self._curextraports should be None at "
+                                     "this point (got %r)", self._curextraports)
             self._curextraports = {
                 attrs['state']: {"total": int(attrs['count']), "reasons": {}},
             }
@@ -1008,8 +991,8 @@ class NmapHandler(ContentHandler):
                 attrs['reason']] = int(attrs['count'])
         elif name == 'port':
             if self._curport is not None:
-                sys.stderr.write("WARNING, self._curport should be None at "
-                                 "this point (got %r)\n" % self._curport)
+                utils.LOGGER.warning("self._curport should be None at this "
+                                     "point (got %r)", self._curport)
             self._curport = {'protocol': attrs['protocol'],
                              'port': int(attrs['portid'])}
         elif name == 'state' and self._curport is not None:
@@ -1127,8 +1110,8 @@ class NmapHandler(ContentHandler):
                     self._curport[field] = int(self._curport[field])
         elif name == 'script':
             if self._curscript is not None:
-                sys.stderr.write("WARNING, self._curscript should be None "
-                                 "at this point (got %r)\n" % self._curscript)
+                utils.LOGGER.warning("self._curscript should be None at this "
+                                     "point (got %r)", self._curscript)
             self._curscript = dict([attr, attrs[attr]]
                                    for attr in attrs.keys())
         elif name in ['table', 'elem']:
@@ -1137,9 +1120,8 @@ class NmapHandler(ContentHandler):
             if name == 'elem':
                 # start recording characters
                 if self._curdata is not None:
-                    sys.stderr.write("WARNING, self._curdata should be None"
-                                     " at this point "
-                                     "(got %r)\n" % self._curdata)
+                    utils.LOGGER.warning("self._curdata should be None at this "
+                                         "point (got %r)" % self._curdata)
                 self._curdata = ''
             if 'key' in attrs:
                 key = attrs['key'].replace('.', '_')
@@ -1191,8 +1173,8 @@ class NmapHandler(ContentHandler):
             self._curhost['os']['fingerprint'] = attrs['fingerprint']
         elif name == 'trace':
             if self._curtrace is not None:
-                sys.stderr.write("WARNING, self._curtrace should be None "
-                                 "at this point (got %r)\n" % self._curtrace)
+                utils.LOGGER.warning("self._curtrace should be None at this "
+                                     "point (got %r)", self._curtrace)
             if 'proto' not in attrs:
                 self._curtrace = {'protocol': None}
             elif attrs['proto'] in ['tcp', 'udp']:
@@ -1267,8 +1249,8 @@ class NmapHandler(ContentHandler):
                 # postrule)
                 self._curscript = None
                 if self._curtablepath:
-                    sys.stderr.write("WARNING, self._curtablepath should be "
-                                     "empty, got [%r]\n" % self._curtablepath)
+                    utils.LOGGER.warning("self._curtablepath should be empty, "
+                                         "got [%r]", self._curtablepath)
                 self._curtable = {}
                 return
             if self._curscript['id'] in SCREENSHOTS_SCRIPTS:
@@ -1304,13 +1286,8 @@ class NmapHandler(ContentHandler):
                             exceptions = []
                             break
                     for exc, full_fname in exceptions:
-                        sys.stderr.write(
-                            utils.warn_exception(
-                                exc,
-                                scanfile=self._fname,
-                                fname=full_fname,
-                            )
-                        )
+                        utils.warn_exception(exc, scanfile=self._fname,
+                                             fname=full_fname)
             if ignore_script(self._curscript):
                 self._curscript = None
                 return
@@ -1318,8 +1295,8 @@ class NmapHandler(ContentHandler):
             infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
             if self._curtable:
                 if self._curtablepath:
-                    sys.stderr.write("WARNING, self._curtablepath should be "
-                                     "empty, got [%r]\n" % self._curtablepath)
+                    utils.LOGGER.warning("self._curtablepath should be empty, "
+                                         "got [%r]", self._curtablepath)
                 if infokey in CHANGE_TABLE_ELEMS:
                     self._curtable = CHANGE_TABLE_ELEMS[infokey](self._curtable)
                 self._curscript[infokey] = self._curtable
@@ -1436,7 +1413,7 @@ class NmapHandler(ContentHandler):
             try:
                 cpeobj = cpe2dict(cpe)
             except ValueError:
-                sys.stderr.write("WARNING, invalid cpe format (%s)" % cpe)
+                utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
                 return
             cpes[cpe] = cpeobj
         else:

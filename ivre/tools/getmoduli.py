@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -29,8 +29,9 @@ moduli. A simple sed with 's# .*##' will do the trick."""
 import sys
 import getopt
 
-import ivre.keys
 import ivre.db
+import ivre.keys
+import ivre.utils
 
 def main():
     # FIXME: this will not work if .nmap and .passive have different

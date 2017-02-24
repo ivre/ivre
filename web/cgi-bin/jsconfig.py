@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,16 +20,16 @@ import json
 import sys
 
 try:
-    from ivre import webutils, config, VERSION
+    from ivre import config, utils, webutils, VERSION
 except Exception as exc:
     sys.stdout.write('Content-Type: application/javascript\r\n\r\n')
     sys.stdout.write(
         'alert("ERROR: Could not import ivre. Check the server\'s logs!");'
     )
     sys.stderr.write(
-        "IVRE: ERROR: cannot import ivre [%s (%r)].\n" % (exc.message, exc)
+        "CRITICAL:ivre:Cannot import ivre [%s (%r)].\n" % (exc.message, exc)
     )
-    sys.exit(0)
+    sys.exit(1)
 
 
 def main():

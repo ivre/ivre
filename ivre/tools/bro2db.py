@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -284,26 +284,22 @@ def main():
 
     for fname in args.logfiles:
         if not os.path.exists(fname):
-            sys.stderr.write("Error: %s does not exist\n" % fname)
+            utils.LOGGER.error("File %r does not exist", fname)
             continue
         with BroFile(fname) as brof:
             bulk = db.flow.start_bulk_insert()
-            if config.DEBUG:
-                sys.stderr.write("Parsing %s\n" % fname)
-                sys.stderr.write(
-                    "Fields:\n%s\n" % "\n".join(
-                        "%s: %s" % (f, t) for f, t in brof.field_types
-                    )
-                )
+            utils.LOGGER.debug("Parsing %s\n\t%s", fname,
+                               "Fields:\n%s\n" % "\n".join(
+                                   "%s: %s" % (f, t)
+                                   for f, t in brof.field_types
+                               ))
             if brof.path in FUNCTIONS:
                 func = FUNCTIONS[brof.path]
             elif brof.path in ALL_DESCS:
                 func = any2neo(ALL_DESCS[brof.path])
             else:
-                if config.DEBUG:
-                    sys.stderr.write(
-                        "Log format not (yet) supported for %r\n" % fname
-                    )
+                utils.LOGGER.debug("Log format not (yet) supported for %r",
+                                   fname)
                 continue
             for line in brof:
                 if not line:

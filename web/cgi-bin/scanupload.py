@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import bz2
 import tempfile
 
 try:
-    from ivre import config, webutils
+    from ivre import config, utils, webutils
     from ivre.db import db
 except Exception as exc:
     sys.stdout.write('Content-Type: text/plain\r\n\r\n')
@@ -31,9 +31,9 @@ except Exception as exc:
         "ERROR: Could not import ivre. Check the server's logs!\n"
     )
     sys.stderr.write(
-        "IVRE: ERROR: cannot import ivre [%s (%r)].\n" % (exc.message, exc)
+        "CRITICAL:ivre:Cannot import ivre [%s (%r)].\n" % (exc.message, exc)
     )
-    sys.exit(0)
+    sys.exit(1)
 
 if not config.WEB_UPLOAD_OK:
     sys.stdout.write('Content-Type: text/plain\r\n\r\n')
@@ -41,11 +41,9 @@ if not config.WEB_UPLOAD_OK:
         "ERROR: upload not allowed (set 'WEB_UPLOAD_OK = True' in "
         "ivre.conf)\n"
     )
-    sys.stderr.write(
-        "IVRE: ERROR: upload not allowed (set 'WEB_UPLOAD_OK = True' in "
-        "ivre.conf)\n"
-    )
-    sys.exit(0)
+    utils.LOGGER.critical("Upload not allowed (set 'WEB_UPLOAD_OK = True' in "
+                          "ivre.conf)")
+    sys.exit(1)
 
 def parse_form():
     form = cgi.FieldStorage()
@@ -56,8 +54,8 @@ def parse_form():
     except KeyError:
         sys.stdout.write('Content-Type: text/plain\r\n\r\n')
         sys.stdout.write("ERROR: source is mandatory\n")
-        sys.stderr.write("IVRE: ERROR: source is mandatory\n")
-        sys.exit(0)
+        utils.LOGGER.critical("source is mandatory")
+        sys.exit(1)
     files = form["result"]
     files = ([felt.value for felt in files]
              if isinstance(files, list) else
@@ -68,9 +66,7 @@ def parse_form():
             sys.stdout.write(
                 "ERROR: username is mandatory on public instances\n"
             )
-            sys.stderr.write(
-                "IVRE: ERROR: username is mandatory on public instances\n"
-            )
+            utils.LOGGER.critical("username is mandatory on public instances")
             sys.exit(0)
         if "public" in form and form["public"].value == "on":
             categories.add("Shared")
@@ -101,9 +97,7 @@ def import_files(source, categories, files):
             count += 1
             fdesc.unlink(fdesc.name)
         else:
-            sys.stderr.write(
-                "IVRE: WARNING: could not import %s\n" % fdesc.name
-            )
+            utils.LOGGER.warning("Could not import %s" % fdesc.name)
     return count
 
 def main():

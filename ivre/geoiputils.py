@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the classes and functions to handle
 information about IP addresses (mostly from Maxmind GeoIP files).
@@ -428,8 +428,8 @@ def list_ips_by_data(datafile, parseline, data,
                      listall=True, listcidrs=False,
                      skip=0, maxnbr=None, multiple=False):
     if ((not listall) or listcidrs) and ((skip != 0) or (maxnbr is not None)):
-        sys.stderr.write('WARNING: skip and maxnbr parameters have no effect '
-                         'when listall == False or listcidrs == True.\n')
+        utils.LOGGING.warning('Skip and maxnbr parameters have no effect '
+                              'when listall == False or listcidrs == True.')
     if listcidrs:
         listall = False
     with open(datafile) as fdesc:

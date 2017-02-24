@@ -563,6 +563,8 @@ class PostgresDB(DB):
 
     def __init__(self, url):
         self.dburl = url
+        utils.LOGGER.warning("PostgreSQL backend is experimental. "
+                             "Do not use in production.")
 
     @property
     def db(self):
@@ -924,14 +926,9 @@ class BulkInsert(object):
         except KeyError:
             self.commited_counts[query] = l_params
         rate = l_params / (newtime - self.start_time)
-        if config.DEBUG_DB:
-            sys.stderr.write(
-                "%s\n" % query
-            )
-            sys.stderr.write(
-                "%d inserts, %f/sec (total %d)\n" % (
-                    l_params, rate, self.commited_counts[query])
-            )
+        utils.LOGGER.debug("DB:%s", query)
+        utils.LOGGER.debug("DB:%d inserts, %f/sec (total %d)",
+                           l_params, rate, self.commited_counts[query])
         if renew:
             self.start_time = newtime
             self.trans = self.conn.begin()
@@ -1354,9 +1351,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             scanfileid = self.db.execute(
                 insrt.returning(ScanFile.sha256)
             ).fetchone()[0]
-            sys.stderr.write(
-                "SCAN STORED: %r\n" % scanfileid.encode('hex')
-            )
+            utils.LOGGER.debug("SCAN STORED: %r", scanfileid.encode('hex'))
         else:
             self.db.execute(insrt)
 
@@ -1568,10 +1563,7 @@ insert structures.
                     name=hostname.get('name'),
                     type=hostname.get('type'),
                 ))
-        if config.DEBUG:
-            sys.stderr.write(
-                "HOST STORED: %r\n" % (scanid)
-            )
+        utils.LOGGER.debug("HOST STORED: %r", scanid)
 
     def store_or_merge_host(self, host, gettoarchive, merge=False):
         self.store_host(host, merge=merge)
@@ -2703,15 +2695,13 @@ returns the first result, or None if no result exists."""
                 time_spent = stop_time - start_time
                 total_upserted += count_upserted
                 total_time_spent = stop_time - total_start_time
-                sys.stderr.write(
-                    "\n\n>>>> PERFORMANCE STATS >>>> %s upserts, %f s, %s/s\n"
-                    ">>>> PERFORMANCE STATS >>>>    total: %s upserts, %f s, "
-                    "%s/s\n\n\n" % (
-                        utils.num2readable(count_upserted), time_spent,
-                        utils.num2readable(count_upserted / time_spent),
-                        utils.num2readable(total_upserted), total_time_spent,
-                        utils.num2readable(total_upserted / total_time_spent),
-                    )
+                utils.LOGGER.debug(
+                    "DB:PERFORMANCE STATS %s upserts, %f s, %s/s\n"
+                    "\ttotal: %s upserts, %f s, %s/s",
+                    utils.num2readable(count_upserted), time_spent,
+                    utils.num2readable(count_upserted / time_spent),
+                    utils.num2readable(total_upserted), total_time_spent,
+                    utils.num2readable(total_upserted / total_time_spent),
                 )
 
     def migrate_from_db(self, db, flt=None, limit=None, skip=None, sort=None):
@@ -2729,9 +2719,7 @@ passive table."""
                 try:
                     line = json.loads(line)
                 except ValueError:
-                    sys.stderr.write(
-                        "WARNING: ignoring line [%r]\n" % line
-                    )
+                    utils.LOGGER.warning("ignoring line [%r]", line)
                     continue
                 try:
                     del line['_id']

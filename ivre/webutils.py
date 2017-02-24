@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -104,9 +104,7 @@ def check_referer():
                 "Invalid Referer header. Check your configuration."
             )
         )
-        sys.stderr.write(
-            "IVRE: ERROR: invalid Referer header [%r].\n" % referer
-        )
+        utils.LOGGER.critical("Invalid Referer header [%r]", referer)
         sys.exit(0)
 
 
@@ -195,11 +193,8 @@ def query_from_params(params):
                      "Parameter parsing error. Check the server's logs "
                      "for more information.")
         )
-        sys.stderr.write(
-            'IVRE: WARNING: parameter parsing error [%s (%r)]\n' % (
-                exc.message, exc
-            )
-        )
+        utils.LOGGER.critical('Parameter parsing error [%s (%r)]',
+                              exc.message, exc)
         sys.exit(0)
 
 

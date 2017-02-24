@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import sys
 import time
 
 try:
-    from ivre import utils, webutils, config
+    from ivre import config, utils, webutils
     from ivre.db import db
     from ivre.utils import str2pyval
 except Exception as exc:
@@ -32,9 +32,9 @@ except Exception as exc:
         'alert("ERROR: Could not import ivre. Check the server\'s logs!");'
     )
     sys.stderr.write(
-        "IVRE: ERROR: cannot import ivre [%s (%r)].\n" % (exc.message, exc)
+        "CRITICAL:ivre:Cannot import ivre [%s (%r)].\n" % (exc.message, exc)
     )
-    sys.exit(0)
+    sys.exit(1)
 
 logging.basicConfig(level=logging.ERROR)
 log = logging.getLogger("flowjson")
