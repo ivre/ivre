@@ -1280,14 +1280,16 @@ class NmapHandler(ContentHandler):
                                     screenwords = utils.screenwords(data)
                                     if screenwords is not None:
                                         current['screenwords'] = screenwords
-                        except Exception as exc:
-                            exceptions.append((exc, full_fname))
+                        except Exception:
+                            exceptions.append((sys.exc_info(), full_fname))
                         else:
                             exceptions = []
                             break
-                    for exc, full_fname in exceptions:
-                        utils.warn_exception(exc, scanfile=self._fname,
-                                             fname=full_fname)
+                    for exc_info, full_fname in exceptions:
+                        utils.LOGGER.warning(
+                            "Screenshot: exception (scanfile %r, file %r)",
+                            self._fname, full_fname, exc_info=exc_info,
+                        )
             if ignore_script(self._curscript):
                 self._curscript = None
                 return

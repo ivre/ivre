@@ -374,8 +374,8 @@ class DBNmap(DB):
         self.start_store_hosts()
         try:
             content_handler = self.content_handler(fname, **kargs)
-        except Exception as exc:
-            utils.warn_exception(exc, fname=fname)
+        except Exception:
+            utils.LOGGER.warning('Exception (file %r)', fname, exc_info=True)
         else:
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())

@@ -112,8 +112,8 @@ def main():
             ivre.utils.LOGGER.info('Interrupted by user: stop feeding.')
             ivre.utils.LOGGER.info('Use "--state %s" to resume.',
                                    ' '.join(map(str, camp.targiter.getstate())))
-        except Exception as exc:
-            ivre.utils.warn_exception(exc)
+        except Exception:
+            ivre.utils.LOGGER.critical('Exception', exc_info=True)
             ivre.utils.LOGGER.info('Use "--state %s" to resume.',
                                    ' '.join(map(str, camp.targiter.getstate())))
         else:

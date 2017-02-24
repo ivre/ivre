@@ -537,25 +537,6 @@ LOGGER.addFilter(LogFilter())
 LOGGER.setLevel(1 if config.DEBUG or config.DEBUG_DB else 20)
 
 
-def warn_exception(exc, **kargs):
-    """This function logs a WARNING line based on the exception `exc` and
-    the optional extra information.
-
-    If config.DEBUG is True, the function will append to the result
-    the full stacktrace.
-
-    """
-    LOGGER.warning(
-        "%s [%r]%s\n%s",
-        exc, exc,
-        " [%s]" % ", ".join("%s=%s" % (key, value)
-                            for key, value in kargs.iteritems())
-        if kargs else "",
-        "\t%s" % "\n\t".join(traceback.format_exc().splitlines())
-        if config.DEBUG else "",
-    )
-
-
 class FakeArgparserParent(object):
     """This is a stub to implement a parent-like behavior when
     optparse has to be used.
@@ -819,9 +800,9 @@ def _read_nmap_probes():
         with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes')) as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
-    except (AttributeError, IOError) as exc:
-        LOGGER.warning('Cannot read Nmap service fingerprint file.')
-        warn_exception(exc)
+    except (AttributeError, IOError):
+        LOGGER.warning('Cannot read Nmap service fingerprint file.',
+                       exc_info=True)
     del _NMAP_CUR_PROBE
     _NMAP_PROBES_POPULATED = True
 
@@ -853,8 +834,7 @@ def _read_ikescan_vendor_ids():
                 )
             ]
     except (AttributeError, IOError) as exc:
-        LOGGER.warning('Cannot read ike-scan vendor IDs file.')
-        warn_exception(exc)
+        LOGGER.warning('Cannot read ike-scan vendor IDs file.', exc_info=True)
     _IKESCAN_VENDOR_IDS_POPULATED = True
 
 
