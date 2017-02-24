@@ -694,7 +694,7 @@ class IvreTests(unittest.TestCase):
         for fname in self.pcap_files:
             for mode in ivre.passive.P0F_MODES.values():
                 p0fprocess = subprocess.Popen(
-                    ['p0f', '-l', '-S', '-ttt', '-s',
+                    ['p0f', '-q', '-l', '-S', '-ttt', '-s',
                      fname] + mode['options'] + [mode['filter']],
                     stdout=subprocess.PIPE)
                 for line in p0fprocess.stdout:
