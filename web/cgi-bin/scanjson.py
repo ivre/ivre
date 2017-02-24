@@ -235,8 +235,13 @@ def main():
                                                           archive=archive)))
         exit(0)
 
+    ## PostgreSQL: the query plan if affected by the limit and gives
+    ## really poor results. This is a temporary workaround (look for
+    ## XXX-WORKAROUND-PGSQL)
+    # result = db.nmap.get(flt, archive=archive,
+    #                      limit=limit, skip=skip, sort=sortby)
     result = db.nmap.get(flt, archive=archive,
-                         limit=limit, skip=skip, sort=sortby)
+                         skip=skip, sort=sortby)
 
     if unused:
         msg = 'Option%s not understood: %s' % (
@@ -262,7 +267,9 @@ def main():
     else:
         tab, sep = "\t", ",\n"
         sys.stdout.write("%s([\n" % callback)
-    for rec in result:
+    ## XXX-WORKAROUND-PGSQL
+    # for rec in result:
+    for i, rec in enumerate(result):
         for fld in ['_id', 'scanid']:
             try:
                 del rec[fld]
@@ -299,6 +306,9 @@ def main():
         check = db.nmap.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
+        # XXX-WORKAROUND-PGSQL
+        if i + 1>= limit:
+            break
     if callback is not None:
         sys.stdout.write("]);\n")
 
