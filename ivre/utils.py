@@ -404,9 +404,9 @@ class FileOpener(object):
         self.proc = None
         if not isinstance(fname, basestring):
             self.fdesc = fname
-            self.close = False
+            self.needsclose = False
             return
-        self.close = True
+        self.needsclose = True
         with open(fname) as fdesc:
             magic = fdesc.read(2)
         try:
@@ -446,7 +446,7 @@ class FileOpener(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.close:
+        if self.needsclose:
             self.fdesc.close()
         if self.proc is not None:
             self.proc.wait()
