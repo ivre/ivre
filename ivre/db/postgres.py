@@ -326,6 +326,10 @@ class Script(Base):
     name = Column(String(64), primary_key=True)
     output = Column(Text)
     data = Column(postgresql.JSONB)
+    __table_args__ = (
+        Index('ix_script_data', 'data', postgresql_using='gin'),
+        Index('ix_script_name', 'name'),
+    )
 
 class Port(Base):
     __tablename__ = 'port'
@@ -1650,7 +1654,8 @@ insert structures.
 
     def get(self, flt, archive=False, limit=None, skip=None, sort=None,
             **kargs):
-        req = flt.query(select([Scan]), archive=archive)
+        req = flt.query(select([Scan]).select_from(flt.select_from),
+                        archive=archive)
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
