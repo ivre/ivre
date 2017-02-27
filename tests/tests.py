@@ -631,6 +631,8 @@ class IvreTests(unittest.TestCase):
                              ["ivre", "scancli", "--top", "file.uid"])
         self.check_value_cmd("nmap_top_anonftp_uids",
                              ["ivre", "scancli", "--top", "file:ftp-anon.uid"])
+        self.check_value_cmd("nmap_top_modbus_deviceids",
+                             ["ivre", "scancli", "--top", "modbus.deviceid"])
 
         categories = ivre.db.db.nmap.topvalues("category")
         category = categories.next()
