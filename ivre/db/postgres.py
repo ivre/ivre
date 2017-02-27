@@ -1694,11 +1694,14 @@ insert structures.
                 for fld, value in recp.items():
                     if value is None:
                         del recp[fld]
-                for script in self.db.execute(select([Script.name, Script.output])\
+                for script in self.db.execute(select([Script.name,
+                                                      Script.output,
+                                                      Script.data])\
                                               .where(Script.port == portid)):
                     recp.setdefault('scripts', []).append(
-                        {'id': script.name,
-                         'output': script.output}
+                        dict(id=script.name,
+                             output=script.output,
+                             **(script.data if script.data else {}))
                     )
                 rec.setdefault('ports', []).append(recp)
             for trace in self.db.execute(select([Trace])\
@@ -1988,6 +1991,12 @@ insert structures.
                      ),
                 ),
             )
+        elif field.startswith('modbus.'):
+            subfield = field[7:]
+            field = (Script,
+                     [Script.data['modbus-discover'][subfield]],
+                     and_(Script.name == 'modbus-discover',
+                          Script.data['modbus-discover'].has_key(subfield)))
         else:
             raise NotImplementedError()
         s_from = {
