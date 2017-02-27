@@ -619,6 +619,22 @@ class IvreTests(unittest.TestCase):
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
              "--distinct", "hostnames.name"]
         )
+        self.check_value_cmd("nmap_top_filename",
+                             ["ivre", "scancli", "--top", "file", "--limit",
+                              "1"])
+        self.check_value_cmd("nmap_top_filename",
+                             ["ivre", "scancli", "--top", "file.filename",
+                              "--limit", "1"])
+        self.check_value_cmd("nmap_top_anonftp_filename",
+                             ["ivre", "scancli", "--top", "file:ftp-anon",
+                              "--limit", "1"])
+        self.check_value_cmd("nmap_top_anonftp_filename",
+                             ["ivre", "scancli", "--top",
+                              "file:ftp-anon.filename", "--limit", "1"])
+        self.check_value_cmd("nmap_top_uids",
+                             ["ivre", "scancli", "--top", "file.uid"])
+        self.check_value_cmd("nmap_top_anonftp_uids",
+                             ["ivre", "scancli", "--top", "file:ftp-anon.uid"])
 
         categories = ivre.db.db.nmap.topvalues("category")
         category = categories.next()
