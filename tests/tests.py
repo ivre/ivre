@@ -61,18 +61,19 @@ def python_run_iter(cmd, stdin=None):
     return run_iter(cmd, interp=[sys.executable], stdin=stdin)
 
 def coverage_init():
-    return run_cmd(COVERAGE + ["erase"])
+    cov = coverage.coverage(data_suffix=True)
+    cov.erase()
 
 def coverage_run(cmd, stdin=None):
-    return run_cmd(cmd, interp=COVERAGE + ["run", "-a"], stdin=stdin)
+    return run_cmd(cmd, interp=COVERAGE + ["run", "--parallel-mode"], stdin=stdin)
 
 def coverage_run_iter(cmd, stdin=None):
-    return run_iter(cmd, interp=COVERAGE + ["run", "-a"], stdin=stdin)
+    return run_iter(cmd, interp=COVERAGE + ["run", "--parallel-mode"], stdin=stdin)
 
 def coverage_report():
     cov = coverage.coverage()
-    cov.load()
-    cov.html_report(omit=['tests*', '/usr/*'])
+    cov.combine(strict=True)
+    cov.save()
 
 
 class IvreTests(unittest.TestCase):
@@ -253,11 +254,6 @@ class IvreTests(unittest.TestCase):
         )
 
         self.assertEqual(portsnb_10_100 + portsnb_not_10_100, host_counter)
-
-        if USE_COVERAGE:
-            cov = coverage.coverage()
-            cov.load()
-            cov.start()
 
         # Filters
         addr = ivre.db.db.nmap.get(
@@ -619,6 +615,22 @@ class IvreTests(unittest.TestCase):
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
              "--distinct", "hostnames.name"]
         )
+        self.check_value_cmd("nmap_top_filename",
+                             ["ivre", "scancli", "--top", "file", "--limit",
+                              "1"])
+        self.check_value_cmd("nmap_top_filename",
+                             ["ivre", "scancli", "--top", "file.filename",
+                              "--limit", "1"])
+        self.check_value_cmd("nmap_top_anonftp_filename",
+                             ["ivre", "scancli", "--top", "file:ftp-anon",
+                              "--limit", "1"])
+        self.check_value_cmd("nmap_top_anonftp_filename",
+                             ["ivre", "scancli", "--top",
+                              "file:ftp-anon.filename", "--limit", "1"])
+        self.check_value_cmd("nmap_top_uids",
+                             ["ivre", "scancli", "--top", "file.uid"])
+        self.check_value_cmd("nmap_top_anonftp_uids",
+                             ["ivre", "scancli", "--top", "file:ftp-anon.uid"])
 
         categories = ivre.db.db.nmap.topvalues("category")
         category = categories.next()
@@ -673,10 +685,6 @@ class IvreTests(unittest.TestCase):
             # FIXME: for some reason, this does not terminate
             self.assertEqual(RUN(["ivre", "scancli", "--init"],
                                  stdin=open(os.devnull))[0], 0)
-
-        if USE_COVERAGE:
-            cov.stop()
-            cov.save()
 
     def test_passive(self):
 
@@ -1076,6 +1084,8 @@ if __name__ == '__main__':
         RUN = coverage_run
         RUN_ITER = coverage_run_iter
         coverage_init()
+        cov = coverage.coverage(data_suffix=True)
+        cov.start()
     else:
         RUN = python_run
         RUN_ITER = python_run_iter
@@ -1083,5 +1093,7 @@ if __name__ == '__main__':
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
     if USE_COVERAGE:
+        cov.stop()
+        cov.save()
         coverage_report()
     sys.exit(len(result.failures) + len(result.errors))

@@ -1962,6 +1962,32 @@ insert structures.
             ttl = int(field[4:])
             field = (Hop, [Hop.ipaddr],
                      (Hop.ttl > ttl) if field[3] == '>' else (Hop.ttl == ttl))
+        elif field == 'file' or (field.startswith('file') and field[4] in '.:'):
+            if field.startswith('file:'):
+                scripts = field[5:]
+                if '.' in scripts:
+                    scripts, field = scripts.split('.', 1)
+                else:
+                    field = 'filename'
+                scripts = scripts.split(',')
+                flt = (Script.name == scripts[0] if len(scripts) == 1 else
+                       Script.name.in_(scripts))
+            else:
+                field = field[5:] or 'filename'
+                flt = True
+            field = (
+                Script,
+                [func.jsonb_array_elements(
+                    func.jsonb_array_elements(
+                        Script.data['ls']['volumes']
+                    ).op('->')('files')
+                ).op('->>')(field).label(field)],
+                and_(flt,
+                     Script.data.op('@>')(
+                         '{"ls": {"volumes": [{"files": []}]}}'
+                     ),
+                ),
+            )
         else:
             raise NotImplementedError()
         s_from = {

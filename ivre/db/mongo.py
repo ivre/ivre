@@ -2500,16 +2500,19 @@ have no effect if it is not expected)."""
                                             ]}}}]
                 outputproc = lambda x: {'count': x['count'],
                                         '_id': x['_id'].split('###', 1)}
-        elif (field == 'file' or field.startswith('file:')
-              or field.startswith('file.')):
-            if ":" in field:
-                field, scripts = field.split(':', 1)
+        elif field == 'file' or (field.startswith('file') and field[4] in '.:'):
+            if field.startswith('file:'):
+                scripts = field[5:]
+                if '.' in scripts:
+                    scripts, field = scripts.split('.', 1)
+                else:
+                    field = 'filename'
                 scripts = scripts.split(',')
             else:
+                field = field[5:] or 'filename'
                 scripts = None
             flt = self.flt_and(flt, self.searchfile(scripts=scripts))
-            field = 'ports.scripts.ls.volumes.files.%s' % (field[5:]
-                                                           or 'filename')
+            field = 'ports.scripts.ls.volumes.files.%s' % field
             if scripts is not None:
                 specialproj = {"_id": 0, field: 1, 'ports.scripts.id': 1}
                 # We need two different filters here (see `cpeflt`
@@ -2517,8 +2520,15 @@ have no effect if it is not expected)."""
                 specialflt = [
                     {"$match": {"ports.scripts.id":
                                 flt['ports.scripts']['$elemMatch']['id']}},
+                    {"$project": {field: {"$ifNull": ["$" + field, ""]}}},
                     #{"$project": {field: 1}},
                 ]
+            else:
+                specialflt = [
+                    {"$project": {field: {"$ifNull": ["$" + field, ""]}}},
+                ]
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': x['_id'] if x['_id'] else None}
         elif field == 'screenwords':
             field = 'ports.screenwords'
             flt = self.flt_and(flt, self.searchscreenshot(words=True))
