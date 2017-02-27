@@ -2460,12 +2460,15 @@ have no effect if it is not expected)."""
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
         elif field.startswith('modbus.'):
+            flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
             subfield = field[7:]
             field = 'ports.scripts.modbus-discover.' + subfield
         elif field.startswith('s7.'):
+            flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
             field = 'ports.scripts.s7-info.' + subfield
         elif field.startswith('enip.'):
+            flt = self.flt_and(flt, self.searchscript(name="enip-info"))
             subfield = field[5:]
             subfield = {
                 "vendor": "Vendor",
