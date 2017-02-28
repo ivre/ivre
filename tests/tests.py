@@ -633,6 +633,18 @@ class IvreTests(unittest.TestCase):
                              ["ivre", "scancli", "--top", "file:ftp-anon.uid"])
         self.check_value_cmd("nmap_top_modbus_deviceids",
                              ["ivre", "scancli", "--top", "modbus.deviceid"])
+        self.check_value_cmd("nmap_top_services",
+                             ["ivre", "scancli", "--top", "service"])
+        self.check_value_cmd("nmap_top_product",
+                             ["ivre", "scancli", "--top", "product"])
+        self.check_value_cmd("nmap_top_product_http",
+                             ["ivre", "scancli", "--top", "product:http"])
+        self.check_value_cmd("nmap_top_version",
+                             ["ivre", "scancli", "--top", "version"])
+        self.check_value_cmd("nmap_top_version_http",
+                             ["ivre", "scancli", "--top", "version:http"])
+        self.check_value_cmd("nmap_top_version_http_apache",
+                             ["ivre", "scancli", "--top", "version:http:Apache httpd"])
 
         categories = ivre.db.db.nmap.topvalues("category")
         category = categories.next()

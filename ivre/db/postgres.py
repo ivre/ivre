@@ -1922,6 +1922,36 @@ insert structures.
             field = (Port, [Port.service_name, Port.service_product,
                             Port.service_version],
                      Port.state == "open")
+        elif field.startswith("version:"):
+            info = field[8:]
+            if info.isdigit():
+                info = int(info)
+                flt = self.flt_and(flt, self.searchport(info))
+                field = (Port, [Port.service_name, Port.service_product,
+                                Port.service_version],
+                         and_(Port.state == "open", Port.port == info))
+            elif info.startswith('tcp/') or info.startswith('udp/'):
+                info = (info[:3], int(info[4:]))
+                flt = self.flt_and(flt, self.searchport(info[1],
+                                                        protocol=info[0]))
+                field = (Port, [Port.service_name, Port.service_product,
+                                Port.service_version],
+                         and_(Port.state == "open", Port.port == info[1],
+                              Port.protocol == info[0]))
+            elif ':' in info:
+                info = info.split(':', 1)
+                flt = self.flt_and(flt, self.searchproduct(info[1], service=info[0]))
+                field = (Port, [Port.service_name, Port.service_product,
+                                Port.service_version],
+                         and_(Port.state == "open", Port.service_name == info[0],
+                              Port.service_product == info[1]))
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                field = (Port, [Port.service_name, Port.service_product,
+                                Port.service_version],
+                         and_(Port.state == "open", Port.service_name == info))
+
+
         elif field == "asnum":
             field = (Scan, [Scan.info["as_num"]], None)
         elif field == "as":
