@@ -46,17 +46,6 @@ def _get_version_from_git():
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, err)
     tag = out.strip()
-    proc = subprocess.Popen(['git', 'branch', '--contains', 'HEAD'],
-                            stdout=subprocess.PIPE, stderr=open(os.devnull),
-                            cwd=os.path.join(_DIR, os.path.pardir))
-    out, err = proc.communicate()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, err)
-    try:
-        branch = (branch[1:].strip() for branch in out.splitlines()
-                  if branch.startswith('*')).next()
-    except StopIteration:
-        branch = "master"
     match = re.match(r'^v?(.+?)-(\d+)-g[a-f0-9]+$', tag)
     if match:
         # remove the 'v' prefix and add a '.devN' suffix
@@ -64,9 +53,7 @@ def _get_version_from_git():
     else:
         # just remove the 'v' prefix
         value = tag[1:] if tag.startswith('v') else tag
-    if branch == 'master':
-        return value
-    return '%s-%s' % (value, branch)
+    return value
 
 def _version():
     try:
