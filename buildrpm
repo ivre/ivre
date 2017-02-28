@@ -17,8 +17,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 RELEASE=1
-DISTRIB=el6
-VERSION=`grep 'version=' setup.py | sed "s#.* version='## ; s#'.*##"`-dev-`git rev-list --count HEAD`.`git rev-parse --short HEAD`
+DISTRIB="`rpmbuild --eval \"%{?dist}\"`"
+VERSION="`python setup.py --version`"
+
 if python --version 2>&1 | grep -q '^Python 2'; then
     PYTHON=python
 else
@@ -26,4 +27,4 @@ else
 fi
 
 $PYTHON setup.py bdist_rpm --release=$RELEASE --distribution-name=$DISTRIB --requires=pymongo,python-crypto --obsoletes=IVRE
-mv dist/ivre-$VERSION-$RELEASE.noarch.rpm dist/ivre-$VERSION-$RELEASE-$DISTRIB.noarch.rpm
+mv dist/ivre-$VERSION-$RELEASE.noarch.rpm dist/ivre-$VERSION-${RELEASE}${DISTRIB}.noarch.rpm
