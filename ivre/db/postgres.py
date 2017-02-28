@@ -422,7 +422,7 @@ class Scan(Base):
 # Passive
 
 class PassiveCSVFile(CSVFile):
-    info_fields = {"distance", "signature", "version"}
+    info_fields = set(["distance", "signature", "version"])
     def __init__(self, siggen, get_context, table, limit=None, getinfos=None,
                  separated_timestamps=True):
         self.get_context = get_context
@@ -1799,7 +1799,7 @@ insert structures.
             info = field[5:]
             field = (Port, [Port.protocol, Port.port],
                      (Port.state == info)
-                     if info in {'open', 'filtered', 'closed', 'open|filtered'}
+                     if info in set(['open', 'filtered', 'closed', 'open|filtered'])
                      else (Port.service_name == info))
         elif field.startswith('countports:'):
             info = field[11:]
