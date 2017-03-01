@@ -158,8 +158,16 @@ class IvreTests(unittest.TestCase):
 
     @classmethod
     def stop_children(cls):
-        for pid in cls.children:
-            os.kill(pid, signal.SIGTERM)
+        for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGKILL]:
+            for pid in cls.children[:]:
+                try:
+                    os.kill(pid, sig)
+                except OSError:
+                    cls.children.remove(pid)
+                proc = subprocess.Popen(['ps', '-ef'], stdout=subprocess.PIPE)
+                for line in proc.stdout:
+                    print "PS  ", line[:-1]
+            time.sleep(2)
         while cls.children:
             os.waitpid(cls.children.pop(), 0)
 
