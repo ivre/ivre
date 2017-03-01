@@ -791,7 +791,8 @@ class IvreTests(unittest.TestCase):
                 p0fprocess = subprocess.Popen(
                     ['p0f', '-q', '-l', '-S', '-ttt', '-s',
                      fname] + mode['options'] + [mode['filter']],
-                    stdout=subprocess.PIPE)
+                    stdout=subprocess.PIPE, stderr=open(os.devnull, 'w')
+                )
                 for line in p0fprocess.stdout:
                     timestamp, spec = ivre.passive.parse_p0f_line(
                         line,
