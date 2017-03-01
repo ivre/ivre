@@ -16,20 +16,29 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-import unittest
 
-import json
-import re
-import subprocess
-import os
-import sys
-import errno
-import random
-import time
-from cStringIO import StringIO
 from contextlib import contextmanager
+from cStringIO import StringIO
 from distutils.spawn import find_executable as which
+import errno
+import json
+import os
+import random
+import re
+import signal
+import socket
+import subprocess
+import sys
+import time
+import unittest
+import urllib2
 
+HTTPD_PORT = 18080
+try:
+    HTTPD_HOSTNAME = socket.gethostbyaddr('127.0.0.1')[0]
+except:
+    sys.stderr.write('Cannot guess domain name - using localhost')
+    HTTPD_HOSTNAME = 'localhost'
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
 @contextmanager
@@ -89,6 +98,8 @@ class IvreTests(unittest.TestCase):
                 raise exc
             self.results = {}
         self.new_results = set()
+        self.used_prefixes = set()
+        self.unused_results = set(self.results)
 
     def tearDown(self):
         ivre.utils.cleandir("logs")
@@ -97,10 +108,18 @@ class IvreTests(unittest.TestCase):
             with open(os.path.join(SAMPLES, "results"), 'a') as fdesc:
                 for valname in self.new_results:
                     fdesc.write("%s = %r\n" % (valname, self.results[valname]))
+        for name in self.unused_results:
+            if any(name.startswith(prefix) for prefix in self.used_prefixes):
+                sys.stderr.write("UNUSED VALUE key %r\n" % name)
 
     def check_value(self, name, value, check=None):
         if check is None:
             check = self.assertEqual
+        try:
+            self.unused_results.remove(name)
+        except KeyError:
+            pass
+        self.used_prefixes.add(name.split('_', 1)[0] + '_')
         if name not in self.results:
             self.results[name] = value
             sys.stderr.write("NEW VALUE for key %r: %r\n" % (name, value))
@@ -126,6 +145,54 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.check_value(name, int(out))
 
+    def start_web_server(self):
+        pid = os.fork()
+        if pid == -1:
+            raise OSError("Cannot fork()")
+        if pid:
+            self.children.append(pid)
+            time.sleep(2)
+        else:
+            RUN(["ivre", "httpd", "-p", str(HTTPD_PORT)])
+            exit(0)
+
+    @classmethod
+    def stop_children(cls):
+        for pid in cls.children:
+            os.kill(pid, signal.SIGTERM)
+        while cls.children:
+            os.waitpid(cls.children.pop(), 0)
+
+    def _check_top_value_api(self, name, field, count):
+        self.check_value(name, list(ivre.db.db.nmap.topvalues(field,
+                                                              topnbr=count)),
+                         check=self.assertItemsEqual)
+
+    def _check_top_value_cli(self, name, field, count):
+        res, out, err = RUN(["ivre", "scancli", "--top", field, "--limit",
+                             str(count)])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        self.check_value(name, [line for line in out.split('\n') if line],
+                         check=self.assertItemsEqual)
+
+    def _check_top_value_cgi(self, name, field, count):
+        req = urllib2.Request('http://%s:%d/cgi-bin/'
+                              'scanjson.py?action='
+                              'topvalues:%s:%d' % (HTTPD_HOSTNAME, HTTPD_PORT,
+                                                   field, count))
+        req.add_header('Referer',
+                       'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        self.check_value(name, json.loads(urllib2.urlopen(req).read()),
+                         check=self.assertItemsEqual)
+
+    def check_top_value(self, name, field, count=10):
+        for method in ['api', 'cli', 'cgi']:
+            getattr(self, "_check_top_value_%s" % method)(
+                "%s_%s" % (name, method),
+                field, count,
+            )
+
     @classmethod
     def setUpClass(cls):
         cls.nmap_files = (
@@ -141,8 +208,16 @@ class IvreTests(unittest.TestCase):
             for fname in files
             if fname.endswith('.pcap')
         )
+        cls.children = []
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.stop_children()
 
     def test_nmap(self):
+
+        # Start a Web server to test CGI
+        self.start_web_server()
 
         # Init DB
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], "0\n")
@@ -606,10 +681,7 @@ class IvreTests(unittest.TestCase):
             "nmap_isakmp_top_products",
             ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
         )
-        self.check_value_cmd(
-            "nmap_ssh_top_port",
-            ["ivre", "scancli", "--top", "port:ssh"],
-        )
+        self.check_top_value("nmap_ssh_top_port", "port:ssh")
         self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
@@ -719,7 +791,8 @@ class IvreTests(unittest.TestCase):
                 p0fprocess = subprocess.Popen(
                     ['p0f', '-q', '-l', '-S', '-ttt', '-s',
                      fname] + mode['options'] + [mode['filter']],
-                    stdout=subprocess.PIPE)
+                    stdout=subprocess.PIPE, stderr=open(os.devnull, 'w')
+                )
                 for line in p0fprocess.stdout:
                     timestamp, spec = ivre.passive.parse_p0f_line(
                         line,

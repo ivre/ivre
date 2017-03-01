@@ -1961,16 +1961,17 @@ have no effect if it is not expected)."""
                 ]}
             }})
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###', 1)}
+                                    '_id': tuple(x['_id'].split('###', 1))}
         elif field == "country":
             flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
             field = "infos.country_code"
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': [
+                '_id': (
                     x['_id'],
                     self.globaldb.data.country_name_by_code(x['_id']),
-                ]}
+                ),
+            }
         elif field == "city":
             flt = self.flt_and(
                 flt,
@@ -1985,7 +1986,7 @@ have no effect if it is not expected)."""
                            ]}}
             field = "city"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###', 1)}
+                                    '_id': tuple(x['_id'].split('###', 1))}
         elif field == "asnum":
             flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             field = "infos.as_num"
@@ -2005,10 +2006,10 @@ have no effect if it is not expected)."""
             field = "as"
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': [None, None] if x['_id'] is None else [
+                '_id': (None, None) if x['_id'] is None else tuple(
                     int(y) if i == 0 else y for i, y in
                     enumerate(x['_id'].split('###'))
-                ],
+                ),
             }
         elif field == "net" or field.startswith("net:"):
             field = "addr"
@@ -2062,8 +2063,8 @@ have no effect if it is not expected)."""
             ]
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': [int(y) if i == 1 else y for i, y in
-                        enumerate(x['_id'].split('###'))],
+                '_id': tuple(int(y) if i == 1 else y for i, y in
+                             enumerate(x['_id'].split('###'))),
             }
         elif field.startswith("portlist:"):
             specialproj = {"ports.port": 1, "ports.protocol": 1,
@@ -2097,7 +2098,7 @@ have no effect if it is not expected)."""
             field = "portlist"
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': [[y['protocol'], y['port']] for y in x['_id']],
+                '_id': [(y['protocol'], y['port']) for y in x['_id']],
             }
 
         elif field.startswith('countports:'):
@@ -2173,8 +2174,8 @@ have no effect if it is not expected)."""
             ]
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': [elt if elt else None for elt in
-                                            x['_id'].split('###')]}
+                                    '_id': tuple(elt if elt else None for elt in
+                                                 x['_id'].split('###'))}
         elif field.startswith('product:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
@@ -2205,8 +2206,8 @@ have no effect if it is not expected)."""
             )
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': [elt if elt else None for elt in
-                                            x['_id'].split('###')]}
+                                    '_id': tuple(elt if elt else None for elt in
+                                                 x['_id'].split('###'))}
         elif field == 'version':
             flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
@@ -2230,8 +2231,8 @@ have no effect if it is not expected)."""
             ]
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': [elt if elt else None for elt in
-                                            x['_id'].split('###')]}
+                                    '_id': tuple(elt if elt else None for elt in
+                                                 x['_id'].split('###'))}
         elif field.startswith('version:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
@@ -2275,8 +2276,8 @@ have no effect if it is not expected)."""
             )
             field = "ports.service_product"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': [elt if elt else None for elt in
-                                            x['_id'].split('###')]}
+                                    '_id': tuple(elt if elt else None for elt in
+                                                 x['_id'].split('###'))}
         elif field.startswith("cpe"):
             try:
                 field, cpeflt = field.split(":", 1)
@@ -2322,7 +2323,7 @@ have no effect if it is not expected)."""
                 {"$project": {"cpes.%s" % field: {"$concat": concat}}})
             field = "cpes.%s" % field
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split(':', 3)}
+                                    '_id': tuple(x['_id'].split(':', 3))}
         elif field == 'devicetype':
             field = "ports.service_devicetype"
         elif field.startswith('devicetype:'):
@@ -2398,7 +2399,7 @@ have no effect if it is not expected)."""
                     ]}}}]
             field = "ports.scripts.ssh-hostkey.bits"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'].split('###')}
+                                    '_id': tuple(x['_id'].split('###'))}
         elif field.startswith('sshkey.'):
             flt = self.flt_and(flt, self.searchsshkey())
             subfield = field[7:]
@@ -2417,8 +2418,8 @@ have no effect if it is not expected)."""
                     ]}}}]
             field = "ports.scripts.ike-info.vendor_ids"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': map(null_if_empty,
-                                               x['_id'].split('###'))}
+                                    '_id': tuple(map(null_if_empty,
+                                                     x['_id'].split('###')))}
         elif field == 'ike.transforms':
             flt = self.flt_and(flt, self.searchscript(
                 name="ike-info",
@@ -2448,8 +2449,8 @@ have no effect if it is not expected)."""
                     ]}}}]
             field = "ports.scripts.ike-info.transforms"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': map(null_if_empty,
-                                               x['_id'].split('###'))}
+                                    '_id': tuple(map(null_if_empty,
+                                                     x['_id'].split('###')))}
         elif field == 'ike.notification':
             flt = self.flt_and(flt, self.searchscript(
                 name="ike-info",
@@ -2502,7 +2503,7 @@ have no effect if it is not expected)."""
                                                 "$" + field,
                                             ]}}}]
                 outputproc = lambda x: {'count': x['count'],
-                                        '_id': x['_id'].split('###', 1)}
+                                        '_id': tuple(x['_id'].split('###', 1))}
         elif field == 'file' or (field.startswith('file') and field[4] in '.:'):
             if field.startswith('file:'):
                 scripts = field[5:]
