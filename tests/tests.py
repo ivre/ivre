@@ -51,12 +51,11 @@ def capture(function, *args, **kwargs):
     yield result, sys.stdout.read(), sys.stderr.read()
     sys.stdout, sys.stderr = out, err
 
-def run_iter(cmd, interp=None, stdin=None):
+def run_iter(cmd, interp=None, stdin=None, stdout=subprocess.PIPE,
+             stderr=subprocess.PIPE):
     if interp is not None:
         cmd = interp + [which(cmd[0])] + cmd[1:]
-    return subprocess.Popen(cmd, stdin=stdin,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
+    return subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr)
 
 def run_cmd(cmd, interp=None, stdin=None):
     proc = run_iter(cmd, interp=interp, stdin=stdin)
@@ -66,8 +65,10 @@ def run_cmd(cmd, interp=None, stdin=None):
 def python_run(cmd, stdin=None):
     return run_cmd(cmd, interp=[sys.executable], stdin=stdin)
 
-def python_run_iter(cmd, stdin=None):
-    return run_iter(cmd, interp=[sys.executable], stdin=stdin)
+def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE):
+    return run_iter(cmd, interp=[sys.executable], stdin=stdin, stdout=stdout,
+                    stderr=stderr)
 
 def coverage_init():
     cov = coverage.coverage(data_suffix=True)
@@ -76,8 +77,10 @@ def coverage_init():
 def coverage_run(cmd, stdin=None):
     return run_cmd(cmd, interp=COVERAGE + ["run", "--parallel-mode"], stdin=stdin)
 
-def coverage_run_iter(cmd, stdin=None):
-    return run_iter(cmd, interp=COVERAGE + ["run", "--parallel-mode"], stdin=stdin)
+def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE):
+    return run_iter(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
+                    stdin=stdin, stdout=stdout, stderr=stderr)
 
 def coverage_report():
     cov = coverage.coverage()
@@ -153,13 +156,34 @@ class IvreTests(unittest.TestCase):
             self.children.append(pid)
             time.sleep(2)
         else:
-            RUN(["ivre", "httpd", "-p", str(HTTPD_PORT)])
-            exit(0)
+            def terminate(signum, stack_frame):
+                try:
+                    proc.send_signal(signum)
+                    proc.wait()
+                    signal.signal(signum, signal.SIG_DFL)
+                    sys.exit(0)
+                except:
+                    pass
+            for sig in [signal.SIGINT, signal.SIGTERM]:
+                signal.signal(sig, terminate)
+            proc = RUN_ITER(["ivre", "httpd", "-p", str(HTTPD_PORT)],
+                            stdout=open(os.devnull, 'w'),
+                            stderr=subprocess.STDOUT)
+            proc.wait()
+            sys.exit(0)
 
     @classmethod
     def stop_children(cls):
-        for pid in cls.children:
-            os.kill(pid, signal.SIGTERM)
+        for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGKILL]:
+            for pid in cls.children[:]:
+                try:
+                    os.kill(pid, sig)
+                except OSError:
+                    cls.children.remove(pid)
+                proc = subprocess.Popen(['ps', '-ef'], stdout=subprocess.PIPE)
+                for line in proc.stdout:
+                    print "PS  ", line[:-1]
+            time.sleep(2)
         while cls.children:
             os.waitpid(cls.children.pop(), 0)
 
