@@ -29,7 +29,6 @@ The third part allows to explore the results by generating graphs displayed in t
 
   * The first field displays a graph with the 15 most common values of a variable in the filtered results. This can be slow when the number of results to scan is important. Here is a list of (sometimes) interesting values to try here:
     * ''%%category%%'', ''%%source%%''
-    * ''%%label%%'', ''%%label:[group]%%'', ''%%label:[group]:[tag]%%''
     * ''%%country%%'', ''%%city%%'', ''%%as%%''
     * ''%%domains%%'', ''%%domains:[level]%%''
     * ''%%hop%%'', ''%%hop:[number]%%''
@@ -82,7 +81,6 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%[!]hostname:[FQDN]%%'' look for results with a matching hostname.
   * ''%%[!]domain:[FQDN]%%'' look for results with a hostname within a matching domain name.
   * ''%%[!]category:%%'' filter a category.
-  * ''%%[!]label%%'', ''%%[!]label:[group]%%'', ''%%[!]label:[group]:[tag]%%'' filter according to labels.
   * ''%%[!]country:[two letters code]%%'' filter a country.
   * ''%%[!]city:%%'' filter a city (use with ''%%country:%%'').
   * ''%%[!]asnum:%%'' filter by AS number (lists allowed).

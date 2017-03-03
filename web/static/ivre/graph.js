@@ -249,14 +249,6 @@ var GraphTopValues = (function(_super) {
 		    return 'setparam(FILTER, "category", "' + x + '");';
 		};
 	    }
-	    else if(field === 'label' || field.substr(0, 6) === 'label:') {
-		preparefilter = function(x) {
-		    return 'setparam(FILTER, "label", "' + x[0] + ':' + x[1] + '");';
-		};
-		prepareoutput = function(x) {
-		    return x.join(' / ');
-		};
-	    }
 	    else if(field === 'source') {
 		preparefilter = function(x) {
 		    return 'setparam(FILTER, "source", "' + x + '", true);';

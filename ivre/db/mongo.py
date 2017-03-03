@@ -457,8 +457,7 @@ class MongoDB(DB):
 
 class MongoDBNmap(MongoDB, DBNmap):
 
-    needunwind = ["categories", "labels", "labels.tags",
-                  "ports", "ports.scripts",
+    needunwind = ["categories", "ports", "ports.scripts",
                   "ports.scripts.ssh-hostkey",
                   "ports.scripts.smb-enum-shares.shares",
                   "ports.scripts.ls.volumes",
@@ -500,11 +499,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('endtime', pymongo.ASCENDING)], {}),
                 ([('source', pymongo.ASCENDING)], {}),
                 ([('categories', pymongo.ASCENDING)], {}),
-                ([
-                    ('labels.group', pymongo.ASCENDING),
-                    ('labels.tags', pymongo.ASCENDING),
-                ],
-                 {"sparse": True}),
                 ([('hostnames.domains', pymongo.ASCENDING)], {}),
                 ([('traces.hops.domains', pymongo.ASCENDING)], {}),
                 ([('openports.count', pymongo.ASCENDING)], {}),
@@ -907,52 +901,6 @@ have no effect if it is not expected)."""
             self.colname_oldscans if archive else self.colname_scans,
             {'_id': scanid},
         )
-
-    def set_label(self, flt, group, label, archive=False):
-        """Adds `label` in `group` to every host matching `flt`"""
-        colname = self.colname_oldhosts if archive else self.colname_hosts
-        for host in self.get(flt, archive=archive):
-            labels = host.get('labels', [])
-            try:
-                g_label = (lab for lab in labels
-                           if lab['group'] == group).next()
-            except StopIteration:
-                # group did not exist.
-                g_label = {'group': group, 'tags': [label]}
-                labels.append(g_label)
-            else:
-                if label in g_label['tags']:
-                    continue
-                g_label['tags'].append(label)
-            self.db[colname].update({"_id": host['_id']},
-                                    {"$set": {'labels': labels}})
-
-    def remove_label(self, flt, group=None, label=None, archive=False):
-        """Removes `label` of session `group` from every host matching `flt`.
-
-        If `label` is None, removes the entire `group`. If both
-        `group` and `label` are None, remove all the labels.
-
-        """
-        colname = self.colname_oldhosts if archive else self.colname_hosts
-        flt = self.flt_and(flt, self.searchlabel(group=group, label=label))
-        if group is None and label is None:
-            self.db[colname].update(flt, {"$unset": {'labels': True}},
-                                    multi=True)
-        else:
-            for host in self.get(flt, archive=archive):
-                labels = host['labels']
-                if label is not None:
-                    g_label = (lab for lab in labels
-                               if lab['group'] == group).next()
-                    g_label['tags'].remove(label)
-                if label is None or not g_label['tags']:
-                    labels = [lab for lab in host['labels']
-                              if lab['group'] != group]
-                self.db[colname].update({"_id": host['_id']},
-                                        {"$set": {'labels': labels}}
-                                        if labels else
-                                        {"$unset": {'labels': True}})
 
     def setscreenshot(self, host, port, data, protocol='tcp',
                       archive=False, overwrite=False):
@@ -1389,30 +1337,6 @@ have no effect if it is not expected)."""
             else:
                 return {'categories': {'$in': cat}}
         return {'categories': cat}
-
-    def searchlabel(self, group=None, label=None, neg=False):
-        """Filters (if `neg` == True, filters out) hosts with
-        `label` in `group`.
-        If `label` is None, filters hosts having a group `group`.
-
-        """
-        if label is None:
-            if group is None:
-                return {'labels.group': {'$exists': not neg}}
-            if type(group) is utils.REGEXP_T:
-                return {'labels.group': {'$not': group} if neg else group}
-            return {'labels.group': {'$ne': group} if neg else group}
-        if neg:
-            return self.flt_or(
-                self.searchlabel(group=group, neg=True),
-                {'labels': {'$elemMatch': {
-                    'group': group,
-                    'tags': ({'$not': label}
-                             if type(label) is utils.REGEXP_T
-                             else {'$ne': label})
-                }}},
-            )
-        return {'labels': {'$elemMatch': {'group': group, 'tags': label}}}
 
     @staticmethod
     def searchcountry(country, neg=False):
@@ -1900,7 +1824,7 @@ have no effect if it is not expected)."""
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / label / asnum / country / net[:mask]
+          - category / asnum / country / net[:mask]
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -1930,38 +1854,6 @@ have no effect if it is not expected)."""
         # pseudo-fields
         if field == "category":
             field = "categories"
-        elif field == "label" or field.startswith("label:"):
-            subfield = field[6:]
-            field = "labels.tags"
-            group, tag = ((None, None)
-                          if not subfield else
-                          map(utils.str2regexp, subfield.split(':', 1))
-                          if ':' in subfield else
-                          (utils.str2regexp(subfield), None))
-            flt = self.flt_and(flt, self.searchlabel(group=group, label=tag))
-            specialproj = {"_id": 0, "labels.group": 1, "labels.tags": 1}
-            # We need a second filter for hosts containing both label
-            # we want to match and label we don't want to match (the
-            # first filter, `flt`, is needed for performance while the
-            # second, added in `specialflt`, is needed for
-            # correctness).
-            if group is not None:
-                flt2 = {"labels.group": group}
-                if tag is not None:
-                    flt2["labels.tags"] = tag
-                specialflt.append({"$match": flt2})
-            # This projection needs to happen after the $unwind and
-            # after the second filter
-            specialflt.append({"$project": {
-                "_id": 0,
-                "labels.tags": {"$concat": [
-                    "$labels.group",
-                    "###",
-                    "$labels.tags",
-                ]}
-            }})
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(x['_id'].split('###', 1))}
         elif field == "country":
             flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
             field = "infos.country_code"
@@ -2589,11 +2481,8 @@ have no effect if it is not expected)."""
 
     def diff_categories(self, category1, category2, flt=None,
                         archive=False, include_both_open=True):
-        """`category1` and `category2` can be categories (provided as
-        str or unicode objects) or labels (provided as dicts with two
-        keys, "group" and "tags", or as a two-element tuple, (group,
-        tags)). They *must* be of the same type: both categories or
-        both labels.
+        """`category1` and `category2` must be categories (provided as str or
+        unicode objects)
 
         Returns a generator of tuples:
         ({'addr': address, 'proto': protocol, 'port': port}, value)
@@ -2611,49 +2500,20 @@ have no effect if it is not expected)."""
         against the same targets.
 
         """
-        project = {"_id": 0, "addr": 1, "ports.protocol": 1, "ports.port": 1}
-        if isinstance(category1, basestring):
-            category_filter = self.searchcategory([category1, category2])
-            category_field = "categories"
-            unwind_match = [
-                {"$unwind": "$categories"},
-                {"$match": category_filter},
-            ]
-            project["categories"] = 1
-        else:
-            if isinstance(category1, (tuple, list)):
-                category1 = {"group": category1[0], "tags": category1[1]}
-            if isinstance(category2, (tuple, list)):
-                category2 = {"group": category2[0], "tags": category2[1]}
-            groups = (category1["group"]
-                      if category1["group"] == category2["group"] else
-                      {"$in": [cat["group"] for cat in [category1,
-                                                        category2]]})
-            labels = (category1["tags"]
-                      if category1["tags"] == category2["tags"] else
-                      {"$in": [cat["tags"] for cat in [category1, category2]]})
-            category_filter = self.searchlabel(group=groups, label=labels)
-            category_field = "labels"
-            unwind_match = [
-                {"$unwind": "$labels"},
-                {"$unwind": "$labels.tags"},
-                {"$match": {"labels.group": groups, "labels.tags": labels}},
-            ]
-            project["labels.group"] = 1
-            project["labels.tags"] = 1
+        category_filter = self.searchcategory([category1, category2])
         pipeline = [
             {"$match": (category_filter if flt is None else
                         self.flt_and(flt, category_filter))},
-        ]
-        pipeline.extend(unwind_match)
-        pipeline.extend([
+            {"$unwind": "$categories"},
+            {"$match": category_filter},
             {"$unwind": "$ports"},
             {"$match": {"ports.state_state": "open"}},
-            {"$project": project},
+            {"$project": {"_id": 0, "addr": 1, "ports.protocol": 1,
+                          "ports.port": 1, "categories": 1}},
             {"$group": {"_id": {"addr": "$addr", "proto": "$ports.protocol",
                                 "port": "$ports.port"},
-                        "categories": {"$push": "$%s" % category_field}}},
-        ])
+                        "categories": {"$push": "$categories"}}},
+        ]
         cursor = self.db[self.colname_oldhosts if archive else
                          self.colname_hosts].aggregate(pipeline, cursor={})
         def categories_to_val(categories):
