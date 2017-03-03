@@ -148,10 +148,6 @@ var HELP_FILTERS = {
 	    "title": "version:<b>[service name]:[product name]:[version](:[port number])</b>",
 	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
 	},
-	"label": {
-	    "title": "<b>(!)</b>label<b>(:[group](:[tag]))</b>",
-	    "content": "Look for results labeled with [tag] in [group]; if [tag] is not provided, look for results with at least one tag in [group]; if [group] is not provided, look for results with at least one tag.",
-	},
 	"script:": {
 	    "title": "script:<b>[script id](:[script output])</b>",
 	    "content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
@@ -429,10 +425,6 @@ var HELP_TOPVALUES = {
 	"file": "file.filename",
     },
     content: {
-	"label": {
-	    "title": "<b>(!)</b>label<b>(:[group](:[tag]))</b>",
-	    "content": "Top tags (matching optional group / tag filter). Both group and tag can be specified as a string or a regexp.",
-	},
 	"cpe.type": {
 	    "title": "<b>(!)</b>cpe.type<b>(:[type](:[vendor])(:[product](:[version])))</b>",
 	    "content": "CPE types (matching optional type / vendor / product / version filter).",

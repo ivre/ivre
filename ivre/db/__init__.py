@@ -311,14 +311,6 @@ class DBNmap(DB):
                                     help='show only results with a number of open '
                                     'ports NOT within the provided range', nargs=2)
         self.argparser.add_argument('--service', metavar='SVC')
-        self.argparser.add_argument('--label', metavar='GROUP[:TAG]',
-                                    help='retrieve host labeled with TAG '
-                                    'in GROUP, if TAG is not provided, retrieve '
-                                    'hosts with at least one TAG in GROUP')
-        self.argparser.add_argument('--no-label', metavar='GROUP[:TAG]',
-                                    help='retrieve host WITHOUT the label TAG '
-                                    'in GROUP, if TAG is not provided, retrieve '
-                                    'hosts WITHOUT any tag in GROUP')
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
         self.argparser.add_argument('--svchostname')
         self.argparser.add_argument('--os')
@@ -976,20 +968,6 @@ insert structures.
                 flt,
                 self.searchservice(utils.str2regexp(args.service)),
             )
-        if args.label is not None:
-            if ':' in args.label:
-                group, lab = map(utils.str2regexp, args.label.split(':', 1))
-            else:
-                group, lab = utils.str2regexp(args.label), None
-            flt = self.flt_and(flt, self.searchlabel(group=group,
-                                                     label=lab, neg=False))
-        if args.no_label is not None:
-            if ':' in args.no_label:
-                group, lab = map(utils.str2regexp, args.no_label.split(':', 1))
-            else:
-                group, lab = utils.str2regexp(args.no_label), None
-            flt = self.flt_and(flt, self.searchlabel(group=group,
-                                                     label=lab, neg=True))
         if args.script is not None:
             if ':' in args.script:
                 name, output = (utils.str2regexp(string) for

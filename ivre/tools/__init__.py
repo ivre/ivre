@@ -21,7 +21,6 @@
 __all__ = [
     'airodump2db',
     'arp2db',
-    'analyzercli',
     'bro2db',
     'flow2db',
     'flowcli',

@@ -46,8 +46,6 @@ docker/web-apache/Dockerfile
 docker/web-apache/doku-conf-local.php
 ivre/VERSION
 ivre/__init__.py
-ivre/analyzer.py
-ivre/cliutils.py
 ivre/config.py
 ivre/geoiputils.py
 ivre/graphroute.py
@@ -74,7 +72,6 @@ ivre/parser/bro.py
 ivre/parser/netflow.py
 ivre/tools/__init__.py
 ivre/tools/airodump2db.py
-ivre/tools/analyzercli.py
 ivre/tools/arp2db.py
 ivre/tools/bro2db.py
 ivre/tools/flow2db.py

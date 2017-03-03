@@ -50,7 +50,6 @@ displayed in the rightmost part of the screen.
     number of results to scan is important. Here is a list of
     (sometimes) interesting values to try here:
     - `category`, `source`
-    - `label`, `label:[group]`, `label:[group]:[tag]`
     - `country`, `city`, `as`
     - `domains`, `domains:[level]`
     - `hop`, `hop:[number]`
@@ -138,8 +137,6 @@ single or double quotes.
   - `[!]domain:[FQDN]` look for results with a hostname within a
     matching domain name.
   - `[!]category:` filter a category.
-  - `[!]label`, `[!]label:[group]`, `[!]label:[group]:[tag]` filter
-    according to labels.
   - `[!]country:[two letters code]` filter a country.
   - `[!]city:` filter a city (use with `country:`).
   - `[!]asnum:` filter by AS number (lists allowed).
