@@ -515,7 +515,10 @@ config.DEBUG_DB) is True.
     """
     MAX_WARNINGS_STORED = 100
     def __init__(self):
-        super(LogFilter, self).__init__()
+        # Python 2.6: logging.Filter is an old-style class, super()
+        # cannot be used.
+        # super(LogFilter, self).__init__()
+        logging.Filter.__init__(self)
         self.warnings = set()
     def filter(self, record):
         """Decides whether we should log a record"""
