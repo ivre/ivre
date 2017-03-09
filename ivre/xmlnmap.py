@@ -33,7 +33,6 @@ import datetime
 import sys
 import os
 import re
-import bson
 
 SCHEMA_VERSION = 8
 
@@ -1501,12 +1500,6 @@ class Nmap2DB(NmapHandler):
             self._curscan['scaninfos'].append(i)
         else:
             self._curscan['scaninfos'] = [i]
-
-
-class Nmap2Mongo(Nmap2DB):
-    @staticmethod
-    def _to_binary(data):
-        return bson.Binary(data)
 
 
 class Nmap2Posgres(Nmap2DB):
