@@ -30,8 +30,12 @@ import socket
 import subprocess
 import sys
 import time
-import unittest
 import urllib2
+
+if sys.version_info[:2] < (2, 7):
+    import unittest2 as unittest
+else:
+    import unittest
 
 HTTPD_PORT = 18080
 try:
@@ -180,9 +184,6 @@ class IvreTests(unittest.TestCase):
                     os.kill(pid, sig)
                 except OSError:
                     cls.children.remove(pid)
-                proc = subprocess.Popen(['ps', '-ef'], stdout=subprocess.PIPE)
-                for line in proc.stdout:
-                    print "PS  ", line[:-1]
             time.sleep(2)
         while cls.children:
             os.waitpid(cls.children.pop(), 0)

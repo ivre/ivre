@@ -24,6 +24,7 @@ install:
   - source ./.travis/install_${DB}.sh
   - pip install $PIP_INSTALL_OPTIONS .
   - pip install $PIP_INSTALL_OPTIONS -r requirements-$DB.txt
+  - test "$TRAVIS_PYTHON_VERSION" = 2.6 && pip install unittest2 || true
   - pip install $PIP_INSTALL_OPTIONS coverage codecov
 
 # We need MongoDB 2.6
