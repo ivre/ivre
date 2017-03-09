@@ -89,7 +89,7 @@ def disp_recs_std(flt):
             oa = h['addr']
             try:
                 print ivre.utils.int2ip(oa)
-            except struct.error:
+            except (struct.error, TypeError):
                 print oa
             c = db.data.infos_byip(oa)
             if c:

@@ -1,0 +1,3 @@
+pycrypto
+sqlalchemy
+psycopg2

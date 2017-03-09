@@ -1372,7 +1372,7 @@ class DBAgent(DB):
         try:
             addr = int(addr)
             addr = utils.int2ip(addr)
-        except (ValueError, struct.error):
+        except (ValueError, TypeError, struct.error):
             pass
         with tempfile.NamedTemporaryFile(
             prefix=str(scanid) + '-',

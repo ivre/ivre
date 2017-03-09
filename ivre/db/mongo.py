@@ -38,6 +38,12 @@ except ImportError:
     OrderedDict = dict
 
 
+class Nmap2Mongo(xmlnmap.Nmap2DB):
+    @staticmethod
+    def _to_binary(data):
+        return bson.Binary(data)
+
+
 class MongoDB(DB):
 
     schema_migrations = {}
@@ -340,6 +346,10 @@ class MongoDB(DB):
         return json.loads(string)
 
     @staticmethod
+    def to_binary(data):
+        return bson.Binary(data)
+
+    @staticmethod
     def flt2str(flt):
         return json.dumps(flt)
 
@@ -484,7 +494,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2Mongo
+        self.content_handler = Nmap2Mongo
         self.output_function = None
         self.colname_scans = colname_scans
         self.colname_hosts = colname_hosts

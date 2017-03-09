@@ -1,0 +1,2 @@
+py2neo>=3
+pycrypto

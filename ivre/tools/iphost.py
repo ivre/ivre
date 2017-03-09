@@ -36,7 +36,7 @@ ipaddr = re.compile('^\d+\.\d+\.\d+\.\d+$')
 def convert_ip(addr):
     try:
         return ivre.utils.int2ip(addr)
-    except struct.error:
+    except (struct.error, TypeError):
         return addr
 
 
