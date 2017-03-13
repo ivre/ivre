@@ -32,6 +32,8 @@ install:
 #services: mongodb
 
 before_script:
+  # display version
+  - ivre version
   # init DB
   - ivre ipinfo --init < /dev/null
   - ivre scancli --init < /dev/null

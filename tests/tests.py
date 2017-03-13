@@ -1059,6 +1059,9 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertTrue(not err)
         self.assertEqual(out1, out2)
+        res, _, err = RUN(["ivre", "version"])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
         res, _, _ = RUN(["ivre", "inexistant"])
         self.assertTrue(res)
 

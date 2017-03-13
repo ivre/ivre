@@ -26,3 +26,10 @@ def main():
     print "Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>"
     print "Version %s" % VERSION
     print
+    print "Dependencies:"
+    for module in ['Crypto', 'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2']:
+        try:
+            print "    Python module %s: %s" % (module, __import__(module).__version__)
+        except ImportError:
+            print "    Python module %s: missing" % (module,)
+    print
