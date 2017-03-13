@@ -2084,6 +2084,10 @@ insert structures.
                                .where(ScanFile.sha256 == scanid)).fetchone()
 
     @staticmethod
+    def searchnonexistent():
+        return NmapFilter(main=False)
+
+    @staticmethod
     def _searchobjectid(oid, neg=False):
         if len(oid) == 1:
             return NmapFilter(main=(Scan.id != oid[0]) if neg else

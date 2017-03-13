@@ -302,6 +302,9 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         archives_count = int(out)
 
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchnonexistent())
+        self.assertEqual(count, 0)
+
         # Is the test case OK?
         self.assertGreater(hosts_count, 0)
         self.check_value("nmap_get_count", hosts_count)

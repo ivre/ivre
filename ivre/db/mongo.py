@@ -385,6 +385,10 @@ class MongoDB(DB):
         return {'$or': args} if len(args) > 1 else args[0]
 
     @staticmethod
+    def searchnonexistent():
+        return {'_id': 0}
+
+    @staticmethod
     def searchobjectid(oid, neg=False):
         """Filters records by their ObjectID.  `oid` can be a single or many
         (as a list or any iterable) object ID(s), specified as strings
