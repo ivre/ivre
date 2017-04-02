@@ -1198,7 +1198,7 @@ have no effect if it is not expected)."""
                 if self.find_one(col_from_hosts,
                                  {'scanid': scanid}) is None:
                     self.db[col_from_scans].remove(spec_or_id=scanid)
-                    utils.logger.DEBUG(
+                    utils.LOGGER.debug(
                         "SCAN REMOVED: %s in %r", scanid, col_from_scans,
                     )
 
