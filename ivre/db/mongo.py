@@ -235,11 +235,11 @@ class MongoDB(DB):
                                 "Cannot %s index %s [%s: %s]", action, idx,
                                 exc.__class__.__name__, exc.message,
                             )
-            version = new_version
             utils.LOGGER.info(
                 "Migration of column %s from version %r to %r DONE",
                 colname, version, new_version,
             )
+            version = new_version
         if failed:
             utils.LOGGER.info("Failed to migrate %d documents", failed)
 
@@ -666,9 +666,8 @@ creates the default indexes."""
 
         """
         MongoDB.migrate_schema(
-            self,
-            db.db.nmap.colname_oldhosts if args.archives else
-            db.db.nmap.colname_hosts
+            self, self.colname_oldhosts if archive else self.colname_hosts,
+            version,
         )
 
     def migrate_schema_hosts_0_1(self, doc):
