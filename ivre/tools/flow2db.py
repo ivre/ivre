@@ -18,8 +18,6 @@
 
 """Update the flow database from log files"""
 
-import sys
-import time
 
 from ivre import config
 from ivre import utils
@@ -28,6 +26,7 @@ from ivre.db import db
 from ivre.parser.argus import Argus
 # from ivre.parser.bro import BroFile
 from ivre.parser.netflow import NetFlow
+
 
 # Associates a list of fields that must be present to the
 # link attributes and the accumulators

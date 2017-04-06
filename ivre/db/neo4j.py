@@ -22,22 +22,26 @@ databases.
 
 """
 
-from ivre.db import DB, DBFlow
-from ivre import config
-from ivre import utils
 
 import datetime
 import operator
 import random
 import re
-import sys
 import time
 import warnings
+
+
 from py2neo import Graph, Node, Relationship, GraphError
 from py2neo import http
 from py2neo.database import cypher_escape
 from py2neo.database.status import TransientError
 from py2neo.types import remote
+
+
+from ivre.db import DB, DBFlow
+from ivre import config
+from ivre import utils
+
 
 http.socket_timeout = 3600
 # We are aware of that, let's just ignore it for now
@@ -923,7 +927,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return query
 
     @staticmethod
-    def _flow2name(ref, labels, properties):
+    def _flow2name(ref, _, properties):
         proto = properties.get("proto", "Flow")
         attr = properties.get("dport", properties.get("type", None))
         return "%s%s" % (proto, "/%s" % attr if attr is not None else "")
@@ -982,14 +986,14 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return props
 
     @staticmethod
-    def _get_ref(elt, props):
+    def _get_ref(elt, _):
         if isinstance(elt, Node):
             return int(remote(elt).ref.split('/', 1)[-1])
         else:
             return elt["metadata"]["id"]
 
     @staticmethod
-    def _get_labels(elt, props):
+    def _get_labels(elt, _):
         if isinstance(elt, Node):
             return list(elt.labels())
         elif isinstance(elt, Relationship):

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,9 +19,7 @@
 """Update the flow database from ARP requests in PCAP files"""
 
 import subprocess
-import sys
 
-from scapy.layers.l2 import Ether, ARP
 from scapy.utils import PcapReader
 
 from ivre import config

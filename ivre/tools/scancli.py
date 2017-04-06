@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,19 +16,20 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-from ivre import utils, db, graphroute, config, xmlnmap, nmapout
 
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
 import os
-from datetime import datetime
 from xml.sax import saxutils
 try:
     from collections import OrderedDict
 except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+
+from ivre import utils, db, graphroute, config, xmlnmap, nmapout
 
 
 HONEYD_ACTION_FROM_NMAP_STATE = {
@@ -302,7 +303,7 @@ def display_xml_host(h, out=sys.stdout):
                       'ostype', 'method', 'conf']:
                 kk = "service_%s" % k
                 if kk in p:
-                    if type(p[kk]) in [str, unicode]:
+                    if isinstance(p[kk], basestring):
                         out.write(' %s=%s' % (
                             k, saxutils.quoteattr(p[kk])
                         ))
@@ -340,7 +341,7 @@ def display_xml_host(h, out=sys.stdout):
             if 'rtt' in hop:
                 out.write(' rtt=%s' % (
                     saxutils.quoteattr('%.2f' % hop['rtt']
-                                       if type(hop['rtt']) is float else
+                                       if isinstance(hop['rtt'], float) else
                                        hop['rtt'])
                 ))
             if 'host' in hop:
@@ -494,7 +495,7 @@ def main():
                         (args.top, False))
         topnbr = {0: None, None: 10}.get(args.limit, args.limit)
         for entry in db.db.nmap.topvalues(field, flt=hostfilter,
-                                          topnbr=topnbr,
+                                          topnbr=topnbr, least=least,
                                           archive=args.archives):
             if isinstance(entry['_id'], (list, tuple)):
                 if entry['_id']:

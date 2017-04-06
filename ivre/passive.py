@@ -24,12 +24,14 @@ Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 This sub-module contains functions used for passive recon.
 """
 
-from ivre import utils, config
 
 import re
 import hashlib
 import subprocess
-import sys
+
+
+from ivre import utils
+
 
 # p0f specific
 
@@ -334,7 +336,7 @@ def getinfos(spec):
 
     """
     function = _GETINFOS_FUNCTIONS.get(spec.get('recontype'))
-    if type(function) is dict:
+    if isinstance(function, dict):
         function = function.get(spec.get('source'))
     if function is None:
         return {}

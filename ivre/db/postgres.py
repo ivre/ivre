@@ -22,24 +22,26 @@ databases.
 
 """
 
+
 from bisect import bisect_left
 import codecs
 import csv
 import datetime
 import json
 import re
-import sys
 import socket
 import struct
 import time
 
-from sqlalchemy import event, create_engine, desc, func, text, column, \
-    literal_column, delete, exists, insert, join, select, union, update, null, \
-    and_, not_, or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, \
-    DateTime, Float, Integer, LargeBinary, String, Text, tuple_
+
+from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
+    exists, insert, join, select, union, update, null, and_, not_, or_, \
+    Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
+    Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
+
 
 from ivre.db import DB, DBFlow, DBData, DBNmap, DBPassive
 from ivre import config, utils, xmlnmap
@@ -54,7 +56,7 @@ class Context(Base):
         Index('ix_context_name', 'name', unique=True),
     )
 
-def _after_context_create(target, connection, **kwargs):
+def _after_context_create(target, connection, **_):
     connection.execute(insert(Context).values(id=0))
 
 event.listen(Context.__table__, "after_create", _after_context_create)
@@ -71,7 +73,7 @@ class Host(Base):
         Index('ix_host_addr_context', 'addr', 'context', unique=True),
     )
 
-def _after_host_create(target, connection, **kwargs):
+def _after_host_create(target, connection, **_):
     connection.execute(insert(Host).values(id=0, context=0))
 
 event.listen(Host.__table__, "after_create", _after_host_create)
@@ -2580,7 +2582,7 @@ returns a generator.
             req = req.limit(limit)
         return self.db.execute(req)
 
-    def get_one(self, flt, limit=None, skip=None):
+    def get_one(self, flt, skip=None):
         """Queries the passive database with the provided filter "flt", and
 returns the first result, or None if no result exists."""
         return self._get(flt, limit=1, skip=skip).fetchone()

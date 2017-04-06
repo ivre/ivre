@@ -20,7 +20,6 @@
 
 import os
 import re
-import sys
 
 from ivre.parser.bro import BroFile
 from ivre.db import db

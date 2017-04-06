@@ -25,14 +25,18 @@ This sub-module contains the parser for nmap's XML output files.
 
 """
 
-from ivre import utils, config, nmapout
-from ivre.analyzer import ike
 
-from xml.sax.handler import ContentHandler, EntityResolver
 import datetime
-import sys
+import hashlib
 import os
 import re
+import sys
+from xml.sax.handler import ContentHandler, EntityResolver
+
+
+from ivre import utils
+from ivre.analyzer import ike
+
 
 SCHEMA_VERSION = 8
 
@@ -781,7 +785,7 @@ X509 "service" tag.
     certificate = output.decode('base64')
     newout = []
     for hashtype, hashname in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:
-        hashvalue = hashlib.new(hashtype, cert).hexdigest()
+        hashvalue = hashlib.new(hashtype, certificate).hexdigest()
         newout.append('%-7s%s\n' % (
             hashname,
             ' '.join(hashvalue[i:i + 4] for i in xrange(0, len(hashvalue), 4))),
@@ -1141,7 +1145,7 @@ class NmapHandler(ContentHandler):
             for k in self._curtablepath[:-1]:
                 lastlevel = lastlevel[k]
             k = self._curtablepath[-1]
-            if type(k) is int:
+            if isinstance(k, (int, long)):
                 if k < len(lastlevel):
                     if key is not None:
                         lastlevel[k].update(obj)
@@ -1331,7 +1335,7 @@ class NmapHandler(ContentHandler):
                     else:
                         lastlevel = lastlevel[k]
                 k = self._curtablepath[-1]
-                if type(k) is int:
+                if isinstance(k, (int, long)):
                     lastlevel.append(self._curdata)
                 else:
                     lastlevel[k] = self._curdata

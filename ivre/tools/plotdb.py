@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,12 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-from ivre import db
+
 import math
+
+
 import matplotlib
 import matplotlib.pyplot
 # from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d import axes3d, Axes3D
+
+
+from ivre import db
 
 
 def graphhost(ap):

@@ -22,20 +22,23 @@ databases.
 
 """
 
-from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
-from ivre import utils, xmlnmap, config
 
 import datetime
-import bson
 import json
-import pymongo
 import re
-import sys
 try:
     from collections import OrderedDict
 except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
+
+
+import bson
+import pymongo
+
+
+from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
+from ivre import utils, xmlnmap, config
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -177,7 +180,7 @@ class MongoDB(DB):
 
     @staticmethod
     def serialize(obj):
-        if type(obj) is bson.ObjectId:
+        if isinstance(obj, bson.ObjectId):
             return obj.binary.encode('hex')
         return DB.serialize(obj)
 
@@ -1312,14 +1315,14 @@ have no effect if it is not expected)."""
     @staticmethod
     def searchdomain(name, neg=False):
         if neg:
-            if type(name) is utils.REGEXP_T:
+            if isinstance(name, utils.REGEXP_T):
                 return {"hostnames.domains": {"$not": name}}
             return {"hostnames.domains": {"$ne": name}}
         return {"hostnames.domains": name}
 
     def searchhostname(self, name, neg=False):
         if neg:
-            if type(name) is utils.REGEXP_T:
+            if isinstance(name, utils.REGEXP_T):
                 return {"hostnames.name": {"$not": name}}
             return {"hostnames.name": {"$ne": name}}
         return self.flt_and(
@@ -1336,7 +1339,7 @@ have no effect if it is not expected)."""
         (records may have zero, one or more categories).
         """
         if neg:
-            if type(cat) is utils.REGEXP_T:
+            if isinstance(cat, utils.REGEXP_T):
                 return {'categories': {'$not': cat}}
             if isinstance(cat, list):
                 if len(cat) == 1:
@@ -1374,7 +1377,7 @@ have no effect if it is not expected)."""
         Filters (if `neg` == True, filters out) one particular city.
         """
         if neg:
-            if type(city) is utils.REGEXP_T:
+            if isinstance(city, utils.REGEXP_T):
                 return {'infos.city': {'$not': city}}
             return {'infos.city': {'$ne': city}}
         return {'infos.city': city}
@@ -1385,7 +1388,7 @@ have no effect if it is not expected)."""
         particular AS number(s).
 
         """
-        if type(asnum) not in [str, unicode] and hasattr(asnum, '__iter__'):
+        if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
             return {'infos.as_num':
                     {'$nin' if neg else '$in': map(int, asnum)}}
         asnum = int(asnum)
@@ -1398,7 +1401,7 @@ have no effect if it is not expected)."""
 
         """
         if neg:
-            if type(asname) is utils.REGEXP_T:
+            if isinstance(asname, utils.REGEXP_T):
                 return {'infos.as_name': {'$not': asname}}
             else:
                 return {'infos.as_name': {'$ne': asname}}
@@ -1411,7 +1414,7 @@ have no effect if it is not expected)."""
 
         """
         if neg:
-            if type(src) is utils.REGEXP_T:
+            if isinstance(src, utils.REGEXP_T):
                 return {'source': {'$not': src}}
             return {'source': {'$ne': src}}
         return {'source': src}
@@ -1753,14 +1756,14 @@ have no effect if it is not expected)."""
     @staticmethod
     def searchhopdomain(hop, neg=False):
         if neg:
-            if type(hop) is utils.REGEXP_T:
+            if isinstance(hop, utils.REGEXP_T):
                 return {'traces.hops.domains': {'$not': hop}}
             return {'traces.hops.domains': {'$ne': hop}}
         return {'traces.hops.domains': hop}
 
     def searchhopname(self, hop, neg=False):
         if neg:
-            if type(hop) is utils.REGEXP_T:
+            if isinstance(hop, utils.REGEXP_T):
                 return {'traces.hops.host': {'$not': hop}}
             return {'traces.hops.host': {'$ne': hop}}
         return self.flt_and(
@@ -1792,9 +1795,9 @@ have no effect if it is not expected)."""
             result['ports']['$elemMatch']['screenshot'] = {'$exists': True}
             if isinstance(words, list):
                 words = {'$ne' if neg else '$all': words}
-            elif type(words) is utils.REGEXP_T:
+            elif isinstance(words, utils.REGEXP_T):
                 words = {'$not': words} if neg else words
-            elif type(words) is bool:
+            elif isinstance(words, bool):
                 words = {"$exists": words}
             else:
                 words = {'$ne': words} if neg else words
@@ -2848,7 +2851,7 @@ setting values according to the keyword arguments.
     @staticmethod
     def searchsensor(sensor, neg=False):
         if neg:
-            if type(sensor) is utils.REGEXP_T:
+            if isinstance(sensor, utils.REGEXP_T):
                 return {'sensor': {'$not': sensor}}
             return {'sensor': {'$ne': sensor}}
         return {'sensor': sensor}
@@ -2936,7 +2939,7 @@ setting values according to the keyword arguments.
         )).distinct('addr')
 
     def knownip_byas(self, asnum):
-        if type(asnum) is str:
+        if isinstance(asnum, basestring):
             if asnum.startswith('AS'):
                 asnum = asnum[2:]
             asnum = int(asnum)
@@ -3191,7 +3194,7 @@ code / name table
         ]
 
     def ipranges_byas(self, asnum):
-        if type(asnum) is str:
+        if isinstance(asnum, basestring):
             if asnum.startswith('AS'):
                 asnum = asnum[2:]
             asnum = int(asnum)

@@ -37,7 +37,6 @@ import shutil
 import socket
 import struct
 import subprocess
-import traceback
 try:
     import PIL.Image
     import PIL.ImageChops
@@ -836,7 +835,7 @@ def _read_ikescan_vendor_ids():
                     if line
                 )
             ]
-    except (AttributeError, IOError) as exc:
+    except (AttributeError, IOError):
         LOGGER.warning('Cannot read ike-scan vendor IDs file.', exc_info=True)
     _IKESCAN_VENDOR_IDS_POPULATED = True
 

@@ -26,7 +26,6 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 
 """
 
-from ivre import utils, config
 
 import zlib
 import zipfile
@@ -34,6 +33,10 @@ import urllib2
 import os.path
 import sys
 import functools
+
+
+from ivre import utils, config
+
 
 URLS = {
     # 'GeoIPCountry.dat':

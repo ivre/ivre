@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,19 +19,21 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module is responsible for handling scanning agents.
 """
 
-from ivre import utils
 
-import os
 import glob
-import subprocess
+import os
 import random
-import time
 import re
+import subprocess
+import time
+
+
+from ivre import utils
 
 
 class Agent(object):

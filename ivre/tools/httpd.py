@@ -3,7 +3,7 @@
 
 # This program is part of IVRE.
 #
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -26,12 +26,14 @@ deployments should use "real" web servers (IVRE has been successfully
 tested with both Apache and Nginx).
 """
 
-from ivre import config
-
-import os
 
 from BaseHTTPServer import HTTPServer
 from CGIHTTPServer import CGIHTTPRequestHandler
+import os
+
+
+from ivre import config
+
 
 BASEDIR, CGIDIR, DOKUWIKIDIR = None, None, None
 
