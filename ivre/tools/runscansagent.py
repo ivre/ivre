@@ -16,14 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-import ivre.target
-import ivre.utils
-import ivre.scanengine
 
 import os
 import shlex
 import subprocess
 import sys
+
+
+import ivre.target
+import ivre.utils
+import ivre.scanengine
+
 
 MAINDIR = "./agentsdata"
 

@@ -18,15 +18,18 @@
 
 """Manage scans run on remote agents."""
 
-import ivre.target
-import ivre.db
-import ivre.utils
-import ivre.config
 
 import os
 import sys
 import time
 import signal
+
+
+import ivre.target
+import ivre.db
+import ivre.utils
+import ivre.config
+
 
 def display_scan(scan, verbose=True):
     scan['target'] = ivre.db.db.agent.get_scan_target(scan['_id'])

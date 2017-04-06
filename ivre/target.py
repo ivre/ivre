@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,18 +18,23 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """
+This module is part of IVRE.
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+
 This sub-module contains objects and functions to manipulate target
 lists.
 """
 
-from ivre import utils, geoiputils, mathutils, config
 
-import random
-import tempfile
-import subprocess
 import os
-import shlex
+import random
 import re
+import shlex
+import subprocess
+import tempfile
+
+
+from ivre import utils, geoiputils, mathutils
 
 
 class Target(object):
@@ -160,10 +165,10 @@ class TargetCity(Target):
 
     """
 
-    def __init__(self, city, categories=None, rand=True, maxnbr=None,
-                 state=None):
+    def __init__(self, couontry_code, city, categories=None, rand=True,
+                 maxnbr=None, state=None):
         Target.__init__(self,
-                        geoiputils.get_ranges_by_city(city),
+                        geoiputils.get_ranges_by_city(couontry_code, city),
                         rand=rand, maxnbr=maxnbr, state=state)
         if categories is None:
             categories = ['CITY-%s' % city]
@@ -178,7 +183,7 @@ class TargetAS(Target):
 
     def __init__(self, asnum, categories=None, rand=True, maxnbr=None,
                  state=None):
-        if type(asnum) is str and asnum.upper().startswith('AS'):
+        if isinstance(asnum, basestring) and asnum.upper().startswith('AS'):
             asnum = int(asnum[2:])
         else:
             asnum = int(asnum)
@@ -390,6 +395,9 @@ argparser.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
 argparser.add_argument('--country', '-c', metavar='CODE',
                        help='select a country')
+argparser.add_argument('--city', nargs=2,
+                       metavar=('COUNTRY_CODE', 'CITY'),
+                       help='select a region')
 argparser.add_argument('--region', nargs=2,
                        metavar=('COUNTRY_CODE', 'REGION_CODE'),
                        help='select a region')
@@ -420,11 +428,16 @@ def target_from_args(args):
                                categories=args.categories,
                                maxnbr=args.limit,
                                state=args.state)
+    elif args.city is not None:
+        target = TargetCity(args.city[0], args.city[1],
+                            categories=args.categories,
+                            maxnbr=args.limit,
+                            state=args.state)
     elif args.region is not None:
         target = TargetRegion(args.region[0], args.region[1],
-                               categories=args.categories,
-                               maxnbr=args.limit,
-                               state=args.state)
+                              categories=args.categories,
+                              maxnbr=args.limit,
+                              state=args.state)
     elif args.asnum is not None:
         target = TargetAS(args.asnum,
                           categories=args.categories,

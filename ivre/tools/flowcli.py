@@ -16,19 +16,22 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-from ivre.db import db
-from ivre import utils
 
+import os
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-import os
 
 try:
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
+
+
+from ivre.db import db
+from ivre import utils
+
 
 DESCRIPTION = 'Access and query the flows database. See doc/FLOW.md for more ' \
               'information.'
@@ -37,14 +40,12 @@ def main():
     try:
         import argparse
         parser = argparse.ArgumentParser(description=DESCRIPTION)
-        USING_ARGPARSE = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(description=DESCRIPTION)
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
-        USING_ARGPARSE = False
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
@@ -142,7 +143,6 @@ def main():
             ))
 
     elif args.flow_daily:
-        cur_flow = None
         # FIXME? fully in-memory
         if args.plot:
             plot_data = {}

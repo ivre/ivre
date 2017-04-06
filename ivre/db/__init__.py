@@ -21,8 +21,6 @@
 database backends.
 """
 
-from ivre import config, utils, xmlnmap, nmapout
-
 import sys
 import socket
 import re
@@ -39,12 +37,16 @@ import uuid
 import json
 import datetime
 
+
 # tests: I don't want to depend on cluster for now
 try:
     import cluster
     USE_CLUSTER = True
 except ImportError:
     USE_CLUSTER = False
+
+
+from ivre import config, utils, xmlnmap, nmapout
 
 
 class DB(object):
@@ -728,7 +730,7 @@ insert structures.
         """Search SSH host keys """
         params = {"name": 'ssh-hostkey'}
         if fingerprint is not None:
-            if type(fingerprint) is not utils.REGEXP_T:
+            if not isinstance(fingerprint, utils.REGEXP_T):
                 fingerprint = fingerprint.replace(":", "").lower()
             params.setdefault("values", {})['fingerprint'] = fingerprint
         if key is not None:

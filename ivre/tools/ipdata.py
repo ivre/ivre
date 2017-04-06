@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,9 +21,6 @@ AS number and country information.
 
 """
 
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
 import os
 try:
     import argparse
@@ -31,10 +28,15 @@ try:
 except ImportError:
     import optparse
     USING_ARGPARSE = False
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 
 import ivre.db
 import ivre.geoiputils
 import ivre.config
+
 
 def main():
     if USING_ARGPARSE:

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,9 +18,6 @@
 
 """Update the database from output of a p0f process"""
 
-import ivre.db
-import ivre.utils
-import ivre.passive
 
 import signal
 import functools
@@ -34,7 +31,12 @@ except ImportError:
     USING_ARGPARSE = False
 
 
-def terminate(signum, stack_frame):
+import ivre.db
+import ivre.utils
+import ivre.passive
+
+
+def terminate(signum, _):
     p0fprocess.terminate()
 
 signal.signal(signal.SIGINT, terminate)

@@ -16,12 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
+import os
+
+
 import ivre.db
 import ivre.utils
 import ivre.xmlnmap
 
-import os
-import sys
 
 def recursive_filelisting(base_directories):
     "Iterator on filenames in base_directories"

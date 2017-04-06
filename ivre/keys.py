@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,20 +19,23 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
 This module implement tools to look for (public) keys in the database.
 
 """
 
-from ivre.db import db
-from ivre.utils import int2ip
 
 from collections import namedtuple
 import re
 import subprocess
 import struct
 from Crypto.PublicKey import RSA
+
+
+from ivre.db import db
+from ivre.utils import int2ip
+
 
 Key = namedtuple("key", ["ip", "port", "service", "type", "size",
                          "key", "md5"])

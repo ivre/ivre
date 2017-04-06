@@ -58,7 +58,7 @@ def _get_version_from_git():
 def _version():
     try:
         tag = _get_version_from_git()
-    except subprocess.CalledProcessError as exc:
+    except subprocess.CalledProcessError:
         pass
     else:
         try:

@@ -39,11 +39,9 @@ def main():
     flt = ivre.db.db.nmap.flt_empty
     bases = set()
     try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "p:f:h",
-                                   ['passive-ssl', 'active-ssl',
-                                    'active-ssh', 'help',
-                                    'filter='])
+        opts, _ = getopt.getopt(sys.argv[1:], "p:f:h",
+                                ['passive-ssl', 'active-ssl', 'active-ssh',
+                                 'help', 'filter='])
     except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
         sys.exit(-1)
@@ -78,7 +76,7 @@ def main():
             ivre.keys.SSHRsaNmapKey,
         ]
     for base in bases:
-        for key in base():
+        for key in base(baseflt=flt):
             moduli.setdefault(key.key.n,
                               set()).add((key.ip, key.port, key.service))
     for mod in moduli:

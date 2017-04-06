@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,11 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-from collections import defaultdict
+
 import struct
 from types import DictType
 
+
 from ivre.utils import find_ike_vendor_id
+
 
 class Values(DictType):
     def __getitem__(self, item):
@@ -28,6 +30,7 @@ class Values(DictType):
             return super(Values, self).__getitem__(item)
         except KeyError:
             return "UNKNOWN-%d" % item
+
 
 class NumValues(object):
     def __getitem__(self, item):
@@ -176,7 +179,7 @@ TRANSFORM_VALUES = {
 }
 
 
-def info_from_notification(payload, service, output):
+def info_from_notification(payload, _, output):
     payload_len = len(payload)
     if payload_len < 12:
         output.setdefault("protocol", []).append(
@@ -289,7 +292,7 @@ def info_from_vendorid(payload, service, output):
         entry["name"] = name
     output.setdefault('vendor_ids', []).append(entry)
 
-def info_from_sa(payload, service, output):
+def info_from_sa(payload, _, output):
     payload_len = len(payload)
     if payload_len < 20:
         output.setdefault("protocol", []).append(

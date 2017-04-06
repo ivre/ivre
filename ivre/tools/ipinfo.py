@@ -16,17 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-import ivre.utils
-from ivre.db import db
 
 import datetime
 import functools
 import os
-import re
 import struct
-import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
 import time
 try:
     import argparse
@@ -34,6 +28,14 @@ try:
 except ImportError:
     import optparse
     USING_ARGPARSE = False
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+
+from ivre.db import db
+import ivre.utils
+
 
 def disp_rec(h):
     print '\t',

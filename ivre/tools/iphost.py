@@ -18,19 +18,20 @@
 
 'Query the passive database to perform DNS resolutions (passive DNS).'
 
+
+from datetime import datetime
+import getopt
 import re
-import time
 import struct
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
-import datetime
-import getopt
+
 
 import ivre.utils
 from ivre.db import db
 
-ipaddr = re.compile('^\d+\.\d+\.\d+\.\d+$')
+IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 
 
 def convert_ip(addr):
@@ -42,11 +43,11 @@ def convert_ip(addr):
 
 def disp_rec(r):
     firstseen = r['firstseen']
-    if not isinstance(firstseen, datetime.datetime):
-        firstseen = datetime.datetime.fromtimestamp(firstseen)
+    if not isinstance(firstseen, datetime):
+        firstseen = datetime.fromtimestamp(firstseen)
     lastseen = r['lastseen']
-    if not isinstance(lastseen, datetime.datetime):
-        lastseen = datetime.datetime.fromtimestamp(lastseen)
+    if not isinstance(lastseen, datetime):
+        lastseen = datetime.fromtimestamp(lastseen)
     if 'addr' in r and r['addr']:
         if r['source'].startswith('PTR-'):
             print '%s PTR %s (%s, %s time%s, %s - %s)' % (
@@ -120,7 +121,7 @@ def main():
             first = False
         else:
             print
-        if ipaddr.match(a) or a.isdigit():
+        if IPADDR.match(a) or a.isdigit():
             flts.append(db.passive.flt_and(baseflt, db.passive.searchhost(a)))
         else:
             flts += [
