@@ -29,7 +29,14 @@ def main():
     print "Dependencies:"
     for module in ['Crypto', 'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2']:
         try:
-            print "    Python module %s: %s" % (module, __import__(module).__version__)
+            version = __import__(module).__version__
+        except AttributeError:
+            try:
+                version = __import__(module).version
+            except AttributeError:
+                version = "[unknown version]"
         except ImportError:
             print "    Python module %s: missing" % (module,)
+            continue
+        print "    Python module %s: %s" % (module, version)
     print
