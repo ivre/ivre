@@ -137,6 +137,11 @@ specialized scripts.
     extras_require={
         'Flow':  ["py2neo>=3"],
         'PostgreSQL': ["sqlalchemy", "psycopg2"],
+        'GSSAPI authentication': ["python-krbV"],
+        'Screenshots': ["PIL"],
+        'MediaWiki integration': ["MySQL-python"],
+        '3D traceroute graphs': ["dbus-python"],
+        'Plots': ["matplotlib"],
     },
     packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser', 'ivre/analyzer'],
     scripts=['bin/ivre'],
