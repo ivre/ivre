@@ -64,7 +64,7 @@ def main():
                         help='Ouput at most LIMIT results.')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
-    parser.add_argument('--orderby', '-o', 
+    parser.add_argument('--orderby', '-o',
                         help='Order of results ("src", "dst" or "flow")')
     parser.add_argument('--separator', '-s', help="Separator string.")
     parser.add_argument('--top', '-t', nargs="+",
@@ -90,7 +90,7 @@ def main():
     out = sys.stdout
 
     if args.plot and plt is None:
-        utils.LOGGING.critical("Matplotlib is required for --plot")
+        utils.LOGGER.critical("Matplotlib is required for --plot")
         sys.exit(-1)
 
     if args.init:
@@ -191,6 +191,6 @@ def main():
                 if args.timeline:
                     out.write(sep)
                     out.write(coma.join(
-                        map(str, sorted(res['flow']['data']['meta']['times'])))
-                    )
+                        map(str, sorted(res['flow']['data']['meta']['times']))
+                    ))
                 out.write('\n')

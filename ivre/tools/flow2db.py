@@ -99,7 +99,7 @@ def main():
                 try:
                     fileparser = PARSERS_MAGIC[fdesc.read(4)]
                 except KeyError:
-                    utils.LOGGING.warning(
+                    utils.LOGGER.warning(
                         'Cannot find the appropriate parser for file %r', fname,
                     )
                     continue

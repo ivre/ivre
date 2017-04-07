@@ -216,7 +216,7 @@ def get_anonymized_user():
 
 QUERIES = {
     'full': lambda: db.nmap.flt_empty,
-    'noaccess': lambda: db.nmap.searchnonexistent(),
+    'noaccess': db.nmap.searchnonexistent,
     'category': lambda cat: db.nmap.searchcategory(cat.split(',')),
 }
 

@@ -905,7 +905,6 @@ insert structures.
                     self.searchhostname(utils.str2regexp(args.hostname[1:]),
                                         neg=True)
                 )
-                pass
             else:
                 flt = self.flt_and(
                     flt,

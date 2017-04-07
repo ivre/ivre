@@ -23,7 +23,7 @@ databases.
 """
 
 
-import datetime
+from datetime import datetime
 import operator
 import random
 import re
@@ -45,9 +45,11 @@ from ivre import utils
 
 http.socket_timeout = 3600
 # We are aware of that, let's just ignore it for now
-warnings.filterwarnings("ignore",
-        "Map literals returned over the Neo4j REST interface are ambiguous.*",
-        module="py2neo.database")
+warnings.filterwarnings(
+    "ignore",
+    "Map literals returned over the Neo4j REST interface are ambiguous.*",
+    module="py2neo.database",
+)
 
 class Neo4jDB(DB):
     values = re.compile('{([^}]+)}')
@@ -132,14 +134,12 @@ class Neo4jDB(DB):
     def from_dbprop(cls, prop, val):
         if prop in cls.DATE_FIELDS:
             if isinstance(val, float):
-                val = datetime.datetime.fromtimestamp(val)
+                return datetime.fromtimestamp(val)
             if isinstance(val, basestring):
-                val = datetime.datetime.strptime(val, cls.TIMEFMT)
-            elif isinstance(val, datetime.datetime):
-                pass
-            else:
-                raise ValueError(
-                        "Expected float or str for date field %s" % prop)
+                return datetime.strptime(val, cls.TIMEFMT)
+            if isinstance(val, datetime):
+                return val
+            raise ValueError("Expected float or str for date field %s" % prop)
         return val
 
     @classmethod
@@ -154,21 +154,21 @@ class Neo4jDB(DB):
     @classmethod
     def to_dbprop(cls, prop, val):
         if prop in cls.DATE_FIELDS and isinstance(val, basestring):
-            val = datetime.datetime.strptime(val, cls.TIMEFMT)
+            val = datetime.strptime(val, cls.TIMEFMT)
         # Intentional double if: str -> datetime -> float
-        if isinstance(val, datetime.datetime):
+        if isinstance(val, datetime):
             val = utils.datetime2timestamp(val)
         return val
 
     @classmethod
     def _date_round(cls, date):
-        if isinstance(date, datetime.datetime):
+        if isinstance(date, datetime):
             ts = utils.datetime2timestamp(date)
         else:
             ts = date
         ts = ts - (ts % config.FLOW_TIME_PRECISION)
-        if isinstance(date, datetime.datetime):
-            return datetime.datetime.fromtimestamp(ts)
+        if isinstance(date, datetime):
+            return datetime.fromtimestamp(ts)
         else:
             return ts
 
@@ -383,7 +383,8 @@ class Query(object):
                     elif array_mode in ["NONE"]:
                         prereq = "LENGTH(%s) = 0 OR"
                     clause_part = "%s %s(x IN %s WHERE %s)" % (
-                                  prereq, array_mode, attr_expr, clause_part)
+                        prereq, array_mode, attr_expr, clause_part,
+                    )
                 clauses.append(clause_part)
 
             clause = " OR ".join(clauses)
@@ -595,7 +596,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                     "           %(prec)d) | \n"
                     "    MERGE (t:Time {time: stime})\n"
                     "    MERGE (%(elt)s)-[:SEEN]->(t))"
-                ) % { "elt": elt, "prec": config.FLOW_TIME_PRECISION }
+                ) % {"elt": elt, "prec": config.FLOW_TIME_PRECISION}
             else:
                 return (
                     "MERGE (t:Time {time: {seen_time}})\n"
@@ -607,8 +608,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def _set_props(cls, elt, props, set_list):
         props = utils.normalize_props(props)
-        set_list.extend(["%s.%s = %s" % (elt, attr, cnt)
-                              for attr, cnt in props.iteritems()])
+        set_list.extend("%s.%s = %s" % (elt, attr, cnt)
+                        for attr, cnt in props.iteritems())
 
     @classmethod
     def _update_counters(cls, elt, counters, on_create_set, on_match_set):
@@ -616,11 +617,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         counters["count"] = 1
         cls._set_props(elt, counters, on_create_set)
         on_match_set.extend(
-            ["%(elt)s.%(key)s = COALESCE(%(elt)s.%(key)s, 0) + %(value)s" % (
-             {"elt": elt,
-              "key": key,
-              "value": value}
-        ) for key, value in counters.iteritems()])
+            "%(elt)s.%(key)s = COALESCE(%(elt)s.%(key)s, 0) + %(value)s" % (
+                {"elt": elt,
+                 "key": key,
+                 "value": value}
+            ) for key, value in counters.iteritems()
+        )
 
     @classmethod
     def _update_accumulators(cls, elt, accumulators,
@@ -654,19 +656,17 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         skeys = sorted(attrs.iteritems(), key=operator.itemgetter(0))
         # Include all keys in the aggregated key
         str_func = "str" if self.db_version[0] < 3 else "toString"
-        key = (('ID(%s)+' % src if src else "") +
-               '"|"+' +
-               ('ID(%s)+' % dst if dst else "") +
-               '"-"+' +
+        key = (('ID(%s)+' % src if src else "") + '"|"+' +
+               ('ID(%s)+' % dst if dst else "") + '"-"+' +
                ('ID(%s)+' % link if link else "") +
-                '+"|"+'.join(['"-"'] + ["%s(%s)" %
-                (str_func, v) for _, v in skeys]))
+               '+"|"+'.join(['"-"'] + ["%s(%s)" % (str_func, v)
+                                       for _, v in skeys]))
         return key
 
     @classmethod
     def _prop_update(cls, elt, props=None, counters=None, accumulators=None,
-                         create_clauses=None, match_clauses=None,
-                         start_time=None, end_time=None, time=True):
+                     create_clauses=None, match_clauses=None, start_time=None,
+                     end_time=None, time=True):
         on_create_set = (create_clauses or [])[:]
         on_match_set = (match_clauses or [])[:]
         # Basic props
@@ -790,10 +790,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 link_tag = link.get("type", link.get("labels", [""])[0]).lower()
                 link_props = cls._get_props(link)
                 key = "%s%s" % (
-                        "_".join(label
-                                 for label in cls._get_labels(info, info_props)
-                                 if label != "Intel"),
-                                "_%s" % link_tag if link_tag else ""
+                    "_".join(label
+                             for label in cls._get_labels(info, info_props)
+                             if label != "Intel"),
+                    "_%s" % link_tag if link_tag else ""
                 )
                 new_data = dict(("%s_%s" % (link_tag, k), v)
                                 for k, v in link_props.iteritems())
@@ -808,16 +808,16 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         if ("times" in elt["meta"] and elt["meta"]["times"] and
                 isinstance(elt["meta"]["times"], list) and
                 isinstance(elt["meta"]["times"][0], float)):
-            elt["meta"]["times"] = map(datetime.datetime.fromtimestamp,
+            elt["meta"]["times"] = map(datetime.fromtimestamp,
                                        elt["meta"]["times"])
 
         if not elt["meta"]:
-            del(elt["meta"])
+            del elt["meta"]
 
     @staticmethod
     def _time_quad2date(time_quad):
         """Transforms (year, month, date, hour) into datetime."""
-        return datetime.datetime(*time_quad)
+        return datetime(*time_quad)
 
     def host_details(self, node_id):
         q = """
@@ -923,7 +923,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             query.orderby = "ORDER BY link.elt.dport, link.elt.proto"
         elif orderby:
             raise ValueError(
-                    "Unsupported orderby (should be 'src', 'dst' or 'flow')")
+                "Unsupported orderby (should be 'src', 'dst' or 'flow')"
+            )
         return query
 
     @staticmethod
@@ -1064,8 +1065,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     def _cursor2flow_daily(cls, cursor):
         for row in cursor:
             yield {"flow": "%s/%s" % tuple(row["flow"]),
-                   "time_in_day":
-                        datetime.datetime.fromtimestamp(row["time_in_day"]),
+                   "time_in_day": datetime.fromtimestamp(row["time_in_day"]),
                    "count": row["count"]}
 
     @classmethod
@@ -1193,8 +1193,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         new_key = self._key_from_attrs(keys, src="dst", dst="src")
         set_clause = self._prop_update(
-                "new_f", props=keys, counters=counters, start_time="firstseen",
-                end_time="lastseen", time=time,
+            "new_f", props=keys, counters=counters, start_time="firstseen",
+            end_time="lastseen", time=time,
         )
 
         q = """
@@ -1233,18 +1233,17 @@ DETACH DELETE df
     def _cleanup_phase2(self):
         keys = {"dport": "sport", "proto": "proto"}
         counters = {
-                "cspkts": "old_f.cspkts",
-                "scpkts": "old_f.scpkts",
-                "csbytes": "old_f.csbytes",
-                "scbytes": "old_f.scbytes",
+            "cspkts": "old_f.cspkts",
+            "scpkts": "old_f.scpkts",
+            "csbytes": "old_f.csbytes",
+            "scbytes": "old_f.scbytes",
         }
         accumulators = {"sports": ("old_f.dport", 5)}
 
         new_key = self._key_from_attrs(keys, src="src", dst="d2")
         set_clause = self._prop_update(
-                "new_f", props=keys, counters=counters,
-                accumulators=accumulators,
-                start_time="firstseen", end_time="lastseen", time=time,
+            "new_f", props=keys, counters=counters, accumulators=accumulators,
+            start_time="firstseen", end_time="lastseen", time=time,
         )
 
         q = """

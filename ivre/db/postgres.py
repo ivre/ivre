@@ -2022,10 +2022,11 @@ insert structures.
                         Script.data['ls']['volumes']
                     ).op('->')('files')
                 ).op('->>')(field).label(field)],
-                and_(flt,
-                     Script.data.op('@>')(
-                         '{"ls": {"volumes": [{"files": []}]}}'
-                     ),
+                and_(
+                    flt,
+                    Script.data.op('@>')(
+                        '{"ls": {"volumes": [{"files": []}]}}'
+                    ),
                 ),
             )
         elif field.startswith('modbus.'):

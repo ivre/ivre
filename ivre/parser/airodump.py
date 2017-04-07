@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -54,11 +54,11 @@ class Airodump(Parser):
     }
 
     def __init__(self, fname):
-        super(Parser, self).__init__(fname)
+        super(Airodump, self).__init__(fname)
         self.nextline_headers = False
 
     def next(self):
-        line = super(Parser, self).next().rstrip('\r\n')
+        line = super(Airodump, self).next().rstrip('\r\n')
         if not line:
             self.nextline_headers = True
             return self.next()
