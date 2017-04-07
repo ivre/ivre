@@ -37,8 +37,8 @@ def _scriptoutput(record):
         if 'output' in script:
             scriptout = [line for line in
                          (line.strip() for line in
-                          script['output'].split('\n')) if line]
-            if len(scriptout) == 0:
+                          script['output'].splitlines()) if line]
+            if not scriptout:
                 scriptout = ""
             elif len(scriptout) == 1:
                 scriptout = " " + scriptout[0]

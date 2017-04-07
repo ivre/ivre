@@ -788,8 +788,8 @@ X509 "service" tag.
         hashvalue = hashlib.new(hashtype, certificate).hexdigest()
         newout.append('%-7s%s\n' % (
             hashname,
-            ' '.join(hashvalue[i:i + 4] for i in xrange(0, len(hashvalue), 4))),
-        )
+            ' '.join(hashvalue[i:i + 4] for i in xrange(0, len(hashvalue), 4))
+        ))
     b64cert = certificate.encode('base64')
     newout.append('-----BEGIN CERTIFICATE-----\n')
     newout.extend('%s\n' % b64cert[i:i + 64] for i in xrange(0, len(b64cert), 64))

@@ -199,25 +199,25 @@ def parseline_country(line):
     line = line.strip('\n"').split('","')
     try:
         return int(line[2]), int(line[3]), line[4]
-    except Exception as exc:
-        print exc
-        print line
-        raise exc
+    except Exception:
+        utils.LOGGER.warning('Exception while reading line %r', line,
+                             exc_info=True)
+        raise
 
 
 def parseline_location(line):
     line = line.strip('\n"').split('","')
     try:
         return int(line[0]), int(line[1]), int(line[2])
-    except Exception as exc:
+    except Exception:
         if line[0].startswith('Copyright '):
             return None, None, None
         elif line[0].startswith('startIpNum,'):
             return None, None, None
         else:
-            print exc
-            print line
-            raise exc
+            utils.LOGGER.warning('Exception while reading line %r', line,
+                                 exc_info=True)
+            raise
 
 
 def parseline_asnum(line, withcomment=False):
@@ -233,10 +233,10 @@ def parseline_asnum(line, withcomment=False):
             asnum = int(asnum[2:])
         else:
             raise Exception('asnum %r should start with AS' % asnum)
-    except Exception as exc:
-        print exc
-        print line
-        raise exc
+    except Exception:
+        utils.LOGGER.warning('Exception while reading line %r', line,
+                             exc_info=True)
+        raise
     if withcomment:
         return int(line[0]), int(line[1]), asnum, ascomment
     return int(line[0]), int(line[1]), asnum
@@ -246,10 +246,10 @@ def parseline_routable(line):
     line = line.strip('\n"').split('","')
     try:
         return int(line[2]), int(line[3]), True
-    except Exception as exc:
-        print exc
-        print line
-        raise exc
+    except Exception:
+        utils.LOGGER.warning('Exception while reading line %r', line,
+                             exc_info=True)
+        raise
 
 
 class IPRanges(object):
@@ -431,8 +431,8 @@ def list_ips_by_data(datafile, parseline, data,
                      listall=True, listcidrs=False,
                      skip=0, maxnbr=None, multiple=False):
     if ((not listall) or listcidrs) and ((skip != 0) or (maxnbr is not None)):
-        utils.LOGGING.warning('Skip and maxnbr parameters have no effect '
-                              'when listall == False or listcidrs == True.')
+        utils.LOGGER.warning('Skip and maxnbr parameters have no effect '
+                             'when listall == False or listcidrs == True.')
     if listcidrs:
         listall = False
     with open(datafile) as fdesc:

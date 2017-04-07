@@ -198,10 +198,10 @@ def conn2neo(bulk, rec):
         linkattrs = linkattrs + ('dport',)
 
     counters = {
-            "cspkts": "{orig_pkts}",
-            "csbytes": "{orig_ip_bytes}",
-            "scpkts": "{resp_pkts}",
-            "scbytes": "{resp_ip_bytes}",
+        "cspkts": "{orig_pkts}",
+        "csbytes": "{orig_ip_bytes}",
+        "scpkts": "{resp_pkts}",
+        "scbytes": "{resp_ip_bytes}",
     }
     if linkattrs not in query_cache:
         query_cache[linkattrs] = db.flow.add_flow(
