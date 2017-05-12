@@ -91,6 +91,9 @@ the *tarball* from GitHub, by creating it locally and using the
 run:
 
     $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
+    $ tmp=`mktemp | sed 's#^/##'`; python2 setup.py --version | tr -d '\n' > "/$tmp"
+    $ tar rf docker/base-local/ivre.tar --transform="s#$tmp#ivre/ivre/VERSION#" /$tmp
+    $ rm "/$tmp"
     $ cd docker
     $ docker pull debian:stable
     $ docker build -t ivre/base base-local

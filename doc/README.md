@@ -207,8 +207,8 @@ database).
 
 There is an alternative to installing IVRE on the scanning machine
 that allows to use several agents from one master. See the
-[AGENT](AGENT.md) file, the program `ivre runscansagent` for the
-master and the `agent/` directory in the source tree.
+[AGENT](AGENT.md) file, and the commands `ivre
+{runscansagent|runscansagentdb}` for the master.
 
 ## Using the results ##
 

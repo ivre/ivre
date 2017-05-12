@@ -137,7 +137,7 @@ $ ivre scan2db -c ROUTABLE-CAMPAIGN-001 -s MySource -r scans/ROUTABLE/up
 </code>
 Here, ''%%ROUTABLE-CAMPAIGN-001%%'' is a category (just an arbitrary name that you will use later to filter scan results) and ''%%MySource%%'' is a friendly name for your scanning machine (same here, an arbitrary name usable to filter scan results; by default, when you insert a scan result, if you already have a scan result for the same host address with the same source, the previous result is moved to an "archive" collection (fewer indexes) and the new result is inserted in the database).
 
-There is an alternative to installing IVRE on the scanning machine that allows to use several agents from one master. See the [[doc:agent|AGENT]] file, the program ''%%ivre runscansagent%%'' for the master and the ''%%agent/%%'' directory in the source tree.
+There is an alternative to installing IVRE on the scanning machine that allows to use several agents from one master. See the [[doc:agent|AGENT]] file, and the commands ''%%ivre {runscansagent|runscansagentdb}%%'' for the master.
 
 ===== Using the results =====
 

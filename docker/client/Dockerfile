@@ -33,7 +33,7 @@ RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
 # not know which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
 # Use 7.25BETA2 to have Lua 5.3
-ADD https://nmap.org/dist/nmap-7.25BETA2.tgz ./nmap.tar.gz
+ADD https://nmap.org/dist/nmap-7.40.tgz ./nmap.tar.gz
 RUN apt-get -qy install build-essential libssl-dev && \
     tar zxf nmap.tar.gz && \
     mv nmap-* nmap && \
@@ -55,14 +55,16 @@ RUN apt-get -qy install bzip2 && \
     apt-get -qy --purge autoremove bzip2
 
 # Add our *-screenshot NSE scripts
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/http-screenshot.nse /usr/local/share/nmap/scripts/http-screenshot.nse
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/mainframe-banner.nse /usr/local/share/nmap/scripts/mainframe-banner.nse
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/mainframe-screenshot.nse /usr/local/share/nmap/scripts/mainframe-screenshot.nse
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/rtsp-screenshot.nse /usr/local/share/nmap/scripts/rtsp-screenshot.nse
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/vnc-screenshot.nse /usr/local/share/nmap/scripts/vnc-screenshot.nse
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/x11-screenshot.nse /usr/local/share/nmap/scripts/x11-screenshot.nse
-ADD https://raw.githubusercontent.com/cea-sec/ivre/master/nmap_scripts/patches/rtsp-url-brute.patch /tmp/rtsp-url-brute.patch
-RUN cd /usr/local/share/nmap/ && patch -p0 < /tmp/rtsp-url-brute.patch
+RUN for d in /usr /usr/local; do \
+        d="$d/share/ivre/nmap_scripts"; \
+        [ -d "$d" ] && ( \
+	    cp $d/*.nse /usr/local/share/nmap/scripts; \
+	    cd /usr/local/share/nmap/; \
+	    for p in $d/patches/*.patch; do \
+	         patch -p0 < $p; \
+            done \
+	) \
+    done; true
 RUN nmap --script-update
 
 # Install bro

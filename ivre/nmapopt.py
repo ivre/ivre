@@ -17,9 +17,15 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """This sub-module is responsible for generating Nmap options."""
 
+
+import pipes
+
+
 from ivre import config
+
 
 try:
     import argparse
@@ -41,6 +47,7 @@ NMAP_OPT_PORTS = {
     'more': ['--top-ports', '2000'],
     'all': ['-p', '-'],
 }
+
 
 class Scan(object):
     def __init__(self, nmap="nmap", pings='SE', scans='SV', osdetect=True,
@@ -70,6 +77,7 @@ class Scan(object):
         else:
             self.scripts_force = scripts_force
         self.extra_options = extra_options
+
     @property
     def options(self):
         options = [self.nmap]
@@ -127,5 +135,12 @@ class Scan(object):
             options.extend(self.extra_options)
         return options
 
-def build_nmap_options(args):
-    return Scan(**config.NMAP_SCAN_TEMPLATES[args.nmap_template]).options
+
+def build_nmap_options(template="default"):
+    return Scan(**config.NMAP_SCAN_TEMPLATES[template]).options
+
+
+def build_nmap_commandline(template="default"):
+    return ' '.join(
+        pipes.quote(elt) for elt in build_nmap_options(template=template)
+    )
