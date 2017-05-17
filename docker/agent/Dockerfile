@@ -20,10 +20,6 @@ MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 RUN ivre runscans --output Agent > /usr/bin/agent && \
     chmod +x /usr/bin/agent
 
-ADD runagent /usr/bin/runagent
-
-RUN chmod 777 /var/run/screen
-
 VOLUME /var/lib/ivre-agent
 WORKDIR /var/lib/ivre-agent
-CMD exec /usr/bin/runagent
+CMD exec /usr/bin/agent
