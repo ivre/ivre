@@ -75,7 +75,7 @@ You can also build the images from the provided `Dockerfile`s. For
 that, from the `docker/` directory, run:
 
     $ docker pull debian:stable
-    $ for img in agent base client db web ; do
+    $ for img in base client agent db web ; do
     > docker build -t "ivre/$img" "$img"
     > done
 
@@ -91,9 +91,11 @@ the *tarball* from GitHub, by creating it locally and using the
 run:
 
     $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
-    $ cd docker
+    $ tmp=`mktemp | sed 's#^/##'`; python2 setup.py --version | tr -d '\n' > "/$tmp"
+    $ tar rf docker/base-local/ivre.tar --transform="s#$tmp#ivre/ivre/VERSION#" /$tmp
+    $ rm "/$tmp"
     $ docker pull debian:stable
-    $ docker build -t ivre/base base-local
+    $ docker build -t ivre/base docker/base-local
 
 #### Using pip ####
 

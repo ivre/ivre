@@ -25,7 +25,6 @@ ivre scan2db.
 import subprocess
 import resource
 import multiprocessing
-import pipes
 import shutil
 import select
 import re
@@ -35,6 +34,7 @@ import fcntl
 import time
 import termios
 
+import ivre.agent
 import ivre.geoiputils
 import ivre.utils
 import ivre.target
@@ -148,11 +148,11 @@ class XmlProcessWritefile(XmlProcess):
             outfile = self.path + status + \
                 '/' + addr.replace('.', '/') + '.xml'
             ivre.utils.makedirs(os.path.dirname(outfile))
-            with open(outfile, 'w') as fdesc:
-                # fdesc.write('<scaninfo starttime="%d" />\n' % starttime)
-                fdesc.write(self.startinfo)
-                fdesc.write(hostrec)
-                fdesc.write('\n</nmaprun>\n')
+            with open(outfile, 'w') as out:
+                # out.write('<scaninfo starttime="%d" />\n' % starttime)
+                out.write(self.startinfo)
+                out.write(hostrec)
+                out.write('\n</nmaprun>\n')
             self.data = self.data[self.data.index('</host>') + 7:]
             if self.data.startswith('\n'):
                 self.data = self.data[1:]
@@ -271,7 +271,7 @@ def main():
             description='Run massive nmap scans.',
             parents=[ivre.target.argparser,
                      ivre.nmapopt.argparser])
-        USING_ARGPARSE = True
+        using_argparse = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(
@@ -282,12 +282,12 @@ def main():
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
-        USING_ARGPARSE = False
+        using_argparse = False
     parser.add_argument('--output',
                         choices=['XML', 'XMLFull', 'XMLFork', 'Test',
                                  'Count', 'List', 'ListAll',
                                  'ListAllRand', 'ListCIDRs',
-                                 'CommandLine'],
+                                 'CommandLine', 'Agent'],
                         default='XML',
                         help='select output method for scan results')
     parser.add_argument('--processes', metavar='COUNT', type=int, default=30,
@@ -302,7 +302,7 @@ def main():
     parser.add_argument('--nmap-max-stack-size', metavar='SIZE', type=int,
                         help="maximum size (in bytes) of each nmap "
                         "process's stack")
-    if USING_ARGPARSE:
+    if using_argparse:
         parser.add_argument('--again', nargs='+',
                             choices=['up', 'down', 'unknown', 'all'],
                             help='select status of targets to scan again')
@@ -313,9 +313,12 @@ def main():
     args = parser.parse_args()
     if args.output == 'CommandLine':
         print "Command line to run a scan with template %s" % args.nmap_template
-        print "   ",
-        print " ".join(pipes.quote(elt) for elt in
-                       ivre.nmapopt.build_nmap_options(args))
+        print "    %s" % ivre.nmapopt.build_nmap_commandline(
+            template=args.nmap_template,
+        )
+        exit(0)
+    if args.output == 'Agent':
+        sys.stdout.write(ivre.agent.build_agent(template=args.nmap_template))
         exit(0)
     if args.output == 'Count':
         if args.country is not None:
@@ -345,33 +348,30 @@ def main():
                      "(only available with --country, --asnum, --region "
                      "or --routable)" % args.output)
     if args.output in ['List', 'ListAll', 'ListCIDRs']:
-        if args.output == 'List':
-            listall = False
-            listcidrs = False
-        elif args.output == 'ListAll':
-            listall = True
-            listcidrs = False
-        else:  # args.output == 'ListCIDRs'
-            listall = False
-            listcidrs = True
         if args.country is not None:
-            ivre.geoiputils.list_ips_by_country(args.country,
-                                                listall=listall,
-                                                listcidrs=listcidrs)
+            ivre.geoiputils.list_ips_by_country(
+                args.country, listall=args.output == 'ListAll',
+                listcidrs=args.output == 'ListCIDRs',
+            )
             exit(0)
         if args.region is not None:
-            ivre.geoiputils.list_ips_by_region(*args.region,
-                                               listall=listall,
-                                               listcidrs=listcidrs)
+            ivre.geoiputils.list_ips_by_region(
+                *args.region,
+                listall=args.output == 'ListAll',
+                listcidrs=args.output == 'ListCIDRs'
+            )
             exit(0)
         if args.asnum is not None:
-            ivre.geoiputils.list_ips_by_asnum(args.asnum,
-                                              listall=listall,
-                                              listcidrs=listcidrs)
+            ivre.geoiputils.list_ips_by_asnum(
+                args.asnum, listall=args.output == 'ListAll',
+                listcidrs=args.output == 'ListCIDRs',
+            )
             exit(0)
         if args.routable:
-            ivre.geoiputils.list_routable_ips(listall=listall,
-                                              listcidrs=listcidrs)
+            ivre.geoiputils.list_routable_ips(
+                listall=args.output == 'ListAll',
+                listcidrs=args.output == 'ListCIDRs',
+            )
             exit(0)
         parser.error("argument --output: invalid choice: '%s' "
                      "(only available with --country, --region, --asnum "
@@ -396,7 +396,7 @@ def main():
         args.nmap_ping_types = [
             "PS%s" % ",".join(str(p) for p in args.nmap_prescan_ports)
         ]
-    options = ivre.nmapopt.build_nmap_options(args)
+    options = ivre.nmapopt.build_nmap_options(template=args.nmap_template)
     if args.nmap_max_cpu is not None:
         NMAP_LIMITS[resource.RLIMIT_CPU] = (args.nmap_max_cpu,
                                             args.nmap_max_cpu)
@@ -427,13 +427,13 @@ def main():
     elif args.output == 'ListAllRand':
         targiter = targets.__iter__()
         try:
-            for t in targiter:
-                print ivre.utils.int2ip(t)
+            for target in targiter:
+                print ivre.utils.int2ip(target)
         except KeyboardInterrupt:
             print 'Interrupted.\nUse "--state %s" to resume.' % (
                 ' '.join(map(str, targiter.getstate())))
-        except Exception as e:
-            print 'ERROR: %r.' % e
+        except Exception as exc:
+            print 'ERROR: %r.' % exc
             print 'Use "--state %s" to resume.' % (
                 ' '.join(map(str, targiter.getstate())))
         exit(0)

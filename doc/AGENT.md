@@ -11,10 +11,12 @@ IVRE agent only requires nmap (of course), screen and rsync (plus
 # Installation #
 
 On the "master", install IVRE following the instructions of the
-[INSTALL](INSTALL.md) file. Install also `screen`.
+[INSTALL](INSTALL.md) file. Install also `screen`, `tmux` or `nohup`
+if you want to be able to "detach" from the `agent` script (which is
+not a daemon).
 
 On the "slave(s)", the `agent` script must be deployed, together with
-`nmap`, `screen` and `rsync`.
+`nmap`, and `rsync`.
 
 # Run
 
@@ -33,26 +35,18 @@ First, `mkdir` & `cd` to the directory you want to use as your agent
 data directory.
 
 Make sure the needed binaries are in the `PATH` environment variable
-(including `nmap` and `screen`), adapt if needed the variables at the
-beginning of the script, particularly `NMAPOPTS`, `NMAPSCRIPTS` and
-`THREADS`.
+(including `nmap`). Generate the `agent` script, on a computer with
+IVRE installed, by running `ivre runscans --output Agent > agent;
+chmod +x agent` , adapt if needed the variables at the beginning of
+the script, particularly `THREADS`.
 
-Values for `NMAPOPTS` and `NMAPSCRIPTS` cause scans similar to those
-run by `ivre runscans` by default (with IVRE's default template). To
-get options from other templates, run `ivre runscans --nmap-template
-aggressive` (for example) and copy the corresponding values in the
-`agent` script.
+By default, the `default` template is used. You can generate agents
+using other scan templates using `--nmap-template [template name] `.
 
 Then just run the `agent` script.
 
-The script will start `screen`, and you can just detach by using (if
-you have the default key bindings): `C-a d`.
-
-When the scan is over, to stop the agent, reattach the screen session
-by running `screen -r`, and type `C-c` as many times as needed to kill
-all the instances of the script and get back to your shell.
-
-Please refer to `screen` documentation if you need.
+When the scan is over, to stop the agent, type `C-c` or kill the
+parent `agent` process.
 
 ## On the master ##
 
@@ -164,5 +158,5 @@ check the scan evolution by issuing `ivre runscansagentdb
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2015
+This file is part of IVRE. Copyright 2011 - 2017
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
