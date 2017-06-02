@@ -141,8 +141,9 @@ specialized scripts.
         'future',
     ],
     extras_require={
-        'Flow':  ["py2neo>=3"],
+        'Neo4j':  ["py2neo>=3"],
         'PostgreSQL': ["sqlalchemy", "psycopg2"],
+        'Elasticsearch': ["elasticsearch"],
         'GSSAPI authentication': ["python-krbV"],
         'Screenshots': ["PIL"],
         'MediaWiki integration': ["MySQL-python"],
