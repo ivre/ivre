@@ -18,9 +18,9 @@
 
 
 from contextlib import contextmanager
-from cStringIO import StringIO
 from distutils.spawn import find_executable as which
 import errno
+from io import BytesIO
 import json
 import os
 import random
@@ -47,8 +47,8 @@ except:
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
 @contextmanager
 def capture(function, *args, **kwargs):
-    out, sys.stdout = sys.stdout, StringIO()
-    err, sys.stderr = sys.stderr, StringIO()
+    out, sys.stdout = sys.stdout, BytesIO()
+    err, sys.stderr = sys.stderr, BytesIO()
     result = function(*args, **kwargs)
     sys.stdout.seek(0)
     sys.stderr.seek(0)

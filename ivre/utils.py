@@ -24,11 +24,11 @@ sub-module or script.
 
 import ast
 import bz2
-from cStringIO import StringIO
 import datetime
 import errno
 import gzip
 import hashlib
+from io import BytesIO
 import logging
 import math
 import os
@@ -656,7 +656,7 @@ if USE_PIL:
         (too tolerant, will trim the whole image).
 
         """
-        img = PIL.Image.open(StringIO(imgdata))
+        img = PIL.Image.open(BytesIO(imgdata))
         bbox = _trim_image(img, tolerance)
         if bbox:
             newbbox = (max(bbox[0] - minborder, 0),
@@ -664,7 +664,7 @@ if USE_PIL:
                        img.size[0] - max(img.size[0] - bbox[2] - minborder, 0),
                        img.size[1] - max(img.size[1] - bbox[3] - minborder, 0))
             if newbbox != (0, 0, img.size[0], img.size[1]):
-                out = StringIO()
+                out = BytesIO()
                 img.crop(newbbox).save(out, format='jpeg')
                 out.seek(0)
                 return out.read()
