@@ -26,8 +26,12 @@ except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
 
 
 from ivre import utils, db, graphroute, config, xmlnmap, nmapout

@@ -25,8 +25,12 @@ import getopt
 import re
 import struct
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
 
 
 import ivre.utils

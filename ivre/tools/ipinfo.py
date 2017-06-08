@@ -30,8 +30,12 @@ except ImportError:
     import optparse
     USING_ARGPARSE = False
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
 
 
 from ivre.db import db
