@@ -27,8 +27,7 @@ tested with both Apache and Nginx).
 """
 
 from __future__ import print_function
-from BaseHTTPServer import HTTPServer
-from CGIHTTPServer import CGIHTTPRequestHandler
+from http.server import HTTPServer, CGIHTTPRequestHandler
 import os
 
 
