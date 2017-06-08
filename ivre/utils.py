@@ -325,7 +325,6 @@ def diff(doc1, doc2):
                 res[key][kkey] = True
             for kkey in kkeys1.intersection(kkeys2):
                 pass
-                # print kkey
     return res
 
 

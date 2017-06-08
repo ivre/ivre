@@ -26,7 +26,7 @@ deployments should use "real" web servers (IVRE has been successfully
 tested with both Apache and Nginx).
 """
 
-
+from __future__ import print_function
 from BaseHTTPServer import HTTPServer
 from CGIHTTPServer import CGIHTTPRequestHandler
 import os
@@ -36,6 +36,7 @@ from ivre import config
 
 
 BASEDIR, CGIDIR, DOKUWIKIDIR = None, None, None
+
 
 class IvreRequestHandler(CGIHTTPRequestHandler):
     """Request handler to serve both static files from
@@ -52,7 +53,6 @@ class IvreRequestHandler(CGIHTTPRequestHandler):
             path = os.path.basename(path).lower().replace(':', '/')
             if '.' not in os.path.basename(path):
                 path += '.txt'
-            print os.path.join(DOKUWIKIDIR, path)
             return os.path.join(DOKUWIKIDIR, path)
         while path.startswith('/'):
             path = path[1:]
@@ -60,6 +60,7 @@ class IvreRequestHandler(CGIHTTPRequestHandler):
         if path.startswith(BASEDIR):
             return path
         raise ValueError("Invalid translated path")
+
 
 def parse_args():
     """Imports the available module to parse the arguments and return
@@ -86,7 +87,7 @@ def parse_args():
 def main():
     """This function is called when __name__ == "__main__"."""
     global BASEDIR, CGIDIR, DOKUWIKIDIR
-    print __doc__
+    print(__doc__)
     BASEDIR = config.guess_prefix(directory='web/static')
     CGIDIR = config.guess_prefix(directory='web/cgi-bin')
     DOKUWIKIDIR = config.guess_prefix(directory='dokuwiki')

@@ -17,6 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import print_function
 import os
 from xml.sax import saxutils
 try:
@@ -502,7 +503,7 @@ def main():
                     entry['_id'] = ' / '.join(str(elt) for elt in entry['_id'])
                 else:
                     entry['_id'] = "None"
-            print "%(_id)s: %(count)d" % entry
+            print("%(_id)s: %(count)d" % entry)
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
@@ -548,8 +549,8 @@ def main():
                         if 'masscan' in script and 'raw' in script['masscan']:
                             script['masscan']['raw'] = script['masscan'][
                                 'raw'].encode('base64')
-                print json.dumps(h, indent=indent,
-                                 default=db.db.nmap.serialize)
+                print(json.dumps(h, indent=indent,
+                                 default=db.db.nmap.serialize))
     elif args.honeyd:
         def displayfunction(x):
             display_honeyd_preamble(out)

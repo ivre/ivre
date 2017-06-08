@@ -91,6 +91,7 @@ def writedotgraph(graph, out, cluster=None):
                 out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
     else:
         clusters = {}
+
         def _add_node(node):
             if node not in nodes:
                 nodes.add(node)
@@ -112,9 +113,11 @@ def writedotgraph(graph, out, cluster=None):
             out.write('\tsubgraph cluster_%s {\n' % clu[0])
             out.write('\t\tlabel = "%s";\n' % clu[1])
             for node in nodes:
-                out.write('\t\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+                out.write('\t\t%d [label="%s"];\n' % (node,
+                                                      utils.int2ip(node)))
             out.write('\t}\n')
     out.write('}\n')
+
 
 if HAVE_DBUS:
     def display3dgraph(graph, reset_world=True):
@@ -135,6 +138,6 @@ if HAVE_DBUS:
                 try:
                     graph3d.new_edge(utils.int2ip(node), {},
                                      utils.int2ip(destnode), {})
-                except Exception as exc:
-                    print "WARNING: %r" % exc
+                except Exception:
+                    utils.LOGGER.warning('Exception', exc_info=True)
         return graph3d

@@ -263,10 +263,6 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        if line["info"].get("city") == "Norwood" and (
-                '\xad' in repr(line['info']) or 'xad' in repr(line['info'])
-        ):
-            print line["info"]
         line["archive"] = 0
         line["merge"] = False
         for field in ["categories"]:

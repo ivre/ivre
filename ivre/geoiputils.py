@@ -27,12 +27,13 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 """
 
 
-import zlib
-import zipfile
-import urllib2
+from __future__ import print_function
+import functools
 import os.path
 import sys
-import functools
+import urllib2
+import zipfile
+import zlib
 
 
 from ivre import utils, config
@@ -452,15 +453,16 @@ def list_ips_by_data(datafile, parseline, data,
                         if maxnbr < 0:
                             curaddrs = curaddrs[:maxnbr]
                     for addr in curaddrs:
-                        print addr
+                        print(addr)
                     if maxnbr is not None and maxnbr <= 0:
                         return
                 elif listcidrs:
                     for net in utils.range2nets((start, stop)):
-                        print net
+                        print(net)
                 else:
-                    print "%s - %s" % (utils.int2ip(start),
-                                       utils.int2ip(stop))
+                    print("%s - %s" % (utils.int2ip(start),
+                                       utils.int2ip(stop)))
+
 
 list_ips_by_country = functools.partial(
     list_ips_by_data,

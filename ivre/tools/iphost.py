@@ -19,6 +19,7 @@
 'Query the passive database to perform DNS resolutions (passive DNS).'
 
 
+from __future__ import print_function
 from datetime import datetime
 import getopt
 import re
@@ -50,27 +51,27 @@ def disp_rec(r):
         lastseen = datetime.fromtimestamp(lastseen)
     if 'addr' in r and r['addr']:
         if r['source'].startswith('PTR-'):
-            print '%s PTR %s (%s, %s time%s, %s - %s)' % (
+            print('%s PTR %s (%s, %s time%s, %s - %s)' % (
                 convert_ip(r['addr']),
                 r['value'], r['source'][4:], r['count'],
                 r['count'] > 1 and 's' or '',
                 firstseen,
                 lastseen,
-            )
+            ))
         elif r['source'].startswith('A-'):
-            print '%s A %s (%s, %s time%s, %s - %s)' % (
+            print('%s A %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
                 convert_ip(r['addr']),
                 r['source'][2:], r['count'],
                 r['count'] > 1 and 's' or '',
                 firstseen,
                 lastseen,
-            )
+            ))
         else:
-            print 'WARNING', r
+            ivre.utils.LOGGER.warning("Cannot display record %r", r)
     else:
         if r['source'].split('-')[0] in ['CNAME', 'NS', 'MX']:
-            print '%s %s %s (%s, %s time%s, %s - %s)' % (
+            print('%s %s %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
                 r['source'].split('-')[0],
                 r['targetval'],
@@ -79,9 +80,9 @@ def disp_rec(r):
                 r['count'] > 1 and 's' or '',
                 firstseen,
                 lastseen,
-            )
+            ))
         else:
-            print 'WARNING', r
+            ivre.utils.LOGGER.warning("Cannot display record %r", r)
 
 def main():
     baseflt = db.passive.searchrecontype('DNS_ANSWER')
@@ -120,7 +121,7 @@ def main():
         if first:
             first = False
         else:
-            print
+            print()
         if IPADDR.match(a) or a.isdigit():
             flts.append(db.passive.flt_and(baseflt, db.passive.searchhost(a)))
         else:
