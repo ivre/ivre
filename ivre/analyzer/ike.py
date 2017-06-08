@@ -18,13 +18,12 @@
 
 
 import struct
-from types import DictType
 
 
 from ivre.utils import find_ike_vendor_id
 
 
-class Values(DictType):
+class Values(dict):
     def __getitem__(self, item):
         try:
             return super(Values, self).__getitem__(item)
