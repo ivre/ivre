@@ -90,7 +90,7 @@ def int2mask(mask):
     From scapy:utils.py:itom(x).
 
     """
-    return (0xffffffff00000000L >> mask) & 0xffffffffL
+    return (0xffffffff00000000 >> mask) & 0xffffffff
 
 
 def net2range(network):
