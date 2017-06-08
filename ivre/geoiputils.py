@@ -39,6 +39,10 @@ import zipfile
 import zlib
 
 
+from builtins import range
+from future.utils import viewitems
+
+
 from ivre import utils, config
 
 
@@ -150,7 +154,7 @@ def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
     opener = build_opener()
     opener.addheaders = [('User-agent', 'IVRE/1.0 +https://ivre.rocks/')]
-    for fname, url in URLS.iteritems():
+    for fname, url in viewitems(URLS):
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
@@ -176,7 +180,7 @@ def download_all(verbose=False):
 def locids_by_city(country_code, city_name):
     with open(os.path.join(config.GEOIP_PATH,
                            'GeoIPCity-Location.csv')) as fdesc:
-        for _ in xrange(2):
+        for _ in range(2):
             fdesc.readline()
         for line in fdesc:
             locid, country, _, city, _ = line[:-1].split(',', 4)
@@ -189,7 +193,7 @@ def locids_by_city(country_code, city_name):
 def locids_by_region(country_code, region_code):
     with open(os.path.join(config.GEOIP_PATH,
                            'GeoIPCity-Location.csv')) as fdesc:
-        for _ in xrange(2):
+        for _ in range(2):
             fdesc.readline()
         for line in fdesc:
             locid, country, region, _ = line[:-1].split(',', 3)
@@ -336,7 +340,7 @@ def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None,
         for line in fdesc:
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
-                curaddrs = map(utils.int2ip, xrange(start, stop + 1))
+                curaddrs = map(utils.int2ip, range(start, stop + 1))
                 if skip > 0:
                     skip -= len(curaddrs)
                     if skip <= 0:
@@ -444,7 +448,7 @@ def list_ips_by_data(datafile, parseline, data,
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
                 if listall:
-                    curaddrs = map(utils.int2ip, xrange(start, stop + 1))
+                    curaddrs = map(utils.int2ip, range(start, stop + 1))
                     if skip > 0:
                         skip -= len(curaddrs)
                         if skip <= 0:

@@ -34,6 +34,10 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from future.utils import viewitems, viewvalues
+from past.builtins import basestring
+
+
 from ivre import utils, db, graphroute, config, xmlnmap, nmapout
 
 
@@ -100,8 +104,8 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
     if 'extraports' in host:
         extra = host['extraports']
         defaction = max(
-            max(extra.itervalues(),
-                key=lambda state: state['total'])['reasons'].iteritems(),
+            max(viewvalues(extra),
+                key=lambda state: viewitems(state['total'])['reasons']),
             key=lambda reason: reason[1],
         )[0]
         defaction = HONEYD_ACTION_FROM_NMAP_STATE.get(defaction)
@@ -183,7 +187,7 @@ def display_xml_scan(scan, out=sys.stdout):
               'scaninfo.numservices', 'scaninfo.services']:
         if k not in scan:
             scan[k] = ''
-        elif isinstance(scan[k], (str, unicode)):
+        elif isinstance(scan[k], basestring):
             scan[k] = scan[k].replace('"', '&quot;').replace('--', '-&#45;')
     out.write('<!DOCTYPE nmaprun PUBLIC '
               '"-//IDN nmap.org//DTD Nmap XML 1.04//EN" '
@@ -217,7 +221,7 @@ def display_xml_table_elem(doc, first=False, name=None, out=sys.stdout):
     elif isinstance(doc, dict):
         if not first:
             out.write('<table%s>\n' % name)
-        for key, subdoc in doc.iteritems():
+        for key, subdoc in viewitems(doc):
             display_xml_table_elem(subdoc, name=key, out=out)
         if not first:
             out.write('</table>\n')
@@ -278,11 +282,11 @@ def display_xml_host(h, out=sys.stdout):
             out.write('/>\n')
         out.write('</hostnames>\n')
     out.write('<ports>')
-    for state, counts in h.get('extraports', {}).iteritems():
+    for state, counts in viewitems(h.get('extraports', {})):
         out.write('<extraports state="%s" count="%d">\n' % (
             state, counts['total']
         ))
-        for reason, count in counts['reasons'].iteritems():
+        for reason, count in viewitems(counts['reasons']):
             out.write('<extrareasons reason="%s" count="%d"/>\n' % (
                 reason, count
             ))

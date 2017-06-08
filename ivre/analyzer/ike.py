@@ -20,6 +20,9 @@
 import struct
 
 
+from future.utils import viewitems
+
+
 from ivre.utils import find_ike_vendor_id
 
 
@@ -383,7 +386,7 @@ def analyze_ike_payload(payload, probe='ike'):
             for tr in output['transforms']:
                 txtoutput.append("  - %s" % ", ".join("%s: %s" % (key, value)
                                                       for key, value in
-                                                      sorted(tr.iteritems())))
+                                                      sorted(viewitems(tr))))
         if 'vendor_ids' in output:
             txtoutput.append('Vendor IDs:')
             for vid in output['vendor_ids']:

@@ -34,6 +34,10 @@ import subprocess
 import tempfile
 
 
+from future.utils import viewvalues
+from past.builtins import basestring
+
+
 from ivre import utils, geoiputils, mathutils
 
 
@@ -331,7 +335,7 @@ class TargetZMapPreScan(TargetFile):
         self.infos['zmap_pre_scan'] = zmap_opts[:]
         zmap_opts = [zmap] + zmap_opts + ['-o', '-']
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
-        for start, count in target.targets.ranges.itervalues():
+        for start, count in viewvalues(target.targets.ranges):
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()
@@ -377,7 +381,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         # using a temporary file
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
         nmap_opts = [nmap, '-iL', self.tmpfile.name, '-oG', '-'] + nmap_opts
-        for start, count in target.targets.ranges.itervalues():
+        for start, count in viewvalues(target.targets.ranges):
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()

@@ -18,10 +18,16 @@
 
 """Support for Argus log files"""
 
+
 import datetime
-from itertools import izip
+
+
+from builtins import zip
+from past.builtins import basestring
+
 
 from ivre.parser import CmdParser
+
 
 class Argus(CmdParser):
     """Argus log generator"""
@@ -49,13 +55,13 @@ class Argus(CmdParser):
         if pcap_filter is not None:
             cmd.extend(["-", pcap_filter])
         super(Argus, self).__init__(
-            cmd, {} if isinstance(fdesc, basestring) else {"stdin": fdesc},
+            cmd, {} if isinstance(fdesc,  basestring) else {"stdin": fdesc},
         )
         self.fdesc.readline()
 
     @classmethod
     def parse_line(cls, line):
-        fields = dict((name, val.strip()) for name, val in izip(cls.fields, line.split(",")))
+        fields = dict((name, val.strip()) for name, val in zip(cls.fields, line.split(",")))
         for fld in ["sport", "dport"]:
             try:
                 fields[fld] = int(

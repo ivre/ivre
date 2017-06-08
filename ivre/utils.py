@@ -45,7 +45,13 @@ except ImportError:
     USE_PIL = False
 
 
+from builtins import int, range
+from future.utils import viewitems
+from past.builtins import basestring
+
+
 from ivre import config
+
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -136,7 +142,7 @@ def range2nets(rng):
 def get_domains(name):
     """Generates the upper domains from a domain name."""
     name = name.split('.')
-    return ('.'.join(name[i:]) for i in xrange(len(name)))
+    return ('.'.join(name[i:]) for i in range(len(name)))
 
 
 def str2regexp(string):
@@ -247,7 +253,7 @@ def nmapspec2ports(string):
     for ports in string.split(','):
         if '-' in ports:
             ports = map(int, ports.split('-', 1))
-            result = result.union(xrange(ports[0], ports[1] + 1))
+            result = result.union(range(ports[0], ports[1] + 1))
         else:
             result.add(int(ports))
     return result
@@ -282,8 +288,8 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return isinstance(elt, (basestring, int, long, float,
-                            datetime.datetime, REGEXP_T))
+    return isinstance(elt, (basestring, int, float, datetime.datetime,
+                            REGEXP_T))
 
 
 def diff(doc1, doc2):
@@ -334,7 +340,7 @@ def fields2csv_head(fields, prefix=''):
 
     """
     line = []
-    for field, subfields in fields.iteritems():
+    for field, subfields in viewitems(fields):
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
@@ -349,7 +355,7 @@ def doc2csv(doc, fields, nastr="NA"):
 
     """
     lines = [[]]
-    for field, subfields in fields.iteritems():
+    for field, subfields in viewitems(fields):
         if subfields is True:
             value = doc.get(field)
             if isinstance(value, list):
@@ -717,8 +723,8 @@ def _set_ports():
                 continue
             _PORTS.setdefault(proto, {})[port] = freq
         fdesc.close()
-    for proto, entry in config.KNOWN_PORTS.iteritems():
-        for port, proba in entry.iteritems():
+    for proto, entry in viewitems(config.KNOWN_PORTS):
+        for port, proba in viewitems(entry):
             _PORTS.setdefault(proto, {})[port] = proba
     _PORTS_POPULATED = True
 
@@ -889,7 +895,7 @@ def normalize_props(props):
     props = dict(
         (key, (value if isinstance(value, basestring) else
                ("{%s}" % key) if value is None else
-               str(value))) for key, value in props.iteritems()
+               str(value))) for key, value in viewitems(props)
     )
     return props
 

@@ -19,7 +19,10 @@
 """Support for Airodump csv files"""
 
 import datetime
-from itertools import izip
+
+
+from builtins import zip
+
 
 from ivre.parser import Parser
 
@@ -67,7 +70,7 @@ class Airodump(Parser):
             self.fields = line
             self.nextline_headers = False
             return self.next()
-        return dict(izip(
+        return dict(zip(
             self.fields,
             (self.converters.get(self.types.get(self.fields[i]))(val)
              for (i, val) in enumerate(line)),

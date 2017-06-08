@@ -3,3 +3,4 @@ py2neo>=3
 pycrypto
 sqlalchemy
 psycopg2
+future

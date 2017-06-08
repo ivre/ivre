@@ -27,6 +27,7 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from future.utils import viewitems
 try:
     import matplotlib.pyplot as plt
 except ImportError:
@@ -160,7 +161,7 @@ def main():
                 plot_data.setdefault(rec["flow"], [[], []])
                 plot_data[rec["flow"]][0].append(rec["time_in_day"])
                 plot_data[rec["flow"]][1].append(rec["count"])
-        for flow, points in plot_data.iteritems():
+        for flow, points in viewitems(plot_data):
             plt.plot(points[0], points[1], label=flow)
         plt.legend(loc='best')
         plt.show()

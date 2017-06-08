@@ -19,7 +19,11 @@
 """Support for NetFlow files"""
 
 import datetime
-from itertools import izip
+
+
+from builtins import zip
+from past.builtins import basestring
+
 
 from ivre import utils
 from ivre.parser import CmdParser
@@ -81,7 +85,7 @@ class NetFlow(CmdParser):
 
     @classmethod
     def parse_line(cls, line):
-        fields = dict((name[0], val.strip()) for name, val in izip(cls.fields, line.split(",")))
+        fields = dict((name[0], val.strip()) for name, val in zip(cls.fields, line.split(",")))
         fields["proto"] = fields["proto"].lower()
         srv_idx = None
         if fields["proto"] == "icmp":

@@ -88,8 +88,8 @@ We try to comply with the some guidelines for new code:
   - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
   - Avoid creating unnecessary `list` objects, particularly if they
-    can be huge (e.g., when possible, use `xrange()` instead of
-    `range()`, `for line in fdesc` instead of `for line in
+    can be huge (e.g., make sure to import `range` from
+    `future.utils`, use `for line in fdesc` instead of `for line in
     fdesc.readlines()`; more generally prefer generators over lists).
 
 We do not accept PEP-8 fixes or similar contributions, because they

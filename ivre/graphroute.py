@@ -24,8 +24,10 @@ Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
 This sub-module builds graphs of traceroute results.
 
 """
-from ivre import utils
 
+
+from future.utils import viewitems
+from past.builtins import basestring
 # to build graphs with rtgraph3d
 try:
     import dbus
@@ -33,6 +35,10 @@ try:
     HAVE_DBUS = True
 except ImportError:
     HAVE_DBUS = False
+
+
+from ivre import utils
+
 
 
 def buildgraph(cursor, include_last_hop=False, include_target=False,
@@ -96,7 +102,7 @@ def writedotgraph(graph, out, cluster=None):
             if node not in nodes:
                 nodes.add(node)
                 clusters.setdefault(cluster(node), set()).update([node])
-    for node, node_edges in graph.iteritems():
+    for node, node_edges in viewitems(graph):
         _add_node(node)
         for destnode in node_edges:
             _add_node(destnode)
@@ -107,7 +113,7 @@ def writedotgraph(graph, out, cluster=None):
         if None in clusters:
             for node in clusters.pop(None):
                 out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
-        for clu, nodes in clusters.iteritems():
+        for clu, nodes in viewitems(clusters):
             if isinstance(clu, basestring):
                 clu = (clu, clu)
             out.write('\tsubgraph cluster_%s {\n' % clu[0])
@@ -131,7 +137,7 @@ if HAVE_DBUS:
         graph3d = dbus.Interface(control, "org.secdev.rtgraph3d.command")
         if reset_world:
             graph3d.reset_world()
-        for node, node_edges in graph.iteritems():
+        for node, node_edges in viewitems(graph):
             for destnode in node_edges:
                 if destnode == node:
                     continue

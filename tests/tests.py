@@ -35,10 +35,15 @@ try:
 except ImportError:
     from urllib2 import Request, urlopen
 
+
+from builtins import int, range
+from future.utils import viewvalues
+from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
 else:
     import unittest
+
 
 HTTPD_PORT = 18080
 try:
@@ -819,7 +824,7 @@ class IvreTests(unittest.TestCase):
         broenv["LOG_PATH"] = "logs/passiverecon"
 
         for fname in self.pcap_files:
-            for mode in ivre.passive.P0F_MODES.values():
+            for mode in viewvalues(ivre.passive.P0F_MODES):
                 p0fprocess = subprocess.Popen(
                     ['p0f', '-q', '-l', '-S', '-ttt', '-s',
                      fname] + mode['options'] + [mode['filter']],
@@ -896,7 +901,7 @@ class IvreTests(unittest.TestCase):
 
         addrrange = sorted(
             (x for x in ivre.db.db.passive.distinct('addr')
-             if isinstance(x, (int, long, basestring)) and x),
+             if isinstance(x, (int, basestring)) and x),
             key=lambda x: (ivre.utils.ip2int(x)
                            if isinstance(x, basestring) else x),
         )
@@ -1139,7 +1144,7 @@ class IvreTests(unittest.TestCase):
                 if n % (f + 2) == 0: return False
                 f += 6
             return True
-        for _ in xrange(3):
+        for _ in range(3):
             nbr = random.randint(2, 1000)
             factors = list(ivre.mathutils.factors(nbr))
             self.assertTrue(is_prime(nbr) or len(factors) > 1)

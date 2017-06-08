@@ -33,6 +33,9 @@ except ImportError:
     OrderedDict = dict
 
 
+from builtins import range
+from future.utils import viewitems, viewvalues
+from past.builtins import basestring
 import bson
 import pymongo
 
@@ -86,7 +89,7 @@ class MongoDB(DB):
         suitable to be passed to Cursor.hint().
 
         """
-        for fieldname, hint in self.hint_indexes.iteritems():
+        for fieldname, hint in viewitems(self.hint_indexes):
             if fieldname in spec:
                 return hint
 
@@ -189,12 +192,12 @@ class MongoDB(DB):
                           default=self.serialize)
 
     def create_indexes(self):
-        for colname, indexes in self.indexes.iteritems():
+        for colname, indexes in viewitems(self.indexes):
             for index in indexes:
                 self.db[colname].create_index(index[0], **index[1])
 
     def ensure_indexes(self):
-        for colname, indexes in self.indexes.iteritems():
+        for colname, indexes in viewitems(self.indexes):
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
@@ -227,8 +230,11 @@ class MongoDB(DB):
                         updated = True
                         self.db[colname].update({"_id": record["_id"]}, update)
             if updated:
-                for action, indexes in self.schema_migrations_indexes[
-                        colname].get(new_version, {}).iteritems():
+                for action, indexes in viewitems(
+                        self.schema_migrations_indexes[colname].get(
+                            new_version, {}
+                        )
+                ):
                     function = getattr(self.db[colname], "%s_index" % action)
                     for idx in indexes:
                         try:
@@ -287,7 +293,7 @@ class MongoDB(DB):
         # hack to allow nested values as field
         # see <http://stackoverflow.com/questions/13708857/
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
-        for i in xrange(field.count('.'), -1, -1):
+        for i in range(field.count('.'), -1, -1):
             subfield = field.rsplit('.', i)[0]
             if subfield in self.needunwind:
                 pipeline += [{"$unwind": "$" + subfield}]
@@ -330,7 +336,7 @@ class MongoDB(DB):
         # hack to allow nested values as field
         # see <http://stackoverflow.com/questions/13708857/
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
-        for i in xrange(field.count('.'), -1, -1):
+        for i in range(field.count('.'), -1, -1):
             subfield = field.rsplit('.', i)[0]
             if subfield in self.needunwind:
                 pipeline += [{"$unwind": "$" + subfield}]
@@ -362,8 +368,8 @@ class MongoDB(DB):
         they are accepted by both cond1 and cond2.
 
         """
-        cond1k = set(cond1.keys())
-        cond2k = set(cond2.keys())
+        cond1k = set(cond1)
+        cond2k = set(cond2)
         cond = {}
         if '$and' in cond1:
             cond1k.remove('$and')
@@ -696,7 +702,7 @@ creates the default indexes."""
                 if screenwords is not None:
                     port['screenwords'] = screenwords
                     updated_ports = True
-        for proto in openports.keys():
+        for proto in list(openports):
             count = len(openports[proto]["ports"])
             openports[proto]["count"] = count
             openports["count"] = openports.get("count", 0) + count
@@ -720,7 +726,7 @@ creates the default indexes."""
         for port in doc.get("ports", []):
             if port.get("service_method") == "table":
                 update_ports = True
-                for key in port.keys():
+                for key in list(port):
                     if key.startswith('service_'):
                         del port[key]
         if update_ports:
@@ -802,7 +808,8 @@ creates the default indexes."""
                 updated_ports = True
         if updated_ports:
             update["$set"]["ports"] = doc['ports']
-        for state, (total, counts) in doc.get('extraports', {}).items():
+        for state, (total, counts) in list(viewitems(doc.get('extraports',
+                                                             {}))):
             doc['extraports'][state] = {"total": total, "reasons": counts}
             updated_extraports = True
         if updated_extraports:
@@ -819,7 +826,7 @@ creates the default indexes."""
         update = {"$set": {"schema_version": 6}}
         updated = False
         migrate_scripts = set(script for script, alias
-                              in xmlnmap.ALIASES_TABLE_ELEMS.iteritems()
+                              in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
                               if alias == 'vulns')
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
@@ -880,7 +887,7 @@ creates the default indexes."""
                     else:
                         script['vulns'] = [dict(tab, id=vulnid)
                                            for vulnid, tab in
-                                           script['vulns'].iteritems()]
+                                           viewitems(script['vulns'])]
                     updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
@@ -1076,7 +1083,7 @@ have no effect if it is not expected)."""
                          for h in (rec1.get("hostnames", [])
                                    + rec2.get("hostnames", [])))
         rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                            for h, d in hostnames.iteritems()]
+                            for h, d in viewitems(hostnames)]
         ports = dict(((port.get("protocol"), port["port"]), port.copy())
                      for port in rec2.get("ports", []))
         for port in rec1.get("ports", []):
@@ -1100,7 +1107,7 @@ have no effect if it is not expected)."""
                             curport[key] = port[key]
             else:
                 ports[(port.get('protocol'), port['port'])] = port
-        rec["ports"] = ports.values()
+        rec["ports"] = list(viewvalues(ports))
         rec["openports"] = {}
         for record in [rec1, rec2]:
             for proto in record.get('openports', {}):
@@ -1111,7 +1118,7 @@ have no effect if it is not expected)."""
                         'ports', set()).update(
                             record['openports'][proto]['ports'])
         if rec['openports']:
-            for proto in rec['openports'].keys():
+            for proto in list(rec['openports']):
                 count = len(rec['openports'][proto]['ports'])
                 rec['openports'][proto]['count'] = count
                 rec['openports']['count'] = rec['openports'].get(
@@ -1492,7 +1499,7 @@ have no effect if it is not expected)."""
         if neg:
             return {'$or': [{'openports.count': cond} for cond in flt]}
         # return {'openports.count':
-        #         dict(item for cond in flt for item in cond.iteritems())}
+        #         dict(item for cond in flt for item in viewitems(cond))}
         return {'openports.count': {'$lte':maxn, '$gte':minn}}
 
     @staticmethod
@@ -1547,13 +1554,13 @@ have no effect if it is not expected)."""
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            for field, value in values.iteritems():
+            for field, value in viewitems(values):
                 req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
                                field)] = value
         if not req:
             return {"ports.scripts": {"$exists": True}}
         if len(req) == 1:
-            field, value = req.items()[0]
+            field, value = next(iter(viewitems(req)))
             return {"ports.scripts.%s" % field: value}
         return {"ports.scripts": {"$elemMatch": req}}
 
@@ -2557,7 +2564,7 @@ have no effect if it is not expected)."""
     def update_city(self, start, stop, locid, create=False):
         """Update city/location info on existing Nmap scan result documents"""
         updatespec = dict(("infos.%s" % key, value) for key, value in
-                          self.globaldb.data.location_byid(locid).iteritems())
+                          viewitems(self.globaldb.data.location_byid(locid)))
         if "infos.country_code" in updatespec:
             updatespec[
                 "infos.country_name"
@@ -3099,7 +3106,7 @@ code / name table
             )
         self.db[self.colname_country_codes].insert(
             {'country_code': code, 'name': name}
-            for code, name in self.country_codes.iteritems()
+            for code, name in viewitems(self.country_codes)
         )
         self.country_codes = None
 

@@ -40,6 +40,10 @@ except ImportError:
     HAVE_MYSQL = False
 
 
+from future.utils import viewitems
+from past.builtins import basestring
+
+
 from ivre import config, utils
 from ivre.db import db
 
@@ -236,7 +240,7 @@ def _parse_query(query):
 
 DEFAULT_INIT_QUERY = _parse_query(config.WEB_DEFAULT_INIT_QUERY)
 INIT_QUERIES = dict([key, _parse_query(value)]
-                    for key, value in config.WEB_INIT_QUERIES.iteritems())
+                    for key, value in viewitems(config.WEB_INIT_QUERIES))
 
 def get_init_flt():
     """Return a filter corresponding to the current user's
@@ -579,7 +583,7 @@ def flt_from_query(query, base_flt=None):
                 else:
                     proto, port = "tcp", port
                 protos.setdefault(proto, []).append(int(port))
-            for proto, ports in protos.iteritems():
+            for proto, ports in viewitems(protos):
                 flt = db.nmap.flt_and(
                     flt,
                     db.nmap.searchport(ports[0], protocol=proto, state=param)

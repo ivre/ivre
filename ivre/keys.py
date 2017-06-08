@@ -37,6 +37,9 @@ from ivre.db import db
 from ivre.utils import int2ip
 
 
+from past.builtins import long
+
+
 Key = namedtuple("key", ["ip", "port", "service", "type", "size",
                          "key", "md5"])
 

@@ -21,6 +21,7 @@
 database backends.
 """
 
+
 import sys
 import socket
 import re
@@ -41,6 +42,8 @@ import json
 import datetime
 
 
+from builtins import range
+from future.utils import viewitems
 # tests: I don't want to depend on cluster for now
 try:
     import cluster
@@ -532,7 +535,7 @@ insert structures.
                 screenwords = utils.screenwords(cls.getscreenshot(port))
                 if screenwords is not None:
                     port['screenwords'] = screenwords
-        for proto in openports.keys():
+        for proto in list(openports):
             if proto == 'count':
                 continue
             count = len(openports[proto]["ports"])
@@ -551,7 +554,7 @@ insert structures.
         doc["schema_version"] = 2
         for port in doc.get("ports", []):
             if port.get("service_method") == "table":
-                for key in port.keys():
+                for key in list(port):
                     if key.startswith('service_'):
                         del port[key]
 
@@ -612,7 +615,7 @@ insert structures.
         for port in doc.get('ports', []):
             if port['port'] == 'host':
                 port['port'] = -1
-        for state, (total, counts) in doc.get('extraports', {}).items():
+        for state, (total, counts) in list(viewitems(doc.get('extraports', {}))):
             doc['extraports'][state] = {"total": total, "reasons": counts}
 
     @staticmethod
@@ -624,7 +627,7 @@ insert structures.
         assert doc["schema_version"] == 5
         doc["schema_version"] = 6
         migrate_scripts = set(script for script, alias
-                              in xmlnmap.ALIASES_TABLE_ELEMS.iteritems()
+                              in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
                               if alias == 'vulns')
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
@@ -674,7 +677,7 @@ insert structures.
                     else:
                         script['vulns'] = [dict(tab, id=vulnid)
                                            for vulnid, tab in
-                                           script['vulns'].iteritems()]
+                                           viewitems(script['vulns'])]
 
     @staticmethod
     def json2dbrec(host):
@@ -1132,7 +1135,7 @@ class DBData(DB):
             line = line[i + 2:]
         # Get 2 floats
         coords = []
-        for i in xrange(2):
+        for i in range(2):
             i = line.index(',')
             curval = line[:i]
             if curval:
@@ -1362,7 +1365,7 @@ class DBAgent(DB):
         try:
             for agentid in scan['agents']:
                 if self.get_agent(agentid)['master'] == masterid:
-                    for _ in xrange(self.may_receive(agentid)):
+                    for _ in range(self.may_receive(agentid)):
                         self.add_target(agentid, scanid, target.next())
         except StopIteration:
             # This scan is over, let's free its agents
@@ -1627,7 +1630,7 @@ class MetaDB(object):
             self.db_types["passive"]["postgresql"] = PostgresDBPassive
         if urls is None:
             urls = {}
-        for datatype, dbtypes in self.db_types.iteritems():
+        for datatype, dbtypes in viewitems(self.db_types):
             specificurl = urls.get(datatype, url)
             if specificurl is not None:
                 (spurlscheme,

@@ -34,6 +34,9 @@ import struct
 import time
 
 
+from builtins import int, range
+from future.utils import viewitems, viewvalues
+from past.builtins import basestring
 from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
     exists, insert, join, select, union, update, null, and_, not_, or_, \
     Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
@@ -45,6 +48,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from ivre.db import DB, DBFlow, DBData, DBNmap, DBPassive
 from ivre import config, utils, xmlnmap
+
 
 Base = declarative_base()
 
@@ -111,7 +115,7 @@ there is no more data to read from the input.
     """
     def __init__(self, fname, skip=0, limit=None):
         self.fdesc = codecs.open(fname, encoding='latin-1')
-        for _ in xrange(skip):
+        for _ in range(skip):
             self.fdesc.readline()
         self.limit = limit
         if limit is not None:
@@ -156,7 +160,7 @@ class GeoIPCSVLocationFile(CSVFile):
 class GeoIPCSVLocationRangeFile(CSVFile):
     @staticmethod
     def fixline(line):
-        for i in xrange(2):
+        for i in range(2):
             line[i] = utils.int2ip(int(line[i]))
         return line
 
@@ -169,7 +173,7 @@ class GeoIPCSVASFile(CSVFile):
 class GeoIPCSVASRangeFile(CSVFile):
     @staticmethod
     def fixline(line):
-        for i in xrange(2):
+        for i in range(2):
             line[i] = utils.int2ip(int(line[i]))
         line[2] = line[2].split(' ', 1)[0][2:]
         return line
@@ -467,14 +471,13 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
-        for key, value in line.iteritems():
+        for key, value in viewitems(line):
             if key not in ["info", "moreinfo"] and \
                isinstance(value, basestring):
-                if isinstance(value, unicode):
-                    try:
-                        value = value.encode('latin-1')
-                    except:
-                        pass
+                try:
+                    value = value.encode('latin-1')
+                except:
+                    pass
                 line[key] = "".join(c if ' ' <= c <= '~' else
                                     ('\\x%s' % c.encode('hex'))
                                     for c in value).replace('\\', '\\\\')
@@ -744,7 +747,7 @@ class PostgresDB(DB):
         or an `ObjectID`s.
 
         """
-        if isinstance(oid, (basestring, int, long)):
+        if isinstance(oid, (int, basestring)):
             oid = [int(oid)]
         else:
             oid = [int(oid) for oid in oid]
@@ -792,7 +795,7 @@ field.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return (res.itervalues().next() for res in self.db.execute(req))
+        return (next(iter(viewvalues(res))) for res in self.db.execute(req))
 
     def get(self, *args, **kargs):
         cur = self._get(*args, **kargs)
@@ -913,7 +916,7 @@ class BulkInsert(object):
     def commit(self, query=None, renew=True):
         if query is None:
             last = len(self.queries) - 1
-            for i, query in enumerate(self.queries.keys()):
+            for i, query in enumerate(list(self.queries)):
                 self.commit(query=query, renew=True if i < last else renew)
             return
         q_query, params = self.queries.pop(query)
@@ -1694,7 +1697,7 @@ insert structures.
                  recp["service_devicetype"], recp["service_extrainfo"],
                  recp["service_hostname"], recp["service_ostype"],
                  recp["service_servicefp"]) = port
-                for fld, value in recp.items():
+                for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
                 for script in self.db.execute(select([Script.name,
@@ -2802,7 +2805,7 @@ passive table."""
                     pass
                 line.update(line.pop('infos', {}))
                 line.update(line.pop('fullinfos', {}))
-                for key, value in line.iteritems():
+                for key, value in viewitems(line):
                     if isinstance(value, dict) and len(value) == 1 \
                        and "$numberLong" in value:
                         line[key] = int(value['$numberLong'])

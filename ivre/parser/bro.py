@@ -19,7 +19,10 @@
 """Support for Bro log files"""
 
 import datetime
-from itertools import izip
+
+
+from builtins import zip
+
 
 from ivre.parser import Parser
 
@@ -91,7 +94,7 @@ class BroFile(Parser):
         res = {}
         fields = line.strip().split(self.sep)
 
-        for field, name, typ in izip(fields, self.fields, self.types):
+        for field, name, typ in zip(fields, self.fields, self.types):
             name = name.replace(".", "_")
             res[name] = self.bro2neo(field, typ)
         return res

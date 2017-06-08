@@ -38,6 +38,9 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from future.utils import viewitems
+
+
 import ivre.db
 import ivre.geoiputils
 import ivre.config
@@ -150,5 +153,5 @@ def main():
         for info in [ivre.db.db.data.as_byip(addr),
                      ivre.db.db.data.location_byip(addr)]:
             if info:
-                for key, value in info.iteritems():
+                for key, value in viewitems(info):
                     print('    %s %s' % (key, value))

@@ -36,11 +36,16 @@ import sys
 import termios
 import time
 
+
+from future.utils import viewitems
+
+
 import ivre.agent
 import ivre.geoiputils
 import ivre.utils
 import ivre.target
 import ivre.nmapopt
+
 
 if sys.version_info >= (2, 7):
     import functools
@@ -61,7 +66,7 @@ NMAP_LIMITS = {}
 
 def setnmaplimits():
     """Enforces limits from NMAP_LIMITS global variable."""
-    for limit, value in NMAP_LIMITS.iteritems():
+    for limit, value in viewitems(NMAP_LIMITS):
         resource.setrlimit(limit, value)
 
 
@@ -161,7 +166,7 @@ class XmlProcessWritefile(XmlProcess):
         return True
 
     def target_status(self, target):
-        for status, statuscode in self.status_paths.iteritems():
+        for status, statuscode in viewitems(self.status_paths):
             try:
                 os.stat(os.path.join(self.path, status,
                                      target.replace('.', '/') + '.xml'))

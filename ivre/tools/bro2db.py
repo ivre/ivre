@@ -18,8 +18,13 @@
 
 """Update the flow database from Bro logs"""
 
+
 import os
 import re
+
+
+from future.utils import viewitems
+
 
 from ivre.parser.bro import BroFile
 from ivre.db import db
@@ -154,7 +159,7 @@ def any2neo(desc, kind=None):
         keys = utils.normalize_props(keys)
         counters = utils.normalize_props(counters)
         for props in (keys, counters, accumulators):
-            for k, v in props.items():
+            for k, v in list(viewitems(props)):
                 if v[0] == '{' and v[-1] == '}':
                     prop = v[1:-1]
                 else:
