@@ -52,7 +52,8 @@ def main():
     args = parser.parse_args()
     ignore_rules = {}
     if args.ignore_spec is not None:
-        execfile(args.ignore_spec, ignore_rules)
+        exec(compile(open(args.ignore_spec, "rb").read(), args.ignore_spec,
+                     'exec'), ignore_rules)
     if (not args.no_bulk) or args.bulk:
         function = ivre.db.db.passive.insert_or_update_bulk
     else:

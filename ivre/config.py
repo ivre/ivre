@@ -168,7 +168,7 @@ def get_config_file(paths=None):
             yield path
 
 for fname in get_config_file():
-    execfile(fname)
+    exec(compile(open(fname, "rb").read(), fname, 'exec'))
 
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are
