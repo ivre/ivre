@@ -28,7 +28,10 @@ import datetime
 import functools
 import shlex
 import re
-import urllib
+try:
+    from urllib.parse import unquote
+except ImportError:
+    from urllib import unquote
 from Crypto.Hash.HMAC import HMAC
 try:
     import MySQLdb
@@ -164,7 +167,7 @@ def parse_query_string():
 
     """
     return dict(
-        [param, urllib.unquote(value)]
+        [param, unquote(value)]
         for param, value in (x.split('=', 1) if '=' in x else [x, None]
                              for x in os.getenv('QUERY_STRING', '').split('&'))
     )

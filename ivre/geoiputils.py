@@ -31,7 +31,10 @@ from __future__ import print_function
 import functools
 import os.path
 import sys
-import urllib2
+try:
+    from urllib.request import build_opener
+except ImportError:
+    from urllib2 import build_opener
 import zipfile
 import zlib
 
@@ -145,7 +148,7 @@ PARSERS = [
 
 def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
-    opener = urllib2.build_opener()
+    opener = build_opener()
     opener.addheaders = [('User-agent', 'IVRE/1.0 +https://ivre.rocks/')]
     for fname, url in URLS.iteritems():
         outfile = os.path.join(config.GEOIP_PATH, fname)

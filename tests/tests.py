@@ -30,7 +30,10 @@ import socket
 import subprocess
 import sys
 import time
-import urllib2
+try:
+    from urllib.request import urlopen, Request
+except ImportError:
+    from urllib2 import Request, urlopen
 
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
@@ -204,13 +207,12 @@ class IvreTests(unittest.TestCase):
                          check=self.assertItemsEqual)
 
     def _check_top_value_cgi(self, name, field, count):
-        req = urllib2.Request('http://%s:%d/cgi-bin/'
-                              'scanjson.py?action='
-                              'topvalues:%s:%d' % (HTTPD_HOSTNAME, HTTPD_PORT,
-                                                   field, count))
+        req = Request('http://%s:%d/cgi-bin/scanjson.py?action='
+                      'topvalues:%s:%d' % (HTTPD_HOSTNAME, HTTPD_PORT,
+                                           field, count))
         req.add_header('Referer',
                        'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
-        self.check_value(name, json.loads(urllib2.urlopen(req).read().decode()),
+        self.check_value(name, json.loads(urlopen(req).read().decode()),
                          check=self.assertItemsEqual)
 
     def check_top_value(self, name, field, count=10):

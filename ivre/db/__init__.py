@@ -25,8 +25,11 @@ import sys
 import socket
 import re
 import struct
-import urlparse
-import urllib
+try:
+    from urllib.parse import urlparse, unquote
+except ImportError:
+    from urlparse import urlparse
+    from urllib import unquote
 import xml.sax
 import os
 import subprocess
@@ -1537,10 +1540,9 @@ def _mongodb_url2dbinfos(url):
         username = url.netloc[:url.netloc.index('@')]
         if ':' in username:
             userinfo = dict(zip(["username", "password"],
-                                map(urllib.unquote,
-                                    username.split(':', 1))))
+                                map(unquote, username.split(':', 1))))
         else:
-            username = urllib.unquote(username)
+            username = unquote(username)
             if username == 'GSSAPI':
                 import krbV
                 userinfo = {
@@ -1591,7 +1593,7 @@ class MetaDB(object):
 
     @classmethod
     def url2dbinfos(cls, url):
-        url = urlparse.urlparse(url)
+        url = urlparse(url)
         if url.scheme in cls.extract_dbinfos:
             return cls.extract_dbinfos[url.scheme](url)
         return url.scheme, (url.geturl(),), {}
