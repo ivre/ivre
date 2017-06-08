@@ -2788,6 +2788,10 @@ passive table."""
         def _backupgen(fdesc):
             for line in fdesc:
                 try:
+                    line = line.decode()
+                except AttributeError:
+                    pass
+                try:
                     line = json.loads(line)
                 except ValueError:
                     utils.LOGGER.warning("ignoring line [%r]", line)

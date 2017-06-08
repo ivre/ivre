@@ -196,100 +196,100 @@ def info_from_notification(payload, _, output):
 def info_from_vendorid(payload, service, output):
     name = find_ike_vendor_id(payload[4:])
     if name is not None:
-        if name.startswith('Windows-'):
+        if name.startswith(b'Windows-'):
             service['service_product'] = "Microsoft/Cisco IPsec"
-            service['service_version'] = name.replace('-', ' ')
+            service['service_version'] = name.decode().replace('-', ' ')
             service['service_ostype'] = "Windows"
-        elif name == 'Windows':
+        elif name == b'Windows':
             service['service_product'] = "Microsoft/Cisco IPsec"
             service['service_ostype'] = "Windows"
-        elif name.startswith('Firewall-1 '):
+        elif name.startswith(b'Firewall-1 '):
             service['service_product'] = 'Checkpoint VPN-1/Firewall-1'
-            service['service_version'] = name.split(None, 1)[1]
+            service['service_version'] = name.decode().split(None, 1)[1]
             service['service_devicetype'] = 'security-misc'
-        elif name.startswith('SSH IPSEC Express '):
+        elif name.startswith(b'SSH IPSEC Express '):
             service['service_product'] = 'SSH Communications Security IPSec Express'
-            service['service_version'] = name.split(None, 3)[3]
-        elif name.startswith('SSH Sentinel'):
+            service['service_version'] = name.decode().split(None, 3)[3]
+        elif name.startswith(b'SSH Sentinel'):
             service['service_product'] = 'SSH Communications Security Sentinel'
-            version = name[13:]
+            version = name[13:].decode()
             if version:
                 service['service_version'] = version
-        elif name.startswith('SSH QuickSec'):
+        elif name.startswith(b'SSH QuickSec'):
             service['service_product'] = 'SSH Communications Security QuickSec'
-            version = name[13:]
+            version = name[13:].decode()
             if version:
                 service['service_version'] = version
-        elif name.startswith('Cisco VPN Concentrator'):
+        elif name.startswith(b'Cisco VPN Concentrator'):
             service['service_product'] = 'Cisco VPN Concentrator'
-            version = name[24:-1]
+            version = name[24:-1].decode()
             if version:
                 service['service_version'] = version
-        elif name.startswith('SafeNet SoftRemote'):
+        elif name.startswith(b'SafeNet SoftRemote'):
             service['service_product'] = 'SafeNet Remote'
-            version = name[19:]
+            version = name[19:].decode()
             if version:
                 service['service_version'] = version
-        elif name == 'KAME/racoon':
+        elif name == b'KAME/racoon':
             service['service_product'] = 'KAME/racoon/IPsec Tools'
-        elif name == 'Nortel Contivity':
+        elif name == b'Nortel Contivity':
             service['service_product'] = 'Nortel Contivity'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('SonicWall-'):
+        elif name.startswith(b'SonicWall-'):
             service['service_product'] = 'SonicWall'
-        elif name.startswith('strongSwan'):
+        elif name.startswith(b'strongSwan'):
             service['service_product'] = 'strongSwan'
             # for some reason in the fingerprints file, strongSwan ==
             # strongSwan 4.3.6
-            service['service_version'] = name[11:] or '4.3.6'
+            service['service_version'] = name[11:].decode() or '4.3.6'
             service['service_ostype'] = 'Unix'
-        elif name == 'ZyXEL ZyWall USG 100':
+        elif name == b'ZyXEL ZyWall USG 100':
             service['service_product'] = 'ZyXEL ZyWALL USG 100'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('Linux FreeS/WAN '):
+        elif name.startswith(b'Linux FreeS/WAN '):
             service['service_product'] = 'FreeS/WAN'
-            service['service_version'] = name.split(None, 2)[2]
+            service['service_version'] = name.decode().split(None, 2)[2]
             service['service_ostype'] = 'Unix'
-        elif name.startswith('Openswan ') or name.startswith('Linux Openswan '):
+        elif name.startswith(b'Openswan ') or name.startswith(b'Linux Openswan '):
             service['service_product'] = 'Openswan'
-            version = name.split('Openswan ', 1)[1].split(None, 1)
+            version = name.split(b'Openswan ', 1)[1].decode().split(None, 1)
             service['service_version'] = version[0]
             if len(version) == 2:
                 service['service_extrainfo'] = version[1]
             service['service_ostype'] = 'Unix'
-        elif name in ['FreeS/WAN or OpenSWAN',
-                      'FreeS/WAN or OpenSWAN or Libreswan']:
+        elif name in [b'FreeS/WAN or OpenSWAN',
+                      b'FreeS/WAN or OpenSWAN or Libreswan']:
             service['service_product'] = 'FreeS/WAN or Openswan or Libreswan'
             service['service_ostype'] = 'Unix'
-        elif name.startswith('Libreswan '):
+        elif name.startswith(b'Libreswan '):
             service['service_product'] = 'Libreswan'
-            service['service_version'] = name.split(None, 1)[1]
+            service['service_version'] = name.decode().split(None, 1)[1]
             service['service_ostype'] = 'Unix'
-        elif name == 'OpenPGP':
-            service['service_product'] = name
-        elif name in ['FortiGate', 'ZyXEL ZyWALL Router',
-                      'ZyXEL ZyWALL USG 100']:
-            service['service_product'] = name
+        elif name == b'OpenPGP':
+            service['service_product'] = name.decode()
+        elif name in [b'FortiGate', b'ZyXEL ZyWALL Router',
+                      b'ZyXEL ZyWALL USG 100']:
+            service['service_product'] = name.decode()
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('Netscreen-'):
+        elif name.startswith(b'Netscreen-'):
             service['service_product'] = 'Juniper'
             service['service_ostype'] = 'NetScreen OS'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('StoneGate-'):
+        elif name.startswith(b'StoneGate-'):
             service['service_product'] = 'StoneGate'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('Symantec-Raptor'):
+        elif name.startswith(b'Symantec-Raptor'):
             service['service_product'] = 'Symantec-Raptor'
-            version = name[16:]
+            version = name[16:].decode()
             if version:
                 service['service_version'] = version
             service['service_devicetype'] = 'firewall'
-        elif name == 'Teldat':
-            service['service_product'] = name
+        elif name == b'Teldat':
+            service['service_product'] = name.decode()
             service['service_devicetype'] = 'broadband router'
-    entry = {'value': payload[4:].encode('hex')}
+    entry = {'value': payload[4:].encode('hex').decode()}
     if name is not None:
-        entry["name"] = name
+        entry["name"] = name.decode()
     output.setdefault('vendor_ids', []).append(entry)
 
 def info_from_sa(payload, _, output):

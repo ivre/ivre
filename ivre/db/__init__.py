@@ -445,7 +445,7 @@ insert structures.
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
-                host = self.json2dbrec(json.loads(line))
+                host = self.json2dbrec(json.loads(line.decode()))
                 for fname in ["_id"]:
                     if fname in host:
                         del host[fname]

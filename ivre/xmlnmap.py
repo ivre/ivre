@@ -771,7 +771,7 @@ MASSCAN_ENCODING = re.compile(re.escape("\\x") + "([0-9a-f]{2})")
 
 def _masscan_decode_print(match):
     char = match.groups()[0].decode('hex')
-    return (char if (32 <= ord(char) <= 126 or char in "\t\r\n")
+    return (char if (32 <= ord(char) <= 126 or char in b"\t\r\n")
             else match.group())
 
 def _masscan_decode_raw(match):
@@ -890,7 +890,7 @@ class NmapHandler(ContentHandler):
         self.scanner = "nmap"
         self.scan_doc_saved = False
         self.masscan_probes = [] if masscan_probes is None else masscan_probes
-        utils.LOGGER.debug("READING %r (%r)", (fname, self._filehash))
+        utils.LOGGER.debug("READING %r (%r)", fname, self._filehash)
 
     @staticmethod
     def _to_binary(data):
@@ -1042,13 +1042,13 @@ class NmapHandler(ContentHandler):
                         })
                 # create fake scripts from masscan "service" tags
                 raw_output = MASSCAN_ENCODING.sub(_masscan_decode_raw,
-                                                  str(banner))
+                                                  banner.encode())
                 scriptid = MASSCAN_SERVICES_NMAP_SCRIPTS.get(attrs['name'],
                                                              attrs['name'])
                 script = {
                     "id": scriptid,
                     "output": MASSCAN_ENCODING.sub(_masscan_decode_print,
-                                                   banner),
+                                                   banner.encode()).decode(),
                     "masscan": {
                         "raw": self._to_binary(raw_output),
                         "encoded": banner,
@@ -1509,4 +1509,4 @@ class Nmap2DB(NmapHandler):
 class Nmap2Posgres(Nmap2DB):
     @staticmethod
     def _to_binary(data):
-        return data.encode('base64')
+        return data.encode('base64').decode()

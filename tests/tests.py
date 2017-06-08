@@ -137,13 +137,14 @@ class IvreTests(unittest.TestCase):
         res, out, err = RUN(cmd)
         self.assertTrue(errok or not err)
         self.assertEqual(res, 0)
-        self.check_value(name, out)
+        self.check_value(name, out.decode())
 
     def check_lines_value_cmd(self, name, cmd, errok=False):
         res, out, err = RUN(cmd)
         self.assertTrue(errok or not err)
         self.assertEqual(res, 0)
-        self.check_value(name, [line for line in out.split('\n') if line],
+        self.check_value(name, [line for line in out.decode().split('\n')
+                                if line],
                          check=self.assertItemsEqual)
 
     def check_int_value_cmd(self, name, cmd, errok=False):
@@ -198,7 +199,8 @@ class IvreTests(unittest.TestCase):
                              str(count)])
         self.assertTrue(not err)
         self.assertEqual(res, 0)
-        self.check_value(name, [line for line in out.split('\n') if line],
+        self.check_value(name, [line for line in out.decode().split('\n')
+                                if line],
                          check=self.assertItemsEqual)
 
     def _check_top_value_cgi(self, name, field, count):
@@ -208,7 +210,7 @@ class IvreTests(unittest.TestCase):
                                                    field, count))
         req.add_header('Referer',
                        'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
-        self.check_value(name, json.loads(urllib2.urlopen(req).read()),
+        self.check_value(name, json.loads(urllib2.urlopen(req).read().decode()),
                          check=self.assertItemsEqual)
 
     def check_top_value(self, name, field, count=10):
@@ -259,7 +261,7 @@ class IvreTests(unittest.TestCase):
         scan_stored = re.compile("^DEBUG:ivre:SCAN STORED: ", re.M)
         def host_stored_test(line):
             try:
-                return len(json.loads(line))
+                return len(json.loads(line.decode()))
             except ValueError:
                 return 0
         scan_duplicate = re.compile("^DEBUG:ivre:Scan already present in "
@@ -318,7 +320,7 @@ class IvreTests(unittest.TestCase):
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
         oid = str(ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhost(json.loads(out)['addr']),
+            ivre.db.db.nmap.searchhost(json.loads(out.decode())['addr']),
             limit=1, fields=["_id"],
         ).next()['_id'])
         res, out, _ = RUN(["ivre", "scancli", "--count", "--id", oid])

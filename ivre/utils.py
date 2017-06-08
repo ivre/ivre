@@ -747,58 +747,62 @@ def _read_nmap_probes():
     _NMAP_CUR_PROBE = None
     def parse_line(line):
         global _NMAP_PROBES, _NMAP_CUR_PROBE
-        if line.startswith('match '):
+        if line.startswith(b'match '):
             line = line[6:]
             soft = False
-        elif line.startswith('softmatch '):
+        elif line.startswith(b'softmatch '):
             line = line[10:]
             soft = True
-        elif line.startswith('Probe '):
+        elif line.startswith(b'Probe '):
             _NMAP_CUR_PROBE = []
-            proto, name, probe = line[6:].split(' ', 2)
-            _NMAP_PROBES.setdefault(proto.lower(), {})[name] = {
+            proto, name, probe = line[6:].split(b' ', 2)
+            _NMAP_PROBES.setdefault(proto.lower().decode(),
+                                    {})[name.decode()] = {
                 "probe": probe, "fp": _NMAP_CUR_PROBE
             }
             return
         else:
             return
-        service, data = line.split(' ', 1)
+        service, data = line.split(b' ', 1)
         info = {"soft": soft}
         while data:
-            if data.startswith('cpe:'):
+            if data.startswith(b'cpe:'):
                 key = 'cpe'
                 data = data[4:]
             else:
-                key = data[0]
+                key = data[0:1].decode()
                 data = data[1:]
-            sep = data[0]
+            sep = data[0:1]
             data = data[1:]
             index = data.index(sep)
             value = data[:index]
             data = data[index + 1:]
-            flag = ''
+            flag = b''
             if data:
-                if ' ' in data:
-                    flag, data = data.split(' ', 1)
+                if b' ' in data:
+                    flag, data = data.split(b' ', 1)
                 else:
-                    flag, data = data, ''
+                    flag, data = data, b''
             if key == 'm':
-                if value.endswith('\\r\\n'):
-                    value = value[:-4] + '(?:\\r\\n|$)'
-                elif value.endswith('\\\\n'):
-                    value = value[:3] + '(?:\\\\n|$)'
-                elif value.endswith('\\n'):
-                    value = value[:-2] + '(?:\\n|$)'
+                if value.endswith(b'\\r\\n'):
+                    value = value[:-4] + b'(?:\\r\\n|$)'
+                elif value.endswith(b'\\\\n'):
+                    value = value[:3] + b'(?:\\\\n|$)'
+                elif value.endswith(b'\\n'):
+                    value = value[:-2] + b'(?:\\n|$)'
                 value = re.compile(
                     value,
                     flags=sum(getattr(re, f) if hasattr(re, f) else 0
-                              for f in flag.upper()),
+                              for f in flag.decode().upper()),
                 )
-                flag = ''
+                flag = b''
+            else:
+                value = value.decode()
             info[key] = (value, flag)
-        _NMAP_CUR_PROBE.append((service, info))
+        _NMAP_CUR_PROBE.append((service.decode(), info))
     try:
-        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes')) as fdesc:
+        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes'),
+                  'rb') as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
     except (AttributeError, IOError):
@@ -822,14 +826,15 @@ _IKESCAN_VENDOR_IDS_POPULATED = False
 def _read_ikescan_vendor_ids():
     global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     try:
-        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids')) as fdesc:
-            sep = re.compile('\\t+')
+        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids'),
+                  'rb') as fdesc:
+            sep = re.compile(b'\\t+')
             _IKESCAN_VENDOR_IDS = [
-                (line[0], re.compile(line[1].replace('[[:xdigit:]]',
-                                                     '[0-9a-f]'), re.I))
+                (line[0], re.compile(line[1].replace(b'[[:xdigit:]]',
+                                                     b'[0-9a-f]'), re.I))
                 for line in (
                     sep.split(line, 1)
-                    for line in (line.strip().split('#', 1)[0]
+                    for line in (line.strip().split(b'#', 1)[0]
                                  for line in fdesc)
                     if line
                 )
@@ -853,10 +858,13 @@ def find_ike_vendor_id(vendorid):
             return name
 
 
+_REPRS = {'\r': '\\r', '\n': '\\n', '\t': '\\t'}
+
+
 def nmap_encode_data(data):
-    return "".join(
-        (d if " " <= d <= "~" else (repr(d)[1:-1] if d in '\r\n\t'
-                                    else ('\\x%02x' % ord(d))))
+    return b"".join(
+        (d if b" " <= d <= b"~" else (_REPRS[d] if d in _REPRS else
+                                      (b'\\x%02x' % ord(d))))
         for d in data
     )
 
@@ -867,7 +875,7 @@ def nmap_svc_fp_format_data(data, match):
             if '$%d' % (i + 1) in data:
                 return
             continue
-        data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
+        data = data.replace('$%d' % (i + 1), nmap_encode_data(value).decode())
     return data
 
 
