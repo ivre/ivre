@@ -1216,6 +1216,11 @@ if __name__ == '__main__':
     else:
         RUN = python_run
         RUN_ITER = python_run_iter
+    try:
+        # Python 2 & 3 compatibility
+        IvreTests.assertItemsEqual = IvreTests.assertCountEqual
+    except AttributeError:
+        pass
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
