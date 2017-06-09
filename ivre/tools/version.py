@@ -21,6 +21,7 @@
 
 
 from __future__ import print_function
+import sys
 
 
 from ivre import VERSION
@@ -31,6 +32,8 @@ def main():
     print("IVRE - Network recon framework")
     print("Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>")
     print("Version %s" % VERSION)
+    print()
+    print("Python %s" % sys.version)
     print()
     print("Dependencies:")
     for module in ['Crypto', 'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2',
