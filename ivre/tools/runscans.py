@@ -25,6 +25,7 @@ ivre scan2db.
 
 from __future__ import print_function
 import fcntl
+from functools import reduce
 import multiprocessing
 import os
 import re
@@ -439,11 +440,12 @@ def main():
                 print(ivre.utils.int2ip(target))
         except KeyboardInterrupt:
             print('Interrupted.\nUse "--state %s" to resume.' % (
-                ' '.join(map(str, targiter.getstate()))))
+                ' '.join(str(elt) for elt in targiter.getstate())
+            ))
         except Exception:
             ivre.utils.LOGGER.critical('Exception', exc_info=True)
             print('Use "--state %s" to resume.' % (
-                ' '.join(map(str, targiter.getstate()))
+                ' '.join(str(elt) for elt in targiter.getstate())
             ))
         exit(0)
     xmlprocess = {

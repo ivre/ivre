@@ -27,6 +27,7 @@ from bisect import bisect_left
 import codecs
 import csv
 import datetime
+from functools import reduce
 import json
 import re
 import socket
@@ -875,7 +876,7 @@ field.
     def _searchstring_list(field, value, neg=False, map_=None):
         if not isinstance(value, basestring) and hasattr(value, '__iter__'):
             if map_ is not None:
-                value = map(map_, value)
+                value = [map_(elt) for elt in value]
             if neg:
                 return field.notin_(value)
             return field.in_(value)

@@ -89,8 +89,8 @@ def bgp_raw_to_csv(fname, out):
     cur = []
     with open(os.path.join(config.GEOIP_PATH, fname)) as fdesc:
         for line in fdesc:
-            start, stop = map(utils.ip2int,
-                              utils.net2range(line[:-1].split()[0]))
+            start, stop = (utils.ip2int(elt) for elt in
+                           utils.net2range(line[:-1].split()[0]))
             if cur:
                 if start >= cur[0] and stop <= cur[1]:
                     continue
@@ -340,7 +340,7 @@ def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None,
         for line in fdesc:
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
-                curaddrs = map(utils.int2ip, range(start, stop + 1))
+                curaddrs = [utils.int2ip(addr) for addr in range(start, stop + 1)]
                 if skip > 0:
                     skip -= len(curaddrs)
                     if skip <= 0:
@@ -448,7 +448,7 @@ def list_ips_by_data(datafile, parseline, data,
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
                 if listall:
-                    curaddrs = map(utils.int2ip, range(start, stop + 1))
+                    curaddrs = [utils.int2ip(addr) for addr in range(start, stop + 1)]
                     if skip > 0:
                         skip -= len(curaddrs)
                         if skip <= 0:

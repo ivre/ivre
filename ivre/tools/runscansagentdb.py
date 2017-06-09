@@ -183,8 +183,8 @@ def main():
 
     if args.assign is not None:
         try:
-            agentid, scanid = map(ivre.db.db.agent.str2id,
-                                  args.assign.split(':', 1))
+            agentid, scanid = (ivre.db.db.agent.str2id(elt) for elt in
+                               args.assign.split(':', 1))
         except ValueError:
             parser.error("argument --assign: must give agentid:scanid")
         ivre.db.db.agent.assign_agent(agentid, scanid)

@@ -153,8 +153,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
         if authtype.lower() == 'digest':
             try:
                 # we only keep relevant info
-                value = filter(DIGEST_AUTH_INFOS.match,
-                               _split_digest_auth(spec['value'][6:].strip()))
+                value = [val for val in
+                         _split_digest_auth(spec['value'][6:].strip())
+                         if DIGEST_AUTH_INFOS.match(val)]
                 spec['value'] = '%s %s' % (authtype, ','.join(value))
             except:
                 pass

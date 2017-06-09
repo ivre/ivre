@@ -811,8 +811,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         if ("times" in elt["meta"] and elt["meta"]["times"] and
                 isinstance(elt["meta"]["times"], list) and
                 isinstance(elt["meta"]["times"][0], float)):
-            elt["meta"]["times"] = map(datetime.fromtimestamp,
-                                       elt["meta"]["times"])
+            elt["meta"]["times"] = [datetime.fromtimestamp(val) for val in
+                                    elt["meta"]["times"]]
 
         if not elt["meta"]:
             del elt["meta"]
@@ -1012,7 +1012,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         {src: <dict>, flow: <dict>, dst: <dict>}.
         """
         for src, flow, dst in cursor:
-            map(cls._cleanup_record, (src, flow, dst))
+            for rec in [src, flow, dst]:
+                cls._cleanup_record(rec)
             src_props = cls._get_props(src["elt"], src.get("meta"))
             src_ref = cls._get_ref(src["elt"], src_props)
             src_labels = cls._get_labels(src["elt"], src_props)
@@ -1146,7 +1147,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                     flist[i] = flist[i].replace("flow.", "link.")
                 if "." not in flist[i]:
                     flist[i] = "link.%s" % flist[i]
-                flist[i] = '.'.join(map(cypher_escape, flist[i].split(".")))
+                flist[i] = '.'.join(cypher_escape(elt) for elt in
+                                    flist[i].split("."))
 
         cy_fields = "[%s]" % ', '.join(fields)
         cy_collect = "[%s]" % ', '.join(collect)

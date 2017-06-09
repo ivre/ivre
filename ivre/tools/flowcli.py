@@ -139,11 +139,11 @@ def main():
         top = db.flow.top(query, args.top, args.collect, args.sum)
         for rec in top:
             sys.stdout.write("%s%s%s%s%s\n" % (
-                coma.join(map(str, rec["fields"])),
+                coma.join(str(elt) for elt in rec["fields"]),
                 sep,
                 rec["count"],
                 sep,
-                coma.join(str(coma2.join(map(str, elt)))
+                coma.join(str(coma2.join(str(val) for val in elt))
                           for elt in rec["collected"])
                 if rec["collected"] else ""
             ))
@@ -197,6 +197,8 @@ def main():
                 if args.timeline:
                     out.write(sep)
                     out.write(coma.join(
-                        map(str, sorted(res['flow']['data']['meta']['times']))
+                        str(elt) for elt in sorted(
+                            res['flow']['data']['meta']['times']
+                        )
                     ))
                 out.write('\n')

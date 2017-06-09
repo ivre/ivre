@@ -26,6 +26,7 @@ lists.
 """
 
 
+from functools import reduce
 import os
 import random
 import re

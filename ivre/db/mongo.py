@@ -1397,7 +1397,7 @@ have no effect if it is not expected)."""
         """
         if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
             return {'infos.as_num':
-                    {'$nin' if neg else '$in': map(int, asnum)}}
+                    {'$nin' if neg else '$in': [int(val) for val in asnum]}}
         asnum = int(asnum)
         return {'infos.as_num': {'$ne': asnum} if neg else asnum}
 
@@ -2333,8 +2333,8 @@ have no effect if it is not expected)."""
                     ]}}}]
             field = "ports.scripts.ike-info.vendor_ids"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(map(null_if_empty,
-                                                     x['_id'].split('###')))}
+                                    '_id': tuple(null_if_empty(val) for val in
+                                                 x['_id'].split('###'))}
         elif field == 'ike.transforms':
             flt = self.flt_and(flt, self.searchscript(
                 name="ike-info",
@@ -2364,8 +2364,8 @@ have no effect if it is not expected)."""
                     ]}}}]
             field = "ports.scripts.ike-info.transforms"
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(map(null_if_empty,
-                                                     x['_id'].split('###')))}
+                                    '_id': tuple(null_if_empty(val) for val in
+                                                 x['_id'].split('###'))}
         elif field == 'ike.notification':
             flt = self.flt_and(flt, self.searchscript(
                 name="ike-info",

@@ -344,7 +344,7 @@ def flt_from_query(query, base_flt=None):
             flt = db.nmap.flt_and(flt, db.nmap.searchsource(value, neg=neg))
         elif param == "timerange":
             flt = db.nmap.flt_and(flt, db.nmap.searchtimerange(
-                *map(float, value.replace('-', ',').split(',')),
+                *(float(val) for val in value.replace('-', ',').split(',')),
                 neg=neg))
         elif param == 'timeago':
             if value and value[-1].isalpha():
@@ -592,7 +592,9 @@ def flt_from_query(query, base_flt=None):
                 )
         elif param == 'otheropenport':
             flt = db.nmap.flt_and(
-                flt, db.nmap.searchportsother(map(int, value.split(','))))
+                flt, db.nmap.searchportsother([int(val) for val in
+                                               value.split(',')])
+            )
         elif param == "screenshot":
             if value is None:
                 flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(neg=neg))
@@ -613,7 +615,8 @@ def flt_from_query(query, base_flt=None):
                 )
             else:
                 params = value.split(':', 1)
-                words = (map(utils.str2regexp, params[0].split(','))
+                words = ([utils.str2regexp(elt) for elt in
+                          params[0].split(',')]
                          if ',' in params[0] else utils.str2regexp(params[0]))
                 if len(params) == 1:
                     flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
@@ -658,7 +661,8 @@ def flt_from_query(query, base_flt=None):
             elif all(x.isdigit() for x in param.split(',')):
                 flt = db.nmap.flt_and(
                     flt,
-                    db.nmap.searchports(map(int, param.split(',')), neg=neg)
+                    db.nmap.searchports([int(val) for val in param.split(',')],
+                                        neg=neg)
                 )
             elif IPADDR.match(param):
                 flt = db.nmap.flt_and(flt, db.nmap.searchhost(param, neg=neg))

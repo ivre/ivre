@@ -62,7 +62,8 @@ def getnextfiles(directory, sensor=None, count=1):
         fmt = re.compile(FILEFORMAT % re.escape(sensor))
     files = [fmt.match(f) for f in os.listdir(directory)]
     files = [f for f in files if f is not None]
-    files.sort(key=lambda x: map(int, x.groupdict()['datetime'].split('-')))
+    files.sort(key=lambda x: int(val) for val in
+               x.groupdict()['datetime'].split('-'))
     return [f for f in files[:count]]
 
 

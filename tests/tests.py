@@ -20,6 +20,7 @@
 from contextlib import contextmanager
 from distutils.spawn import find_executable as which
 import errno
+from functools import reduce
 from io import BytesIO
 import json
 import os
@@ -490,8 +491,8 @@ class IvreTests(unittest.TestCase):
             count += ivre.db.db.nmap.count(
                 ivre.db.db.nmap.searchnet(net)
             )
-            start, stop = map(ivre.utils.ip2int,
-                              ivre.utils.net2range(net))
+            start, stop = (ivre.utils.ip2int(addr) for addr in
+                           ivre.utils.net2range(net))
             for addr in ivre.db.db.nmap.distinct(
                     "addr",
                     flt=ivre.db.db.nmap.searchnet(net),
@@ -961,8 +962,8 @@ class IvreTests(unittest.TestCase):
                 ivre.db.db.passive.searchnet(net)
             )
             count += result
-            start, stop = map(ivre.utils.ip2int,
-                              ivre.utils.net2range(net))
+            start, stop = (ivre.utils.ip2int(addr) for addr in
+                           ivre.utils.net2range(net))
             for addr in ivre.db.db.passive.distinct(
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),

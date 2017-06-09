@@ -22,24 +22,25 @@ database backends.
 """
 
 
-import sys
-import socket
+import datetime
+from functools import reduce
+import json
+import os
+import pickle
 import re
+import shutil
+import socket
 import struct
+import subprocess
+import sys
+import tempfile
 try:
     from urllib.parse import urlparse, unquote
 except ImportError:
     from urlparse import urlparse
     from urllib import unquote
-import xml.sax
-import os
-import subprocess
-import shutil
-import tempfile
-import pickle
 import uuid
-import json
-import datetime
+import xml.sax
 
 
 from builtins import range
@@ -1543,7 +1544,7 @@ def _mongodb_url2dbinfos(url):
         username = url.netloc[:url.netloc.index('@')]
         if ':' in username:
             userinfo = dict(zip(["username", "password"],
-                                map(unquote, username.split(':', 1))))
+                                [unquote(val) for val in username.split(':', 1)]))
         else:
             username = unquote(username)
             if username == 'GSSAPI':

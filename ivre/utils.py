@@ -26,6 +26,7 @@ import ast
 import bz2
 import datetime
 import errno
+from functools import reduce
 import gzip
 import hashlib
 from io import BytesIO
@@ -262,7 +263,7 @@ def nmapspec2ports(string):
     result = set()
     for ports in string.split(','):
         if '-' in ports:
-            ports = map(int, ports.split('-', 1))
+            ports = [int(port) for port in ports.split('-', 1)]
             result = result.union(range(ports[0], ports[1] + 1))
         else:
             result.add(int(ports))
