@@ -16,36 +16,37 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-pkgname=ivre
+pkgname=python2-ivre
 pkgver=0.9.5.dev36
 pkgrel=1
 pkgdesc="Network recon framework"
 url="https://ivre.rocks/"
 arch=('any')
 license=('GPL3')
-depends=('python' 'python-crypto' 'python-pymongo')
-optdepends=('python-py2neo: flow analysis support'
-            'python-sqlalchemy: PostgreSQL backend support'
-            'python-psycopg2: PostgreSQL backend support'
-	    'python-pillow: Screenshots'
-	    'python-dbus: 3D traceroute graphs'
-	    'python-matplotlib: Plots')
-makedepends=('git' 'python-setuptools')
+depends=('python2' 'python2-crypto' 'python2-pymongo')
+optdepends=('python2-py2neo: flow analysis support'
+            'python2-sqlalchemy: PostgreSQL backend support'
+            'python2-psycopg2: PostgreSQL backend support'
+	    'python2-pillow: Screenshots'
+	    'python2-dbus: 3D traceroute graphs'
+	    'python2-matplotlib: Plots')
+makedepends=('git' 'python2-setuptools')
 source=('git+https://github.com/cea-sec/ivre.git')
 sha1sums=('SKIP')
 
 pkgver() {
   cd "$srcdir/ivre"
-  python setup.py --version
+  python2 setup.py --version
 }
 
 build() {
   cd "$srcdir/ivre"
-  python setup.py build
+  python2 setup.py build
 }
 
 package() {
   cd "$srcdir/ivre"
   install -Dm644 -t "$pkgdir/usr/share/licenses/ivre/" doc/LICENSE*
-  python setup.py install --root="$pkgdir" --optimize=1
+  python2 setup.py install --root="$pkgdir" --optimize=1
+  rm -rf "$pkgdir/usr/bin" "$pkgdir/usr/share" "$pkgdir/etc"
 }
