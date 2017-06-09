@@ -27,6 +27,7 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from builtins import input
 from future.utils import viewitems
 try:
     import matplotlib.pyplot as plt
@@ -103,7 +104,7 @@ def main():
             out.write(
                 'This will remove any scan result in your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.flow.init()
@@ -114,7 +115,7 @@ def main():
             out.write(
                 'This will lock your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.flow.ensure_indexes()

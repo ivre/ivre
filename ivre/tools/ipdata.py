@@ -38,6 +38,7 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from builtins import input
 from future.utils import viewitems
 
 
@@ -91,7 +92,7 @@ def main():
             sys.stdout.write(
                 'This will remove any country/AS information in your '
                 'database. Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 exit(0)
         ivre.db.db.data.init()
@@ -99,7 +100,7 @@ def main():
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
                 'This will lock your database. Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() == 'y':
                 ivre.db.db.data.ensure_indexes()
     if args.download:

@@ -26,6 +26,9 @@ import sys
 import time
 
 
+from builtins import input
+
+
 import ivre.target
 import ivre.db
 import ivre.utils
@@ -151,7 +154,7 @@ def main():
             sys.stdout.write(
                 'This will remove any agent and/or scan in your '
                 'database and files. Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         ivre.db.db.agent.init()

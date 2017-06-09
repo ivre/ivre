@@ -23,6 +23,9 @@ import subprocess
 import sys
 
 
+from builtins import input
+
+
 import ivre.target
 import ivre.utils
 import ivre.scanengine
@@ -123,5 +126,5 @@ def main():
             ivre.utils.LOGGER.info('No target left to scan.')
             if os.environ['TERM'] != 'screen':
                 ivre.utils.LOGGER.info('Press enter to exit.')
-                raw_input()
-        raw_input()
+                input()
+        input()

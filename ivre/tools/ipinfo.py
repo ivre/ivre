@@ -38,6 +38,9 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from builtins import input
+
+
 from ivre.db import db
 import ivre.utils
 
@@ -277,7 +280,7 @@ def main():
                 'This will remove any passive information in your '
                 'database. Process ? [y/N] '
             )
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 exit(0)
         db.passive.init()
@@ -287,7 +290,7 @@ def main():
             sys.stdout.write(
                 'This will lock your database. Process ? [y/N] '
             )
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 exit(0)
         db.passive.ensure_indexes()

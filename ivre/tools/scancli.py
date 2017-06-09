@@ -34,6 +34,7 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from builtins import input
 from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 
@@ -483,7 +484,7 @@ def main():
             sys.stdout.write(
                 'This will remove any scan result in your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.db.nmap.init()
@@ -493,7 +494,7 @@ def main():
             sys.stdout.write(
                 'This will lock your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.db.nmap.ensure_indexes()

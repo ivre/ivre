@@ -28,6 +28,7 @@ import os
 import json
 
 
+from builtins import input
 from future.utils import viewitems
 
 
@@ -165,7 +166,7 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
     for record in recordsgen:
         displayhost(record, out=out, **kargs)
         if os.isatty(out.fileno()):
-            raw_input()
+            input()
         else:
             out.write('\n')
 
