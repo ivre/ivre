@@ -353,8 +353,8 @@ class DBNmap(DB):
             fchar = fdesc.read(1)
         try:
             store_scan_function = {
-                '<': self.store_scan_xml,
-                '{': self.store_scan_json,
+                b'<': self.store_scan_xml,
+                b'{': self.store_scan_json,
             }[fchar]
         except KeyError:
             raise ValueError("Unknown file type %s" % fname)

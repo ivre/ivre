@@ -45,7 +45,7 @@ except ImportError:
     USE_PIL = False
 
 
-from builtins import int, range
+from builtins import int, range, str
 from future.utils import viewitems
 from past.builtins import basestring
 
@@ -77,6 +77,10 @@ def ip2int(ipstr):
     database storage.
 
     """
+    try:
+        ipstr = ipstr.decode()
+    except AttributeError:
+        pass
     return struct.unpack('!I', socket.inet_aton(ipstr))[0]
 
 
@@ -173,23 +177,26 @@ def regexp2pattern(string):
     if isinstance(string, REGEXP_T):
         flags = string.flags
         string = string.pattern
-        if string.startswith('^'):
+        patterns = (('^', '$', '.*')
+                    if isinstance(string, str) else
+                    (b'^', b'$', b'.*'))
+        if string.startswith(patterns[0]):
             string = string[1:]
         # elif string.startswith('('):
         #     raise ValueError("Regexp starting with a group are not "
         #                      "(yet) supported")
         else:
-            string = ".*" + string
-        if string.endswith('$'):
+            string = patterns[2] + string
+        if string.endswith(patterns[1]):
             string = string[:-1]
         # elif string.endswith(')'):
         #     raise ValueError("Regexp ending with a group are not "
         #                      "(yet) supported")
         else:
-            string += ".*"
+            string += patterns[2]
         return string, flags
     else:
-        return re.escape(string), 0
+        return re.escape(string), re.UNICODE if isinstance(string, str) else 0
 
 
 def str2list(string):
@@ -197,8 +204,11 @@ def str2list(string):
     a list of the coma-or-pipe separated elements from the string.
 
     """
-    if ',' in string or '|' in string:
-        return string.replace('|', ',').split(',')
+    patterns = ((',', '|')
+                if isinstance(string, str) else
+                (b',', b'|'))
+    if patterns[0] in string or patterns[1] in string:
+        return string.replace(patterns[1], patterns[0]).split(patterns[0])
     return string
 
 
@@ -405,8 +415,8 @@ class FileOpener(object):
 
     """
     FILE_OPENERS_MAGIC = {
-        "\x1f\x8b": (config.GZ_CMD, gzip.open),
-        "BZ": (config.BZ2_CMD, bz2.BZ2File),
+        b"\x1f\x8b": (config.GZ_CMD, gzip.open),
+        b"BZ": (config.BZ2_CMD, bz2.BZ2File),
     }
 
     def __init__(self, fname):

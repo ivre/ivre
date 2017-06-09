@@ -254,25 +254,25 @@ class IvreTests(unittest.TestCase):
         self.start_web_server()
 
         # Init DB
-        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
         self.assertEqual(RUN(["ivre", "scancli", "--init"],
                               stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
         scan_counter = 0
         host_counter_test = 0
         scan_warning = 0
-        host_stored = re.compile("^DEBUG:ivre:HOST STORED: ", re.M)
-        scan_stored = re.compile("^DEBUG:ivre:SCAN STORED: ", re.M)
+        host_stored = re.compile(b"^DEBUG:ivre:HOST STORED: ", re.M)
+        scan_stored = re.compile(b"^DEBUG:ivre:SCAN STORED: ", re.M)
         def host_stored_test(line):
             try:
                 return len(json.loads(line.decode()))
             except ValueError:
                 return 0
-        scan_duplicate = re.compile("^DEBUG:ivre:Scan already present in "
-                                    "Database", re.M)
+        scan_duplicate = re.compile(b"^DEBUG:ivre:Scan already present in "
+                                    b"Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
             options = ["ivre", "scan2db", "--port", "-c", "TEST",
@@ -812,10 +812,10 @@ class IvreTests(unittest.TestCase):
     def test_passive(self):
 
         # Init DB
-        self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], b"0\n")
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                              stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], "0\n")
+        self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], b"0\n")
 
         # p0f & Bro insertion
         ivre.utils.makedirs("logs")
@@ -892,7 +892,7 @@ class IvreTests(unittest.TestCase):
         ])
         self.assertEqual(ret, 0)
         self.assertTrue(not err)
-        self.assertGreater(out.count('\n'), result)
+        self.assertGreater(out.count(b'\n'), result)
 
         result = ivre.db.db.passive.count(
             ivre.db.db.passive.searchhost("127.12.34.56")
@@ -1082,16 +1082,16 @@ class IvreTests(unittest.TestCase):
             ivre.utils.range2nets((2, 1))
 
         # String utils
-        teststr = "TEST STRING -./*'"
+        teststr = b"TEST STRING -./*'"
         self.assertEqual(ivre.utils.regexp2pattern(teststr),
                          (re.escape(teststr), 0))
         self.assertEqual(
             ivre.utils.regexp2pattern(
-                re.compile('^' + re.escape(teststr) + '$')),
+                re.compile(b'^' + re.escape(teststr) + b'$')),
             (re.escape(teststr), 0))
         self.assertEqual(
             ivre.utils.regexp2pattern(re.compile(re.escape(teststr))),
-            ('.*' + re.escape(teststr) + '.*', 0))
+            (b'.*' + re.escape(teststr) + b'.*', 0))
         self.assertEqual(ivre.utils.str2list(teststr), teststr)
         teststr = "1,2|3"
         self.assertItemsEqual(ivre.utils.str2list(teststr),
