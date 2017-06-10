@@ -35,6 +35,7 @@ import subprocess
 import tempfile
 
 
+from builtins import object
 from future.utils import viewvalues
 from past.builtins import basestring
 
@@ -106,7 +107,7 @@ class IterTarget(object):
     def getstate(self):
         return (self.previous, self.lcg_c, self.lcg_a, self.nextcount)
 
-    def next(self):
+    def __next__(self):
         if self.nextcount >= self.target.maxnbr:
             raise StopIteration
         self.nextcount += 1
@@ -312,7 +313,7 @@ class IterTargetFile(object):
             raise StopIteration
         return self.target.__getaddr__(line)
 
-    def next(self):
+    def __next__(self):
         while True:
             addr = self.__readline__()
             if addr is not None:

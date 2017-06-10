@@ -1367,7 +1367,7 @@ class DBAgent(DB):
             for agentid in scan['agents']:
                 if self.get_agent(agentid)['master'] == masterid:
                     for _ in range(self.may_receive(agentid)):
-                        self.add_target(agentid, scanid, target.next())
+                        self.add_target(agentid, scanid, next(target))
         except StopIteration:
             # This scan is over, let's free its agents
             for agentid in scan['agents']:

@@ -50,7 +50,7 @@ class BroFile(Parser):
                 break
             self.parse_header_line(line)
 
-    def next(self):
+    def __next__(self):
         return self.parse_line(self.nextlines.pop(0)
                                if self.nextlines else
                                next(self.fdesc))
@@ -90,7 +90,7 @@ class BroFile(Parser):
 
     def parse_line(self, line):
         if line.startswith('#'):
-            return self.next()
+            return next(self)
         res = {}
         fields = line.strip().split(self.sep)
 

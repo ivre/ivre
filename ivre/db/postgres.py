@@ -138,7 +138,7 @@ the original line.
         try:
             line = None
             while line is None:
-                line = self.fixline(self.inp.next())
+                line = self.fixline(next(self.inp))
             if self.limit is not None:
                 self.count += 1
             return '%s\n' % '\t'.join(line)

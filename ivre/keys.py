@@ -72,8 +72,8 @@ class NmapKey(DBKey):
     def getscripts(self, host):
         for port in host.get('ports', []):
             try:
-                script = (s for s in port.get('scripts', [])
-                          if s['id'] == self.scriptid).next()
+                script = next(s for s in port.get('scripts', [])
+                              if s['id'] == self.scriptid)
             except StopIteration:
                 continue
             yield {"port": port["port"], "script": script}
@@ -241,9 +241,9 @@ class RSAKey(object):
 
     def data2key(self, data):
         data = self._data2key(data)
-        _, exp, mod = (data.next(),
-                       long(data.next().encode('hex'), 16),
-                       long(data.next().encode('hex'), 16))
+        _, exp, mod = (next(data),
+                       long(next(data).encode('hex'), 16),
+                       long(next(data).encode('hex'), 16))
         return RSA.construct((mod, exp))
 
 

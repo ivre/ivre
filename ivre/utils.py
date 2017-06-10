@@ -46,7 +46,7 @@ except ImportError:
     USE_PIL = False
 
 
-from builtins import int, range, str
+from builtins import int, object, range, str
 from future.utils import viewitems
 from past.builtins import basestring
 
@@ -474,8 +474,8 @@ class FileOpener(object):
     def __iter__(self):
         return self
 
-    def next(self):
-        return self.fdesc.next()
+    def __next__(self):
+        return next(self.fdesc)
 
 
 def open_file(fname):

@@ -60,16 +60,16 @@ class Airodump(Parser):
         super(Airodump, self).__init__(fname)
         self.nextline_headers = False
 
-    def next(self):
-        line = super(Airodump, self).next().rstrip('\r\n')
+    def __next__(self):
+        line = next(super(Airodump, self)).rstrip('\r\n')
         if not line:
             self.nextline_headers = True
-            return self.next()
+            return next(self)
         line = [elt.strip() for elt in line.split(',')]
         if self.nextline_headers:
             self.fields = line
             self.nextline_headers = False
-            return self.next()
+            return next(self)
         return dict(zip(
             self.fields,
             (self.converters.get(self.types.get(self.fields[i]))(val)

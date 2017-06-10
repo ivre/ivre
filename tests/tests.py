@@ -327,10 +327,10 @@ class IvreTests(unittest.TestCase):
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
-        oid = str(ivre.db.db.nmap.get(
+        oid = str(next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(json.loads(out.decode())['addr']),
             limit=1, fields=["_id"],
-        ).next()['_id'])
+        ))['_id'])
         res, out, _ = RUN(["ivre", "scancli", "--count", "--id", oid])
         self.assertEqual(res, 0)
         self.assertEqual(int(out), 1)
@@ -369,16 +369,16 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(portsnb_10_100 + portsnb_not_10_100, host_counter)
 
         # Filters
-        addr = ivre.db.db.nmap.get(
+        addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty, fields=["addr"]
-        ).next()['addr']
+        ))['addr']
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhost(addr)
         )
         self.assertEqual(count, 1)
-        result = ivre.db.db.nmap.get(
+        result = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
-        ).next()
+        ))
         self.assertEqual(result['addr'], addr)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchhost(addr),
@@ -386,9 +386,9 @@ class IvreTests(unittest.TestCase):
         ))
         self.assertEqual(count, 1)
         # Remove
-        result = ivre.db.db.nmap.get(
+        result = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
-        ).next()
+        ))
         ivre.db.db.nmap.remove(result)
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhost(addr)
@@ -396,7 +396,7 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
         hosts_count -= 1
         recid = ivre.db.db.nmap.getid(
-            ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty).next()
+            next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
         )
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchid(recid)
@@ -405,7 +405,7 @@ class IvreTests(unittest.TestCase):
         self.assertIsNotNone(
             ivre.db.db.nmap.getscan(
                 ivre.db.db.nmap.getscanids(
-                    ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty).next()
+                    next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
                 )[0]
             )
         )
@@ -416,8 +416,8 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(count, 0)
 
         generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
-        addrrange = sorted((x['addr'] for x in [generator.next(),
-                                                generator.next()]),
+        addrrange = sorted((x['addr'] for x in [next(generator),
+                                                next(generator)]),
                            key=lambda x: (ivre.utils.ip2int(x)
                                           if isinstance(x, basestring) else x))
         addr_range_count = ivre.db.db.nmap.count(
@@ -476,11 +476,11 @@ class IvreTests(unittest.TestCase):
 
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchtimerange(
-                0, ivre.db.db.nmap.get(
+                0, next(ivre.db.db.nmap.get(
                     ivre.db.db.nmap.flt_empty,
                     fields=['endtime'],
                     sort=[['endtime', -1]]
-                ).next()['endtime']
+                ))['endtime']
             )
         )
         self.assertEqual(count, hosts_count)
@@ -529,7 +529,7 @@ class IvreTests(unittest.TestCase):
         result = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchscript(name="http-robots.txt")
         )
-        addr = result.next()['addr']
+        addr = next(result)['addr']
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchscript(name="http-robots.txt"),
             ivre.db.db.nmap.searchhost(addr),
@@ -560,7 +560,7 @@ class IvreTests(unittest.TestCase):
         hop = random.choice([
             hop for hop in
             reduce(lambda x, y: x['hops'] + y['hops'],
-                   result.next()['traces'],
+                   next(result)['traces'],
                    {'hops': []})
             if 'domains' in hop and hop['domains']
         ])
@@ -574,9 +574,9 @@ class IvreTests(unittest.TestCase):
         self.assertGreaterEqual(count, 1)
 
         # Indexes
-        addr = ivre.db.db.nmap.get(
+        addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
-        ).next()['addr']
+        ))['addr']
         if not isinstance(addr, basestring):
             addr = ivre.utils.int2ip(addr)
         queries = [
@@ -648,9 +648,9 @@ class IvreTests(unittest.TestCase):
                                          neg=True)
         )
         self.check_value("nmap_not_domain_com_or_net_count", count)
-        name = ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
+        name = next(ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
             'com'
-        )).next()['hostnames'][0]['name']
+        )))['hostnames'][0]['name']
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchhostname(name))
         self.assertGreater(count, 0)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchcategory("TEST"))
@@ -757,53 +757,53 @@ class IvreTests(unittest.TestCase):
                              ["ivre", "scancli", "--top", "version:http:Apache httpd"])
 
         categories = ivre.db.db.nmap.topvalues("category")
-        category = categories.next()
+        category = next(categories)
         self.assertEqual(category["_id"], "TEST")
         self.assertEqual(category["count"], hosts_count)
         with self.assertRaises(StopIteration):
-            categories.next()
+            next(categories)
         topgen = ivre.db.db.nmap.topvalues("service")
-        topval = topgen.next()['_id']
+        topval = next(topgen)['_id']
         while topval is None:
-            topval = topgen.next()['_id']
+            topval = next(topgen)['_id']
         self.check_value("nmap_topsrv", topval)
         topgen = ivre.db.db.nmap.topvalues("service:80")
-        topval = topgen.next()['_id']
+        topval = next(topgen)['_id']
         while topval is None:
-            topval = topgen.next()['_id']
+            topval = next(topgen)['_id']
         self.check_value("nmap_topsrv_80", topval)
         topgen = ivre.db.db.nmap.topvalues("product")
-        topval = topgen.next()['_id']
+        topval = next(topgen)['_id']
         while topval[1] is None:
-            topval = list(topgen.next()['_id'])
+            topval = list(next(topgen)['_id'])
         self.check_value("nmap_topprod", topval)
         topgen = ivre.db.db.nmap.topvalues("product:80")
-        topval = list(topgen.next()['_id'])
+        topval = list(next(topgen)['_id'])
         while topval[1] is None:
-            topval = list(topgen.next()['_id'])
+            topval = list(next(topgen)['_id'])
         self.check_value("nmap_topprod_80", topval)
         topgen = ivre.db.db.nmap.topvalues("devicetype")
-        topval = topgen.next()['_id']
+        topval = next(topgen)['_id']
         while topval is None:
-            topval = topgen.next()['_id']
+            topval = next(topgen)['_id']
         self.check_value("nmap_topdevtype", topval)
         topgen = ivre.db.db.nmap.topvalues("devicetype:80")
-        topval = topgen.next()['_id']
+        topval = next(topgen)['_id']
         while topval is None:
-            topval = topgen.next()['_id']
+            topval = next(topgen)['_id']
         self.check_value("nmap_topdevtype_80", topval)
         self.check_value(
             "nmap_topdomain",
-            ivre.db.db.nmap.topvalues("domains").next()['_id'])
+            next(ivre.db.db.nmap.topvalues("domains"))['_id'])
         self.check_value(
             "nmap_topdomains_1",
-            ivre.db.db.nmap.topvalues("domains:1").next()['_id'])
+            next(ivre.db.db.nmap.topvalues("domains:1"))['_id'])
         self.check_value(
             "nmap_tophop",
-            ivre.db.db.nmap.topvalues("hop").next()['_id'])
+            next(ivre.db.db.nmap.topvalues("hop"))['_id'])
         self.check_value(
             "nmap_tophop_10+",
-            ivre.db.db.nmap.topvalues("hop>10").next()['_id'])
+            next(ivre.db.db.nmap.topvalues("hop>10"))['_id'])
 
         if DATABASE != "postgres":
             # FIXME: for some reason, this does not terminate
@@ -1029,9 +1029,9 @@ class IvreTests(unittest.TestCase):
 
         # Top values
         for distinct in [True, False]:
-            values = ivre.db.db.passive.topvalues(field="addr",
-                                                  distinct=distinct,
-                                                  topnbr=1).next()
+            values = next(ivre.db.db.passive.topvalues(field="addr",
+                                                       distinct=distinct,
+                                                       topnbr=1))
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
                 ivre.utils.ip2int(values["_id"])

@@ -18,15 +18,18 @@
 
 """Parsers for file formats / tool outputs"""
 
+
 import subprocess
 
+
 from ivre.utils import FileOpener
+
 
 class Parser(FileOpener):
     """Parent class for file parsers"""
 
-    def next(self):
-        return self.parse_line(super(Parser, self).next())
+    def __next__(self):
+        return self.parse_line(next(super(Parser, self)))
 
 
 class CmdParser(object):
@@ -40,8 +43,8 @@ class CmdParser(object):
     def __iter__(self):
         return self
 
-    def next(self):
-        return self.parse_line(self.fdesc.next())
+    def __next__(self):
+        return self.parse_line(next(self.fdesc))
 
     def __enter__(self):
         return self

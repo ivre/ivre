@@ -214,10 +214,10 @@ def call_nmap(options, xmlprocess, targets,
                 toread.remove(rfdesc)
         for wfdesc in wlist:
             try:
-                naddr = ivre.utils.int2ip(targiter.next())
+                naddr = ivre.utils.int2ip(next(targiter))
                 while xmlprocess.target_status(
                         naddr) not in accept_target_status:
-                    naddr = ivre.utils.int2ip(targiter.next())
+                    naddr = ivre.utils.int2ip(next(targiter))
                 print("ADDING TARGET", end=' ')
                 print(targiter.nextcount, end=' ')
                 if hasattr(targets, "targetcount"):
