@@ -427,13 +427,13 @@ class FileOpener(object):
             self.needsclose = False
             return
         self.needsclose = True
-        with open(fname) as fdesc:
+        with open(fname, 'rb') as fdesc:
             magic = fdesc.read(2)
         try:
             cmd_opener, py_opener = self.FILE_OPENERS_MAGIC[magic]
         except KeyError:
             # Not a compressed file
-            self.fdesc = open(fname)
+            self.fdesc = open(fname, 'rb')
             return
         try:
             # By default we try to use zcat / bzcat, since they seem to be
