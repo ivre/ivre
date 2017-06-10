@@ -259,10 +259,9 @@ class MongoDB(DB):
         .migrate_schema()).
 
         """
-        return cmp(
-            self.schema_latest_versions.get(colname, 0),
-            document.get("schema_version", 0),
-        )
+        val1 = self.schema_latest_versions.get(colname, 0)
+        val2 = document.get("schema_version", 0)
+        return (val1 > val2) - (val1 < val2)
 
     def _topvalues(self, field, flt=None, topnbr=10, sort=None,
                    limit=None, skip=None, least=False, aggrflt=None,
@@ -2540,9 +2539,9 @@ have no effect if it is not expected)."""
         cursor = self.db[self.colname_oldhosts if archive else
                          self.colname_hosts].aggregate(pipeline, cursor={})
         def categories_to_val(categories):
-            states = [category1 in categories, category2 in categories]
+            state1, state2 = category1 in categories, category2 in categories
             # assert any(states)
-            return -cmp(*states)
+            return (state2 > state1) - (state2 < state1)
         cursor = (dict(x['_id'], value=categories_to_val(x['categories']))
                   for x in cursor)
         if include_both_open:

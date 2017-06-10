@@ -748,9 +748,10 @@ def guess_srv_port(port1, port2, proto="tcp"):
     if not _PORTS_POPULATED:
         _set_ports()
     ports = _PORTS.get(proto, {})
-    cmpval = cmp(ports.get(port1, 0), ports.get(port2, 0))
+    val1, val2 = ports.get(port1, 0), ports.get(port2, 0)
+    cmpval = (val1 > val2) - (val1 < val2)
     if cmpval == 0:
-        return cmp(port2, port1)
+        return (port2 > port1) - (port2 < port1)
     return cmpval
 
 
