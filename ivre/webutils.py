@@ -217,8 +217,8 @@ def get_anonymized_user():
     the HMAC secret.
 
     """
-    return HMAC(key=config.WEB_SECRET,
-                msg=get_user()).digest()[:9].encode('base64').rstrip()
+    return utils.encode_b64(HMAC(key=config.WEB_SECRET,
+                                 msg=get_user()).digest()[:9])
 
 
 QUERIES = {

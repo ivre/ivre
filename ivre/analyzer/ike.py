@@ -23,7 +23,7 @@ import struct
 from future.utils import viewitems
 
 
-from ivre.utils import find_ike_vendor_id
+from ivre.utils import find_ike_vendor_id, encode_hex
 
 
 class Values(dict):
@@ -289,7 +289,7 @@ def info_from_vendorid(payload, service, output):
         elif name == b'Teldat':
             service['service_product'] = name.decode()
             service['service_devicetype'] = 'broadband router'
-    entry = {'value': payload[4:].encode('hex').decode()}
+    entry = {'value': encode_hex(payload[4:]).decode()}
     if name is not None:
         entry["name"] = name.decode()
     output.setdefault('vendor_ids', []).append(entry)

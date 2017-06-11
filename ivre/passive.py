@@ -213,12 +213,11 @@ def _getinfos_http_client_authorization(spec):
     fullinfos = {}
     data = spec.get('fullvalue', spec['value']).split(None, 1)
     if data[1:]:
-        if data[0].lower() == 'basic':
+        if data[0].lower() == b'basic':
             try:
-                infos['username'], infos['password'] = ''.join(data[1].strip())\
-                                                         .decode('base64')\
-                                                         .decode('latin-1')\
-                                                         .split(':', 1)
+                infos['username'], infos['password'] = utils.decode_b64(
+                    data[1].strip()
+                ).decode('latin-1').split(':', 1)
                 for field in ['username', 'password']:
                     if len(infos[field]) > utils.MAXVALLEN:
                         fullinfos[field] = infos[field]
@@ -293,7 +292,7 @@ def _getinfos_cert(spec):
     infos = {}
     fullinfos = {}
     try:
-        cert = spec.get('fullvalue', spec['value']).decode('base64')
+        cert = utils.decode_b64(spec.get('fullvalue', spec['value']))
     except Exception:
         return {}
     for hashtype in ['md5', 'sha1']:

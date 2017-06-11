@@ -184,7 +184,7 @@ class MongoDB(DB):
     @staticmethod
     def serialize(obj):
         if isinstance(obj, bson.ObjectId):
-            return obj.binary.encode('hex')
+            return utils.encode_hex(obj.binary)
         return DB.serialize(obj)
 
     def explain(self, cursor, indent=None):
@@ -1309,12 +1309,12 @@ have no effect if it is not expected)."""
         for port in host.get('ports', []):
             if 'screendata' in port:
                 port['screendata'] = bson.Binary(
-                    port['screendata'].decode('base64')
+                    utils.decode_b64(port['screendata'])
                 )
             for script in port.get('scripts', []):
                 if 'masscan' in script and 'raw' in script['masscan']:
                     script['masscan']['raw'] = bson.Binary(
-                        script['masscan']['raw'].decode('base64')
+                        utils.decode_b64(script['masscan']['raw'])
                     )
         return host
 

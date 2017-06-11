@@ -276,12 +276,11 @@ class ScanCSVFile(CSVFile):
         for port in line.get('ports', []):
             for script in port.get('scripts', []):
                 if 'masscan' in script and 'raw' in script['masscan']:
-                    script['masscan']['raw'] = script['masscan']['raw'].encode(
-                        'base64'
-                    ).replace('\n', '')
+                    script['masscan']['raw'] = utils.encode_b64(
+                        script['masscan']['raw']
+                    )
             if 'screendata' in port:
-                port['screendata'] = port['screendata'].encode('base64')\
-                                                       .replace('\n', '')
+                port['screendata'] = utils.encode_b64(port['screendata'])
         for field in ["hostnames", "ports", "info"]:
             if field in line:
                 line[field] = json.dumps(line[field]).replace('\\', '\\\\')
@@ -480,7 +479,7 @@ class PassiveCSVFile(CSVFile):
                 except:
                     pass
                 line[key] = "".join(c if ' ' <= c <= '~' else
-                                    ('\\x%s' % c.encode('hex'))
+                                    ('\\x%s' % utils.encode_hex(c).decode())
                                     for c in value).replace('\\', '\\\\')
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
@@ -1330,7 +1329,9 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def is_scan_present(self, scanid):
         return bool(self.db.execute(select([True])\
                                     .where(
-                                        ScanFile.sha256 == scanid.decode('hex')
+                                        ScanFile.sha256 == utils.decode_hex(
+                                            scanid
+                                        )
                                     )\
                                     .limit(1)).fetchone())
 
@@ -1342,7 +1343,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             )
         if 'scaninfos' in scan:
             scan["scaninfo"] = scan.pop('scaninfos')
-        scan["sha256"] = scan.pop('_id').decode('hex')
+        scan["sha256"] = utils.decode_hex(scan.pop('_id'))
         insrt = insert(ScanFile).values(
             **dict(
                 (key, scan[key])
@@ -1355,7 +1356,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             scanfileid = self.db.execute(
                 insrt.returning(ScanFile.sha256)
             ).fetchone()[0]
-            utils.LOGGER.debug("SCAN STORED: %r", scanfileid.encode('hex'))
+            utils.LOGGER.debug("SCAN STORED: %r", utils.encode_hex(scanfileid))
         else:
             self.db.execute(insrt)
 
@@ -1462,7 +1463,7 @@ insert structures.
         insrt = postgresql.insert(Association_Scan_ScanFile)
         self.db.execute(insrt\
                         .values(scan=scanid,
-                                scan_file=host['scanid'].decode('hex'))\
+                                scan_file=utils.decode_hex(host['scanid']))\
                         .on_conflict_do_nothing())
         for category in host.get("categories", []):
             insrt = postgresql.insert(Category)
@@ -2082,7 +2083,7 @@ insert structures.
 
     def getscan(self, scanid, archive=False):
         if isinstance(scanid, basestring) and len(scanid) == 64:
-            scanid = scanid.decode('hex')
+            scanid = utils.decode_hex(scanid)
         return self.db.execute(select([ScanFile])\
                                .where(ScanFile.sha256 == scanid)).fetchone()
 

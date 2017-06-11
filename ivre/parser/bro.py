@@ -25,6 +25,8 @@ from builtins import zip
 
 
 from ivre.parser import Parser
+from ivre.utils import decode_hex
+
 
 class BroFile(Parser):
     """Bro log generator"""
@@ -70,7 +72,7 @@ class BroFile(Parser):
         arg = keyval[1]
 
         if directive == "separator":
-            self.sep = arg[2:].decode("hex") if arg.startswith('\\x') else arg
+            self.sep = decode_hex(arg[2:]) if arg.startswith('\\x') else arg
         elif directive == "set_separator":
             self.set_sep = arg
         elif directive == "empty_field":

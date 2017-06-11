@@ -291,7 +291,7 @@ def main():
                     rec[field] = int(rec[field].strftime('%s'))
         for port in rec.get('ports', []):
             if 'screendata' in port:
-                port['screendata'] = port['screendata'].encode('base64')
+                port['screendata'] = utils.encode_b64(port['screendata'])
             for script in port.get('scripts', []):
                 if "masscan" in script:
                     try: del script['masscan']['raw']

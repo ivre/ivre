@@ -772,22 +772,22 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "pop": "pop3",
 }
 
-MASSCAN_ENCODING = re.compile(re.escape("\\x") + "([0-9a-f]{2})")
+MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
 
 def _masscan_decode_print(match):
-    char = match.groups()[0].decode('hex')
+    char = utils.decode_hex(match.groups()[0])
     return (char if (32 <= ord(char) <= 126 or char in b"\t\r\n")
             else match.group())
 
 def _masscan_decode_raw(match):
-    return match.groups()[0].decode('hex')
+    return utils.decode_hex(match.groups()[0])
 
 def masscan_x509(output):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
 
     XXX WORK IN PROGRESS"""
-    certificate = output.decode('base64')
+    certificate = utils.decode_b64(output)
     newout = []
     for hashtype, hashname in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:
         hashvalue = hashlib.new(hashtype, certificate).hexdigest()
@@ -795,7 +795,7 @@ X509 "service" tag.
             hashname,
             ' '.join(hashvalue[i:i + 4] for i in range(0, len(hashvalue), 4))
         ))
-    b64cert = certificate.encode('base64')
+    b64cert = utils.encode_b64(certificate).decode()
     newout.append('-----BEGIN CERTIFICATE-----\n')
     newout.extend('%s\n' % b64cert[i:i + 64] for i in range(0, len(b64cert), 64))
     newout.append('-----END CERTIFICATE-----\n')
@@ -1446,7 +1446,7 @@ class Nmap2Txt(NmapHandler):
 
     @staticmethod
     def _to_binary(data):
-        return data.encode('base64').replace('\n', '')
+        return utils.encode_b64(data)
 
     def _addhost(self):
         self._db.append(self._curhost)
@@ -1514,4 +1514,4 @@ class Nmap2DB(NmapHandler):
 class Nmap2Posgres(Nmap2DB):
     @staticmethod
     def _to_binary(data):
-        return data.encode('base64').decode()
+        return utils.encode_b64(data).decode()

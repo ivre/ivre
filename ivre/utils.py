@@ -24,6 +24,7 @@ sub-module or script.
 
 import ast
 import bz2
+import codecs
 import datetime
 import errno
 from functools import reduce
@@ -870,7 +871,7 @@ def get_ikescan_vendor_ids():
 
 
 def find_ike_vendor_id(vendorid):
-    vid = vendorid.encode('hex')
+    vid = encode_hex(vendorid)
     for name, sig in get_ikescan_vendor_ids():
         if sig.search(vid):
             return name
@@ -932,3 +933,26 @@ def num2readable(value):
     if isinstance(value, float):
         return '%.3f%s' % (value / idx, unit)
     return '%d%s' % (value / idx, unit)
+
+
+
+_DECODE_HEX = codecs.getdecoder("hex_codec")
+_ENCODE_HEX = codecs.getencoder("hex_codec")
+_DECODE_B64 = codecs.getdecoder("base64_codec")
+_ENCODE_B64 = codecs.getencoder("base64_codec")
+
+
+def decode_hex(value):
+    return _DECODE_HEX(value)[0]
+
+
+def encode_hex(value):
+    return _ENCODE_HEX(value)[0]
+
+
+def decode_b64(value):
+    return _DECODE_B64(value)[0]
+
+
+def encode_b64(value):
+    return _ENCODE_B64(value)[0].replace(b'\n', b'')
