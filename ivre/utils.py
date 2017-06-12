@@ -884,7 +884,7 @@ def nmap_encode_data(data):
     return b"".join(
         (d if b" " <= d <= b"~" else (_REPRS[d] if d in _REPRS else
                                       (b'\\x%02x' % ord(d))))
-        for d in data
+        for d in (data[i:i+1] for i in range(len(data)))
     )
 
 

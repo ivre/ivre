@@ -190,7 +190,7 @@ def info_from_notification(payload, _, output):
         return
     output.update({
         "DOI": DOI[struct.unpack(">I", payload[4:8])[0]],
-        "protocol_id": PROTO[ord(payload[8])],
+        "protocol_id": PROTO[ord(payload[8:9])],
         "notification_type": NOTIFICATION[struct.unpack(">H", payload[10:12])[0]],
         #"notification_data": payload[12:],
     })
@@ -308,7 +308,7 @@ def info_from_sa(payload, _, output):
     payload_type = 3
     while payload_type == 3 and payload:
         transform = {}
-        payload_type = ord(payload[0])
+        payload_type = ord(payload[0:1])
         payload_length = struct.unpack(">H", payload[2:4])[0]
         data = payload[8:payload_length]
         payload = payload[payload_length:]
@@ -326,7 +326,8 @@ def info_from_sa(payload, _, output):
                     break
                 value = 0
                 for val in data[:value_length]:
-                    value = value * 256 + ord(val)
+                    value = value * 256 + (val if isinstance(val, int)
+                                           else ord(val))
             try:
                 transf_type, value_decoder = TRANSFORM_VALUES[transf_type]
             except KeyError:
@@ -351,7 +352,7 @@ def analyze_ike_payload(payload, probe='ike'):
     service = {}
     output = {}
     if probe == 'ike-ipsec-nat-t':
-        if payload.startswith('\x00\x00\x00\x00'):
+        if payload.startswith(b'\x00\x00\x00\x00'):
             payload = payload[4:]
         else:
             output.setdefault("protocol", []).append(
@@ -368,7 +369,7 @@ def analyze_ike_payload(payload, probe='ike'):
                 payload_len_proto,
             )
         )
-    payload_type = ord(payload[16])
+    payload_type = ord(payload[16:17])
     payload = payload[28:]
     while payload_type and len(payload) >= 4:
         payload_length = struct.unpack(">H", payload[2:4])[0]
@@ -376,7 +377,7 @@ def analyze_ike_payload(payload, probe='ike'):
             specific_parser, type_name = PAYLOADS[payload_type]
             output.setdefault("type", []).append(type_name)
             specific_parser(payload[:payload_length], service, output)
-        payload_type, payload = ord(payload[0]), payload[payload_length:]
+        payload_type, payload = ord(payload[0:1]), payload[payload_length:]
     if service.get('service_version') == 'Unknown Vsn':
         del service['service_version']
     if output:
