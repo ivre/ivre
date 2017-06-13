@@ -47,7 +47,7 @@ except ImportError:
     USE_PIL = False
 
 
-from builtins import int, object, range, str
+from builtins import bytes, int, object, range, str
 from future.utils import viewitems
 from past.builtins import basestring
 
@@ -520,6 +520,8 @@ def serialize(obj):
         )
     if isinstance(obj, datetime.datetime):
         return str(obj)
+    if isinstance(obj, bytes):
+        return obj.decode()
     raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
 
 
