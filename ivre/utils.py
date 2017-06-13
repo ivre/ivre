@@ -824,7 +824,7 @@ def _read_nmap_probes():
                   'rb') as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
-    except (AttributeError, IOError):
+    except (AttributeError, TypeError, IOError):
         LOGGER.warning('Cannot read Nmap service fingerprint file.',
                        exc_info=True)
     del _NMAP_CUR_PROBE
