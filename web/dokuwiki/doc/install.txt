@@ -12,11 +12,12 @@ If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and o
 
 If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro]] (version 2.3 minimum) and [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3).
 
-To install IVRE, you'll need [[http://www.python.org/|Python]] 2, version 2.6 minimum (prefer 2.7), with the following modules:
+To install IVRE, you'll need [[http://www.python.org/|Python]] 2 (version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the following modules:
 
   * [[http://www.pycrypto.org/|Crypto]]
   * [[http://api.mongodb.org/python/|pymongo]] version 2.7.2 minimum.
-  * [[http://py2neo.org/v3/|py2neo]]
+  * [[http://py2neo.org/v3/|py2neo]] version 3 minimum, optional, to use the flow module.
+  * [[http://www.sqlalchemy.org/|sqlalchemy]] and [[http://initd.org/psycopg/|psycopg2]] to use the experimental PostgreSQL backend.
   * [[http://www.pythonware.com/products/pil/|PIL]] optional, to trim screenshots.
 
 ===== Installation =====
@@ -25,7 +26,7 @@ The installation of [[doc:readme|IVRE]] itself can be done by:
 
   * using the ''%%setup.py%%'' (classical ''%%./setup.py build; sudo ./setup.py install%%'') script.
   * using [[https://pypi.python.org/pypi/pip|pip]]: on a Debian-based system for example, install the packages ''%%python-pip%%'' and ''%%python-dev%%'' (needed to build dependencies) and run ''%%pip install ivre%%'' (this will download and install for you IVRE and its Python dependencies from [[https://pypi.python.org|PyPI]], the Python Package Index).
-  * building an RPM package (you can use the provided ''%%buildrpm%%'' script, or use the ''%%setup.py%%'' script with your own options) and then installing it.
+  * building an RPM package (you can use the provided ''%%pkg/buildrpm%%'' script, or use the ''%%setup.py%%'' script with your own options) and then installing it.
   * using [[doc:docker|Docker]] (in this case you do not need to follow the following instructions, as the Docker containers are already configured).
 
 ===== Configuration =====
@@ -118,5 +119,5 @@ It requires a POSIX environment, and the commands ''%%screen%%'', ''%%rsync%%'' 
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2016 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2017 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

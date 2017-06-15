@@ -25,12 +25,17 @@ If you plan to analyze PCAP file on a machine, install
 [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work with
 version 3).
 
-To install IVRE, you'll need [Python](http://www.python.org/) 2,
-version 2.6 minimum (prefer 2.7), with the following modules:
+To install IVRE, you'll need [Python](http://www.python.org/) 2
+(version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the
+following modules:
 
   * [Crypto](http://www.pycrypto.org/)
   * [pymongo](http://api.mongodb.org/python/) version 2.7.2 minimum.
-  * [py2neo](http://py2neo.org/v3/)
+  * [py2neo](http://py2neo.org/v3/) version 3 minimum, optional, to
+    use the flow module.
+  * [sqlalchemy](http://www.sqlalchemy.org/) and
+    [psycopg2](http://initd.org/psycopg/) to use the experimental
+    PostgreSQL backend.
   * [PIL](http://www.pythonware.com/products/pil/) optional, to trim
     screenshots.
 
@@ -48,7 +53,7 @@ The installation of [IVRE](README.md) itself can be done by:
     dependencies from [PyPI](https://pypi.python.org), the Python
     Package Index).
 
-  * building an RPM package (you can use the provided `buildrpm`
+  * building an RPM package (you can use the provided `pkg/buildrpm`
     script, or use the `setup.py` script with your own options) and
     then installing it.
 
@@ -194,5 +199,5 @@ information about that.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2016
+This file is part of IVRE. Copyright 2011 - 2017
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

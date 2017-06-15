@@ -30,8 +30,11 @@ environment, and what you want to do.
 
 IVRE relies on:
 
-  * [Python](http://www.python.org/) 2, version 2.6 minimum
-    * the [Crypto](http://www.pycrypto.org/) module
+  * [Python](http://www.python.org/) 2 (version 2.6 minimum), or 3
+    (version 3.3 minimum). Python 2.6 compatibility is important to
+    make sure IVRE works with RHEL and CentOS version 6.
+
+    * the [Crypto](http://www.pycrypto.org/) module.
     * the [pymongo](http://api.mongodb.org/python/) module,
       version 2.7.2 minimum.
     * optionally [PIL](http://www.pythonware.com/products/pil/), to
@@ -76,13 +79,7 @@ IVRE relies on:
     free databases.
 
   * optionally [Tesseract](https://github.com/tesseract-ocr/tesseract),
-    if you plan to add screenshots to your Nmap scan results
-
-  * optionally [neo4j](https://neo4j.com/) (version >= 2) & [py2neo](http://py2neo.org)
-    (version >= 3) for ivre flow related tools
-
-  * optionally [argus](http://qosient.com/argus/index.shtml) and/or
-    [nfdump](http://nfdump.sourceforge.net/) for ivre flow2db
+    if you plan to add screenshots to your Nmap scan results.
 
   * optionally [Docker](http://www.docker.com/) &
     [Vagrant](https://www.vagrantup.com/) (version 1.6 minimum)
