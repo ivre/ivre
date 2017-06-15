@@ -64,6 +64,9 @@ ivreWebUi
 	$scope.unsetparam = function(param) {
 	     return unsetparam($scope.shared.filter, param);
 	};
+	$scope.getparam = function(param) {
+	     return getparam($scope.shared.filter, param);
+	};
 	// notes: here because the buttons are located in the menu and
 	// the results
 	$scope.notes_page = undefined;
@@ -216,12 +219,20 @@ ivreWebUi
 		    true);
 	};
 	$scope.go_back = function(count) {
+	    if(count === undefined)
+		count = ($scope.getparam('limit') || config.dflt_limit) * 1;
 	    if(!$scope.at_start())
-		$scope.setparam('skip', $scope.firstdisplayed - count - 1 + '', true);
+		$scope.setparam(
+		    'skip',
+		    Math.max($scope.firstdisplayed - count - 1, 0) + '',
+		    true);
 	};
 	$scope.go_forward = function(count) {
+	    if(count === undefined)
+		count = ($scope.getparam('limit') || config.dflt_limit) * 1;
 	    if(!$scope.at_end())
-		$scope.setparam('skip', $scope.firstdisplayed + count - 1 + '', true);
+		$scope.setparam('skip', $scope.firstdisplayed + count - 1 + '',
+				true);
 	};
     })
     .directive('ivreProgressBar', function() {
