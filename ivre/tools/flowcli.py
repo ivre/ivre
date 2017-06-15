@@ -19,10 +19,16 @@
 
 import os
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
 
 
+from builtins import input
+from future.utils import viewitems
 try:
     import matplotlib.pyplot as plt
 except ImportError:
@@ -98,7 +104,7 @@ def main():
             out.write(
                 'This will remove any scan result in your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.flow.init()
@@ -109,7 +115,7 @@ def main():
             out.write(
                 'This will lock your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.flow.ensure_indexes()
@@ -133,11 +139,11 @@ def main():
         top = db.flow.top(query, args.top, args.collect, args.sum)
         for rec in top:
             sys.stdout.write("%s%s%s%s%s\n" % (
-                coma.join(map(str, rec["fields"])),
+                coma.join(str(elt) for elt in rec["fields"]),
                 sep,
                 rec["count"],
                 sep,
-                coma.join(str(coma2.join(map(str, elt)))
+                coma.join(str(coma2.join(str(val) for val in elt))
                           for elt in rec["collected"])
                 if rec["collected"] else ""
             ))
@@ -156,7 +162,7 @@ def main():
                 plot_data.setdefault(rec["flow"], [[], []])
                 plot_data[rec["flow"]][0].append(rec["time_in_day"])
                 plot_data[rec["flow"]][1].append(rec["count"])
-        for flow, points in plot_data.iteritems():
+        for flow, points in viewitems(plot_data):
             plt.plot(points[0], points[1], label=flow)
         plt.legend(loc='best')
         plt.show()
@@ -191,6 +197,8 @@ def main():
                 if args.timeline:
                     out.write(sep)
                     out.write(coma.join(
-                        map(str, sorted(res['flow']['data']['meta']['times']))
+                        str(elt) for elt in sorted(
+                            res['flow']['data']['meta']['times']
+                        )
                     ))
                 out.write('\n')

@@ -79,7 +79,7 @@ def main():
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     parser.add_argument("-t", "--type", help="file type",
-                        choices=PARSERS_CHOICE.keys())
+                        choices=list(PARSERS_CHOICE))
     parser.add_argument("-f", "--pcap-filter",
                         help="pcap filter to apply (when supported)")
     parser.add_argument("-C", "--no-cleanup",

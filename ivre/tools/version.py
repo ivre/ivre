@@ -16,17 +16,26 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Display IVRE's version"""
+
+
+from __future__ import print_function
+import sys
+
 
 from ivre import VERSION
 
+
 def main():
     """Display IVRE's version"""
-    print "IVRE - Network recon framework"
-    print "Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>"
-    print "Version %s" % VERSION
-    print
-    print "Dependencies:"
+    print("IVRE - Network recon framework")
+    print("Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>")
+    print("Version %s" % VERSION)
+    print()
+    print("Python %s" % sys.version)
+    print()
+    print("Dependencies:")
     for module in ['Crypto', 'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2',
                    'krbV', 'PIL', 'MySQLdb', 'dbus', 'matplotlib']:
         try:
@@ -37,7 +46,7 @@ def main():
             except AttributeError:
                 version = "[unknown version]"
         except ImportError:
-            print "    Python module %s: missing" % (module,)
+            print("    Python module %s: missing" % (module,))
             continue
-        print "    Python module %s: %s" % (module, version)
-    print
+        print("    Python module %s: %s" % (module, version))
+    print()

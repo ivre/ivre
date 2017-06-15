@@ -23,6 +23,9 @@ import subprocess
 import sys
 
 
+from builtins import input
+
+
 import ivre.target
 import ivre.utils
 import ivre.scanengine
@@ -114,14 +117,16 @@ def main():
         except KeyboardInterrupt:
             ivre.utils.LOGGER.info('Interrupted by user: stop feeding.')
             ivre.utils.LOGGER.info('Use "--state %s" to resume.',
-                                   ' '.join(map(str, camp.targiter.getstate())))
+                                   ' '.join(str(elt) for elt in
+                                            camp.targiter.getstate()))
         except Exception:
             ivre.utils.LOGGER.critical('Exception', exc_info=True)
             ivre.utils.LOGGER.info('Use "--state %s" to resume.',
-                                   ' '.join(map(str, camp.targiter.getstate())))
+                                   ' '.join(str(elt) for elt in
+                                            camp.targiter.getstate()))
         else:
             ivre.utils.LOGGER.info('No target left to scan.')
             if os.environ['TERM'] != 'screen':
                 ivre.utils.LOGGER.info('Press enter to exit.')
-                raw_input()
-        raw_input()
+                input()
+        input()

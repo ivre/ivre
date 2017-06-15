@@ -80,6 +80,10 @@ dependency makes it harder for users to install IVRE.
 
 We try to comply with the some guidelines for new code:
 
+  - The code **must** be compatible with Python 2.6, 2.7, 3.3, 3.4,
+    3.5 and 3.6. The [future module](http://python-future.org/) can
+    help (IVRE already depends on it, so feel free to use it in your
+    code).
   - The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
   - [Pylint](http://www.pylint.org/) can help you write good Python
@@ -87,10 +91,12 @@ We try to comply with the some guidelines for new code:
     or even undesirable; human brain needed!).
   - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
-  - Avoid creating unnecessary `list` objects, particularly if they
-    can be huge (e.g., when possible, use `xrange()` instead of
-    `range()`, `for line in fdesc` instead of `for line in
-    fdesc.readlines()`; more generally prefer generators over lists).
+  - Avoid creating `list` objects when generators can be used,
+    particularly if they can be huge:
+      - Make sure to import `range` from `future.utils` (for Python 2).
+	  - Use `for line in fdesc` instead of `for line in
+        fdesc.readlines()`.
+      - More generally, prefer generators over lists.
 
 We do not accept PEP-8 fixes or similar contributions, because they
 break the code history that we use a lot. If you change code, it's OK
@@ -114,3 +120,9 @@ understand why certain decisions have been made), performances, API
 consistency, etc.
 
 **Thanks for reading, happy hacking!**
+
+
+---
+
+This file is part of IVRE. Copyright 2011 - 2017
+[Pierre LALET](mailto:pierre.lalet@cea.fr)

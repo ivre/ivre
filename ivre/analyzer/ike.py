@@ -18,13 +18,15 @@
 
 
 import struct
-from types import DictType
 
 
-from ivre.utils import find_ike_vendor_id
+from future.utils import viewitems
 
 
-class Values(DictType):
+from ivre.utils import find_ike_vendor_id, encode_hex
+
+
+class Values(dict):
     def __getitem__(self, item):
         try:
             return super(Values, self).__getitem__(item)
@@ -188,7 +190,7 @@ def info_from_notification(payload, _, output):
         return
     output.update({
         "DOI": DOI[struct.unpack(">I", payload[4:8])[0]],
-        "protocol_id": PROTO[ord(payload[8])],
+        "protocol_id": PROTO[ord(payload[8:9])],
         "notification_type": NOTIFICATION[struct.unpack(">H", payload[10:12])[0]],
         #"notification_data": payload[12:],
     })
@@ -196,100 +198,100 @@ def info_from_notification(payload, _, output):
 def info_from_vendorid(payload, service, output):
     name = find_ike_vendor_id(payload[4:])
     if name is not None:
-        if name.startswith('Windows-'):
+        if name.startswith(b'Windows-'):
             service['service_product'] = "Microsoft/Cisco IPsec"
-            service['service_version'] = name.replace('-', ' ')
+            service['service_version'] = name.decode().replace('-', ' ')
             service['service_ostype'] = "Windows"
-        elif name == 'Windows':
+        elif name == b'Windows':
             service['service_product'] = "Microsoft/Cisco IPsec"
             service['service_ostype'] = "Windows"
-        elif name.startswith('Firewall-1 '):
+        elif name.startswith(b'Firewall-1 '):
             service['service_product'] = 'Checkpoint VPN-1/Firewall-1'
-            service['service_version'] = name.split(None, 1)[1]
+            service['service_version'] = name.decode().split(None, 1)[1]
             service['service_devicetype'] = 'security-misc'
-        elif name.startswith('SSH IPSEC Express '):
+        elif name.startswith(b'SSH IPSEC Express '):
             service['service_product'] = 'SSH Communications Security IPSec Express'
-            service['service_version'] = name.split(None, 3)[3]
-        elif name.startswith('SSH Sentinel'):
+            service['service_version'] = name.decode().split(None, 3)[3]
+        elif name.startswith(b'SSH Sentinel'):
             service['service_product'] = 'SSH Communications Security Sentinel'
-            version = name[13:]
+            version = name[13:].decode()
             if version:
                 service['service_version'] = version
-        elif name.startswith('SSH QuickSec'):
+        elif name.startswith(b'SSH QuickSec'):
             service['service_product'] = 'SSH Communications Security QuickSec'
-            version = name[13:]
+            version = name[13:].decode()
             if version:
                 service['service_version'] = version
-        elif name.startswith('Cisco VPN Concentrator'):
+        elif name.startswith(b'Cisco VPN Concentrator'):
             service['service_product'] = 'Cisco VPN Concentrator'
-            version = name[24:-1]
+            version = name[24:-1].decode()
             if version:
                 service['service_version'] = version
-        elif name.startswith('SafeNet SoftRemote'):
+        elif name.startswith(b'SafeNet SoftRemote'):
             service['service_product'] = 'SafeNet Remote'
-            version = name[19:]
+            version = name[19:].decode()
             if version:
                 service['service_version'] = version
-        elif name == 'KAME/racoon':
+        elif name == b'KAME/racoon':
             service['service_product'] = 'KAME/racoon/IPsec Tools'
-        elif name == 'Nortel Contivity':
+        elif name == b'Nortel Contivity':
             service['service_product'] = 'Nortel Contivity'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('SonicWall-'):
+        elif name.startswith(b'SonicWall-'):
             service['service_product'] = 'SonicWall'
-        elif name.startswith('strongSwan'):
+        elif name.startswith(b'strongSwan'):
             service['service_product'] = 'strongSwan'
             # for some reason in the fingerprints file, strongSwan ==
             # strongSwan 4.3.6
-            service['service_version'] = name[11:] or '4.3.6'
+            service['service_version'] = name[11:].decode() or '4.3.6'
             service['service_ostype'] = 'Unix'
-        elif name == 'ZyXEL ZyWall USG 100':
+        elif name == b'ZyXEL ZyWall USG 100':
             service['service_product'] = 'ZyXEL ZyWALL USG 100'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('Linux FreeS/WAN '):
+        elif name.startswith(b'Linux FreeS/WAN '):
             service['service_product'] = 'FreeS/WAN'
-            service['service_version'] = name.split(None, 2)[2]
+            service['service_version'] = name.decode().split(None, 2)[2]
             service['service_ostype'] = 'Unix'
-        elif name.startswith('Openswan ') or name.startswith('Linux Openswan '):
+        elif name.startswith(b'Openswan ') or name.startswith(b'Linux Openswan '):
             service['service_product'] = 'Openswan'
-            version = name.split('Openswan ', 1)[1].split(None, 1)
+            version = name.split(b'Openswan ', 1)[1].decode().split(None, 1)
             service['service_version'] = version[0]
             if len(version) == 2:
                 service['service_extrainfo'] = version[1]
             service['service_ostype'] = 'Unix'
-        elif name in ['FreeS/WAN or OpenSWAN',
-                      'FreeS/WAN or OpenSWAN or Libreswan']:
+        elif name in [b'FreeS/WAN or OpenSWAN',
+                      b'FreeS/WAN or OpenSWAN or Libreswan']:
             service['service_product'] = 'FreeS/WAN or Openswan or Libreswan'
             service['service_ostype'] = 'Unix'
-        elif name.startswith('Libreswan '):
+        elif name.startswith(b'Libreswan '):
             service['service_product'] = 'Libreswan'
-            service['service_version'] = name.split(None, 1)[1]
+            service['service_version'] = name.decode().split(None, 1)[1]
             service['service_ostype'] = 'Unix'
-        elif name == 'OpenPGP':
-            service['service_product'] = name
-        elif name in ['FortiGate', 'ZyXEL ZyWALL Router',
-                      'ZyXEL ZyWALL USG 100']:
-            service['service_product'] = name
+        elif name == b'OpenPGP':
+            service['service_product'] = name.decode()
+        elif name in [b'FortiGate', b'ZyXEL ZyWALL Router',
+                      b'ZyXEL ZyWALL USG 100']:
+            service['service_product'] = name.decode()
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('Netscreen-'):
+        elif name.startswith(b'Netscreen-'):
             service['service_product'] = 'Juniper'
             service['service_ostype'] = 'NetScreen OS'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('StoneGate-'):
+        elif name.startswith(b'StoneGate-'):
             service['service_product'] = 'StoneGate'
             service['service_devicetype'] = 'firewall'
-        elif name.startswith('Symantec-Raptor'):
+        elif name.startswith(b'Symantec-Raptor'):
             service['service_product'] = 'Symantec-Raptor'
-            version = name[16:]
+            version = name[16:].decode()
             if version:
                 service['service_version'] = version
             service['service_devicetype'] = 'firewall'
-        elif name == 'Teldat':
-            service['service_product'] = name
+        elif name == b'Teldat':
+            service['service_product'] = name.decode()
             service['service_devicetype'] = 'broadband router'
-    entry = {'value': payload[4:].encode('hex')}
+    entry = {'value': encode_hex(payload[4:]).decode()}
     if name is not None:
-        entry["name"] = name
+        entry["name"] = name.decode()
     output.setdefault('vendor_ids', []).append(entry)
 
 def info_from_sa(payload, _, output):
@@ -306,7 +308,7 @@ def info_from_sa(payload, _, output):
     payload_type = 3
     while payload_type == 3 and payload:
         transform = {}
-        payload_type = ord(payload[0])
+        payload_type = ord(payload[0:1])
         payload_length = struct.unpack(">H", payload[2:4])[0]
         data = payload[8:payload_length]
         payload = payload[payload_length:]
@@ -324,7 +326,8 @@ def info_from_sa(payload, _, output):
                     break
                 value = 0
                 for val in data[:value_length]:
-                    value = value * 256 + ord(val)
+                    value = value * 256 + (val if isinstance(val, int)
+                                           else ord(val))
             try:
                 transf_type, value_decoder = TRANSFORM_VALUES[transf_type]
             except KeyError:
@@ -349,7 +352,7 @@ def analyze_ike_payload(payload, probe='ike'):
     service = {}
     output = {}
     if probe == 'ike-ipsec-nat-t':
-        if payload.startswith('\x00\x00\x00\x00'):
+        if payload.startswith(b'\x00\x00\x00\x00'):
             payload = payload[4:]
         else:
             output.setdefault("protocol", []).append(
@@ -366,7 +369,7 @@ def analyze_ike_payload(payload, probe='ike'):
                 payload_len_proto,
             )
         )
-    payload_type = ord(payload[16])
+    payload_type = ord(payload[16:17])
     payload = payload[28:]
     while payload_type and len(payload) >= 4:
         payload_length = struct.unpack(">H", payload[2:4])[0]
@@ -374,7 +377,7 @@ def analyze_ike_payload(payload, probe='ike'):
             specific_parser, type_name = PAYLOADS[payload_type]
             output.setdefault("type", []).append(type_name)
             specific_parser(payload[:payload_length], service, output)
-        payload_type, payload = ord(payload[0]), payload[payload_length:]
+        payload_type, payload = ord(payload[0:1]), payload[payload_length:]
     if service.get('service_version') == 'Unknown Vsn':
         del service['service_version']
     if output:
@@ -384,7 +387,7 @@ def analyze_ike_payload(payload, probe='ike'):
             for tr in output['transforms']:
                 txtoutput.append("  - %s" % ", ".join("%s: %s" % (key, value)
                                                       for key, value in
-                                                      sorted(tr.iteritems())))
+                                                      sorted(viewitems(tr))))
         if 'vendor_ids' in output:
             txtoutput.append('Vendor IDs:')
             for vid in output['vendor_ids']:

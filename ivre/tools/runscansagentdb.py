@@ -19,10 +19,14 @@
 """Manage scans run on remote agents."""
 
 
+from __future__ import print_function
 import os
+import signal
 import sys
 import time
-import signal
+
+
+from builtins import input
 
 
 import ivre.target
@@ -33,59 +37,59 @@ import ivre.config
 
 def display_scan(scan, verbose=True):
     scan['target'] = ivre.db.db.agent.get_scan_target(scan['_id'])
-    print "scan:"
+    print("scan:")
     if verbose:
-        print "  - id: %s" % scan['_id']
-    print "  - categories:"
+        print("  - id: %s" % scan['_id'])
+    print("  - categories:")
     for category in scan['target'].target.infos['categories']:
-        print "    - %s" % category
-    print "  - targets added: %d" % scan['target'].nextcount
-    print "  - results fetched: %d" % scan['results']
-    print "  - total targets to add: %d" % scan['target'].target.maxnbr
-    print "  - available targets: %d" % scan['target'].target.targetscount
+        print("    - %s" % category)
+    print("  - targets added: %d" % scan['target'].nextcount)
+    print("  - results fetched: %d" % scan['results'])
+    print("  - total targets to add: %d" % scan['target'].target.maxnbr)
+    print("  - available targets: %d" % scan['target'].target.targetscount)
     if scan['target'].nextcount == scan['target'].target.maxnbr:
-        print "    - all targets have been added"
+        print("    - all targets have been added")
     if scan['results'] == scan['target'].target.maxnbr:
-        print "    - all results have been retrieved"
+        print("    - all results have been retrieved")
     if verbose:
-        print "  - internal state: %r" % (scan['target'].getstate(),)
-    print "  - agents:"
+        print("  - internal state: %r" % (scan['target'].getstate(),))
+    print("  - agents:")
     for agent in scan['agents']:
-        print "    - %s" % agent
+        print("    - %s" % agent)
 
 def display_agent(agent, verbose=True):
-    print "agent:"
+    print("agent:")
     if verbose:
-        print "  - id: %s" % agent['_id']
-    print "  - source name: %s" % agent['source']
+        print("  - id: %s" % agent['_id'])
+    print("  - source name: %s" % agent['source'])
     if agent["host"] is None:
-        print "  - local"
+        print("  - local")
     else:
-        print "  - remote host: %s" % agent["host"]
-    print "  - remote path: %s" % agent["path"]["remote"]
-    print "  - master: %s" % agent["master"]
+        print("  - remote host: %s" % agent["host"])
+    print("  - remote path: %s" % agent["path"]["remote"])
+    print("  - master: %s" % agent["master"])
     if verbose:
-        print "  - local path: %s" % agent["path"]["local"]
-        print "  - rsync command: %s" % ' '.join(agent["rsync"])
-    print "  - current scan: %s" % agent["scan"]
-    print "  - currently synced: %s" % agent["sync"]
-    print "  - max waiting targets: %d" % agent["maxwaiting"]
-    print "  - waiting targets: %d" % (
+        print("  - local path: %s" % agent["path"]["local"])
+        print("  - rsync command: %s" % ' '.join(agent["rsync"]))
+    print("  - current scan: %s" % agent["scan"])
+    print("  - currently synced: %s" % agent["sync"])
+    print("  - max waiting targets: %d" % agent["maxwaiting"])
+    print("  - waiting targets: %d" % (
         ivre.db.db.agent.count_waiting_targets(agent['_id'])
-    )
-    print "  - current targets: %d" % (
+    ))
+    print("  - current targets: %d" % (
         ivre.db.db.agent.count_current_targets(agent['_id'])
-    )
-    print "  - can receive: %d" % (
+    ))
+    print("  - can receive: %d" % (
         ivre.db.db.agent.may_receive(agent['_id'])
-    )
+    ))
 
 def display_master(master, verbose=True):
-    print "master:"
+    print("master:")
     if verbose:
-        print "  - id: %s" % master['_id']
-    print "  - hostname %s" % master["hostname"]
-    print "  - path %s" % master["path"]
+        print("  - id: %s" % master['_id'])
+    print("  - hostname %s" % master["hostname"])
+    print("  - path %s" % master["path"])
 
 WANT_DOWN = False
 
@@ -150,7 +154,7 @@ def main():
             sys.stdout.write(
                 'This will remove any agent and/or scan in your '
                 'database and files. Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         ivre.db.db.agent.init()
@@ -179,8 +183,8 @@ def main():
 
     if args.assign is not None:
         try:
-            agentid, scanid = map(ivre.db.db.agent.str2id,
-                                  args.assign.split(':', 1))
+            agentid, scanid = (ivre.db.db.agent.str2id(elt) for elt in
+                               args.assign.split(':', 1))
         except ValueError:
             parser.error("argument --assign: must give agentid:scanid")
         ivre.db.db.agent.assign_agent(agentid, scanid)
@@ -213,11 +217,11 @@ def main():
     if args.daemon:
         def terminate(signum, _):
             global WANT_DOWN
-            print ('SHUTDOWN: got signal %d, will halt after current '
-                   'task.' % signum)
+            print('SHUTDOWN: got signal %d, will halt after current '
+                  'task.' % signum)
             WANT_DOWN = True
         def terminate_now(signum, _):
-            print 'SHUTDOWN: got signal %d, halting now.' % signum
+            print('SHUTDOWN: got signal %d, halting now.' % signum)
             exit()
         signal.signal(signal.SIGINT, terminate)
         signal.signal(signal.SIGTERM, terminate)

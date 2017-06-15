@@ -17,6 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import print_function
 import os
 from xml.sax import saxutils
 try:
@@ -25,8 +26,17 @@ except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
+
+
+from builtins import input
+from future.utils import viewitems, viewvalues
+from past.builtins import basestring
 
 
 from ivre import utils, db, graphroute, config, xmlnmap, nmapout
@@ -95,8 +105,8 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
     if 'extraports' in host:
         extra = host['extraports']
         defaction = max(
-            max(extra.itervalues(),
-                key=lambda state: state['total'])['reasons'].iteritems(),
+            max(viewvalues(extra),
+                key=lambda state: viewitems(state['total'])['reasons']),
             key=lambda reason: reason[1],
         )[0]
         defaction = HONEYD_ACTION_FROM_NMAP_STATE.get(defaction)
@@ -178,7 +188,7 @@ def display_xml_scan(scan, out=sys.stdout):
               'scaninfo.numservices', 'scaninfo.services']:
         if k not in scan:
             scan[k] = ''
-        elif isinstance(scan[k], (str, unicode)):
+        elif isinstance(scan[k], basestring):
             scan[k] = scan[k].replace('"', '&quot;').replace('--', '-&#45;')
     out.write('<!DOCTYPE nmaprun PUBLIC '
               '"-//IDN nmap.org//DTD Nmap XML 1.04//EN" '
@@ -212,7 +222,7 @@ def display_xml_table_elem(doc, first=False, name=None, out=sys.stdout):
     elif isinstance(doc, dict):
         if not first:
             out.write('<table%s>\n' % name)
-        for key, subdoc in doc.iteritems():
+        for key, subdoc in viewitems(doc):
             display_xml_table_elem(subdoc, name=key, out=out)
         if not first:
             out.write('</table>\n')
@@ -273,11 +283,11 @@ def display_xml_host(h, out=sys.stdout):
             out.write('/>\n')
         out.write('</hostnames>\n')
     out.write('<ports>')
-    for state, counts in h.get('extraports', {}).iteritems():
+    for state, counts in viewitems(h.get('extraports', {})):
         out.write('<extraports state="%s" count="%d">\n' % (
             state, counts['total']
         ))
-        for reason, count in counts['reasons'].iteritems():
+        for reason, count in viewitems(counts['reasons']):
             out.write('<extrareasons reason="%s" count="%d"/>\n' % (
                 reason, count
             ))
@@ -474,7 +484,7 @@ def main():
             sys.stdout.write(
                 'This will remove any scan result in your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.db.nmap.init()
@@ -484,7 +494,7 @@ def main():
             sys.stdout.write(
                 'This will lock your database. '
                 'Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
         db.db.nmap.ensure_indexes()
@@ -502,7 +512,7 @@ def main():
                     entry['_id'] = ' / '.join(str(elt) for elt in entry['_id'])
                 else:
                     entry['_id'] = "None"
-            print "%(_id)s: %(count)d" % entry
+            print("%(_id)s: %(count)d" % entry)
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
@@ -542,14 +552,14 @@ def main():
                             if fname in port:
                                 del port[fname]
                     elif 'screendata' in port:
-                        port['screendata'] = port['screendata'].encode(
-                            'base64')
+                        port['screendata'] = utils.encode_b64(port['screendata'])
                     for script in port.get('scripts', []):
                         if 'masscan' in script and 'raw' in script['masscan']:
-                            script['masscan']['raw'] = script['masscan'][
-                                'raw'].encode('base64')
-                print json.dumps(h, indent=indent,
-                                 default=db.db.nmap.serialize)
+                            script['masscan']['raw'] = utils.encode_b64(
+                                script['masscan']['raw']
+                            )
+                print(json.dumps(h, indent=indent,
+                                 default=db.db.nmap.serialize))
     elif args.honeyd:
         def displayfunction(x):
             display_honeyd_preamble(out)

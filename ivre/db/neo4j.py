@@ -31,6 +31,9 @@ import time
 import warnings
 
 
+from builtins import range
+from future.utils import viewitems, viewvalues
+from past.builtins import basestring
 from py2neo import Graph, Node, Relationship, GraphError
 from py2neo import http
 from py2neo.database import cypher_escape
@@ -84,7 +87,7 @@ class Neo4jDB(DB):
             self.db.run(query)
 
         for query in ["DROP INDEX ON :%s(%s)" % (nodelabel, pprty)
-                      for nodelabel, properties in self.indexes.iteritems()
+                      for nodelabel, properties in viewitems(self.indexes)
                       for pprty in properties]:
             try:
                 self.db.run(query)
@@ -96,12 +99,12 @@ class Neo4jDB(DB):
         self.create_indexes()
 
     def create_indexes(self):
-        for label, attrs in self.indexes.iteritems():
+        for label, attrs in viewitems(self.indexes):
             for attr in attrs:
                 self.db.schema.create_index(label, attr)
 
     def ensure_indexes(self):
-        for label, attrs in self.indexes.iteritems():
+        for label, attrs in viewitems(self.indexes):
             cur_indexes = self.db.schema.get_indexes(label)
             for attr in attrs:
                 if attr not in cur_indexes:
@@ -609,7 +612,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     def _set_props(cls, elt, props, set_list):
         props = utils.normalize_props(props)
         set_list.extend("%s.%s = %s" % (elt, attr, cnt)
-                        for attr, cnt in props.iteritems())
+                        for attr, cnt in viewitems(props))
 
     @classmethod
     def _update_counters(cls, elt, counters, on_create_set, on_match_set):
@@ -621,7 +624,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 {"elt": elt,
                  "key": key,
                  "value": value}
-            ) for key, value in counters.iteritems()
+            ) for key, value in viewitems(counters)
         )
 
     @classmethod
@@ -629,7 +632,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                              on_create_set, on_match_set):
         on_create_set.extend(["%s.%s = [%s]" % (elt, field, srcfield)
                               for field, (srcfield, _) in
-                              accumulators.iteritems()])
+                              viewitems(accumulators)])
         on_match_set.extend([
             ("%(elt)s.%(field)s = CASE WHEN " +
              ("" if maxvalue is None else
@@ -638,7 +641,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
              "COALESCE(%(elt)s.%(field)s, []) + %(srcfield)s END") % {
                  "elt": elt, "field": field, "srcfield": srcfield,
                  "maxvalue": maxvalue
-             } for field, (srcfield, maxvalue) in accumulators.iteritems()
+             } for field, (srcfield, maxvalue) in viewitems(accumulators)
         ])
 
     @classmethod
@@ -648,12 +651,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             elt,
             ":".join(labels),
             ", ".join("%s: %s" % (key, value)
-                      for key, value in attrs.iteritems())
+                      for key, value in viewitems(attrs))
         )
 
     def _key_from_attrs(self, attrs, src="src", dst="dst", link=None):
         # Sort by key to canonize the expression
-        skeys = sorted(attrs.iteritems(), key=operator.itemgetter(0))
+        skeys = sorted(viewitems(attrs), key=operator.itemgetter(0))
         # Include all keys in the aggregated key
         str_func = "str" if self.db_version[0] < 3 else "toString"
         key = (('ID(%s)+' % src if src else "") + '"|"+' +
@@ -772,10 +775,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @classmethod
     def _cleanup_record(cls, elt):
-        for k, v in elt.iteritems():
+        for k, v in viewitems(elt):
             if isinstance(v, list) and len(v) == 1 and \
                     isinstance(v[0], dict) and \
-                    all(x == None for x in v[0].itervalues()):
+                    all(x == None for x in viewvalues(v[0])):
                 elt[k] = []
 
         cls.from_dbdict(cls._get_props(elt["elt"]))
@@ -796,20 +799,20 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                     "_%s" % link_tag if link_tag else ""
                 )
                 new_data = dict(("%s_%s" % (link_tag, k), v)
-                                for k, v in link_props.iteritems())
+                                for k, v in viewitems(link_props))
                 new_data.update(info_props)
                 new_meta.setdefault(key, []).append(new_data)
             if new_meta:
                 elt["meta"] = new_meta
-                for reclist in new_meta.itervalues():
+                for reclist in viewvalues(new_meta):
                     for rec in reclist:
                         cls.from_dbdict(rec)
 
         if ("times" in elt["meta"] and elt["meta"]["times"] and
                 isinstance(elt["meta"]["times"], list) and
                 isinstance(elt["meta"]["times"][0], float)):
-            elt["meta"]["times"] = map(datetime.fromtimestamp,
-                                       elt["meta"]["times"])
+            elt["meta"]["times"] = [datetime.fromtimestamp(val) for val in
+                                    elt["meta"]["times"]]
 
         if not elt["meta"]:
             del elt["meta"]
@@ -938,7 +941,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         name = None
         for label in labels:
             for attr in cls.LABEL2NAME.get(label, []):
-                if isinstance(attr, str) or isinstance(attr, unicode):
+                if isinstance(attr, basestring):
                     if attr in properties:
                         name = properties[attr]
                         break
@@ -1009,7 +1012,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         {src: <dict>, flow: <dict>, dst: <dict>}.
         """
         for src, flow, dst in cursor:
-            map(cls._cleanup_record, (src, flow, dst))
+            for rec in [src, flow, dst]:
+                cls._cleanup_record(rec)
             src_props = cls._get_props(src["elt"], src.get("meta"))
             src_ref = cls._get_ref(src["elt"], src_props)
             src_labels = cls._get_labels(src["elt"], src_props)
@@ -1143,7 +1147,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                     flist[i] = flist[i].replace("flow.", "link.")
                 if "." not in flist[i]:
                     flist[i] = "link.%s" % flist[i]
-                flist[i] = '.'.join(map(cypher_escape, flist[i].split(".")))
+                flist[i] = '.'.join(cypher_escape(elt) for elt in
+                                    flist[i].split("."))
 
         cy_fields = "[%s]" % ', '.join(fields)
         cy_collect = "[%s]" % ', '.join(collect)

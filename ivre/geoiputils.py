@@ -27,12 +27,20 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 """
 
 
-import zlib
-import zipfile
-import urllib2
+from __future__ import print_function
+import functools
 import os.path
 import sys
-import functools
+try:
+    from urllib.request import build_opener
+except ImportError:
+    from urllib2 import build_opener
+import zipfile
+import zlib
+
+
+from builtins import range
+from future.utils import viewitems
 
 
 from ivre import utils, config
@@ -81,8 +89,8 @@ def bgp_raw_to_csv(fname, out):
     cur = []
     with open(os.path.join(config.GEOIP_PATH, fname)) as fdesc:
         for line in fdesc:
-            start, stop = map(utils.ip2int,
-                              utils.net2range(line[:-1].split()[0]))
+            start, stop = (utils.ip2int(elt) for elt in
+                           utils.net2range(line[:-1].split()[0]))
             if cur:
                 if start >= cur[0] and stop <= cur[1]:
                     continue
@@ -144,9 +152,9 @@ PARSERS = [
 
 def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
-    opener = urllib2.build_opener()
+    opener = build_opener()
     opener.addheaders = [('User-agent', 'IVRE/1.0 +https://ivre.rocks/')]
-    for fname, url in URLS.iteritems():
+    for fname, url in viewitems(URLS):
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
@@ -172,7 +180,7 @@ def download_all(verbose=False):
 def locids_by_city(country_code, city_name):
     with open(os.path.join(config.GEOIP_PATH,
                            'GeoIPCity-Location.csv')) as fdesc:
-        for _ in xrange(2):
+        for _ in range(2):
             fdesc.readline()
         for line in fdesc:
             locid, country, _, city, _ = line[:-1].split(',', 4)
@@ -185,7 +193,7 @@ def locids_by_city(country_code, city_name):
 def locids_by_region(country_code, region_code):
     with open(os.path.join(config.GEOIP_PATH,
                            'GeoIPCity-Location.csv')) as fdesc:
-        for _ in xrange(2):
+        for _ in range(2):
             fdesc.readline()
         for line in fdesc:
             locid, country, region, _ = line[:-1].split(',', 3)
@@ -332,7 +340,7 @@ def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None,
         for line in fdesc:
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
-                curaddrs = map(utils.int2ip, xrange(start, stop + 1))
+                curaddrs = [utils.int2ip(addr) for addr in range(start, stop + 1)]
                 if skip > 0:
                     skip -= len(curaddrs)
                     if skip <= 0:
@@ -440,7 +448,7 @@ def list_ips_by_data(datafile, parseline, data,
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
                 if listall:
-                    curaddrs = map(utils.int2ip, xrange(start, stop + 1))
+                    curaddrs = [utils.int2ip(addr) for addr in range(start, stop + 1)]
                     if skip > 0:
                         skip -= len(curaddrs)
                         if skip <= 0:
@@ -452,15 +460,16 @@ def list_ips_by_data(datafile, parseline, data,
                         if maxnbr < 0:
                             curaddrs = curaddrs[:maxnbr]
                     for addr in curaddrs:
-                        print addr
+                        print(addr)
                     if maxnbr is not None and maxnbr <= 0:
                         return
                 elif listcidrs:
                     for net in utils.range2nets((start, stop)):
-                        print net
+                        print(net)
                 else:
-                    print "%s - %s" % (utils.int2ip(start),
-                                       utils.int2ip(stop))
+                    print("%s - %s" % (utils.int2ip(start),
+                                       utils.int2ip(stop)))
+
 
 list_ips_by_country = functools.partial(
     list_ips_by_data,

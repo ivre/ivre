@@ -168,7 +168,7 @@ def get_config_file(paths=None):
             yield path
 
 for fname in get_config_file():
-    execfile(fname)
+    exec(compile(open(fname, "rb").read(), fname, 'exec'))
 
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are
@@ -191,7 +191,7 @@ def guess_prefix(directory=None):
     if __file__.startswith('/'):
         path = '/'
         # absolute path
-        for elt in __file__.split('/')[1:]:
+        for elt in __file__.split(os.path.sep)[1:]:
             if elt in ['lib', 'lib32', 'lib64']:
                 candidate = check_candidate(path, directory=directory)
                 if candidate is not None:

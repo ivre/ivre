@@ -19,14 +19,15 @@
 """Handle ivre passiverecon2db files."""
 
 
-import re
-import os
-import sys
-import shutil
-import time
-import subprocess
+from __future__ import print_function
 import gzip
+import os
+import re
+import shutil
 import signal
+import subprocess
+import sys
+import time
 
 
 from ivre import config, utils
@@ -45,7 +46,7 @@ def shutdown(signum, _):
 
     """
     global WANTDOWN
-    print 'SHUTDOWN: got signal %d, will halt after current file.' % signum
+    print('SHUTDOWN: got signal %d, will halt after current file.' % signum)
     WANTDOWN = True
 
 
@@ -61,7 +62,8 @@ def getnextfiles(directory, sensor=None, count=1):
         fmt = re.compile(FILEFORMAT % re.escape(sensor))
     files = [fmt.match(f) for f in os.listdir(directory)]
     files = [f for f in files if f is not None]
-    files.sort(key=lambda x: map(int, x.groupdict()['datetime'].split('-')))
+    files.sort(key=lambda x: int(val) for val in
+               x.groupdict()['datetime'].split('-'))
     return [f for f in files[:count]]
 
 
@@ -92,11 +94,11 @@ def worker(progname, directory, sensor=None):
         # ... if we don't, we sleep for a while
         if not fname:
             if config.DEBUG:
-                print "Sleeping for %d s" % SLEEPTIME,
+                print("Sleeping for %d s" % SLEEPTIME, end=' ')
                 sys.stdout.flush()
             time.sleep(SLEEPTIME)
             if config.DEBUG:
-                print "DONE"
+                print("DONE")
             continue
         fname = fname[0]
         fname_sensor = fname.groupdict()['sensor']
@@ -113,7 +115,7 @@ def worker(progname, directory, sensor=None):
         except shutil.Error:
             continue
         if config.DEBUG:
-            print "Handling %s" % fname,
+            print("Handling %s" % fname, end=' ')
             sys.stdout.flush()
         fname = os.path.join(directory, "current", fname)
         if fname.endswith('.gz'):
@@ -137,9 +139,9 @@ def worker(progname, directory, sensor=None):
             os.unlink(fname)
         if config.DEBUG:
             if handled_ok:
-                print "OK"
+                print("OK")
             else:
-                print "KO!"
+                print("KO!")
     # SHUTDOWN
     for sensor in procs:
         procs[sensor].stdin.close()

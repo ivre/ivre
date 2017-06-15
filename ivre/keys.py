@@ -34,7 +34,10 @@ from Crypto.PublicKey import RSA
 
 
 from ivre.db import db
-from ivre.utils import int2ip
+from ivre import utils
+
+
+from past.builtins import long
 
 
 Key = namedtuple("key", ["ip", "port", "service", "type", "size",
@@ -69,8 +72,8 @@ class NmapKey(DBKey):
     def getscripts(self, host):
         for port in host.get('ports', []):
             try:
-                script = (s for s in port.get('scripts', [])
-                          if s['id'] == self.scriptid).next()
+                script = next(s for s in port.get('scripts', [])
+                              if s['id'] == self.scriptid)
             except StopIteration:
                 continue
             yield {"port": port["port"], "script": script}
@@ -90,13 +93,13 @@ class PassiveKey(DBKey):
                                  else record['value'])
         if certtext is None:
             return
-        yield Key(int2ip(record['addr']), record["port"], "ssl",
+        yield Key(utils.int2ip(record['addr']), record["port"], "ssl",
                   certtext['type'], int(certtext['len']),
                   RSA.construct((
                       long(self.modulus_badchars.sub(
                           "", certtext['modulus']), 16),
                       long(certtext['exponent']))),
-                  record['infos']['md5hash'].decode('hex'))
+                  utils.decode_hex(record['infos']['md5hash']))
 
 
 class SSLKey(object):
@@ -106,11 +109,11 @@ class SSLKey(object):
     """
 
     def __init__(self):
-        self.pem_borders = re.compile('^-*(BEGIN|END) CERTIFICATE-*$', re.M)
-        self.modulus_badchars = re.compile('[ :\n]+')
+        self.pem_borders = re.compile(b'^-*(BEGIN|END) CERTIFICATE-*$', re.M)
+        self.modulus_badchars = re.compile(b'[ :\n]+')
 
     def read_pem(self, pem):
-        pem = self.pem_borders.sub("", pem).replace('\n', '').decode('base64')
+        pem = utils.decode_b64(self.pem_borders.sub(b"", pem))
         proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
@@ -145,11 +148,11 @@ class SSLNmapKey(NmapKey, SSLKey):
 
     def getkeys(self, host):
         for script in self.getscripts(host):
-            yield Key(int2ip(host['addr']), script["port"], "ssl",
+            yield Key(utils.int2ip(host['addr']), script["port"], "ssl",
                       script["script"][self.scriptid]['pubkey']['type'],
                       script["script"][self.scriptid]['pubkey']['bits'],
                       self.pem2key(script["script"][self.scriptid]['pem']),
-                      script["script"][self.scriptid]['md5'].decode('hex'))
+                      utils.decode_hex(script["script"][self.scriptid]['md5']))
 
 
 class SSLPassiveKey(PassiveKey, SSLKey):
@@ -188,17 +191,18 @@ class SSHNmapKey(NmapKey):
         for script in self.getscripts(host):
             for key in script['script'][self.scriptid]:
                 if key['type'][4:] == self.keytype:
-                    data = key['key'].decode('base64')
+                    data = utils.decode_b64(key['key'])
                     # Handle bug (in Nmap?) where data gets encoded
                     # twice.
-                    if data[0] != '\x00':
-                        data = data.decode('base64')
+                    if data[0] != b'\x00':
+                        data = utils.decode_b64(data)
                     yield Key(
-                        int2ip(host['addr']), script["port"], "ssh",
+                        utils.int2ip(host['addr']), script["port"], "ssh",
                         key['type'][4:],
                         int(key['bits']),
                         self.data2key(data),
-                        key['fingerprint'].decode('hex'))
+                        utils.decode_hex(key['fingerprint']),
+                    )
 
     @staticmethod
     def _data2key(data):
@@ -238,9 +242,9 @@ class RSAKey(object):
 
     def data2key(self, data):
         data = self._data2key(data)
-        _, exp, mod = (data.next(),
-                       long(data.next().encode('hex'), 16),
-                       long(data.next().encode('hex'), 16))
+        _, exp, mod = (next(data),
+                       long(utils.encode_hex(next(data)), 16),
+                       long(utils.encode_hex(next(data)), 16))
         return RSA.construct((mod, exp))
 
 

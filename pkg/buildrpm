@@ -20,11 +20,5 @@ RELEASE=1
 DISTRIB="`rpmbuild --eval \"%{?dist}\"`"
 VERSION="`python setup.py --version`"
 
-if python --version 2>&1 | grep -q '^Python 2'; then
-    PYTHON=python
-else
-    PYTHON=python2
-fi
-
-$PYTHON setup.py bdist_rpm --release=$RELEASE --distribution-name=$DISTRIB --requires=pymongo,python-crypto --obsoletes=IVRE
+python setup.py bdist_rpm --release=$RELEASE --distribution-name=$DISTRIB --requires=pymongo,python-crypto --obsoletes=IVRE
 mv dist/ivre-$VERSION-$RELEASE.noarch.rpm dist/ivre-$VERSION-${RELEASE}${DISTRIB}.noarch.rpm

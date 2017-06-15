@@ -27,6 +27,7 @@ from bisect import bisect_left
 import codecs
 import csv
 import datetime
+from functools import reduce
 import json
 import re
 import socket
@@ -34,6 +35,9 @@ import struct
 import time
 
 
+from builtins import int, range
+from future.utils import viewitems, viewvalues
+from past.builtins import basestring
 from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
     exists, insert, join, select, union, update, null, and_, not_, or_, \
     Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
@@ -45,6 +49,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 from ivre.db import DB, DBFlow, DBData, DBNmap, DBPassive
 from ivre import config, utils, xmlnmap
+
 
 Base = declarative_base()
 
@@ -111,7 +116,7 @@ there is no more data to read from the input.
     """
     def __init__(self, fname, skip=0, limit=None):
         self.fdesc = codecs.open(fname, encoding='latin-1')
-        for _ in xrange(skip):
+        for _ in range(skip):
             self.fdesc.readline()
         self.limit = limit
         if limit is not None:
@@ -133,7 +138,7 @@ the original line.
         try:
             line = None
             while line is None:
-                line = self.fixline(self.inp.next())
+                line = self.fixline(next(self.inp))
             if self.limit is not None:
                 self.count += 1
             return '%s\n' % '\t'.join(line)
@@ -156,7 +161,7 @@ class GeoIPCSVLocationFile(CSVFile):
 class GeoIPCSVLocationRangeFile(CSVFile):
     @staticmethod
     def fixline(line):
-        for i in xrange(2):
+        for i in range(2):
             line[i] = utils.int2ip(int(line[i]))
         return line
 
@@ -169,7 +174,7 @@ class GeoIPCSVASFile(CSVFile):
 class GeoIPCSVASRangeFile(CSVFile):
     @staticmethod
     def fixline(line):
-        for i in xrange(2):
+        for i in range(2):
             line[i] = utils.int2ip(int(line[i]))
         line[2] = line[2].split(' ', 1)[0][2:]
         return line
@@ -263,10 +268,6 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        if line["info"].get("city") == "Norwood" and (
-                '\xad' in repr(line['info']) or 'xad' in repr(line['info'])
-        ):
-            print line["info"]
         line["archive"] = 0
         line["merge"] = False
         for field in ["categories"]:
@@ -275,12 +276,11 @@ class ScanCSVFile(CSVFile):
         for port in line.get('ports', []):
             for script in port.get('scripts', []):
                 if 'masscan' in script and 'raw' in script['masscan']:
-                    script['masscan']['raw'] = script['masscan']['raw'].encode(
-                        'base64'
-                    ).replace('\n', '')
+                    script['masscan']['raw'] = utils.encode_b64(
+                        script['masscan']['raw']
+                    )
             if 'screendata' in port:
-                port['screendata'] = port['screendata'].encode('base64')\
-                                                       .replace('\n', '')
+                port['screendata'] = utils.encode_b64(port['screendata'])
         for field in ["hostnames", "ports", "info"]:
             if field in line:
                 line[field] = json.dumps(line[field]).replace('\\', '\\\\')
@@ -471,16 +471,15 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
-        for key, value in line.iteritems():
+        for key, value in viewitems(line):
             if key not in ["info", "moreinfo"] and \
                isinstance(value, basestring):
-                if isinstance(value, unicode):
-                    try:
-                        value = value.encode('latin-1')
-                    except:
-                        pass
+                try:
+                    value = value.encode('latin-1')
+                except:
+                    pass
                 line[key] = "".join(c if ' ' <= c <= '~' else
-                                    ('\\x%s' % c.encode('hex'))
+                                    ('\\x%s' % utils.encode_hex(c).decode())
                                     for c in value).replace('\\', '\\\\')
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
@@ -748,7 +747,7 @@ class PostgresDB(DB):
         or an `ObjectID`s.
 
         """
-        if isinstance(oid, (basestring, int, long)):
+        if isinstance(oid, (int, basestring)):
             oid = [int(oid)]
         else:
             oid = [int(oid) for oid in oid]
@@ -796,7 +795,7 @@ field.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return (res.itervalues().next() for res in self.db.execute(req))
+        return (next(iter(viewvalues(res))) for res in self.db.execute(req))
 
     def get(self, *args, **kargs):
         cur = self._get(*args, **kargs)
@@ -876,7 +875,7 @@ field.
     def _searchstring_list(field, value, neg=False, map_=None):
         if not isinstance(value, basestring) and hasattr(value, '__iter__'):
             if map_ is not None:
-                value = map(map_, value)
+                value = [map_(elt) for elt in value]
             if neg:
                 return field.notin_(value)
             return field.in_(value)
@@ -917,7 +916,7 @@ class BulkInsert(object):
     def commit(self, query=None, renew=True):
         if query is None:
             last = len(self.queries) - 1
-            for i, query in enumerate(self.queries.keys()):
+            for i, query in enumerate(list(self.queries)):
                 self.commit(query=query, renew=True if i < last else renew)
             return
         q_query, params = self.queries.pop(query)
@@ -1330,7 +1329,9 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def is_scan_present(self, scanid):
         return bool(self.db.execute(select([True])\
                                     .where(
-                                        ScanFile.sha256 == scanid.decode('hex')
+                                        ScanFile.sha256 == utils.decode_hex(
+                                            scanid
+                                        )
                                     )\
                                     .limit(1)).fetchone())
 
@@ -1342,7 +1343,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             )
         if 'scaninfos' in scan:
             scan["scaninfo"] = scan.pop('scaninfos')
-        scan["sha256"] = scan.pop('_id').decode('hex')
+        scan["sha256"] = utils.decode_hex(scan.pop('_id'))
         insrt = insert(ScanFile).values(
             **dict(
                 (key, scan[key])
@@ -1355,7 +1356,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             scanfileid = self.db.execute(
                 insrt.returning(ScanFile.sha256)
             ).fetchone()[0]
-            utils.LOGGER.debug("SCAN STORED: %r", scanfileid.encode('hex'))
+            utils.LOGGER.debug("SCAN STORED: %r", utils.encode_hex(scanfileid))
         else:
             self.db.execute(insrt)
 
@@ -1462,7 +1463,7 @@ insert structures.
         insrt = postgresql.insert(Association_Scan_ScanFile)
         self.db.execute(insrt\
                         .values(scan=scanid,
-                                scan_file=host['scanid'].decode('hex'))\
+                                scan_file=utils.decode_hex(host['scanid']))\
                         .on_conflict_do_nothing())
         for category in host.get("categories", []):
             insrt = postgresql.insert(Category)
@@ -1698,7 +1699,7 @@ insert structures.
                  recp["service_devicetype"], recp["service_extrainfo"],
                  recp["service_hostname"], recp["service_ostype"],
                  recp["service_servicefp"]) = port
-                for fld, value in recp.items():
+                for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
                 for script in self.db.execute(select([Script.name,
@@ -2082,7 +2083,7 @@ insert structures.
 
     def getscan(self, scanid, archive=False):
         if isinstance(scanid, basestring) and len(scanid) == 64:
-            scanid = scanid.decode('hex')
+            scanid = utils.decode_hex(scanid)
         return self.db.execute(select([ScanFile])\
                                .where(ScanFile.sha256 == scanid)).fetchone()
 
@@ -2792,6 +2793,10 @@ passive table."""
         def _backupgen(fdesc):
             for line in fdesc:
                 try:
+                    line = line.decode()
+                except AttributeError:
+                    pass
+                try:
                     line = json.loads(line)
                 except ValueError:
                     utils.LOGGER.warning("ignoring line [%r]", line)
@@ -2802,7 +2807,7 @@ passive table."""
                     pass
                 line.update(line.pop('infos', {}))
                 line.update(line.pop('fullinfos', {}))
-                for key, value in line.iteritems():
+                for key, value in viewitems(line):
                     if isinstance(value, dict) and len(value) == 1 \
                        and "$numberLong" in value:
                         line[key] = int(value['$numberLong'])

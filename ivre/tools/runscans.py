@@ -22,23 +22,31 @@ This program runs scans and produces output files importable with
 ivre scan2db.
 """
 
-import subprocess
-import resource
-import multiprocessing
-import shutil
-import select
-import re
-import os
-import sys
+
+from __future__ import print_function
 import fcntl
-import time
+from functools import reduce
+import multiprocessing
+import os
+import re
+import resource
+import select
+import shutil
+import subprocess
+import sys
 import termios
+import time
+
+
+from future.utils import viewitems
+
 
 import ivre.agent
 import ivre.geoiputils
 import ivre.utils
 import ivre.target
 import ivre.nmapopt
+
 
 if sys.version_info >= (2, 7):
     import functools
@@ -59,7 +67,7 @@ NMAP_LIMITS = {}
 
 def setnmaplimits():
     """Enforces limits from NMAP_LIMITS global variable."""
-    for limit, value in NMAP_LIMITS.iteritems():
+    for limit, value in viewitems(NMAP_LIMITS):
         resource.setrlimit(limit, value)
 
 
@@ -77,7 +85,7 @@ class XmlProcessTest(XmlProcess):
         if data == '':
             return False
         for addr in self.addrrec.finditer(data):
-            print "Read adddress", addr.groups()[0]
+            print("Read adddress", addr.groups()[0])
         return True
 
 
@@ -112,7 +120,7 @@ class XmlProcessWritefile(XmlProcess):
 
     def process(self, fdesc):
         newdata = fdesc.read()
-        # print "READ", len(newdata), "bytes"
+        # print("READ", len(newdata), "bytes")
         if newdata == '':
             self.scaninfo.write(self.data)
             self.scaninfo.close()
@@ -136,9 +144,9 @@ class XmlProcessWritefile(XmlProcess):
             hostrec = self.data[:self.data.index('</host>') + 7]
             try:
                 addr = self.addrrec.search(hostrec).groups()[0]
-            except Exception as exc:
-                print exc
-                print hostrec
+            except Exception:
+                ivre.utils.LOGGER.warning("Exception for record %r", hostrec,
+                                          exc_info=True)
             if self.status_up in hostrec:
                 status = 'up'
             elif self.status_down in hostrec:
@@ -159,7 +167,7 @@ class XmlProcessWritefile(XmlProcess):
         return True
 
     def target_status(self, target):
-        for status, statuscode in self.status_paths.iteritems():
+        for status, statuscode in viewitems(self.status_paths):
             try:
                 os.stat(os.path.join(self.path, status,
                                      target.replace('.', '/') + '.xml'))
@@ -195,34 +203,34 @@ def call_nmap(options, xmlprocess, targets,
     towrite = [proc.stdin]
     targiter = targets.__iter__()
     while toread:
-        # print "ENTERING SELECT"
+        # print("ENTERING SELECT")
         rlist, wlist = select.select(toread, towrite, [])[:2]
-        # print "LEAVING SELECT", rlist, wlist
+        # print("LEAVING SELECT", rlist, wlist)
         for rfdesc in rlist:
-            # print "PROCESSING DATA"
+            # print("PROCESSING DATA")
             if not xmlprocess.process(rfdesc):
-                print "NO MORE DATA TO PROCSESS"
+                print("NO MORE DATA TO PROCSESS")
                 rfdesc.close()
                 toread.remove(rfdesc)
         for wfdesc in wlist:
             try:
-                naddr = ivre.utils.int2ip(targiter.next())
+                naddr = ivre.utils.int2ip(next(targiter))
                 while xmlprocess.target_status(
                         naddr) not in accept_target_status:
-                    naddr = ivre.utils.int2ip(targiter.next())
-                print "ADDING TARGET",
-                print targiter.nextcount,
+                    naddr = ivre.utils.int2ip(next(targiter))
+                print("ADDING TARGET", end=' ')
+                print(targiter.nextcount, end=' ')
                 if hasattr(targets, "targetcount"):
-                    print '/', targets.targetscount,
-                print ":", naddr
+                    print('/', targets.targetscount, end=' ')
+                print(":", naddr)
                 wfdesc.write(naddr + '\n')
                 wfdesc.flush()
             except StopIteration:
-                print "WROTE ALL TARGETS"
+                print("WROTE ALL TARGETS")
                 wfdesc.close()
                 towrite.remove(wfdesc)
             except IOError:
-                print "ERROR: NMAP PROCESS IS DEAD"
+                print("ERROR: NMAP PROCESS IS DEAD")
                 return -1
     proc.wait()
     return 0
@@ -312,37 +320,38 @@ def main():
                             help='select status of targets to scan again')
     args = parser.parse_args()
     if args.output == 'CommandLine':
-        print "Command line to run a scan with template %s" % args.nmap_template
-        print "    %s" % ivre.nmapopt.build_nmap_commandline(
+        print("Command line to run a scan with template "
+              "%s" % args.nmap_template)
+        print("    %s" % ivre.nmapopt.build_nmap_commandline(
             template=args.nmap_template,
-        )
+        ))
         exit(0)
     if args.output == 'Agent':
         sys.stdout.write(ivre.agent.build_agent(template=args.nmap_template))
         exit(0)
     if args.output == 'Count':
         if args.country is not None:
-            print '%s has %d IPs.' % (
+            print('%s has %d IPs.' % (
                 args.country,
                 ivre.geoiputils.count_ips_by_country(args.country)
-            )
+            ))
             exit(0)
         if args.region is not None:
-            print '%s / %s has %d IPs.' % (
+            print('%s / %s has %d IPs.' % (
                 args.region[0], args.region[1],
                 ivre.geoiputils.count_ips_by_region(*args.region),
-            )
+            ))
             exit(0)
         if args.asnum is not None:
-            print 'AS%d has %d IPs.' % (
+            print('AS%d has %d IPs.' % (
                 args.asnum,
                 ivre.geoiputils.count_ips_by_asnum(args.asnum)
-            )
+            ))
             exit(0)
         if args.routable:
-            print 'We have %d routable IPs.' % (
+            print('We have %d routable IPs.' % (
                 ivre.geoiputils.count_routable_ips()
-            )
+            ))
             exit(0)
         parser.error("argument --output: invalid choice: '%s' "
                      "(only available with --country, --asnum, --region "
@@ -428,14 +437,16 @@ def main():
         targiter = targets.__iter__()
         try:
             for target in targiter:
-                print ivre.utils.int2ip(target)
+                print(ivre.utils.int2ip(target))
         except KeyboardInterrupt:
-            print 'Interrupted.\nUse "--state %s" to resume.' % (
-                ' '.join(map(str, targiter.getstate())))
-        except Exception as exc:
-            print 'ERROR: %r.' % exc
-            print 'Use "--state %s" to resume.' % (
-                ' '.join(map(str, targiter.getstate())))
+            print('Interrupted.\nUse "--state %s" to resume.' % (
+                ' '.join(str(elt) for elt in targiter.getstate())
+            ))
+        except Exception:
+            ivre.utils.LOGGER.critical('Exception', exc_info=True)
+            print('Use "--state %s" to resume.' % (
+                ' '.join(str(elt) for elt in targiter.getstate())
+            ))
         exit(0)
     xmlprocess = {
         'XML': (XmlProcessWritefile,

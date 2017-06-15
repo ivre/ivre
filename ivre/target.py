@@ -26,12 +26,18 @@ lists.
 """
 
 
+from functools import reduce
 import os
 import random
 import re
 import shlex
 import subprocess
 import tempfile
+
+
+from builtins import object
+from future.utils import viewvalues
+from past.builtins import basestring
 
 
 from ivre import utils, geoiputils, mathutils
@@ -101,7 +107,7 @@ class IterTarget(object):
     def getstate(self):
         return (self.previous, self.lcg_c, self.lcg_a, self.nextcount)
 
-    def next(self):
+    def __next__(self):
         if self.nextcount >= self.target.maxnbr:
             raise StopIteration
         self.nextcount += 1
@@ -307,7 +313,7 @@ class IterTargetFile(object):
             raise StopIteration
         return self.target.__getaddr__(line)
 
-    def next(self):
+    def __next__(self):
         while True:
             addr = self.__readline__()
             if addr is not None:
@@ -331,7 +337,7 @@ class TargetZMapPreScan(TargetFile):
         self.infos['zmap_pre_scan'] = zmap_opts[:]
         zmap_opts = [zmap] + zmap_opts + ['-o', '-']
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
-        for start, count in target.targets.ranges.itervalues():
+        for start, count in viewvalues(target.targets.ranges):
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()
@@ -377,7 +383,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         # using a temporary file
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
         nmap_opts = [nmap, '-iL', self.tmpfile.name, '-oG', '-'] + nmap_opts
-        for start, count in target.targets.ranges.itervalues():
+        for start, count in viewvalues(target.targets.ranges):
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()

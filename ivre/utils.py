@@ -24,11 +24,13 @@ sub-module or script.
 
 import ast
 import bz2
-from cStringIO import StringIO
+import codecs
 import datetime
 import errno
+from functools import reduce
 import gzip
 import hashlib
+from io import BytesIO
 import logging
 import math
 import os
@@ -45,7 +47,13 @@ except ImportError:
     USE_PIL = False
 
 
+from builtins import bytes, int, object, range, str
+from future.utils import viewitems
+from past.builtins import basestring
+
+
 from ivre import config
+
 
 # (1)
 # http://docs.mongodb.org/manual/core/indexes/#index-behaviors-and-limitations
@@ -71,6 +79,10 @@ def ip2int(ipstr):
     database storage.
 
     """
+    try:
+        ipstr = ipstr.decode()
+    except AttributeError:
+        pass
     return struct.unpack('!I', socket.inet_aton(ipstr))[0]
 
 
@@ -90,7 +102,7 @@ def int2mask(mask):
     From scapy:utils.py:itom(x).
 
     """
-    return (0xffffffff00000000L >> mask) & 0xffffffffL
+    return (0xffffffff00000000 >> mask) & 0xffffffff
 
 
 def net2range(network):
@@ -136,7 +148,7 @@ def range2nets(rng):
 def get_domains(name):
     """Generates the upper domains from a domain name."""
     name = name.split('.')
-    return ('.'.join(name[i:]) for i in xrange(len(name)))
+    return ('.'.join(name[i:]) for i in range(len(name)))
 
 
 def str2regexp(string):
@@ -167,23 +179,26 @@ def regexp2pattern(string):
     if isinstance(string, REGEXP_T):
         flags = string.flags
         string = string.pattern
-        if string.startswith('^'):
+        patterns = (('^', '$', '.*')
+                    if isinstance(string, str) else
+                    (b'^', b'$', b'.*'))
+        if string.startswith(patterns[0]):
             string = string[1:]
         # elif string.startswith('('):
         #     raise ValueError("Regexp starting with a group are not "
         #                      "(yet) supported")
         else:
-            string = ".*" + string
-        if string.endswith('$'):
+            string = patterns[2] + string
+        if string.endswith(patterns[1]):
             string = string[:-1]
         # elif string.endswith(')'):
         #     raise ValueError("Regexp ending with a group are not "
         #                      "(yet) supported")
         else:
-            string += ".*"
+            string += patterns[2]
         return string, flags
     else:
-        return re.escape(string), 0
+        return re.escape(string), re.UNICODE if isinstance(string, str) else 0
 
 
 def str2list(string):
@@ -191,8 +206,11 @@ def str2list(string):
     a list of the coma-or-pipe separated elements from the string.
 
     """
-    if ',' in string or '|' in string:
-        return string.replace('|', ',').split(',')
+    patterns = ((',', '|')
+                if isinstance(string, str) else
+                (b',', b'|'))
+    if patterns[0] in string or patterns[1] in string:
+        return string.replace(patterns[1], patterns[0]).split(patterns[0])
     return string
 
 
@@ -246,8 +264,8 @@ def nmapspec2ports(string):
     result = set()
     for ports in string.split(','):
         if '-' in ports:
-            ports = map(int, ports.split('-', 1))
-            result = result.union(xrange(ports[0], ports[1] + 1))
+            ports = [int(port) for port in ports.split('-', 1)]
+            result = result.union(range(ports[0], ports[1] + 1))
         else:
             result.add(int(ports))
     return result
@@ -282,8 +300,8 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return isinstance(elt, (basestring, int, long, float,
-                            datetime.datetime, REGEXP_T))
+    return isinstance(elt, (basestring, int, float, datetime.datetime,
+                            REGEXP_T))
 
 
 def diff(doc1, doc2):
@@ -325,7 +343,6 @@ def diff(doc1, doc2):
                 res[key][kkey] = True
             for kkey in kkeys1.intersection(kkeys2):
                 pass
-                # print kkey
     return res
 
 
@@ -335,7 +352,7 @@ def fields2csv_head(fields, prefix=''):
 
     """
     line = []
-    for field, subfields in fields.iteritems():
+    for field, subfields in viewitems(fields):
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
@@ -350,7 +367,7 @@ def doc2csv(doc, fields, nastr="NA"):
 
     """
     lines = [[]]
-    for field, subfields in fields.iteritems():
+    for field, subfields in viewitems(fields):
         if subfields is True:
             value = doc.get(field)
             if isinstance(value, list):
@@ -400,8 +417,8 @@ class FileOpener(object):
 
     """
     FILE_OPENERS_MAGIC = {
-        "\x1f\x8b": (config.GZ_CMD, gzip.open),
-        "BZ": (config.BZ2_CMD, bz2.BZ2File),
+        b"\x1f\x8b": (config.GZ_CMD, gzip.open),
+        b"BZ": (config.BZ2_CMD, bz2.BZ2File),
     }
 
     def __init__(self, fname):
@@ -411,13 +428,13 @@ class FileOpener(object):
             self.needsclose = False
             return
         self.needsclose = True
-        with open(fname) as fdesc:
+        with open(fname, 'rb') as fdesc:
             magic = fdesc.read(2)
         try:
             cmd_opener, py_opener = self.FILE_OPENERS_MAGIC[magic]
         except KeyError:
             # Not a compressed file
-            self.fdesc = open(fname)
+            self.fdesc = open(fname, 'rb')
             return
         try:
             # By default we try to use zcat / bzcat, since they seem to be
@@ -458,8 +475,8 @@ class FileOpener(object):
     def __iter__(self):
         return self
 
-    def next(self):
-        return self.fdesc.next()
+    def __next__(self):
+        return next(self.fdesc)
 
 
 def open_file(fname):
@@ -503,6 +520,8 @@ def serialize(obj):
         )
     if isinstance(obj, datetime.datetime):
         return str(obj)
+    if isinstance(obj, bytes):
+        return obj.decode()
     raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
 
 
@@ -657,7 +676,7 @@ if USE_PIL:
         (too tolerant, will trim the whole image).
 
         """
-        img = PIL.Image.open(StringIO(imgdata))
+        img = PIL.Image.open(BytesIO(imgdata))
         bbox = _trim_image(img, tolerance)
         if bbox:
             newbbox = (max(bbox[0] - minborder, 0),
@@ -665,7 +684,7 @@ if USE_PIL:
                        img.size[0] - max(img.size[0] - bbox[2] - minborder, 0),
                        img.size[1] - max(img.size[1] - bbox[3] - minborder, 0))
             if newbbox != (0, 0, img.size[0], img.size[1]):
-                out = StringIO()
+                out = BytesIO()
                 img.crop(newbbox).save(out, format='jpeg')
                 out.seek(0)
                 return out.read()
@@ -718,8 +737,8 @@ def _set_ports():
                 continue
             _PORTS.setdefault(proto, {})[port] = freq
         fdesc.close()
-    for proto, entry in config.KNOWN_PORTS.iteritems():
-        for port, proba in entry.iteritems():
+    for proto, entry in viewitems(config.KNOWN_PORTS):
+        for port, proba in viewitems(entry):
             _PORTS.setdefault(proto, {})[port] = proba
     _PORTS_POPULATED = True
 
@@ -732,9 +751,10 @@ def guess_srv_port(port1, port2, proto="tcp"):
     if not _PORTS_POPULATED:
         _set_ports()
     ports = _PORTS.get(proto, {})
-    cmpval = cmp(ports.get(port1, 0), ports.get(port2, 0))
+    val1, val2 = ports.get(port1, 0), ports.get(port2, 0)
+    cmpval = (val1 > val2) - (val1 < val2)
     if cmpval == 0:
-        return cmp(port2, port1)
+        return (port2 > port1) - (port2 < port1)
     return cmpval
 
 
@@ -748,61 +768,65 @@ def _read_nmap_probes():
     _NMAP_CUR_PROBE = None
     def parse_line(line):
         global _NMAP_PROBES, _NMAP_CUR_PROBE
-        if line.startswith('match '):
+        if line.startswith(b'match '):
             line = line[6:]
             soft = False
-        elif line.startswith('softmatch '):
+        elif line.startswith(b'softmatch '):
             line = line[10:]
             soft = True
-        elif line.startswith('Probe '):
+        elif line.startswith(b'Probe '):
             _NMAP_CUR_PROBE = []
-            proto, name, probe = line[6:].split(' ', 2)
-            _NMAP_PROBES.setdefault(proto.lower(), {})[name] = {
+            proto, name, probe = line[6:].split(b' ', 2)
+            _NMAP_PROBES.setdefault(proto.lower().decode(),
+                                    {})[name.decode()] = {
                 "probe": probe, "fp": _NMAP_CUR_PROBE
             }
             return
         else:
             return
-        service, data = line.split(' ', 1)
+        service, data = line.split(b' ', 1)
         info = {"soft": soft}
         while data:
-            if data.startswith('cpe:'):
+            if data.startswith(b'cpe:'):
                 key = 'cpe'
                 data = data[4:]
             else:
-                key = data[0]
+                key = data[0:1].decode()
                 data = data[1:]
-            sep = data[0]
+            sep = data[0:1]
             data = data[1:]
             index = data.index(sep)
             value = data[:index]
             data = data[index + 1:]
-            flag = ''
+            flag = b''
             if data:
-                if ' ' in data:
-                    flag, data = data.split(' ', 1)
+                if b' ' in data:
+                    flag, data = data.split(b' ', 1)
                 else:
-                    flag, data = data, ''
+                    flag, data = data, b''
             if key == 'm':
-                if value.endswith('\\r\\n'):
-                    value = value[:-4] + '(?:\\r\\n|$)'
-                elif value.endswith('\\\\n'):
-                    value = value[:3] + '(?:\\\\n|$)'
-                elif value.endswith('\\n'):
-                    value = value[:-2] + '(?:\\n|$)'
+                if value.endswith(b'\\r\\n'):
+                    value = value[:-4] + b'(?:\\r\\n|$)'
+                elif value.endswith(b'\\\\n'):
+                    value = value[:3] + b'(?:\\\\n|$)'
+                elif value.endswith(b'\\n'):
+                    value = value[:-2] + b'(?:\\n|$)'
                 value = re.compile(
                     value,
                     flags=sum(getattr(re, f) if hasattr(re, f) else 0
-                              for f in flag.upper()),
+                              for f in flag.decode().upper()),
                 )
-                flag = ''
+                flag = b''
+            else:
+                value = value.decode()
             info[key] = (value, flag)
-        _NMAP_CUR_PROBE.append((service, info))
+        _NMAP_CUR_PROBE.append((service.decode(), info))
     try:
-        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes')) as fdesc:
+        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes'),
+                  'rb') as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
-    except (AttributeError, IOError):
+    except (AttributeError, TypeError, IOError):
         LOGGER.warning('Cannot read Nmap service fingerprint file.',
                        exc_info=True)
     del _NMAP_CUR_PROBE
@@ -823,14 +847,15 @@ _IKESCAN_VENDOR_IDS_POPULATED = False
 def _read_ikescan_vendor_ids():
     global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     try:
-        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids')) as fdesc:
-            sep = re.compile('\\t+')
+        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids'),
+                  'rb') as fdesc:
+            sep = re.compile(b'\\t+')
             _IKESCAN_VENDOR_IDS = [
-                (line[0], re.compile(line[1].replace('[[:xdigit:]]',
-                                                     '[0-9a-f]'), re.I))
+                (line[0], re.compile(line[1].replace(b'[[:xdigit:]]',
+                                                     b'[0-9a-f]'), re.I))
                 for line in (
                     sep.split(line, 1)
-                    for line in (line.strip().split('#', 1)[0]
+                    for line in (line.strip().split(b'#', 1)[0]
                                  for line in fdesc)
                     if line
                 )
@@ -848,17 +873,20 @@ def get_ikescan_vendor_ids():
 
 
 def find_ike_vendor_id(vendorid):
-    vid = vendorid.encode('hex')
+    vid = encode_hex(vendorid)
     for name, sig in get_ikescan_vendor_ids():
         if sig.search(vid):
             return name
 
 
+_REPRS = {'\r': '\\r', '\n': '\\n', '\t': '\\t'}
+
+
 def nmap_encode_data(data):
-    return "".join(
-        (d if " " <= d <= "~" else (repr(d)[1:-1] if d in '\r\n\t'
-                                    else ('\\x%02x' % ord(d))))
-        for d in data
+    return b"".join(
+        (d if b" " <= d <= b"~" else (_REPRS[d] if d in _REPRS else
+                                      (b'\\x%02x' % ord(d))))
+        for d in (data[i:i+1] for i in range(len(data)))
     )
 
 
@@ -868,7 +896,7 @@ def nmap_svc_fp_format_data(data, match):
             if '$%d' % (i + 1) in data:
                 return
             continue
-        data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
+        data = data.replace('$%d' % (i + 1), nmap_encode_data(value).decode())
     return data
 
 
@@ -882,7 +910,7 @@ def normalize_props(props):
     props = dict(
         (key, (value if isinstance(value, basestring) else
                ("{%s}" % key) if value is None else
-               str(value))) for key, value in props.iteritems()
+               str(value))) for key, value in viewitems(props)
     )
     return props
 
@@ -907,3 +935,26 @@ def num2readable(value):
     if isinstance(value, float):
         return '%.3f%s' % (value / idx, unit)
     return '%d%s' % (value / idx, unit)
+
+
+
+_DECODE_HEX = codecs.getdecoder("hex_codec")
+_ENCODE_HEX = codecs.getencoder("hex_codec")
+_DECODE_B64 = codecs.getdecoder("base64_codec")
+_ENCODE_B64 = codecs.getencoder("base64_codec")
+
+
+def decode_hex(value):
+    return _DECODE_HEX(value)[0]
+
+
+def encode_hex(value):
+    return _ENCODE_HEX(value)[0]
+
+
+def decode_b64(value):
+    return _DECODE_B64(value)[0]
+
+
+def encode_b64(value):
+    return _ENCODE_B64(value)[0].replace(b'\n', b'')

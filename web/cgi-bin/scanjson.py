@@ -16,10 +16,15 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 import json
 import socket
 import struct
 import sys
+
+
+from future.utils import viewitems
+
 
 try:
     from ivre import utils, webutils, config
@@ -205,7 +210,7 @@ def main():
                     result.setdefault(utils.int2ip(res["addr"]),
                                       []).append([res['port'], res['value']])
                     count += 1
-            result = result.iteritems()
+            result = viewitems(result)
         if count >= config.WEB_WARN_DOTS_COUNT:
             sys.stdout.write(
                 'if(confirm("You are about to ask your browser to display %d '
@@ -286,7 +291,7 @@ def main():
                     rec[field] = int(rec[field].strftime('%s'))
         for port in rec.get('ports', []):
             if 'screendata' in port:
-                port['screendata'] = port['screendata'].encode('base64')
+                port['screendata'] = utils.encode_b64(port['screendata'])
             for script in port.get('scripts', []):
                 if "masscan" in script:
                     try: del script['masscan']['raw']
@@ -323,7 +328,7 @@ def main():
                            'IVRE!' % (count, 's' if count > 1 else '',
                                       've' if count > 1 else 's')),
     }
-    for mismatch, count in version_mismatch.iteritems():
+    for mismatch, count in viewitems(version_mismatch):
         message = messages[mismatch](count)
         sys.stdout.write(
             webutils.js_alert("version-mismatch-%d" % ((mismatch + 1) / 2),

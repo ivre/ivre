@@ -33,6 +33,9 @@ import subprocess
 import time
 
 
+from builtins import range
+
+
 from ivre import utils
 
 
@@ -170,7 +173,7 @@ class Campaign(object):
         self.outputpath = outputpath
         if visiblecategory is None:
             self.visiblecategory = ''.join(chr(random.randrange(65, 91))
-                                           for _ in xrange(10))
+                                           for _ in range(10))
         else:
             self.visiblecategory = visiblecategory
         self.maxfeed = maxfeed
@@ -214,8 +217,8 @@ class Campaign(object):
         can receive.
 
         """
-        for _ in xrange(max(agent.may_receive(), maxnbr)):
-            addr = utils.int2ip(self.targiter.next())
+        for _ in range(max(agent.may_receive(), maxnbr)):
+            addr = utils.int2ip(next(self.targiter))
             with open(os.path.join(agent.get_local_path('input'),
                                    '%s.%s' % (self.visiblecategory, addr)),
                       'w') as fdesc:

@@ -28,13 +28,20 @@ import datetime
 import functools
 import shlex
 import re
-import urllib
+try:
+    from urllib.parse import unquote
+except ImportError:
+    from urllib import unquote
 from Crypto.Hash.HMAC import HMAC
 try:
     import MySQLdb
     HAVE_MYSQL = True
 except ImportError:
     HAVE_MYSQL = False
+
+
+from future.utils import viewitems
+from past.builtins import basestring
 
 
 from ivre import config, utils
@@ -164,7 +171,7 @@ def parse_query_string():
 
     """
     return dict(
-        [param, urllib.unquote(value)]
+        [param, unquote(value)]
         for param, value in (x.split('=', 1) if '=' in x else [x, None]
                              for x in os.getenv('QUERY_STRING', '').split('&'))
     )
@@ -210,8 +217,8 @@ def get_anonymized_user():
     the HMAC secret.
 
     """
-    return HMAC(key=config.WEB_SECRET,
-                msg=get_user()).digest()[:9].encode('base64').rstrip()
+    return utils.encode_b64(HMAC(key=config.WEB_SECRET,
+                                 msg=get_user()).digest()[:9])
 
 
 QUERIES = {
@@ -233,7 +240,7 @@ def _parse_query(query):
 
 DEFAULT_INIT_QUERY = _parse_query(config.WEB_DEFAULT_INIT_QUERY)
 INIT_QUERIES = dict([key, _parse_query(value)]
-                    for key, value in config.WEB_INIT_QUERIES.iteritems())
+                    for key, value in viewitems(config.WEB_INIT_QUERIES))
 
 def get_init_flt():
     """Return a filter corresponding to the current user's
@@ -337,7 +344,7 @@ def flt_from_query(query, base_flt=None):
             flt = db.nmap.flt_and(flt, db.nmap.searchsource(value, neg=neg))
         elif param == "timerange":
             flt = db.nmap.flt_and(flt, db.nmap.searchtimerange(
-                *map(float, value.replace('-', ',').split(',')),
+                *(float(val) for val in value.replace('-', ',').split(',')),
                 neg=neg))
         elif param == 'timeago':
             if value and value[-1].isalpha():
@@ -576,7 +583,7 @@ def flt_from_query(query, base_flt=None):
                 else:
                     proto, port = "tcp", port
                 protos.setdefault(proto, []).append(int(port))
-            for proto, ports in protos.iteritems():
+            for proto, ports in viewitems(protos):
                 flt = db.nmap.flt_and(
                     flt,
                     db.nmap.searchport(ports[0], protocol=proto, state=param)
@@ -585,7 +592,9 @@ def flt_from_query(query, base_flt=None):
                 )
         elif param == 'otheropenport':
             flt = db.nmap.flt_and(
-                flt, db.nmap.searchportsother(map(int, value.split(','))))
+                flt, db.nmap.searchportsother([int(val) for val in
+                                               value.split(',')])
+            )
         elif param == "screenshot":
             if value is None:
                 flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(neg=neg))
@@ -606,7 +615,8 @@ def flt_from_query(query, base_flt=None):
                 )
             else:
                 params = value.split(':', 1)
-                words = (map(utils.str2regexp, params[0].split(','))
+                words = ([utils.str2regexp(elt) for elt in
+                          params[0].split(',')]
                          if ',' in params[0] else utils.str2regexp(params[0]))
                 if len(params) == 1:
                     flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
@@ -651,7 +661,8 @@ def flt_from_query(query, base_flt=None):
             elif all(x.isdigit() for x in param.split(',')):
                 flt = db.nmap.flt_and(
                     flt,
-                    db.nmap.searchports(map(int, param.split(',')), neg=neg)
+                    db.nmap.searchports([int(val) for val in param.split(',')],
+                                        neg=neg)
                 )
             elif IPADDR.match(param):
                 flt = db.nmap.flt_and(flt, db.nmap.searchhost(param, neg=neg))

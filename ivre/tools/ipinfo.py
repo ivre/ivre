@@ -17,6 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import print_function
 import datetime
 import functools
 import os
@@ -29,105 +30,113 @@ except ImportError:
     import optparse
     USING_ARGPARSE = False
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
+
+
+from builtins import input
 
 
 from ivre.db import db
 import ivre.utils
 
 
-def disp_rec(h):
-    print '\t',
-    if 'port' in h and h['port']:
-        print h['port'],
-    if 'recontype' in h:
+def disp_rec(rec):
+    print('\t', end=' ')
+    if 'port' in rec and rec['port']:
+        print(rec['port'], end=' ')
+    if 'recontype' in rec:
         try:
-            print h['recontype'].value,
+            print(rec['recontype'].value, end=' ')
         except AttributeError:
-            print h['recontype'],
-    if 'source' in h:
-        print h['source'],
-    if 'infos' not in h and 'value' in h:
-        if 'fullvalue' in h:
-            h['value'] = h['fullvalue']
-        print h['value'],
-    if 'version' in h:
-        print h['version'],
-    if 'signature' in h:
-        print '[' + h['signature'] + ']',
-    if 'distance' in h:
-        print "at %s hop%s" % (h['distance'], h['distance'] > 1 and 's' or ''),
-    if 'count' in h:
-        print "(%d time%s)" % (h['count'], h['count'] > 1 and 's' or ''),
-    if 'firstseen' in h and 'lastseen' in h:
-        if isinstance(h['firstseen'], datetime.datetime):
-            print h['firstseen'], '-', h['lastseen'],
+            print(rec['recontype'], end=' ')
+    if 'source' in rec:
+        print(rec['source'], end=' ')
+    if 'infos' not in rec and 'value' in rec:
+        if 'fullvalue' in rec:
+            rec['value'] = rec['fullvalue']
+        print(rec['value'], end=' ')
+    if 'version' in rec:
+        print(rec['version'], end=' ')
+    if 'signature' in rec:
+        print('[%s]' % rec['signature'], end=' ')
+    if 'distance' in rec:
+        print("at %s hop%s" % (rec['distance'], rec['distance'] > 1 and 's' or ''), end=' ')
+    if 'count' in rec:
+        print("(%d time%s)" % (rec['count'], rec['count'] > 1 and 's' or ''), end=' ')
+    if 'firstseen' in rec and 'lastseen' in rec:
+        if isinstance(rec['firstseen'], datetime.datetime):
+            print(rec['firstseen'], '-', rec['lastseen'], end=' ')
         else:
-            print datetime.datetime.fromtimestamp(int(h['firstseen'])), '-',
-            print datetime.datetime.fromtimestamp(int(h['lastseen'])),
-    if 'sensor' in h:
-        print h['sensor'],
-    print
-    if 'infos' in h:
-        for i in h['infos']:
-            print '\t\t', i + ':',
+            print(datetime.datetime.fromtimestamp(int(rec['firstseen'])), '-', end=' ')
+            print(datetime.datetime.fromtimestamp(int(rec['lastseen'])), end=' ')
+    if 'sensor' in rec:
+        print(rec['sensor'], end=' ')
+    print()
+    if 'infos' in rec:
+        for i in rec['infos']:
+            print('\t\t', i + ':', end=' ')
             if i == 'domainvalue':
-                print h['infos'][i][0]
+                print(rec['infos'][i][0])
             else:
-                print h['infos'][i]
+                print(rec['infos'][i])
 
 
 def disp_recs_std(flt):
     oa = None
     c = db.passive.get(flt, sort=[('addr', 1), ('recontype', 1), ('source', 1),
                                   ('port', 1)])
-    for h in c:
-        if not 'addr' in h or h['addr'] == 0:
+    for rec in c:
+        if not 'addr' in rec or rec['addr'] == 0:
             continue
-        if oa != h['addr']:
+        if oa != rec['addr']:
             if oa is not None:
-                print
-            oa = h['addr']
+                print()
+            oa = rec['addr']
             try:
-                print ivre.utils.int2ip(oa)
+                print(ivre.utils.int2ip(oa))
             except (struct.error, TypeError):
-                print oa
+                print(oa)
             c = db.data.infos_byip(oa)
             if c:
                 if 'country_code' in c:
-                    print '\t',
-                    print c['country_code'],
+                    print('\t', end=' ')
+                    print(c['country_code'], end=' ')
                     try:
-                        print '[%s]' % db.data.country_name_by_code(
-                            c['country_code']),
+                        print('[%s]' % db.data.country_name_by_code(
+                            c['country_code']
+                        ), end=' ')
                     except:
                         pass
-                    print
+                    print()
                 if 'as_num' in c:
-                    print '\t',
-                    print 'AS%d' % c['as_num'],
+                    print('\t', end=' ')
+                    print('AS%d' % c['as_num'], end=' ')
                     if 'as_name' in c:
-                        print '[%s]' % c['as_name'],
-                    print
+                        print('[%s]' % c['as_name'], end=' ')
+                    print()
                 elif 'as_name' in c:
-                    print '\t',
-                    print 'AS???? [%s]' % c['as_name'],
-        disp_rec(h)
+                    print('\t', end=' ')
+                    print('AS???? [%s]' % c['as_name'], end=' ')
+        disp_rec(rec)
 
 
 def disp_recs_short(flt):
     for addr in db.passive.distinct('addr', flt=flt):
-        print ivre.utils.int2ip(addr)
+        print(ivre.utils.int2ip(addr))
 
 
 def disp_recs_distinct(field, flt):
     for value in db.passive.distinct(field, flt=flt):
-        print value
+        print(value)
 
 
 def disp_recs_count(flt):
-    print db.passive.count(flt)
+    print(db.passive.count(flt))
 
 
 def _disp_recs_tail(flt, field, n):
@@ -136,12 +145,12 @@ def _disp_recs_tail(flt, field, n):
     recs.reverse()
     for r in recs:
         if 'addr' in r:
-            print ivre.utils.int2ip(r['addr']),
+            print(ivre.utils.int2ip(r['addr']), end=' ')
         else:
             if 'fulltargetval' in r:
-                print r['fulltargetval'],
+                print(r['fulltargetval'], end=' ')
             else:
-                print r['targetval'],
+                print(r['targetval'], end=' ')
         disp_rec(r)
 
 
@@ -162,12 +171,12 @@ def _disp_recs_tailf(flt, field):
     r = {'firstseen': 0, 'lastseen': 0}
     for r in firstrecs:
         if 'addr' in r:
-            print ivre.utils.int2ip(r['addr']),
+            print(ivre.utils.int2ip(r['addr']), end=' ')
         else:
             if 'fulltargetval' in r:
-                print r['fulltargetval'],
+                print(r['fulltargetval'], end=' ')
             else:
-                print r['targetval'],
+                print(r['targetval'], end=' ')
         disp_rec(r)
     # 2. loop
     try:
@@ -179,12 +188,12 @@ def _disp_recs_tailf(flt, field):
                         baseflt, {field: {'$gt': prevtime}}),
                     sort=[(field, 1)]):
                 if 'addr' in r:
-                    print ivre.utils.int2ip(r['addr']),
+                    print(ivre.utils.int2ip(r['addr']), end=' ')
                 else:
                     if 'fulltargetval' in r:
-                        print r['fulltargetval'],
+                        print(r['fulltargetval'], end=' ')
                     else:
-                        print r['targetval'],
+                        print(r['targetval'], end=' ')
                 disp_rec(r)
     except KeyboardInterrupt:
         pass
@@ -199,7 +208,7 @@ def disp_recs_tailf():
 
 
 def disp_recs_explain(flt):
-    print db.passive.explain(db.passive.get(flt), indent=4)
+    print(db.passive.explain(db.passive.get(flt), indent=4))
 
 def main():
     global baseflt
@@ -271,7 +280,7 @@ def main():
                 'This will remove any passive information in your '
                 'database. Process ? [y/N] '
             )
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 exit(0)
         db.passive.init()
@@ -281,7 +290,7 @@ def main():
             sys.stdout.write(
                 'This will lock your database. Process ? [y/N] '
             )
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 exit(0)
         db.passive.ensure_indexes()
@@ -379,7 +388,7 @@ def main():
         if first:
             first = False
         else:
-            print
+            print()
         flt = baseflt.copy()
         if ':' in a:
             a = a.split(':', 1)

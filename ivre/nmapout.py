@@ -28,6 +28,10 @@ import os
 import json
 
 
+from builtins import input
+from future.utils import viewitems
+
+
 from ivre import utils
 
 
@@ -85,14 +89,14 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
     if 'starttime' in record and 'endtime' in record:
         out.write("\tscan %s - %s\n" %
                   (record['starttime'], record['endtime']))
-    for state, counts in record.get('extraports', {}).iteritems():
+    for state, counts in viewitems(record.get('extraports', {})):
         out.write("\t%d ports %s (%s)\n" %
                   (counts["total"], state,
                    ", ".join("%d %s" % (count, reason)
-                             for reason, count in counts["reasons"].iteritems()
+                             for reason, count in viewitems(counts["reasons"])
                              if reason != "total")))
     ports = record.get('ports', [])
-    ports.sort(key=lambda x: (x.get('protocol'), x['port']))
+    ports.sort(key=lambda x: (x.get('protocol') or '', x['port']))
     for port in ports:
         if port.get('port') == -1:
             record['scripts'] = port['scripts']
@@ -101,7 +105,7 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
             reason = " (%s)" % ', '.join(
                 [port['state_reason']] +
                 ["%s=%s" % (field[13:], value)
-                 for field, value in port.iteritems()
+                 for field, value in viewitems(port)
                  if field.startswith('state_reason_')]
             )
         else:
@@ -162,7 +166,7 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
     for record in recordsgen:
         displayhost(record, out=out, **kargs)
         if os.isatty(out.fileno()):
-            raw_input()
+            input()
         else:
             out.write('\n')
 

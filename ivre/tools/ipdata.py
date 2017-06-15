@@ -21,6 +21,7 @@ AS number and country information.
 
 """
 
+from __future__ import print_function
 import os
 try:
     import argparse
@@ -29,8 +30,16 @@ except ImportError:
     import optparse
     USING_ARGPARSE = False
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+try:
+    reload(sys)
+except NameError:
+    pass
+else:
+    sys.setdefaultencoding('utf-8')
+
+
+from builtins import input
+from future.utils import viewitems
 
 
 import ivre.db
@@ -51,7 +60,7 @@ def main():
             return res[0]
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
-    TORUN = []
+    torun = []
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
@@ -83,7 +92,7 @@ def main():
             sys.stdout.write(
                 'This will remove any country/AS information in your '
                 'database. Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() != 'y':
                 exit(0)
         ivre.db.db.data.init()
@@ -91,7 +100,7 @@ def main():
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
                 'This will lock your database. Process ? [y/N] ')
-            ans = raw_input()
+            ans = input()
             if ans.lower() == 'y':
                 ivre.db.db.data.ensure_indexes()
     if args.download:
@@ -102,19 +111,19 @@ def main():
     if args.update_nmap_db:
         dbtofeed.setdefault("feedipdata", []).append(ivre.db.db.nmap)
     if args.city_csv is not None:
-        TORUN.append((ivre.db.db.data.feed_geoip_city,
+        torun.append((ivre.db.db.data.feed_geoip_city,
                       [args.city_csv],
                       dbtofeed))
     if args.country_csv:
-        TORUN.append((ivre.db.db.data.feed_geoip_country,
+        torun.append((ivre.db.db.data.feed_geoip_country,
                       [args.country_csv],
                       dbtofeed))
     if args.asnum_csv:
-        TORUN.append((ivre.db.db.data.feed_geoip_asnum,
+        torun.append((ivre.db.db.data.feed_geoip_asnum,
                       [args.asnum_csv],
                       dbtofeed))
     if args.location_csv:
-        TORUN.append((ivre.db.db.data.feed_city_location,
+        torun.append((ivre.db.db.data.feed_city_location,
                       [args.location_csv], {}))
     if args.import_all:
         for function, fname, kwargs in [
@@ -132,18 +141,18 @@ def main():
                  'GeoIPASNum.csv',
                  dbtofeed),
         ]:
-            TORUN.append((function,
+            torun.append((function,
                           [os.path.join(ivre.config.GEOIP_PATH,
                                         fname)],
                           kwargs))
-    for r in TORUN:
-        r[0](*r[1], **r[2])
-    for a in args.ip:
-        if a.isdigit():
-            a = int(a)
-        print a
-        for i in [ivre.db.db.data.as_byip(a),
-                  ivre.db.db.data.location_byip(a)]:
-            if i:
-                for f in i:
-                    print '    ', f, i[f]
+    for function, args, kargs in torun:
+        function(*args, **kargs)
+    for addr in args.ip:
+        if addr.isdigit():
+            addr = int(addr)
+        print(addr)
+        for info in [ivre.db.db.data.as_byip(addr),
+                     ivre.db.db.data.location_byip(addr)]:
+            if info:
+                for key, value in viewitems(info):
+                    print('    %s %s' % (key, value))

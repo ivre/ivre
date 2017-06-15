@@ -19,9 +19,14 @@
 """Support for Bro log files"""
 
 import datetime
-from itertools import izip
+
+
+from builtins import zip
+
 
 from ivre.parser import Parser
+from ivre.utils import decode_hex
+
 
 class BroFile(Parser):
     """Bro log generator"""
@@ -47,7 +52,7 @@ class BroFile(Parser):
                 break
             self.parse_header_line(line)
 
-    def next(self):
+    def __next__(self):
         return self.parse_line(self.nextlines.pop(0)
                                if self.nextlines else
                                next(self.fdesc))
@@ -67,7 +72,7 @@ class BroFile(Parser):
         arg = keyval[1]
 
         if directive == "separator":
-            self.sep = arg[2:].decode("hex") if arg.startswith('\\x') else arg
+            self.sep = decode_hex(arg[2:]) if arg.startswith('\\x') else arg
         elif directive == "set_separator":
             self.set_sep = arg
         elif directive == "empty_field":
@@ -87,11 +92,11 @@ class BroFile(Parser):
 
     def parse_line(self, line):
         if line.startswith('#'):
-            return self.next()
+            return next(self)
         res = {}
         fields = line.strip().split(self.sep)
 
-        for field, name, typ in izip(fields, self.fields, self.types):
+        for field, name, typ in zip(fields, self.fields, self.types):
             name = name.replace(".", "_")
             res[name] = self.bro2neo(field, typ)
         return res

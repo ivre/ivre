@@ -16,8 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 import json
 import sys
+
+
+from future.utils import viewitems
+
 
 try:
     from ivre import config, utils, webutils, VERSION
@@ -38,7 +43,7 @@ def main():
     sys.stdout.write("\r\n")
     sys.stdout.writelines(
         'config.%s = %s;\n' % (key, json.dumps(value))
-        for key, value in {
+        for key, value in viewitems({
                 "notesbase": config.WEB_NOTES_BASE,
                 "dflt_limit": config.WEB_LIMIT,
                 "warn_dots_count": config.WEB_WARN_DOTS_COUNT,
@@ -46,7 +51,7 @@ def main():
                 "uploadok": config.WEB_UPLOAD_OK,
                 "flow_time_precision": config.FLOW_TIME_PRECISION,
                 "version": VERSION,
-        }.iteritems()
+        })
     )
 
 

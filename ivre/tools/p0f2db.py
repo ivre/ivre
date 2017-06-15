@@ -90,7 +90,7 @@ def main():
         parser.add_argument = parser.add_option
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--mode', '-m', help='p0f mode',
-                        choices=ivre.passive.P0F_MODES.keys(),
+                        choices=list(ivre.passive.P0F_MODES),
                         default="SYN")
     parser.add_argument('--bulk', action='store_true',
                         help='Use bulk inserts (this is the default)')

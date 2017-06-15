@@ -17,6 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import print_function
 import os
 
 
@@ -124,4 +125,4 @@ def main():
         except Exception:
             ivre.utils.LOGGER.warning("Exception (file %r)", scan,
                                       exc_info=True)
-    print "%d results imported." % count
+    print("%d results imported." % count)

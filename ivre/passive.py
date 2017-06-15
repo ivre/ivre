@@ -30,6 +30,9 @@ import hashlib
 import subprocess
 
 
+from future.utils import viewitems
+
+
 from ivre import utils
 
 
@@ -55,41 +58,41 @@ P0F_MODES = {
         'filter': 'tcp and tcp[tcpflags] & (tcp-syn|tcp-ack) == 16'}
 }
 
-P0F_DIST = re.compile('distance ([0-9]+),')
+P0F_DIST = re.compile(b'distance ([0-9]+),')
 
 
 def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
-    line = [line.split(' - ')[0]] + line.split(' - ')[1].split(' -> ')
-    if line[1].startswith('UNKNOWN '):
-        sig = line[1][line[1].index('UNKNOWN ') + 8:][1:-1].split(':')[:6]
-        osname, version, dist = '?', '?', -1
+    line = [line.split(b' - ')[0]] + line.split(b' - ')[1].split(b' -> ')
+    if line[1].startswith(b'UNKNOWN '):
+        sig = line[1][line[1].index(b'UNKNOWN ') + 8:][1:-1].split(b':')[:6]
+        osname, version, dist = b'?', b'?', -1
     else:
-        sig = line[1][line[1].index(' Signature: ') + 12:][
-            1:-1].split(':')[:6]
-        if ' (up: ' in line[1]:
-            osname = line[1][:line[1].index(' (up: ')]
+        sig = line[1][line[1].index(b' Signature: ') + 12:][
+            1:-1].split(b':')[:6]
+        if b' (up: ' in line[1]:
+            osname = line[1][:line[1].index(b' (up: ')]
         else:
-            osname = line[1][:line[1].index(' Signature: ')]
-        osname, version = osname.split(' ')[0], ' '.join(osname.split(' ')[1:])
+            osname = line[1][:line[1].index(b' Signature: ')]
+        osname, version = osname.split(b' ')[0], b' '.join(osname.split(b' ')[1:])
         dist = int(P0F_DIST.search(line[2]).groups()[0])
     # We wildcard any window size which is not Sxxx or Tyyy
-    if sig[0][0] not in ['S', 'T']:
-        sig[0] = '*'
+    if sig[0][0] not in b'ST':
+        sig[0] = b'*'
     spec = {
-        'addr': utils.ip2int(line[0][line[0].index('> ')
-                                     + 2:line[0].index(':')]),
+        'addr': utils.ip2int(line[0][line[0].index(b'> ')
+                                     + 2:line[0].index(b':')]),
         'distance': dist,
-        'value': osname,
-        'version': version,
-        'signature': ":".join(map(str, sig)),
+        'value': osname.decode(),
+        'version': version.decode(),
+        'signature': ':'.join(str(elt) for elt in sig),
     }
     if include_port:
-        spec.update({'port': int(line[0][line[0].index(':') + 1:])})
+        spec.update({'port': int(line[0][line[0].index(b':') + 1:])})
     if sensor is not None:
         spec['sensor'] = sensor
     if recontype is not None:
         spec['recontype'] = recontype
-    return float(line[0][1:line[0].index('>')]), spec
+    return float(line[0][1:line[0].index(b'>')]), spec
 
 
 # Bro specific
@@ -150,8 +153,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
         if authtype.lower() == 'digest':
             try:
                 # we only keep relevant info
-                value = filter(DIGEST_AUTH_INFOS.match,
-                               _split_digest_auth(spec['value'][6:].strip()))
+                value = [val for val in
+                         _split_digest_auth(spec['value'][6:].strip())
+                         if DIGEST_AUTH_INFOS.match(val)]
                 spec['value'] = '%s %s' % (authtype, ','.join(value))
             except:
                 pass
@@ -163,10 +167,10 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # original value in full[original column name].
     if len(spec['value']) > utils.MAXVALLEN:
         spec['fullvalue'] = spec['value']
-        spec['value'] = hashlib.sha1(spec['fullvalue']).hexdigest()
+        spec['value'] = hashlib.sha1(spec['fullvalue'].encode()).hexdigest()
     if 'targetval' in spec and len(spec['targetval']) > utils.MAXVALLEN:
         spec['fulltargetval'] = spec['targetval']
-        spec['targetval'] = hashlib.sha1(spec['fulltargetval']).hexdigest()
+        spec['targetval'] = hashlib.sha1(spec['fulltargetval'].encode()).hexdigest()
     return spec
 
 
@@ -209,12 +213,11 @@ def _getinfos_http_client_authorization(spec):
     fullinfos = {}
     data = spec.get('fullvalue', spec['value']).split(None, 1)
     if data[1:]:
-        if data[0].lower() == 'basic':
+        if data[0].lower() == b'basic':
             try:
-                infos['username'], infos['password'] = ''.join(data[1].strip())\
-                                                         .decode('base64')\
-                                                         .decode('latin-1')\
-                                                         .split(':', 1)
+                infos['username'], infos['password'] = utils.decode_b64(
+                    data[1].strip()
+                ).decode('latin-1').split(':', 1)
                 for field in ['username', 'password']:
                     if len(infos[field]) > utils.MAXVALLEN:
                         fullinfos[field] = infos[field]
@@ -227,7 +230,7 @@ def _getinfos_http_client_authorization(spec):
                     value.split('=', 1) if '=' in value else [value, None]
                     for value in _split_digest_auth(data[1].strip())
                 )
-                for key, value in infos.items():
+                for key, value in list(viewitems(infos)):
                     if value.startswith('"') and value.endswith('"'):
                         infos[key] = value[1:-1]
             except Exception:
@@ -289,7 +292,7 @@ def _getinfos_cert(spec):
     infos = {}
     fullinfos = {}
     try:
-        cert = spec.get('fullvalue', spec['value']).decode('base64')
+        cert = utils.decode_b64(spec.get('fullvalue', spec['value']))
     except Exception:
         return {}
     for hashtype in ['md5', 'sha1']:

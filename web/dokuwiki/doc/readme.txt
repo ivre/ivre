@@ -17,8 +17,8 @@ IVRE is a **framework**. Meaning it does **not** come with ready-to-run scripts 
 
 IVRE relies on:
 
-  * [[http://www.python.org/|Python]] 2, version 2.6 minimum
-    * the [[http://www.pycrypto.org/|Crypto]] module
+  * [[http://www.python.org/|Python]] 2 (version 2.6 minimum), or 3 (version 3.3 minimum). Python 2.6 compatibility is important to make sure IVRE works with RHEL and CentOS version 6.
+    * the [[http://www.pycrypto.org/|Crypto]] module.
     * the [[http://api.mongodb.org/python/|pymongo]] module, version 2.7.2 minimum.
     * optionally [[http://www.pythonware.com/products/pil/|PIL]], to trim screenshots.
     * optionally [[http://py2neo.org/v3/|py2neo]] to use the flow module, version 3 minimum.
@@ -32,9 +32,7 @@ IVRE relies on:
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%ivre httpd%%'').
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]]).
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases.
-  * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]], if you plan to add screenshots to your Nmap scan results
-  * optionally [[https://neo4j.com/|neo4j]] (version >= 2) & [[http://py2neo.org|py2neo]] (version >= 3) for ivre flow related tools
-  * optionally [[http://qosient.com/argus/index.shtml|argus]] and/or [[http://nfdump.sourceforge.net/|nfdump]] for ivre flow2db
+  * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]], if you plan to add screenshots to your Nmap scan results.
   * optionally [[http://www.docker.com/|Docker]] & [[https://www.vagrantup.com/|Vagrant]] (version 1.6 minimum)
 
 IVRE comes with (refer to the [[doc:license-external|LICENSE-EXTERNAL]] file for the licenses):
