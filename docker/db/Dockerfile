@@ -29,7 +29,6 @@ RUN echo "deb http://repo.mongodb.org/apt/debian wheezy/mongodb-org/3.2 main" | 
 ADD https://debian.neo4j.org/neotechnology.gpg.key /neotechnology.gpg.key
 RUN apt-key add /neotechnology.gpg.key && rm /neotechnology.gpg.key
 RUN echo 'deb http://debian.neo4j.org/repo stable/' > /etc/apt/sources.list.d/neo4j.list
-RUN echo 'deb http://httpredir.debian.org/debian stable-backports main' >> /etc/apt/sources.list
 RUN apt-get -q update && apt-get -qy install mongodb-org neo4j=2.3.3
 
 # Data & log directories
