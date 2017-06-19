@@ -1087,8 +1087,6 @@ class DBData(DB):
         if line.startswith(b'"'):
             line = line[1:]
         line = line.split(b'","')
-        if line[4] not in self.country_codes:
-            self.country_codes[line[4]] = line[5]
         if feedipdata is not None:
             for dbinst in feedipdata:
                 dbinst.update_country(
