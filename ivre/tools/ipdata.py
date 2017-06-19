@@ -145,8 +145,8 @@ def main():
                           [os.path.join(ivre.config.GEOIP_PATH,
                                         fname)],
                           kwargs))
-    for function, args, kargs in torun:
-        function(*args, **kargs)
+    for function, fargs, fkargs in torun:
+        function(*fargs, **fkargs)
     for addr in args.ip:
         if addr.isdigit():
             addr = int(addr)
