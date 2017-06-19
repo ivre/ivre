@@ -117,6 +117,43 @@ FLOW_TIME_PRECISION = 3600
 # This option is experimental and possibly useless in practice
 FLOW_TIME_FULL_RANGE = False
 
+IPDATA_URLS = {
+    # 'GeoIPCountry.dat':
+    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/'
+    # 'GeoIP.dat.gz',
+    'GeoIPCountryCSV.zip':
+    'http://geolite.maxmind.com/download/geoip/database/GeoIPCountryCSV.zip',
+    # 'GeoIPCity.dat':
+    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz',
+    'GeoIPCityCSV.zip':
+    'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/'
+    'GeoLiteCity-latest.zip',
+    # 'GeoIPASNum.dat':
+    # 'http://geolite.maxmind.com/download/geoip/database/asnum/'
+    # 'GeoIPASNum.dat.gz',
+    'GeoIPASNumCSV.zip':
+    'http://geolite.maxmind.com/download/geoip/database/asnum/GeoIPASNum2.zip',
+    # 'GeoIPCountryIPv6.dat':
+    # 'http://geolite.maxmind.com/download/geoip/database/GeoIPv6.dat.gz',
+    # 'GeoIPCountryIPv6.csv':
+    # 'http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz',
+    # 'GeoIPCityIPv6.dat':
+    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/'
+    # 'GeoLiteCityv6.dat.gz',
+    # 'GeoIPCityIPv6.csv':
+    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/'
+    # 'GeoLiteCityv6.csv.gz',
+    # 'GeoIPASNumIPv6.dat':
+    # 'http://download.maxmind.com/download/geoip/database/asnum/'
+    # 'GeoIPASNumv6.dat.gz',
+    # 'GeoIPASNumIPv6.csv':
+    # 'http://download.maxmind.com/download/geoip/database/asnum/'
+    # 'GeoIPASNum2v6.zip',
+    'iso3166.csv': 'http://dev.maxmind.com/static/csv/codes/iso3166.csv',
+    # This one is not from maxmind -- see http://thyme.apnic.net/
+    'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
+}
+
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"
 WEB_MAXRESULTS = None
