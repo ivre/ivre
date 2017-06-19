@@ -107,6 +107,10 @@ def int2mask(mask):
 
 def net2range(network):
     """Converts a network to a (start, stop) tuple."""
+    try:
+        network = network.decode()
+    except AttributeError:
+        pass
     addr, mask = network.split('/')
     addr = ip2int(addr)
     if '.' in mask:

@@ -3097,7 +3097,7 @@ code / name table
     def feed_geoip_country(self, fname, feedipdata=None,
                            createipdata=False):
         self.country_codes = {}
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             self.db[self.colname_geoip_country].insert(
                 self.parse_line_country(line, feedipdata=feedipdata,
                                         createipdata=createipdata)
@@ -3111,7 +3111,7 @@ code / name table
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
@@ -3122,7 +3122,7 @@ code / name table
             )
 
     def feed_city_location(self, fname):
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
@@ -3133,7 +3133,7 @@ code / name table
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             self.db[self.colname_geoip_as].insert(
                 self.parse_line_asnum(line, feedipdata=feedipdata,
                                       createipdata=createipdata)
