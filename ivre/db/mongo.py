@@ -3087,31 +3087,35 @@ class MongoDBData(MongoDB, DBData):
         self.db[self.colname_city_locations].drop()
         self.create_indexes()
 
-    def feed_country_codes(self, *_, **__):
-        """GeoIP Country database is used with MongoDB instead of a country
-code / name table
+    def parse_line_country_codes(self, line):
+        data = super(MongoDBData, self).parse_line_country_codes(line)
+        if 'code' in data:
+            data['country_code'] = data.pop('code')
+        return data
 
-        """
-        pass
+    def feed_country_codes(self, fname):
+        with open(fname, "rb") as fdesc:
+            self.db[self.colname_country_codes].insert(
+                self.parse_line_country_codes(line)
+                for line in fdesc
+            )
+        # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
+        self.db[self.colname_country_codes].insert(
+            {'country_code': "AN", 'name': "Netherlands Antilles"}
+        )
 
     def feed_geoip_country(self, fname, feedipdata=None,
                            createipdata=False):
-        self.country_codes = {}
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             self.db[self.colname_geoip_country].insert(
                 self.parse_line_country(line, feedipdata=feedipdata,
                                         createipdata=createipdata)
                 for line in fdesc
             )
-        self.db[self.colname_country_codes].insert(
-            {'country_code': code, 'name': name}
-            for code, name in viewitems(self.country_codes)
-        )
-        self.country_codes = None
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
@@ -3122,7 +3126,7 @@ code / name table
             )
 
     def feed_city_location(self, fname):
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             # Skip the two first lines
             fdesc.readline()
             fdesc.readline()
@@ -3133,7 +3137,7 @@ code / name table
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
-        with open(fname) as fdesc:
+        with open(fname, "rb") as fdesc:
             self.db[self.colname_geoip_as].insert(
                 self.parse_line_asnum(line, feedipdata=feedipdata,
                                       createipdata=createipdata)
@@ -3183,6 +3187,14 @@ code / name table
                             {'location_id': locid})
         if rec:
             del rec['_id'], rec['location_id']
+            if 'loc' in rec:
+                if 'coordinates' in rec['loc']:
+                    rec['coordinates'] = tuple(rec['loc']['coordinates'][::-1])
+                del rec['loc']
+            if 'country_code' in rec:
+                name = self.country_name_by_code(rec['country_code'])
+                if name:
+                    rec['country_name'] = name
         return rec
 
     def location_byip(self, addr):

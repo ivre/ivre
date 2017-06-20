@@ -1074,21 +1074,19 @@ class DBData(DB):
         raise NotImplementedError
 
     def parse_line_country_codes(self, line):
-        assert line.endswith('"\n')
-        line = line[:-2].split(',"')
-        return {'code': line[0], 'name': line[1]}
+        assert line.endswith(b'"\n')
+        line = line[:-2].split(b',"')
+        return {'code': line[0].decode(), 'name': line[1].decode()}
 
     def parse_line_country(self, line, feedipdata=None,
                            createipdata=False):
-        if line.endswith('\n'):
+        if line.endswith(b'\n'):
             line = line[:-1]
-        if line.endswith('"'):
+        if line.endswith(b'"'):
             line = line[:-1]
-        if line.startswith('"'):
+        if line.startswith(b'"'):
             line = line[1:]
-        line = line.split('","')
-        if line[4] not in self.country_codes:
-            self.country_codes[line[4]] = line[5]
+        line = line.split(b'","')
         if feedipdata is not None:
             for dbinst in feedipdata:
                 dbinst.update_country(
@@ -1097,17 +1095,17 @@ class DBData(DB):
                 )
         return {'start': int(line[2]),
                 'stop': int(line[3]),
-                'country_code': line[4]}
+                'country_code': line[4].decode()}
 
     @staticmethod
     def parse_line_city(line, feedipdata=None, createipdata=False):
-        if line.endswith('\n'):
+        if line.endswith(b'\n'):
             line = line[:-1]
-        if line.endswith('"'):
+        if line.endswith(b'"'):
             line = line[:-1]
-        if line.startswith('"'):
+        if line.startswith(b'"'):
             line = line[1:]
-        line = line.split('","')
+        line = line.split(b'","')
         if feedipdata is not None:
             for dbinst in feedipdata:
                 dbinst.update_city(
@@ -1120,16 +1118,16 @@ class DBData(DB):
 
     @staticmethod
     def parse_line_city_location(line):
-        if line.endswith('\n'):
+        if line.endswith(b'\n'):
             line = line[:-1]
         # Get an integer
-        i = line.index(',')
+        i = line.index(b',')
         parsedline = {'location_id': int(line[:i])}
         line = line[i + 1:]
         # Get 4 strings
         for field in ['country_code', 'region_code', 'city',
                       'postal_code']:
-            i = line.index('",')
+            i = line.index(b'",')
             curval = line[1:i]
             if curval:
                 parsedline[field] = curval.decode('latin-1')
@@ -1137,7 +1135,7 @@ class DBData(DB):
         # Get 2 floats
         coords = []
         for i in range(2):
-            i = line.index(',')
+            i = line.index(b',')
             curval = line[:i]
             if curval:
                 coords.append(float(curval))
@@ -1148,7 +1146,7 @@ class DBData(DB):
                 'coordinates': [coords[1], coords[0]],
             }
         # Get 1 int
-        i = line.index(',')
+        i = line.index(b',')
         curval = line[:i]
         if curval:
             parsedline['metro_code'] = int(curval)
@@ -1160,19 +1158,19 @@ class DBData(DB):
 
     @staticmethod
     def parse_line_asnum(line, feedipdata=None, createipdata=False):
-        if line.endswith('\n'):
+        if line.endswith(b'\n'):
             line = line[:-1]
-        line = line.split(',', 2)
+        line = line.split(b',', 2)
         parsedline = {
             'start': int(line[0]),
             'stop': int(line[1]),
         }
         data = line[2]
-        if data.endswith('"'):
+        if data.endswith(b'"'):
             data = data[:-1]
-        if data.startswith('"'):
+        if data.startswith(b'"'):
             data = data[1:]
-        if data.startswith('AS'):
+        if data.startswith(b'AS'):
             data = data.split(None, 1)
             parsedline['as_num'] = int(data[0][2:])
             if len(data) == 2:
