@@ -71,18 +71,14 @@ def bgp_raw_to_csv(fname, out):
                 if stop == cur[0] + 1:
                     cur = [start, cur[1]]
                     continue
-                out.write(b'"%s","%s","%d","%d"\n' % (
-                    utils.int2ip(cur[0]).encode(),
-                    utils.int2ip(cur[1]).encode(),
-                    cur[0], cur[1]
-                ))
+                out.write(('"%s","%s","%d","%d"\n' % (
+                    utils.int2ip(cur[0]), utils.int2ip(cur[1]), cur[0], cur[1],
+                )).encode())
             cur = [start, stop]
     if cur:
-        out.write(b'"%s","%s","%d","%d"\n' % (
-            utils.int2ip(cur[0]).encode(),
-            utils.int2ip(cur[1]).encode(),
-            cur[0], cur[1]
-        ))
+        out.write(('"%s","%s","%d","%d"\n' % (
+            utils.int2ip(cur[0]), utils.int2ip(cur[1]), cur[0], cur[1],
+        )).encode())
 
 
 def unzip_all(fname):
@@ -428,8 +424,7 @@ def list_ips_by_data(datafile, parseline, data,
                     for net in utils.range2nets((start, stop)):
                         print(net)
                 else:
-                    print(b"%s - %s" % (utils.int2ip(start).encode(),
-                                        utils.int2ip(stop).encode()))
+                    print("%s - %s" % (utils.int2ip(start), utils.int2ip(stop)))
 
 
 list_ips_by_country = functools.partial(

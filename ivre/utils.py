@@ -883,13 +883,13 @@ def find_ike_vendor_id(vendorid):
             return name
 
 
-_REPRS = {'\r': '\\r', '\n': '\\n', '\t': '\\t'}
+_REPRS = {b'\r': b'\\r', b'\n': b'\\n', b'\t': b'\\t', b'\\': b'\\\\'}
 
 
 def nmap_encode_data(data):
     return b"".join(
-        (d if b" " <= d <= b"~" else (_REPRS[d] if d in _REPRS else
-                                      (b'\\x%02x' % ord(d))))
+        _REPRS[d] if d in _REPRS else d if b" " <= d <= b"~" else
+        ('\\x%02x' % ord(d)).encode()
         for d in (data[i:i+1] for i in range(len(data)))
     )
 
