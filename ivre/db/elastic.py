@@ -26,6 +26,7 @@ contribute!
 
 """
 
+from __future__ import print_function
 import struct
 
 
@@ -59,8 +60,8 @@ class ElasticDB(DB):
 
     def create_indexes(self):
         for idx, body in self.indexes.iteritems():
-            print self.db.indices.create(index=idx, ignore=400,
-                                         body={"mappings": body})
+            print(self.db.indices.create(index=idx, ignore=400,
+                                         body={"mappings": body}))
 
 
 class ElasticDBNmap(ElasticDB, DBNmap):
