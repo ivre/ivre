@@ -822,25 +822,13 @@ class IvreTests(unittest.TestCase):
         ivre.utils.makedirs("logs")
         broenv = os.environ.copy()
         broenv["LOG_ROTATE"] = "60"
-        broenv["LOG_PATH"] = "logs/passiverecon"
+        broenv["LOG_PATH"] = "logs/TEST"
 
         for fname in self.pcap_files:
-            for mode in viewvalues(ivre.passive.P0F_MODES):
-                p0fprocess = subprocess.Popen(
-                    ['p0f', '-q', '-l', '-S', '-ttt', '-s',
-                     fname] + mode['options'] + [mode['filter']],
-                    stdout=subprocess.PIPE, stderr=open(os.devnull, 'w')
-                )
-                for line in p0fprocess.stdout:
-                    timestamp, spec = ivre.passive.parse_p0f_line(
-                        line,
-                        include_port=(mode['name'] == 'SYN+ACK')
-                    )
-                    spec['sensor'] = "TEST"
-                    spec['recontype'] = 'P0F2-%s' % mode['name']
-                    self.assertIsNone(
-                        ivre.db.db.passive.insert_or_update(
-                            timestamp, spec))
+            for mode in ivre.passive.P0F_MODES:
+                res = RUN(["ivre", "p0f2db", "-s", "TEST", "-m", mode,
+                           fname])[0]
+                self.assertEqual(res, 0)
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
                  os.path.join(
@@ -850,20 +838,30 @@ class IvreTests(unittest.TestCase):
             broprocess.wait()
 
         time.sleep(1) # Hack for Travis CI
-        for root, _, files in os.walk("logs"):
-            for fname in files:
-                with open(os.path.join(root, fname)) as fdesc:
-                    for line in fdesc:
-                        if not line or line.startswith('#'):
-                            continue
-                        line.rstrip('\n')
-                        timestamp, spec = ivre.passive.handle_rec(
-                            "TEST", {}, {}, *line.split('\t'))
-                        if spec is not None:
-                            ivre.db.db.passive.insert_or_update(
-                                timestamp, spec,
-                                getinfos=ivre.passive.getinfos
-                            )
+        pid = os.fork()
+        if pid < 0:
+            raise Exception("Cannot fork")
+        elif pid:
+            # Wait for child process to handle every file in "logs"
+            while True:
+                if not any(walk[2] for walk in os.walk("logs")):
+                    os.kill(pid, signal.SIGINT)
+                    break
+                print(u"Waiting for passivereconworker")
+                time.sleep(2)
+            os.waitpid(pid, 0)
+        else:
+            if USE_COVERAGE:
+                os.execvp(
+                    sys.executable,
+                    COVERAGE + [
+                        "run", "--parallel-mode", which("ivre"),
+                        "passivereconworker", "--directory", "logs",
+                    ],
+                )
+            else:
+                os.execlp("ivre", "ivre", "passivereconworker", "--directory",
+                          "logs")
 
         # Counting
         total_count = ivre.db.db.passive.count(
@@ -1072,9 +1070,7 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(out, b"8.8.8.8\n")
 
         # Download
-        ## res = RUN(["ivre", "ipdata", "--download"])[0]
-        res, out, err = RUN(["ivre", "ipdata", "--download"])
-        print(res, out, err)
+        res = RUN(["ivre", "ipdata", "--download"])[0]
         self.assertEqual(res, 0)
 
         # Insert
