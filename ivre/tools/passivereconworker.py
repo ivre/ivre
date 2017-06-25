@@ -119,9 +119,9 @@ def worker(progname, directory, sensor=None):
             sys.stdout.flush()
         fname = os.path.join(directory, "current", fname)
         if fname.endswith('.gz'):
-            fdesc = gzip.open(fname)
+            fdesc = gzip.open(fname, "rb")
         else:
-            fdesc = open(fname)
+            fdesc = open(fname, "rb")
         handled_ok = True
         for line in fdesc:
             try:
