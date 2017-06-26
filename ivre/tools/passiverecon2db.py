@@ -31,6 +31,22 @@ import ivre.passive
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
+
+def _get_ignore_rules(ignore_spec):
+    """Executes the ignore_spec file and returns the ignore_rules
+dictionary.
+
+Python 2.6 bug: it has to be in a separate function than main()
+because of the exec() call and the nested functions.
+
+    """
+    ignore_rules = {}
+    if ignore_spec is not None:
+        exec(compile(open(ignore_spec, "rb").read(), ignore_spec, 'exec'),
+             ignore_rules)
+    return ignore_rules
+
+
 def main():
     import sys
     try:
@@ -50,10 +66,7 @@ def main():
     parser.add_argument('--no-bulk', action='store_true',
                         help='Do not use bulk inserts')
     args = parser.parse_args()
-    ignore_rules = {}
-    if args.ignore_spec is not None:
-        exec(compile(open(args.ignore_spec, "rb").read(), args.ignore_spec,
-                     'exec'), ignore_rules)
+    ignore_rules = _get_ignore_rules(args.ignore_spec)
     if (not args.no_bulk) or args.bulk:
         function = ivre.db.db.passive.insert_or_update_bulk
     else:

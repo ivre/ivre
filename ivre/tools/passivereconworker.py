@@ -51,20 +51,20 @@ def shutdown(signum, _):
 
 
 def getnextfiles(directory, sensor=None, count=1):
-    """Returns a list of maximum `count` filenames to process, given
-    the `directory` and the `sensor` (or, if it is `None`, from any
-    sensor).
+    """Returns a list of maximum `count` filenames (as FILEFORMAT matches)
+    to process, given the `directory` and the `sensor` (or, if it is
+    `None`, from any sensor).
 
     """
     if sensor is None:
         fmt = re.compile(FILEFORMAT % "[^\\.]*")
     else:
         fmt = re.compile(FILEFORMAT % re.escape(sensor))
-    files = [fmt.match(f) for f in os.listdir(directory)]
+    files = (fmt.match(f) for f in os.listdir(directory))
     files = [f for f in files if f is not None]
-    files.sort(key=lambda x: int(val) for val in
-               x.groupdict()['datetime'].split('-'))
-    return [f for f in files[:count]]
+    files.sort(key=lambda x: [int(val) for val in
+                              x.groupdict()['datetime'].split('-')])
+    return files[:count]
 
 
 def create_process(progname, sensor):
@@ -119,9 +119,9 @@ def worker(progname, directory, sensor=None):
             sys.stdout.flush()
         fname = os.path.join(directory, "current", fname)
         if fname.endswith('.gz'):
-            fdesc = gzip.open(fname)
+            fdesc = gzip.open(fname, "rb")
         else:
-            fdesc = open(fname)
+            fdesc = open(fname, "rb")
         handled_ok = True
         for line in fdesc:
             try:

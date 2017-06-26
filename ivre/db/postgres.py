@@ -478,9 +478,11 @@ class PassiveCSVFile(CSVFile):
                     value = value.encode('latin-1')
                 except:
                     pass
-                line[key] = "".join(c if ' ' <= c <= '~' else
-                                    ('\\x%s' % utils.encode_hex(c).decode())
-                                    for c in value).replace('\\', '\\\\')
+                line[key] = "".join(
+                    c.decode() if b' ' <= c <= b'~' else
+                    ('\\x%02x' % ord(c))
+                    for c in (value[i:i + 1] for i in range(len(value)))
+                ).replace('\\', '\\\\')
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
                  if key in self.info_fields),
