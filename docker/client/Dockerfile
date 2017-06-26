@@ -66,12 +66,16 @@ RUN nmap --script-update
 
 # Install bro
 ADD https://www.bro.org/downloads/release/bro-2.4.1.tar.gz ./bro.tar.gz
-RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev \
-                        flex bison libpython2.7-dev swig && \
+# https://bro-tracker.atlassian.net/browse/BIT-1499
+ADD https://bro-tracker.atlassian.net/secure/attachment/15400/patch-aux_broccoli_src_bro__openssl.c /patch1
+ADD https://bro-tracker.atlassian.net/secure/attachment/15401/patch-src_ChunkedIO.cc /patch2
+RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev flex \
+                        bison libpython2.7-dev zlib1g-dev swig patch && \
     cd tmp/ && tar zxf ../bro.tar.gz && mv bro-* bro && \
-    cd bro && ./configure && make -j 4 && make install && \
-    cd / && rm -rf tmp/bro bro.tar.gz && \
+    cd bro && for p in /patch*; do patch -p0 < $p; done && ./configure && \
+    make -j && make install && cd / && rm -rf tmp/bro bro.tar.gz patch* && \
     apt-get -qy --purge autoremove build-essential cmake libssl-dev \
-                        libpcap-dev flex bison libpython2.7-dev swig
+                        libpcap-dev flex bison libpython2.7-dev zlib1g-dev \
+                        swig patch
 
 RUN mkdir /var/lib/ivre

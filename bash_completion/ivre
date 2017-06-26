@@ -19,8 +19,8 @@ _ivre_options() {
 _ivre_choices() {
     command="$1"
     option="$2"
-    ivre help "$command" | grep -- "^  $option {" | \
-	sed "s/^  $option {//; s/}.*//; s/,/\n/g"
+    ivre help "$command" | grep -E -- "(^|,)  $option {" | \
+	sed -r "s/(^|,)  ?$option \{//; s/\}.*//; s/,/\n/g"
 }
 
 _ivre() {

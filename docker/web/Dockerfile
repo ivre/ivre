@@ -18,7 +18,7 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Install & configure Nginx
-RUN apt-get -qy install nginx spawn-fcgi php5-fpm php5-gd fcgiwrap
+RUN apt-get -qy install nginx spawn-fcgi php-fpm php-gd fcgiwrap
 ADD nginx-default-site /etc/nginx/sites-available/default
 RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
 
@@ -49,4 +49,4 @@ RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/
 RUN mkdir /var/www/.neo4j && chown www-data:www-data /var/www/.neo4j
 
 EXPOSE 80
-CMD service php5-fpm start && service fcgiwrap start && exec /usr/sbin/nginx
+CMD service php7.0-fpm start && service fcgiwrap start && exec /usr/sbin/nginx
