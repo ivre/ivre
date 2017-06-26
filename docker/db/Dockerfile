@@ -14,15 +14,15 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM debian:stable
+FROM debian:jessie
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 ENV DEBIAN_FRONTEND noninteractive
 
 # MongoDB
 # http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
-RUN echo "deb http://repo.mongodb.org/apt/debian wheezy/mongodb-org/3.2 main" | tee /etc/apt/sources.list.d/mongodb-org-3.2.list
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv BC711F9BA15703C6
+RUN echo "deb http://repo.mongodb.org/apt/debian wheezy/mongodb-org/3.4 main" | tee /etc/apt/sources.list.d/mongodb-org-3.4.list
 
 # Neo4j
 # http://debian.neo4j.org/
