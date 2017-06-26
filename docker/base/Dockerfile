@@ -32,11 +32,9 @@ RUN tar zxf ./py2neo.tar.gz && rm ./py2neo.tar.gz && \
     cd ../ && rm -rf py2neo/
 
 # IVRE
-ADD https://github.com/cea-sec/ivre/tarball/master ./ivre.tar.gz
-RUN tar zxf ./ivre.tar.gz && rm ./ivre.tar.gz && \
-    mv cea-sec-ivre-* ivre && cd ivre/ && \
-    python setup.py build && python setup.py install && \
-    cd ../ && rm -rf ivre/
+RUN apt-get -qy install git && git clone https://github.com/cea-sec/ivre && \
+    cd ivre/ && python setup.py build && python setup.py install && \
+    apt-get -qy --purge autoremove git && cd ../ && rm -rf ivre/
 
 # Config
 ADD ivre.conf /etc/ivre.conf
