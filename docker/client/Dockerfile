@@ -25,7 +25,7 @@ RUN apt-get -q update
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
 RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
     libfreetype6 libfontconfig1 fonts-dejavu imagemagick ffmpeg s3270 \
-    patch bash-completion bzip2
+    patch bash-completion bzip2 bro
 
 # Install Nmap. Use included libpcap because to use the workaround for
 # Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
@@ -63,19 +63,5 @@ RUN for d in /usr /usr/local; do \
 	) \
     done; true
 RUN nmap --script-update
-
-# Install bro
-ADD https://www.bro.org/downloads/release/bro-2.4.1.tar.gz ./bro.tar.gz
-# https://bro-tracker.atlassian.net/browse/BIT-1499
-ADD https://bro-tracker.atlassian.net/secure/attachment/15400/patch-aux_broccoli_src_bro__openssl.c /patch1
-ADD https://bro-tracker.atlassian.net/secure/attachment/15401/patch-src_ChunkedIO.cc /patch2
-RUN apt-get -qy install build-essential cmake libssl-dev libpcap-dev flex \
-                        bison libpython2.7-dev zlib1g-dev swig patch && \
-    cd tmp/ && tar zxf ../bro.tar.gz && mv bro-* bro && \
-    cd bro && for p in /patch*; do patch -p0 < $p; done && ./configure && \
-    make -j && make install && cd / && rm -rf tmp/bro bro.tar.gz patch* && \
-    apt-get -qy --purge autoremove build-essential cmake libssl-dev \
-                        libpcap-dev flex bison libpython2.7-dev zlib1g-dev \
-                        swig patch
 
 RUN mkdir /var/lib/ivre
