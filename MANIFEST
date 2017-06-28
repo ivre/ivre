@@ -46,6 +46,7 @@ docker/web-apache/Dockerfile
 docker/web-apache/doku-conf-local.php
 ivre/VERSION
 ivre/__init__.py
+ivre/agent.py
 ivre/config.py
 ivre/geoiputils.py
 ivre/graphroute.py
