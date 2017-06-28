@@ -46,6 +46,12 @@ The installation of [IVRE](README.md) itself can be done by:
   * using the `setup.py` (classical `./setup.py build; sudo ./setup.py
     install`) script.
 
+  * on Archlinux, there is an [AUR](https://aur.archlinux.org/)
+    package that can be installed using
+    [yaourt](https://aur.archlinux.org/packages/yaourt/) for example
+    (`yaourt -S ivre`). Please vote for the
+    [package](https://aur.archlinux.org/packages/ivre/) if you use it!
+
   * using [pip](https://pypi.python.org/pypi/pip): on a Debian-based
     system for example, install the packages `python-pip` and
     `python-dev` (needed to build dependencies) and run `pip install
