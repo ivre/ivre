@@ -17,13 +17,15 @@ If you plan to run scans from a machine, install
 [Nmap](http://nmap.org/) and optionally [ZMap](https://zmap.io/) and
 [Masscan](https://github.com/robertdavidgraham/masscan). If you want
 to integrate screenshots, install
-[Tesseract](https://github.com/tesseract-ocr/tesseract) and
-[PhantomJS](http://phantomjs.org/).
+[Tesseract](https://github.com/tesseract-ocr/tesseract),
+[ImageMagick](https://www.imagemagick.org/),
+[FFmpeg](http://ffmpeg.org/) and [PhantomJS](http://phantomjs.org/).
 
-If you plan to analyze PCAP file on a machine, install
-[Bro](http://www.bro.org/) (version 2.3 minimum) and
+If you plan to analyze PCAP file on a machine, install, depending on
+your needs, [Bro](http://www.bro.org/) (version 2.3 minimum),
 [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work with
-version 3).
+version 3), [Argus](http://qosient.com/argus/) and/or
+[Nfdump](http://nfdump.sourceforge.net/).
 
 To install IVRE, you'll need [Python](http://www.python.org/) 2
 (version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the
@@ -87,13 +89,13 @@ The file should contain lines of type `key = value`. Empty lines and
 comments (starting with the `#` character) are ignored. The following
 values can be changed:
 
-  - `DB`: the URL to use; default is `mongodb:///`, meaning use
+  - `DB`: the URL to use; default is `mongodb:///ivre`, meaning use
     default database (`ivre`) on the default host (`localhost`). Here
     is a more complete example:
-	`mongodb://user:password@host/db?colname_aaa=bbb&colname_ccc=ddd`
+    `mongodb://user:password@host/db?colname_aaa=bbb&colname_ccc=ddd`
 
-  - `DB_NMAP`, `DB_PASSIVE` and `DB_DATA`: specific URLs to use;
-    default is to use the URL from `DB` setting.
+  - `DB_NMAP`, `DB_PASSIVE`, `DB_FLOW` and `DB_DATA`: specific URLs to
+    use; default is to use the URL from `DB` setting.
 
   - `GEOIP_PATH`: default is `[INSTALL PREFIX]/share/ivre/geoip/`.
 
