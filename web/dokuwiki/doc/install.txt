@@ -8,9 +8,9 @@ If you want to use the "flow" module, you also need to install [[http://neo4j.co
 
 ===== Dependencies =====
 
-If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]] and [[https://github.com/robertdavidgraham/masscan|Masscan]]. If you want to integrate screenshots, install [[https://github.com/tesseract-ocr/tesseract|Tesseract]] and [[http://phantomjs.org/|PhantomJS]].
+If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]] and [[https://github.com/robertdavidgraham/masscan|Masscan]]. If you want to integrate screenshots, install [[https://github.com/tesseract-ocr/tesseract|Tesseract]], [[https://www.imagemagick.org/|ImageMagick]], [[http://ffmpeg.org/|FFmpeg]] and [[http://phantomjs.org/|PhantomJS]].
 
-If you plan to analyze PCAP file on a machine, install [[http://www.bro.org/|Bro]] (version 2.3 minimum) and [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3).
+If you plan to analyze PCAP file on a machine, install, depending on your needs, [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3), [[http://qosient.com/argus/|Argus]] and/or [[http://nfdump.sourceforge.net/|Nfdump]].
 
 To install IVRE, you'll need [[http://www.python.org/|Python]] 2 (version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the following modules:
 
@@ -25,6 +25,7 @@ To install IVRE, you'll need [[http://www.python.org/|Python]] 2 (version 2.6 mi
 The installation of [[doc:readme|IVRE]] itself can be done by:
 
   * using the ''%%setup.py%%'' (classical ''%%./setup.py build; sudo ./setup.py install%%'') script.
+  * on Archlinux, there is an [[https://aur.archlinux.org/|AUR]] package that can be installed using [[https://aur.archlinux.org/packages/yaourt/|yaourt]] for example (''%%yaourt -S ivre%%''). Please vote for the [[https://aur.archlinux.org/packages/ivre/|package]] if you use it!
   * using [[https://pypi.python.org/pypi/pip|pip]]: on a Debian-based system for example, install the packages ''%%python-pip%%'' and ''%%python-dev%%'' (needed to build dependencies) and run ''%%pip install ivre%%'' (this will download and install for you IVRE and its Python dependencies from [[https://pypi.python.org|PyPI]], the Python Package Index).
   * building an RPM package (you can use the provided ''%%pkg/buildrpm%%'' script, or use the ''%%setup.py%%'' script with your own options) and then installing it.
   * using [[doc:docker|Docker]] (in this case you do not need to follow the following instructions, as the Docker containers are already configured).
@@ -43,8 +44,8 @@ You can override default values in three files:
 
 The file should contain lines of type ''%%key = value%%''. Empty lines and comments (starting with the ''%%#%%'' character) are ignored. The following values can be changed:
 
-  * ''%%DB%%'': the URL to use; default is ''%%mongodb:///%%'', meaning use default database (''%%ivre%%'') on the default host (''%%localhost%%''). Here is a more complete example: ''%%mongodb://user:password@host/db?colname_aaa=bbb&colname_ccc=ddd%%''
-  * ''%%DB_NMAP%%'', ''%%DB_PASSIVE%%'' and ''%%DB_DATA%%'': specific URLs to use; default is to use the URL from ''%%DB%%'' setting.
+  * ''%%DB%%'': the URL to use; default is ''%%mongodb:///ivre%%'', meaning use default database (''%%ivre%%'') on the default host (''%%localhost%%''). Here is a more complete example: ''%%mongodb://user:password@host/db?colname_aaa=bbb&colname_ccc=ddd%%''
+  * ''%%DB_NMAP%%'', ''%%DB_PASSIVE%%'', ''%%DB_FLOW%%'' and ''%%DB_DATA%%'': specific URLs to use; default is to use the URL from ''%%DB%%'' setting.
   * ''%%GEOIP_PATH%%'': default is ''%%[INSTALL PREFIX]/share/ivre/geoip/%%''.
 
 For the full and up-to-date list of settings that can be changed, see the ''%%ivre/config.py%%'' file.
