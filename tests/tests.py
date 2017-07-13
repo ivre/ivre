@@ -30,6 +30,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 try:
     from urllib.request import urlopen, Request
@@ -1275,6 +1276,23 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(is_prime(nbr) or len(factors) > 1)
             self.assertTrue(all(is_prime(x) for x in factors))
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
+
+    def test_agents(self):
+
+        # Check simplt runscans
+        res = RUN(["ivre", "runscans", "--network", "127.0.0.1/31"])[0]
+        self.assertEqual(res, 0)
+        fdesc = tempfile.NamedTemporaryFile(delete=False)
+        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(2, 4))
+        fdesc.close()
+        res = RUN(["ivre", "runscans", "--file", fdesc.name, "--output",
+                   "XMLFork"])[0]
+        self.assertEqual(res, 0)
+        os.unlink(fdesc.name)
+        res = RUN(["ivre", "runscans", "--range", "127.0.0.4", "127.0.0.5",
+                   "--output", "XMLFull"])[0]
+        count = sum(1 for walk_elt in os.walk('scans') for _ in walk_elt[2])
+        self.assertEqual(count, 9)
 
 
 def parse_args():

@@ -45,8 +45,8 @@ before_script:
   - cat .travis/ivre.conf >> ~/.ivre.conf
   # install p0f & Bro (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
-  - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 ; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
-  - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:$PATH"
+  - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 nmap-7.50_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:`pwd`/usr/local/nmap/bin:$PATH"
   - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib"
   - export BROPATH=".:`pwd`/usr/local/bro/share/bro:`pwd`/usr/local/bro/share/bro/policy:`pwd`/usr/local/bro/share/bro/site"
   - cp tools/etc/p0f/* tests/
