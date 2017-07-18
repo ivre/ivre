@@ -57,6 +57,11 @@ else:
     # see http://bugs.python.org/issue5228
     # multiprocessing not compatible with functools.partial
     USE_PARTIAL = False
+    # Also Python version <= 2.6: cannot use a function defined in
+    # another function in a multiprocessing.Pool.imap()
+    def _call_nmap_single_tuple(args):
+        return _call_nmap_single(*args)
+
 
 STATUS_NEW = 0
 STATUS_DONE_UP = 1
@@ -279,6 +284,7 @@ def _call_nmap_single(maincategory, options,
     ivre.utils.makedirs(os.path.dirname(outfile % outdir))
     shutil.move(outfile % 'current', outfile % outdir)
 
+
 def main():
     atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
@@ -425,21 +431,23 @@ def main():
         NMAP_LIMITS[resource.RLIMIT_STACK] = (args.nmap_max_stack_size,
                                               args.nmap_max_stack_size)
     if args.output == 'XMLFork':
+        pool = multiprocessing.Pool(processes=args.processes)
         if USE_PARTIAL:
             call_nmap_single = functools.partial(_call_nmap_single,
                                                  targets.infos[
                                                      'categories'][0],
                                                  options,
                                                  accept_target_status)
+            for _ in pool.imap(call_nmap_single, targets, chunksize=1):
+                pass
         else:
-            def call_nmap_single(target):
-                return _call_nmap_single(targets.infos['categories'][0],
-                                         options,
-                                         accept_target_status,
-                                         target)
-        pool = multiprocessing.Pool(processes=args.processes)
-        for _ in pool.imap(call_nmap_single, targets, chunksize=1):
-            pass
+            for _ in pool.imap(_call_nmap_single_tuple,
+                               ((targets.infos['categories'][0],
+                                 options,
+                                 accept_target_status,
+                                 target) for target in targets),
+                                chunksize=1):
+                pass
         exit(0)
     elif args.output == 'ListAllRand':
         targiter = targets.__iter__()
