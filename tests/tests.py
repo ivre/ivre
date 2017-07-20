@@ -17,6 +17,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+from __future__ import print_function
+
+
 from contextlib import contextmanager
 from distutils.spawn import find_executable as which
 import errno
@@ -250,16 +253,19 @@ class IvreTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.stop_children()
 
+    def init_nmap_db(self):
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
+        self.assertEqual(RUN(["ivre", "scancli", "--init"],
+                              stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
+
     def test_nmap(self):
 
         # Start a Web server to test CGI
         self.start_web_server()
 
         # Init DB
-        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
-        self.assertEqual(RUN(["ivre", "scancli", "--init"],
-                              stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
+        self.init_nmap_db()
 
         # Insertion / "test" insertion (JSON output)
         host_counter = 0
@@ -844,25 +850,22 @@ class IvreTests(unittest.TestCase):
             raise Exception("Cannot fork")
         elif pid:
             # Wait for child process to handle every file in "logs"
-            while True:
-                if not any(walk[2] for walk in os.walk("logs")):
-                    os.kill(pid, signal.SIGINT)
-                    break
+            while any(walk[2] for walk in os.walk("logs")):
                 print(u"Waiting for passivereconworker")
                 time.sleep(2)
+            os.kill(pid, signal.SIGINT)
             os.waitpid(pid, 0)
+        elif USE_COVERAGE:
+            os.execvp(
+                sys.executable,
+                COVERAGE + [
+                    "run", "--parallel-mode", which("ivre"),
+                    "passivereconworker", "--directory", "logs",
+                ],
+            )
         else:
-            if USE_COVERAGE:
-                os.execvp(
-                    sys.executable,
-                    COVERAGE + [
-                        "run", "--parallel-mode", which("ivre"),
-                        "passivereconworker", "--directory", "logs",
-                    ],
-                )
-            else:
-                os.execlp("ivre", "ivre", "passivereconworker", "--directory",
-                          "logs")
+            os.execlp("ivre", "ivre", "passivereconworker", "--directory",
+                      "logs")
 
         # Counting
         total_count = ivre.db.db.passive.count(
@@ -1277,9 +1280,10 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(all(is_prime(x) for x in factors))
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
-    def test_agents(self):
+    def test_scans(self):
+        "Run scans, with and without agents"
 
-        # Check simplt runscans
+        # Check simple runscans
         res = RUN(["ivre", "runscans", "--network", "127.0.0.1/31"])[0]
         self.assertEqual(res, 0)
         fdesc = tempfile.NamedTemporaryFile(delete=False)
@@ -1291,8 +1295,109 @@ class IvreTests(unittest.TestCase):
         os.unlink(fdesc.name)
         res = RUN(["ivre", "runscans", "--range", "127.0.0.4", "127.0.0.5",
                    "--output", "XMLFull"])[0]
-        count = sum(1 for walk_elt in os.walk('scans') for _ in walk_elt[2])
+        count = sum(len(walk_elt[2]) for walk_elt in os.walk('scans'))
         self.assertEqual(count, 9)
+
+        # Generate a command line
+        res = RUN(["ivre", "runscans", "--output", "CommandLine"])[0]
+        self.assertEqual(res, 0)
+
+        # Generate an agent
+        res, out, _ = RUN(["ivre", "runscans", "--output", "Agent"])
+        self.assertEqual(res, 0)
+        with open('ivre-agent.sh', 'wb') as fdesc:
+            fdesc.write(out)
+        os.chmod('ivre-agent.sh', 0o0755)
+        ivre.utils.makedirs('input')
+
+        # Fork an agent
+        ivre.utils.makedirs('tmp')
+        pid_agent = subprocess.Popen([os.path.join(os.getcwd(),
+                                                   "ivre-agent.sh")],
+                                     cwd='tmp').pid
+
+        # Create test scans
+        res = RUN(["ivre", "runscansagent", "--test", "2", "--feed",
+                   "./tmp/"], stdin=open(os.devnull, 'wb'))[0]
+        self.assertEqual(res, 0)
+
+        # Fork a sync process
+        feed_cmd = ["runscansagent", "--sync", "./tmp/"]
+        if USE_COVERAGE:
+            feed_cmd = COVERAGE + ["run", "--parallel-mode",
+                                   which("ivre")] + feed_cmd
+        else:
+            feed_cmd = ["ivre"] + feed_cmd
+        pid_feed = subprocess.Popen(feed_cmd).pid
+
+        # Wait for child processes to handle all the scans
+        while any(walk[2] for dirname in ['agentsdata/._tmp_/input',
+                                          'agentsdata/._tmp_/remoteinput',
+                                          'agentsdata/._tmp_/remotecur',
+                                          'tmp/input', 'tmp/cur', 'tmp/output']
+                  for walk in os.walk(dirname)):
+            print(u"Waiting for runscans sync & agent")
+            time.sleep(2)
+        os.kill(pid_agent, signal.SIGTERM)
+        os.kill(pid_feed, signal.SIGTERM)
+        os.waitpid(pid_agent, 0)
+        os.waitpid(pid_feed, 0)
+
+        # Count the results
+        count = sum(len(walk_elt[2])
+                    for walk_elt in os.walk('agentsdata/._tmp_/remoteoutput/'))
+        self.assertEqual(count, 2)
+
+        # Fork another agent
+        pid_agent = subprocess.Popen([os.path.join(os.getcwd(),
+                                                   "ivre-agent.sh")],
+                                     cwd='tmp').pid
+
+        # Init DB for agents and for nmap
+        self.init_nmap_db()
+        res = RUN(["ivre", "runscansagentdb", "--init"],
+                  stdin=open(os.devnull))[0]
+        self.assertEqual(res, 0)
+        res = RUN(["ivre", "runscansagentdb", "--add-local-master"])[0]
+        self.assertEqual(res, 0)
+
+        # Add local agent
+        res = RUN(["ivre", "runscansagentdb", "--source", "TEST-AGENT-SOURCE",
+                   "--add-agent", os.path.join(os.getcwd(), "tmp")])[0]
+
+        # Create test scans
+        res = RUN(["ivre", "runscansagentdb", "--test", "2",
+                   "--assign-free-agents"])[0]
+        self.assertEqual(res, 0)
+        fdesc = tempfile.NamedTemporaryFile(delete=False)
+        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(3, 5))
+        fdesc.close()
+        res = RUN(["ivre", "runscansagentdb", "--file", fdesc.name,
+                   "--assign-free-agents"])[0]
+        self.assertEqual(res, 0)
+
+        # Wait for child processes to handle all the scans
+        while any(walk[2] for dirname in ['tmp/input', 'tmp/cur', 'tmp/output']
+                  for walk in os.walk(dirname)):
+            print(u"Waiting for agent")
+            time.sleep(2)
+        os.kill(pid_agent, signal.SIGTERM)
+        os.waitpid(pid_agent, 0)
+        ## DEBUG
+        subprocess.Popen(["find", ivre.config.AGENT_MASTER_PATH, "-type", "f"])
+
+        self.assertEqual(RUN(["ivre", "runscansagentdb", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+
+
+TESTS = set(["nmap", "passive", "data", "utils", "scans"])
+
+
+DATABASES = {
+    # **excluded** tests
+    #"mongo": ["flow"],
+    "postgres": ["scans"],
+}
 
 
 def parse_args():
@@ -1302,37 +1407,60 @@ def parse_args():
         parser = argparse.ArgumentParser(
             description='Run IVRE tests',
         )
+        use_argparse = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(
             description='Run IVRE tests',
         )
         parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
+        def my_parse_args():
+            res = parser.parse_args_orig()
+            try:
+                test = next(test for test in res[1] if test not in TESTS)
+            except StopIteration:
+                pass
+            else:
+                raise optparse.OptionError(
+                    "invalid choice: %r (choose from %s)" % (
+                        test,
+                        ", ".join(repr(val) for val in sorted(TESTS)),
+                    ),
+                    "tests",
+                )
+            res[0].ensure_value('tests', res[1])
+            return res[0]
+        parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
+        use_argparse = False
     parser.add_argument('--samples', metavar='DIR',
                         default="./samples/")
     parser.add_argument('--coverage', action="store_true")
+    if use_argparse:
+        parser.add_argument('tests', nargs='*', choices=list(TESTS) + [[]])
     args = parser.parse_args()
     SAMPLES = args.samples
     USE_COVERAGE = args.coverage
+    if args.tests:
+        for test in TESTS.difference(args.tests):
+            test = "test_%s" % test
+            setattr(IvreTests, test,
+                    unittest.skip("User request")(getattr(IvreTests, test)))
     sys.argv = [sys.argv[0]]
-
-
-DATABASES = {
-    # **excluded** tests
-    #"mongo": ["flow"],
-    #"postgres": ["nmap"],
-}
 
 
 def parse_env():
     global DATABASE
     DATABASE = os.getenv("DB")
     for test in DATABASES.get(DATABASE, []):
-        sys.stderr.write("Desactivating test %r for database %r."
-                         "\n" % (test, DATABASE))
-        delattr(IvreTests, "test_%s" % test)
+        test = "test_%s" % test
+        setattr(
+            IvreTests,
+            test,
+            unittest.skip("Desactivated for database %r" % DATABASE)(
+                getattr(IvreTests, test),
+            ),
+        )
 
 
 if __name__ == '__main__':
@@ -1371,4 +1499,8 @@ if __name__ == '__main__':
         cov.stop()
         cov.save()
         coverage_report()
+    print("run=%d fail=%d errors=%d skipped=%d" % (result.testsRun,
+                                                   len(result.failures),
+                                                   len(result.errors),
+                                                   len(result.skipped)))
     sys.exit(len(result.failures) + len(result.errors))
