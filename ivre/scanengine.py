@@ -217,7 +217,7 @@ class Campaign(object):
         can receive.
 
         """
-        for _ in range(max(agent.may_receive(), maxnbr)):
+        for _ in range(max(agent.may_receive(), maxnbr or 0)):
             addr = utils.int2ip(next(self.targiter))
             with open(os.path.join(agent.get_local_path('input'),
                                    '%s.%s' % (self.visiblecategory, addr)),
