@@ -1442,8 +1442,13 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def add_scan(self, target, assign_to_free_agents=True):
+        itertarget = iter(target)
+        try:
+            itertarget.fdesc = itertarget.fdesc.tell()
+        except AttributeError:
+            pass
         scan = {
-            "target": pickle.dumps(target.__iter__()),
+            "target": pickle.dumps(itertarget),
             "target_info": target.infos,
             "agents": [],
             "results": 0,
@@ -1458,7 +1463,12 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def get_scan_target(self, scanid):
-        return pickle.loads(self._get_scan_target(self, scanid))
+        res =  pickle.loads(self._get_scan_target(self, scanid))
+        if hasattr(res, "fdesc"):
+            seekval = self.fdesc
+            self.fdesc = open(res.target.filename)
+            self.fdesc.seek(seekval)
+        return res
 
     def _get_scan_target(self, scanid):
         raise NotImplementedError
