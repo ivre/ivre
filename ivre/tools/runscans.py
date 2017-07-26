@@ -24,6 +24,7 @@ ivre scan2db.
 
 
 from __future__ import print_function
+import atexit
 import fcntl
 from functools import reduce
 import multiprocessing
@@ -56,6 +57,11 @@ else:
     # see http://bugs.python.org/issue5228
     # multiprocessing not compatible with functools.partial
     USE_PARTIAL = False
+    # Also Python version <= 2.6: cannot use a function defined in
+    # another function in a multiprocessing.Pool.imap()
+    def _call_nmap_single_tuple(args):
+        return _call_nmap_single(*args)
+
 
 STATUS_NEW = 0
 STATUS_DONE_UP = 1
@@ -72,7 +78,7 @@ def setnmaplimits():
 
 
 class XmlProcess(object):
-    addrrec = re.compile('<address\\s+addr="([0-9\\.]+)" addrtype="ipv4"/>')
+    addrrec = re.compile(b'<address\\s+addr="([0-9\\.]+)" addrtype="ipv4"/>')
 
     def target_status(self, _):
         return STATUS_NEW
@@ -90,10 +96,10 @@ class XmlProcessTest(XmlProcess):
 
 
 class XmlProcessWritefile(XmlProcess):
-    statusline = re.compile('<task(begin|end|progress).*/>\n')
-    status_up = '<status state="up"'
-    status_down = '<status state="down"'
-    hostbegin = re.compile('<host[\\s>]')
+    statusline = re.compile(b'<task(begin|end|progress).*/>\n')
+    status_up = b'<status state="up"'
+    status_down = b'<status state="down"'
+    hostbegin = re.compile(b'<host[\\s>]')
     status_paths = {
         'up': STATUS_DONE_UP,
         'down': STATUS_DONE_DOWN,
@@ -103,25 +109,25 @@ class XmlProcessWritefile(XmlProcess):
     def __init__(self, path, fulloutput=False):
         self.path = path
         self.starttime = int(time.time() * 1000000)
-        self.data = ''
+        self.data = b''
         self.isstarting = True
-        self.startinfo = ''
+        self.startinfo = b''
         ivre.utils.makedirs(self.path)
         self.scaninfo = open('%sscaninfo.%d' % (self.path,
                                                 self.starttime),
-                             'w')
+                             'wb')
         if fulloutput:
             self.has_fulloutput = True
             self.fulloutput = open('%sfulloutput.%d' % (self.path,
                                                         self.starttime),
-                                   'w')
+                                   'wb')
         else:
             self.has_fulloutput = False
 
     def process(self, fdesc):
         newdata = fdesc.read()
         # print("READ", len(newdata), "bytes")
-        if newdata == '':
+        if not newdata:
             self.scaninfo.write(self.data)
             self.scaninfo.close()
             if self.has_fulloutput:
@@ -131,17 +137,18 @@ class XmlProcessWritefile(XmlProcess):
             self.fulloutput.write(newdata)
             self.fulloutput.flush()
         self.data += newdata
-        while '</host>' in self.data:
+        while b'</host>' in self.data:
             hostbeginindex = self.data.index(
                 self.hostbegin.search(self.data).group())
             self.scaninfo.write(self.data[:hostbeginindex])
             self.scaninfo.flush()
             if self.isstarting:
                 self.startinfo += self.statusline.sub(
-                    '', self.data[:hostbeginindex])
+                    b'', self.data[:hostbeginindex],
+                )
                 self.isstarting = False
             self.data = self.data[hostbeginindex:]
-            hostrec = self.data[:self.data.index('</host>') + 7]
+            hostrec = self.data[:self.data.index(b'</host>') + 7]
             try:
                 addr = self.addrrec.search(hostrec).groups()[0]
             except Exception:
@@ -154,15 +161,15 @@ class XmlProcessWritefile(XmlProcess):
             else:
                 status = 'unknown'
             outfile = self.path + status + \
-                '/' + addr.replace('.', '/') + '.xml'
+                '/' + addr.decode().replace('.', '/') + '.xml'
             ivre.utils.makedirs(os.path.dirname(outfile))
-            with open(outfile, 'w') as out:
-                # out.write('<scaninfo starttime="%d" />\n' % starttime)
+            with open(outfile, 'wb') as out:
+                # out.write(b'<scaninfo starttime="%d" />\n' % starttime)
                 out.write(self.startinfo)
                 out.write(hostrec)
-                out.write('\n</nmaprun>\n')
-            self.data = self.data[self.data.index('</host>') + 7:]
-            if self.data.startswith('\n'):
+                out.write(b'\n</nmaprun>\n')
+            self.data = self.data[self.data.index(b'</host>') + 7:]
+            if self.data.startswith(b'\n'):
                 self.data = self.data[1:]
         return True
 
@@ -183,8 +190,14 @@ def restore_echo():
     http://stackoverflow.com/a/8758047/3223422)
 
     """
-    fdesc = sys.stdin.fileno()
-    attrs = termios.tcgetattr(fdesc)
+    try:
+        fdesc = sys.stdin.fileno()
+    except ValueError:
+        return
+    try:
+        attrs = termios.tcgetattr(fdesc)
+    except termios.error:
+        return
     attrs[3] = attrs[3] | termios.ECHO
     termios.tcsetattr(fdesc, termios.TCSADRAIN, attrs)
 
@@ -223,7 +236,7 @@ def call_nmap(options, xmlprocess, targets,
                 if hasattr(targets, "targetcount"):
                     print('/', targets.targetscount, end=' ')
                 print(":", naddr)
-                wfdesc.write(naddr + '\n')
+                wfdesc.write(naddr.encode() + b'\n')
                 wfdesc.flush()
             except StopIteration:
                 print("WROTE ALL TARGETS")
@@ -261,17 +274,19 @@ def _call_nmap_single(maincategory, options,
     ivre.utils.makedirs(os.path.dirname(outfile % 'current'))
     subprocess.call(options + ['-oX', outfile % 'current', target],
                     preexec_fn=setnmaplimits)
-    resdata = open(outfile % 'current').read()
-    if '<status state="up"' in resdata:
+    resdata = open(outfile % 'current', 'rb').read()
+    if b'<status state="up"' in resdata:
         outdir = 'up'
-    elif '<status state="down"' in resdata:
+    elif b'<status state="down"' in resdata:
         outdir = 'down'
     else:
         outdir = 'unknown'
     ivre.utils.makedirs(os.path.dirname(outfile % outdir))
     shutil.move(outfile % 'current', outfile % outdir)
 
+
 def main():
+    atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
     try:
         import argparse
@@ -416,22 +431,23 @@ def main():
         NMAP_LIMITS[resource.RLIMIT_STACK] = (args.nmap_max_stack_size,
                                               args.nmap_max_stack_size)
     if args.output == 'XMLFork':
+        pool = multiprocessing.Pool(processes=args.processes)
         if USE_PARTIAL:
             call_nmap_single = functools.partial(_call_nmap_single,
                                                  targets.infos[
                                                      'categories'][0],
                                                  options,
                                                  accept_target_status)
+            for _ in pool.imap(call_nmap_single, targets, chunksize=1):
+                pass
         else:
-            def call_nmap_single(target):
-                return _call_nmap_single(targets.infos['categories'][0],
-                                         options,
-                                         accept_target_status,
-                                         target)
-        pool = multiprocessing.Pool(processes=args.processes)
-        for _ in pool.imap(call_nmap_single, targets, chunksize=1):
-            pass
-        restore_echo()
+            for _ in pool.imap(_call_nmap_single_tuple,
+                               ((targets.infos['categories'][0],
+                                 options,
+                                 accept_target_status,
+                                 target) for target in targets),
+                                chunksize=1):
+                pass
         exit(0)
     elif args.output == 'ListAllRand':
         targiter = targets.__iter__()
@@ -459,5 +475,4 @@ def main():
     xmlprocess = xmlprocess[0](*xmlprocess[1], **xmlprocess[2])
     retval = call_nmap(options, xmlprocess, targets,
                        accept_target_status=accept_target_status)
-    restore_echo()
     exit(retval)
