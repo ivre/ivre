@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -88,10 +88,10 @@ class XmlProcessTest(XmlProcess):
 
     def process(self, fdesc):
         data = fdesc.read()
-        if data == '':
+        if not data:
             return False
         for addr in self.addrrec.finditer(data):
-            print("Read adddress", addr.groups()[0])
+            print("Read address", addr.groups()[0].decode())
         return True
 
 
