@@ -33,7 +33,7 @@ except ImportError:
     OrderedDict = dict
 
 
-from builtins import range
+from builtins import bytes, range
 from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 import bson
@@ -3376,7 +3376,7 @@ class MongoDBAgent(MongoDB, DBAgent):
                 )
                 scan["target_info"] = target_info
         if scan is not None and scan['lock'] is not None:
-            scan['lock'] = str(scan['lock'])
+            scan['lock'] = bytes(scan['lock'])
         return scan
 
     def _unlock_scan(self, scanid, lockid):

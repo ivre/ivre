@@ -1332,11 +1332,8 @@ class DBAgent(DB):
                 str(agentid),
             )
             utils.makedirs(storedir)
-            with tempfile.NamedTemporaryFile(prefix="",
-                                             suffix=".xml",
-                                             dir=storedir,
-                                             delete=False) as fdesc:
-                pass
+            fdesc = tempfile.NamedTemporaryFile(prefix="", suffix=".xml",
+                                                dir=storedir, delete=False)
             shutil.move(
                 os.path.join(outpath, fname),
                 fdesc.name
@@ -1385,7 +1382,7 @@ class DBAgent(DB):
             dir=self.get_local_path(agent, "input"),
             delete=False,
         ) as fdesc:
-            fdesc.write("%s\n" % addr)
+            fdesc.write(("%s\n" % addr).encode())
             return True
         return False
 
@@ -1444,9 +1441,14 @@ class DBAgent(DB):
     def add_scan(self, target, assign_to_free_agents=True):
         itertarget = iter(target)
         try:
-            itertarget.fdesc = itertarget.fdesc.tell()
+            fdesc = itertarget.fdesc
         except AttributeError:
             pass
+        else:
+            if fdesc.closed:
+                itertarget.fdesc = (False, 0)
+            else:
+                itertarget.fdesc = (True, fdesc.tell())
         scan = {
             "target": pickle.dumps(itertarget),
             "target_info": target.infos,
@@ -1463,11 +1465,14 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def get_scan_target(self, scanid):
-        res =  pickle.loads(self._get_scan_target(self, scanid))
+        res =  pickle.loads(self._get_scan_target(scanid))
         if hasattr(res, "fdesc"):
-            seekval = self.fdesc
-            self.fdesc = open(res.target.filename)
-            self.fdesc.seek(seekval)
+            opened, seekval = res.fdesc
+            res.fdesc = open(res.target.filename)
+            if opened:
+                res.fdesc.seek(seekval)
+            else:
+                res.fdesc.close()
         return res
 
     def _get_scan_target(self, scanid):
@@ -1500,6 +1505,15 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def update_scan_target(self, scanid, target):
+        try:
+            fdesc = target.fdesc
+        except AttributeError:
+            pass
+        else:
+            if fdesc.closed:
+                target.fdesc = (False, 0)
+            else:
+                target.fdesc = (True, fdesc.tell())
         return self._update_scan_target(scanid, pickle.dumps(target))
 
     def _update_scan_target(self, scanid, target):

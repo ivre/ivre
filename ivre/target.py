@@ -268,7 +268,7 @@ class TargetFile(Target):
         except utils.socket.error:
             pass
 
-    def __init__(self, filename, categories=None, maxnbr=None):
+    def __init__(self, filename, categories=None, maxnbr=None, state=None):
         self.filename = filename
         if categories is None:
             categories = ['FILE-%s' % filename.replace('/', '_')]
@@ -286,9 +286,10 @@ class TargetFile(Target):
             self.maxnbr = self.targetscount
         else:
             self.maxnbr = maxnbr
+        self.state = state
 
     def __iter__(self):
-        return IterTargetFile(self, open(self.filename))
+        return IterTargetFile(self, open(self.filename), state=self.state)
 
     def close(self):
         pass
@@ -300,10 +301,20 @@ class IterTargetFile(object):
     def __iter__(self):
         return self
 
-    def __init__(self, target, fdesc):
+    def __init__(self, target, fdesc, state=None):
         self.target = target
         self.nextcount = 0
         self.fdesc = fdesc
+        if state is not None:
+            opened, seekval = state[:2]
+            if opened:
+                self.fdesc.seek(seekval)
+            else:
+                self.fdesc.closed()
+
+    def getstate(self):
+        opened = not self.fdesc.closed
+        return (int(opened), self.fdesc.tell() if opened else 0, 0, 0)
 
     def __readline__(self):
         line = self.fdesc.readline()
@@ -465,7 +476,8 @@ def target_from_args(args):
                                 state=args.state)
     elif args.file is not None:
         target = TargetFile(args.file,
-                            categories=args.categories)
+                            categories=args.categories,
+                            state=args.state)
     elif args.test is not None:
         target = TargetTest(args.test,
                             categories=args.categories,
