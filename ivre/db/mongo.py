@@ -26,6 +26,7 @@ databases.
 import datetime
 import json
 import re
+import uuid
 try:
     from collections import OrderedDict
 except ImportError:
@@ -3340,6 +3341,8 @@ class MongoDBAgent(MongoDB, DBAgent):
     def get_scan(self, scanid):
         scan = self.find_one(self.colname_scans, {"_id": scanid},
                              fields={'target': 0})
+        if scan.get('lock') is not None:
+            scan['lock'] = uuid.UUID(bytes=scan['lock'])
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
             if target is not None:

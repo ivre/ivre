@@ -1482,15 +1482,24 @@ class DBAgent(DB):
         lockid = uuid.uuid1()
         scan = self._lock_scan(scanid, None, lockid.bytes)
         if scan['lock'] is not None:
-            scan['lock'] = uuid.UUID(bytes=scan['lock'])
+            # This might be a bug in uuid module, Python 2 only
+            ##  File "/opt/python/2.6.9/lib/python2.6/uuid.py", line 145, in __init__
+            ##    int = long(('%02x'*16) % tuple(map(ord, bytes)), 16)
+            # scan['lock'] = uuid.UUID(bytes=scan['lock'])
+            scan['lock'] = uuid.UUID(hex=utils.encode_hex(scan['lock']).decode())
         if scan['lock'] == lockid:
             return scan
 
     def unlock_scan(self, scan):
+        if scan.get('lock') is None:
+            raise ValueError('Scan is not locked')
         scan = self._lock_scan(scan['_id'], scan['lock'].bytes, None)
         return scan['lock'] is None
 
     def _lock_scan(self, scanid, oldlockid, newlockid):
+        raise NotImplementedError
+
+    def get_scan(self):
         raise NotImplementedError
 
     def get_scans(self):
