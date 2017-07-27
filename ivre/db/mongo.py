@@ -3379,17 +3379,6 @@ class MongoDBAgent(MongoDB, DBAgent):
             scan['lock'] = bytes(scan['lock'])
         return scan
 
-    def _unlock_scan(self, scanid, lockid):
-        scan = self.db[self.colname_scans].find_and_modify({
-            "_id": scanid,
-            "lock": bson.Binary(lockid),
-        }, {
-            "$set": {"lock": None}
-        }, full_response=True, new=True)['value']
-        if scan is not None and scan['lock'] is not None:
-            scan['lock'] = str(scan['lock'])
-        return scan
-
     def get_scans(self):
         return (x['_id'] for x in
                 self.set_limits(
