@@ -1450,7 +1450,10 @@ class DBAgent(DB):
             else:
                 itertarget.fdesc = (True, fdesc.tell())
         scan = {
-            "target": pickle.dumps(itertarget),
+            # We need to explicitly call self.to_binary() because with
+            # MongoDB, Python 2.6 will store a unicode string that it
+            # won't be able un pickle.loads() later
+            "target": self.to_binary(pickle.dumps(itertarget)),
             "target_info": target.infos,
             "agents": [],
             "results": 0,
@@ -1523,7 +1526,11 @@ class DBAgent(DB):
                 target.fdesc = (False, 0)
             else:
                 target.fdesc = (True, fdesc.tell())
-        return self._update_scan_target(scanid, pickle.dumps(target))
+        # We need to explicitly call self.to_binary() because with
+        # MongoDB, Python 2.6 will store a unicode string that it
+        # won't be able un pickle.loads() later
+        return self._update_scan_target(scanid,
+                                        self.to_binary(pickle.dumps(target)))
 
     def _update_scan_target(self, scanid, target):
         raise NotImplementedError
