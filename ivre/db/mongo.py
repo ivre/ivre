@@ -26,6 +26,7 @@ databases.
 import datetime
 import json
 import re
+import uuid
 try:
     from collections import OrderedDict
 except ImportError:
@@ -33,7 +34,7 @@ except ImportError:
     OrderedDict = dict
 
 
-from builtins import range
+from builtins import bytes, range
 from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 import bson
@@ -3340,6 +3341,8 @@ class MongoDBAgent(MongoDB, DBAgent):
     def get_scan(self, scanid):
         scan = self.find_one(self.colname_scans, {"_id": scanid},
                              fields={'target': 0})
+        if scan.get('lock') is not None:
+            scan['lock'] = uuid.UUID(bytes=scan['lock'])
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
             if target is not None:
@@ -3376,18 +3379,7 @@ class MongoDBAgent(MongoDB, DBAgent):
                 )
                 scan["target_info"] = target_info
         if scan is not None and scan['lock'] is not None:
-            scan['lock'] = str(scan['lock'])
-        return scan
-
-    def _unlock_scan(self, scanid, lockid):
-        scan = self.db[self.colname_scans].find_and_modify({
-            "_id": scanid,
-            "lock": bson.Binary(lockid),
-        }, {
-            "$set": {"lock": None}
-        }, full_response=True, new=True)['value']
-        if scan is not None and scan['lock'] is not None:
-            scan['lock'] = str(scan['lock'])
+            scan['lock'] = bytes(scan['lock'])
         return scan
 
     def get_scans(self):

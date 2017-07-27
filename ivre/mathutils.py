@@ -53,7 +53,7 @@ def factors(n):
     for p in genprimes():
         while n != 1 and n % p == 0:
             yield p
-            n /= p
+            n //= p
         if n == 1:
             break
         if p * p > n:

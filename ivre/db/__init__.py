@@ -1332,11 +1332,8 @@ class DBAgent(DB):
                 str(agentid),
             )
             utils.makedirs(storedir)
-            with tempfile.NamedTemporaryFile(prefix="",
-                                             suffix=".xml",
-                                             dir=storedir,
-                                             delete=False) as fdesc:
-                pass
+            fdesc = tempfile.NamedTemporaryFile(prefix="", suffix=".xml",
+                                                dir=storedir, delete=False)
             shutil.move(
                 os.path.join(outpath, fname),
                 fdesc.name
@@ -1385,7 +1382,7 @@ class DBAgent(DB):
             dir=self.get_local_path(agent, "input"),
             delete=False,
         ) as fdesc:
-            fdesc.write("%s\n" % addr)
+            fdesc.write(("%s\n" % addr).encode())
             return True
         return False
 
@@ -1442,8 +1439,21 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def add_scan(self, target, assign_to_free_agents=True):
+        itertarget = iter(target)
+        try:
+            fdesc = itertarget.fdesc
+        except AttributeError:
+            pass
+        else:
+            if fdesc.closed:
+                itertarget.fdesc = (False, 0)
+            else:
+                itertarget.fdesc = (True, fdesc.tell())
         scan = {
-            "target": pickle.dumps(target.__iter__()),
+            # We need to explicitly call self.to_binary() because with
+            # MongoDB, Python 2.6 will store a unicode string that it
+            # won't be able un pickle.loads() later
+            "target": self.to_binary(pickle.dumps(itertarget)),
             "target_info": target.infos,
             "agents": [],
             "results": 0,
@@ -1458,7 +1468,15 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def get_scan_target(self, scanid):
-        return pickle.loads(self._get_scan_target(self, scanid))
+        res =  pickle.loads(self._get_scan_target(scanid))
+        if hasattr(res, "fdesc"):
+            opened, seekval = res.fdesc
+            res.fdesc = open(res.target.filename)
+            if opened:
+                res.fdesc.seek(seekval)
+            else:
+                res.fdesc.close()
+        return res
 
     def _get_scan_target(self, scanid):
         raise NotImplementedError
@@ -1467,15 +1485,24 @@ class DBAgent(DB):
         lockid = uuid.uuid1()
         scan = self._lock_scan(scanid, None, lockid.bytes)
         if scan['lock'] is not None:
-            scan['lock'] = uuid.UUID(bytes=scan['lock'])
+            # This might be a bug in uuid module, Python 2 only
+            ##  File "/opt/python/2.6.9/lib/python2.6/uuid.py", line 145, in __init__
+            ##    int = long(('%02x'*16) % tuple(map(ord, bytes)), 16)
+            # scan['lock'] = uuid.UUID(bytes=scan['lock'])
+            scan['lock'] = uuid.UUID(hex=utils.encode_hex(scan['lock']).decode())
         if scan['lock'] == lockid:
             return scan
 
     def unlock_scan(self, scan):
+        if scan.get('lock') is None:
+            raise ValueError('Scan is not locked')
         scan = self._lock_scan(scan['_id'], scan['lock'].bytes, None)
         return scan['lock'] is None
 
     def _lock_scan(self, scanid, oldlockid, newlockid):
+        raise NotImplementedError
+
+    def get_scan(self):
         raise NotImplementedError
 
     def get_scans(self):
@@ -1490,7 +1517,20 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def update_scan_target(self, scanid, target):
-        return self._update_scan_target(scanid, pickle.dumps(target))
+        try:
+            fdesc = target.fdesc
+        except AttributeError:
+            pass
+        else:
+            if fdesc.closed:
+                target.fdesc = (False, 0)
+            else:
+                target.fdesc = (True, fdesc.tell())
+        # We need to explicitly call self.to_binary() because with
+        # MongoDB, Python 2.6 will store a unicode string that it
+        # won't be able un pickle.loads() later
+        return self._update_scan_target(scanid,
+                                        self.to_binary(pickle.dumps(target)))
 
     def _update_scan_target(self, scanid, target):
         raise NotImplementedError

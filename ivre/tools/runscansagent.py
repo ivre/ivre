@@ -128,5 +128,7 @@ def main():
             ivre.utils.LOGGER.info('No target left to scan.')
             if os.environ['TERM'] != 'screen':
                 ivre.utils.LOGGER.info('Press enter to exit.')
-                input()
-        input()
+                try:
+                    input()
+                except (EOFError, IOError):
+                    pass
