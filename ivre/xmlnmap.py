@@ -50,14 +50,18 @@ SCHEMA_VERSION = 8
 IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2'])
 
 ALIASES_TABLE_ELEMS = {
-    # ls unified output (ls NSE module)
+    # ls unified output (ls NSE module + ftp-anon)
+    ## grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
     "afp-ls": "ls",
     "http-ls": "ls",
     "nfs-ls": "ls",
     "smb-ls": "ls",
+    ## + ftp-anon
     "ftp-anon": "ls",
     # vulns unified output (vulns NSE module)
+    ## grep -l -F vulns.Report * | sed 's#^#    "#;s#.nse$#": "vulns",#'
     "afp-path-vuln": "vulns",
+    "clamav-exec": "vulns",
     "distcc-cve2004-2687": "vulns",
     "ftp-libopie": "vulns",
     "ftp-vsftpd-backdoor": "vulns",
@@ -91,20 +95,30 @@ ALIASES_TABLE_ELEMS = {
     "http-vuln-cve2014-8877": "vulns",
     "http-vuln-cve2015-1427": "vulns",
     "http-vuln-cve2015-1635": "vulns",
+    "http-vuln-cve2017-1001000": "vulns",
+    "http-vuln-cve2017-5638": "vulns",
+    "http-vuln-cve2017-5689": "vulns",
+    "http-vuln-cve2017-8917": "vulns",
     "http-vuln-misfortune-cookie": "vulns",
     "http-vuln-wnr1000-creds": "vulns",
+    "ipmi-cipher-zero": "vulns",
     "mysql-vuln-cve2012-2122": "vulns",
     "qconn-exec": "vulns",
     "rdp-vuln-ms12-020": "vulns",
+    "realvnc-auth-bypass": "vulns",
     "rmi-vuln-classloader": "vulns",
     "samba-vuln-cve-2012-1182": "vulns",
+    "smb2-vuln-uptime": "vulns",
+    "smb-double-pulsar-backdoor": "vulns",
     "smb-vuln-conficker": "vulns",
     "smb-vuln-cve2009-3103": "vulns",
+    "smb-vuln-cve-2017-7494": "vulns",
     "smb-vuln-ms06-025": "vulns",
     "smb-vuln-ms07-029": "vulns",
     "smb-vuln-ms08-067": "vulns",
     "smb-vuln-ms10-054": "vulns",
     "smb-vuln-ms10-061": "vulns",
+    "smb-vuln-ms17-010": "vulns",
     "smb-vuln-regsvc-dos": "vulns",
     "smtp-vuln-cve2011-1720": "vulns",
     "smtp-vuln-cve2011-1764": "vulns",
@@ -112,7 +126,9 @@ ALIASES_TABLE_ELEMS = {
     "ssl-dh-params": "vulns",
     "ssl-heartbleed": "vulns",
     "ssl-poodle": "vulns",
+    "sslv2-drown": "vulns",
     "supermicro-ipmi-conf": "vulns",
+    "tls-ticketbleed": "vulns",
 }
 
 SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
