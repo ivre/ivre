@@ -249,7 +249,7 @@ class IPRanges(object):
 
 def get_ranges_by_data(datafile, parseline, data, multiple=False):
     rnge = IPRanges()
-    with open(datafile) as fdesc:
+    with open(datafile, 'rb') as fdesc:
         for line in fdesc:
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
