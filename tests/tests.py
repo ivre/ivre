@@ -1183,6 +1183,44 @@ class IvreTests(unittest.TestCase):
 213.234.249.115/32
 216.151.180.0/24
 ''')
+        # ListAll and ListAllRand use different mechanisms
+        res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
+                            "--country", "A1"])
+        self.assertEqual(res, 0)
+        res, out2, _ = RUN(["ivre", "runscans", "--output", "ListAllRand",
+                            "--country", "A1"])
+        self.assertEqual(res, 0)
+        out1, out2 = out1.split(b'\n'), out2.split(b'\n')
+        self.assertGreater(len(out1), 0)
+        self.assertItemsEqual(out1, out2)
+        res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
+                            "--region", "GP", "R5"])
+        self.assertEqual(res, 0)
+        res, out2, _ = RUN(["ivre", "runscans", "--output", "ListAllRand",
+                            "--region", "GP", "R5"])
+        self.assertEqual(res, 0)
+        out1, out2 = out1.split(b'\n'), out2.split(b'\n')
+        self.assertGreater(len(out1), 0)
+        self.assertItemsEqual(out1, out2)
+        res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
+                            "--city", "FR", "Carcassonne"])
+        self.assertEqual(res, 0)
+        res, out2, _ = RUN(["ivre", "runscans", "--output", "ListAllRand",
+                            "--city", "FR", "Carcassonne"])
+        self.assertEqual(res, 0)
+        out1, out2 = out1.split(b'\n'), out2.split(b'\n')
+        self.assertGreater(len(out1), 0)
+        self.assertItemsEqual(out1, out2)
+        res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
+                            "--asnum", "12345"])
+        self.assertEqual(res, 0)
+        res, out2, _ = RUN(["ivre", "runscans", "--output", "ListAllRand",
+                            "--asnum", "12345"])
+        self.assertEqual(res, 0)
+        out1, out2 = out1.split(b'\n'), out2.split(b'\n')
+        self.assertGreater(len(out1), 0)
+        self.assertItemsEqual(out1, out2)
+
         # Clean
         res = RUN(["ivre", "ipdata", "--init"], stdin=open(os.devnull))[0]
         self.assertEqual(res, 0)
