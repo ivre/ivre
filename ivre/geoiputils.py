@@ -142,21 +142,21 @@ def locids_by_city(country_code, city_name):
             fdesc.readline()
         for line in fdesc:
             locid, country, _, city, _ = line[:-1].split(b',', 4)
-            country = country.strip(b'"')
-            city = city.strip(b'"')
+            country = country.strip(b'"').decode()
+            city = city.strip(b'"').decode('latin-1')
             if (country, city) == (country_code, city_name):
                 yield int(locid)
 
 
 def locids_by_region(country_code, region_code):
     with open(os.path.join(config.GEOIP_PATH,
-                           'GeoIPCity-Location.csv', 'rb')) as fdesc:
+                           'GeoIPCity-Location.csv'), 'rb') as fdesc:
         for _ in range(2):
             fdesc.readline()
         for line in fdesc:
             locid, country, region, _ = line[:-1].split(b',', 3)
-            country = country.strip(b'"')
-            region = region.strip(b'"')
+            country = country.strip(b'"').decode()
+            region = region.strip(b'"').decode()
             if (country, region) == (country_code, region_code):
                 yield int(locid)
 
@@ -249,7 +249,7 @@ class IPRanges(object):
 
 def get_ranges_by_data(datafile, parseline, data, multiple=False):
     rnge = IPRanges()
-    with open(datafile) as fdesc:
+    with open(datafile, 'rb') as fdesc:
         for line in fdesc:
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:

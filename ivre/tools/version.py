@@ -21,6 +21,9 @@
 
 
 from __future__ import print_function
+
+
+import os
 import sys
 
 
@@ -34,6 +37,8 @@ def main():
     print("Version %s" % VERSION)
     print()
     print("Python %s" % sys.version)
+    print()
+    print(' '.join(str(elt) for elt in os.uname()))
     print()
     print("Dependencies:")
     for module in ['Crypto', 'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2',
