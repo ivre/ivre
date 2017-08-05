@@ -357,6 +357,12 @@ def main():
                 ivre.geoiputils.count_ips_by_region(*args.region),
             ))
             exit(0)
+        if args.city is not None:
+            print('%s / %s has %d IPs.' % (
+                args.city[0], args.city[1],
+                ivre.geoiputils.count_ips_by_city(*args.city),
+            ))
+            exit(0)
         if args.asnum is not None:
             print('AS%d has %d IPs.' % (
                 args.asnum,
@@ -369,8 +375,8 @@ def main():
             ))
             exit(0)
         parser.error("argument --output: invalid choice: '%s' "
-                     "(only available with --country, --asnum, --region "
-                     "or --routable)" % args.output)
+                     "(only available with --country, --asnum, --region, "
+                     "--city or --routable)" % args.output)
     if args.output in ['List', 'ListAll', 'ListCIDRs']:
         if args.country is not None:
             ivre.geoiputils.list_ips_by_country(
@@ -381,6 +387,13 @@ def main():
         if args.region is not None:
             ivre.geoiputils.list_ips_by_region(
                 *args.region,
+                listall=args.output == 'ListAll',
+                listcidrs=args.output == 'ListCIDRs'
+            )
+            exit(0)
+        if args.city is not None:
+            ivre.geoiputils.list_ips_by_city(
+                *args.city,
                 listall=args.output == 'ListAll',
                 listcidrs=args.output == 'ListCIDRs'
             )
@@ -398,12 +411,12 @@ def main():
             )
             exit(0)
         parser.error("argument --output: invalid choice: '%s' "
-                     "(only available with --country, --region, --asnum "
-                     "or --routable)" % args.output)
+                     "(only available with --country, --region, --city, "
+                     "--asnum or --routable)" % args.output)
     targets = ivre.target.target_from_args(args)
     if targets is None:
-        parser.error('one argument of --country/--region/--asnum/--range/'
-                     '--network/--routable/--file/--test is required')
+        parser.error('one argument of --country/--region/--city/--asnum/'
+                     '--range/--network/--routable/--file/--test is required')
     if args.again is not None:
         accept_target_status = set(reduce(
             lambda x, y: x + y, [{
