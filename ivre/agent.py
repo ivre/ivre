@@ -121,7 +121,8 @@ while true; do
         echo "error with $fname" >&2
     else
         if [ "$STOREDOWN" = "true" ] ||
-            bzgrep -q -F '<status state="up"' "$CURDIR/$fname.xml.bz2"; then
+           [ "`bzgrep -c '^<runstats>.*<hosts up="0"' \\
+                 "$CURDIR/$fname.xml.bz2"`" -eq 0 ]; then
             mv "$CURDIR/$fname.xml.bz2" "$OUTDIR"
         else
             rm -f "$CURDIR/$fname.xml.bz2"
