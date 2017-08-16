@@ -3370,6 +3370,8 @@ class MongoDBAgent(MongoDB, DBAgent):
         }, {
             "$set": {"lock": newlockid, "pid": os.getpid()},
         }, full_response=True, fields={'target': False}, new=True)['value']
+        if scan is None:
+            return None
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
             if target is not None:
@@ -3379,7 +3381,7 @@ class MongoDBAgent(MongoDB, DBAgent):
                     {"$set": {"target_info": target_info}},
                 )
                 scan["target_info"] = target_info
-        if scan is not None and scan['lock'] is not None:
+        if scan['lock'] is not None:
             scan['lock'] = bytes(scan['lock'])
         return scan
 

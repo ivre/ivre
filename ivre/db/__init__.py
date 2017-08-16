@@ -1484,6 +1484,8 @@ class DBAgent(DB):
     def lock_scan(self, scanid):
         lockid = uuid.uuid1()
         scan = self._lock_scan(scanid, None, lockid.bytes)
+        if scan is None:
+            return None
         if scan['lock'] is not None:
             # This might be a bug in uuid module, Python 2 only
             ##  File "/opt/python/2.6.9/lib/python2.6/uuid.py", line 145, in __init__
