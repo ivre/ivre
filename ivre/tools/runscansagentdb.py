@@ -53,6 +53,12 @@ def display_scan(scan, verbose=True):
         print("    - all results have been retrieved")
     if verbose:
         print("  - internal state: %r" % (scan['target'].getstate(),))
+    if scan.get('lock') is not None:
+        print("  - locked", end="")
+        if scan.get('pid') is not None:
+            print(" (by %d)" % scan['pid'])
+        else:
+            print()
     print("  - agents:")
     for agent in scan['agents']:
         print("    - %s" % agent)
