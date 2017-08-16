@@ -25,6 +25,7 @@ databases.
 
 import datetime
 import json
+import os
 import re
 import uuid
 try:
@@ -3367,7 +3368,7 @@ class MongoDBAgent(MongoDB, DBAgent):
             "_id": scanid,
             "lock": oldlockid,
         }, {
-            "$set": {"lock": newlockid},
+            "$set": {"lock": newlockid, "pid": os.getpid()},
         }, full_response=True, fields={'target': False}, new=True)['value']
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
