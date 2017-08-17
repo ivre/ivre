@@ -140,6 +140,7 @@ def main():
     parser.add_argument('--list-masters', action="store_true")
     parser.add_argument('--assign', metavar="AGENT:SCAN")
     parser.add_argument('--unassign', metavar="AGENT")
+    parser.add_argument('--force-unlock', action="store_true")
     parser.add_argument('--init', action="store_true",
                         help='Purge or create and initialize the database.')
     parser.add_argument('--sleep', type=int, default=2,
@@ -159,7 +160,7 @@ def main():
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
                 'This will remove any agent and/or scan in your '
-                'database and files. Process ? [y/N] ')
+                'database and files. Process? [y/N] ')
             ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
@@ -205,20 +206,33 @@ def main():
             assign_to_free_agents=bool(args.assign_free_agents)
         )
 
+    if args.force_unlock:
+        if os.isatty(sys.stdin.fileno()):
+            sys.stdout.write(
+                'Only use this when a "ivre runscansagentdb --daemon" process '
+                'has crashed. Make sure no "ivre runscansagentdb" process is '
+                'running or your scan data will be inconsistent. Process? '
+                '[y/N] '
+            )
+            ans = input()
+            if ans.lower() != 'y':
+                sys.exit(-1)
+        for scanid in ivre.db.db.agent.get_scans():
+            scan = ivre.db.db.agent.get_scan(scanid)
+            if scan.get('lock') is not None:
+                ivre.db.db.agent.unlock_scan(scan)
+
     if args.list_agents:
-        for agent in (ivre.db.db.agent.get_agent(agentid)
-                      for agentid in ivre.db.db.agent.get_agents()):
-            display_agent(agent)
+        for agentid in ivre.db.db.agent.get_agents():
+            display_agent(ivre.db.db.agent.get_agent(agentid))
 
     if args.list_scans:
-        for scan in (ivre.db.db.agent.get_scan(scanid)
-                     for scanid in ivre.db.db.agent.get_scans()):
-            display_scan(scan)
+        for scanid in ivre.db.db.agent.get_scans():
+            display_scan(ivre.db.db.agent.get_scan(scanid))
 
     if args.list_masters:
-        for master in (ivre.db.db.agent.get_master(masterid)
-                       for masterid in ivre.db.db.agent.get_masters()):
-            display_master(master)
+        for masterid in ivre.db.db.agent.get_masters():
+            display_master(ivre.db.db.agent.get_master(masterid))
 
     if args.daemon:
         def terminate(signum, _):
