@@ -1339,6 +1339,7 @@ class IvreTests(unittest.TestCase):
         os.unlink(fdesc.name)
         res = RUN(["ivre", "runscans", "--range", "127.0.0.4", "127.0.0.5",
                    "--output", "XMLFull"])[0]
+        self.assertEqual(res, 0)
         count = sum(len(walk_elt[2]) for walk_elt in os.walk('scans'))
         self.assertEqual(count, 9)
 
@@ -1410,6 +1411,7 @@ class IvreTests(unittest.TestCase):
         # Add local agent
         res = RUN(["ivre", "runscansagentdb", "--source", "TEST-AGENT-SOURCE",
                    "--add-agent", os.path.join(os.getcwd(), "tmp")])[0]
+        self.assertEqual(res, 0)
 
         # Create test scans
         res = RUN(["ivre", "runscansagentdb", "--test", "2",
@@ -1468,6 +1470,7 @@ class IvreTests(unittest.TestCase):
         is_scan_over = lambda scan: int(scan['nbtargets']) == int(scan['nbfetched'])
         while True:
             res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+            self.assertEqual(res, 0)
             scans = [scan.groupdict() for scan in scanmatch.finditer(out)]
             self.assertEqual(len(scans), 2)
             if any(is_scan_over(scan) for scan in scans):
@@ -1478,6 +1481,7 @@ class IvreTests(unittest.TestCase):
         # We should have one agent
         agentmatch = re.compile(b'agent:\n  - id: (?P<id>[0-9a-f]+)\n')
         res, out, _ = RUN(["ivre", "runscansagentdb", "--list-agents"])
+        self.assertEqual(res, 0)
         agents = [agent.groupdict() for agent in agentmatch.finditer(out)]
         self.assertEqual(len(agents), 1)
         agent = agents[0]
@@ -1485,12 +1489,14 @@ class IvreTests(unittest.TestCase):
         # Assign the remaining scan to the agent
         res = RUN(["ivre", "runscansagentdb", "--assign",
                    "%s:%s" % (agent['id'].decode(), scan['id'].decode())])[0]
+        self.assertEqual(res, 0)
         # Make sure the daemon handles the new scan
         time.sleep(4)
 
         # Wait until we have two scans, both of them over
         while True:
             res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+            self.assertEqual(res, 0)
             scans = [scan.groupdict() for scan in scanmatch.finditer(out)]
             self.assertEqual(len(scans), 2)
             if all(is_scan_over(scan) for scan in scans):
