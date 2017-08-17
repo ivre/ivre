@@ -42,7 +42,7 @@ import bson
 import pymongo
 
 
-from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent
+from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent, LockError
 from ivre import utils, xmlnmap, config
 
 
@@ -3360,6 +3360,10 @@ class MongoDBAgent(MongoDB, DBAgent):
         return None if scan is None else scan['target']
 
     def _lock_scan(self, scanid, oldlockid, newlockid):
+        """Change lock for scanid from oldlockid to newlockid. Returns the new
+scan object on success, and raises a LockError on failure.
+
+        """
         if oldlockid is not None:
             oldlockid = bson.Binary(oldlockid)
         if newlockid is not None:
@@ -3371,7 +3375,12 @@ class MongoDBAgent(MongoDB, DBAgent):
             "$set": {"lock": newlockid, "pid": os.getpid()},
         }, full_response=True, fields={'target': False}, new=True)['value']
         if scan is None:
-            return None
+            if oldlockid is None:
+                raise LockError('Cannot acquire lock for %r' % scanid)
+            if newlockid is None:
+                raise LockError('Cannot release lock for %r' % scanid)
+            raise LockError('Cannot change lock for %r from '
+                            '%r to %r' % (scanid, oldlockid, newlockid))
         if "target_info" not in scan:
             target = self.get_scan_target(scanid)
             if target is not None:
