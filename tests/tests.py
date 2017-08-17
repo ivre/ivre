@@ -1439,7 +1439,7 @@ class IvreTests(unittest.TestCase):
         ## Check one scan is locked with our PID
         res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
         self.assertEqual(res, 0)
-        self.assertTrue(b'  - locked (by %d)\n' % os.getpid() in out)
+        self.assertTrue(('  - locked (by %d)\n' % os.getpid()).encode() in out)
         ## Attempt to lock it again
         with(self.assertRaises(ivre.db.LockError)):
             ivre.db.db.agent.lock_scan(scanid)
@@ -1450,6 +1450,27 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.agent.unlock_scan(locked_scan)
         with(self.assertRaises(ivre.db.LockError)):
             ivre.db.db.agent.unlock_scan(ivre.db.db.agent.get_scan(scanid))
+        ## Check no scan is locked
+        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+        self.assertEqual(res, 0)
+        self.assertTrue(b'  - locked' not in out)
+        ## Lock the scan again
+        locked_scan = ivre.db.db.agent.lock_scan(scanid)
+        self.assertIsInstance(locked_scan, dict)
+        self.assertEqual(locked_scan['pid'], os.getpid())
+        self.assertIsNotNone(locked_scan.get('lock'))
+        ## Check one scan is locked with our PID
+        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+        self.assertEqual(res, 0)
+        self.assertTrue(('  - locked (by %d)\n' % os.getpid()).encode() in out)
+        ## Unlock all the scans from the CLI
+        res = RUN(["ivre", "runscansagentdb", "--force-unlock"],
+                  stdin=open(os.devnull))[0]
+        self.assertEqual(res, 0)
+        ## Check no scan is locked
+        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+        self.assertEqual(res, 0)
+        self.assertTrue(b'  - locked' not in out)
 
         # Fork a daemon
         daemon_cmd = ["runscansagentdb", "--daemon"]
