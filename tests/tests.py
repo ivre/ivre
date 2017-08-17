@@ -1422,6 +1422,33 @@ class IvreTests(unittest.TestCase):
                    "--assign-free-agents"])[0]
         self.assertEqual(res, 0)
 
+        # Test the lock mechanism
+        ## Check no scan is locked
+        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+        self.assertEqual(res, 0)
+        self.assertTrue(b'  - locked' not in out)
+        ## Get a scan id
+        scanid = next(iter(ivre.db.db.agent.get_scans()))
+        ## Lock it
+        locked_scan = ivre.db.db.agent.lock_scan(scanid)
+        self.assertIsInstance(locked_scan, dict)
+        self.assertEqual(locked_scan['pid'], os.getpid())
+        self.assertIsNotNone(locked_scan.get('lock'))
+        ## Check one scan is locked with our PID
+        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
+        self.assertEqual(res, 0)
+        self.assertTrue(b'  - locked (by %d)\n' % os.getpid() in out)
+        ## Attempt to lock it again
+        with(self.assertRaises(ivre.db.LockError)):
+            ivre.db.db.agent.lock_scan(scanid)
+        ## Unlock it
+        self.assertEqual(ivre.db.db.agent.unlock_scan(locked_scan), True)
+        ## Attempt to unlock it again
+        with(self.assertRaises(ivre.db.LockError)):
+            ivre.db.db.agent.unlock_scan(locked_scan)
+        with(self.assertRaises(ivre.db.LockError)):
+            ivre.db.db.agent.unlock_scan(ivre.db.db.agent.get_scan(scanid))
+
         # Fork a daemon
         daemon_cmd = ["runscansagentdb", "--daemon"]
         if USE_COVERAGE:
