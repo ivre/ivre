@@ -68,6 +68,7 @@ NMAP_SCAN_TEMPLATES = {
         #"verbosity": 2,
         #"ports": None,
         "host_timeout": "15m", # default value: None
+        "script_timeout": "2m", # default value: None
         "scripts_categories": ['default', 'discovery',
                                'auth'], # default value: None
         "scripts_exclude": ['broadcast', 'brute', 'dos',
@@ -85,6 +86,7 @@ NMAP_SCAN_TEMPLATES = {
 # NMAP_SCAN_TEMPLATES["aggressive"] = NMAP_SCAN_TEMPLATES["default"].copy()
 # NMAP_SCAN_TEMPLATES["aggressive"].update({
 #     "host_timeout": "30m",
+#     "script_timeout": "5m",
 #     "scripts_categories": ['default', 'discovery', 'auth', 'brute',
 #                            'exploit', 'intrusive'],
 #     "scripts_exclude": ['broadcast', 'external']
