@@ -237,11 +237,14 @@ def main():
     if args.daemon:
         def terminate(signum, _):
             global WANT_DOWN
-            print('SHUTDOWN: got signal %d, will halt after current '
-                  'task.' % signum)
+            ivre.utils.LOGGER.info(
+                'shutdown: got signal %d, will halt after current task.',
+                signum,
+            )
             WANT_DOWN = True
         def terminate_now(signum, _):
-            print('SHUTDOWN: got signal %d, halting now.' % signum)
+            ivre.utils.LOGGER.info('shutdown: got signal %d, halting now.',
+                                   signum)
             exit()
         signal.signal(signal.SIGINT, terminate)
         signal.signal(signal.SIGTERM, terminate)
