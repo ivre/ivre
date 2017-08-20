@@ -1354,7 +1354,13 @@ class DBAgent(DB):
 
     def feed_all(self, masterid):
         for scanid in self.get_scans():
-            self.feed(masterid, scanid)
+            try:
+                self.feed(masterid, scanid)
+            except LockError:
+                utils.LOGGER.error(
+                    'Lock error - is another daemon process running?',
+                    exc_info=True,
+                )
 
     def feed(self, masterid, scanid):
         scan = self.lock_scan(scanid)
