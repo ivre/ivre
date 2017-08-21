@@ -1188,6 +1188,12 @@ class DBData(DB):
         return parsedline
 
 
+
+class LockError(RuntimeError):
+    """A runtime error used when a lock cannot be acquired or released."""
+    pass
+
+
 class DBAgent(DB):
     """Backend-independent code to handle agents-in-DB"""
 
@@ -1348,14 +1354,16 @@ class DBAgent(DB):
 
     def feed_all(self, masterid):
         for scanid in self.get_scans():
-            self.feed(masterid, scanid)
+            try:
+                self.feed(masterid, scanid)
+            except LockError:
+                utils.LOGGER.error(
+                    'Lock error - is another daemon process running?',
+                    exc_info=True,
+                )
 
     def feed(self, masterid, scanid):
         scan = self.lock_scan(scanid)
-        if scan is None:
-            raise StandardError(
-                "Could not acquire lock for scan %s" % scanid
-            )
         # TODO: handle "onhold" targets
         target = self.get_scan_target(scanid)
         try:
@@ -1482,6 +1490,10 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def lock_scan(self, scanid):
+        """Acquire lock for scanid. Returns the new scan object on success,
+and raises a LockError on failure.
+
+        """
         lockid = uuid.uuid1()
         scan = self._lock_scan(scanid, None, lockid.bytes)
         if scan['lock'] is not None:
@@ -1494,8 +1506,13 @@ class DBAgent(DB):
             return scan
 
     def unlock_scan(self, scan):
+        """Release lock for scanid. Returns True on success, and raises a
+LockError on failure.
+
+        """
         if scan.get('lock') is None:
-            raise ValueError('Scan is not locked')
+            raise LockError('Cannot release lock for %r: scan is not '
+                            'locked' % scan['_id'])
         scan = self._lock_scan(scan['_id'], scan['lock'].bytes, None)
         return scan['lock'] is None
 

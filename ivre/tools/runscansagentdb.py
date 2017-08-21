@@ -53,6 +53,12 @@ def display_scan(scan, verbose=True):
         print("    - all results have been retrieved")
     if verbose:
         print("  - internal state: %r" % (scan['target'].getstate(),))
+    if scan.get('lock') is not None:
+        print("  - locked", end="")
+        if scan.get('pid') is not None:
+            print(" (by %d)" % scan['pid'])
+        else:
+            print()
     print("  - agents:")
     for agent in scan['agents']:
         print("    - %s" % agent)
@@ -134,6 +140,7 @@ def main():
     parser.add_argument('--list-masters', action="store_true")
     parser.add_argument('--assign', metavar="AGENT:SCAN")
     parser.add_argument('--unassign', metavar="AGENT")
+    parser.add_argument('--force-unlock', action="store_true")
     parser.add_argument('--init', action="store_true",
                         help='Purge or create and initialize the database.')
     parser.add_argument('--sleep', type=int, default=2,
@@ -153,7 +160,7 @@ def main():
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
                 'This will remove any agent and/or scan in your '
-                'database and files. Process ? [y/N] ')
+                'database and files. Process? [y/N] ')
             ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
@@ -199,29 +206,45 @@ def main():
             assign_to_free_agents=bool(args.assign_free_agents)
         )
 
+    if args.force_unlock:
+        if os.isatty(sys.stdin.fileno()):
+            sys.stdout.write(
+                'Only use this when a "ivre runscansagentdb --daemon" process '
+                'has crashed. Make sure no "ivre runscansagentdb" process is '
+                'running or your scan data will be inconsistent. Process? '
+                '[y/N] '
+            )
+            ans = input()
+            if ans.lower() != 'y':
+                sys.exit(-1)
+        for scanid in ivre.db.db.agent.get_scans():
+            scan = ivre.db.db.agent.get_scan(scanid)
+            if scan.get('lock') is not None:
+                ivre.db.db.agent.unlock_scan(scan)
+
     if args.list_agents:
-        for agent in (ivre.db.db.agent.get_agent(agentid)
-                      for agentid in ivre.db.db.agent.get_agents()):
-            display_agent(agent)
+        for agentid in ivre.db.db.agent.get_agents():
+            display_agent(ivre.db.db.agent.get_agent(agentid))
 
     if args.list_scans:
-        for scan in (ivre.db.db.agent.get_scan(scanid)
-                     for scanid in ivre.db.db.agent.get_scans()):
-            display_scan(scan)
+        for scanid in ivre.db.db.agent.get_scans():
+            display_scan(ivre.db.db.agent.get_scan(scanid))
 
     if args.list_masters:
-        for master in (ivre.db.db.agent.get_master(masterid)
-                       for masterid in ivre.db.db.agent.get_masters()):
-            display_master(master)
+        for masterid in ivre.db.db.agent.get_masters():
+            display_master(ivre.db.db.agent.get_master(masterid))
 
     if args.daemon:
         def terminate(signum, _):
             global WANT_DOWN
-            print('SHUTDOWN: got signal %d, will halt after current '
-                  'task.' % signum)
+            ivre.utils.LOGGER.info(
+                'shutdown: got signal %d, will halt after current task.',
+                signum,
+            )
             WANT_DOWN = True
         def terminate_now(signum, _):
-            print('SHUTDOWN: got signal %d, halting now.' % signum)
+            ivre.utils.LOGGER.info('shutdown: got signal %d, halting now.',
+                                   signum)
             exit()
         signal.signal(signal.SIGINT, terminate)
         signal.signal(signal.SIGTERM, terminate)
