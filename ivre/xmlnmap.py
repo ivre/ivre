@@ -1315,6 +1315,10 @@ class NmapHandler(ContentHandler):
                             self._fname, full_fname, exc_info=exc_info,
                         )
             if ignore_script(self._curscript):
+                if self._curtablepath:
+                    utils.LOGGER.warning("self._curtablepath should be empty,"
+                                         " got [%r]", self._curtablepath)
+                self._curtable = {}
                 self._curscript = None
                 return
             infokey = self._curscript.get('id', None)

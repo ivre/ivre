@@ -307,6 +307,31 @@ class IvreTests(unittest.TestCase):
                 1 for _ in scan_duplicate.finditer(err)
             )
 
+        # Specific test cases
+        ## Ignored script with a named table element, followed by a
+        ## script with an unamed table element
+        fdesc = tempfile.NamedTemporaryFile(delete=False)
+        fdesc.write(b"""<nmaprun scanner="nmap">
+<host>
+<script id="fcrdns" output="FAIL (No PTR record)">
+<table key="&lt;none&gt;">
+<elem key="status">fail</elem>
+<elem key="reason">No PTR record</elem>
+</table>
+</script>
+<script id="fake" output="Test output for fake script">
+<elem>fake</elem>
+</script>
+</host>
+</nmaprun>
+""")
+        fdesc.close()
+        res, out, _ = RUN(["ivre", "scan2db", "--test", fdesc.name])
+        self.assertEqual(res, 0)
+        self.assertEqual(sum(host_stored_test(line)
+                             for line in out.splitlines()), 1)
+        os.unlink(fdesc.name)
+
         RUN(["ivre", "scancli", "--update-schema"])
         RUN(["ivre", "scancli", "--update-schema", "--archives"])
 
