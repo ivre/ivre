@@ -38,7 +38,7 @@ server {
     location ~ ^/dokuwiki/.*\.php$ {
         root /var/www/;
         fastcgi_split_path_info ^(.+\.php)(/.+)$;
-        fastcgi_pass unix:/var/run/php5-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php7.0-fpm.sock;
         fastcgi_index index.php;
         fastcgi_param PHP_AUTH_USER $remote_user;
         include fastcgi.conf;
