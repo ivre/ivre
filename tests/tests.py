@@ -331,6 +331,37 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(sum(host_stored_test(line)
                              for line in out.splitlines()), 1)
         os.unlink(fdesc.name)
+        ## Screenshots: this tests the http-screenshot script
+        ## (including phantomjs) and IVRE's ability to read
+        ## screenshots (including extracting words with tesseract)
+        ipaddr = socket.gethostbyname('ivre.rocks')
+        res = RUN([
+            "ivre", "runscans", "--output", "XML", "--nmap-template", "http",
+            "--net", "%s/32" % ipaddr
+        ])[0]
+        self.assertEqual(res, 0)
+        self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
+        res, out, _ = RUN([
+            "ivre", "scan2db", "--test",
+            '%s.xml' % os.path.join("scans", "NET-%s_32" % ipaddr, "up",
+                                    *ipaddr.split('.'))
+        ])
+        self.assertEqual(res, 0)
+        def _json_loads(data, deflt=None):
+            try:
+                return json.loads(data.decode())
+            except ValueError:
+                return deflt
+        screenshots_count = sum(bool(port.get('screendata'))
+                                for line in out.splitlines()
+                                for host in _json_loads(line, [])
+                                for port in host.get('ports', []))
+        self.assertEqual(screenshots_count, 1)
+        screenwords = set(word for line in out.splitlines()
+                          for host in _json_loads(line, [])
+                          for port in host.get('ports', [])
+                          for word in port.get('screenwords', []))
+        self.assertTrue('IVRE' in screenwords)
 
         RUN(["ivre", "scancli", "--update-schema"])
         RUN(["ivre", "scancli", "--update-schema", "--archives"])
