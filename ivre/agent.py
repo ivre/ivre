@@ -49,6 +49,7 @@ INDIR=./input/
 CURDIR=./cur/
 OUTDIR=./output/
 ERRORDIR=./error/
+SCREENSHOTS=./screenshots/
 
 filter () {
     %(filter)s
@@ -56,6 +57,30 @@ filter () {
 
 scan () {
     %(scan)s -iL - -oX -
+}
+
+_get_screenshots () {
+    fname="$1"
+    bzgrep -o 'output=\"Saved to [^\"]*\"' "$fname" | sed 's#^output="Saved to ##;s#"$##'
+}
+
+post_scan () {
+    fname="$1"
+
+    if [ "$STOREDOWN" = "true" ] || ! bzgrep -qF '<status state="up"' \\
+             "$CURDIR/$fname.xml.bz2"; then
+        # find screenshots
+        OIFS="$IFS"
+        IFS=$'\n'
+        set -- `_get_screenshots "$CURDIR/$fname.xml.bz2"`
+        IFS="$OIFS"
+        tar cf "$SCREENSHOTS/$fname.tar" "$@" 2>/dev/null
+        rm -f -- "$@"
+        mv "$CURDIR/$fname.xml.bz2" "$OUTDIR"
+    else
+        rm -f "$CURDIR/$fname.xml.bz2"
+    fi
+    rm -f "$CURDIR/$fname"
 }
 
 someone_alive () {
@@ -69,7 +94,7 @@ someone_alive () {
     return 1
 }
 
-mkdir -p "$INDIR" "$CURDIR" "$OUTDIR" "$ERRORDIR"
+mkdir -p "$INDIR" "$CURDIR" "$OUTDIR" "$ERRORDIR" "$SCREENSHOTS"
 
 # master
 if [ -z "$IVRE_WORKER" ]; then
@@ -120,14 +145,7 @@ while true; do
         $SLEEP
         echo "error with $fname" >&2
     else
-        if [ "$STOREDOWN" = "true" ] ||
-           [ "`bzgrep -c '^<runstats>.*<hosts up="0"' \\
-                 "$CURDIR/$fname.xml.bz2"`" -eq 0 ]; then
-            mv "$CURDIR/$fname.xml.bz2" "$OUTDIR"
-        else
-            rm -f "$CURDIR/$fname.xml.bz2"
-        fi
-        rm -f "$CURDIR/$fname"
+        post_scan "$fname"
         echo "done $fname" >&2
     fi
 done
