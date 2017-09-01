@@ -1,5 +1,5 @@
 -- This file is part of IVRE.
--- Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+-- Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 --
 -- IVRE is free software: you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License as published by
@@ -43,6 +43,8 @@ categories = {"discovery", "safe", "screenshot"}
 --       provided hostname or IP address)
 -- @args http-screenshot.timeout timeout for the phantomjs script
 --       (default: 300s)
+-- @args http-screenshot.geometry viewport size for phantomjs
+--       (default: 1024x768).
 --
 -- @output
 -- PORT   STATE SERVICE
@@ -58,10 +60,12 @@ end
 
 action = function(host, port)
   local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 300
+  local geom = stdnse.get_script_args(SCRIPT_NAME .. '.geometry') or '1024x768'
   local ssl = port.version.service_tunnel == "ssl"
   local port = port.number
   local fname, strport
   local hostname = get_hostname(host)
+  local width, height
   if hostname == host.ip then
     fname = ("screenshot-%s-%d.jpg"):format(host.ip, port)
   else
@@ -72,6 +76,9 @@ action = function(host, port)
   else
     strport = (":%d"):format(port)
   end
+  width, height = table.unpack(stdnse.strsplit("x", geom))
+  width = tonumber(width)
+  height = tonumber(height)
   local tmpfname = os.tmpname()
   local tmpfdesc = io.open(tmpfname, "w")
   tmpfdesc:write(([[
@@ -80,6 +87,10 @@ var webpage = require('webpage');
 function capture(url, fname) {
     var page = webpage.create();
     page.open(url, function() {
+        page.viewportSize = {
+            width: %d,
+            height: %d
+        };
         page.evaluate(function(){
             document.body.bgColor = 'white';
         });
@@ -89,7 +100,8 @@ function capture(url, fname) {
 }
 capture("%s://%s%s", "%s");
 setTimeout(phantom.exit, %d * 1000);
-]]):format(ssl and "https" or "http", hostname, strport, fname, timeout))
+]]):format(width, height, ssl and "https" or "http", hostname, strport, fname,
+	   timeout))
   tmpfdesc:close()
   os.execute(("phantomjs %s >/dev/null 2>&1"):format(tmpfname))
   os.remove(tmpfname)

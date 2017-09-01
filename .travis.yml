@@ -24,12 +24,24 @@ python:
   - 3.5
   - 3.6
 
+# PhantomJS is supposed to be installed
+# (https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-PhantomJS),
+# but we need tesseract
+addons:
+  apt:
+    packages:
+    - tesseract-ocr
+    - tesseract-ocr-osd
+    - tesseract-ocr-eng
+
 install:
   - source ./.travis/install_${DB}.sh
   - pip install $PIP_INSTALL_OPTIONS .
   - pip install $PIP_INSTALL_OPTIONS -r requirements-$DB.txt
   - test "$TRAVIS_PYTHON_VERSION" = 2.6 && pip install unittest2 || true
   - pip install $PIP_INSTALL_OPTIONS coverage codecov
+  # cleanup
+  - rm -rf ivre/
 
 # We need MongoDB 2.6
 # https://github.com/travis-ci/travis-ci/issues/2246
@@ -45,11 +57,15 @@ before_script:
   - cat .travis/ivre.conf >> ~/.ivre.conf
   # install p0f & Bro (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
-  - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 nmap-7.50_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 nmap-7.60_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:`pwd`/usr/local/nmap/bin:$PATH"
   - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib"
   - export BROPATH=".:`pwd`/usr/local/bro/share/bro:`pwd`/usr/local/bro/share/bro/policy:`pwd`/usr/local/bro/share/bro/site"
   - cp tools/etc/p0f/* tests/
+  # install IVRE's Nmap scripts.
+  - cp `python -c "import ivre.config; print(ivre.config.guess_prefix('nmap_scripts'))"`/*.nse `pwd`/usr/local/nmap/share/nmap/scripts/
+  - for patch in `python -c "import ivre.config; print(ivre.config.guess_prefix('nmap_scripts'))"`/patches/*; do (cd `pwd`/usr/local/nmap/share/nmap && patch -p0 < $patch); done
+  - nmap --script-updatedb
   # get samples
   - mkdir tests/samples
   - cp tests/results-public-samples tests/samples/results

@@ -1288,7 +1288,7 @@ class NmapHandler(ContentHandler):
                                            os.path.dirname(self._fname),
                                            fname)]:
                         try:
-                            with open(full_fname) as fdesc:
+                            with open(full_fname, 'rb') as fdesc:
                                 data = fdesc.read()
                                 trim_result = utils.trim_image(data)
                                 if trim_result:
