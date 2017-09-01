@@ -29,6 +29,7 @@ import json
 import os
 import random
 import re
+import shutil
 import signal
 import socket
 import subprocess
@@ -362,6 +363,7 @@ class IvreTests(unittest.TestCase):
                           for port in host.get('ports', [])
                           for word in port.get('screenwords', []))
         self.assertTrue('IVRE' in screenwords)
+        shutil.rmtree('scans')
 
         RUN(["ivre", "scancli", "--update-schema"])
         RUN(["ivre", "scancli", "--update-schema", "--archives"])
@@ -1116,6 +1118,9 @@ class IvreTests(unittest.TestCase):
 
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                               stdin=open(os.devnull))[0], 0)
+        # Clean
+        shutil.rmtree("logs")
+
 
     def test_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
@@ -1607,6 +1612,8 @@ class IvreTests(unittest.TestCase):
                              stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(["ivre", "runscansagentdb", "--init"],
                              stdin=open(os.devnull))[0], 0)
+        for dirname in ['agentsdata', 'scans', 'tmp']:
+            shutil.rmtree(dirname)
 
 
 TESTS = set(["nmap", "passive", "data", "utils", "scans"])
