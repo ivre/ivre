@@ -473,6 +473,7 @@ class IvreTests(unittest.TestCase):
                           for port in host.get('ports', [])
                           for word in port.get('screenwords', []))
         self.assertTrue('IVRE' in screenwords)
+        shutil.rmtree('output')
 
         RUN(["ivre", "scancli", "--update-schema"])
         RUN(["ivre", "scancli", "--update-schema", "--archives"])
@@ -1523,6 +1524,17 @@ class IvreTests(unittest.TestCase):
         res = RUN(["ivre", "runscans", "--output", "CommandLine"])[0]
         self.assertEqual(res, 0)
 
+        # Scan using an agent
+        with AgentScanner(self) as agent:
+            agent.scan(["--test", "2"])
+
+        # Count the results
+        count = sum(len(walk_elt[2]) for walk_elt in os.walk('output/'))
+        self.assertEqual(count, 2)
+
+        # Clean
+        shutil.rmtree('output')
+
         # Generate an agent
         res, out, _ = RUN(["ivre", "runscans", "--output", "Agent"])
         self.assertEqual(res, 0)
@@ -1532,44 +1544,6 @@ class IvreTests(unittest.TestCase):
 
         # Fork an agent
         ivre.utils.makedirs('tmp')
-        pid_agent = subprocess.Popen([os.path.join(os.getcwd(),
-                                                   "ivre-agent.sh")],
-                                     preexec_fn=os.setsid,
-                                     cwd='tmp').pid
-
-        # Create test scans
-        res = RUN(["ivre", "runscansagent", "--test", "2", "--feed",
-                   "./tmp/"], stdin=open(os.devnull, 'wb'))[0]
-        self.assertEqual(res, 0)
-
-        # Fork a sync process
-        feed_cmd = ["runscansagent", "--sync", "./tmp/"]
-        if USE_COVERAGE:
-            feed_cmd = COVERAGE + ["run", "--parallel-mode",
-                                   which("ivre")] + feed_cmd
-        else:
-            feed_cmd = ["ivre"] + feed_cmd
-        pid_feed = subprocess.Popen(feed_cmd).pid
-
-        # Wait for child processes to handle all the scans
-        while any(walk[2] for dirname in ['agentsdata/._tmp_/input',
-                                          'agentsdata/._tmp_/remoteinput',
-                                          'agentsdata/._tmp_/remotecur',
-                                          'tmp/input', 'tmp/cur', 'tmp/output']
-                  for walk in os.walk(dirname)):
-            print(u"Waiting for runscans sync & agent")
-            time.sleep(2)
-        os.kill(pid_agent, signal.SIGTERM)
-        os.kill(pid_feed, signal.SIGTERM)
-        os.waitpid(pid_agent, 0)
-        os.waitpid(pid_feed, 0)
-
-        # Count the results
-        count = sum(len(walk_elt[2])
-                    for walk_elt in os.walk('agentsdata/._tmp_/remoteoutput/'))
-        self.assertEqual(count, 2)
-
-        # Fork another agent
         pid_agent = subprocess.Popen([os.path.join(os.getcwd(),
                                                    "ivre-agent.sh")],
                                      preexec_fn=os.setsid,
@@ -1726,7 +1700,7 @@ class IvreTests(unittest.TestCase):
                              stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(["ivre", "runscansagentdb", "--init"],
                              stdin=open(os.devnull))[0], 0)
-        for dirname in ['agentsdata', 'scans', 'tmp']:
+        for dirname in ['scans', 'tmp']:
             shutil.rmtree(dirname)
 
 
