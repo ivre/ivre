@@ -453,8 +453,11 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(os.path.exists(data_files[0]))
         self.assertEqual(len(up_files), 1)
         self.assertTrue(os.path.exists(up_files[0]))
-        with tarfile.open(data_files[0]) as data_archive:
-            data_archive.extractall()
+        # TarFile object does not implement __exit__ on Python 2.6,
+        # cannot use `with`
+        data_archive = tarfile.open(data_files[0])
+        data_archive.extractall()
+        data_archive.close()
         self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
         res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
         self.assertEqual(res, 0)
