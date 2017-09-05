@@ -49,7 +49,7 @@ INDIR=./input/
 CURDIR=./cur/
 OUTDIR=./output/
 ERRORDIR=./error/
-SCREENSHOTS=./screenshots/
+DATADIR=./data/
 
 filter () {
     %(filter)s
@@ -67,14 +67,14 @@ _get_screenshots () {
 post_scan () {
     fname="$1"
 
-    if [ "$STOREDOWN" = "true" ] || ! bzgrep -qF '<status state="up"' \\
+    if [ "$STOREDOWN" = "true" ] || bzgrep -qF '<status state="up"' \\
              "$CURDIR/$fname.xml.bz2"; then
         # find screenshots
         OIFS="$IFS"
         IFS=$'\n'
         set -- `_get_screenshots "$CURDIR/$fname.xml.bz2"`
         IFS="$OIFS"
-        tar cf "$SCREENSHOTS/$fname.tar" "$@" 2>/dev/null
+        tar cf "$DATADIR/$fname.tar" "$@" 2>/dev/null
         rm -f -- "$@"
         mv "$CURDIR/$fname.xml.bz2" "$OUTDIR"
     else
@@ -94,7 +94,7 @@ someone_alive () {
     return 1
 }
 
-mkdir -p "$INDIR" "$CURDIR" "$OUTDIR" "$ERRORDIR" "$SCREENSHOTS"
+mkdir -p "$INDIR" "$CURDIR" "$OUTDIR" "$ERRORDIR" "$DATADIR"
 
 # master
 if [ -z "$IVRE_WORKER" ]; then

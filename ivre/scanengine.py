@@ -102,7 +102,8 @@ class Agent(object):
 
     def create_local_dirs(self):
         """Create local directories used to manage the agent"""
-        for dirname in ['input', 'remoteinput', 'remotecur', 'remoteoutput']:
+        for dirname in ['input', 'remoteinput', 'remotecur', 'remoteoutput',
+                        'remotedata']:
             utils.makedirs(self.get_local_path(dirname))
 
     def may_receive(self):
@@ -149,6 +150,9 @@ class Agent(object):
         subprocess.call(self.rsync + ['-a', '--remove-source-files',
                                       self.get_remote_path('output'),
                                       self.get_local_path('remoteoutput')])
+        subprocess.call(self.rsync + ['-a', '--remove-source-files',
+                                      self.get_remote_path('data'),
+                                      self.get_local_path('remotedata')])
         for campaign in self.campaigns:
             campaign.sync(self)
 
@@ -186,17 +190,18 @@ class Campaign(object):
         the target status.
 
         """
-        remout = agent.get_local_path('remoteoutput')
         for remfname in glob.glob(
-                os.path.join(remout, self.visiblecategory + '.*.xml')):
+                os.path.join(agent.get_local_path('remoteoutput'),
+                             self.visiblecategory + '.*.xml*')
+        ):
             locfname = os.path.basename(remfname).split('.', 4)
             locfname[0] = self.category
             status = 'unknown'
-            with open(remfname) as remfdesc:
+            with utils.open_file(remfname) as remfdesc:
                 remfcontent = remfdesc.read()
-                if '<status state="up"' in remfcontent:
+                if b'<status state="up"' in remfcontent:
                     status = 'up'
-                elif '<status state="down"' in remfcontent:
+                elif b'<status state="down"' in remfcontent:
                     if not self.storedown:
                         remfdesc.close()
                         os.unlink(remfname)
@@ -208,7 +213,23 @@ class Campaign(object):
                 locfname[0],
                 status,
                 re.sub('[/@:]', '_', agent.name),
-                *locfname[1:])
+                *locfname[1:]
+            )
+            utils.makedirs(os.path.dirname(locfname))
+            os.rename(remfname, locfname)
+        for remfname in glob.glob(
+                os.path.join(agent.get_local_path('remotedata'),
+                             self.visiblecategory + '.*.tar*')
+        ):
+            locfname = os.path.basename(remfname).split('.', 4)
+            locfname[0] = self.category
+            locfname = os.path.join(
+                self.outputpath,
+                locfname[0],
+                'data',
+                re.sub('[/@:]', '_', agent.name),
+                *locfname[1:]
+            )
             utils.makedirs(os.path.dirname(locfname))
             os.rename(remfname, locfname)
 
