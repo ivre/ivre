@@ -496,6 +496,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.vulns.extra_info",
                   "ports.scripts.vulns.ids",
                   "ports.scripts.vulns.refs",
+                  "ports.scripts.http-headers",
                   "ports.screenwords",
                   "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
@@ -588,6 +589,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 5: (6, self.migrate_schema_hosts_5_6),
                 6: (7, self.migrate_schema_hosts_6_7),
                 7: (8, self.migrate_schema_hosts_7_8),
+                8: (9, self.migrate_schema_hosts_8_9),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -890,6 +892,27 @@ creates the default indexes."""
                                            for vulnid, tab in
                                            viewitems(script['vulns'])]
                     updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_8_9(doc):
+        """Converts a record from version 8 to version 9. Version 9 creates a
+        structured output for http-headers script.
+
+        """
+        assert doc["schema_version"] == 8
+        update = {"$set": {"schema_version": 9}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-headers":
+                    if 'http-headers' not in script:
+                        data = xmlnmap.add_http_headers_data(script)
+                        if data is not None:
+                            script['http-headers'] = data
+                            updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update

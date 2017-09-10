@@ -281,6 +281,7 @@ class DBNmap(DB):
                 5: (6, self.__migrate_schema_hosts_5_6),
                 6: (7, self.__migrate_schema_hosts_6_7),
                 7: (8, self.__migrate_schema_hosts_7_8),
+                8: (9, self.__migrate_schema_hosts_8_9),
             },
         }
         try:
@@ -692,6 +693,22 @@ insert structures.
                         script['vulns'] = [dict(tab, id=vulnid)
                                            for vulnid, tab in
                                            viewitems(script['vulns'])]
+
+    @staticmethod
+    def __migrate_schema_hosts_8_9(doc):
+        """Converts a record from version 8 to version 9. Version 9 creates a
+        structured output for http-headers script.
+
+        """
+        assert doc["schema_version"] == 8
+        doc["schema_version"] = 9
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-headers":
+                    if 'http-headers' not in script:
+                        data = xmlnmap.add_heep_headers_data(script)
+                        if data is not None:
+                            script['http-headers'] = data
 
     @staticmethod
     def json2dbrec(host):
