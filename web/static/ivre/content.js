@@ -745,6 +745,18 @@ var HELP_TOPVALUES = {
 	    "content": "ike.vendor_ids.value",
 	    "title": "<b>(!)</b>ike.vendor_ids.value"
 	},
+	"httphdr:": {
+	    "title": "httphdr<b>(:[name])",
+	    "content": "Top HTTP header values seen",
+	},
+	"httphdr.name": {
+	    "title": "httphdr.name",
+	    "content": "Top HTTP headers used",
+	},
+	"httphdr.value": {
+	    "title": "httphdr.value",
+	    "content": "Top HTTP header values seen, regardless of the header name",
+	},
     }
 };
 

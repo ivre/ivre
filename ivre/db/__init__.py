@@ -706,7 +706,7 @@ insert structures.
             for script in port.get('scripts', []):
                 if script['id'] == "http-headers":
                     if 'http-headers' not in script:
-                        data = xmlnmap.add_heep_headers_data(script)
+                        data = xmlnmap.add_http_headers_data(script)
                         if data is not None:
                             script['http-headers'] = data
 

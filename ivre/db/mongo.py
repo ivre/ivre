@@ -223,8 +223,7 @@ class MongoDB(DB):
                     update = migration_function(record)
                 except Exception as exc:
                     utils.LOGGER.warning(
-                        "Cannot migrate host %s [%s: %s]", record['_id'],
-                        exc.__class__.__name__, exc.message,
+                        "Cannot migrate host %s", record['_id'], exc_info=True,
                     )
                     failed += 1
                 else:
@@ -1898,6 +1897,7 @@ have no effect if it is not expected)."""
           - script:<scriptid> / script:<port>:<scriptid>
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.* / ike.*
+          - httphdr / httphdr.{name,value} / httphdr:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -2414,6 +2414,35 @@ have no effect if it is not expected)."""
         elif field.startswith('ike.'):
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
+        elif field == 'httphdr':
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
+                           "ports.scripts.http-headers.value": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.http-headers": {
+                    "$concat": [
+                        "$ports.scripts.http-headers.name",
+                        "###",
+                        "$ports.scripts.http-headers.value",
+                    ]
+                }
+            }}]
+            field = "ports.scripts.http-headers"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': tuple(null_if_empty(val) for val in
+                                                 x['_id'].split('###'))}
+        elif field.startswith('httphdr.'):
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = "ports.scripts.http-headers.%s" % field[8:]
+        elif field.startswith('httphdr:'):
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
+                           "ports.scripts.http-headers.value": 1}
+            specialflt = [
+                {"$match": {"ports.scripts.http-headers.name": field[8:].lower()}}
+            ]
+            field = "ports.scripts.http-headers.value"
         elif field.startswith('modbus.'):
             flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
             subfield = field[7:]

@@ -1801,6 +1801,7 @@ insert structures.
           - script:<scriptid> / script:<port>:<scriptid>
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.*
+          - httphdr / httphdr.{name,value} / httphdr:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -2068,6 +2069,20 @@ insert structures.
                      [Script.data['modbus-discover'][subfield]],
                      and_(Script.name == 'modbus-discover',
                           Script.data['modbus-discover'].has_key(subfield)))
+        elif field == 'httphdr':
+            field = (Script,
+                     [Script.data['http-headers']['name'],
+                      Script.data['http-headers']['value']],
+                     Script.name == 'http-headers')
+        elif field.startswith('httphdr.'):
+            field = (Script,
+                     [Script.data['http-headers'][field[8:]]],
+                     Script.name == 'http-headers')
+        elif field.startswith('httphdr:'):
+            field = (Script,
+                     [Script.data['http-headers']['value']],
+                     and_(Script.name == 'http-headers',
+                          Script.data['http-headers']['name'] == field[8:]))
         else:
             raise NotImplementedError()
         s_from = {
