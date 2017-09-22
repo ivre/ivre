@@ -822,7 +822,10 @@ def _read_nmap_probes():
                 )
                 flag = b''
             else:
-                value = value.decode()
+                try:
+                    value = value.decode('utf-8')
+                except UnicodeDecodeError:
+                    value = repr(value)
             info[key] = (value, flag)
         _NMAP_CUR_PROBE.append((service.decode(), info))
     try:
