@@ -55,6 +55,7 @@ before_script:
   - ivre scancli --init < /dev/null
   - ivre ipdata --init < /dev/null
   - cat .travis/ivre.conf >> ~/.ivre.conf
+  - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f & Bro (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
   - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 nmap-7.60_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done

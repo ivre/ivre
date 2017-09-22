@@ -1393,8 +1393,10 @@ class NmapHandler(ContentHandler):
             return function(script)
 
     def masscan_post_http(self, script):
-        header = re.search(re.escape('\nServer:') + '[ \\\t]*([^\\\r\\\n]+)\\\r?(?:\\\n|$)',
-                           script['masscan']['raw'])
+        header = re.search(
+            re.escape(b'\nServer:') + b'[ \\\t]*([^\\\r\\\n]+)\\\r?(?:\\\n|$)',
+            script['masscan']['raw'],
+        )
         if header is None:
             return
         header = header.groups()[0]

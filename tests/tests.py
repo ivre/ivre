@@ -414,10 +414,10 @@ class IvreTests(unittest.TestCase):
 
         # Specific test cases
         ##
-        ## Ignored script with a named table element, followed by a
-        ## script with an unamed table element
-        fdesc = tempfile.NamedTemporaryFile(delete=False)
-        fdesc.write(b"""<nmaprun scanner="nmap">
+        samples = [
+            ## Ignored script with a named table element, followed by
+            ## a script with an unamed table element
+            b"""<nmaprun scanner="nmap">
 <host>
 <script id="fcrdns" output="FAIL (No PTR record)">
 <table key="&lt;none&gt;">
@@ -430,13 +430,30 @@ class IvreTests(unittest.TestCase):
 </script>
 </host>
 </nmaprun>
-""")
-        fdesc.close()
-        res, out, _ = RUN(["ivre", "scan2db", "--test", fdesc.name])
-        self.assertEqual(res, 0)
-        self.assertEqual(sum(host_stored_test(line)
-                             for line in out.splitlines()), 1)
-        os.unlink(fdesc.name)
+""",
+            ## Masscan with an HTTP banner
+            b"""<nmaprun scanner="masscan">
+<host>
+<ports>
+<port protocol="tcp" portid="80">
+<state state="open"/>
+<service name="http" banner="HTTP/1.1 403 Forbidden\\x0d\\x0aServer: test/1.0\\x0d\\x0a\\x0d\\x0a">
+</service>
+</port>
+</ports>
+</host>
+</nmaprun>
+""",
+        ]
+        for sample in samples:
+            fdesc = tempfile.NamedTemporaryFile(delete=False)
+            fdesc.write(sample)
+            fdesc.close()
+            res, out, _ = RUN(["ivre", "scan2db", "--test", fdesc.name])
+            self.assertEqual(res, 0)
+            self.assertEqual(sum(host_stored_test(line)
+                                 for line in out.splitlines()), 1)
+            os.unlink(fdesc.name)
         ##
         ## Screenshots: this tests the http-screenshot script
         ## (including phantomjs) and IVRE's ability to read
