@@ -30,6 +30,7 @@ IVRE relies on:
   * optionnaly [[http://neo4j.com/|Neo4j]] for the flow module.
   * optionnaly [[https://www.postgresql.org/|PostgreSQL]], version 9.5 minimum (tests are run with versions 9.5.6 and 9.6.2), for the **experimental** PostgreSQL backend.
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is now distributed with IVRE (''%%ivre httpd%%'').
+  * [[https://www.dokuwiki.org/|Dokuwiki]] or another Wiki to use as a notepad. Dokuwiki can also be used to display the documentation.
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]]).
   * Maxmind [[https://www.maxmind.com/en/geolocation_landing|GeoIP]] free databases.
   * optionally [[https://github.com/tesseract-ocr/tesseract|Tesseract]], if you plan to add screenshots to your Nmap scan results.

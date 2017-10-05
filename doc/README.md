@@ -71,6 +71,9 @@ IVRE relies on:
     serving static files and run a Python-based CGI), although a test
     web server is now distributed with IVRE (`ivre httpd`).
 
+  * [Dokuwiki](https://www.dokuwiki.org/) or another Wiki to use as a
+    notepad. Dokuwiki can also be used to display the documentation.
+
   * a web browser (successfully tested with recent versions of
     [Firefox](https://www.mozilla.org/firefox/) and
     [Chromium](http://www.chromium.org/)).
