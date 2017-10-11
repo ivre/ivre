@@ -291,6 +291,7 @@ class DBNmap(DB):
                                     help='show only results from this source')
         self.argparser.add_argument('--version', metavar="VERSION", type=int)
         self.argparser.add_argument('--timeago', metavar='SECONDS', type=int)
+        self.argparser.add_argument('--no-timeago', metavar='SECONDS', type=int)        
         if USING_ARGPARSE:
             self.argparser.add_argument('--id', metavar='ID', help='show only '
                                         'results with this(those) ID(s)',
@@ -899,6 +900,8 @@ insert structures.
             flt = self.flt_and(flt, self.searchversion(args.version))
         if args.timeago is not None:
             flt = self.flt_and(flt, self.searchtimeago(args.timeago))
+        if args.no_timeago is not None:
+            flt = self.flt_and(flt, self.searchtimeago(args.no_timeago, neg=True))            
         if args.id is not None:
             flt = self.flt_and(flt, self.searchobjectid(args.id))
         if args.no_id is not None:
