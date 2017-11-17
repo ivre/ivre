@@ -222,7 +222,7 @@ def call_nmap(options, xmlprocess, targets,
         for rfdesc in rlist:
             # print("PROCESSING DATA")
             if not xmlprocess.process(rfdesc):
-                print("NO MORE DATA TO PROCSESS")
+                print("NO MORE DATA TO PROCESS")
                 rfdesc.close()
                 toread.remove(rfdesc)
         for wfdesc in wlist:
