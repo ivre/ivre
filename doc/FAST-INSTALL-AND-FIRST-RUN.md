@@ -59,6 +59,24 @@ button to check if everything works.
 
 # Database init, data download & importation #
 
+Install mongodb documentation: [install mongo]
+
+[install mongo]:https://docs.mongodb.com/manual/installation/
+
+Create mongo database
+    ```bash
+    user@host: mongo
+    > use ivre
+    > db.createUser ( {user: "ivre", pwd: "NotThisOne", roles: ["readWrite"]} )
+    > db.dummy.save( {data:"set to save db"} )
+    > db.grantRolesToUser("irve",[{role:"root",db:"ivre"}])
+    > quit()
+    user@host: sudo mkdir -p /etc/ivre/
+    user@host: chown user: /etc/ivre
+    user@host: echo "DB = \"mongodb://ivre:NotThisOne@127.0.0.1:27017/ivre\"" > /etc/ivre/ivre.conf" 
+    ```
+
+
     $ ivre scancli --init
     This will remove any scan result in your database. Process ? [y/N] y
     $ ivre ipinfo --init
