@@ -1311,12 +1311,12 @@ have no effect if it is not expected)."""
         for port in host.get('ports', []):
             if 'screendata' in port:
                 port['screendata'] = bson.Binary(
-                    utils.decode_b64(port['screendata'])
+                    utils.decode_b64(port['screendata'].encode())
                 )
             for script in port.get('scripts', []):
                 if 'masscan' in script and 'raw' in script['masscan']:
                     script['masscan']['raw'] = bson.Binary(
-                        utils.decode_b64(script['masscan']['raw'])
+                        utils.decode_b64(script['masscan']['raw'].encode())
                     )
         return host
 
