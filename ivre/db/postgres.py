@@ -1410,8 +1410,8 @@ insert structures.
                     archive=0,
                     merge=False,
                     **dict(
-                        (key, host[key]) for key in ['state', 'state_reason',
-                                                     'state_reason_ttl']
+                        (key, host.get(key)) for key in ['state', 'state_reason',
+                                                         'state_reason_ttl']
                         if key in host
                     )
                 )\
@@ -1457,7 +1457,7 @@ insert structures.
                                          time_stop=host['endtime'],
                                          state=host['state'],
                                          state_reason=host['state_reason'],
-                                         state_reason_ttl=host['state_reason_ttl'],
+                                         state_reason_ttl=host.get('state_reason_ttl'),
                                          archive=0,
                                          merge=False,
                                      )\
