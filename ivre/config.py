@@ -202,6 +202,8 @@ def get_config_file(paths=None):
                  for path in ['/etc', '/etc/ivre', '/usr/local/etc',
                               '/usr/local/etc/ivre']]
         paths.append(os.path.join(os.path.expanduser('~'), '.ivre.conf'))
+        if "IVRE_CONF" in os.environ:
+            paths.append(os.environ["IVRE_CONF"])
     for path in paths:
         if os.path.isfile(path):
             yield path

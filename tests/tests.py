@@ -1721,8 +1721,22 @@ class IvreTests(unittest.TestCase):
         for dirname in ['scans', 'tmp']:
             shutil.rmtree(dirname)
 
+    def test_conf(self):
+        # Ensure env var IVRE_CONF is taken into account
+        has_env_conf = "IVRE_CONF" in os.environ
+        if has_env_conf:
+            env_conf = os.environ["IVRE_CONF"]
+        else:
+            env_conf = __file__
+            os.environ["IVRE_CONF"] = env_conf
+        all_confs = list(ivre.config.get_config_file())
+        self.assertTrue(env_conf in all_confs,
+                        "Env conf %s should be in %s" % (env_conf, all_confs))
+        if not has_env_conf:
+            del os.environ["IVRE_CONF"]
 
-TESTS = set(["nmap", "passive", "data", "utils", "scans"])
+
+TESTS = set(["nmap", "passive", "data", "utils", "scans", "conf"])
 
 
 DATABASES = {
