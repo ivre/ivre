@@ -55,11 +55,8 @@ else:
 
 
 HTTPD_PORT = 18080
-try:
-    HTTPD_HOSTNAME = socket.gethostbyaddr('127.0.0.1')[0]
-except:
-    sys.stderr.write('Cannot guess domain name - using localhost')
-    HTTPD_HOSTNAME = 'localhost'
+HTTPD_HOSTNAME = socket.gethostname()
+
 
 # http://schinckel.net/2013/04/15/capture-and-test-sys.stdout-sys.stderr-in-unittest.testcase/
 @contextmanager
@@ -290,7 +287,8 @@ class IvreTests(unittest.TestCase):
                     pass
             for sig in [signal.SIGINT, signal.SIGTERM]:
                 signal.signal(sig, terminate)
-            proc = RUN_ITER(["ivre", "httpd", "-p", str(HTTPD_PORT)],
+            proc = RUN_ITER(["ivre", "httpd", "-p", str(HTTPD_PORT),
+                             "-b", HTTPD_HOSTNAME],
                             stdout=open(os.devnull, 'w'),
                             stderr=subprocess.STDOUT)
             proc.wait()
