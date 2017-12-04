@@ -1244,6 +1244,9 @@ class IvreTests(unittest.TestCase):
         )
         self.assertEqual(count + new_count, total_count)
 
+        ret, out, err = RUN(["ivre", "ipinfo", "--short"])
+        self.assertEqual(ret, 0)
+
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                              stdin=open(os.devnull))[0], 0)
         # Clean
