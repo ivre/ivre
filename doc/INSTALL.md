@@ -84,6 +84,9 @@ You can override default values in three files:
     - `/usr/local/etc/ivre.conf` (read after, so higher priority)
   - one user-specific:
     - `~/.ivre.conf` (the last to be read, so highest priority)
+  - one environment based:
+    - `IVRE_CONF`, set it to the path of the configuration file to
+      read
 
 The file should contain lines of type `key = value`. Empty lines and
 comments (starting with the `#` character) are ignored. The following
