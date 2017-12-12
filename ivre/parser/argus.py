@@ -53,7 +53,7 @@ class Argus(CmdParser):
         cmd.extend(self.fields)
         cmd.extend(["-r", fdesc if isinstance(fdesc, basestring) else "-"])
         if pcap_filter is not None:
-            cmd.extend(["-", pcap_filter])
+            cmd.extend(["--", pcap_filter])
         super(Argus, self).__init__(
             cmd, {} if isinstance(fdesc,  basestring) else {"stdin": fdesc},
         )
@@ -61,7 +61,8 @@ class Argus(CmdParser):
 
     @classmethod
     def parse_line(cls, line):
-        fields = dict((name, val.strip()) for name, val in zip(cls.fields, line.split(",")))
+        fields = dict((name.decode(), val.strip())
+                      for name, val in zip(cls.fields, line.split(",")))
         for fld in ["sport", "dport"]:
             try:
                 fields[fld] = int(

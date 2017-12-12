@@ -49,9 +49,9 @@ PARSERS_MAGIC = {
     #'\xa1\xb2\xd3\xc4': None,
     #'\xd4\xc3\xb2\xa1': None,
     # NetFlow
-    '\x0c\xa5\x01\x00': NetFlow,
+    b'\x0c\xa5\x01\x00': NetFlow,
     # Argus
-    '\x83\x10\x00\x20': Argus,
+    b'\x83\x10\x00\x20': Argus,
     # Bro
     #'#sep': BroFile,
     # Airodump CSV

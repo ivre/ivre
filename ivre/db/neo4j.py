@@ -1285,7 +1285,7 @@ DETACH DELETE old_f
             utils.LOGGER.debug("DB:Second (slower) pass...")
             tstamp = time.time()
         self.db.run(q)
-        if config.DEBUG:
+        if config.DEBUG_DB:
             utils.LOGGER.debug("DB:Took %f secs", time.time() - tstamp)
 
 Neo4jDBFlow.LABEL2NAME.update({
