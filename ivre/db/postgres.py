@@ -641,13 +641,6 @@ class PostgresDB(DB):
         return t
 
     @staticmethod
-    def convert_ip(addr):
-        try:
-            return utils.int2ip(addr)
-        except (TypeError, struct.error):
-            return addr
-
-    @staticmethod
     def flt_and(*args):
         return and_(*args)
 

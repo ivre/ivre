@@ -118,6 +118,13 @@ class DB(object):
         raise NotImplementedError
 
     @staticmethod
+    def convert_ip(addr):
+        try:
+            return utils.int2ip(addr)
+        except (TypeError, struct.error):
+            return addr
+
+    @staticmethod
     def searchversion(version):
         """Filters documents based on their schema's version."""
         raise NotImplementedError

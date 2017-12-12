@@ -127,7 +127,7 @@ def disp_recs_std(flt):
 
 def disp_recs_short(flt):
     for addr in db.passive.distinct('addr', flt=flt):
-        print(ivre.utils.int2ip(addr))
+        print(db.passive.convert_ip(addr))
 
 
 def disp_recs_distinct(field, flt):
