@@ -36,14 +36,8 @@ else:
 import ivre.utils
 from ivre.db import db
 
+
 IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
-
-
-def convert_ip(addr):
-    try:
-        return ivre.utils.int2ip(addr)
-    except (struct.error, TypeError):
-        return addr
 
 
 def disp_rec(r):
@@ -56,7 +50,7 @@ def disp_rec(r):
     if 'addr' in r and r['addr']:
         if r['source'].startswith('PTR-'):
             print('%s PTR %s (%s, %s time%s, %s - %s)' % (
-                convert_ip(r['addr']),
+                db.passive.convert_ip(r['addr']),
                 r['value'], r['source'][4:], r['count'],
                 r['count'] > 1 and 's' or '',
                 firstseen,
@@ -65,7 +59,7 @@ def disp_rec(r):
         elif r['source'].startswith('A-'):
             print('%s A %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
-                convert_ip(r['addr']),
+                db.passive.convert_ip(r['addr']),
                 r['source'][2:], r['count'],
                 r['count'] > 1 and 's' or '',
                 firstseen,

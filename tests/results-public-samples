@@ -101,3 +101,6 @@ passive_top_addr_distinct = 1447166179
 passive_top_addr_distinct_count = 14
 passive_top_addr_not_distinct = 1447166179
 passive_top_addr_not_distinct_count = 32
+passive_ipinfo_short_count = 55
+passive_iphost_count = 80
+passive_iphost_count_com = 35
