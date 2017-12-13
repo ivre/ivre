@@ -29,7 +29,7 @@ class Parser(FileOpener):
     """Parent class for file parsers"""
 
     def __next__(self):
-        return self.parse_line(next(super(Parser, self)))
+        return self.parse_line(super(Parser, self).__next__())
 
 
 class CmdParser(object):
