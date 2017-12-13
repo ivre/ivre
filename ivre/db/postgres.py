@@ -2886,8 +2886,8 @@ passive table."""
                                   if reverse else
                                   'domain'].has_key(name))
                 if subdomains else
-                (cls._searchstring_re(Passive.targetval
-                                      if reverse else Passive.value), name)
+                cls._searchstring_re(Passive.targetval
+                                     if reverse else Passive.value, name)
             )
         ))
 
