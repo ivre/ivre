@@ -25,21 +25,21 @@ from builtins import zip
 
 
 from ivre.parser import Parser
-from ivre.utils import decode_hex
+from ivre.utils import LOGGER, decode_hex
 
 
 class BroFile(Parser):
     """Bro log generator"""
 
-    int_types = set(["port", "count"])
-    float_types = set(["interval"])
-    time_types = set(["time"])
+    int_types = set([b"port", b"count"])
+    float_types = set([b"interval"])
+    time_types = set([b"time"])
 
     def __init__(self, fname):
-        self.sep = " "#"\t"
-        self.set_sep = ","
-        self.empty_field = "(empty)"
-        self.unset_field = "-"
+        self.sep = b" "  # b"\t"
+        self.set_sep = b","
+        self.empty_field = b"(empty)"
+        self.unset_field = b"-"
         self.fields = []
         self.types = []
         self.path = None
@@ -47,7 +47,7 @@ class BroFile(Parser):
         super(BroFile, self).__init__(fname)
         for line in self.fdesc:
             line = line.strip()
-            if not line.startswith('#'):
+            if not line.startswith(b'#'):
                 self.nextlines.append(line)
                 break
             self.parse_header_line(line)
@@ -60,56 +60,56 @@ class BroFile(Parser):
     def parse_header_line(self, line):
         if not line:
             return
-        if line[0] != "#":
-            log.warning("Not a header line")
+        if line[:1] != b"#":
+            LOGGER.warning("Not a header line")
             return
 
         keyval = line[1:].split(self.sep, 1)
         if len(keyval) < 2:
-            log.warn("Invalid header line")
+            LOGGER.warn("Invalid header line")
 
         directive = keyval[0]
         arg = keyval[1]
 
-        if directive == "separator":
-            self.sep = decode_hex(arg[2:]) if arg.startswith('\\x') else arg
-        elif directive == "set_separator":
+        if directive == b"separator":
+            self.sep = decode_hex(arg[2:]) if arg.startswith(b'\\x') else arg
+        elif directive == b"set_separator":
             self.set_sep = arg
-        elif directive == "empty_field":
+        elif directive == b"empty_field":
             self.empty_field = arg
-        elif directive == "unset_field":
+        elif directive == b"unset_field":
             self.unset_field = arg
-        elif directive == "path":
-            self.path = arg
-        elif directive == "open":
+        elif directive == b"path":
+            self.path = arg.decode()
+        elif directive == b"open":
             pass
-        elif directive == "fields":
+        elif directive == b"fields":
             self.fields = arg.split(self.sep)
-        elif directive == "types":
+        elif directive == b"types":
             self.types = arg.split(self.sep)
 
         return None
 
     def parse_line(self, line):
-        if line.startswith('#'):
+        if line.startswith(b'#'):
             return next(self)
         res = {}
         fields = line.strip().split(self.sep)
 
         for field, name, typ in zip(fields, self.fields, self.types):
-            name = name.replace(".", "_")
+            name = name.replace(b".", b"_").decode()
             res[name] = self.bro2neo(field, typ)
         return res
 
     def bro2neo(self, val, typ):
         if val == self.unset_field:
             return None
-        if typ == "bool":
-            return val == "T"
-        elif typ.startswith("vector["):
+        if typ == b"bool":
+            return val == b"T"
+        elif typ.startswith(b"vector["):
             if val in self.empty_field:
                 return "[]"
-            elt_type = typ[len("vector["):-1]
+            elt_type = typ[len(b"vector["):-1]
             return [self.bro2neo(x, elt_type)
                     for x in val.split(self.set_sep)]
         elif typ in self.int_types:
@@ -119,7 +119,7 @@ class BroFile(Parser):
         elif typ in self.time_types:
             return datetime.datetime.fromtimestamp(float(val))
         else:
-            return val
+            return val.decode()
 
     @property
     def field_types(self):
