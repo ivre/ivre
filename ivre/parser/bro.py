@@ -19,6 +19,7 @@
 """Support for Bro log files"""
 
 import datetime
+import re
 
 
 from builtins import zip
@@ -26,6 +27,9 @@ from builtins import zip
 
 from ivre.parser import Parser
 from ivre.utils import LOGGER, decode_hex
+
+
+CONTAINER_TYPE = re.compile(b"^(table|set|vector)\[([a-z]+)\]$")
 
 
 class BroFile(Parser):
@@ -106,10 +110,9 @@ class BroFile(Parser):
             return None
         if typ == b"bool":
             return val == b"T"
-        elif typ.startswith(b"vector["):
-            if val in self.empty_field:
-                return "[]"
-            elt_type = typ[len(b"vector["):-1]
+        container_type = CONTAINER_TYPE.search(typ)
+        if container_type is not None:
+            _, elt_type = container_type.groups()
             return [self.bro2neo(x, elt_type)
                     for x in val.split(self.set_sep)]
         elif typ in self.int_types:
