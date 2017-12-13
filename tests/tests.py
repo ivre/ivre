@@ -1244,8 +1244,20 @@ class IvreTests(unittest.TestCase):
         )
         self.assertEqual(count + new_count, total_count)
 
-        ret, out, err = RUN(["ivre", "ipinfo", "--short"])
+        ret, out, _ = RUN(["ivre", "ipinfo", "--short"])
         self.assertEqual(ret, 0)
+        count = sum(1 for _ in out.splitlines())
+        self.check_value("passive_ipinfo_short_count", count)
+
+        ret, out, _ = RUN(["ivre", "iphost", "/./"])
+        self.assertEqual(ret, 0)
+        count = sum(1 for _ in out.splitlines())
+        self.check_value("passive_iphost_count", count)
+
+        ret, out, _ = RUN(["ivre", "iphost", "--sub", "com"])
+        self.assertEqual(ret, 0)
+        count = sum(1 for _ in out.splitlines())
+        self.check_value("passive_iphost_count_com", count)
 
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                              stdin=open(os.devnull))[0], 0)
