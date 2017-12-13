@@ -62,8 +62,8 @@ def main():
                     line["end_time"] = line.pop("Last time seen")
                     line["packets"] = line.pop('# packets')
                     # TODO FIX MEAN (en plus de MAX et MEAN)
-                    db.flow.bulk_add_flow(
-                        bulk, line, "WLAN", {}, counters=["packets"],
+                    db.flow.add_flow(
+                        line, "WLAN", {}, counters=["packets"],
                         srcnode=("Intel:Mac", {"addr": "{src}"}),
                         dstnode=("Intel:Wlan", {"addr": "{dst}"}),
                     )
