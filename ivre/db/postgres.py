@@ -1280,9 +1280,11 @@ class NmapFilter(Filter):
         else:
             base = join(Scan, base)
         return base
+
     @property
     def select_from(self):
         return self.select_from_base()
+
     def query(self, req, archive=False):
         # TODO: improve performances
         #   - use a materialized view for `Scan` with `archive == 0`?
@@ -1335,33 +1337,7 @@ class NmapFilter(Filter):
         return req
 
 
-class PostgresDBNmap(PostgresDB, DBNmap):
-    tables = [ScanFile, Category, Scan, Hostname, Port, Script, Trace, Hop,
-              Association_Scan_Hostname, Association_Scan_Category,
-              Association_Scan_ScanFile]
-    fields = {
-        "_id": Scan.id,
-        "addr": Scan.addr,
-        "source": Scan.source,
-        "scanid": Association_Scan_ScanFile.scan_file,
-        "starttime": Scan.time_start,
-        "endtime": Scan.time_stop,
-        "infos": Scan.info,
-        "state": Scan.state_reason_ttl,
-        "state_reason": Scan.state_reason_ttl,
-        "state_reason_ttl": Scan.state_reason_ttl,
-        "categories": Category.name,
-        "hostnames.name": Hostname.name,
-        "hostnames.domains": Hostname.domains,
-    }
-
-    def __init__(self, url):
-        PostgresDB.__init__(self, url)
-        DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2DB
-        self.output_function = None
-        self.flt_empty = NmapFilter()
-        self.bulk = None
+class PostgresDBActive(PostgresDB, DBNmap):
 
     def get_context(self, addr, source=None):
         ctxt = self.default_context(addr)
@@ -3035,3 +3011,32 @@ passive table."""
             timestamp = datetime.datetime.fromtimestamp(timestamp)
         return PassiveFilter(main=(field <= timestamp if neg else
                                    field > timestamp))
+
+class PostgresDBNmap(PostgresDB, DBNmap):
+    tables = [ScanFile, Category, Scan, Hostname, Port, Script, Trace, Hop,
+              Association_Scan_Hostname, Association_Scan_Category,
+              Association_Scan_ScanFile]
+    fields = {
+        "_id": Scan.id,
+        "addr": Scan.addr,
+        "source": Scan.source,
+        "scanid": Association_Scan_ScanFile.scan_file,
+        "starttime": Scan.time_start,
+        "endtime": Scan.time_stop,
+        "infos": Scan.info,
+        "state": Scan.state_reason_ttl,
+        "state_reason": Scan.state_reason_ttl,
+        "state_reason_ttl": Scan.state_reason_ttl,
+        "categories": Category.name,
+        "hostnames.name": Hostname.name,
+        "hostnames.domains": Hostname.domains,
+    }
+
+    def __init__(self, url):
+        PostgresDB.__init__(self, url)
+        DBNmap.__init__(self)
+        self.content_handler = xmlnmap.Nmap2DB
+        self.output_function = None
+        self.flt_empty = NmapFilter()
+        self.bulk = None
+
