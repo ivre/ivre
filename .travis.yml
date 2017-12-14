@@ -1,4 +1,5 @@
 sudo: false
+dist: trusty
 
 env:
   # PostgreSQL
@@ -58,7 +59,7 @@ before_script:
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f & Bro (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
-  - for archive in tools-travis-ivre bro-2.3.2_ubuntu-12.04 nmap-7.60_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - for archive in tools-travis-ivre bro-2.5.2_ubuntu-14.04 nmap-7.60_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:`pwd`/usr/local/nmap/bin:$PATH"
   - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib"
   - export BROPATH=".:`pwd`/usr/local/bro/share/bro:`pwd`/usr/local/bro/share/bro/policy:`pwd`/usr/local/bro/share/bro/site"
@@ -79,6 +80,7 @@ before_script:
   - wget -O tests/samples/telnet-raw.pcap "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap"
   - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
   - for file in telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file" ; done
+  - ivre --version; echo; bro --version
 
 script: cd tests/ && travis_wait 60 python tests.py --coverage
 
