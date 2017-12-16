@@ -1529,6 +1529,29 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(all(is_prime(x) for x in factors))
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
 
+        # Bro logs
+        basepath = os.getenv('BRO_SAMPLES')
+        badchars = re.compile('[%s]' % ''.join(
+            re.escape(char) for char in [os.path.sep, '-', '.']
+        ))
+        if basepath:
+            for dirname, _, fnames in os.walk(basepath):
+                for fname in fnames:
+                    if not fname.endswith('.log'):
+                        continue
+                    fname = os.path.join(dirname, fname)
+                    brofd = ivre.parser.bro.BroFile(fname)
+                    i = 0
+                    for i, record in enumerate(brofd):
+                        json.dumps(record, default=ivre.utils.serialize)
+                    self.check_value(
+                        'utils_bro_%s_count' % badchars.sub(
+                            '_',
+                            fname[len(basepath):-4].lstrip('/'),
+                        ),
+                        i + 1,
+                    )
+
     def test_scans(self):
         "Run scans, with and without agents"
 
@@ -1830,9 +1853,10 @@ if __name__ == '__main__':
     parse_env()
     import ivre.config
     import ivre.db
-    import ivre.utils
     import ivre.mathutils
+    import ivre.parser.bro
     import ivre.passive
+    import ivre.utils
     if not ivre.config.DEBUG:
         sys.stderr.write("You *must* have the DEBUG config value set to "
                          "True to run the tests.\n")
