@@ -106,7 +106,7 @@ class BroFile(Parser):
         return res
 
     def bro2neo(self, val, typ):
-        if val == self.unset_field:
+        if val in [self.unset_field, self.empty_field]:
             return None
         if typ == b"bool":
             return val == b"T"
