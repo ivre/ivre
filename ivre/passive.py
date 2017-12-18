@@ -177,8 +177,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
 
 def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by **bro_line
-               ts, host, srvport, recon_type, source, value, targetval):
-    recon_type = recon_type[14:]  # skip PassiveRecon::
+               timestamp, host, srvport, recon_type, source, value, targetval):
     if host is None:
         spec = {
             'targetval': targetval,
@@ -203,10 +202,11 @@ def handle_rec(sensor, ignorenets, neverignore,
         spec.update({'source': source})
     spec = _prepare_rec(spec, ignorenets, neverignore)
     # Python 2/3 compat: python 3 has datetime.timestamp()
-    if hasattr(ts, "timestamp"):
-        float_ts = ts.timestamp()
-    else:
-        float_ts = time.mktime(ts.timetuple()) + ts.microsecond / (1000.*1000.)
+    try:
+        float_ts = timestamp.timestamp()
+    except AttributeError:
+        float_ts = time.mktime(timestamp.timetuple()) \
+                   + timestamp.microsecond / (1000.*1000.)
     return float_ts, spec
 
 
@@ -335,6 +335,7 @@ _GETINFOS_FUNCTIONS = {
     'DNS_ANSWER': _getinfos_dns,
     'SSL_SERVER': _getinfos_cert,
 }
+
 
 def getinfos(spec):
     """This functions takes a document from a passive sensor, and
