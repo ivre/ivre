@@ -26,6 +26,7 @@ import functools
 import ivre.db
 import ivre.utils
 import ivre.passive
+import ivre.parser.bro
 
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -74,16 +75,21 @@ def main():
             ivre.db.DBPassive.insert_or_update_bulk,
             ivre.db.db.passive,
         )
+    # Python 2/3 compatibility: read stin as binary in Python 3
+    if hasattr(sys.stdin, "buffer"):
+        stdin = sys.stdin.buffer
+    else:
+        stdin = sys.stdin
+    bro_parser = ivre.parser.bro.BroFile(stdin)
     function(
         (
             ivre.passive.handle_rec(
                 args.sensor,
                 ignore_rules.get('IGNORENETS', {}),
                 ignore_rules.get('NEVERIGNORE', {}),
-                *line[:-1].split('\t')
+                **line
             )
-            for line in sys.stdin
-            if line and not line.startswith('#')
+            for line in bro_parser
         ),
         getinfos=ivre.passive.getinfos,
     )
