@@ -11,8 +11,11 @@ It can be seen as:
 
 # Installation #
 
-Start by following the standard ivre installation.
-
+Start by following the standard ivre installation. Don't forget to install 
+py2neo package
+```bash
+    $ sudo pip install py2neo
+```
 In addition, install `neo4j` and set a user/password (for example through the
 default admin interface on `http://localhost:7474`). Default user/password is
 `neo4j`/`neo4j`. Set the relevent URL in you `ivre.conf`:
