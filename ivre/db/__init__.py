@@ -1043,6 +1043,32 @@ insert structures.
 
 class DBPassive(DB):
 
+    def __init__(self):
+        try:
+            import argparse
+            self.argparser = argparse.ArgumentParser(add_help=False)
+            USING_ARGPARSE = True
+        except ImportError:
+            self.argparser = utils.FakeArgparserParent()
+            USING_ARGPARSE = False
+        self.argparser
+        # filters
+        self.argparser.add_argument('--sensor')
+        self.argparser.add_argument('--country')
+        self.argparser.add_argument('--asnum')
+        self.argparser.add_argument('--torcert', action='store_true')
+        self.argparser.add_argument('--dns')
+        self.argparser.add_argument('--dnssub')
+        self.argparser.add_argument('--cert')
+        self.argparser.add_argument('--basicauth', action='store_true')
+        self.argparser.add_argument('--auth', action='store_true')
+        self.argparser.add_argument('--java', action='store_true')
+        self.argparser.add_argument('--ua')
+        self.argparser.add_argument('--ftp', action='store_true')
+        self.argparser.add_argument('--pop', action='store_true')
+        self.argparser.add_argument('--timeago', type=int)
+        self.argparser.add_argument('--timeagonew', type=int)
+
     def insert_or_update(self, timestamp, spec, getinfos=None):
         raise NotImplementedError
 
@@ -1065,6 +1091,74 @@ class DBPassive(DB):
     @staticmethod
     def searchcertsubject(expr):
         raise NotImplementedError
+
+    def parse_args(self, args, flt=None):
+        baseflt = flt
+        if args.sensor is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchsensor(args.sensor)
+            )
+        if args.asnum is not None:
+            if args.asnum.startswith('!') or args.asnum.startswith('-'):
+                baseflt = db.passive.flt_and(
+                    baseflt,
+                    db.passive.searchasnum(int(args.asnum[1:]), neg=True)
+                )
+            else:
+                baseflt = db.passive.flt_and(
+                    baseflt,
+                    db.passive.searchasnum(int(args.asnum))
+                )
+        if args.country is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchcountry(args.country)
+            )
+        if args.torcert:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchtorcert())
+        if args.basicauth:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchbasicauth())
+        if args.auth:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchhttpauth())
+        if args.ua is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchuseragent(ivre.utils.str2regexp(args.ua))
+            )
+        if args.java:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchjavaua()
+            )
+        if args.ftp:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchftpauth())
+        if args.pop:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchpopauth())
+        if args.dns is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchdns(
+                    ivre.utils.str2regexp(args.dns),
+                    subdomains=False))
+        if args.dnssub is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchdns(
+                    ivre.utils.str2regexp(args.dnssub),
+                    subdomains=True))
+        if args.cert is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchcertsubject(
+                    ivre.utils.str2regexp(args.cert)))
+        if args.timeago is not None:
+            baseflt = db.passive.flt_and(db.passive.searchtimeago(args.timeago,
+                                                                  new=False))
+        if args.timeagonew is not None:
+            baseflt = db.passive.flt_and(db.passive.searchtimeago(args.timeagonew,
+                                                                  new=True))
+        return baseflt
 
 
 class DBData(DB):
