@@ -58,6 +58,7 @@ def main():
     sys.stdout.write(webutils.JS_HEADERS)
     params = webutils.parse_query_string()
     query = webutils.query_from_params(params)
+    database = db.view
     flt, archive, sortby, unused, skip, limit = webutils.flt_from_query(query)
     if limit is None:
         limit = config.WEB_LIMIT
@@ -90,7 +91,7 @@ def main():
                 field = '%s:%s' % (field, topnbr)
                 topnbr = 15
         series = [{"label": t['_id'], "value": t['count']} for t in
-                  db.nmap.topvalues(field, flt=flt,
+                  database.topvalues(field, flt=flt,
                                     least=least, topnbr=topnbr,
                                     archive=archive)]
         if callback is None:
@@ -106,11 +107,11 @@ def main():
         postamble = "]\n"
         r2res = lambda x: x
         if action == "timeline":
-            if hasattr(db.nmap, "get_open_port_count"):
-                result = list(db.nmap.get_open_port_count(flt, archive=archive))
+            if hasattr(database, "get_open_port_count"):
+                result = list(database.get_open_port_count(flt, archive=archive))
                 count = len(result)
             else:
-                result = db.nmap.get(
+                result = database.get(
                     flt, archive=archive,
                     fields=['addr', 'starttime', 'openports.count']
                 )
@@ -129,7 +130,7 @@ def main():
         elif action == "coordinates":
             preamble = '{"type": "GeometryCollection", "geometries": ['
             postamble = ']}'
-            result = list(db.nmap.getlocations(flt, archive=archive))
+            result = list(database.getlocations(flt, archive=archive))
             count = len(result)
             r2res = lambda r: {
                 "type": "Point",
@@ -137,15 +138,15 @@ def main():
                 "properties": {"count": r['count']},
             }
         elif action == "countopenports":
-            if hasattr(db.nmap, "get_open_port_count"):
-                result = db.nmap.get_open_port_count(flt, archive=archive)
+            if hasattr(database, "get_open_port_count"):
+                result = database.get_open_port_count(flt, archive=archive)
             else:
-                result = db.nmap.get(flt, archive=archive,
+                result = database.get(flt, archive=archive,
                                      fields=['addr', 'openports.count'])
             if hasattr(result, "count"):
                 count = result.count()
             else:
-                count = db.nmap.count(flt, archive=archive,
+                count = database.count(flt, archive=archive,
                                       fields=['addr', 'openports.count'])
             if ipsasnumbers:
                 r2res = lambda r: [force_ip_int(r['addr']),
@@ -154,11 +155,11 @@ def main():
                 r2res = lambda r: [force_ip_str(r['addr']),
                                    r['openports']['count']]
         elif action == "ipsports":
-            if hasattr(db.nmap, "get_ips_ports"):
-                result = list(db.nmap.get_ips_ports(flt, archive=archive))
+            if hasattr(database, "get_ips_ports"):
+                result = list(database.get_ips_ports(flt, archive=archive))
                 count = sum(len(host.get('ports', [])) for host in result)
             else:
-                result = db.nmap.get(
+                result = database.get(
                     flt, archive=archive,
                     fields=['addr', 'ports.port', 'ports.state_state']
                 )
@@ -179,23 +180,23 @@ def main():
                      if 'state_state' in p]
                 ]
         elif action == "onlyips":
-            result = db.nmap.get(flt, archive=archive, fields=['addr'])
+            result = database.get(flt, archive=archive, fields=['addr'])
             if hasattr(result, "count"):
                 count = result.count()
             else:
-                count = db.nmap.count(flt, archive=archive, fields=['addr'])
+                count = database.count(flt, archive=archive, fields=['addr'])
             if ipsasnumbers:
                 r2res = lambda r: r['addr']
             else:
                 r2res = lambda r: utils.int2ip(r['addr'])
         elif action == "diffcats":
             if params.get("onlydiff"):
-                output = db.nmap.diff_categories(params.get("cat1"),
+                output = database.diff_categories(params.get("cat1"),
                                                  params.get("cat2"),
                                                  flt=flt,
                                                  include_both_open=False)
             else:
-                output = db.nmap.diff_categories(params.get("cat1"),
+                output = database.diff_categories(params.get("cat1"),
                                                  params.get("cat2"),
                                                  flt=flt)
             count = 0
@@ -244,19 +245,19 @@ def main():
     # generic request
     if action == "count":
         if callback is None:
-            sys.stdout.write("%d\n" % db.nmap.count(flt, archive=archive))
+            sys.stdout.write("%d\n" % database.count(flt, archive=archive))
         else:
             sys.stdout.write("%s(%d);\n" % (callback,
-                                            db.nmap.count(flt,
+                                            database.count(flt,
                                                           archive=archive)))
         exit(0)
 
     ## PostgreSQL: the query plan if affected by the limit and gives
     ## really poor results. This is a temporary workaround (look for
     ## XXX-WORKAROUND-PGSQL)
-    # result = db.nmap.get(flt, archive=archive,
+    # result = database.get(flt, archive=archive,
     #                      limit=limit, skip=skip, sort=sortby)
-    result = db.nmap.get(flt, archive=archive,
+    result = database.get(flt, archive=archive,
                          skip=skip, sort=sortby)
 
     if unused:
@@ -319,7 +320,7 @@ def main():
         sys.stdout.write("%s%s%s" % (
             tab, json.dumps(rec, default=utils.serialize), sep
         ))
-        check = db.nmap.cmp_schema_version_host(rec)
+        check = database.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
         # XXX-WORKAROUND-PGSQL
