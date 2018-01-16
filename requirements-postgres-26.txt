@@ -1,0 +1,4 @@
+pycrypto
+sqlalchemy==1.1.15
+psycopg2
+future
