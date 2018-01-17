@@ -886,13 +886,13 @@ def find_ike_vendor_id(vendorid):
             return name
 
 
-_REPRS = {b'\r': b'\\r', b'\n': b'\\n', b'\t': b'\\t', b'\\': b'\\\\'}
+_REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}
 
 
 def nmap_encode_data(data):
-    return b"".join(
-        _REPRS[d] if d in _REPRS else d if b" " <= d <= b"~" else
-        ('\\x%02x' % ord(d)).encode()
+    return "".join(
+        _REPRS[d] if d in _REPRS else d.decode() if b" " <= d <= b"~" else
+        '\\x%02x' % ord(d)
         for d in (data[i:i+1] for i in range(len(data)))
     )
 
@@ -903,7 +903,7 @@ def nmap_svc_fp_format_data(data, match):
             if '$%d' % (i + 1) in data:
                 return
             continue
-        data = data.replace('$%d' % (i + 1), nmap_encode_data(value).decode())
+        data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
     return data
 
 
