@@ -28,6 +28,7 @@ This sub-module contains functions used for passive recon.
 import re
 import hashlib
 import subprocess
+import time
 
 
 from future.utils import viewitems
@@ -175,11 +176,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
 
 
 def handle_rec(sensor, ignorenets, neverignore,
-               # these argmuments are provided by *<line.split()>
-               timestamp, host, port, recon_type, source, value,
-               targetval):
-    recon_type = recon_type[14:]  # skip PassiveRecon::
-    if host == '-':
+               # these argmuments are provided by **bro_line
+               timestamp, host, srvport, recon_type, source, value, targetval):
+    if host is None:
         spec = {
             'targetval': targetval,
             'recontype': recon_type,
@@ -197,12 +196,18 @@ def handle_rec(sensor, ignorenets, neverignore,
         }
     if sensor is not None:
         spec.update({'sensor': sensor})
-    if port != '-':
-        spec.update({'port': int(port)})
+    if srvport is not None:
+        spec.update({'port': srvport})
     if source != '-':
         spec.update({'source': source})
     spec = _prepare_rec(spec, ignorenets, neverignore)
-    return float(timestamp), spec
+    # Python 2/3 compat: python 3 has datetime.timestamp()
+    try:
+        float_ts = timestamp.timestamp()
+    except AttributeError:
+        float_ts = time.mktime(timestamp.timetuple()) \
+                   + timestamp.microsecond / (1000.*1000.)
+    return float_ts, spec
 
 
 def _getinfos_http_client_authorization(spec):

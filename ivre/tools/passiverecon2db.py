@@ -26,6 +26,7 @@ import functools
 import ivre.db
 import ivre.utils
 import ivre.passive
+import ivre.parser.bro
 
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -46,6 +47,17 @@ because of the exec() call and the nested functions.
              ignore_rules)
     return ignore_rules
 
+def rec_iter(bro_parser, sensor, ignore_rules):
+    for line in bro_parser:
+        line["timestamp"] = line.pop("ts")
+        # skip PassiveRecon::
+        line["recon_type"] = line["recon_type"][14:]
+        yield ivre.passive.handle_rec(
+            sensor,
+            ignore_rules.get('IGNORENETS', {}),
+            ignore_rules.get('NEVERIGNORE', {}),
+            **line
+        )
 
 def main():
     import sys
@@ -74,16 +86,13 @@ def main():
             ivre.db.DBPassive.insert_or_update_bulk,
             ivre.db.db.passive,
         )
+    # Python 2/3 compat: read stin as binary in Python 3 with .buffer
+    try:
+        stdin = sys.stdin.buffer
+    except AttributeError:
+        stdin = sys.stdin
+    bro_parser = ivre.parser.bro.BroFile(stdin)
     function(
-        (
-            ivre.passive.handle_rec(
-                args.sensor,
-                ignore_rules.get('IGNORENETS', {}),
-                ignore_rules.get('NEVERIGNORE', {}),
-                *line[:-1].split('\t')
-            )
-            for line in sys.stdin
-            if line and not line.startswith('#')
-        ),
-        getinfos=ivre.passive.getinfos,
+        rec_iter(bro_parser, args.sensor, ignore_rules),
+        getinfos=ivre.passive.getinfos
     )
