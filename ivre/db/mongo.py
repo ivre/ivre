@@ -42,7 +42,7 @@ import bson
 import pymongo
 
 
-from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent, LockError
+from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent, DBView, LockError
 from ivre import utils, xmlnmap, config
 
 
@@ -479,7 +479,7 @@ class MongoDB(DB):
             return {key: {'$gte': val}}
 
 
-class MongoDBNmap(MongoDB, DBNmap):
+class MongoDBActive(MongoDB):
 
     needunwind = ["categories", "ports", "ports.scripts",
                   "ports.scripts.ssh-hostkey",
@@ -507,9 +507,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                  colname_oldhosts="archiveshosts",
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
-        DBNmap.__init__(self)
-        self.content_handler = Nmap2Mongo
-        self.output_function = None
         self.colname_scans = colname_scans
         self.colname_hosts = colname_hosts
         self.colname_oldscans = colname_oldscans
@@ -578,71 +575,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([('source', pymongo.ASCENDING)], {}),
             ],
         }
-        self.schema_migrations = {
-            self.colname_hosts: {
-                None: (1, self.migrate_schema_hosts_0_1),
-                1: (2, self.migrate_schema_hosts_1_2),
-                2: (3, self.migrate_schema_hosts_2_3),
-                3: (4, self.migrate_schema_hosts_3_4),
-                4: (5, self.migrate_schema_hosts_4_5),
-                5: (6, self.migrate_schema_hosts_5_6),
-                6: (7, self.migrate_schema_hosts_6_7),
-                7: (8, self.migrate_schema_hosts_7_8),
-            },
-        }
-        self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
-            self.colname_hosts].copy()
-        self.schema_migrations_indexes[colname_hosts] = {
-            1: {"ensure": [
-                ([
-                    ('ports.screenshot', pymongo.ASCENDING),
-                    ('ports.screenwords', pymongo.ASCENDING),
-                ], {"sparse": True}),
-                ([('schema_version', pymongo.ASCENDING)], {}),
-                ([('openports.count', pymongo.ASCENDING)], {}),
-                ([('openports.tcp.ports', pymongo.ASCENDING)], {}),
-                ([('openports.udp.ports', pymongo.ASCENDING)], {}),
-                ([('openports.tcp.count', pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ([('openports.udp.count', pymongo.ASCENDING)],
-                 {"sparse": True}),
-            ]},
-            3: {"ensure": [
-                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ([('ports.scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
-                 {"sparse": True}),
-                ## let's skip these ones since we are going to drop
-                ## them right after that
-                # ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
-                #  {"sparse": True}),
-                # ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
-                #  {"sparse": True}),
-            ]},
-            4: {"drop": [
-                ([('scripts.id', pymongo.ASCENDING)], {}),
-                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)], {}),
-                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)], {}),
-            ]},
-            6: {"ensure": [
-                ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
-                 {"sparse": True}),
-            ]},
-        }
-        self.schema_migrations_indexes[colname_oldhosts] = {
-            1: {"ensure": [([('schema_version', pymongo.ASCENDING)], {})]},
-            4: {"drop": [
-                ([
-                    ('ports.screenshot', pymongo.ASCENDING),
-                    ('ports.screenwords', pymongo.ASCENDING),
-                ], {}),
-                ]}
-        }
-        self.schema_latest_versions = {
-            self.colname_hosts: xmlnmap.SCHEMA_VERSION,
-            self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,
-        }
-
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -652,247 +584,6 @@ creates the default indexes."""
         self.db[self.colname_oldscans].drop()
         self.db[self.colname_oldhosts].drop()
         self.create_indexes()
-
-    def cmp_schema_version_host(self, host):
-        """Returns 0 if the `host`'s schema version matches the code's
-        current version, -1 if it is higher (you need to update IVRE),
-        and 1 if it is lower (you need to call .migrate_schema()).
-
-        """
-        return self.cmp_schema_version(self.colname_hosts, host)
-
-    def cmp_schema_version_scan(self, scan):
-        """Returns 0 if the `scan`'s schema version matches the code's
-        current version, -1 if it is higher (you need to update IVRE),
-        and 1 if it is lower (you need to call .migrate_schema()).
-
-        """
-        return self.cmp_schema_version(self.colname_scans, scan)
-
-    def migrate_schema(self, archive, version):
-        """Process to schema migrations in column `colname_hosts` or
-        `colname_oldhosts` depending on `archive`archive value,
-        starting from `version`.
-
-        """
-        MongoDB.migrate_schema(
-            self, self.colname_oldhosts if archive else self.colname_hosts,
-            version,
-        )
-
-    def migrate_schema_hosts_0_1(self, doc):
-        """Converts a record from version 0 (no "schema_version" key
-        in the document) to version 1 (`doc["schema_version"] ==
-        1`). Version 1 adds an "openports" nested document to ease
-        open ports based researches.
-
-        """
-        assert "schema_version" not in doc
-        assert "openports" not in doc
-        update = {"$set": {"schema_version": 1}}
-        updated_ports = False
-        openports = {}
-        for port in doc.get("ports", []):
-            # populate openports
-            if port.get('state_state') == 'open':
-                openports.setdefault(port["protocol"], {}).setdefault(
-                    "ports", []).append(port["port"])
-            # create the screenwords attribute
-            if 'screenshot' in port and 'screenwords' not in port:
-                screenwords = utils.screenwords(self.getscreenshot(port))
-                if screenwords is not None:
-                    port['screenwords'] = screenwords
-                    updated_ports = True
-        for proto in list(openports):
-            count = len(openports[proto]["ports"])
-            openports[proto]["count"] = count
-            openports["count"] = openports.get("count", 0) + count
-        if not openports:
-            openports["count"] = 0
-        if updated_ports:
-            update["$set"]["ports"] = doc["ports"]
-        update["$set"]["openports"] = openports
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_1_2(doc):
-        """Converts a record from version 1 to version 2. Version 2
-        discards service names when they have been found from
-        nmap-services file.
-
-        """
-        assert doc["schema_version"] == 1
-        update = {"$set": {"schema_version": 2}}
-        update_ports = False
-        for port in doc.get("ports", []):
-            if port.get("service_method") == "table":
-                update_ports = True
-                for key in list(port):
-                    if key.startswith('service_'):
-                        del port[key]
-        if update_ports:
-            update["$set"]["ports"] = doc["ports"]
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_2_3(doc):
-        """Converts a record from version 2 to version 3. Version 3
-        uses new Nmap structured data for scripts using the ls
-        library.
-
-        """
-        assert doc["schema_version"] == 2
-        update = {"$set": {"schema_version": 3}}
-        updated_ports = False
-        updated_scripts = False
-        migrate_scripts = set([
-            "afp-ls", "nfs-ls", "smb-ls", "ftp-anon", "http-ls"
-        ])
-        for port in doc.get('ports', []):
-            for script in port.get('scripts', []):
-                if script['id'] in migrate_scripts:
-                    if script['id'] in script:
-                        script["ls"] = xmlnmap.change_ls(
-                            script.pop(script['id']))
-                        updated_ports = True
-                    elif "ls" not in script:
-                        data = xmlnmap.add_ls_data(script)
-                        if data is not None:
-                            script['ls'] = data
-                            updated_ports = True
-        for script in doc.get('scripts', []):
-            if script['id'] in migrate_scripts:
-                data = xmlnmap.add_ls_data(script)
-                if data is not None:
-                    script['ls'] = data
-                    updated_scripts = True
-        if updated_ports:
-            update["$set"]["ports"] = doc['ports']
-        if updated_scripts:
-            update["$set"]["scripts"] = doc['scripts']
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_3_4(doc):
-        """Converts a record from version 3 to version 4. Version 4
-        creates a "fake" port entry to store host scripts.
-
-        """
-        assert doc["schema_version"] == 3
-        update = {"$set": {"schema_version": 4}}
-        if 'scripts' in doc:
-            doc.setdefault('ports', []).append({
-                "port": "host",
-                "scripts": doc.pop('scripts'),
-            })
-            update["$set"]["ports"] = doc["ports"]
-            update["$unset"] = {"scripts": True}
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_4_5(doc):
-        """Converts a record from version 4 to version 5. Version 5
-        uses the magic value -1 instead of "host" for "port" in the
-        "fake" port entry used to store host scripts (see
-        `migrate_schema_hosts_3_4()`). Moreover, it changes the
-        structure of the values of "extraports" from [totalcount,
-        {"state": count}] to {"total": totalcount, "state": count}.
-
-        """
-        assert doc["schema_version"] == 4
-        update = {"$set": {"schema_version": 5}}
-        updated_ports = False
-        updated_extraports = False
-        for port in doc.get('ports', []):
-            if port['port'] == 'host':
-                port['port'] = -1
-                updated_ports = True
-        if updated_ports:
-            update["$set"]["ports"] = doc['ports']
-        for state, (total, counts) in list(viewitems(doc.get('extraports',
-                                                             {}))):
-            doc['extraports'][state] = {"total": total, "reasons": counts}
-            updated_extraports = True
-        if updated_extraports:
-            update["$set"]["extraports"] = doc['extraports']
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_5_6(doc):
-        """Converts a record from version 5 to version 6. Version 6 uses Nmap
-        structured data for scripts using the vulns NSE library.
-
-        """
-        assert doc["schema_version"] == 5
-        update = {"$set": {"schema_version": 6}}
-        updated = False
-        migrate_scripts = set(script for script, alias
-                              in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
-                              if alias == 'vulns')
-        for port in doc.get('ports', []):
-            for script in port.get('scripts', []):
-                if script['id'] in migrate_scripts:
-                    table = None
-                    if script['id'] in script:
-                        table = script.pop(script['id'])
-                        script["vulns"] = table
-                        updated = True
-                    elif "vulns" in script:
-                        table = script["vulns"]
-                    else:
-                        continue
-                    newtable = xmlnmap.change_vulns(table)
-                    if newtable != table:
-                        script["vulns"] = newtable
-                        updated = True
-        if updated:
-            update["$set"]["ports"] = doc['ports']
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_6_7(doc):
-        """Converts a record from version 6 to version 7. Version 7 creates a
-        structured output for mongodb-databases script.
-
-        """
-        assert doc["schema_version"] == 6
-        update = {"$set": {"schema_version": 7}}
-        updated = False
-        for port in doc.get('ports', []):
-            for script in port.get('scripts', []):
-                if script['id'] == "mongodb-databases":
-                    if 'mongodb-databases' not in script:
-                        data = xmlnmap.add_mongodb_databases_data(script)
-                        if data is not None:
-                            script['mongodb-databases'] = data
-                            updated = True
-        if updated:
-            update["$set"]["ports"] = doc['ports']
-        return update
-
-    @staticmethod
-    def migrate_schema_hosts_7_8(doc):
-        """Converts a record from version 7 to version 8. Version 8 fixes the
-        structured output for scripts using the vulns NSE library.
-
-        """
-        assert doc["schema_version"] == 7
-        update = {"$set": {"schema_version": 8}}
-        updated = False
-        for port in doc.get('ports', []):
-            for script in port.get('scripts', []):
-                if 'vulns' in script:
-                    if any(elt in script['vulns'] for elt in
-                           ["ids", "refs", "description", "state", "title"]):
-                        script['vulns'] = [script['vulns']]
-                    else:
-                        script['vulns'] = [dict(tab, id=vulnid)
-                                           for vulnid, tab in
-                                           viewitems(script['vulns'])]
-                    updated = True
-        if updated:
-            update["$set"]["ports"] = doc['ports']
-        return update
 
     def get(self, flt, archive=False, **kargs):
         """Queries the active column (the old one if "archive" is set to True)
@@ -1155,7 +846,7 @@ have no effect if it is not expected)."""
             if self.find_one(colname_hosts, {'scanid': scanid}) is None:
                 self.db[colname_scans].remove(spec_or_id=scanid)
 
-    def store_or_merge_host(self, host, gettoarchive, merge=False):
+    def store_or_merge_host(self, host, gettoarchive=None, merge=False):
         if merge and self.merge_host(host):
             return
         self.archive_from_func(host, gettoarchive)
@@ -2595,6 +2286,329 @@ have no effect if it is not expected)."""
             )
 
 
+class MongoDBNmap(MongoDBActive, DBNmap):
+
+    def __init__(self, host, dbname,
+                 colname_scans="scans", colname_hosts="hosts",
+                 colname_oldscans="archivesscans",
+                 colname_oldhosts="archiveshosts",
+                 **kargs):
+        MongoDBActive.__init__(self, host, dbname, colname_scans=colname_scans,
+                               colname_hosts=colname_hosts,
+                               colname_oldscans=colname_oldscans,
+                               colname_oldhosts=colname_oldhosts,
+                               **kargs)
+        DBNmap.__init__(self)
+        self.content_handler = Nmap2Mongo
+        self.output_function = None
+        self.schema_migrations = {
+            self.colname_hosts: {
+                None: (1, self.migrate_schema_hosts_0_1),
+                1: (2, self.migrate_schema_hosts_1_2),
+                2: (3, self.migrate_schema_hosts_2_3),
+                3: (4, self.migrate_schema_hosts_3_4),
+                4: (5, self.migrate_schema_hosts_4_5),
+                5: (6, self.migrate_schema_hosts_5_6),
+                6: (7, self.migrate_schema_hosts_6_7),
+                7: (8, self.migrate_schema_hosts_7_8),
+            },
+        }
+        self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
+            self.colname_hosts].copy()
+        self.schema_migrations_indexes[colname_hosts] = {
+            1: {"ensure": [
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ], {"sparse": True}),
+                ([('schema_version', pymongo.ASCENDING)], {}),
+                ([('openports.count', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.ports', pymongo.ASCENDING)], {}),
+                ([('openports.udp.ports', pymongo.ASCENDING)], {}),
+                ([('openports.tcp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('openports.udp.count', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ]},
+            3: {"ensure": [
+                ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('ports.scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ## let's skip these ones since we are going to drop
+                ## them right after that
+                # ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
+                #  {"sparse": True}),
+                # ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                #  {"sparse": True}),
+            ]},
+            4: {"drop": [
+                ([('scripts.id', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.volume', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)], {}),
+            ]},
+            6: {"ensure": [
+                ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ]},
+        }
+        self.schema_migrations_indexes[colname_oldhosts] = {
+            1: {"ensure": [([('schema_version', pymongo.ASCENDING)], {})]},
+            4: {"drop": [
+                ([
+                    ('ports.screenshot', pymongo.ASCENDING),
+                    ('ports.screenwords', pymongo.ASCENDING),
+                ], {}),
+                ]}
+        }
+        self.schema_latest_versions = {
+            self.colname_hosts: xmlnmap.SCHEMA_VERSION,
+            self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,
+        }
+
+
+    def cmp_schema_version_host(self, host):
+        """Returns 0 if the `host`'s schema version matches the code's
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema()).
+
+        """
+        return self.cmp_schema_version(self.colname_hosts, host)
+
+    def cmp_schema_version_scan(self, scan):
+        """Returns 0 if the `scan`'s schema version matches the code's
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema()).
+
+        """
+        return self.cmp_schema_version(self.colname_scans, scan)
+
+    def migrate_schema(self, archive, version):
+        """Process to schema migrations in column `colname_hosts` or
+        `colname_oldhosts` depending on `archive`archive value,
+        starting from `version`.
+
+        """
+        MongoDB.migrate_schema(
+            self, self.colname_oldhosts if archive else self.colname_hosts,
+            version,
+        )
+
+    def migrate_schema_hosts_0_1(self, doc):
+        """Converts a record from version 0 (no "schema_version" key
+        in the document) to version 1 (`doc["schema_version"] ==
+        1`). Version 1 adds an "openports" nested document to ease
+        open ports based researches.
+
+        """
+        assert "schema_version" not in doc
+        assert "openports" not in doc
+        update = {"$set": {"schema_version": 1}}
+        updated_ports = False
+        openports = {}
+        for port in doc.get("ports", []):
+            # populate openports
+            if port.get('state_state') == 'open':
+                openports.setdefault(port["protocol"], {}).setdefault(
+                    "ports", []).append(port["port"])
+            # create the screenwords attribute
+            if 'screenshot' in port and 'screenwords' not in port:
+                screenwords = utils.screenwords(self.getscreenshot(port))
+                if screenwords is not None:
+                    port['screenwords'] = screenwords
+                    updated_ports = True
+        for proto in list(openports):
+            count = len(openports[proto]["ports"])
+            openports[proto]["count"] = count
+            openports["count"] = openports.get("count", 0) + count
+        if not openports:
+            openports["count"] = 0
+        if updated_ports:
+            update["$set"]["ports"] = doc["ports"]
+        update["$set"]["openports"] = openports
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_1_2(doc):
+        """Converts a record from version 1 to version 2. Version 2
+        discards service names when they have been found from
+        nmap-services file.
+
+        """
+        assert doc["schema_version"] == 1
+        update = {"$set": {"schema_version": 2}}
+        update_ports = False
+        for port in doc.get("ports", []):
+            if port.get("service_method") == "table":
+                update_ports = True
+                for key in list(port):
+                    if key.startswith('service_'):
+                        del port[key]
+        if update_ports:
+            update["$set"]["ports"] = doc["ports"]
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_2_3(doc):
+        """Converts a record from version 2 to version 3. Version 3
+        uses new Nmap structured data for scripts using the ls
+        library.
+
+        """
+        assert doc["schema_version"] == 2
+        update = {"$set": {"schema_version": 3}}
+        updated_ports = False
+        updated_scripts = False
+        migrate_scripts = set([
+            "afp-ls", "nfs-ls", "smb-ls", "ftp-anon", "http-ls"
+        ])
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    if script['id'] in script:
+                        script["ls"] = xmlnmap.change_ls(
+                            script.pop(script['id']))
+                        updated_ports = True
+                    elif "ls" not in script:
+                        data = xmlnmap.add_ls_data(script)
+                        if data is not None:
+                            script['ls'] = data
+                            updated_ports = True
+        for script in doc.get('scripts', []):
+            if script['id'] in migrate_scripts:
+                data = xmlnmap.add_ls_data(script)
+                if data is not None:
+                    script['ls'] = data
+                    updated_scripts = True
+        if updated_ports:
+            update["$set"]["ports"] = doc['ports']
+        if updated_scripts:
+            update["$set"]["scripts"] = doc['scripts']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_3_4(doc):
+        """Converts a record from version 3 to version 4. Version 4
+        creates a "fake" port entry to store host scripts.
+
+        """
+        assert doc["schema_version"] == 3
+        update = {"$set": {"schema_version": 4}}
+        if 'scripts' in doc:
+            doc.setdefault('ports', []).append({
+                "port": "host",
+                "scripts": doc.pop('scripts'),
+            })
+            update["$set"]["ports"] = doc["ports"]
+            update["$unset"] = {"scripts": True}
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_4_5(doc):
+        """Converts a record from version 4 to version 5. Version 5
+        uses the magic value -1 instead of "host" for "port" in the
+        "fake" port entry used to store host scripts (see
+        `migrate_schema_hosts_3_4()`). Moreover, it changes the
+        structure of the values of "extraports" from [totalcount,
+        {"state": count}] to {"total": totalcount, "state": count}.
+
+        """
+        assert doc["schema_version"] == 4
+        update = {"$set": {"schema_version": 5}}
+        updated_ports = False
+        updated_extraports = False
+        for port in doc.get('ports', []):
+            if port['port'] == 'host':
+                port['port'] = -1
+                updated_ports = True
+        if updated_ports:
+            update["$set"]["ports"] = doc['ports']
+        for state, (total, counts) in list(viewitems(doc.get('extraports',
+                                                             {}))):
+            doc['extraports'][state] = {"total": total, "reasons": counts}
+            updated_extraports = True
+        if updated_extraports:
+            update["$set"]["extraports"] = doc['extraports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_5_6(doc):
+        """Converts a record from version 5 to version 6. Version 6 uses Nmap
+        structured data for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 5
+        update = {"$set": {"schema_version": 6}}
+        updated = False
+        migrate_scripts = set(script for script, alias
+                              in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
+                              if alias == 'vulns')
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] in migrate_scripts:
+                    table = None
+                    if script['id'] in script:
+                        table = script.pop(script['id'])
+                        script["vulns"] = table
+                        updated = True
+                    elif "vulns" in script:
+                        table = script["vulns"]
+                    else:
+                        continue
+                    newtable = xmlnmap.change_vulns(table)
+                    if newtable != table:
+                        script["vulns"] = newtable
+                        updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_6_7(doc):
+        """Converts a record from version 6 to version 7. Version 7 creates a
+        structured output for mongodb-databases script.
+
+        """
+        assert doc["schema_version"] == 6
+        update = {"$set": {"schema_version": 7}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "mongodb-databases":
+                    if 'mongodb-databases' not in script:
+                        data = xmlnmap.add_mongodb_databases_data(script)
+                        if data is not None:
+                            script['mongodb-databases'] = data
+                            updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_7_8(doc):
+        """Converts a record from version 7 to version 8. Version 8 fixes the
+        structured output for scripts using the vulns NSE library.
+
+        """
+        assert doc["schema_version"] == 7
+        update = {"$set": {"schema_version": 8}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if 'vulns' in script:
+                    if any(elt in script['vulns'] for elt in
+                           ["ids", "refs", "description", "state", "title"]):
+                        script['vulns'] = [script['vulns']]
+                    else:
+                        script['vulns'] = [dict(tab, id=vulnid)
+                                           for vulnid, tab in
+                                           viewitems(script['vulns'])]
+                    updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+
 class MongoDBPassive(MongoDB, DBPassive):
 
     def __init__(self, host, dbname,
@@ -3438,3 +3452,14 @@ scan object on success, and raises a LockError on failure.
                 self.set_limits(
                     self.find(self.colname_masters,
                               fields=["_id"])))
+
+
+class MongoDBView(MongoDBActive, DBView):
+    """View database backened with mongodb."""
+
+    def __init__(self, host, dbname, colname_scans="v_scan",
+                 colname_hosts="view", **kargs):
+        MongoDBActive.__init__(self, host, dbname, colname_scans=colname_scans,
+                             colname_hosts=colname_hosts, **kargs)
+        DBView.__init__(self)
+
