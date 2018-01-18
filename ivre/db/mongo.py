@@ -2940,6 +2940,14 @@ setting values according to the keyword arguments.
         now = int(now.strftime('%s')) + now.microsecond * 1e-6
         return {field: {'$lt' if neg else '$gte': now - delta}}
 
+    @staticmethod
+    def searchnewer(timestamp, neg=False, new=False):
+        field = 'lastseen' if new else 'firstseen'
+        if isinstance(timestamp, datetime.datetime):
+            timestamp = (int(timestamp.strftime('%s'))
+                         + timestamp.microsecond * 1e-6)
+        return {field: {'$lte' if neg else '$gt': timestamp}}
+
     def knownip_bycountry(self, code):
         return self.set_limits(self.find(
             self.colname_ipdata,
