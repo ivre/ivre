@@ -921,6 +921,13 @@ class NmapHandler(ContentHandler):
         """
         return data
 
+    @staticmethod
+    def _from_binary(data):
+        """Reverse ._to_binary() transformation.
+
+        """
+        return data
+
     def _pre_addhost(self):
         """Executed before _addhost for host object post-treatment"""
         if 'cpes' in self._curhost:
@@ -1394,12 +1401,14 @@ class NmapHandler(ContentHandler):
 
     def masscan_post_http(self, script):
         header = re.search(
-            re.escape(b'\nServer:') + b'[ \\\t]*([^\\\r\\\n]+)\\\r?(?:\\\n|$)',
-            script['masscan']['raw'],
+            re.escape(b'\nServer:') + b'[ \\\t]*([^\\\r\\\n]*)\\\r?(?:\\\n|$)',
+            self._from_binary(script['masscan']['raw']),
         )
         if header is None:
             return
         header = header.groups()[0]
+        if not header:
+            return
         self._curport.setdefault('scripts', []).append({
             "id": "http-server-header",
             "output": utils.nmap_encode_data(header),
@@ -1470,6 +1479,10 @@ class Nmap2Txt(NmapHandler):
     def _to_binary(data):
         return utils.encode_b64(data)
 
+    @staticmethod
+    def _from_binary(data):
+        return utils.decode_b64(data)
+
     def _addhost(self):
         self._db.append(self._curhost)
 
@@ -1534,6 +1547,11 @@ class Nmap2DB(NmapHandler):
 
 
 class Nmap2Posgres(Nmap2DB):
+
     @staticmethod
     def _to_binary(data):
         return utils.encode_b64(data).decode()
+
+    @staticmethod
+    def _from_binary(data):
+        return utils.decode_b64(data.encode())
