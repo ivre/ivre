@@ -41,6 +41,8 @@ You can override default values in three files:
     * ''%%/usr/local/etc/ivre.conf%%'' (read after, so higher priority)
   * one user-specific:
     * ''%%~/.ivre.conf%%'' (the last to be read, so highest priority)
+  * one environment based:
+    * ''%%IVRE_CONF%%'', set it to the path of the configuration file to read
 
 The file should contain lines of type ''%%key = value%%''. Empty lines and comments (starting with the ''%%#%%'' character) are ignored. The following values can be changed:
 
@@ -69,12 +71,14 @@ $ ivre ipdata --init
 This will remove any country/AS information in your database. Process ? [y/N] y
 # ivre runscansagentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
+
 </code>
 ==== Getting IP data ====
 
 <code>
 # ivre ipdata --download
 $ ivre ipdata --import-all --no-update-passive-db
+
 </code>
 ==== Web Server ====
 
@@ -101,11 +105,13 @@ Nmap does not take application screenshots by default. To do so, you have to ins
 # patch /usr/share/nmap/scripts/rtsp-url-brute.nse \
 > /usr/share/ivre/nmap_scripts/patches/rtsp-url-brute.patch
 # nmap --script-updatedb
+
 </code>
 And now, you can play:
 
 <code>
 # nmap -sV --script screenshot [targets]
+
 </code>
 ====== Agent ======
 

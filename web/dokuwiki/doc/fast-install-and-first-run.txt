@@ -14,6 +14,7 @@ $ git clone https://github.com/cea-sec/ivre
 $ cd ivre
 $ python setup.py build
 $ sudo python setup.py install
+
 </code>
 ====== Setup ======
 
@@ -37,6 +38,7 @@ $ sudo -s
 # sed -i 's/^\(\s*\)#Rewrite/\1Rewrite/' /etc/dokuwiki/apache.conf
 # service apache2 reload
 # exit
+
 </code>
 Open a web browser and visit http://localhost/. IVRE Web UI should show up, with no result of course. Click the HELP button to check if everything works.
 
@@ -53,6 +55,7 @@ $ sudo ivre runscansagentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 $ sudo ivre ipdata --download
 $ ivre ipdata --import-all --no-update-passive-db
+
 </code>
 The two latest steps may take a long time to run, nothing to worry about.
 
@@ -62,6 +65,7 @@ Against 1k (routable) IP addresses, with a single nmap process:
 
 <code>
 $ sudo ivre runscans --routable --limit 1000
+
 </code>
 Go have some coffees and/or beers (remember that according to the traveler's theorem, for any time of the day, there exists a time zone in which it is OK to drink).
 
@@ -70,6 +74,7 @@ When the command has terminated, import the results:
 <code>
 $ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
 >              scans/ROUTABLE/up
+
 </code>
 The ''%%-c%%'' argument adds categories to the scan results. Categories are arbitrary names used to filter results. In this example, the values are ''%%ROUTABLE%%'', meaning the results came out while scanning the entire reachable address space (as opposed to while scanning a specific network, AS or country, for example), and ''%%ROUTABLE-CAMPAIGN-001%%'', which is the name I have chosen to mark this particular scan campaign.
 

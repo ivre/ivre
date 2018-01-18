@@ -14,6 +14,7 @@ In addition, install ''%%neo4j%%'' and set a user/password (for example through 
 
 <code python>
 DB_FLOW = "neo4j://<user>:<password>@localhost:7474/"
+
 </code>
 Run ''%%ivre flowcli --init%%'' to initialize the database (**WARNING:** this will **REMOVE** everything in the db).
 
@@ -31,17 +32,20 @@ There are two tools for data insertion, the first is bro-based:
     $ bro -r capture_file.pcap
     $ ivre bro2db ./*.log
     $ ivre flowcli
+
 </code>
 The second can take either argus logs or netflow logs:
 
 <code bash>
     $ argus -m -r capture_file.pcap -w flows.argus
     $ ivre flow2db flows.argus
+
 </code>
 Or:
 
 <code bash>
     $ ivre flow2db flows.nfdump
+
 </code>
 Any of these tools can be called with '--init' to reinitialize the DB.
 
@@ -107,6 +111,7 @@ Ivre flow module is currently built on top of neo4j. The query language of this 
       |                |
       \                /
        `-->(:Intel)<--'
+
 </code>
 As an example, the following query returns the most common (proto, dport):
 
@@ -114,6 +119,7 @@ As an example, the following query returns the most common (proto, dport):
 MATCH (f:Flow)
 RETURN [f.proto, f.dport], count(*) AS cnt
 ORDER BY cnt DESC
+
 </code>
 ==== Flow Filters ====
 
@@ -122,6 +128,7 @@ To write filters, the syntax is as follows:
 <code>
 [!][ANY|ALL|ONE|LEN ][src.|dst.][meta.]<attribute> [<operator> <value>]
 [OR <other filter>]
+
 </code>
 The ''%%[src.|dst.]%%'' part is only available for node filters.
 

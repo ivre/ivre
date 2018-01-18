@@ -38,9 +38,7 @@ They are licensed under [[https://www.gnu.org/licenses/gpl-3.0.en.html|GPL v3 li
 
 Files under the ''%%web/static/fi%%'' directory come from the [[https://lipis.github.io/flag-icon-css/|flag-icon-css]] project.
 
-It includes the European flag from [pull request
-
-====== 71](https:%%//%%github.com/lipis/flag-icon-css/pull/71/). ======
+It includes the European flag from [[https://github.com/lipis/flag-icon-css/pull/71/|pull request #71]].
 
 These files are licensed under [[https://en.wikipedia.org/wiki/MIT_License|MIT license]].
 
