@@ -220,11 +220,21 @@ def main():
         if callback is not None:
             sys.stdout.write("%s(\n" % callback)
         sys.stdout.write(preamble)
-        for rec in result:
-            sys.stdout.write(json.dumps(r2res(rec)) + ",\n")
+
+        # hack to avoid a trailing comma
+        try:
+            rec = next(result)
+        except StopIteration:
+            pass
+        else:
+            sys.stdout.write(json.dumps(r2res(rec)))
+            for rec in result:
+                sys.stdout.write(",\n" + json.dumps(r2res(rec)))
+            sys.stdout.write("\n")
+
         sys.stdout.write(postamble)
         if callback is not None:
-            sys.stdout.write(");")
+            sys.stdout.write("\n);")
         sys.stdout.write("\n")
         if count >= config.WEB_WARN_DOTS_COUNT:
             sys.stdout.write('}\n')
