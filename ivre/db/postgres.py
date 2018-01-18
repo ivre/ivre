@@ -2960,3 +2960,21 @@ passive table."""
         return PassiveFilter(
             main=(cls._searchstring_re(Passive.sensor, sensor, neg=neg)),
         )
+
+    @staticmethod
+    def searchtimeago(delta, neg=False, new=False):
+        field = Passive.lastseen if new else Passive.firstseen
+        if not isinstance(delta, datetime.timedelta):
+            delta = datetime.timedelta(seconds=delta)
+        now = datetime.datetime.now()
+        timestamp = now - delta
+        return PassiveFilter(main=(field < timestamp if neg else
+                                   field >= timestamp))
+
+    @staticmethod
+    def searchnewer(timestamp, neg=False, new=False):
+        field = Passive.lastseen if new else Passive.firstseen
+        if not isinstance(timestamp, datetime.datetime):
+            timestamp = datetime.datetime.fromtimestamp(timestamp)
+        return PassiveFilter(main=(field <= timestamp if neg else
+                                   field > timestamp))
