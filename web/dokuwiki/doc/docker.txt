@@ -21,6 +21,7 @@ $ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_{mongodb,neo4j} ivre-share
 
 $ cp [path to ivre source]/docker/Vagrantfile .
 $ vagrant up --no-parallel
+
 </code>
 The ''%%--no-parallel%%'' option prevents Vagrant from starting the ''%%ivreweb%%'' container before the ''%%ivredb%%'' is ready.
 
@@ -31,6 +32,7 @@ To get a shell with the CLI tools and Python API, attach to the ''%%ivreclient%%
 <code>
 $ docker attach ivreclient
 root@fd983ba5e6fd:/#
+
 </code>
 You can detach from the container (without stopping it) by using ''%%C-p C-q%%'' and attach to it again later with the same ''%%docker attach ivreclient%%'' command.
 
@@ -48,6 +50,7 @@ You can either get the images from a repository on the Internet or build them. I
 $ for img in agent base client db web ; do
 > docker pull "ivre/$img"
 > done
+
 </code>
 ==== Build the images ====
 
@@ -58,6 +61,7 @@ $ docker pull debian:stable
 $ for img in base client agent db web ; do
 > docker build -t "ivre/$img" "$img"
 > done
+
 </code>
 This might take a long time.
 
@@ -74,6 +78,7 @@ $ tar rf docker/base-local/ivre.tar --transform="s#$tmp#ivre/ivre/VERSION#" /$tm
 $ rm "/$tmp"
 $ docker pull debian:stable
 $ docker build -t ivre/base docker/base-local
+
 </code>
 === Using pip ===
 
@@ -82,6 +87,7 @@ Another way to create the ''%%ivre/base%%'' image is to use [[https://pypi.pytho
 <code>
 $ docker pull debian:stable
 $ docker build -t ivre/base base-pip
+
 </code>
 ==== Alternative build for the web image using Apache ====
 
@@ -90,6 +96,7 @@ To use Apache (rather than Nginx) for the ''%%ivre/web%%'' image, simply run:
 <code>
 $ docker pull debian:stable
 $ docker build -t ivre/web web-apache
+
 </code>
 Unlike the default ''%%ivre/web%%'' image, this image uses the Debian package to install Dokuwiki (the Debian package for Dokuwiki can only be used with Apache and the default ''%%ivre/web%%'' image uses Nginx). This can explain some differences one could experience between the two images.
 
@@ -101,6 +108,7 @@ To create the volume to store MongoDB data, run (''%%chmod%%''-ing to ''%%1777%%
 
 <code>
 $ mkdir -m 1777 var_{lib,log}_{mongodb,neo4j}
+
 </code>
 To run an instance of the MongoDB server ready for IVRE, issue (this will run the instance and give it the name ''%%ivredb%%''; we will use this name later):
 
@@ -109,6 +117,7 @@ $ docker run -d --name ivredb --hostname ivredb \
 >        --volume "`pwd`/var_lib_mongodb":/var/lib/mongodb \
 >        --volume "`pwd`/var_log_mongodb":/var/log/mongodb \
 >        ivre/db
+
 </code>
 You can add the option ''%%-p 27017:27017%%'' to have the MongoDB service accessible through the host's TCP port 27017.
 
@@ -117,6 +126,7 @@ You can add the option ''%%-p 27017:27017%%'' to have the MongoDB service access
 <code>
 $ docker run -d --name ivreweb --hostname ivreweb \
 >        --link ivredb:ivredb --publish 80:80 ivre/web
+
 </code>
 The ''%%--publish 80:80%%'' option creates a redirection and makes the web server accessible through the host's TCP port 80.
 
@@ -127,6 +137,7 @@ $ docker run -d --name ivreweb --hostname ivreweb \
 >        --volume "`pwd`/ivre.conf:/etc/ivre.conf"
 >        --volume "`pwd`/nginx-default-site:/etc/nginx/sites-available/default"
 >        --link ivredb:ivredb --publish 80:80 ivre/web
+
 </code>
 ==== A command line client ====
 
@@ -135,6 +146,7 @@ First, place Nmap result files (XML format) in a specific directory:
 <code>
 $ mkdir -m 1777 ivre-share
 $ cp -r /path/to/my/nmap/results.xml ivre-share
+
 </code>
 Now to get a shell in an IVRE client instance (for command line actions), issue:
 
@@ -142,6 +154,7 @@ Now to get a shell in an IVRE client instance (for command line actions), issue:
 $ docker run -i -t --name ivreclient --hostname ivreclient \
 >        --link ivredb:ivredb --volume "`pwd`/ivre-share":/ivre-share \
 >        ivre/client
+
 </code>
 This gives a shell in the ''%%ivreclient%%'' container, and from there we can use IVRE's command line tools and Python API. For example, to initialize the database:
 
@@ -156,22 +169,26 @@ root@ivreclient:/# ivre runscansagentdb --init
 This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 root@ivreclient:/# ivre ipdata --download --import-all --no-update-passive-db
 [...]
+
 </code>
 The latest command will take a long time. Then we can integrate the Nmap results to the database:
 
 <code>
 root@ivreclient:/# ivre scan2db -r -s MySource -c MyCategory /ivre-share
+
 </code>
 You can then exit the shell (''%%C-d%%''), this will stop the container.
 
 <code>
 root@ivreclient:/# exit
+
 </code>
 You can start the container again later by issuing:
 
 <code>
 $ docker start -i ivreclient
 root@ivreclient:/#
+
 </code>
 If you do not want to exit the shell but only detach from it, use ''%%C-p C-q%%''. You can attach to it again later by issuing ''%%docker attach ivreclient%%''.
 

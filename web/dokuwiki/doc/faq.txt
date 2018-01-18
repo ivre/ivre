@@ -26,6 +26,7 @@ WEB_INIT_QUERIES = {
     'admin@SUBNETWORK.NETWORK.AD': 'category:SubNetwork',
     '@ADMIN.NETWORK.AD': 'full',
 }
+
 </code>
 By default, users won't have access to any result. The user ''%%admin@SUBNETWORK.NETWORK.AD%%'' will have access to the results in the category ''%%SubNetwork%%''. The users in the ''%%ADMIN.NETWORK.AD%%'' realm will have access to all the results.
 

@@ -32,7 +32,9 @@ IVRE relies on:
 
   * [Python](http://www.python.org/) 2 (version 2.6 minimum), or 3
     (version 3.3 minimum). Python 2.6 compatibility is important to
-    make sure IVRE works with RHEL and CentOS version 6.
+    make sure IVRE works with
+    [RHEL](https://www.redhat.com/fr/technologies/linux-platforms/enterprise-linux)
+    and [CentOS](https://www.centos.org/) version 6.
 
     * the [Crypto](http://www.pycrypto.org/) module.
     * the [pymongo](http://api.mongodb.org/python/) module,
@@ -57,19 +59,20 @@ IVRE relies on:
     with version 3) for the passive fingerprint and flow modules.
 
   * [MongoDB](http://www.mongodb.org/), version 2.6 minimum (tests are
-    run with versions 2.6.12, 3.0.14, 3.2.12, 3.4.2 and 3.5.3).
+    run with versions 2.6.12, 3.0.15, 3.2.18, 3.4.10, 3.6.2 and
+    3.7.1).
 
   * optionnaly [Neo4j](http://neo4j.com/) for the flow module.
 
   * optionnaly [PostgreSQL](https://www.postgresql.org/), version 9.5
-    minimum (tests are run with versions 9.5.6 and 9.6.2), for the
-    **experimental** PostgreSQL backend.
+    minimum (tests are run with versions 9.5.10, 9.6.6 and 10.1), for
+    the **experimental** PostgreSQL backend.
 
   * a web server (successfully tested with
     [Apache](https://httpd.apache.org/) and
     [Nginx](http://nginx.org/), should work with anything capable of
     serving static files and run a Python-based CGI), although a test
-    web server is now distributed with IVRE (`ivre httpd`).
+    web server is distributed with IVRE (`ivre httpd`).
 
   * [Dokuwiki](https://www.dokuwiki.org/) or another Wiki to use as a
     notepad. Dokuwiki can also be used to display the documentation.
@@ -294,5 +297,5 @@ or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2017
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

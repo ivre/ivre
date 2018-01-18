@@ -1,7 +1,7 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python3
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """This file is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This program is used to convert files in doc/ from Github Markdown
 format to files in web/dokuwiki/doc in Dokuwiki format.
@@ -73,7 +73,7 @@ def convert(fname):
         os.path.basename(fname).lower().replace('.md', '.txt'),
     )
     proc1 = subprocess.Popen(
-        ["pandoc", "-f", "markdown_github", "-t", "native", fname],
+        ["pandoc", "-f", "gfm", "-t", "native", fname],
         stdout=subprocess.PIPE,
     )
     proc2 = subprocess.Popen(
@@ -82,8 +82,10 @@ def convert(fname):
         stdout=open(outfname, 'w'),
     )
     for line in proc1.stdout:
-        proc2.stdin.write(LINEBREAK.sub(removelinebreak,
-                                        LINK.sub(fixlink, line)))
+        proc2.stdin.write(
+            LINEBREAK.sub(removelinebreak,
+                          LINK.sub(fixlink, line.decode())).encode()
+        )
     proc2.stdin.close()
 
 

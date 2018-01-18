@@ -2,18 +2,20 @@ sudo: false
 dist: trusty
 
 env:
-  # PostgreSQL
-  - DB=postgres POSTGRES_VERSION=9.5.6
-  - DB=postgres POSTGRES_VERSION=9.6.2
+  # PostgreSQL 10.1, 9.6.6, 9.5.10
+  - DB=postgres POSTGRES_VERSION=9.5.10
+  - DB=postgres POSTGRES_VERSION=9.6.6
+  - DB=postgres POSTGRES_VERSION=10.1
   # MongoDB
   ## Previous releases
   - DB=mongo MONGODB_VERSION=2.6.12
-  - DB=mongo MONGODB_VERSION=3.0.14
-  - DB=mongo MONGODB_VERSION=3.2.12
+  - DB=mongo MONGODB_VERSION=3.0.15
+  - DB=mongo MONGODB_VERSION=3.2.18
+  - DB=mongo MONGODB_VERSION=3.4.10
   ## Current stable
-  - DB=mongo MONGODB_VERSION=3.4.2
+  - DB=mongo MONGODB_VERSION=3.6.2
   ## Development release
-  - DB=mongo MONGODB_VERSION=3.5.3
+  - DB=mongo MONGODB_VERSION=3.7.1
 
 language: python
 

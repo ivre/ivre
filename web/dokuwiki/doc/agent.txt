@@ -44,6 +44,7 @@ You have to specify the agent(s) data directory. For example, run:
 $ ivre runscansagent --routable --limit 1000 \
 >     agenthost1:/path/to/agent/dir      \
 >     agenthost2:/path/to/agent/dir      \
+
 </code>
 You can now import the results as if you had run the "regular" ''%%ivre runscans%%'' program to scan locally, see [[doc:readme|README]]. The results are stored under ''%%agentsdata/output/%%''
 
@@ -58,6 +59,7 @@ $ ivre runscansagentdb --add-local-master
 $ ivre runscansagentdb --source MySource --add-agent \
 >     agenthost1:/path/to/agent/dir \
 >     agenthost2:/path/to/agent/dir
+
 </code>
 Let's check it's OK:
 
@@ -87,11 +89,13 @@ agent:
   - max waiting targets: 60
   - waiting targets: 0
   - can receive: 60
+
 </code>
 Now we can add a scan, and assign the (available) agents to that scan:
 
 <code>
 $ ivre runscansagentdb --assign-free-agents --routable --limit 1000
+
 </code>
 And see if it works:
 
@@ -109,11 +113,13 @@ scan:
   - agents:
     - 543bfc8a312f915728f1709b
     - 543bfc8a312f915728f1709c
+
 </code>
 For now, nothing has been sent to the agents. To really start the process, run:
 
 <code>
 $ ivre runscansagentdb --daemon
+
 </code>
 After some time, the first results get imported in the database (''%%READING [...]%%'', ''%%HOST STORED: [...]%%'', ''%%SCAN STORED: [...]%%''). You can stop the daemon at any time by ''%%(p)kill%%''-ing it (using ''%%CTRL+c%%'' will do).
 
