@@ -106,23 +106,26 @@ class BroFile(Parser):
         return res
 
     def fix_value(self, val, typ):
-        if val in [self.unset_field, self.empty_field]:
+        if val == self.unset_field:
             return None
         if typ == b"bool":
             return val == b"T"
         container_type = CONTAINER_TYPE.search(typ)
         if container_type is not None:
+            if val == self.empty_field:
+                return []
             _, elt_type = container_type.groups()
             return [self.fix_value(x, elt_type)
                     for x in val.split(self.set_sep)]
-        elif typ in self.int_types:
+        if typ in self.int_types:
             return int(val)
-        elif typ in self.float_types:
+        if typ in self.float_types:
             return float(val)
-        elif typ in self.time_types:
+        if typ in self.time_types:
             return datetime.datetime.fromtimestamp(float(val))
-        else:
-            return val.decode()
+        if val == self.empty_field:
+            return ""
+        return val.decode()
 
     @property
     def field_types(self):
