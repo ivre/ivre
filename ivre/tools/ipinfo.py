@@ -91,7 +91,7 @@ def disp_recs_std(flt):
     c = db.passive.get(flt, sort=[('addr', 1), ('recontype', 1), ('source', 1),
                                   ('port', 1)])
     for rec in c:
-        if not 'addr' in rec or rec['addr'] == 0:
+        if not 'addr' in rec or not rec['addr']:
             continue
         if oa != rec['addr']:
             if oa is not None:
