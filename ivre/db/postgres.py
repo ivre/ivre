@@ -2461,7 +2461,7 @@ class PassiveFilter(Filter):
         self.uses_country = uses_country
     def __nonzero__(self):
         return self.main is not None or self.location is not None \
-            or self.aut_sys is not None or self.uses_country is not None
+            or self.aut_sys is not None or self.uses_country
     def copy(self):
         return self.__class__(
             main=self.main,

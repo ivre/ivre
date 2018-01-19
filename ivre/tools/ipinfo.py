@@ -91,16 +91,13 @@ def disp_recs_std(flt):
     c = db.passive.get(flt, sort=[('addr', 1), ('recontype', 1), ('source', 1),
                                   ('port', 1)])
     for rec in c:
-        if not 'addr' in rec or rec['addr'] == 0:
+        if not 'addr' in rec or not rec['addr']:
             continue
         if oa != rec['addr']:
             if oa is not None:
                 print()
             oa = rec['addr']
-            try:
-                print(ivre.utils.int2ip(oa))
-            except (struct.error, TypeError):
-                print(oa)
+            print(db.passive.convert_ip(oa))
             c = db.data.infos_byip(oa)
             if c:
                 if 'country_code' in c:
@@ -145,7 +142,7 @@ def _disp_recs_tail(flt, field, n):
     recs.reverse()
     for r in recs:
         if 'addr' in r:
-            print(ivre.utils.int2ip(r['addr']), end=' ')
+            print(db.passive.convert_ip(r['addr']), end=' ')
         else:
             if 'fulltargetval' in r:
                 print(r['fulltargetval'], end=' ')
@@ -171,7 +168,7 @@ def _disp_recs_tailf(flt, field):
     r = {'firstseen': 0, 'lastseen': 0}
     for r in firstrecs:
         if 'addr' in r:
-            print(ivre.utils.int2ip(r['addr']), end=' ')
+            print(db.passive.convert_ip(r['addr']), end=' ')
         else:
             if 'fulltargetval' in r:
                 print(r['fulltargetval'], end=' ')
@@ -191,7 +188,7 @@ def _disp_recs_tailf(flt, field):
                     ),
                     sort=[(field, 1)]):
                 if 'addr' in r:
-                    print(ivre.utils.int2ip(r['addr']), end=' ')
+                    print(db.passive.convert_ip(r['addr']), end=' ')
                 else:
                     if 'fulltargetval' in r:
                         print(r['fulltargetval'], end=' ')
@@ -411,6 +408,6 @@ def main():
             flt = db.passive.flt_and(flt, db.passive.searchnet(a))
         else:
             if a.isdigit():
-                a = ivre.utils.int2ip(int(a))
+                a = db.passive.convert_ip(int(a))
             flt = db.passive.flt_and(flt, db.passive.searchhost(a))
         disp_recs(flt)
