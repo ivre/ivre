@@ -1568,7 +1568,7 @@ insert structures.
                 port['state_reason_ip'] = self.convert_ip(
                     port['state_reason_ip'])
             if merge:
-                insrt = postgresql.insert(self.tables.port)
+                insrt = postgresql.insert(self.tables.port, bind=self.db)
                 portid = self.db.execute(insrt.values(scan=scanid, **port)\
                             .on_conflict_do_update(
                                 index_elements=['scan', 'port', 'protocol'],
@@ -1771,7 +1771,7 @@ insert structures.
                 'merge': 'merge',
                 'schema_version': 'schema_version',
             }
-            for oldkey, newkey in correspondance.iteritems():
+            for oldkey, newkey in viewitems(correspondance):
                 rec[newkey] = scanrec[oldkey]
             if rec["infos"]:
                 if 'coordinates' in rec['infos']:
@@ -1814,8 +1814,8 @@ insert structures.
                     'service_ostype': 'service_ostype',
                     'service_fp': 'service_servicefp',
                 }
-                for oldkey, newkey in correspondance.iteritems():
-                    recp[newkey] = port[oldkey]
+                for oldkey, newkey in viewitems(correspondance):
+                    recp[newkey] = port[oldkey] if oldkey in port else None
                 for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
