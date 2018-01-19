@@ -61,8 +61,8 @@ class Argus(CmdParser):
 
     @classmethod
     def parse_line(cls, line):
-        fields = dict((name.decode(), val.strip())
-                      for name, val in zip(cls.fields, line.split(",")))
+        fields = dict((name, val.strip().decode())
+                      for name, val in zip(cls.fields, line.split(b",")))
         for fld in ["sport", "dport"]:
             try:
                 fields[fld] = int(
@@ -70,7 +70,7 @@ class Argus(CmdParser):
                     16 if fields[fld].startswith("0x") else 10,
                 )
             except ValueError:
-                if fields[fld] == "":
+                if not fields[fld]:
                     del fields[fld]
         fields["src"] = fields.pop("saddr")
         fields["dst"] = fields.pop("daddr")

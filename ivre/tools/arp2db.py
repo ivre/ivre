@@ -18,9 +18,10 @@
 
 """Update the flow database from ARP requests in PCAP files"""
 
+from datetime import datetime
 import subprocess
 
-from scapy.utils import PcapReader
+from scapy.all import PcapReader
 
 from ivre import config
 from ivre.db import db
@@ -56,14 +57,13 @@ def main():
         config.DEBUG = True
 
     bulk = db.flow.start_bulk_insert()
+    query_cache = db.flow.add_flow(["Flow"], ('proto',))
     for fname in args.files:
         for pkt in reader(fname):
-            for rec in [{"dst": pkt.hwsrc, "src": pkt.psrc},
-                        {"dst": pkt.hwdst, "src": pkt.pdst}]:
-                if rec["dst"] != "00:00:00:00:00:00" and rec["src"] != "0.0.0.0":
-                    db.flow.bulk_add_flow(
-                        bulk, rec, "ARP", {},
-                        srcnode=("Host", {"addr": "{src}"}),
-                        dstnode=("Intel:Mac", {"addr": "{dst}"}),
-                    )
+            rec = {"dst": pkt.pdst, "src": pkt.psrc,
+                   "start_time": datetime.fromtimestamp(pkt.time),
+                   "end_time": datetime.fromtimestamp(pkt.time),
+                   "proto": "arp"}
+            if rec["dst"] != "0.0.0.0" and rec["src"] != "0.0.0.0":
+                bulk.append(query_cache, rec)
     bulk.close()
