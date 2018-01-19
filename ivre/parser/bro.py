@@ -102,10 +102,10 @@ class BroFile(Parser):
 
         for field, name, typ in zip(fields, self.fields, self.types):
             name = name.replace(b".", b"_").decode()
-            res[name] = self.bro2neo(field, typ)
+            res[name] = self.fix_value(field, typ)
         return res
 
-    def bro2neo(self, val, typ):
+    def fix_value(self, val, typ):
         if val in [self.unset_field, self.empty_field]:
             return None
         if typ == b"bool":
@@ -113,7 +113,7 @@ class BroFile(Parser):
         container_type = CONTAINER_TYPE.search(typ)
         if container_type is not None:
             _, elt_type = container_type.groups()
-            return [self.bro2neo(x, elt_type)
+            return [self.fix_value(x, elt_type)
                     for x in val.split(self.set_sep)]
         elif typ in self.int_types:
             return int(val)
