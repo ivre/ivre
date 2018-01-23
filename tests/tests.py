@@ -47,6 +47,7 @@ except ImportError:
 
 from builtins import int, range
 from future.utils import viewvalues
+from future.builtins import int
 from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
@@ -998,6 +999,17 @@ class IvreTests(unittest.TestCase):
         self.check_value(
             "nmap_tophop_10+",
             next(ivre.db.db.nmap.topvalues("hop>10"))['_id'])
+
+        locations = list(ivre.db.db.nmap.getlocations(
+            ivre.db.db.nmap.flt_empty
+        ))
+        self.assertTrue(all(len(elt) == 2 for elt in locations))
+        self.assertTrue(all(isinstance(elt['_id'], tuple) for elt in locations))
+        self.assertTrue(all(len(elt['_id']) == 2 for elt in locations))
+        self.assertTrue(all(all(isinstance(sub, float) for sub in elt['_id'])
+                            for elt in locations))
+        self.assertTrue(all(isinstance(elt['count'], int) for elt in locations))
+        self.check_value('nmap_location_count', len(locations))
 
         if DATABASE != "postgres":
             # FIXME: for some reason, this does not terminate
