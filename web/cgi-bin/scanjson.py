@@ -222,6 +222,7 @@ def main():
         sys.stdout.write(preamble)
 
         # hack to avoid a trailing comma
+        result = iter(result)
         try:
             rec = next(result)
         except StopIteration:
