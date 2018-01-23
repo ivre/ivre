@@ -1474,7 +1474,7 @@ insert structures.
             info['coordinates'] = info.pop('loc')['coordinates'][::-1]
         source = host.get('source', '')
         if merge:
-            insrt = postgresql.insert(self.tables.scan)
+            insrt = postgresql.insert(self.tables.scan, bind=self.db)
             scanid, scan_tstop, merge = self.db.execute(
                 insrt.values(
                     addr=addr,
@@ -1540,7 +1540,7 @@ insert structures.
                         )\
                         .returning(self.tables.scan.id)).fetchone()[0]
         for category in host.get("categories", []):
-            insrt = postgresql.insert(self.tables.category)
+            insrt = postgresql.insert(self.tables.category, bind=self.db)
             catid = self.db.execute(insrt.values(name=category)\
                         .on_conflict_do_update(
                             index_elements=['name'],
@@ -1587,7 +1587,7 @@ insert structures.
                 name, output = script.pop('id'), script.pop('output')
                 if merge:
                     if newest:
-                        insrt = postgresql.insert(self.tables.script)
+                        insrt = postgresql.insert(self.tables.script, bind=self.db)
                         self.bulk.append(insrt\
                                          .values(
                                              port=portid,
@@ -1603,7 +1603,7 @@ insert structures.
                                              },
                                          ))
                     else:
-                        insrt = postgresql.insert(self.tables.script)
+                        insrt = postgresql.insert(self.tables.script, bind=self.db)
                         self.bulk.append(insrt\
                                          .values(
                                              port=portid,
