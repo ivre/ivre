@@ -1648,8 +1648,8 @@ insert structures.
         utils.LOGGER.debug("HOST STORED: %r", scanid)
         return scanid
 
-    def store_or_merge_host(self, host, gettoarchive=None, merge=False):
-        self.store_host(host, merge=merge)
+    def store_or_merge_host(self, host, merge=False):
+        raise NotImplementedError
 
     def count(self, flt, archive=False, **_):
         return self.db.execute(
@@ -3268,6 +3268,9 @@ class PostgresDBNmap(PostgresDBActive, DBNmap):
                                 scan_file=utils.decode_hex(host['scanid']))\
                         .on_conflict_do_nothing())
 
+    def store_or_merge_host(self, host, merge=False):
+        self.store_host(host)
+
     def get(self, flt, archive=False, limit=None, skip=None, sort=None,
             **kargs):
         records = super(PostgresDBNmap, self).get(flt, archive, limit, skip,
@@ -3408,10 +3411,13 @@ class PostgresDBView(PostgresDBActive, DBView):
         self.flt_empty = ViewFilter(tables = self.tables)
         self.bulk = None
 
-    def store_host(self, host, merge=False):
+    def store_host(self, host, merge=True):
         self.start_store_hosts()
         super(PostgresDBView, self).store_host(host, merge)
         self.stop_store_hosts()
+
+    def store_or_merge_host(self, host, merge=True):
+        self.store_host(host)
 
     def remove(self, host, archive=False):
         """Removes the host view. "host" must be a record as yielded by

@@ -710,32 +710,6 @@ class DBNmap(DBActive):
     def merge_host_docs(rec1, rec2):
         raise NotImplementedError
 
-    def merge_host(self, host):
-        """Attempt to merge `host` with an existing record.
-
-        Return `True` if another record for the same address (and
-        source if `host['source'] exists`) has been found, merged and
-        the resulting document inserted in the database, `False`
-        otherwise (in that case, it is the caller's responsibility to
-        add `host` to the database if necessary).
-
-        """
-        try:
-            flt = self.searchhost(host['addr'])
-            if host.get("source"):
-                flt = self.flt_and(
-                    flt,
-                    self.searchsource(host["source"]),
-                )
-            rec = self.get(flt)[0]
-        except IndexError:
-            # "Merge" mode but no record for that host, let's add
-            # the result normally
-            return False
-        self.store_host(self.merge_host_docs(rec, host))
-        self.remove(rec)
-        return True
-
     def start_store_hosts(self):
         """Backend-specific subclasses may use this method to create some bulk
 insert structures.
@@ -1713,6 +1687,32 @@ class DBView(DBActive):
 
     def __init__(self):
         DBActive.__init__(self)
+
+    def merge_host(self, host):
+        """Attempt to merge `host` with an existing record.
+
+        Return `True` if another record for the same address (and
+        source if `host['source'] exists`) has been found, merged and
+        the resulting document inserted in the database, `False`
+        otherwise (in that case, it is the caller's responsibility to
+        add `host` to the database if necessary).
+
+        """
+        try:
+            flt = self.searchhost(host['addr'])
+            if host.get("source"):
+                flt = self.flt_and(
+                    flt,
+                    self.searchsource(host["source"]),
+                )
+            rec = self.get(flt)[0]
+        except IndexError:
+            # "Merge" mode but no record for that host, let's add
+            # the result normally
+            return False
+        self.store_host(self.merge_host_docs(rec, host))
+        self.remove(rec)
+        return True
 
 
 def _mongodb_url2dbinfos(url):

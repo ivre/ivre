@@ -725,106 +725,6 @@ have no effect if it is not expected)."""
         utils.LOGGER.debug("SCAN STORED: %r in %r", ident, self.colname_scans)
         return ident
 
-    def merge_host_docs(self, rec1, rec2):
-        """Merge two host records and return the result. Unmergeable /
-        hard-to-merge fields are lost (e.g., extraports).
-
-        """
-        if rec1.get("schema_version") != rec2.get("schema_version"):
-            raise ValueError("Cannot merge host documents. "
-                             "Schema versions differ (%r != %r)" % (
-                                 rec1.get("schema_version"),
-                                 rec2.get("schema_version")))
-        rec = {}
-        if "schema_version" in rec1:
-            rec["schema_version"] = rec1["schema_version"]
-        # When we have different values, we will use the one from the
-        # most recent scan, rec2
-        if rec1.get("starttime") > rec2.get("starttime"):
-            rec1, rec2 = rec2, rec1
-        scanid = set()
-        for record in [rec1, rec2]:
-            scanid.update(self.getscanids(record))
-        if scanid:
-            if len(scanid) == 1:
-                rec["scanid"] = scanid.pop()
-            else:
-                rec["scanid"] = list(scanid)
-        for fname, function in [("starttime", min), ("endtime", max)]:
-            try:
-                rec[fname] = function(record[fname] for record in [rec1, rec2]
-                                      if fname in record)
-            except ValueError:
-                pass
-        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
-        if rec["state"] is None:
-            del rec["state"]
-        rec["categories"] = list(
-            set(rec1.get("categories", [])).union(
-                rec2.get("categories", []))
-        )
-        for field in ["addr", "source", "os"]:
-            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
-            if not rec[field]:
-                del rec[field]
-        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
-        rec["infos"] = {}
-        for record in [rec1, rec2]:
-            rec["infos"].update(record.get("infos", {}))
-        # We want to make sure of (type, name) unicity
-        hostnames = dict(((h['type'], h['name']), h.get('domains'))
-                         for h in (rec1.get("hostnames", [])
-                                   + rec2.get("hostnames", [])))
-        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                            for h, d in viewitems(hostnames)]
-        ports = dict(((port.get("protocol"), port["port"]), port.copy())
-                     for port in rec2.get("ports", []))
-        for port in rec1.get("ports", []):
-            if (port.get('protocol'), port['port']) in ports:
-                curport = ports[(port.get('protocol'), port['port'])]
-                if 'scripts' in curport:
-                    curport['scripts'] = curport['scripts'][:]
-                else:
-                    curport['scripts'] = []
-                present_scripts = set(
-                    script['id'] for script in curport['scripts']
-                )
-                for script in port.get("scripts", []):
-                    if script['id'] not in present_scripts:
-                        curport['scripts'].append(script)
-                if not curport['scripts']:
-                    del curport['scripts']
-                if 'service_name' in port and not 'service_name' in curport:
-                    for key in port:
-                        if key.startswith("service_"):
-                            curport[key] = port[key]
-            else:
-                ports[(port.get('protocol'), port['port'])] = port
-        rec["ports"] = list(viewvalues(ports))
-        rec["openports"] = {}
-        for record in [rec1, rec2]:
-            for proto in record.get('openports', {}):
-                if proto == 'count':
-                    continue
-                rec['openports'].setdefault(
-                    proto, {}).setdefault(
-                        'ports', set()).update(
-                            record['openports'][proto]['ports'])
-        if rec['openports']:
-            for proto in list(rec['openports']):
-                count = len(rec['openports'][proto]['ports'])
-                rec['openports'][proto]['count'] = count
-                rec['openports']['count'] = rec['openports'].get(
-                    'count', 0) + count
-                rec['openports'][proto]['ports'] = list(
-                    rec['openports'][proto]['ports'])
-        else:
-            rec['openports']["count"] = 0
-        for field in ["traces", "infos", "ports"]:
-            if not rec[field]:
-                del rec[field]
-        return rec
-
     def remove(self, host, archive=False):
         """Removes the host "host" from the active (the old one if
         "archive" is set to True) column. "host" must be the host
@@ -847,10 +747,7 @@ have no effect if it is not expected)."""
                 self.db[colname_scans].remove(spec_or_id=scanid)
 
     def store_or_merge_host(self, host, gettoarchive=None, merge=False):
-        if merge and self.merge_host(host):
-            return
-        self.archive_from_func(host, gettoarchive)
-        self.store_host(host)
+        raise NotImplementedError
 
     def archive(self, host, unarchive=False):
         """Archives (when `unarchive` is True, unarchives) a given
@@ -2608,6 +2505,9 @@ class MongoDBNmap(MongoDBActive, DBNmap):
             update["$set"]["ports"] = doc['ports']
         return update
 
+    def store_or_merge_host(self, host, gettoarchive=None, merge=False):
+        self.store_host(host)
+
 
 class MongoDBPassive(MongoDB, DBPassive):
 
@@ -3462,4 +3362,107 @@ class MongoDBView(MongoDBActive, DBView):
         MongoDBActive.__init__(self, host, dbname, colname_scans=colname_scans,
                              colname_hosts=colname_hosts, **kargs)
         DBView.__init__(self)
+
+    def store_or_merge_host(self, host, gettoarchive=None, merge=False):
+        if not self.merge_host(host):
+            self.store_host(host)
+
+    def merge_host_docs(self, rec1, rec2):
+        """Merge two host records and return the result. Unmergeable /
+        hard-to-merge fields are lost (e.g., extraports).
+
+        """
+        if rec1.get("schema_version") != rec2.get("schema_version"):
+            raise ValueError("Cannot merge host documents. "
+                             "Schema versions differ (%r != %r)" % (
+                                 rec1.get("schema_version"),
+                                 rec2.get("schema_version")))
+        rec = {}
+        if "schema_version" in rec1:
+            rec["schema_version"] = rec1["schema_version"]
+        # When we have different values, we will use the one from the
+        # most recent scan, rec2
+        if rec1.get("starttime") > rec2.get("starttime"):
+            rec1, rec2 = rec2, rec1
+        scanid = set()
+        for record in [rec1, rec2]:
+            scanid.update(self.getscanids(record))
+        if scanid:
+            if len(scanid) == 1:
+                rec["scanid"] = scanid.pop()
+            else:
+                rec["scanid"] = list(scanid)
+        for fname, function in [("starttime", min), ("endtime", max)]:
+            try:
+                rec[fname] = function(record[fname] for record in [rec1, rec2]
+                                      if fname in record)
+            except ValueError:
+                pass
+        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
+        if rec["state"] is None:
+            del rec["state"]
+        rec["categories"] = list(
+            set(rec1.get("categories", [])).union(
+                rec2.get("categories", []))
+        )
+        for field in ["addr", "source", "os"]:
+            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
+            if not rec[field]:
+                del rec[field]
+        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
+        rec["infos"] = {}
+        for record in [rec1, rec2]:
+            rec["infos"].update(record.get("infos", {}))
+        # We want to make sure of (type, name) unicity
+        hostnames = dict(((h['type'], h['name']), h.get('domains'))
+                         for h in (rec1.get("hostnames", [])
+                                   + rec2.get("hostnames", [])))
+        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
+                            for h, d in viewitems(hostnames)]
+        ports = dict(((port.get("protocol"), port["port"]), port.copy())
+                     for port in rec2.get("ports", []))
+        for port in rec1.get("ports", []):
+            if (port.get('protocol'), port['port']) in ports:
+                curport = ports[(port.get('protocol'), port['port'])]
+                if 'scripts' in curport:
+                    curport['scripts'] = curport['scripts'][:]
+                else:
+                    curport['scripts'] = []
+                present_scripts = set(
+                    script['id'] for script in curport['scripts']
+                )
+                for script in port.get("scripts", []):
+                    if script['id'] not in present_scripts:
+                        curport['scripts'].append(script)
+                if not curport['scripts']:
+                    del curport['scripts']
+                if 'service_name' in port and not 'service_name' in curport:
+                    for key in port:
+                        if key.startswith("service_"):
+                            curport[key] = port[key]
+            else:
+                ports[(port.get('protocol'), port['port'])] = port
+        rec["ports"] = list(viewvalues(ports))
+        rec["openports"] = {}
+        for record in [rec1, rec2]:
+            for proto in record.get('openports', {}):
+                if 'count' in proto:
+                    continue
+                rec['openports'].setdefault(
+                    proto, set()).update(
+                        record['openports'][proto])
+        if rec['openports']:
+            for proto in ['tcp', 'udp']:
+                count = len(rec['openports'][proto + '_ports'])
+                rec['openports'][proto + '_count'] = count
+                rec['openports']['count'] = rec['openports'].get(
+                    'count', 0) + count
+                rec['openports'][proto + '_ports'] = list(
+                    rec['openports'][proto + '_ports'])
+        else:
+            rec['openports']["count"] = 0
+        for field in ["traces", "infos", "ports"]:
+            if not rec[field]:
+                del rec[field]
+        return rec
 
