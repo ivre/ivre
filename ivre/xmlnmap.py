@@ -1468,7 +1468,7 @@ class Nmap2DB(NmapHandler):
     """Specific handler for MongoDB backend."""
 
     def __init__(self, fname, categories=None, source=None,
-                 gettoarchive=None, add_addr_infos=True, merge=False,
+                 add_addr_infos=True, merge=False,
                  **kargs):
         from ivre import db
         self._db = db.db
@@ -1478,14 +1478,10 @@ class Nmap2DB(NmapHandler):
             self.categories = categories
         self._add_addr_infos = add_addr_infos
         self.source = source
-        if gettoarchive is None:
-            self._gettoarchive = lambda a, s: []
-        else:
-            self._gettoarchive = gettoarchive
         self.merge = merge
         NmapHandler.__init__(self, fname, categories=categories,
-                             source=source, gettoarchive=gettoarchive,
-                             add_addr_infos=add_addr_infos, merge=merge,
+                             source=source, add_addr_infos=add_addr_infos,
+                             merge=merge,
                              **kargs)
 
     def _to_binary(self, data):
@@ -1511,8 +1507,7 @@ class Nmap2DB(NmapHandler):
         if not self.scan_doc_saved:
             self.scan_doc_saved = True
             self._storescan()
-        self._db.nmap.store_or_merge_host(self._curhost, self._gettoarchive,
-                                          merge=self.merge)
+        self._db.nmap.store_or_merge_host(self._curhost, merge=self.merge)
 
     def _storescan(self):
         ident = self._db.nmap.store_scan_doc(self._curscan)

@@ -59,7 +59,7 @@ def main():
     params = webutils.parse_query_string()
     query = webutils.query_from_params(params)
     database = db.view
-    flt, archive, sortby, unused, skip, limit = webutils.flt_from_query(query)
+    flt, sortby, unused, skip, limit = webutils.flt_from_query(query)
     if limit is None:
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:
@@ -92,8 +92,7 @@ def main():
                 topnbr = 15
         series = [{"label": t['_id'], "value": t['count']} for t in
                   database.topvalues(field, flt=flt,
-                                    least=least, topnbr=topnbr,
-                                    archive=archive)]
+                                    least=least, topnbr=topnbr)]
         if callback is None:
             sys.stdout.write("%s\n" % json.dumps(series))
         else:
@@ -108,11 +107,11 @@ def main():
         r2res = lambda x: x
         if action == "timeline":
             if hasattr(database, "get_open_port_count"):
-                result = list(database.get_open_port_count(flt, archive=archive))
+                result = list(database.get_open_port_count(flt))
                 count = len(result)
             else:
                 result = database.get(
-                    flt, archive=archive,
+                    flt,
                     fields=['addr', 'starttime', 'openports.count']
                 )
                 count = result.count()
@@ -130,7 +129,7 @@ def main():
         elif action == "coordinates":
             preamble = '{"type": "GeometryCollection", "geometries": ['
             postamble = ']}'
-            result = list(database.getlocations(flt, archive=archive))
+            result = list(database.getlocations(flt))
             count = len(result)
             r2res = lambda r: {
                 "type": "Point",
@@ -139,14 +138,14 @@ def main():
             }
         elif action == "countopenports":
             if hasattr(database, "get_open_port_count"):
-                result = database.get_open_port_count(flt, archive=archive)
+                result = database.get_open_port_count(flt)
             else:
-                result = database.get(flt, archive=archive,
+                result = database.get(flt,
                                      fields=['addr', 'openports.count'])
             if hasattr(result, "count"):
                 count = result.count()
             else:
-                count = database.count(flt, archive=archive,
+                count = database.count(flt,
                                       fields=['addr', 'openports.count'])
             if ipsasnumbers:
                 r2res = lambda r: [force_ip_int(r['addr']),
@@ -156,11 +155,11 @@ def main():
                                    r['openports']['count']]
         elif action == "ipsports":
             if hasattr(database, "get_ips_ports"):
-                result = list(database.get_ips_ports(flt, archive=archive))
+                result = list(database.get_ips_ports(flt))
                 count = sum(len(host.get('ports', [])) for host in result)
             else:
                 result = database.get(
-                    flt, archive=archive,
+                    flt,
                     fields=['addr', 'ports.port', 'ports.state_state']
                 )
                 count = sum(len(host.get('ports', [])) for host in result)
@@ -180,11 +179,11 @@ def main():
                      if 'state_state' in p]
                 ]
         elif action == "onlyips":
-            result = database.get(flt, archive=archive, fields=['addr'])
+            result = database.get(flt, fields=['addr'])
             if hasattr(result, "count"):
                 count = result.count()
             else:
-                count = database.count(flt, archive=archive, fields=['addr'])
+                count = database.count(flt, fields=['addr'])
             if ipsasnumbers:
                 r2res = lambda r: r['addr']
             else:
@@ -245,19 +244,18 @@ def main():
     # generic request
     if action == "count":
         if callback is None:
-            sys.stdout.write("%d\n" % database.count(flt, archive=archive))
+            sys.stdout.write("%d\n" % database.count(flt))
         else:
             sys.stdout.write("%s(%d);\n" % (callback,
-                                            database.count(flt,
-                                                          archive=archive)))
+                                            database.count(flt)))
         exit(0)
 
     ## PostgreSQL: the query plan if affected by the limit and gives
     ## really poor results. This is a temporary workaround (look for
     ## XXX-WORKAROUND-PGSQL)
-    # result = database.get(flt, archive=archive,
+    # result = database.get(flt,
     #                      limit=limit, skip=skip, sort=sortby)
-    result = database.get(flt, archive=archive,
+    result = database.get(flt,
                          skip=skip, sort=sortby)
 
     if unused:
@@ -332,8 +330,8 @@ def main():
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
                           "the following commands: 'ivre scancli "
-                          "--update-schema; ivre scancli --update-schema "
-                          "--archives'" % (count, 's' if count > 1 else '',
+                          "--update-schema;'" % (count,
+                                           's' if count > 1 else '',
                                            'are' if count > 1 else 'is')),
         -1: lambda count: ('%d document%s displayed ha%s been inserted by '
                            'a more recent version of IVRE. Please update '

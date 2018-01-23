@@ -67,13 +67,6 @@ def main():
                         help='Store only hosts with a "ports" element.')
     parser.add_argument('--open-ports', action='store_true',
                         help='Store only hosts with open ports.')
-    parser.add_argument('--never-archive', action='store_true',
-                        help='Never archive.')
-    parser.add_argument('--archive', '--archive-same-host', action='store_true',
-                        help='Archive results for the same host.')
-    parser.add_argument('--archive-same-host-and-source', action='store_true',
-                        help='Archive results with both the same host and'
-                        ' source (this is the default).')
     parser.add_argument('--merge', action='store_true', help='Merge '
                         'result with previous scan result for same host '
                         'and source. Useful to use multiple partial '
@@ -95,18 +88,6 @@ def main():
         database = ivre.db.DBNmap()
     if args.test_normal:
         database = ivre.db.DBNmap(output_mode="normal")
-    if args.never_archive:
-        def gettoarchive(addr, _):
-            return []
-    elif args.archive:
-        def gettoarchive(addr, _):
-            return database.get(database.searchhost(addr))
-    else:  #args.archive_same_host_and_source
-        def gettoarchive(addr, source):
-            return database.get(
-                database.flt_and(database.searchhost(addr),
-                                 database.searchsource(source))
-            )
     if args.recursive:
         scans = recursive_filelisting(args.scan)
     else:
@@ -118,7 +99,7 @@ def main():
                     scan,
                     categories=categories, source=args.source,
                     needports=args.ports, needopenports=args.open_ports,
-                    gettoarchive=gettoarchive, force_info=args.force_info,
+                    force_info=args.force_info,
                     merge=args.merge, masscan_probes=args.masscan_probes,
             ):
                 count += 1

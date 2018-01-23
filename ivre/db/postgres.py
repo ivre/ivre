@@ -271,7 +271,6 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        line["archive"] = 0
         line["merge"] = False
         for field in ["categories"]:
             if field in line:
@@ -445,7 +444,6 @@ class Scan_Columns(object):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
-    archive = Column(Integer, nullable=False, index=True)
     merge = Column(Boolean, nullable=False)
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
 
@@ -453,7 +451,7 @@ class Scan(Base, Scan_Columns):
     __tablename__ = "scan"
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_scan_host_archive', 'addr', 'source', 'archive', unique=True),
+        Index('ix_scan_host', 'addr', 'source'),
         Index('ix_scan_time', 'time_start', 'time_stop'),
     )
 
@@ -1328,15 +1326,11 @@ class ActiveFilter(Filter):
     def select_from(self):
         return self.select_from_base()
 
-    def query(self, req, archive=False):
+    def query(self, req):
         # TODO: improve performances
-        #   - use a materialized view for `Scan` with `archive == 0`?
+        #   - use a materialized view for `Scan` ?
         if self.main is not None:
             req = req.where(self.main)
-        if archive:
-            req = req.where(self.tables.scan.archive > 0)
-        else:
-            req = req.where(self.tables.scan.archive == 0)
         for incl, subflt in self.hostname:
             base = select([self.tables.hostname.scan])\
                     .where(subflt).cte("base")
@@ -1482,7 +1476,6 @@ insert structures.
                     info=info,
                     time_start=host['starttime'],
                     time_stop=host['endtime'],
-                    archive=0,
                     merge=False,
                     **dict(
                         (key, host.get(key)) for key in ['state', 'state_reason',
@@ -1491,7 +1484,7 @@ insert structures.
                     )
                 )\
                 .on_conflict_do_update(
-                    index_elements=['addr', 'source', 'archive'],
+                    index_elements=['addr', 'source'],
                     set_={
                         'time_start': func.least(
                             self.tables.scan.time_start,
@@ -1514,17 +1507,6 @@ insert structures.
             else:
                 newest = None
         else:
-            curarchive = self.db.execute(
-                select([func.max(self.tables.scan.archive)])\
-                .where(and_(self.tables.scan.addr == addr,
-                            self.tables.scan.source == source)))\
-                                .fetchone()[0]
-            if curarchive is not None:
-                self.db.execute(update(self.tables.scan).where(and_(
-                    self.tables.scan.addr == addr,
-                    self.tables.scan.source == source,
-                    self.tables.scan.archive == 0,
-                )).values(archive=curarchive + 1))
             scanid = self.db.execute(insert(self.tables.scan)\
                         .values(
                             addr=addr,
@@ -1535,7 +1517,6 @@ insert structures.
                             state=host.get('state'),
                             state_reason=host.get('state_reason'),
                             state_reason_ttl=host.get('state_reason_ttl'),
-                            archive=0,
                             merge=False,
                         )\
                         .returning(self.tables.scan.id)).fetchone()[0]
@@ -1651,24 +1632,23 @@ insert structures.
     def store_or_merge_host(self, host, merge=False):
         raise NotImplementedError
 
-    def count(self, flt, archive=False, **_):
+    def count(self, flt, **_):
         return self.db.execute(
-            flt.query(select([func.count()]), archive=archive)\
+            flt.query(select([func.count()]))\
             .select_from(flt.select_from)
         ).fetchone()[0]
 
     @staticmethod
-    def _distinct_req(field, flt, archive=False):
+    def _distinct_req(field, flt):
         flt = flt.copy()
         return flt.query(
             select([field.distinct()]).select_from(
                 flt.select_from_base(field.parent)
             ),
-            archive=archive
         )
 
-    def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
-        req = flt.query(select([self.tables.scan.id]), archive=archive)
+    def get_open_port_count(self, flt, limit=None, skip=None):
+        req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -1690,8 +1670,8 @@ insert structures.
             )
         )
 
-    def get_ips_ports(self, flt, archive=False, limit=None, skip=None):
-        req = flt.query(select([self.tables.scan.id]), archive=archive)
+    def get_ips_ports(self, flt, limit=None, skip=None):
+        req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -1724,12 +1704,11 @@ insert structures.
             )
         )
 
-    def getlocations(self, flt, archive=False, limit=None, skip=None):
+    def getlocations(self, flt, limit=None, skip=None):
         req = flt.query(
             select([func.count(self.tables.scan.id),
                     self.tables.scan.info['coordinates'].astext])\
             .where(self.tables.scan.info.has_key('coordinates')),
-            archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -1742,11 +1721,10 @@ insert structures.
                     req.group_by(self.tables.scan.info['coordinates'].astext)
                 ))
 
-    def get(self, flt, archive=False, limit=None, skip=None, sort=None,
+    def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
         req = flt.query(select([self.tables.scan])\
-                        .select_from(flt.select_from),
-                        archive=archive)
+                        .select_from(flt.select_from))
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
@@ -1767,7 +1745,6 @@ insert structures.
                 'state': 'state',
                 'state_reason': 'state_reason',
                 'state_reason_ttl': 'state_reason_ttl',
-                'archive': 'archive',
                 'merge': 'merge',
                 'schema_version': 'schema_version',
             }
@@ -1856,7 +1833,7 @@ insert structures.
             yield rec
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
-                  limit=None, skip=None, least=False, archive=False):
+                  limit=None, skip=None, least=False):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
@@ -1883,7 +1860,6 @@ insert structures.
             flt = ActiveFilter(tables=self.tables)
         base = flt.query(
             select([self.tables.scan.id]).select_from(flt.select_from),
-            archive=archive,
         ).cte("base")
         order = "count" if least else desc("count")
         outputproc = None
@@ -2225,7 +2201,6 @@ insert structures.
                 select([func.count().label("count")] + field[1])\
                 .select_from(self.tables.scan)\
                 .group_by(*field[1]),
-                archive=archive,
             )
         else:
             req = select([func.count().label("count")] + field[1])\
@@ -2249,7 +2224,7 @@ insert structures.
     def getscanids(host):
         return host['scanid']
 
-    def getscan(self, scanid, archive=False):
+    def getscan(self, scanid):
         if isinstance(scanid, basestring) and len(scanid) == 64:
             scanid = utils.decode_hex(scanid)
         return self.db.execute(
@@ -3271,9 +3246,9 @@ class PostgresDBNmap(PostgresDBActive, DBNmap):
     def store_or_merge_host(self, host, merge=False):
         self.store_host(host)
 
-    def get(self, flt, archive=False, limit=None, skip=None, sort=None,
+    def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
-        records = super(PostgresDBNmap, self).get(flt, archive, limit, skip,
+        records = super(PostgresDBNmap, self).get(flt, limit, skip,
                         sort, **kargs)
         for rec in records:
             rec["scanid"] = [
@@ -3283,7 +3258,7 @@ class PostgresDBNmap(PostgresDBActive, DBNmap):
             ]
             yield rec
 
-    def remove(self, host, archive=False):
+    def remove(self, host):
         """Removes the host scan result. "host" must be a record as yielded by
         .get() or a valid ActiveFilter() instance.
 
@@ -3294,8 +3269,7 @@ class PostgresDBNmap(PostgresDBActive, DBNmap):
         if isinstance(host, dict):
             base = [host['_id']]
         else:
-            base = host.query(select([self.tables.scan.id]),
-                              archive=archive).cte("base")
+            base = host.query(select([self.tables.scan.id])).cte("base")
         self.db.execute(delete(self.tables.scan)\
                         .where(self.tables.scan.id.in_(base)))
         # remove unused scan files
@@ -3375,7 +3349,7 @@ class View(Base, Scan_Columns):
     __tablename__ = "view"
     __table_args__ = (
         Index('ix_view_info', 'info', postgresql_using='gin'),
-        Index('ix_view_host_archive', 'addr', 'source', 'archive', unique=True),
+        Index('ix_view_host', 'addr', 'source', unique=True),
         Index('ix_view_time', 'time_start', 'time_stop'),
     )
 
@@ -3419,7 +3393,7 @@ class PostgresDBView(PostgresDBActive, DBView):
     def store_or_merge_host(self, host, merge=True):
         self.store_host(host)
 
-    def remove(self, host, archive=False):
+    def remove(self, host):
         """Removes the host view. "host" must be a record as yielded by
         .get() or a valid ActiveFilter() instance.
 
@@ -3427,8 +3401,7 @@ class PostgresDBView(PostgresDBActive, DBView):
         if isinstance(host, dict):
             base = [host['_id']]
         else:
-            base = host.query(select([self.tables.scan.id]),
-                              archive=archive).cte("base")
+            base = host.query(select([self.tables.scan.id])).cte("base")
         self.db.execute(delete(self.tables.scan)\
                         .where(self.tables.scan.id.in_(base)))
 

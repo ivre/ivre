@@ -477,7 +477,6 @@ class DBActive(DB):
                                     action='store_true')
         self.argparser.add_argument('--torcert', action='store_true')
         self.argparser.add_argument('--sshkey', metavar="FINGERPRINT")
-        self.argparser.add_argument('--archives', action='store_true')
  
     def searchsshkey(self, fingerprint=None, key=None,
                      keytype=None, bits=None, output=None):
@@ -727,8 +726,8 @@ insert structures.
     def store_scan_json(self, fname, filehash=None,
                         needports=False, needopenports=False,
                         categories=None, source=None,
-                        gettoarchive=None, add_addr_infos=True,
-                        force_info=False, merge=False, **_):
+                        add_addr_infos=True, force_info=False,
+                        merge=False, **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -784,7 +783,6 @@ insert structures.
                     if merge and self.merge_host(host):
                         pass
                     else:
-                        self.archive_from_func(host, gettoarchive)
                         self.store_host(host)
         self.stop_store_hosts()
         return True
@@ -798,7 +796,7 @@ insert structures.
         if url == "field":
             return port.get('screendata')
 
-    def migrate_schema(self, archive, version):
+    def migrate_schema(self, version):
         """Implemented in backend-specific classes.
 
         """
@@ -981,13 +979,10 @@ insert structures.
     def store_scan_doc(self, scan):
         pass
 
-    def archive_from_func(self, _ig1, _ig2):
-        pass
-
-    def remove(self, host, archive=False):
+    def remove(self, host):
         raise NotImplementedError
 
-    def get_mean_open_ports(self, flt, archive=False):
+    def get_mean_open_ports(self, flt):
         """This method returns for a specific query `flt` a list of
         dictionary objects whose keys are `id` and `mean`; the value
         for `id` is a backend-dependant and uniquely identifies a
@@ -1009,7 +1004,7 @@ insert structures.
                         (0, 0)
                     )
                 )
-            } for host in self.get(flt, archive=archive, fields=["ports"])
+            } for host in self.get(flt, fields=["ports"])
         ]
         # result = []
         # for host in self.get(flt, fields=["ports"]):
@@ -1438,7 +1433,6 @@ class DBAgent(DB):
                 categories=scan['target_info']['categories'],
                 source=agent['source'],
             )
-            # TODO gettoarchive parameter
             self.incr_scan_results(self.str2id(scanid))
 
     def feed_all(self, masterid):

@@ -262,13 +262,10 @@ def get_init_flt():
 
 
 def flt_from_query(query, base_flt=None):
-    """Return a tuple (`flt`, `archive`, `sortby`, `unused`, `skip`,
+    """Return a tuple (`flt`, `sortby`, `unused`, `skip`,
     `limit`):
 
       - a filter based on the query
-
-      - a boolean (`True` iff the filter should be applied to the
-        archive collection)
 
       - a list of [`key`, `order`] to sort results
 
@@ -281,7 +278,6 @@ def flt_from_query(query, base_flt=None):
     """
     unused = []
     sortby = []
-    archive = False
     skip = 0
     limit = None
     flt = get_init_flt() if base_flt is None else base_flt
@@ -299,8 +295,6 @@ def flt_from_query(query, base_flt=None):
             skip = int(value)
         elif not neg and param == 'limit':
             limit = int(value)
-        elif param == "archives":
-            archive = not neg
         elif param == "id":
             flt = database.flt_and(flt, database.searchobjectid(
                 value.replace('-', ',').split(','),
@@ -701,4 +695,4 @@ def flt_from_query(query, base_flt=None):
                 add_unused(neg, param, value)
         else:
             add_unused(neg, param, value)
-    return flt, archive, sortby, unused, skip, limit
+    return flt, sortby, unused, skip, limit
