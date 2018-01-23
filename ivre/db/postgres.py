@@ -900,6 +900,7 @@ class BulkInsert(object):
         self.queries = {}
 
     def append(self, query):
+        query._set_bind(self.db)
         s_query = str(query)
         params = query.parameters
         query.parameters = None
