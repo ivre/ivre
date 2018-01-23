@@ -1390,6 +1390,9 @@ insert structures.
     def store_host(self, host, merge=False):
         addr = host['addr']
         addr = self.convert_ip(addr)
+        info = host.get('infos')
+        if 'coordinates' in (info or {}).get('loc', {}):
+            info['coordinates'] = info.pop('loc')['coordinates'][::-1]
         source = host.get('source', '')
         if merge:
             insrt = postgresql.insert(Scan)
@@ -1397,7 +1400,7 @@ insert structures.
                 insrt.values(
                     addr=addr,
                     source=source,
-                    info=host.get('infos'),
+                    info=info,
                     time_start=host['starttime'],
                     time_stop=host['endtime'],
                     archive=0,
@@ -1445,7 +1448,7 @@ insert structures.
                                      .values(
                                          addr=addr,
                                          source=source,
-                                         info=host.get('infos'),
+                                         info=info,
                                          time_start=host['starttime'],
                                          time_stop=host['endtime'],
                                          state=host['state'],
@@ -1668,7 +1671,13 @@ insert structures.
              rec["starttime"], rec["endtime"], rec["state"], rec["state_reason"],
              rec["state_reason_ttl"], rec["archive"], rec["merge"],
              rec["schema_version"]) = scanrec
-            if not rec["infos"]:
+            if rec["infos"]:
+                if 'coordinates' in rec['infos']:
+                    rec['infos']['loc'] = {
+                        'type': 'Point',
+                        'coordinates': rec['infos'].pop('coordinates')[::-1],
+                    }
+            else:
                 del rec["infos"]
             categories = select([Association_Scan_Category.category])\
                          .where(Association_Scan_Category.scan == rec["_id"])\

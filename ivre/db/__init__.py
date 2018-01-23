@@ -475,9 +475,7 @@ insert structures.
                     for func in [self.globaldb.data.country_byip,
                                  self.globaldb.data.as_byip,
                                  self.globaldb.data.location_byip]:
-                        data = func(host['addr'])
-                        if data:
-                            host['infos'].update(data)
+                        host['infos'].update(func(host['addr']) or {})
                 if ((not needports or 'ports' in host) and
                     (not needopenports or
                      host.get('openports', {}).get('count'))):

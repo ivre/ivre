@@ -1520,9 +1520,8 @@ class Nmap2DB(NmapHandler):
             for func in [self._db.data.country_byip,
                          self._db.data.as_byip,
                          self._db.data.location_byip]:
-                data = func(self._curhost['addr'])
-                if data:
-                    self._curhost['infos'].update(data)
+                self._curhost['infos'].update(func(self._curhost['addr'])
+                                              or {})
         if self.source:
             self._curhost['source'] = self.source
         # We are about to insert data based on this file, so we want
