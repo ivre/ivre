@@ -716,7 +716,7 @@ is not expected)."""
             if self.find_one(colname_hosts, {'scanid': scanid}) is None:
                 self.db[colname_scans].remove(spec_or_id=scanid)
 
-    def store_or_merge_host(self, host, merge=False):
+    def store_or_merge_host(self, host):
         raise NotImplementedError
 
     def get_mean_open_ports(self, flt):
@@ -2382,7 +2382,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
             update["$set"]["ports"] = doc['ports']
         return update
 
-    def store_or_merge_host(self, host, merge=False):
+    def store_or_merge_host(self, host):
         self.store_host(host)
 
 
@@ -3240,7 +3240,7 @@ class MongoDBView(MongoDBActive, DBView):
                              colname_hosts=colname_hosts, **kargs)
         DBView.__init__(self)
 
-    def store_or_merge_host(self, host, merge=False):
+    def store_or_merge_host(self, host):
         if not self.merge_host(host):
             self.store_host(host)
 

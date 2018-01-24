@@ -251,11 +251,10 @@ class Location_Range(Base):
 # Nmap
 
 class ScanCSVFile(CSVFile):
-    def __init__(self, hostgen, get_context, table, merge):
+    def __init__(self, hostgen, get_context, table):
         self.get_context = get_context
         self.table = table
         self.inp = hostgen
-        self.merge = merge
         self.fdesc = None
     def fixline(self, line):
         for field in ["cpes", "extraports", "openports", "os", "traces"]:
@@ -271,7 +270,6 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        line["merge"] = False
         for field in ["categories"]:
             if field in line:
                 line[field] = "{%s}" % json.dumps(line[field])[1:-1]
@@ -444,7 +442,6 @@ class Scan_Columns(object):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
-    merge = Column(Boolean, nullable=False)
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
 
 class Scan(Base, Scan_Columns):
@@ -1428,7 +1425,7 @@ class PostgresDBActive(PostgresDB):
         else:
             self.db.execute(insrt)
 
-    def store_hosts(self, hosts, merge=False):
+    def store_hosts(self, hosts):
         tmp = self.create_tmp_table(self.tables.scan, extracols=[
             Column("context", String(32)),
             Column("scanfileid", ARRAY(LargeBinary(32))),
@@ -1442,7 +1439,7 @@ class PostgresDBActive(PostgresDB):
             Column("ports", postgresql.JSONB),
             #Column("traceroutes", postgresql.JSONB),
         ])
-        with ScanCSVFile(hosts, self.get_context, tmp, merge) as fdesc:
+        with ScanCSVFile(hosts, self.get_context, tmp) as fdesc:
             self.copy_from(fdesc, tmp.name)
 
     def start_store_hosts(self):
@@ -1469,14 +1466,13 @@ insert structures.
         source = host.get('source', '')
         if merge:
             insrt = postgresql.insert(self.tables.scan, bind=self.db)
-            scanid, scan_tstop, merge = self.db.execute(
+            scanid, scan_tstop = self.db.execute(
                 insrt.values(
                     addr=addr,
                     source=source,
                     info=info,
                     time_start=host['starttime'],
                     time_stop=host['endtime'],
-                    merge=False,
                     **dict(
                         (key, host.get(key)) for key in ['state', 'state_reason',
                                                          'state_reason_ttl']
@@ -1494,12 +1490,10 @@ insert structures.
                             self.tables.scan.time_stop,
                             insrt.excluded.time_stop,
                         ),
-                        'merge': True,
                     },
                 )\
                 .returning(self.tables.scan.id,
-                           self.tables.scan.time_stop,
-                           self.tables.scan.merge)).fetchone()
+                           self.tables.scan.time_stop)).fetchone()
             if merge:
                 # Test should be ==, using <= in case of rounding
                 # issues.
@@ -1517,7 +1511,6 @@ insert structures.
                             state=host.get('state'),
                             state_reason=host.get('state_reason'),
                             state_reason_ttl=host.get('state_reason_ttl'),
-                            merge=False,
                         )\
                         .returning(self.tables.scan.id)).fetchone()[0]
         for category in host.get("categories", []):
@@ -1629,7 +1622,7 @@ insert structures.
         utils.LOGGER.debug("HOST STORED: %r", scanid)
         return scanid
 
-    def store_or_merge_host(self, host, merge=False):
+    def store_or_merge_host(self, host):
         raise NotImplementedError
 
     def count(self, flt, **_):
@@ -1745,7 +1738,6 @@ insert structures.
                 'state': 'state',
                 'state_reason': 'state_reason',
                 'state_reason_ttl': 'state_reason_ttl',
-                'merge': 'merge',
                 'schema_version': 'schema_version',
             }
             for oldkey, newkey in viewitems(correspondance):
@@ -3235,15 +3227,15 @@ class PostgresDBNmap(PostgresDBActive, DBNmap):
         self.flt_empty = NmapFilter(tables = self.tables)
         self.bulk = None
 
-    def store_host(self, host, merge=False):
-        scanid = super(PostgresDBNmap, self).store_host(host, merge)
+    def store_host(self, host):
+        scanid = super(PostgresDBNmap, self).store_host(host, merge=False)
         insrt = postgresql.insert(self.tables.association_scan_scanfile)
         self.db.execute(insrt\
                         .values(scan=scanid,
                                 scan_file=utils.decode_hex(host['scanid']))\
                         .on_conflict_do_nothing())
 
-    def store_or_merge_host(self, host, merge=False):
+    def store_or_merge_host(self, host):
         self.store_host(host)
 
     def get(self, flt, limit=None, skip=None, sort=None,
@@ -3385,12 +3377,12 @@ class PostgresDBView(PostgresDBActive, DBView):
         self.flt_empty = ViewFilter(tables = self.tables)
         self.bulk = None
 
-    def store_host(self, host, merge=True):
+    def store_host(self, host):
         self.start_store_hosts()
-        super(PostgresDBView, self).store_host(host, merge)
+        super(PostgresDBView, self).store_host(host, merge=True)
         self.stop_store_hosts()
 
-    def store_or_merge_host(self, host, merge=True):
+    def store_or_merge_host(self, host):
         self.store_host(host)
 
     def remove(self, host):

@@ -947,10 +947,6 @@ class NmapHandler(ContentHandler):
                                      "this point (got %r)", self._curscan)
             self._curscan = dict(attrs)
             self.scanner = self._curscan.get("scanner", self.scanner)
-            if self.scanner == "masscan":
-                # We need to force "merge" mode due to the nature of
-                # Masscan results
-                self.merge = True
             self._curscan['_id'] = self._filehash
         elif name == 'scaninfo' and self._curscan is not None:
             self._addscaninfo(dict(attrs))
@@ -1468,8 +1464,7 @@ class Nmap2DB(NmapHandler):
     """Specific handler for MongoDB backend."""
 
     def __init__(self, fname, categories=None, source=None,
-                 add_addr_infos=True, merge=False,
-                 **kargs):
+                 add_addr_infos=True, **kargs):
         from ivre import db
         self._db = db.db
         if categories is None:
@@ -1478,10 +1473,8 @@ class Nmap2DB(NmapHandler):
             self.categories = categories
         self._add_addr_infos = add_addr_infos
         self.source = source
-        self.merge = merge
         NmapHandler.__init__(self, fname, categories=categories,
                              source=source, add_addr_infos=add_addr_infos,
-                             merge=merge,
                              **kargs)
 
     def _to_binary(self, data):
@@ -1507,7 +1500,7 @@ class Nmap2DB(NmapHandler):
         if not self.scan_doc_saved:
             self.scan_doc_saved = True
             self._storescan()
-        self._db.nmap.store_or_merge_host(self._curhost, merge=self.merge)
+        self._db.nmap.store_or_merge_host(self._curhost)
 
     def _storescan(self):
         ident = self._db.nmap.store_scan_doc(self._curscan)

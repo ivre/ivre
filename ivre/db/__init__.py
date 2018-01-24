@@ -727,7 +727,7 @@ insert structures.
                         needports=False, needopenports=False,
                         categories=None, source=None,
                         add_addr_infos=True, force_info=False,
-                        merge=False, **_):
+                        **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -780,10 +780,7 @@ insert structures.
                     if not scan_doc_saved:
                         self.store_scan_doc({'_id': filehash})
                         scan_doc_saved = True
-                    if merge and self.merge_host(host):
-                        pass
-                    else:
-                        self.store_host(host)
+                    self.store_host(host)
         self.stop_store_hosts()
         return True
 
