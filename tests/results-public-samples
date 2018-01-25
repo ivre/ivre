@@ -88,6 +88,7 @@ nmap_top_version_http_apache = 'http / Apache httpd / None: 172\nhttp / Apache h
 nmap_ssh_top_port_api = [{'count': 1562, '_id': (u'tcp', 22)}, {'count': 73, '_id': (u'tcp', 2222)}, {'count': 58, '_id': (u'tcp', 10001)}, {'count': 54, '_id': (u'tcp', 10002)}, {'count': 51, '_id': (u'tcp', 10003)}, {'count': 49, '_id': (u'tcp', 23)}, {'count': 46, '_id': (u'tcp', 10004)}, {'count': 31, '_id': (u'tcp', 8022)}, {'count': 23, '_id': (u'tcp', 10009)}, {'count': 22, '_id': (u'tcp', 10010)}]
 nmap_ssh_top_port_cli = ['tcp / 22: 1562', 'tcp / 2222: 73', 'tcp / 10001: 58', 'tcp / 10002: 54', 'tcp / 10003: 51', 'tcp / 23: 49', 'tcp / 10004: 46', 'tcp / 8022: 31', 'tcp / 10009: 23', 'tcp / 10010: 22']
 nmap_ssh_top_port_cgi = [{u'value': 1562, u'label': [u'tcp', 22]}, {u'value': 73, u'label': [u'tcp', 2222]}, {u'value': 58, u'label': [u'tcp', 10001]}, {u'value': 54, u'label': [u'tcp', 10002]}, {u'value': 51, u'label': [u'tcp', 10003]}, {u'value': 49, u'label': [u'tcp', 23]}, {u'value': 46, u'label': [u'tcp', 10004]}, {u'value': 31, u'label': [u'tcp', 8022]}, {u'value': 23, u'label': [u'tcp', 10009]}, {u'value': 22, u'label': [u'tcp', 10010]}]
+nmap_location_count = 2537
 passive_count = 119
 passive_torcert_count = 0
 passive_javaua_count = 0

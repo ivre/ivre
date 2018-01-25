@@ -1014,7 +1014,8 @@ have no effect if it is not expected)."""
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
         ]
-        return col.aggregate(pipeline, cursor={})
+        return ({'_id': tuple(rec['_id']), 'count': rec['count']}
+                for rec in col.aggregate(pipeline, cursor={}))
 
     def is_scan_present(self, scanid):
         for colname in [self.colname_scans, self.colname_oldscans]:
