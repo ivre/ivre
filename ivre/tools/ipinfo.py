@@ -70,7 +70,12 @@ def disp_rec(rec):
         print("(%d time%s)" % (rec['count'], rec['count'] > 1 and 's' or ''), end=' ')
     if 'firstseen' in rec and 'lastseen' in rec:
         if isinstance(rec['firstseen'], datetime.datetime):
-            print(rec['firstseen'], '-', rec['lastseen'], end=' ')
+            print(
+                rec['firstseen'].replace(microsecond=0),
+                '-',
+                rec['lastseen'].replace(microsecond=0),
+                end=' '
+            )
         else:
             print(datetime.datetime.fromtimestamp(int(rec['firstseen'])), '-', end=' ')
             print(datetime.datetime.fromtimestamp(int(rec['lastseen'])), end=' ')
