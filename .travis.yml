@@ -2,6 +2,8 @@ sudo: false
 dist: trusty
 
 env:
+  # Elasticsearch 6.1.2
+  - DB=elastic ELASTIC_VERSION=6.1.2
   # PostgreSQL 10.1, 9.6.6, 9.5.10
   - DB=postgres POSTGRES_VERSION=9.5.10
   - DB=postgres POSTGRES_VERSION=9.6.6
@@ -29,13 +31,15 @@ python:
 
 # PhantomJS is supposed to be installed
 # (https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-PhantomJS),
-# but we need tesseract
+# but we need tesseract. Java will only be used with Elasticsearch,
+# but we'd have to explicit the test matrix which would be huge.
 addons:
   apt:
     packages:
     - tesseract-ocr
     - tesseract-ocr-osd
     - tesseract-ocr-eng
+    - oracle-java8-installer
 
 install:
   - source ./.travis/install_${DB}.sh
@@ -53,10 +57,10 @@ install:
 before_script:
   # display version
   - ivre version
-  # init DB
-  - ivre ipinfo --init < /dev/null
-  - ivre scancli --init < /dev/null
-  - ivre ipdata --init < /dev/null
+  # init DB - may fail, depending on the features supported by the backend
+  - ivre ipinfo --init < /dev/null || true
+  - ivre scancli --init < /dev/null || true
+  - ivre ipdata --init < /dev/null || true
   - cat .travis/ivre.conf >> ~/.ivre.conf
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f & Bro (.tar files)
