@@ -1793,6 +1793,7 @@ DATABASES = {
     # **excluded** tests
     #"mongo": ["flow"],
     "postgres": ["scans"],
+    "elastic": ["passive", "data", "scans"],
 }
 
 

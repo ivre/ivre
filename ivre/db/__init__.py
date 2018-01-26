@@ -1635,8 +1635,14 @@ def _mongodb_url2dbinfos(url):
             (hostname, dbname),
             params)
 
+
 def _neo4j_url2dbinfos(url):
     return (url.scheme, (url._replace(scheme='http').geturl(),), {})
+
+
+def _elastic_url2dbinfos(url):
+    return (url.scheme, (url.netloc.split(','),), {})
+
 
 class MetaDB(object):
     db_types = {
@@ -1653,6 +1659,7 @@ class MetaDB(object):
     extract_dbinfos = {
         "mongodb": _mongodb_url2dbinfos,
         "neo4j": _neo4j_url2dbinfos,
+        "elastic": _elastic_url2dbinfos,
     }
 
     @classmethod
@@ -1689,6 +1696,12 @@ class MetaDB(object):
             self.db_types["nmap"]["postgresql"] = PostgresDBNmap
             self.db_types["data"]["postgresql"] = PostgresDBData
             self.db_types["passive"]["postgresql"] = PostgresDBPassive
+        try:
+            from ivre.db.elastic import ElasticDBNmap
+        except ImportError:
+            pass
+        else:
+            self.db_types["nmap"]["elastic"] = ElasticDBNmap
         if urls is None:
             urls = {}
         for datatype, dbtypes in viewitems(self.db_types):
@@ -1703,6 +1716,7 @@ class MetaDB(object):
                         datatype,
                         dbtypes[spurlscheme](*spurlargs, **spurlkargs))
                     getattr(self, datatype).globaldb = self
+
 
 db = MetaDB(
     url=config.DB if hasattr(config, "DB") else None,

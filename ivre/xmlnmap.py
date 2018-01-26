@@ -1489,7 +1489,7 @@ class Nmap2Txt(NmapHandler):
 
 class Nmap2DB(NmapHandler):
 
-    """Specific handler for MongoDB backend."""
+    """Generic handler for DB backends."""
 
     def __init__(self, fname, categories=None, source=None,
                  gettoarchive=None, add_addr_infos=True, merge=False,
@@ -1546,6 +1546,17 @@ class Nmap2DB(NmapHandler):
 
 
 class Nmap2Posgres(Nmap2DB):
+
+    @staticmethod
+    def _to_binary(data):
+        return utils.encode_b64(data).decode()
+
+    @staticmethod
+    def _from_binary(data):
+        return utils.decode_b64(data.encode())
+
+
+class Nmap2Elastic(Nmap2DB):
 
     @staticmethod
     def _to_binary(data):
