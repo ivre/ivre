@@ -175,6 +175,7 @@ def _disp_recs_tailf(flt, field):
             else:
                 print(r['targetval'], end=' ')
         disp_rec(r)
+        sys.stdout.flush()
     # 2. loop
     try:
         while True:
@@ -195,6 +196,7 @@ def _disp_recs_tailf(flt, field):
                     else:
                         print(r['targetval'], end=' ')
                 disp_rec(r)
+                sys.stdout.flush()
     except KeyboardInterrupt:
         pass
 
