@@ -2497,14 +2497,14 @@ class PassiveFilter(Filter):
     def select_from(self):
         if self.location is not None:
             return [
-                join(Passive, Host),
+                join(Host, Passive),
                 join(join(Location, Country), Location_Range)
                 if self.uses_country else
                 join(Location, Location_Range),
             ]
         if self.aut_sys is not None:
-            return [join(Passive, Host), join(AS, AS_Range)]
-        return join(Passive, Host)
+            return [join(Host, Passive), join(AS, AS_Range)]
+        return join(Host, Passive)
     def query(self, req):
         if self.main is not None:
             req = req.where(self.main)

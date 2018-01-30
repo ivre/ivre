@@ -31,6 +31,7 @@ import json
 import os
 import random
 import re
+from select import select
 import shutil
 import signal
 import socket
@@ -1270,6 +1271,43 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(ret, 0)
         count = sum(1 for _ in out.splitlines())
         self.check_value("passive_iphost_count_com", count)
+
+        for tail in ["tail", "tailnew"]:
+            ret, out, _ = RUN(["ivre", "ipinfo", "--%s" % tail, "1"])
+            self.assertEqual(len(out.splitlines()), 1)
+            self.assertEqual(ret, 0)
+
+        def alarm_handler(signum, stacktrace):
+            assert signum == signal.SIGALRM
+            raise Exception("Alarm")
+
+        old_handler = signal.signal(signal.SIGALRM, alarm_handler)
+
+        for tail in ["tailf", "tailfnew"]:
+            proc = RUN_ITER(['ivre', 'ipinfo', '--%s' % tail],
+                            stderr=None)
+            out = []
+            old_alarm = signal.alarm(30)
+            # "for i, line in enumerate(proc.stdout)" won't work.
+            # See https://stackoverflow.com/a/26761671
+            for line in iter(proc.stdout.readline, b""):
+                if line[:1] == b'\t':
+                    continue
+                out.append(line)
+                if len(out) == 10:
+                    break
+            signal.alarm(20)
+            self.assertEqual(len(out), 10)
+            self.assertFalse(select([proc.stdout], [], [], 10)[0])
+            #proc.send_signal(signal.SIGINT)
+            #ret = proc.wait()
+            #self.assertEqual(ret, 0)
+            # XXX Travis CI seems broken here
+            proc.kill()
+            proc.wait()
+            signal.alarm(old_alarm)
+        
+        signal.signal(signal.SIGALRM, old_handler)
 
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                              stdin=open(os.devnull))[0], 0)
