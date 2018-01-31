@@ -107,6 +107,7 @@ ALIASES_TABLE_ELEMS = {
     "rdp-vuln-ms12-020": "vulns",
     "realvnc-auth-bypass": "vulns",
     "rmi-vuln-classloader": "vulns",
+    "rsa-vuln-roca": "vulns",
     "samba-vuln-cve-2012-1182": "vulns",
     "smb2-vuln-uptime": "vulns",
     "smb-double-pulsar-backdoor": "vulns",
