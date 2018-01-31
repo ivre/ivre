@@ -47,7 +47,9 @@ IVRE relies on:
       [psycopg2](http://initd.org/psycopg/) to use the
       **experimental** PostgreSQL backend.
 
-  * [Nmap](http://nmap.org/)
+  * [Nmap](http://nmap.org/) version 7.25BETA2 minimum (actually,
+    earlier versions can be used by setting `script_timeout` to `None`
+    in each scan template).
 
   * optionnaly [ZMap](https://zmap.io/) and/or
     [Masscan](https://github.com/robertdavidgraham/masscan)
@@ -118,9 +120,9 @@ recon, you can skip this part.
 
 ## Using Bro ##
 
-You need to run bro (2.3 minimum) with the option `-b` and the
-location of the `passiverecon.bro` file. If you want to run it on the
-`eth0` interface, for example, run:
+You need to run bro (2.3 minimum, regularly tested with 2.5.2) with
+the option `-b` and the location of the `passiverecon.bro` file. If
+you want to run it on the `eth0` interface, for example, run:
 
     # mkdir logs
     # LOG_PATH=logs/passiverecon \
