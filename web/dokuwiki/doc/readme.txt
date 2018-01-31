@@ -23,7 +23,7 @@ IVRE relies on:
     * optionally [[http://www.pythonware.com/products/pil/|PIL]], to trim screenshots.
     * optionally [[http://py2neo.org/v3/|py2neo]] to use the flow module, version 3 minimum.
     * optionally [[http://www.sqlalchemy.org/|sqlalchemy]] and [[http://initd.org/psycopg/|psycopg2]] to use the **experimental** PostgreSQL backend.
-  * [[http://nmap.org/|Nmap]]
+  * [[http://nmap.org/|Nmap]] version 7.25BETA2 minimum (actually, earlier versions can be used by setting ''%%script_timeout%%'' to ''%%None%%'' in each scan template).
   * optionnaly [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
   * [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://qosient.com/argus/|Argus]], [[http://nfdump.sourceforge.net/|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.12, 3.0.15, 3.2.18, 3.4.10, 3.6.2 and 3.7.1).
@@ -55,7 +55,7 @@ The following steps will show some examples of **passive** network recon with IV
 
 ===== Using Bro =====
 
-You need to run bro (2.3 minimum) with the option ''%%-b%%'' and the location of the ''%%passiverecon.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run:
+You need to run bro (2.3 minimum, regularly tested with 2.5.2) with the option ''%%-b%%'' and the location of the ''%%passiverecon.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run:
 
 <code>
 # mkdir logs

@@ -508,8 +508,17 @@ def main():
                                           topnbr=topnbr, least=least,
                                           archive=args.archives):
             if isinstance(entry['_id'], (list, tuple)):
+                sep = ' / ' if isinstance(entry['_id'], tuple) else ', '
                 if entry['_id']:
-                    entry['_id'] = ' / '.join(str(elt) for elt in entry['_id'])
+                    if isinstance(entry['_id'][0], (list, tuple)):
+                        entry['_id'] = sep.join(
+                            '/'.join(str(subelt) for subelt in elt)
+                            if elt else "None"
+                            for elt in entry['_id']
+                        )
+                    else:
+                        entry['_id'] = sep.join(str(elt)
+                                                for elt in entry['_id'])
                 else:
                     entry['_id'] = "None"
             print("%(_id)s: %(count)d" % entry)
