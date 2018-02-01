@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains functions used for passive recon.
 """
@@ -248,6 +248,13 @@ def _getinfos_http_client_authorization(spec):
     return res
 
 
+def _getinfos_http_server(spec):
+    header = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
+    banner = b"HTTP/1.1 200 OK\r\nServer: " + header + b"\r\n\r\n"
+    res = _getinfos_from_banner(banner, probe="GetRequest")
+    return res
+
+
 def _getinfos_dns(spec):
     """Extract domain names in an handy-to-index-and-query form."""
     infos = {}
@@ -277,6 +284,7 @@ def _getinfos_dns(spec):
     if fullinfos:
         res['fullinfos'] = fullinfos
     return res
+
 
 _CERTINFOS = re.compile(
     b'\n *'
@@ -328,6 +336,41 @@ def _getinfos_cert(spec):
         res['fullinfos'] = fullinfos
     return res
 
+
+def _fix_infos_size(spec):
+    for field in list(spec.get("infos", {})):
+        value = spec["infos"]
+        if len(value) > utils.MAXVALLEN:
+            spec.setdefault("fullinfos", {})[field] = value
+            spec["infos"][field] = value[:utils.MAXVALLEN]
+
+
+def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
+    infos = utils.match_nmap_svc_fp(banner, proto=proto, probe=probe)
+    if not infos:
+        return {}
+    res = {'infos': infos}
+    _fix_infos_size(res)
+    return res
+
+
+def _getinfos_tcp_srv_banner(spec):
+    """Extract info from a TCP server banner using Nmap database.
+
+    """
+    return _getinfos_from_banner(utils.nmap_decode_data(
+        spec.get('fullvalue', spec['value'])
+    ))
+
+
+def _getinfos_ssh_server(spec):
+    """Convert an SSH server banner to a TCP banner and use
+_getinfos_tcp_srv_banner()"""
+    return _getinfos_from_banner(utils.nmap_decode_data(
+        spec.get('fullvalue', spec['value'])
+    ) + b'\n')
+
+
 _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
@@ -335,8 +378,12 @@ _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER_SERVER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
      'PROXY-AUTHORIZATION': _getinfos_http_client_authorization},
+    'HTTP_SERVER_HEADER':
+    {'SERVER': _getinfos_http_server},
     'DNS_ANSWER': _getinfos_dns,
     'SSL_SERVER': _getinfos_cert,
+    'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,
+    'SSH_SERVER': _getinfos_ssh_server,
 }
 
 

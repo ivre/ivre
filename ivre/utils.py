@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -942,6 +942,7 @@ def find_ike_vendor_id(vendorid):
 
 
 _REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}
+_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t'}
 
 
 def nmap_encode_data(data):
@@ -950,6 +951,32 @@ def nmap_encode_data(data):
         '\\x%02x' % ord(d)
         for d in (data[i:i+1] for i in range(len(data)))
     )
+
+
+def nmap_decode_data(data):
+    data = data.split('\\')
+    result = [data.pop(0).encode()]
+    while data:
+        cur = data.pop(0)
+        if not cur:
+            # empty chunk means escaped backslash
+            result.extend([b'\\', data.pop(0).encode()])
+            continue
+        if cur[:1] in _RAWS:
+            result.extend([_RAWS[cur[:1]], cur[1:].encode()])
+            continue
+        if cur.startswith('x'):
+            try:
+                byte = bytes([int(cur[1:3], 16)])
+            except ValueError:
+                LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + cur[:3])
+                result.append(cur.encode())
+            else:
+                result.extend([byte, cur[3:].encode()])
+            continue
+        LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + cur)
+        result.append(cur.encode())
+    return b''.join(result)
 
 
 def nmap_svc_fp_format_data(data, match):
