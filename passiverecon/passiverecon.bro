@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ export {
 		FTP_SERVER,
 		POP_CLIENT,
 		POP_SERVER,
+		TCP_SERVER_BANNER,
 	};
 
 	type Info: record {
@@ -131,6 +132,10 @@ event bro_init()
 	filter$interv = getenv("LOG_ROTATE") == "" ? Log::default_rotation_interval : double_to_interval(to_double(getenv("LOG_ROTATE")));
 	Log::add_filter(PassiveRecon::LOG, filter);
 	}
+
+export {
+	redef tcp_content_deliver_all_resp = T;
+}
 
 event http_header(c: connection, is_orig: bool, name: string, value: string)
 	{
@@ -287,5 +292,17 @@ event pop3_request(c: connection, is_orig: bool, command: string, arg: string)
 					       $recon_type=POP_SERVER,
 					       $source=command,
 					       $value=arg]);
+		}
+	}
+
+event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string)
+	{
+	if (! is_orig && seq == 1 && c$orig$num_pkts == 2)
+		{
+		Log::write(PassiveRecon::LOG, [$ts=c$start_time,
+					       $host=c$id$resp_h,
+					       $srvport=c$id$resp_p,
+					       $recon_type=TCP_SERVER_BANNER,
+					       $value=contents]);
 		}
 	}
