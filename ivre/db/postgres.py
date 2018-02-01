@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -3032,6 +3032,13 @@ passive table."""
             (Passive.recontype == 'SSL_SERVER') &
             (Passive.source == 'cert') &
             (cls._searchstring_re(Passive.moreinfo.op('->>')('issuer'), expr))
+        ))
+
+    @classmethod
+    def searchtcpsrvbanner(cls, banner):
+        return PassiveFilter(main=(
+            (Passive.recontype == 'TCP_SERVER_BANNER') &
+            (cls._searchstring_re(Passive.value, banner))
         ))
 
     @classmethod

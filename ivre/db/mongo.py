@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -2954,6 +2954,10 @@ setting values according to the keyword arguments.
     @staticmethod
     def searchpopauth():
         return {'recontype': {'$in': ['POP_CLIENT', 'POP_SERVER']}}
+
+    @staticmethod
+    def searchtcpsrvbanner(banner):
+        return {'recontype': 'TCP_SERVER_BANNER', 'value': banner}
 
     def searchcountry(self, code, neg=False):
         return {'addr': {'$nin' if neg else '$in':
