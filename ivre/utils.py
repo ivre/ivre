@@ -70,6 +70,17 @@ LOGGER = logging.getLogger("ivre")
 REGEXP_T = type(re.compile(''))
 
 
+NMAP_FINGERPRINT_IVRE_KEY = { 
+    # TODO: cpe 
+    'd': 'service_devicetype', 
+    'h': 'service_hostname', 
+    'i': 'service_extrainfo', 
+    'o': 'service_ostype', 
+    'p': 'service_product', 
+    'v': 'service_version', 
+} 
+
+
 logging.basicConfig()
 
 
@@ -845,6 +856,34 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return _NMAP_PROBES[proto][probe]
+
+
+def match_nmap_svc_fp(output, proto="tcp", probe="NULL"):
+    """Take output from a given probe and return the closest nmap
+    fingerprint."""
+    softmatch = {}
+    result = {}
+    try:
+        fingerprints = get_nmap_svc_fp(
+            proto=proto,
+            probe=probe,
+        )['fp']
+    except KeyError:
+        pass
+    else:
+        for service, fingerprint in fingerprints:
+            match = fingerprint['m'][0].search(output)
+            if match is not None:
+                doc = softmatch if fingerprint['soft'] else result
+                doc['service_name'] = service
+                for elt, key in viewitems(NMAP_FINGERPRINT_IVRE_KEY):
+                    if elt in fingerprint:
+                        doc[key] = nmap_svc_fp_format_data(
+                            fingerprint[elt][0], match
+                        )
+                if not fingerprint['soft']:
+                    return result
+    return softmatch
 
 
 _IKESCAN_VENDOR_IDS = {}
