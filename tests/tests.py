@@ -1342,7 +1342,7 @@ which `predicate()` is True, given `webflt`.
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
                  os.path.join(
-                     ivre.config.guess_prefix('passiverecon'),
+                     ivre.config.guess_prefix('bro'),
                      'passiverecon.bro')],
                 env=broenv)
             broprocess.wait()

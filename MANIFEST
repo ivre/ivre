@@ -3,6 +3,8 @@ setup.cfg
 setup.py
 bash_completion/ivre
 bin/ivre
+bro/passiverecon.bro
+bro/passiverecon2db-ignore.example
 bro/flow/__load__.bro
 bro/flow/dhcp_names.bro
 bro/flow/rpc.bro
@@ -103,8 +105,6 @@ nmap_scripts/rtsp-screenshot.nse
 nmap_scripts/vnc-screenshot.nse
 nmap_scripts/x11-screenshot.nse
 nmap_scripts/patches/rtsp-url-brute.patch
-passiverecon/passiverecon.bro
-passiverecon/passiverecon2db-ignore.example
 web/dokuwiki/backlinks.patch
 web/dokuwiki/doc/agent.txt
 web/dokuwiki/doc/docker.txt

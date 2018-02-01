@@ -136,9 +136,9 @@ specialized scripts.
               'ivre/web'],
     scripts=['bin/ivre'],
     data_files=[
-        ('share/ivre/passiverecon',
-         ['passiverecon/passiverecon.bro',
-          'passiverecon/passiverecon2db-ignore.example']),
+        ('share/ivre/bro',
+         ['bro/passiverecon.bro',
+          'bro/passiverecon2db-ignore.example']),
         ('share/ivre/bro/flow',
          ['bro/flow/__load__.bro',
           'bro/flow/dhcp_names.bro',

@@ -123,18 +123,21 @@ recon, you can skip this part.
 
 You need to run bro (2.3 minimum, regularly tested with 2.5.2) with
 the option `-b` and the location of the `passiverecon.bro` file. If
-you want to run it on the `eth0` interface, for example, run:
+you want to run it on the `eth0` interface, for example, run (replace
+`/usr/share/ivre` by the appropriate location; use `python -c 'import
+ivre.config; print(ivre.config.guess_prefix())'` if you cannot find
+it):
 
     # mkdir logs
     # LOG_PATH=logs/passiverecon \
-    > bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -i eth0
+    > bro -b /usr/share/ivre/bro/passiverecon.bro -i eth0
 
 If you want to run it on the `capture` file (`capture` needs to a PCAP
 file), run:
 
     $ mkdir logs
     $ LOG_PATH=logs/passiverecon \
-    > bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro -r capture
+    > bro -b /usr/share/ivre/bro/passiverecon.bro -r capture
 
 This will produce log files in the `logs` directory. You need to run a
 `ivre passivereconworker` to process these files. You can try:
@@ -147,7 +150,7 @@ stop gently (as soon as it has finished to process the current file).
 You can also send the data from `bro` to the database without using
 intermediate files:
 
-    $ bro -b /usr/local/share/ivre/passiverecon/passiverecon.bro [option] \
+    $ bro -b /usr/share/ivre/bro/passiverecon.bro [option] \
     > | ivre passiverecon2db
 
 ## Using p0f ##
