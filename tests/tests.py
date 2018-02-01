@@ -1596,7 +1596,8 @@ which `predicate()` is True, given `webflt`.
 
         for tail in ["tail", "tailnew"]:
             ret, out, _ = RUN(["ivre", "ipinfo", "--%s" % tail, "1"])
-            self.assertEqual(len(out.splitlines()), 1)
+            self.assertEqual(sum(1 for line in out.splitlines()
+                                 if line[:1] != b"\t"), 1)
             self.assertEqual(ret, 0)
 
         def alarm_handler(signum, stacktrace):
