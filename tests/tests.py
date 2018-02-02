@@ -1309,6 +1309,16 @@ class IvreTests(unittest.TestCase):
         
         signal.signal(signal.SIGALRM, old_handler)
 
+        if DATABASE == "mongo":
+            # Check no None value can actually exist in DB
+            self.assertFalse(None in (
+                rec['source'] for rec in ivre.db.db.passive.get(
+                    ivre.db.db.passive.flt_empty,
+                    fields=['source'],
+                )
+                if 'source' in rec
+            ))
+
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
                              stdin=open(os.devnull))[0], 0)
         # Clean
