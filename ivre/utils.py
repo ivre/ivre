@@ -1026,7 +1026,6 @@ def num2readable(value):
     return '%d%s' % (value / idx, unit)
 
 
-
 _DECODE_HEX = codecs.getdecoder("hex_codec")
 _ENCODE_HEX = codecs.getencoder("hex_codec")
 _DECODE_B64 = codecs.getdecoder("base64_codec")
@@ -1047,3 +1046,7 @@ def decode_b64(value):
 
 def encode_b64(value):
     return _ENCODE_B64(value)[0].replace(b'\n', b'')
+
+
+def printable(string):
+    return "".join(c if ' ' <= c <= '~' else '.' for c in string)
