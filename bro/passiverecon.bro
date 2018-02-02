@@ -25,11 +25,12 @@
 @load base/protocols/ftp
 @load base/protocols/pop3
 
-redef enable_syslog = F;
-
 module PassiveRecon;
 
 export {
+	redef enable_syslog = F;
+	redef tcp_content_deliver_all_resp = T;
+
 	redef enum Log::ID += { LOG };
 
 	redef enum Notice::Type += {
@@ -43,6 +44,9 @@ export {
 		HTTP_CLIENT_HEADER_SERVER,
 		SSH_CLIENT,
 		SSH_SERVER,
+		SSH_CLIENT_ALGOS,
+		SSH_SERVER_ALGOS,
+		SSH_SERVER_HOSTKEY,
 		SSL_SERVER,
 		DNS_ANSWER,
 		FTP_CLIENT,
@@ -50,6 +54,7 @@ export {
 		POP_CLIENT,
 		POP_SERVER,
 		TCP_SERVER_BANNER,
+		P0F,
 	};
 
 	type Info: record {
@@ -133,10 +138,6 @@ event bro_init()
 	Log::add_filter(PassiveRecon::LOG, filter);
 	}
 
-export {
-	redef tcp_content_deliver_all_resp = T;
-}
-
 event http_header(c: connection, is_orig: bool, name: string, value: string)
 	{
 	if ( is_orig )
@@ -191,7 +192,112 @@ event ssh_server_version(c: connection, version: string)
 				       $host=c$id$resp_h,
 				       $srvport=c$id$resp_p,
 				       $recon_type=SSH_SERVER,
-				       $value=version]);		
+				       $value=version]);
+	}
+
+event ssh1_server_host_key(c: connection, p: string, e: string)
+	{
+	Log::write(PassiveRecon::LOG, [$ts=c$start_time,
+				       $host=c$id$resp_h,
+				       $srvport=c$id$resp_p,
+				       $recon_type=SSH_SERVER_HOSTKEY,
+				       $source="SSHv1",
+				       $value=fmt("%s %s", p, e)]);
+	}
+
+event ssh2_server_host_key(c: connection, key: string)
+	{
+	Log::write(PassiveRecon::LOG, [$ts=c$start_time,
+				       $host=c$id$resp_h,
+				       $srvport=c$id$resp_p,
+				       $recon_type=SSH_SERVER_HOSTKEY,
+				       $source="SSHv2",
+				       $value=key]);
+	}
+
+event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabilities)
+	{
+	if ( capabilities$is_server )
+		{
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$resp_h,
+			$srvport=c$id$resp_p,
+			$recon_type=SSH_SERVER_ALGOS,
+			$source="kex_algorithms",
+			$value=join_string_vec(capabilities$kex_algorithms, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$resp_h,
+			$srvport=c$id$resp_p,
+			$recon_type=SSH_SERVER_ALGOS,
+			$source="server_host_key_algorithms",
+			$value=join_string_vec(capabilities$server_host_key_algorithms, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$resp_h,
+			$srvport=c$id$resp_p,
+			$recon_type=SSH_SERVER_ALGOS,
+			$source="encryption_algorithms",
+			$value=join_string_vec(capabilities$encryption_algorithms$server_to_client, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$resp_h,
+			$srvport=c$id$resp_p,
+			$recon_type=SSH_SERVER_ALGOS,
+			$source="mac_algorithms",
+			$value=join_string_vec(capabilities$mac_algorithms$server_to_client, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$resp_h,
+			$srvport=c$id$resp_p,
+			$recon_type=SSH_SERVER_ALGOS,
+			$source="compression_algorithms",
+			$value=join_string_vec(capabilities$compression_algorithms$server_to_client, " ")
+		]);
+		}
+	else
+		{
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$orig_h,
+			$recon_type=SSH_CLIENT_ALGOS,
+			$source="kex_algorithms",
+			$value=join_string_vec(capabilities$kex_algorithms, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$orig_h,
+			$recon_type=SSH_CLIENT_ALGOS,
+			$source="server_host_key_algorithms",
+			$value=join_string_vec(capabilities$server_host_key_algorithms, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$orig_h,
+			$recon_type=SSH_CLIENT_ALGOS,
+			$source="encryption_algorithms",
+			$value=join_string_vec(capabilities$encryption_algorithms$client_to_server, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$orig_h,
+			$recon_type=SSH_CLIENT_ALGOS,
+			$source="mac_algorithms",
+			$value=join_string_vec(capabilities$mac_algorithms$client_to_server, " ")
+		]);
+		Log::write(PassiveRecon::LOG, [
+			$ts=c$start_time,
+			$host=c$id$orig_h,
+			$recon_type=SSH_CLIENT_ALGOS,
+			$source="compression_algorithms",
+			$value=join_string_vec(capabilities$compression_algorithms$client_to_server, " ")
+		]);
+		}
 	}
 
 event ssl_established(c: connection)
@@ -249,7 +355,7 @@ event dns_NS_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string)
 	}
 
 event dns_MX_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string,
-                   preference: count)
+		   preference: count)
 	{
 	Log::write(PassiveRecon::LOG, [$ts=c$start_time,
 				       $targetval=name,
@@ -304,5 +410,17 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string)
 					       $srvport=c$id$resp_p,
 					       $recon_type=TCP_SERVER_BANNER,
 					       $value=contents]);
+		}
+	}
+
+event OS_version_found(c: connection, host: addr, OS: OS_version)
+	{
+	if ( OS$match_type == direct_inference )
+		{
+		Log::write(PassiveRecon::LOG, [$ts=c$start_time,
+					       $host=host,
+					       $recon_type=P0F,
+					       $source=fmt("%d-%s", OS$dist, OS$detail),
+					       $value=OS$genre]);
 		}
 	}

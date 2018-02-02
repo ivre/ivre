@@ -146,7 +146,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # try to recover the passwords, but on the other hand we store
     # specs with different challenges but the same username, realm,
     # host and sensor in the same records.
-    if spec['recontype'] in ['HTTP_CLIENT_HEADER',
+    elif spec['recontype'] in ['HTTP_CLIENT_HEADER',
                              'HTTP_CLIENT_HEADER_SERVER'] and \
         spec.get('source') in ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']:
@@ -162,6 +162,16 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 pass
         elif authtype.lower() in ['negotiate', 'kerberos', 'oauth', 'ntlm']:
             spec['value'] = authtype
+    # p0f in Bro hack: we use the "source" field to provide the
+    # "distance" and "version" values
+    elif spec['recontype'] == 'P0F':
+        distance, version = spec.pop('source').split('-', 1)
+        try:
+            spec['distance'] = int(distance)
+        except ValueError:
+            pass
+        if version:
+            spec['version'] = version
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
     # so, we replace the value with its SHA1 hash and store the
