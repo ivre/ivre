@@ -198,7 +198,7 @@ def handle_rec(sensor, ignorenets, neverignore,
         spec.update({'sensor': sensor})
     if srvport is not None:
         spec.update({'port': srvport})
-    if source != '-':
+    if source is not None:
         spec.update({'source': source})
     spec = _prepare_rec(spec, ignorenets, neverignore)
     # Python 2/3 compat: python 3 has datetime.timestamp()
