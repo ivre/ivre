@@ -941,8 +941,11 @@ def find_ike_vendor_id(vendorid):
             return name
 
 
+# Nmap (and Bro) encoding & decoding
+
+
 _REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}
-_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t'}
+_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\'}
 
 
 def nmap_encode_data(data):
@@ -953,30 +956,61 @@ def nmap_encode_data(data):
     )
 
 
-def nmap_decode_data(data):
-    data = data.split('\\')
-    result = [data.pop(0).encode()]
-    while data:
-        cur = data.pop(0)
-        if not cur:
-            # empty chunk means escaped backslash
-            result.extend([b'\\', data.pop(0).encode()])
+def _nmap_decode_data(data):
+    status = 0
+    first_byte = None
+    for char in data:
+        if status == 0:
+            # not in an escape sequence
+            if char == '\\':
+                status = 1
+                continue
+            yield char.encode()
             continue
-        if cur[:1] in _RAWS:
-            result.extend([_RAWS[cur[:1]], cur[1:].encode()])
+        if status == 1:
+            # after a backslash
+            if char in _RAWS:
+                yield _RAWS[char]
+                status = 0
+                continue
+            if char == 'x':
+                status = 2
+                continue
+            LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + char)
+            yield b'\\'
+            yield char.encode()
+            status = 0
             continue
-        if cur.startswith('x'):
+        if status == 2:
+            # after \x
             try:
-                byte = bytes([int(cur[1:3], 16)])
+                first_byte = int(char, 16)
             except ValueError:
-                LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + cur[:3])
-                result.append(cur.encode())
-            else:
-                result.extend([byte, cur[3:].encode()])
+                LOGGER.warning('nmap_decode_data: cannot decode %r', '\\x' + char)
+                yield b'\\x'
+                yield char.encode()
+                status = 0
+                continue
+            status = 3
             continue
-        LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + cur)
-        result.append(cur.encode())
-    return b''.join(result)
+        if status == 3:
+            # after \x?
+            try:
+                value = bytes([first_byte * 16 + int(char, 16)])
+            except ValueError:
+                LOGGER.warning('nmap_decode_data: cannot decode %r',
+                               '\\x%x%s' % (first_byte, char))
+                yield ('\\x%x%s' % (first_byte, char)).encode()
+                status = 0
+                continue
+            yield value
+            first_byte = None
+            status = 0
+            continue
+
+
+def nmap_decode_data(data):
+    return b''.join(_nmap_decode_data(data))
 
 
 def nmap_svc_fp_format_data(data, match):
