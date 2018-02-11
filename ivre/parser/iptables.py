@@ -45,20 +45,17 @@ class Iptables(Parser):
         super(Iptables, self).__init__(fname)
 
 
-    @classmethod
     def parse_line(self, line):
-        line = line.decode().rstrip('\r\n')
-        if not line:
+
+        field_idx=line.find('IN=')
+        if field_idx<0:
+            # It's not an iptables log
             return next(self)
 
-        fields={}
         # Converts the syslog iptables log into hash
-        for i in line[line.find('IN='):].split():
-            try:
-                (k,v)=i.split('=')
-                fields[k]=v
-            except:
-                fields[i]=''
+        fields = dict((key.lower(), value)
+                for key, value in (val.split('=', 1) if '=' in val else (val, '')
+                    for val in line[field_idx:].rstrip('\r\n').split()))
 
         # Because day of month can be on 1 or 2 char(s)
         try:
@@ -66,15 +63,14 @@ class Iptables(Parser):
         except:
             fields['start_time'] = datetime.datetime.strptime(line[:15], '%b %d %H:%M:%S')
 
+        # sanitized
+        fields['proto'] = fields['proto'].lower()
         # Rename fields according to flow2db specifications.
-        fields['src'] = fields.pop('SRC')
-        fields['dst'] = fields.pop('DST')
-        fields['proto'] = fields.pop('PROTO').lower()
         if fields['proto'] in ('udp', 'tcp'):
-            fields['sport'] = int(fields.pop('SPT'))
-            fields['dport'] = int(fields.pop('DPT'))
+            fields['sport'] = int(fields['spt'])
+            fields['dport'] = int(fields['dpt'])
 
-        # This data are mandatory but undefined in iptables logs, so make my/a choice.
+        # This data is mandatory but undefined in iptables logs, so make my/a choice.
         fields['cspkts'] = fields['scpkts'] = fields['scbytes'] = fields['csbytes'] = 0
         fields['end_time'] = fields['start_time']
 
