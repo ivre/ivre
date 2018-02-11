@@ -26,6 +26,7 @@ from ivre.db import db
 from ivre.parser.argus import Argus
 # from ivre.parser.bro import BroFile
 from ivre.parser.netflow import NetFlow
+from ivre.parser.iptables import Iptables
 
 
 # Associates a list of fields that must be present to the
@@ -42,6 +43,7 @@ PARSERS_CHOICE = {
     'argus': Argus,
     #'bro': BroFile,
     'netflow': NetFlow,
+    'iptables': Iptables,
 }
 
 PARSERS_MAGIC = {
