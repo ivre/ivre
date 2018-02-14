@@ -1612,6 +1612,19 @@ class IvreTests(unittest.TestCase):
                         i + 1,
                     )
 
+        # check parsers
+        # -------------
+        # Iptables
+        with ivre.parser.iptables.Iptables(os.path.join(SAMPLES, 'iptables.log')) as ipt_parser:
+            count=0
+            for res in ipt_parser:
+                count+=1
+                self.assertTrue(b'proto' in res  and b'src' in res and b'dst' in res)
+                if res[b'proto'].decode() in ('udp', 'tcp'):
+                    self.assertTrue(b'sport' in res and b'dport' in res)
+
+            self.assertEqual(count, 40)
+
     def test_scans(self):
         "Run scans, with and without agents"
 
@@ -1917,6 +1930,7 @@ if __name__ == '__main__':
     import ivre.parser.bro
     import ivre.passive
     import ivre.utils
+    import ivre.parser.iptables
     if not ivre.config.DEBUG:
         sys.stderr.write("You *must* have the DEBUG config value set to "
                          "True to run the tests.\n")
