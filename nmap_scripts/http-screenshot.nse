@@ -103,7 +103,7 @@ setTimeout(phantom.exit, %d * 1000);
 ]]):format(width, height, ssl and "https" or "http", hostname, strport, fname,
 	   timeout))
   tmpfdesc:close()
-  os.execute(("phantomjs %s >/dev/null 2>&1"):format(tmpfname))
+  os.execute(("phantomjs --ignore-ssl-errors=true %s >/dev/null 2>&1"):format(tmpfname))
   os.remove(tmpfname)
   return (os.rename(fname, fname)
 	    and ("Saved to %s"):format(fname)
