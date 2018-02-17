@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
 # This file is part of IVRE.
 # Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
@@ -34,21 +34,21 @@
 #  - The log contains mac addr from source and destination, is this inifo can
 #    be added to neo db ?
 #
-"""Support for Iptables log from syslog files
-"""
+"""Support for Iptables log from syslog files."""
 
 import datetime
 from ivre.parser import Parser
 
 
 class Iptables(Parser):
-    """Iptables log generator from a syslog file descriptor"""
+    """Iptables log generator from a syslog file descriptor."""
 
     def __init__(self, fname, pcap_filter=None):
+        """Init Ipatbles class."""
         super(Iptables, self).__init__(fname)
 
     def parse_line(self, line):
-
+        """Process current line in Parser.__next__."""
         field_idx = line.find(b'IN=')
         if field_idx < 0:
             # It's not an iptables log
@@ -56,15 +56,15 @@ class Iptables(Parser):
 
         # Converts the syslog iptables log into hash
         fields = dict(
-               (key.lower(), value)
+            (key.lower(), value)
                for key, value in (val.split(b'=', 1)
-               if b'=' in val else (val, b'')
-               for val in line[field_idx:].rstrip(b'\r\n').split())
-           )
+                                  if b'=' in val else (val, b'')
+                                  for val in line[field_idx:].rstrip(b'\r\n').split())
+        )
 
         try:
             fields[b'start_time'] = datetime.datetime.strptime(
-                                        line[:15].decode(), "%b %d %H:%M:%S")
+                line[:15].decode(), "%b %d %H:%M:%S")
         except ValueError:
             # Bad Date format
             return next(self)
