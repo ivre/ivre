@@ -73,6 +73,7 @@ before_script:
   # get samples
   - mkdir tests/samples
   - cp tests/results-public-samples tests/samples/results
+  - cp tests/iptables-samples tests/samples/iptables.log
   ## Nmap Internet-wide Modbus scan (JSON format)
   - wget  --no-check-certificate -O tests/samples/Nmap-Modbus-IPv4.json.bz2 https://ivre.rocks/data/Nmap-Modbus-IPv4.json.bz2 # JSON files w/ Nmap scan results
   ## Masscan sample scans (XML format)

@@ -66,8 +66,44 @@ For that particular Heartbleed example, both Nmap and Masscan can
 (reliably) report hosts with the Heartbleed vulnerability, and IVRE
 can be used to find such hosts.
 
+## HowTo configure iptables to get logs used by flow2db tool
+
+When you don't have acces to low level network data, an easy way to
+discover a part of network traffic is to use netfilter logs collected
+via syslog.
+
+To be efficient, all the systems must have iptables activated and
+configured to send logs.
+
+For example
+
+```
+   -A INPUT   -j LOG --log-prefix "IPTABLES/INPUT: "
+   -A OUTPUT  -j LOG --log-prefix "IPTABLES/OUTPUT: "
+   -A FORWARD -j LOG --log-prefix "IPTABLES/FORWARD: "
+```
+
+To log all traffic, the rules can be set at the top of all rules.
+Be careful with OUTPUT rule to avoid deathloop :
+
+    syslog send log, netfilter log , syslog send log ...
+
+
+On the syslog server or on each host, just run grep to collect the
+data needed for the iptables flow2db parser:
+
+```bash
+   $ grep -l 'IPTABLES/' /var/log/syslog /var/log/kernel.log ... > syslog-iptables.log
+```
+
+Then import data to ivredb using flow2db tool:
+
+```bash
+   $ ivre flow2db -t iptables syslog-iptables.log
+```
+
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2017
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
