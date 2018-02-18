@@ -1612,8 +1612,6 @@ class IvreTests(unittest.TestCase):
                         i + 1,
                     )
 
-        # check parsers
-        # -------------
         # Iptables
         with ivre.parser.iptables.Iptables(os.path.join(SAMPLES, 'iptables.log')) as ipt_parser:
             count=0
@@ -1928,9 +1926,9 @@ if __name__ == '__main__':
     import ivre.db
     import ivre.mathutils
     import ivre.parser.bro
+    import ivre.parser.iptables
     import ivre.passive
     import ivre.utils
-    import ivre.parser.iptables
     if not ivre.config.DEBUG:
         sys.stderr.write("You *must* have the DEBUG config value set to "
                          "True to run the tests.\n")
