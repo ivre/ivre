@@ -30,6 +30,7 @@ module PassiveRecon;
 export {
 	redef enable_syslog = F;
 	redef tcp_content_deliver_all_resp = T;
+	redef tcp_content_deliver_all_orig = T;
 
 	redef enum Log::ID += { LOG };
 
@@ -53,6 +54,7 @@ export {
 		FTP_SERVER,
 		POP_CLIENT,
 		POP_SERVER,
+		TCP_CLIENT_BANNER,
 		TCP_SERVER_BANNER,
 		P0F,
 	};
@@ -403,14 +405,27 @@ event pop3_request(c: connection, is_orig: bool, command: string, arg: string)
 
 event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string)
 	{
-	if (! is_orig && seq == 1 && c$orig$num_pkts == 2)
-		{
-		Log::write(PassiveRecon::LOG, [$ts=c$start_time,
-					       $host=c$id$resp_h,
-					       $srvport=c$id$resp_p,
-					       $recon_type=TCP_SERVER_BANNER,
-					       $value=contents]);
-		}
+	print seq, is_orig, c$orig$size, c$resp$size, |contents|;
+	if (seq == 1)
+		if (is_orig)
+			{
+			if (c$resp$size == 0)
+				Log::write(PassiveRecon::LOG,
+					   [$ts=c$start_time,
+					    $host=c$id$orig_h,
+					    $recon_type=TCP_CLIENT_BANNER,
+					    $value=contents]);
+			}
+		else
+			{
+			if (c$orig$size == 0)
+				Log::write(PassiveRecon::LOG,
+					   [$ts=c$start_time,
+					    $host=c$id$resp_h,
+					    $srvport=c$id$resp_p,
+					    $recon_type=TCP_SERVER_BANNER,
+					    $value=contents]);
+			}
 	}
 
 event OS_version_found(c: connection, host: addr, OS: OS_version)
