@@ -206,5 +206,5 @@ Available operators are:
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2017
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
