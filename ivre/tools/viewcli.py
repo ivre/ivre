@@ -70,6 +70,26 @@ def output_distinct(flt, field="addr"):
     for rec in cursor:
         print(db.view.convert_ip(rec) if field == "addr" else rec)
 
+def output_top(flt, field, least, topnbr):
+    for entry in db.view.topvalues(field, flt=flt,
+                                      topnbr=topnbr, least=least):
+        if isinstance(entry['_id'], (list, tuple)):
+            sep = ' / ' if isinstance(entry['_id'], tuple) else ', '
+            if entry['_id']:
+                if isinstance(entry['_id'][0], (list, tuple)):
+                    entry['_id'] = sep.join(
+                        '/'.join(str(subelt) for subelt in elt)
+                        if elt else "None"
+                        for elt in entry['_id']
+                    )
+                else:
+                    entry['_id'] = sep.join(str(elt)
+                                            for elt in entry['_id'])
+            else:
+                entry['_id'] = "None"
+        print("%(_id)s: %(count)d" % entry)
+
+
 ### Main function ###
 
 def main():
@@ -104,6 +124,10 @@ def main():
                         help='Print only addresses of filtered results.')
     parser.add_argument('--distinct', metavar='FIELD',
                         help='Output only unique FIELD part of the results.')
+    parser.add_argument('--top', metavar='FIELD / ~FIELD',
+                        help='')
+    parser.add_argument('--limit', metavar='LIMIT',
+                        help='Output only LIMIT first results.')
 
     args = parser.parse_args()
 
@@ -132,6 +156,12 @@ def main():
         output = output_distinct
     elif args.distinct is not None:
         output = lambda x: output_distinct(x, args.distinct)
+    elif args.top is not None:
+        field, least = ((args.top[1:], True)
+                        if args.top[:1] in '!-~' else
+                        (args.top, False))
+        topnbr = {0: None, None: 10}.get(args.limit, args.limit)
+        output = lambda x: output_top(x, field, least, topnbr)
     elif args.verbose:
         output = output_verbose
     else:
