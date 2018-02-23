@@ -604,16 +604,6 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchhost(addr),
         ))
         self.assertEqual(count, 1)
-        # Remove
-        result = next(ivre.db.db.nmap.get(
-            ivre.db.db.nmap.searchhost(addr)
-        ))
-        ivre.db.db.nmap.remove(result)
-        count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchhost(addr)
-        )
-        self.assertEqual(count, 0)
-        hosts_count -= 1
         recid = ivre.db.db.nmap.getid(
             next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
         )
@@ -957,14 +947,12 @@ class IvreTests(unittest.TestCase):
         self._check_top_value_cli("nmap_top_version", "version")
         self._check_top_value_cli("nmap_top_version_http", "version:http")
         self._check_top_value_cli("nmap_top_version_http_apache", "version:http:Apache")
-
         categories = ivre.db.db.nmap.topvalues("category")
         category = next(categories)
         self.assertEqual(category["_id"], "TEST")
         self.assertEqual(category["count"], hosts_count)
         with self.assertRaises(StopIteration):
             next(categories)
-
         self._check_top_value_api("nmap_topsrv", "service")
         self._check_top_value_api("nmap_topsrv_80", "service:80")
         self._check_top_value_api("nmap_topprod", "product")
@@ -975,7 +963,6 @@ class IvreTests(unittest.TestCase):
         self._check_top_value_api("nmap_topdomains_1", "domains:1")
         self._check_top_value_api("nmap_tophop", "hop")
         self._check_top_value_api("nmap_tophop_10+", "hop>10")
-
         locations = list(ivre.db.db.nmap.getlocations(
             ivre.db.db.nmap.flt_empty
         ))
@@ -986,6 +973,16 @@ class IvreTests(unittest.TestCase):
                             for elt in locations))
         self.assertTrue(all(isinstance(elt['count'], int) for elt in locations))
         self.check_value('nmap_location_count', len(locations))
+        # Remove
+        result = next(ivre.db.db.nmap.get(
+            ivre.db.db.nmap.searchhost(addr)
+        ))
+        ivre.db.db.nmap.remove(result)
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhost(addr)
+        )
+        self.assertEqual(count, 0)
+        hosts_count -= 1
 
         if DATABASE != "postgres":
             # FIXME: for some reason, this does not terminate
