@@ -85,6 +85,8 @@ before_script:
   - wget -O tests/samples/telnet-raw.pcap "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=telnet-raw.pcap"
   - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
   - for file in telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file" ; done
+  ## GeoIP
+  - ls /usr/share/ivre
   - export BRO_SAMPLES=`pwd`/usr/local/bro/testing
   - ivre --version; echo; bro --version
 
