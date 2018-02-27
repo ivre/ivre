@@ -11,6 +11,7 @@ else
 fi
 PIP_INSTALL_OPTIONS="--global-option=build_ext --global-option=-L`pwd`/pgsql/lib --global-option=-I`pwd`/pgsql/include"
 mkdir -p data/db
+sudo mount -t tmpfs tmpfs data/db -o users,uid=travis,gid=travis,mode=0700
 initdb -D data/db
 
 # Port 5432 is already in use (Travis-CI's PostgreSQL)
