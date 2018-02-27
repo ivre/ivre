@@ -615,6 +615,14 @@ class PostgresDB(DB):
         self.drop()
         self.create()
 
+    @staticmethod
+    def to_binary(data):
+        return utils.encode_b64(data).decode()
+
+    @staticmethod
+    def from_binary(data):
+        return utils.decode_b64(data.encode())
+
     def copy_from(self, *args, **kargs):
         cursor = self.db.raw_connection().cursor()
         conn = self.db.connect()
@@ -1311,7 +1319,7 @@ class PostgresDBNmap(PostgresDB, DBNmap):
     def __init__(self, url):
         PostgresDB.__init__(self, url)
         DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2Posgres
+        self.content_handler = xmlnmap.Nmap2DB
         self.output_function = None
         self.flt_empty = NmapFilter()
         self.bulk = None

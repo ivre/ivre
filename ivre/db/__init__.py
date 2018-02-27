@@ -79,6 +79,14 @@ class DB(object):
     """
     globaldb = None
 
+    @staticmethod
+    def to_binary(data):
+        return data
+
+    @staticmethod
+    def from_binary(data):
+        return data
+
     # filters
 
     def flt_and(self, *args):
