@@ -1488,6 +1488,12 @@ class Nmap2DB(NmapHandler):
                              add_addr_infos=add_addr_infos, merge=merge,
                              **kargs)
 
+    def _to_binary(self, data):
+        return self._db.nmap.to_binary(data)
+
+    def _from_binary(self, data):
+        return self._db.nmap.from_binary(data)
+
     def _addhost(self):
         if self.categories:
             self._curhost['categories'] = self.categories[:]
@@ -1519,14 +1525,3 @@ class Nmap2DB(NmapHandler):
             self._curscan['scaninfos'].append(i)
         else:
             self._curscan['scaninfos'] = [i]
-
-
-class Nmap2Posgres(Nmap2DB):
-
-    @staticmethod
-    def _to_binary(data):
-        return utils.encode_b64(data).decode()
-
-    @staticmethod
-    def _from_binary(data):
-        return utils.decode_b64(data.encode())
