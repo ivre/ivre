@@ -1315,8 +1315,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
 
         # Insert
-        res = RUN(["ivre", "ipdata", "--import-all",
-                   "--no-update-passive-db"])[0]
+        proc = RUN_ITER(["ivre", "ipdata", "--import-all",
+                         "--no-update-passive-db"],
+                        stdout=sys.stdout, stderr=sys.stderr)
+        res = proc.wait()
         self.assertEqual(res, 0)
 
         res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])

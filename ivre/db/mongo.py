@@ -3105,6 +3105,7 @@ class MongoDBData(MongoDB, DBData):
         return data
 
     def feed_country_codes(self, fname):
+        utils.LOGGER.debug("START IMPORT: %s", fname)
         with open(fname, "rb") as fdesc:
             self.db[self.colname_country_codes].insert(
                 self.parse_line_country_codes(line)
@@ -3114,18 +3115,22 @@ class MongoDBData(MongoDB, DBData):
         self.db[self.colname_country_codes].insert(
             {'country_code': "AN", 'name': "Netherlands Antilles"}
         )
+        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
 
     def feed_geoip_country(self, fname, feedipdata=None,
                            createipdata=False):
+        utils.LOGGER.debug("START IMPORT: %s", fname)
         with open(fname, "rb") as fdesc:
             self.db[self.colname_geoip_country].insert(
                 self.parse_line_country(line, feedipdata=feedipdata,
                                         createipdata=createipdata)
                 for line in fdesc
             )
+        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
 
     def feed_geoip_city(self, fname, feedipdata=None,
                         createipdata=False):
+        utils.LOGGER.debug("START IMPORT: %s", fname)
         with open(fname, "rb") as fdesc:
             # Skip the two first lines
             fdesc.readline()
@@ -3135,8 +3140,10 @@ class MongoDBData(MongoDB, DBData):
                                      createipdata=createipdata)
                 for line in fdesc
             )
+        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
 
     def feed_city_location(self, fname):
+        utils.LOGGER.debug("START IMPORT: %s", fname)
         with open(fname, "rb") as fdesc:
             # Skip the two first lines
             fdesc.readline()
@@ -3145,15 +3152,18 @@ class MongoDBData(MongoDB, DBData):
                 self.parse_line_city_location(line)
                 for line in fdesc
             )
+        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
 
     def feed_geoip_asnum(self, fname, feedipdata=None,
                          createipdata=False):
+        utils.LOGGER.debug("START IMPORT: %s", fname)
         with open(fname, "rb") as fdesc:
             self.db[self.colname_geoip_as].insert(
                 self.parse_line_asnum(line, feedipdata=feedipdata,
                                       createipdata=createipdata)
                 for line in fdesc
             )
+        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
 
     def country_name_by_code(self, code):
         rec = self.find_one(self.colname_country_codes,
