@@ -70,6 +70,7 @@ ivre/parser/__init__.py
 ivre/parser/airodump.py
 ivre/parser/argus.py
 ivre/parser/bro.py
+ivre/parser/iptables.py
 ivre/parser/netflow.py
 ivre/tools/__init__.py
 ivre/tools/airodump2db.py
