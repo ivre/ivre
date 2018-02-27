@@ -543,6 +543,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
+        # JSON
+        res, out, _ = RUN(['ivre', 'scancli', '--json'])
+        self.assertEqual(res, 0)
+        self.check_value("nmap_json_count", len(out.splitlines()))
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
