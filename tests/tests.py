@@ -108,6 +108,32 @@ def coverage_report():
     cov.combine(strict=True)
     cov.save()
 
+def run_passiverecon_worker(logdir="logs"):
+    time.sleep(1) # Hack for Travis CI
+    pid = os.fork()
+    if pid < 0:
+        raise Exception("Cannot fork")
+    elif pid:
+        time.sleep(1) # Hack for Travis CI
+        # Wait for child process to handle every file in "logs"
+        while any(walk[2] for walk in os.walk(logdir)):
+            print(u"Waiting for passivereconworker")
+            time.sleep(2)
+        os.kill(pid, signal.SIGINT)
+        os.waitpid(pid, 0)
+    elif USE_COVERAGE:
+        os.execvp(
+            sys.executable,
+            COVERAGE + [
+                "run", "--parallel-mode", which("ivre"),
+                "passivereconworker", "--directory", logdir,
+            ],
+        )
+    else:
+        os.execlp("ivre", "ivre", "passivereconworker", "--directory",
+                  logdir)
+    return pid
+
 
 class AgentScanner(object):
     """This builds an agent, runs it in the background, runs a feed
@@ -1010,29 +1036,7 @@ class IvreTests(unittest.TestCase):
                      'passiverecon.bro')],
                 env=broenv)
             broprocess.wait()
-
-        time.sleep(1) # Hack for Travis CI
-        pid = os.fork()
-        if pid < 0:
-            raise Exception("Cannot fork")
-        elif pid:
-            # Wait for child process to handle every file in "logs"
-            while any(walk[2] for walk in os.walk("logs")):
-                print(u"Waiting for passivereconworker")
-                time.sleep(2)
-            os.kill(pid, signal.SIGINT)
-            os.waitpid(pid, 0)
-        elif USE_COVERAGE:
-            os.execvp(
-                sys.executable,
-                COVERAGE + [
-                    "run", "--parallel-mode", which("ivre"),
-                    "passivereconworker", "--directory", "logs",
-                ],
-            )
-        else:
-            os.execlp("ivre", "ivre", "passivereconworker", "--directory",
-                      "logs")
+        run_passiverecon_worker()
 
         # Counting
         total_count = ivre.db.db.passive.count(
@@ -1322,6 +1326,7 @@ class IvreTests(unittest.TestCase):
         broenv = os.environ.copy()
         broenv["LOG_ROTATE"] = "60"
         broenv["LOG_PATH"] = "logs/TEST"
+
         for fname in self.pcap_files:
             broprocess = subprocess.Popen(
                 ['bro', '-b', '-r', fname,
