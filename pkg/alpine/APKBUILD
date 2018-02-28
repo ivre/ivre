@@ -1,0 +1,46 @@
+# Contributor: Pierre LALET <pierre.lalet@cea.fr>
+# Maintainer: Pierre LALET <pierre.lalet@cea.fr>
+#
+# Alpine Linux package file
+
+# This file is part of IVRE.
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+pkgname=ivre
+pkgver=0.9.8_git
+_branch=master
+pkgrel=0
+pkgdesc="Network recon framework"
+url="https://ivre.rocks/"
+arch="all"
+license="GPL3"
+depends="python py-crypto py-mongo py-future"
+makedepends="py-setuptools"
+install=""
+subpackages="$pkgname-doc"
+source="https://github.com/cea-sec/$pkgname/archive/$_branch.tar.gz"
+builddir="$srcdir/"
+
+build() {
+	cd "$builddir/$pkgname-$_branch"
+	python setup.py build
+}
+
+package() {
+	cd "$builddir/$pkgname-$_branch"
+	install -Dm0644 "pkg/apache/ivre.conf" "$pkgdir/etc/httpd/conf/extra/ivre.conf"
+	python setup.py install --prefix=/usr --root="$pkgdir"
+}
