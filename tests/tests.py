@@ -363,19 +363,19 @@ class IvreTests(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.nmap_files = (
+        cls.nmap_files = [
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.xml') or fname.endswith('.json')
             or fname.endswith('.xml.bz2') or fname.endswith('.json.bz2')
-        )
-        cls.pcap_files = (
+        ]
+        cls.pcap_files = [
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.pcap')
-        )
+        ]
         cls.children = []
 
     @classmethod
@@ -389,9 +389,6 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
     def test_nmap(self):
-
-        # Start a Web server to test CGI
-        self.start_web_server()
 
         # Init DB
         self.init_nmap_db()
@@ -519,7 +516,6 @@ class IvreTests(unittest.TestCase):
         shutil.rmtree('output')
 
         RUN(["ivre", "scancli", "--update-schema"])
-        RUN(["ivre", "scancli", "--update-schema", "--archives"])
 
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
@@ -527,9 +523,6 @@ class IvreTests(unittest.TestCase):
         res, out, _ = RUN(["ivre", "scancli", "--count"])
         self.assertEqual(res, 0)
         hosts_count = int(out)
-        res, out, _ = RUN(["ivre", "scancli", "--count", "--archives"])
-        self.assertEqual(res, 0)
-        archives_count = int(out)
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchnonexistent())
         self.assertEqual(count, 0)
@@ -537,11 +530,8 @@ class IvreTests(unittest.TestCase):
         # Is the test case OK?
         self.assertGreater(hosts_count, 0)
         self.check_value("nmap_get_count", hosts_count)
-        self.check_value("nmap_get_archives_count",
-                         archives_count)
         # Counting results
-        self.assertEqual(hosts_count + archives_count,
-                         host_counter)
+        self.assertEqual(hosts_count, host_counter)
 
         # JSON
         res, out, _ = RUN(['ivre', 'scancli', '--json'])
@@ -933,7 +923,6 @@ class IvreTests(unittest.TestCase):
         #    "nmap_isakmp_top_products",
         #    ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
         #)
-        self.check_top_value("nmap_ssh_top_port", "port:ssh")
         self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
@@ -951,6 +940,7 @@ class IvreTests(unittest.TestCase):
         self._check_top_value_cli("nmap_top_version", "version")
         self._check_top_value_cli("nmap_top_version_http", "version:http")
         self._check_top_value_cli("nmap_top_version_http_apache", "version:http:Apache")
+        self._check_top_value_cli("nmap_ssh_top_port_cli", "port:ssh")
         categories = ivre.db.db.nmap.topvalues("category")
         category = next(categories)
         self.assertEqual(category["_id"], "TEST")
@@ -967,6 +957,7 @@ class IvreTests(unittest.TestCase):
         self._check_top_value_api("nmap_topdomains_1", "domains:1")
         self._check_top_value_api("nmap_tophop", "hop")
         self._check_top_value_api("nmap_tophop_10+", "hop>10")
+        self._check_top_value_api("nmap_ssh_top_port_api", "port:ssh")
         locations = list(ivre.db.db.nmap.getlocations(
             ivre.db.db.nmap.flt_empty
         ))
@@ -1300,6 +1291,92 @@ class IvreTests(unittest.TestCase):
         # Clean
         shutil.rmtree("logs")
 
+
+    def test_view(self):
+
+        # Start a Web server to test CGI
+        self.start_web_server()
+
+        # Init DB
+        self.assertEqual(RUN(["ivre", "viewcli", "--count"])[1], b"0\n")
+        self.assertEqual(RUN(["ivre", "viewcli", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(["ivre", "viewcli", "--count"])[1], b"0\n")
+
+        # Clean Nmap DB
+        self.assertEqual(RUN(["ivre", "scancli", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+        # Insert some Nmap results without check
+        res, _, err = RUN(["ivre", "scan2db", "--port", "-c", "TEST",
+                       "-s", "SOURCE", "samples/test-T22.xml.bz2"])
+        self.assertEqual(res, 0)
+
+        RUN(["ivre", "scancli", "--update-schema"])
+
+        # Clean passive DB
+        self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+
+        # Insert Passive results without check
+        ivre.utils.makedirs("logs")
+        broenv = os.environ.copy()
+        broenv["LOG_ROTATE"] = "60"
+        broenv["LOG_PATH"] = "logs/TEST"
+        for fname in self.pcap_files:
+            broprocess = subprocess.Popen(
+                ['bro', '-b', '-r', fname,
+                 os.path.join(
+                     ivre.config.guess_prefix('passiverecon'),
+                     'passiverecon.bro')],
+                env=broenv)
+            broprocess.wait()
+        run_passiverecon_worker()
+
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_passive", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "nmap"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_active", len(out.splitlines()))
+
+        view_count = 0
+        # Count passive results
+        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        ret, out, _ = RUN(["ivre", "viewcli", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_passive", view_count)
+        self.assertEqual(RUN(["ivre", "viewcli", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+        # Count active results
+        self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
+        ret, out, _ = RUN(["ivre", "viewcli", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_active", view_count)
+        # Count merged results
+        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        ret, out, _ = RUN(["ivre", "viewcli", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_total", view_count)
+
+        # Filters
+        self.check_top_value("view_ssh_top_port", "port:ssh")
+
+        # Clean DB
+        self.assertEqual(RUN(['ivre', 'scancli', '--init'],
+                             stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(['ivre', 'ipinfo', '--init'],
+                             stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(['ivre', 'view', '--init'],
+                             stdin=open(os.devnull))[0], 0)
+
+        # Clean logs directly.
+        shutil.rmtree("logs")
 
     def test_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
@@ -1823,7 +1900,7 @@ class IvreTests(unittest.TestCase):
             del os.environ["IVRE_CONF"]
 
 
-TESTS = set(["nmap", "passive", "data", "utils", "scans", "conf"])
+TESTS = set(["nmap", "passive", "data", "utils", "scans", "conf", "view"])
 
 
 DATABASES = {
