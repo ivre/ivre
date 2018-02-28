@@ -91,10 +91,10 @@ $ docker build -t ivre/base base-pip
 </code>
 ==== Alternative build for the web image using Apache ====
 
-To use Apache (rather than Nginx) for the ''%%ivre/web%%'' image, simply run:
+To use Apache (rather than Nginx) for the ''%%ivre/web%%'' image, simply run, from the ''%%docker/%%'' directory:
 
 <code>
-$ docker pull debian:stable
+$ docker pull ivre/base  # or build it locally
 $ docker build -t ivre/web web-apache
 
 </code>
@@ -195,5 +195,5 @@ If you do not want to exit the shell but only detach from it, use ''%%C-p C-q%%'
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2018 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
