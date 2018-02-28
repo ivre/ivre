@@ -7,6 +7,7 @@ rm "mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
 export PATH="`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH"
 PIP_INSTALL_OPTIONS=""
 mkdir -p data/db
+sudo mount -t tmpfs tmpfs data/db -o users,mode=0777
 
 mongod --dbpath=data/db >/dev/null 2>&1 &
 

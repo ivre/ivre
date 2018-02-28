@@ -543,6 +543,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
+        # JSON
+        res, out, _ = RUN(['ivre', 'scancli', '--json'])
+        self.assertEqual(res, 0)
+        self.check_value("nmap_json_count", len(out.splitlines()))
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
@@ -1315,8 +1319,10 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
 
         # Insert
-        res = RUN(["ivre", "ipdata", "--import-all",
-                   "--no-update-passive-db"])[0]
+        proc = RUN_ITER(["ivre", "ipdata", "--import-all",
+                         "--no-update-passive-db"],
+                        stdout=sys.stdout, stderr=sys.stderr)
+        res = proc.wait()
         self.assertEqual(res, 0)
 
         res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])

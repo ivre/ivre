@@ -68,6 +68,7 @@ nmap_xp445_count = 7
 nmap_phonedev_count = 4
 nmap_ssh_top_port_api = [(u'tcp', 22)]
 nmap_get_archives_count = 0
+nmap_json_count = 804
 nmap_anonftp_count = 20
 nmap_tophop_10+ = ['66.174.52.193', '69.83.88.196', '69.83.89.53']
 nmap_topdevtype_80 = [u'broadband router']

@@ -1,4 +1,4 @@
-sudo: false
+sudo: required
 dist: trusty
 
 env:
@@ -88,7 +88,7 @@ before_script:
   - export BRO_SAMPLES=`pwd`/usr/local/bro/testing
   - ivre --version; echo; bro --version
 
-script: cd tests/ && travis_wait 60 python tests.py --coverage
+script: cd tests/ && python tests.py --coverage
 
 after_success:
   - codecov
