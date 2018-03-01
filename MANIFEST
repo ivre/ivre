@@ -103,6 +103,9 @@ nmap_scripts/x11-screenshot.nse
 nmap_scripts/patches/rtsp-url-brute.patch
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
+pkg/alpine/APKBUILD
+pkg/apache/ivre.conf
+pkg/arch/PKGBUILD
 web/cgi-bin/flowjson.py
 web/cgi-bin/jsconfig.py
 web/cgi-bin/scanjson.py

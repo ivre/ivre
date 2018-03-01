@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -179,6 +179,9 @@ specialized scripts.
         ('share/ivre/docker/web-apache',
          ['docker/web-apache/Dockerfile',
           'docker/web-apache/doku-conf-local.php']),
+        ('share/ivre/pkg/alpine', ['pkg/alpine/APKBUILD']),
+        ('share/ivre/pkg/arch', ['pkg/arch/PKGBUILD']),
+        ('share/ivre/pkg/apache', ['pkg/apache/ivre.conf']),
         ('share/ivre/web/static',
          ['web/static/index.html',
           'web/static/compare.html',
