@@ -61,7 +61,9 @@ end
 action = function(host, port)
   local timeout = tonumber(stdnse.get_script_args(SCRIPT_NAME .. '.timeout')) or 300
   local geom = stdnse.get_script_args(SCRIPT_NAME .. '.geometry') or '1024x768'
-  local ssl = port.version.service_tunnel == "ssl"
+  local ssl = port.version.service_tunnel == "ssl" or (
+    port.version.sevice_name == nil and port.service:match("https") ~= nil
+  )
   local port = port.number
   local fname, strport
   local hostname = get_hostname(host)
