@@ -1337,16 +1337,16 @@ class IvreTests(unittest.TestCase):
             broprocess.wait()
         run_passiverecon_worker()
 
-        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive"])
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "--use-passive"])
         self.assertEqual(ret, 0)
         self.check_value("view_test_passive", len(out.splitlines()))
-        ret, out, _ = RUN(["ivre", "db2view", "--test", "nmap"])
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "--use-nmap"])
         self.assertEqual(ret, 0)
         self.check_value("view_test_active", len(out.splitlines()))
 
         view_count = 0
         # Count passive results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view", "--use-passive"])[0], 0)
         ret, out, _ = RUN(["ivre", "viewcli", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)
@@ -1355,14 +1355,14 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(RUN(["ivre", "viewcli", "--init"],
                              stdin=open(os.devnull))[0], 0)
         # Count active results
-        self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view", "--use-nmap"])[0], 0)
         ret, out, _ = RUN(["ivre", "viewcli", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)
         self.assertGreater(view_count, 0)
         self.check_value("view_count_active", view_count)
         # Count merged results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view", "--use-passive"])[0], 0)
         ret, out, _ = RUN(["ivre", "viewcli", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)

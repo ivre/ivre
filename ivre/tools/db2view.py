@@ -368,10 +368,14 @@ def from_nmap(flt):
 def main():
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
-            description='Create views from nmap and passive databases.')
+            description='Create views from nmap and passive databases. '
+            'If no --use-* is given, default is both. Empty filter '
+            'means all results.')
     else:
         parser = optparse.OptionParser(
-            description='Create views from nmap and passive databases.')
+            description='Create views from nmap and passive databases. '
+            'If no --use-* is given, default is both. Empty filter '
+            'means all results.')
         parser.parse_args_orig = parser.parse_args
         def my_parse_args():
             res = parser.parse_args_orig()
@@ -392,50 +396,80 @@ def main():
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='For test output, print out formated results.')
 
-    if not USING_ARGPARSE:
-        if 'nmap' in sys.argv:
-            for args, kargs in db.nmap.argparser.args:
-                parser.add_option(*args, **kargs)
-        elif 'passive' in sys.argv:
-            for args, kargs in db.passive.argparser.args:
-                parser.add_option(*args, **kargs)
-        else:
-            print('ivre db2view: error: invalid subcommand {nmap, passive}.')
-            exit(-1)
-    else:
-        subparsers = parser.add_subparsers(dest='view_source',
-                                           help="Accepted values are "
-                                                "'nmap' and 'passive'")
+    parser.add_argument('--use-nmap', action='store_true',
+                        help='Import results from nmap database.')
+    parser.add_argument('--use-passive', action='store_true',
+                        help='Import results from passive database.')
+    parser.add_argument('--filters', metavar='FILTERS',
+                        help='Quoted string with common filters.')
+    parser.add_argument('--nmapfilters', metavar='NFILTERS',
+                        help='Quoted string with filters for nmap results.')
+    parser.add_argument('--passivefilters', metavar='PFILTERS',
+                        help='Quoted string with filters for passive results.')
 
-        nmapparser = subparsers.add_parser('nmap',
-                                           parents=[db.nmap.argparser])
-        passparser = subparsers.add_parser('passive',
-                                           parents=[db.passive.argparser])
-        passparser.add_argument('ips', nargs='*')
+    nmapparser = db.nmap.argparser
+    passparser = db.passive.argparser
 
     args = parser.parse_args()
 
     if args.category:
         db.view.category = args.category
-    if not args.view_source:
-        args.view_source = 'all'
-    if args.view_source == 'all':
-        raise NotImplementedError
-        fltnmap = db.nmap.parse_args(args)
-        fltpass = db.passive.parse_args(args)
+    if not args.use_nmap and not args.use_passive:
+        args.use_nmap = True
+        args.use_passive = True
+    # Create filter(s)
+    if args.filters is None:
+        args.filters = ""
+    if args.use_nmap:
+        if args.nmapfilters is None:
+            args.nmapfilters = ""
+        n_args = nmapparser.parse_args(
+            (args.filters + args.nmapfilters).split()
+        )
+        fltnmap = db.nmap.parse_args(n_args, fltnmap)
+    if args.use_passive:
+        if args.passivefilters is None:
+            args.passivefilters = ""
+        p_args = passparser.parse_args(
+            (args.filters + args.passivefilters).split()
+        )
+        fltpass = db.passive.parse_args(p_args, fltpass)
+    # Create generator.
+    if args.use_nmap and not args.use_passive:
+        _from = lambda x, _: from_nmap(x)
+    elif args.use_passive and not args.use_nmap:
+        _from = lambda _, y: from_passive(y)
+    else:
+        def _stub_next(i):
+            try:
+                return next(i)
+            except StopIteration:
+                return None
         def _from(flt_a, flt_p):
             a = from_nmap(flt_a)
             p = from_passive(flt_p)
-            for e in a:
-                yield e
-            for e in p:
-                yield e
-    if args.view_source == 'nmap':
-        _from = lambda x, _: from_nmap(x)
-        fltnmap = db.nmap.parse_args(args, fltnmap)
-    if args.view_source == 'passive':
-        _from = lambda _, y: from_passive(y)
-        fltpass = db.passive.parse_args(args, fltpass)
+            next_p = _stub_next(p)
+            next_a = _stub_next(a)
+            while next_a or next_p:
+                if next_p is not None and next_a is None:
+                    yield next_p
+                    next_p = _stub_next(p)
+                    continue
+                if next_a is not None and next_p is None:
+                    yield next_a
+                    next_a = _stub_next(a)
+                    continue
+                if next_a['addr'] < next_p['addr']:
+                    yield next_a
+                    next_a = _stub_next(a)
+                elif next_a['addr'] > next_p['addr']:
+                    yield next_p
+                    next_p = _stub_next(p)
+                else:
+                    yield _merge_passive(next_a, next_p)
+                    next_a = _stub_next(a)
+                    next_p = _stub_next(p)
+    # Chose output function.
     if args.test:
         if args.verbose:
             def output(x):
@@ -446,31 +480,6 @@ def main():
                 print(x)
     else:
         output = db.view.store_or_merge_host
-    # Filter by ip for passive
-    if args.view_source == 'passive' and args.ips:
-        flt = db.passive.flt_empty
-        for a in args.ips:
-            if ':' in a:
-                a = a.split(':', 1)
-                if a[0].isdigit():
-                    a[0] = int(a[0])
-                if a[1].isdigit():
-                    a[1] = int(a[1])
-                flt = db.passive.flt_or(flt, db.passive.searchrange(a[0], a[1]))
-            elif '-' in a:
-                a = a.split('-', 1)
-                if a[0].isdigit():
-                    a[0] = int(a[0])
-                if a[1].isdigit():
-                    a[1] = int(a[1])
-                flt = db.passive.flt_or(flt, db.passive.searchrange(a[0], a[1]))
-            elif '/' in a:
-                flt = db.passive.flt_or(flt, db.passive.searchnet(a))
-            else:
-                if a.isdigit():
-                    a = db.passive.convert_ip(int(a))
-                flt = db.passive.flt_or(flt, db.passive.searchhost(a))
-        fltpass = db.passive.flt_and(fltpass, flt)
     # Output results
     itr = _from(fltnmap, fltpass)
     if not itr:
