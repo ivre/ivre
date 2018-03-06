@@ -1370,14 +1370,41 @@ class IvreTests(unittest.TestCase):
         self.check_value("view_count_total", view_count)
 
         # Filters
+        ## Top ssh port
         self.check_top_value("view_ssh_top_port", "port:ssh")
+        ## host
+        addr = next(ivre.db.db.view.get(ivre.db.db.view.flt_empty))['addr']
+        addr = ivre.db.db.view.convert_ip(addr)
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--host', addr])
+        self.check_value("view_count_host", int(out))
+        ## net
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--net', addr+"/8"])
+        self.check_value("view_count_range", int(out))
+        ## anonftp
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--anonftp'])
+        self.check_value("view_count_anonftp", int(out))
+        ## nfs
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--nfs'])
+        self.check_value("view_count_nfs", int(out))
+        ## xp445
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--xp445'])
+        self.check_value("view_count_xp445", int(out))
+        ## port 22
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--port', '22'])
+        self.check_value("view_count_port_ssh", int(out))
+        ## webmin
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--owa'])
+        self.check_value("view_count_owa", int(out))
+        ## ypserv
+        ret, out, _ = RUN(['ivre', 'viewcli', '--count', '--ypserv'])
+        self.check_value("view_count_ypserv", int(out))
 
         # Clean DB
         self.assertEqual(RUN(['ivre', 'scancli', '--init'],
                              stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(['ivre', 'ipinfo', '--init'],
                              stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(['ivre', 'view', '--init'],
+        self.assertEqual(RUN(['ivre', 'viewcli', '--init'],
                              stdin=open(os.devnull))[0], 0)
 
         # Clean logs directly.
