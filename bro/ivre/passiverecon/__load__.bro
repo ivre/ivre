@@ -382,7 +382,7 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
 }
 
 event OS_version_found(c: connection, host: addr, OS: OS_version) {
-    if (OS$match_type == direct_inference)
+    if (OS$match_type == direct_inference && OS$genre != "UNKNOWN")
         Log::write(LOG, [$ts=c$start_time,
                  $host=host,
                  $recon_type=P0F,
