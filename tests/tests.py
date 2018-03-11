@@ -1343,7 +1343,10 @@ which `predicate()` is True, given `webflt`.
                 ['bro', '-b', '-r', fname,
                  os.path.join(
                      ivre.config.guess_prefix('bro'),
-                     'passiverecon.bro')],
+                     'ivre', 'passiverecon', 'bare.bro'),
+                 '-e',
+                 'redef tcp_content_deliver_all_resp = T; '
+                 'redef tcp_content_deliver_all_orig = T;'],
                 env=broenv)
             broprocess.wait()
 

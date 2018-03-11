@@ -56,12 +56,12 @@ The following steps will show some examples of **passive** network recon with IV
 
 ===== Using Bro =====
 
-You need to run bro (2.3 minimum, regularly tested with 2.5.2) with the option ''%%-b%%'' and the location of the ''%%passiverecon.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run (replace ''%%/usr/share/ivre%%'' by the appropriate location; use ''%%python -c 'import ivre.config; print(ivre.config.guess_prefix())'%%'' if you cannot find it):
+You need to run bro (2.3 minimum, regularly tested with 2.5.2) with the option ''%%-b%%'' and the location of the ''%%passiverecon/bare.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run (replace ''%%/usr/share/ivre%%'' by the appropriate location; use ''%%python -c 'import ivre.config; print(ivre.config.guess_prefix())'%%'' if you cannot find it):
 
 <code>
 # mkdir logs
 # LOG_PATH=logs/passiverecon \
-> bro -b /usr/share/ivre/bro/passiverecon.bro -i eth0
+> bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro -i eth0
 
 </code>
 If you want to run it on the ''%%capture%%'' file (''%%capture%%'' needs to a PCAP file), run:
@@ -69,7 +69,7 @@ If you want to run it on the ''%%capture%%'' file (''%%capture%%'' needs to a PC
 <code>
 $ mkdir logs
 $ LOG_PATH=logs/passiverecon \
-> bro -b /usr/share/ivre/bro/passiverecon.bro -r capture
+> bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro -r capture
 
 </code>
 This will produce log files in the ''%%logs%%'' directory. You need to run a ''%%ivre passivereconworker%%'' to process these files. You can try:
@@ -83,7 +83,7 @@ This program will not stop by itself. You can (''%%p%%'')''%%kill%%'' it, it wil
 You can also send the data from ''%%bro%%'' to the database without using intermediate files:
 
 <code>
-$ bro -b /usr/share/ivre/bro/passiverecon.bro [option] \
+$ bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro [option] \
 > | ivre passiverecon2db
 
 </code>

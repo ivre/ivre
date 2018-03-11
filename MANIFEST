@@ -3,12 +3,11 @@ setup.cfg
 setup.py
 bash_completion/ivre
 bin/ivre
-bro/passiverecon.bro
 bro/passiverecon2db-ignore.example
-bro/flow/__load__.bro
-bro/flow/dhcp_names.bro
-bro/flow/rpc.bro
-bro/flow/settings.bro
+bro/ivre/__load__.bro
+bro/ivre/dhcp_names.bro
+bro/ivre/passiverecon/__load__.bro
+bro/ivre/passiverecon/bare.bro
 data/ike-vendor-ids
 data/honeyd/sshd
 doc/AGENT.md
