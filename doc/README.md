@@ -217,13 +217,11 @@ that allows to use several agents from one master. See the
 
 ## Using the results ##
 
-You have three options:
+You have two options:
 
   * the `ivre scancli` command line tool
 
   * the `db.nmap` object of the `ivre.db` Python module
-
-  * the web interface
 
 ### CLI: ivre scancli ###
 
@@ -242,6 +240,26 @@ To use the Python module, run for example:
     >>> db.nmap.get(db.nmap.flt_empty)[0]
 
 For more, run `help(db.nmap)` from the Python shell.
+
+# Create a view #
+
+## Import results ##
+
+To create a view using all the results in both databases, just use :
+
+    $ ivre db2view
+
+To give filters you can use the `--filters` options. For more infos
+just run `ivre help db2view` from the shell.
+
+Warning: if you don't specify either `--use-nmap` or `--use-passive`,
+both will be used, and no filters means all results.
+
+## Using the view ##
+
+Once inserted, you can browse the results with `viewcli` as you would
+do with `scancli` from command line or with Python. You can also now
+access them from the web interface.
 
 ### Web interface ###
 

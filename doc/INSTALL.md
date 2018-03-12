@@ -97,8 +97,8 @@ values can be changed:
     is a more complete example:
     `mongodb://user:password@host/db?colname_aaa=bbb&colname_ccc=ddd`
 
-  - `DB_NMAP`, `DB_PASSIVE`, `DB_FLOW` and `DB_DATA`: specific URLs to
-    use; default is to use the URL from `DB` setting.
+  - `DB_NMAP`, `DB_PASSIVE`, `DB_FLOW`, `DB_VIEW` and `DB_DATA`:
+    specific URLs to use; default is to use the URL from `DB` setting.
 
   - `GEOIP_PATH`: default is `[INSTALL PREFIX]/share/ivre/geoip/`.
 
@@ -119,9 +119,9 @@ Once IVRE has been properly configured, it's time to initialize its
 databases.
 
 For that, the command-line tools (namely `ivre ipdata`, `ivre ipinfo`,
-`ivre scancli` and `ivre runscansagentdb`, respectively for
-information about IP addresses, passive information, active
-information and running scans through agents) have a `--init` option.
+`ivre scancli`, `ivre runscansagentdb` and `ivre viewcli`, respectively for
+information about IP addresses, passive information, active information,
+running scans through agents, and view access) have a `--init` option.
 
 So you can run, with a user or from a host where the configuration has
 a write access to the database (add `< /dev/null` to skip the
@@ -135,6 +135,8 @@ confirmation):
     This will remove any country/AS information in your database. Process ? [y/N] y
     # ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
+    # ivre viewcli --init
+    This will remove any view in your database. Process ? [y/N] y
 
 ### Getting IP data ###
 
