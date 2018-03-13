@@ -1618,13 +1618,18 @@ which `predicate()` is True, given `webflt`.
             # See https://stackoverflow.com/a/26761671
             for line in iter(proc.stdout.readline, b""):
                 if line[:1] == b'\t':
+                    # we do not count "info" lines
                     continue
                 out.append(line)
                 if len(out) == 10:
                     break
-            signal.alarm(20)
+            signal.alarm(30)
             self.assertEqual(len(out), 10)
-            self.assertFalse(select([proc.stdout], [], [], 10)[0])
+            # When we have read 10 lines, we only want to read "info"
+            # lines
+            while select([proc.stdout], [], [], 10)[0]:
+                line = proc.stdout.readline()
+                self.assertTrue(line[:1] == b'\t')
             #proc.send_signal(signal.SIGINT)
             #ret = proc.wait()
             #self.assertEqual(ret, 0)
