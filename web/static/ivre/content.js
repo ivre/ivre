@@ -76,10 +76,6 @@ var HELP_FILTERS = {
     },
     content: {
 	/* filters */
-	"archives": {
-	    "title": "<b>(!)</b>archives",
-	    "content": "Look for archived results. <code>!archives</code> has no effect, since it is the default behavior.",
-	},
 	"id:": {
 	    "title": "<b>(!)</b>id:<b>[object ID](,[object ID](,...))</b>",
 	    "content": "Look for results with a specific ObjectID.",
@@ -933,10 +929,6 @@ var _SUBMENU_SORT = [
 	     {title: "Open ports",
 	      action: "$scope.setparam('-sortby', 'openports.count', true);",
 	      icon: "arrow-up",
-	     },
-	     {title: "Archives",
-	      action: "'archives' in FILTER.parametersobj ? $scope.unsetparam('archives') : $scope.setparam('archives');",
-	      icon: "file",
 	     },
 	 ],
 	},

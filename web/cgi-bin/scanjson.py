@@ -58,7 +58,8 @@ def main():
     sys.stdout.write(webutils.JS_HEADERS)
     params = webutils.parse_query_string()
     query = webutils.query_from_params(params)
-    flt, archive, sortby, unused, skip, limit = webutils.flt_from_query(query)
+    database = db.view
+    flt, sortby, unused, skip, limit = webutils.flt_from_query(query)
     if limit is None:
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:
@@ -90,9 +91,8 @@ def main():
                 field = '%s:%s' % (field, topnbr)
                 topnbr = 15
         series = [{"label": t['_id'], "value": t['count']} for t in
-                  db.nmap.topvalues(field, flt=flt,
-                                    least=least, topnbr=topnbr,
-                                    archive=archive)]
+                  database.topvalues(field, flt=flt,
+                                    least=least, topnbr=topnbr)]
         if callback is None:
             sys.stdout.write("%s\n" % json.dumps(series))
         else:
@@ -106,12 +106,12 @@ def main():
         postamble = "]\n"
         r2res = lambda x: x
         if action == "timeline":
-            if hasattr(db.nmap, "get_open_port_count"):
-                result = list(db.nmap.get_open_port_count(flt, archive=archive))
+            if hasattr(database, "get_open_port_count"):
+                result = list(database.get_open_port_count(flt))
                 count = len(result)
             else:
-                result = db.nmap.get(
-                    flt, archive=archive,
+                result = database.get(
+                    flt,
                     fields=['addr', 'starttime', 'openports.count']
                 )
                 count = result.count()
@@ -129,7 +129,7 @@ def main():
         elif action == "coordinates":
             preamble = '{"type": "GeometryCollection", "geometries": ['
             postamble = ']}'
-            result = list(db.nmap.getlocations(flt, archive=archive))
+            result = list(database.getlocations(flt))
             count = len(result)
             r2res = lambda r: {
                 "type": "Point",
@@ -137,15 +137,15 @@ def main():
                 "properties": {"count": r['count']},
             }
         elif action == "countopenports":
-            if hasattr(db.nmap, "get_open_port_count"):
-                result = db.nmap.get_open_port_count(flt, archive=archive)
+            if hasattr(database, "get_open_port_count"):
+                result = database.get_open_port_count(flt)
             else:
-                result = db.nmap.get(flt, archive=archive,
+                result = database.get(flt,
                                      fields=['addr', 'openports.count'])
             if hasattr(result, "count"):
                 count = result.count()
             else:
-                count = db.nmap.count(flt, archive=archive,
+                count = database.count(flt,
                                       fields=['addr', 'openports.count'])
             if ipsasnumbers:
                 r2res = lambda r: [force_ip_int(r['addr']),
@@ -154,12 +154,12 @@ def main():
                 r2res = lambda r: [force_ip_str(r['addr']),
                                    r['openports']['count']]
         elif action == "ipsports":
-            if hasattr(db.nmap, "get_ips_ports"):
-                result = list(db.nmap.get_ips_ports(flt, archive=archive))
+            if hasattr(database, "get_ips_ports"):
+                result = list(database.get_ips_ports(flt))
                 count = sum(len(host.get('ports', [])) for host in result)
             else:
-                result = db.nmap.get(
-                    flt, archive=archive,
+                result = database.get(
+                    flt,
                     fields=['addr', 'ports.port', 'ports.state_state']
                 )
                 count = sum(len(host.get('ports', [])) for host in result)
@@ -179,23 +179,23 @@ def main():
                      if 'state_state' in p]
                 ]
         elif action == "onlyips":
-            result = db.nmap.get(flt, archive=archive, fields=['addr'])
+            result = database.get(flt, fields=['addr'])
             if hasattr(result, "count"):
                 count = result.count()
             else:
-                count = db.nmap.count(flt, archive=archive, fields=['addr'])
+                count = database.count(flt, fields=['addr'])
             if ipsasnumbers:
                 r2res = lambda r: r['addr']
             else:
                 r2res = lambda r: utils.int2ip(r['addr'])
         elif action == "diffcats":
             if params.get("onlydiff"):
-                output = db.nmap.diff_categories(params.get("cat1"),
+                output = database.diff_categories(params.get("cat1"),
                                                  params.get("cat2"),
                                                  flt=flt,
                                                  include_both_open=False)
             else:
-                output = db.nmap.diff_categories(params.get("cat1"),
+                output = database.diff_categories(params.get("cat1"),
                                                  params.get("cat2"),
                                                  flt=flt)
             count = 0
@@ -244,19 +244,18 @@ def main():
     # generic request
     if action == "count":
         if callback is None:
-            sys.stdout.write("%d\n" % db.nmap.count(flt, archive=archive))
+            sys.stdout.write("%d\n" % database.count(flt))
         else:
             sys.stdout.write("%s(%d);\n" % (callback,
-                                            db.nmap.count(flt,
-                                                          archive=archive)))
+                                            database.count(flt)))
         exit(0)
 
     ## PostgreSQL: the query plan if affected by the limit and gives
     ## really poor results. This is a temporary workaround (look for
     ## XXX-WORKAROUND-PGSQL)
-    # result = db.nmap.get(flt, archive=archive,
+    # result = database.get(flt,
     #                      limit=limit, skip=skip, sort=sortby)
-    result = db.nmap.get(flt, archive=archive,
+    result = database.get(flt,
                          skip=skip, sort=sortby)
 
     if unused:
@@ -319,7 +318,7 @@ def main():
         sys.stdout.write("%s%s%s" % (
             tab, json.dumps(rec, default=utils.serialize), sep
         ))
-        check = db.nmap.cmp_schema_version_host(rec)
+        check = database.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
         # XXX-WORKAROUND-PGSQL
@@ -331,8 +330,8 @@ def main():
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
                           "the following commands: 'ivre scancli "
-                          "--update-schema; ivre scancli --update-schema "
-                          "--archives'" % (count, 's' if count > 1 else '',
+                          "--update-schema;'" % (count,
+                                           's' if count > 1 else '',
                                            'are' if count > 1 else 'is')),
         -1: lambda count: ('%d document%s displayed ha%s been inserted by '
                            'a more recent version of IVRE. Please update '

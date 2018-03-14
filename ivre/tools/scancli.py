@@ -436,19 +436,9 @@ def main():
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
-    parser.add_argument('--move-to-archives', action='store_true',
-                        help='ARCHIVE the matched results instead of '
-                        'displaying them (i.e., move the results to '
-                        'the archive collections).')
-    parser.add_argument('--move-from-archives', action='store_true',
-                        help='UNARCHIVE the matched results instead of '
-                        'displaying them (i.e., move the results from '
-                        'the archive collections to the "fresh" results '
-                        'collections).')
     parser.add_argument('--update-schema', action='store_true',
                         help='update (host) schema. Use with --version to '
-                        'specify your current version and run twice, once '
-                        'with --archive.')
+                        'specify your current version.')
     parser.add_argument('--csv', metavar='TYPE',
                         help='Output result as a CSV file',
                         choices=['ports', 'hops'])
@@ -505,8 +495,7 @@ def main():
                         (args.top, False))
         topnbr = {0: None, None: 10}.get(args.limit, args.limit)
         for entry in db.db.nmap.topvalues(field, flt=hostfilter,
-                                          topnbr=topnbr, least=least,
-                                          archive=args.archives):
+                                          topnbr=topnbr, least=least):
             if isinstance(entry['_id'], (list, tuple)):
                 sep = ' / ' if isinstance(entry['_id'], tuple) else ', '
                 if entry['_id']:
@@ -528,8 +517,7 @@ def main():
                     for field in args.sort]
     if args.short:
         for val in db.db.nmap.distinct("addr", flt=hostfilter, sort=sortkeys,
-                                       limit=args.limit, skip=args.skip,
-                                       archive=args.archives):
+                                       limit=args.limit, skip=args.skip):
             try:
                 out.write(utils.int2ip(val) + '\n')
             except:
@@ -538,7 +526,7 @@ def main():
     elif args.distinct is not None:
         for val in db.db.nmap.distinct(args.distinct, flt=hostfilter,
                                        sort=sortkeys, limit=args.limit,
-                                       skip=args.skip, archive=args.archives):
+                                       skip=args.skip):
             out.write(str(val) + '\n')
         sys.exit(0)
     if args.json:
@@ -588,7 +576,7 @@ def main():
         def displayfunction(x):
             display_xml_preamble(out=out)
             if x.count() == 1 and not isinstance(x[0]['scanid'], list):
-                scan = db.db.nmap.getscan(x[0]['scanid'], archive=args.archives)
+                scan = db.db.nmap.getscan(x[0]['scanid'])
                 if 'scaninfos' in scan and scan['scaninfos']:
                     for k in scan['scaninfos'][0]:
                         scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
@@ -638,17 +626,7 @@ def main():
     elif args.delete:
         def displayfunction(x):
             for h in x:
-                db.db.nmap.remove(h, archive=args.archives)
-    elif args.move_to_archives:
-        args.archives = False
-        def displayfunction(x):
-            for h in x:
-                db.db.nmap.archive(h)
-    elif args.move_from_archives:
-        args.archives = True
-        def displayfunction(x):
-            for h in x:
-                db.db.nmap.archive(h, unarchive=True)
+                db.db.nmap.remove(h)
     elif args.csv is not None:
         fields = {
             "ports": OrderedDict([
@@ -696,13 +674,13 @@ def main():
             nmapout.displayhosts(cursor, out=out)
 
     if args.update_schema:
-        db.db.nmap.migrate_schema(args.archives, args.version)
+        db.db.nmap.migrate_schema(args.version)
     elif args.count:
         out.write(
-            str(db.db.nmap.count(hostfilter, archive=args.archives)) + '\n'
+            str(db.db.nmap.count(hostfilter)) + '\n'
         )
     else:
-        kargs = {"archive": args.archives}
+        kargs = {}
         if args.limit is not None:
             kargs["limit"] = args.limit
         if args.skip is not None:

@@ -22,6 +22,7 @@ __all__ = [
     'airodump2db',
     'arp2db',
     'bro2db',
+    'db2view',
     'flow2db',
     'flowcli',
     'getmoduli',
@@ -40,6 +41,7 @@ __all__ = [
     'scancli',
     'scanstatus',
     'version',
+    'viewcli',
 ]
 
 ALIASES = {

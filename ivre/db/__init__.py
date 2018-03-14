@@ -255,6 +255,147 @@ class DB(object):
                 lambda x, y: abs(x['mean'] - y['mean'])
                 )
 
+    def parse_args(self, args, flt=None):
+        if flt is None:
+            flt = self.flt_empty
+        if args.category is not None:
+            flt = self.flt_and(flt, self.searchcategory(
+                utils.str2list(args.category)))
+        if args.country is not None:
+            flt = self.flt_and(flt, self.searchcountry(
+                utils.str2list(args.country)))
+        if args.asnum is not None:
+            flt = self.flt_and(flt, self.searchasnum(
+                utils.str2list(args.asnum)))
+        if args.asname is not None:
+            flt = self.flt_and(flt, self.searchasname(
+                utils.str2regexp(args.asname)))
+        if args.source is not None:
+            flt = self.flt_and(flt, self.searchsource(args.source))
+        if args.version is not None:
+            flt = self.flt_and(flt, self.searchversion(args.version))
+        if args.timeago is not None:
+            flt = self.flt_and(flt, self.searchtimeago(args.timeago))
+        if args.id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.id))
+        if args.no_id is not None:
+            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
+        if args.host is not None:
+            flt = self.flt_and(flt, self.searchhost(args.host))
+        if args.hostname is not None:
+            if args.hostname[:1] in '!~':
+                flt = self.flt_and(
+                    flt,
+                    self.searchhostname(utils.str2regexp(args.hostname[1:]),
+                                        neg=True)
+                )
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchhostname(utils.str2regexp(args.hostname))
+                )
+        if args.domain is not None:
+            if args.domain[:1] in '!~':
+                flt = self.flt_and(
+                    flt,
+                    self.searchdomain(utils.str2regexp(args.domain[1:]),
+                                      neg=True)
+                )
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchdomain(utils.str2regexp(args.domain))
+                )
+        if args.net is not None:
+            flt = self.flt_and(flt, self.searchnet(args.net))
+        if args.range is not None:
+            flt = self.flt_and(flt, self.searchrange(*args.range))
+        if args.hop is not None:
+            flt = self.flt_and(flt, self.searchhop(args.hop))
+        if args.port is not None:
+            port = args.port.replace('_', '/')
+            if '/' in port:
+                proto, port = port.split('/', 1)
+            else:
+                proto = 'tcp'
+            port = int(port)
+            flt = self.flt_and(
+                flt,
+                self.searchport(port=port, protocol=proto))
+        if args.not_port is not None:
+            not_port = args.not_port.replace('_', '/')
+            if '/' in not_port:
+                not_proto, not_port = not_port.split('/', 1)
+            else:
+                not_proto = 'tcp'
+            not_port = int(not_port)
+            flt = self.flt_and(
+                flt,
+                self.searchport(port=not_port, protocol=not_proto,
+                                neg=True))
+        if args.openport:
+            flt = self.flt_and(flt, self.searchopenport())
+        if args.no_openport:
+            flt = self.flt_and(flt, self.searchopenport(neg=True))
+        if args.countports:
+            minn, maxn = int(args.countports[0]), int(args.countports[1])
+            flt = self.flt_and(flt,
+                               self.searchcountopenports(minn=minn,
+                                                         maxn=maxn))
+        if args.no_countports:
+            minn, maxn = int(args.no_countports[0]), int(args.no_countports[1])
+            flt = self.flt_and(flt,
+                               self.searchcountopenports(minn=minn,
+                                                         maxn=maxn,
+                                                         neg=True))
+        if args.service is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchservice(utils.str2regexp(args.service)),
+            )
+        if args.script is not None:
+            if ':' in args.script:
+                name, output = (utils.str2regexp(string) for
+                                string in args.script.split(':', 1))
+            else:
+                name, output = utils.str2regexp(args.script), None
+            flt = self.flt_and(flt, self.searchscript(name=name,
+                                                      output=output))
+        if args.svchostname is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchsvchostname(utils.str2regexp(args.svchostname)))
+        if args.os is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchos(utils.str2regexp(args.os)))
+        if args.anonftp:
+            flt = self.flt_and(flt, self.searchftpanon())
+        if args.anonldap:
+            flt = self.flt_and(flt, self.searchldapanon())
+        if args.authhttp:
+            flt = self.flt_and(flt, self.searchhttpauth())
+        if args.authbypassvnc:
+            flt = self.flt_and(flt, self.searchvncauthbypass())
+        if args.ypserv:
+            flt = self.flt_and(flt, self.searchypserv())
+        if args.nfs:
+            flt = self.flt_and(flt, self.searchnfs())
+        if args.x11:
+            flt = self.flt_and(flt, self.searchx11access())
+        if args.xp445:
+            flt = self.flt_and(flt, self.searchxp445())
+        if args.owa:
+            flt = self.flt_and(flt, self.searchowa())
+        if args.vuln_boa:
+            flt = self.flt_and(flt, self.searchvulnintersil())
+        if args.torcert:
+            flt = self.flt_and(flt, self.searchtorcert())
+        if args.sshkey is not None:
+            flt = self.flt_and(flt, self.searchsshkey(
+                fingerprint=utils.str2regexp(args.sshkey)))
+        return flt
+
     @staticmethod
     def serialize(obj):
         return utils.serialize(obj)
@@ -264,25 +405,10 @@ class DB(object):
         return 0
 
 
-class DBNmap(DB):
-    def __init__(self, output_mode="json", output=sys.stdout):
-        self.content_handler = xmlnmap.Nmap2Txt
-        self.output_function = {
-            "normal": nmapout.displayhosts,
-        }.get(output_mode, nmapout.displayhosts_json)
-        self.output = output
-        self.__schema_migrations = {
-            "hosts": {
-                None: (1, self.__migrate_schema_hosts_0_1),
-                1: (2, self.__migrate_schema_hosts_1_2),
-                2: (3, self.__migrate_schema_hosts_2_3),
-                3: (4, self.__migrate_schema_hosts_3_4),
-                4: (5, self.__migrate_schema_hosts_4_5),
-                5: (6, self.__migrate_schema_hosts_5_6),
-                6: (7, self.__migrate_schema_hosts_6_7),
-                7: (8, self.__migrate_schema_hosts_7_8),
-            },
-        }
+class DBActive(DB):
+    """Common backend-independant methods for both Nmap and View."""
+
+    def __init__(self):
         try:
             import argparse
             self.argparser = argparse.ArgumentParser(add_help=False)
@@ -351,7 +477,183 @@ class DBNmap(DB):
                                     action='store_true')
         self.argparser.add_argument('--torcert', action='store_true')
         self.argparser.add_argument('--sshkey', metavar="FINGERPRINT")
-        self.argparser.add_argument('--archives', action='store_true')
+ 
+    def searchsshkey(self, fingerprint=None, key=None,
+                     keytype=None, bits=None, output=None):
+        """Search SSH host keys """
+        params = {"name": 'ssh-hostkey'}
+        if fingerprint is not None:
+            if not isinstance(fingerprint, utils.REGEXP_T):
+                fingerprint = fingerprint.replace(":", "").lower()
+            params.setdefault("values", {})['fingerprint'] = fingerprint
+        if key is not None:
+            params.setdefault("values", {})['key'] = key
+        if keytype is not None:
+            params.setdefault("values", {})['type'] = keytype
+        if bits is not None:
+            params.setdefault("values", {})['bits'] = bits
+        if output is not None:
+            params['output'] = output
+        return self.searchscript(**params)
+
+    def searchx11access(self):
+        return self.searchscript(name='x11-access',
+                                 output='X server access is granted')
+
+    def searchbanner(self, banner):
+        return self.searchscript(name='banner', output=banner)
+
+    def searchvncauthbypass(self):
+        return self.searchscript(name="realvnc-auth-bypass")
+
+    def searchmssqlemptypwd(self):
+        return self.searchscript(
+            name='ms-sql-empty-password',
+            output=re.compile('Login\\ Success', flags=0),
+        )
+
+    def searchmysqlemptypwd(self):
+        return self.searchscript(
+            name='mysql-empty-password',
+            output=re.compile('account\\ has\\ empty\\ password', flags=0),
+        )
+
+    def searchcookie(self, name):
+        return self.searchscript(
+            name='http-headers',
+            output=re.compile('^ *Set-Cookie: %s=' % re.escape(name),
+                              flags=re.MULTILINE | re.I),
+        )
+
+    def searchftpanon(self):
+        return self.searchscript(
+            name='ftp-anon',
+            output=re.compile('^Anonymous\\ FTP\\ login\\ allowed', flags=0),
+        )
+
+    def searchhttpauth(self, newscript=True, oldscript=False):
+        if newscript:
+            if oldscript:
+                return self.searchscript(
+                    name=re.compile('^http-(default-accounts|auth)$'),
+                    output=re.compile('credentials\\ found|'
+                                      'HTTP\\ server\\ may\\ accept'),
+                )
+            return self.searchscript(
+                name='http-default-accounts',
+                output=re.compile('credentials\\ found'),
+            )
+        if oldscript:
+            return self.searchscript(
+                name='http-auth',
+                output=re.compile('HTTP\\ server\\ may\\ accept'),
+            )
+        raise Exception('"newscript" and "oldscript" are both False')
+
+    def searchowa(self):
+        return self.searchscript(
+            name=re.compile('^(http-(headers|auth-finder|title)|html-title)$'),
+            output=re.compile('[ /](owa|exchweb)|X-OWA-Version|Outlook Web A', re.I)
+        )
+
+    def searchxp445(self):
+        return self.flt_and(
+            self.searchport(445),
+            self.searchsmb(os="Windows 5.1"),
+        )
+
+    def searchypserv(self):
+        return self.searchscript(name='rpcinfo',
+                                 output=re.compile('ypserv', flags=0))
+
+    def searchnfs(self):
+        return self.searchscript(name='rpcinfo',
+                                 output=re.compile('nfs', flags=0))
+
+    def searchtorcert(self):
+        return self.searchscript(
+            name='ssl-cert',
+            output=re.compile(
+                '^Subject: CN=www\\.[a-z2-7]{8,20}\\.(net|com)($|\n)',
+                flags=0,
+            ),
+        )
+
+    def searchgeovision(self):
+        return self.searchproduct(re.compile('^GeoVision', re.I))
+
+    def searchwebcam(self):
+        return self.searchdevicetype('webcam')
+
+    @staticmethod
+    def searchhost(addr, neg=False):
+        raise NotImplementedError
+
+    @staticmethod
+    def searchsource(src, neg=False):
+        raise NotImplementedError
+
+    @staticmethod
+    def searchscript(name=None, output=None, values=None):
+        raise NotImplementedError
+
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        raise NotImplementedError
+
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None):
+        raise NotImplementedError
+
+    @staticmethod
+    def searchdevicetype(devtype):
+        raise NotImplementedError
+
+    @classmethod
+    def searchsmb(cls, **args):
+        """Search particular results from smb-os-discovery host
+        script. Example:
+
+        .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
+
+        """
+        # key aliases
+        if 'dnsdomain' in args:
+            args['domain_dns'] = args.pop('dnsdomain')
+        if 'forest' in args:
+            args['forest_dns'] = args.pop('forest')
+        return cls.searchscript(name='smb-os-discovery', values=args)
+
+    @staticmethod
+    def cmp_schema_version_host(*_):
+        return 0
+
+    @staticmethod
+    def cmp_schema_version_scan(*_):
+        return 0
+
+
+class DBNmap(DBActive):
+
+    def __init__(self, output_mode="json", output=sys.stdout):
+        DBActive.__init__(self)
+        self.content_handler = xmlnmap.Nmap2Txt
+        self.output_function = {
+            "normal": nmapout.displayhosts,
+        }.get(output_mode, nmapout.displayhosts_json)
+        self.output = output
+        self.__schema_migrations = {
+            "hosts": {
+                None: (1, self.__migrate_schema_hosts_0_1),
+                1: (2, self.__migrate_schema_hosts_1_2),
+                2: (3, self.__migrate_schema_hosts_2_3),
+                3: (4, self.__migrate_schema_hosts_3_4),
+                4: (5, self.__migrate_schema_hosts_4_5),
+                5: (6, self.__migrate_schema_hosts_5_6),
+                6: (7, self.__migrate_schema_hosts_6_7),
+                7: (8, self.__migrate_schema_hosts_7_8),
+            },
+        }
 
     def is_scan_present(self, _):
         return False
@@ -407,32 +709,6 @@ class DBNmap(DB):
     def merge_host_docs(rec1, rec2):
         raise NotImplementedError
 
-    def merge_host(self, host):
-        """Attempt to merge `host` with an existing record.
-
-        Return `True` if another record for the same address (and
-        source if `host['source'] exists`) has been found, merged and
-        the resulting document inserted in the database, `False`
-        otherwise (in that case, it is the caller's responsibility to
-        add `host` to the database if necessary).
-
-        """
-        try:
-            flt = self.searchhost(host['addr'])
-            if host.get("source"):
-                flt = self.flt_and(
-                    flt,
-                    self.searchsource(host["source"]),
-                )
-            rec = self.get(flt)[0]
-        except IndexError:
-            # "Merge" mode but no record for that host, let's add
-            # the result normally
-            return False
-        self.store_host(self.merge_host_docs(rec, host))
-        self.remove(rec)
-        return True
-
     def start_store_hosts(self):
         """Backend-specific subclasses may use this method to create some bulk
 insert structures.
@@ -450,8 +726,8 @@ insert structures.
     def store_scan_json(self, fname, filehash=None,
                         needports=False, needopenports=False,
                         categories=None, source=None,
-                        gettoarchive=None, add_addr_infos=True,
-                        force_info=False, merge=False, **_):
+                        add_addr_infos=True, force_info=False,
+                        **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -504,11 +780,7 @@ insert structures.
                     if not scan_doc_saved:
                         self.store_scan_doc({'_id': filehash})
                         scan_doc_saved = True
-                    if merge and self.merge_host(host):
-                        pass
-                    else:
-                        self.archive_from_func(host, gettoarchive)
-                        self.store_host(host)
+                    self.store_host(host)
         self.stop_store_hosts()
         return True
 
@@ -521,7 +793,7 @@ insert structures.
         if url == "field":
             return port.get('screendata')
 
-    def migrate_schema(self, archive, version):
+    def migrate_schema(self, version):
         """Implemented in backend-specific classes.
 
         """
@@ -704,13 +976,10 @@ insert structures.
     def store_scan_doc(self, scan):
         pass
 
-    def archive_from_func(self, _ig1, _ig2):
-        pass
-
-    def remove(self, host, archive=False):
+    def remove(self, host):
         raise NotImplementedError
 
-    def get_mean_open_ports(self, flt, archive=False):
+    def get_mean_open_ports(self, flt):
         """This method returns for a specific query `flt` a list of
         dictionary objects whose keys are `id` and `mean`; the value
         for `id` is a backend-dependant and uniquely identifies a
@@ -732,7 +1001,7 @@ insert structures.
                         (0, 0)
                     )
                 )
-            } for host in self.get(flt, archive=archive, fields=["ports"])
+            } for host in self.get(flt, fields=["ports"])
         ]
         # result = []
         # for host in self.get(flt, fields=["ports"]):
@@ -745,303 +1014,34 @@ insert structures.
         #     result.append((self.getid(host), count * ports))
         # return result
 
-    def searchsshkey(self, fingerprint=None, key=None,
-                     keytype=None, bits=None, output=None):
-        """Search SSH host keys """
-        params = {"name": 'ssh-hostkey'}
-        if fingerprint is not None:
-            if not isinstance(fingerprint, utils.REGEXP_T):
-                fingerprint = fingerprint.replace(":", "").lower()
-            params.setdefault("values", {})['fingerprint'] = fingerprint
-        if key is not None:
-            params.setdefault("values", {})['key'] = key
-        if keytype is not None:
-            params.setdefault("values", {})['type'] = keytype
-        if bits is not None:
-            params.setdefault("values", {})['bits'] = bits
-        if output is not None:
-            params['output'] = output
-        return self.searchscript(**params)
-
-    def searchx11access(self):
-        return self.searchscript(name='x11-access',
-                                 output='X server access is granted')
-
-    def searchbanner(self, banner):
-        return self.searchscript(name='banner', output=banner)
-
-    def searchvncauthbypass(self):
-        return self.searchscript(name="realvnc-auth-bypass")
-
-    def searchmssqlemptypwd(self):
-        return self.searchscript(
-            name='ms-sql-empty-password',
-            output=re.compile('Login\\ Success', flags=0),
-        )
-
-    def searchmysqlemptypwd(self):
-        return self.searchscript(
-            name='mysql-empty-password',
-            output=re.compile('account\\ has\\ empty\\ password', flags=0),
-        )
-
-    def searchcookie(self, name):
-        return self.searchscript(
-            name='http-headers',
-            output=re.compile('^ *Set-Cookie: %s=' % re.escape(name),
-                              flags=re.MULTILINE | re.I),
-        )
-
-    def searchftpanon(self):
-        return self.searchscript(
-            name='ftp-anon',
-            output=re.compile('^Anonymous\\ FTP\\ login\\ allowed', flags=0),
-        )
-
-    def searchhttpauth(self, newscript=True, oldscript=False):
-        if newscript:
-            if oldscript:
-                return self.searchscript(
-                    name=re.compile('^http-(default-accounts|auth)$'),
-                    output=re.compile('credentials\\ found|'
-                                      'HTTP\\ server\\ may\\ accept'),
-                )
-            return self.searchscript(
-                name='http-default-accounts',
-                output=re.compile('credentials\\ found'),
-            )
-        if oldscript:
-            return self.searchscript(
-                name='http-auth',
-                output=re.compile('HTTP\\ server\\ may\\ accept'),
-            )
-        raise Exception('"newscript" and "oldscript" are both False')
-
-    def searchowa(self):
-        return self.searchscript(
-            name=re.compile('^(http-(headers|auth-finder|title)|html-title)$'),
-            output=re.compile('[ /](owa|exchweb)|X-OWA-Version|Outlook Web A', re.I)
-        )
-
-    def searchxp445(self):
-        return self.flt_and(
-            self.searchport(445),
-            self.searchsmb(os="Windows 5.1"),
-        )
-
-    def searchypserv(self):
-        return self.searchscript(name='rpcinfo',
-                                 output=re.compile('ypserv', flags=0))
-
-    def searchnfs(self):
-        return self.searchscript(name='rpcinfo',
-                                 output=re.compile('nfs', flags=0))
-
-    def searchtorcert(self):
-        return self.searchscript(
-            name='ssl-cert',
-            output=re.compile(
-                '^Subject: CN=www\\.[a-z2-7]{8,20}\\.(net|com)($|\n)',
-                flags=0,
-            ),
-        )
-
-    def searchgeovision(self):
-        return self.searchproduct(re.compile('^GeoVision', re.I))
-
-    def searchwebcam(self):
-        return self.searchdevicetype('webcam')
-
-    @staticmethod
-    def searchhost(addr, neg=False):
-        raise NotImplementedError
-
-    @staticmethod
-    def searchsource(src, neg=False):
-        raise NotImplementedError
-
-    @staticmethod
-    def searchscript(name=None, output=None, values=None):
-        raise NotImplementedError
-
-    @staticmethod
-    def searchport(port, protocol='tcp', state='open', neg=False):
-        raise NotImplementedError
-
-    @staticmethod
-    def searchproduct(product, version=None, service=None, port=None):
-        raise NotImplementedError
-
-    @staticmethod
-    def searchdevicetype(devtype):
-        raise NotImplementedError
-
-    @classmethod
-    def searchsmb(cls, **args):
-        """Search particular results from smb-os-discovery host
-        script. Example:
-
-        .searchsmb(os="Windows 5.1", workgroup="WORKGROUP\\x00")
-
-        """
-        # key aliases
-        if 'dnsdomain' in args:
-            args['domain_dns'] = args.pop('dnsdomain')
-        if 'forest' in args:
-            args['forest_dns'] = args.pop('forest')
-        return cls.searchscript(name='smb-os-discovery', values=args)
-
-    def parse_args(self, args, flt=None):
-        if flt is None:
-            flt = self.flt_empty
-        if args.category is not None:
-            flt = self.flt_and(flt, self.searchcategory(
-                utils.str2list(args.category)))
-        if args.country is not None:
-            flt = self.flt_and(flt, self.searchcountry(
-                utils.str2list(args.country)))
-        if args.asnum is not None:
-            flt = self.flt_and(flt, self.searchasnum(
-                utils.str2list(args.asnum)))
-        if args.asname is not None:
-            flt = self.flt_and(flt, self.searchasname(
-                utils.str2regexp(args.asname)))
-        if args.source is not None:
-            flt = self.flt_and(flt, self.searchsource(args.source))
-        if args.version is not None:
-            flt = self.flt_and(flt, self.searchversion(args.version))
-        if args.timeago is not None:
-            flt = self.flt_and(flt, self.searchtimeago(args.timeago))
-        if args.id is not None:
-            flt = self.flt_and(flt, self.searchobjectid(args.id))
-        if args.no_id is not None:
-            flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
-        if args.host is not None:
-            flt = self.flt_and(flt, self.searchhost(args.host))
-        if args.hostname is not None:
-            if args.hostname[:1] in '!~':
-                flt = self.flt_and(
-                    flt,
-                    self.searchhostname(utils.str2regexp(args.hostname[1:]),
-                                        neg=True)
-                )
-            else:
-                flt = self.flt_and(
-                    flt,
-                    self.searchhostname(utils.str2regexp(args.hostname))
-                )
-        if args.domain is not None:
-            if args.domain[:1] in '!~':
-                flt = self.flt_and(
-                    flt,
-                    self.searchdomain(utils.str2regexp(args.domain[1:]),
-                                      neg=True)
-                )
-            else:
-                flt = self.flt_and(
-                    flt,
-                    self.searchdomain(utils.str2regexp(args.domain))
-                )
-        if args.net is not None:
-            flt = self.flt_and(flt, self.searchnet(args.net))
-        if args.range is not None:
-            flt = self.flt_and(flt, self.searchrange(*args.range))
-        if args.hop is not None:
-            flt = self.flt_and(flt, self.searchhop(args.hop))
-        if args.port is not None:
-            port = args.port.replace('_', '/')
-            if '/' in port:
-                proto, port = port.split('/', 1)
-            else:
-                proto = 'tcp'
-            port = int(port)
-            flt = self.flt_and(
-                flt,
-                self.searchport(port=port, protocol=proto))
-        if args.not_port is not None:
-            not_port = args.not_port.replace('_', '/')
-            if '/' in not_port:
-                not_proto, not_port = not_port.split('/', 1)
-            else:
-                not_proto = 'tcp'
-            not_port = int(not_port)
-            flt = self.flt_and(
-                flt,
-                self.searchport(port=not_port, protocol=not_proto,
-                                neg=True))
-        if args.openport:
-            flt = self.flt_and(flt, self.searchopenport())
-        if args.no_openport:
-            flt = self.flt_and(flt, self.searchopenport(neg=True))
-        if args.countports:
-            minn, maxn = int(args.countports[0]), int(args.countports[1])
-            flt = self.flt_and(flt,
-                               self.searchcountopenports(minn=minn,
-                                                         maxn=maxn))
-        if args.no_countports:
-            minn, maxn = int(args.no_countports[0]), int(args.no_countports[1])
-            flt = self.flt_and(flt,
-                               self.searchcountopenports(minn=minn,
-                                                         maxn=maxn,
-                                                         neg=True))
-        if args.service is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchservice(utils.str2regexp(args.service)),
-            )
-        if args.script is not None:
-            if ':' in args.script:
-                name, output = (utils.str2regexp(string) for
-                                string in args.script.split(':', 1))
-            else:
-                name, output = utils.str2regexp(args.script), None
-            flt = self.flt_and(flt, self.searchscript(name=name,
-                                                      output=output))
-        if args.svchostname is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchsvchostname(utils.str2regexp(args.svchostname)))
-        if args.os is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchos(utils.str2regexp(args.os)))
-        if args.anonftp:
-            flt = self.flt_and(flt, self.searchftpanon())
-        if args.anonldap:
-            flt = self.flt_and(flt, self.searchldapanon())
-        if args.authhttp:
-            flt = self.flt_and(flt, self.searchhttpauth())
-        if args.authbypassvnc:
-            flt = self.flt_and(flt, self.searchvncauthbypass())
-        if args.ypserv:
-            flt = self.flt_and(flt, self.searchypserv())
-        if args.nfs:
-            flt = self.flt_and(flt, self.searchnfs())
-        if args.x11:
-            flt = self.flt_and(flt, self.searchx11access())
-        if args.xp445:
-            flt = self.flt_and(flt, self.searchxp445())
-        if args.owa:
-            flt = self.flt_and(flt, self.searchowa())
-        if args.vuln_boa:
-            flt = self.flt_and(flt, self.searchvulnintersil())
-        if args.torcert:
-            flt = self.flt_and(flt, self.searchtorcert())
-        if args.sshkey is not None:
-            flt = self.flt_and(flt, self.searchsshkey(
-                fingerprint=utils.str2regexp(args.sshkey)))
-        return flt
-
-    @staticmethod
-    def cmp_schema_version_host(*_):
-        return 0
-
-    @staticmethod
-    def cmp_schema_version_scan(*_):
-        return 0
-
 
 class DBPassive(DB):
+
+    def __init__(self):
+        try:
+            import argparse
+            self.argparser = argparse.ArgumentParser(add_help=False)
+            USING_ARGPARSE = True
+        except ImportError:
+            self.argparser = utils.FakeArgparserParent()
+            USING_ARGPARSE = False
+        self.argparser
+        # filters
+        self.argparser.add_argument('--sensor')
+        self.argparser.add_argument('--country')
+        self.argparser.add_argument('--asnum')
+        self.argparser.add_argument('--torcert', action='store_true')
+        self.argparser.add_argument('--dns')
+        self.argparser.add_argument('--dnssub')
+        self.argparser.add_argument('--cert')
+        self.argparser.add_argument('--basicauth', action='store_true')
+        self.argparser.add_argument('--auth', action='store_true')
+        self.argparser.add_argument('--java', action='store_true')
+        self.argparser.add_argument('--ua')
+        self.argparser.add_argument('--ftp', action='store_true')
+        self.argparser.add_argument('--pop', action='store_true')
+        self.argparser.add_argument('--timeago', type=int)
+        self.argparser.add_argument('--timeagonew', type=int)
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
         raise NotImplementedError
@@ -1065,6 +1065,74 @@ class DBPassive(DB):
     @staticmethod
     def searchcertsubject(expr):
         raise NotImplementedError
+
+    def parse_args(self, args, flt=None):
+        baseflt = flt
+        if args.sensor is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchsensor(args.sensor)
+            )
+        if args.asnum is not None:
+            if args.asnum.startswith('!') or args.asnum.startswith('-'):
+                baseflt = db.passive.flt_and(
+                    baseflt,
+                    db.passive.searchasnum(int(args.asnum[1:]), neg=True)
+                )
+            else:
+                baseflt = db.passive.flt_and(
+                    baseflt,
+                    db.passive.searchasnum(int(args.asnum))
+                )
+        if args.country is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchcountry(args.country)
+            )
+        if args.torcert:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchtorcert())
+        if args.basicauth:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchbasicauth())
+        if args.auth:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchhttpauth())
+        if args.ua is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchuseragent(ivre.utils.str2regexp(args.ua))
+            )
+        if args.java:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchjavaua()
+            )
+        if args.ftp:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchftpauth())
+        if args.pop:
+            baseflt = db.passive.flt_and(baseflt, db.passive.searchpopauth())
+        if args.dns is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchdns(
+                    ivre.utils.str2regexp(args.dns),
+                    subdomains=False))
+        if args.dnssub is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchdns(
+                    ivre.utils.str2regexp(args.dnssub),
+                    subdomains=True))
+        if args.cert is not None:
+            baseflt = db.passive.flt_and(
+                baseflt,
+                db.passive.searchcertsubject(
+                    ivre.utils.str2regexp(args.cert)))
+        if args.timeago is not None:
+            baseflt = db.passive.flt_and(db.passive.searchtimeago(args.timeago,
+                                                                  new=False))
+        if args.timeagonew is not None:
+            baseflt = db.passive.flt_and(db.passive.searchtimeago(args.timeagonew,
+                                                                  new=True))
+        return baseflt
 
 
 class DBData(DB):
@@ -1362,7 +1430,6 @@ class DBAgent(DB):
                 categories=scan['target_info']['categories'],
                 source=agent['source'],
             )
-            # TODO gettoarchive parameter
             self.incr_scan_results(self.str2id(scanid))
 
     def feed_all(self, masterid):
@@ -1606,6 +1673,39 @@ class DBFlow(DB):
     """Backend-independent code to handle flows"""
 
 
+class DBView(DBActive):
+    """Backend-independent class to handle views."""
+
+    def __init__(self):
+        DBActive.__init__(self)
+
+    def merge_host(self, host):
+        """Attempt to merge `host` with an existing record.
+
+        Return `True` if another record for the same address (and
+        source if `host['source'] exists`) has been found, merged and
+        the resulting document inserted in the database, `False`
+        otherwise (in that case, it is the caller's responsibility to
+        add `host` to the database if necessary).
+
+        """
+        try:
+            flt = self.searchhost(host['addr'])
+            if host.get("source"):
+                flt = self.flt_and(
+                    flt,
+                    self.searchsource(host["source"]),
+                )
+            rec = self.get(flt)[0]
+        except IndexError:
+            # "Merge" mode but no record for that host, let's add
+            # the result normally
+            return False
+        self.store_host(self.merge_host_docs(rec, host))
+        self.remove(rec)
+        return True
+
+
 def _mongodb_url2dbinfos(url):
     userinfo = {}
     if '@' in url.netloc:
@@ -1653,6 +1753,7 @@ class MetaDB(object):
         "data": {},
         "agent": {},
         "flow": {},
+        "view": {},
     }
     nmap = None
     passive = None
@@ -1673,7 +1774,8 @@ class MetaDB(object):
     def __init__(self, url=None, urls=None):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
-                                       MongoDBData, MongoDBAgent)
+                                       MongoDBData, MongoDBAgent,
+                                       MongoDBView)
         except ImportError:
             pass
         else:
@@ -1681,6 +1783,7 @@ class MetaDB(object):
             self.db_types["passive"]["mongodb"] = MongoDBPassive
             self.db_types["data"]["mongodb"] = MongoDBData
             self.db_types["agent"]["mongodb"] = MongoDBAgent
+            self.db_types["view"]["mongodb"] = MongoDBView
         try:
             from ivre.db.neo4j import Neo4jDBFlow
         except ImportError:
@@ -1689,7 +1792,8 @@ class MetaDB(object):
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         try:
             from ivre.db.postgres import (PostgresDBFlow, PostgresDBData,
-                                          PostgresDBNmap, PostgresDBPassive)
+                                          PostgresDBNmap, PostgresDBPassive,
+                                          PostgresDBView)
         except ImportError:
             pass
         else:
@@ -1697,6 +1801,7 @@ class MetaDB(object):
             self.db_types["nmap"]["postgresql"] = PostgresDBNmap
             self.db_types["data"]["postgresql"] = PostgresDBData
             self.db_types["passive"]["postgresql"] = PostgresDBPassive
+            self.db_types["view"]["postgresql"] = PostgresDBView
         if urls is None:
             urls = {}
         for datatype, dbtypes in viewitems(self.db_types):

@@ -78,12 +78,6 @@ def parse_form():
             source, categories, files)
 
 def import_files(source, categories, files):
-    # archive records from same source
-    def gettoarchive(addr, source):
-        return db.nmap.get(
-            db.nmap.flt_and(db.nmap.searchhost(addr),
-                            db.nmap.searchsource(source))
-        )
     count = 0
     for fileelt in files:
         if fileelt.startswith('\x1f\x8b'):
@@ -93,7 +87,7 @@ def import_files(source, categories, files):
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             fdesc.write(fileelt)
         if db.nmap.store_scan(fdesc.name, categories=list(categories),
-                              source=source, gettoarchive=gettoarchive):
+                              source=source):
             count += 1
             fdesc.unlink(fdesc.name)
         else:
