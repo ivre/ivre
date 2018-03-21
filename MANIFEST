@@ -103,10 +103,6 @@ nmap_scripts/x11-screenshot.nse
 nmap_scripts/patches/rtsp-url-brute.patch
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
-web/cgi-bin/flowjson.py
-web/cgi-bin/jsconfig.py
-web/cgi-bin/scanjson.py
-web/cgi-bin/scanupload.py
 web/dokuwiki/backlinks.patch
 web/dokuwiki/doc/agent.txt
 web/dokuwiki/doc/docker.txt

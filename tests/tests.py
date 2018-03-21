@@ -41,7 +41,7 @@ import tarfile
 import tempfile
 import time
 try:
-    from urllib.request import urlopen, Request
+    from urllib.request import Request, urlopen
 except ImportError:
     from urllib2 import Request, urlopen
 

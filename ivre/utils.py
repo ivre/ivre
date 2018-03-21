@@ -97,12 +97,28 @@ def ip2int(ipstr):
     return struct.unpack('!I', socket.inet_aton(ipstr))[0]
 
 
+def force_ip2int(ipstr):
+    """Same as ip2int(), but works when ipstr is already an int"""
+    try:
+        return ip2int(ipstr)
+    except (TypeError, socket.error, struct.error):
+        return ipstr
+
+
 def int2ip(ipint):
     """Converts the integer representation of an IP address to its
     classical decimal, dot-separated, string representation.
 
     """
     return socket.inet_ntoa(struct.pack('!I', ipint))
+
+
+def force_int2ip(ipint):
+    """Same as int2ip(), but works when ipint is already a atring"""
+    try:
+        return int2ip(ipint)
+    except (TypeError, socket.error, struct.error):
+        return ipint
 
 
 def int2mask(mask):

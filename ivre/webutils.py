@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -48,7 +48,6 @@ from ivre import config, utils
 from ivre.db import db
 
 
-JS_HEADERS = 'Content-Type: application/javascript\r\n'
 IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 NETADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+'
                      '/\\d+(\\.\\d+\\.\\d+\\.\\d+)?$')
@@ -71,48 +70,6 @@ def js_del_alert(ident):
 
     """
     return 'try {del_message("%s");} catch(err) {}\n' % ident
-
-
-def check_referer():
-    """This function implements an anti-CSRF check based on the
-    Referer: header.
-
-    It returns None if the Referer: has a correct value and exits
-    otherwise, preventing the program from being executed.
-
-    """
-    if config.WEB_ALLOWED_REFERERS is False:
-        return
-    referer = os.getenv('HTTP_REFERER', '')
-    if config.WEB_ALLOWED_REFERERS is None:
-        host = os.getenv('HTTP_HOST')
-        ssl = os.getenv('SSL_PROTOCOL')
-        if host is None:
-            # In case the server does not provide the environment
-            # variable HTTP_HOST, which is the case for at least the
-            # test Web server included with IVRE (ivre httpd,
-            # implemented using Python BaseHTTPServer and
-            # CGIHTTPServer modules, see
-            # https://bugs.python.org/issue10486).
-            host = os.getenv('SERVER_NAME', '')
-            port = os.getenv('SERVER_PORT', '')
-            if (ssl and port != '443') or ((not ssl) and port != '80'):
-                host = '%s:%s' % (host, port)
-        base_url = '%s://%s/' % ('https' if ssl else 'http', host)
-        referer_ok = referer.startswith(base_url)
-    else:
-        referer_ok = referer in config.WEB_ALLOWED_REFERERS
-    if not referer_ok:
-        sys.stdout.write(JS_HEADERS)
-        sys.stdout.write("\r\n")
-        sys.stdout.write(
-            js_alert(
-                "referer", "error",
-                "Invalid Referer header. Check your configuration."
-            )
-        )
-        utils.LOGGER.critical("Invalid Referer header [%r]", referer)
-        sys.exit(0)
 
 
 GET_NOTEPAD_PAGES = {}
@@ -162,19 +119,6 @@ def _find_get_notepad_pages():
 
 
 get_notepad_pages = _find_get_notepad_pages()
-
-
-def parse_query_string():
-    """This function parses the query string (from the content of the
-    environment variable 'QUERY_STRING') and returns the parameters as
-    a dictionary.
-
-    """
-    return dict(
-        [param, unquote(value)]
-        for param, value in (x.split('=', 1) if '=' in x else [x, None]
-                             for x in os.getenv('QUERY_STRING', '').split('&'))
-    )
 
 
 def query_from_params(params):

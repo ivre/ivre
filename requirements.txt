@@ -4,3 +4,4 @@ pycrypto
 sqlalchemy
 psycopg2
 future
+bottle

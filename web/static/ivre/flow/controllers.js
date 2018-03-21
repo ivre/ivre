@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -389,7 +389,7 @@ ivreWebUi
                     labels: elt.labels,
                     type: type,
                 };
-                url = "cgi-bin/flowjson.py?action=details&q=" +
+                url = "cgi/flow?action=details&q=" +
                          encodeURIComponent(angular.toJson(q));
                 $http.get(url).success(function (data) {
                     graphService.add_details($scope.sigma, elt, data);
@@ -729,10 +729,10 @@ ivreWebUi
             r = $scope.query_ready;
             if (r.nodes && r.edges) {
                 $scope.query.count = false;
-                $scope.load_json_url("cgi-bin/flowjson.py?q=" +
+                $scope.load_json_url("cgi/flow?q=" +
                              encodeURIComponent(angular.toJson($scope.query)));
                 $scope.query.count = true;
-                $http.get("cgi-bin/flowjson.py?q=" +
+                $http.get("cgi/flow?q=" +
                           encodeURIComponent(angular.toJson($scope.query)))
                      .success(function (data) {
                          $scope.counts = data;
