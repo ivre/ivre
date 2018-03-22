@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -41,9 +41,9 @@ import tarfile
 import tempfile
 import time
 try:
-    from urllib.request import Request, urlopen
+    from urllib.request import HTTPError, Request, urlopen
 except ImportError:
-    from urllib2 import Request, urlopen
+    from urllib2 import HTTPError, Request, urlopen
 
 
 from builtins import int, range
@@ -342,7 +342,7 @@ class IvreTests(unittest.TestCase):
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
-    def _check_top_value_cgi(self, name, field, count=10):
+    def _check_top_value_cgi_old(self, name, field, count=10):
         req = Request('http://%s:%d/cgi-bin/scanjson.py?action='
                       'topvalues:%s:%d' % (HTTPD_HOSTNAME, HTTPD_PORT,
                                            field, count))
@@ -354,8 +354,20 @@ class IvreTests(unittest.TestCase):
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
+    def _check_top_value_cgi(self, name, field, count=10):
+        req = Request('http://%s:%d/cgi/scans/top/%s:%d' % (
+            HTTPD_HOSTNAME, HTTPD_PORT, field, count
+        ))
+        req.add_header('Referer',
+                       'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        listval = []
+        for elem in json.loads(urlopen(req).read().decode()):
+            listval.append({'_id': elem['label'], 'count': elem['value']})
+        self.check_value(name, self._sort_top_values(listval),
+                         check=self.assertItemsEqual)
+
     def check_top_value(self, name, field, count=10):
-        for method in ['api', 'cli', 'cgi']:
+        for method in ['api', 'cli', 'cgi', 'cgi_old']:
             getattr(self, "_check_top_value_%s" % method)(
                 "%s_%s" % (name, method),
                 field, count,
@@ -392,6 +404,51 @@ class IvreTests(unittest.TestCase):
 
         # Start a Web server to test CGI
         self.start_web_server()
+
+        # Test redirection (old API -> new)
+        req = Request('http://%s:%d/cgi-bin/jsconfig.py' % (HTTPD_HOSTNAME,
+                                                            HTTPD_PORT))
+        with self.assertRaises(HTTPError) as herror:
+            udesc = urlopen(req)
+        if herror.exception.getcode() == 303:
+            self.assertEquals(
+                herror.exception.headers['Location'],
+                'http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT),
+            )
+        else:
+            self.assertEquals(herror.exception.getcode(), 400)
+        # Test invalid Referer: header values
+        ## no header
+        req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        with self.assertRaises(HTTPError) as herror:
+            udesc = urlopen(req)
+        self.assertEquals(herror.exception.getcode(), 400)
+        ## invalid value
+        req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        req.add_header('Referer', 'http://invalid.invalid/invalid')
+        with self.assertRaises(HTTPError) as herror:
+            udesc = urlopen(req)
+        self.assertEquals(herror.exception.getcode(), 400)
+        # Get configuration
+        req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        config_values = {
+            "notesbase": ivre.config.WEB_NOTES_BASE,
+            "dflt_limit": ivre.config.WEB_LIMIT,
+            "warn_dots_count": ivre.config.WEB_WARN_DOTS_COUNT,
+            "publicsrv": ivre.config.WEB_PUBLIC_SRV,
+            "uploadok": ivre.config.WEB_UPLOAD_OK,
+            "flow_time_precision": ivre.config.FLOW_TIME_PRECISION,
+            "version": ivre.VERSION,
+        }
+        for line in udesc:
+            self.assertTrue(line.endswith(b';\n'))
+            key, value = line[:-2].decode().split(' = ')
+            self.assertTrue(key.startswith('config.'))
+            key = key[7:]
+            self.assertEquals(json.loads(value), config_values[key])
 
         # Init DB
         self.init_nmap_db()
@@ -1900,6 +1957,7 @@ if __name__ == '__main__':
     SAMPLES = None
     parse_args()
     parse_env()
+    import ivre
     import ivre.config
     import ivre.db
     import ivre.mathutils
