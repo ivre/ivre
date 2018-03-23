@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -132,7 +132,8 @@ specialized scripts.
         '3D traceroute graphs': ["dbus-python"],
         'Plots': ["matplotlib"],
     },
-    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser', 'ivre/analyzer'],
+    packages=['ivre', 'ivre/analyzer', 'ivre/db', 'ivre/parser', 'ivre/tools',
+              'ivre/web'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',
@@ -240,6 +241,9 @@ specialized scripts.
         ('share/ivre/web/static/fi/flags/4x3',
          [os.path.join('web/static/fi/flags/4x3/', x)
           for x in os.listdir('web/static/fi/flags/4x3/')]),
+        # WSGI application
+        ('share/ivre/web/wsgi',
+         ['web/wsgi/app.wsgi']),
         # Dokuwiki
         ('share/ivre/dokuwiki',
          ['web/dokuwiki/backlinks.patch']),

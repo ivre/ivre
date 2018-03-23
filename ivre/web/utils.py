@@ -22,17 +22,13 @@ script.
 
 """
 
-import os
-import sys
-import datetime
+import hmac
 import functools
-import shlex
+import datetime
+import os
 import re
-try:
-    from urllib.parse import unquote
-except ImportError:
-    from urllib import unquote
-from Crypto.Hash.HMAC import HMAC
+import shlex
+import sys
 try:
     import MySQLdb
     HAVE_MYSQL = True
@@ -144,9 +140,8 @@ def query_from_params(params):
                      "Parameter parsing error. Check the server's logs "
                      "for more information.")
         )
-        utils.LOGGER.critical('Parameter parsing error [%s (%r)]',
-                              exc.message, exc)
-        sys.exit(0)
+        utils.LOGGER.critical('Parameter parsing error [%s (%r)]', exc, exc)
+        raise ValueError("Parameter parsing error.")
 
 
 def get_user():
@@ -161,8 +156,8 @@ def get_anonymized_user():
     the HMAC secret.
 
     """
-    return utils.encode_b64(HMAC(key=config.WEB_SECRET,
-                                 msg=get_user()).digest()[:9])
+    return utils.encode_b64(hmac.new(config.WEB_SECRET,
+                                     msg=get_user().encode()).digest()[:9])
 
 
 QUERIES = {
