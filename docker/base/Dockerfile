@@ -22,7 +22,8 @@ ENV DEBIAN_FRONTEND noninteractive
 # Dependencies
 RUN echo "deb http://deb.debian.org/debian stable-backports main" >> /etc/apt/sources.list
 RUN apt-get -q update
-RUN apt-get -qy install python-pymongo python-crypto python-setuptools python-future ca-certificates
+RUN apt-get -qy install python-pymongo python-crypto python-setuptools \
+    python-future python-bottle ca-certificates
 
 # Py2neo
 ADD https://github.com/nigelsmall/py2neo/tarball/py2neo-3.0.0 ./py2neo.tar.gz
