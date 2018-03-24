@@ -342,18 +342,6 @@ class IvreTests(unittest.TestCase):
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
-    def _check_top_value_cgi_old(self, name, field, count=10):
-        req = Request('http://%s:%d/cgi-bin/scanjson.py?action='
-                      'topvalues:%s:%d' % (HTTPD_HOSTNAME, HTTPD_PORT,
-                                           field, count))
-        req.add_header('Referer',
-                       'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
-        listval = []
-        for elem in json.loads(urlopen(req).read().decode()):
-            listval.append({'_id': elem['label'], 'count': elem['value']})
-        self.check_value(name, self._sort_top_values(listval),
-                         check=self.assertItemsEqual)
-
     def _check_top_value_cgi(self, name, field, count=10):
         req = Request('http://%s:%d/cgi/scans/top/%s:%d' % (
             HTTPD_HOSTNAME, HTTPD_PORT, field, count
@@ -367,7 +355,7 @@ class IvreTests(unittest.TestCase):
                          check=self.assertItemsEqual)
 
     def check_top_value(self, name, field, count=10):
-        for method in ['api', 'cli', 'cgi', 'cgi_old']:
+        for method in ['api', 'cli', 'cgi']:
             getattr(self, "_check_top_value_%s" % method)(
                 "%s_%s" % (name, method),
                 field, count,
@@ -405,18 +393,6 @@ class IvreTests(unittest.TestCase):
         # Start a Web server to test CGI
         self.start_web_server()
 
-        # Test redirection (old API -> new)
-        req = Request('http://%s:%d/cgi-bin/jsconfig.py' % (HTTPD_HOSTNAME,
-                                                            HTTPD_PORT))
-        with self.assertRaises(HTTPError) as herror:
-            udesc = urlopen(req)
-        if herror.exception.getcode() == 303:
-            self.assertEquals(
-                herror.exception.headers['Location'],
-                'http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT),
-            )
-        else:
-            self.assertEquals(herror.exception.getcode(), 400)
         # Test invalid Referer: header values
         ## no header
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
