@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -13,6 +13,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+upstream ivre {
+    server unix:/var/run/uwsgi/sock;
+}
 
 server {
     listen 80 default_server;
@@ -28,11 +32,10 @@ server {
         try_files $uri $uri/ =404;
     }
 
-    location ~ ^/cgi-bin/(scanjson|scanupload|flowjson|jsconfig)\.py$ {
-        root /usr/local/share/ivre/web/;
-        fastcgi_pass unix:/var/run/fcgiwrap.socket;
-        fastcgi_param REMOTE_USER $remote_user;
-        include fastcgi.conf;
+    location /cgi/ {
+        include uwsgi_params;
+        uwsgi_pass ivre;
+        uwsgi_param REMOTE_USER $remote_user;
     }
 
     location ~ ^/dokuwiki/.*\.php$ {

@@ -18,9 +18,10 @@ FROM ivre/base
 MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
 
 # Install & configure Nginx
-RUN apt-get -qy install nginx spawn-fcgi php-fpm php-gd fcgiwrap
+RUN apt-get -qy install nginx spawn-fcgi php-fpm php-gd fcgiwrap uwsgi-plugin-python
 ADD nginx-default-site /etc/nginx/sites-available/default
 RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
+RUN mkdir /var/run/uwsgi
 
 # Download & install Dokuwiki
 ADD http://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz ./dokuwiki-stable.tgz
@@ -49,4 +50,13 @@ RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/
 RUN mkdir /var/www/.neo4j && chown www-data:www-data /var/www/.neo4j
 
 EXPOSE 80
-CMD service php7.0-fpm start && service fcgiwrap start && exec /usr/sbin/nginx
+CMD service php7.0-fpm start && \
+    service fcgiwrap start && \
+    for d in "" /local; do if [ -f "/usr$d/share/ivre/web/wsgi/app.wsgi" ]; \
+      then APP="/usr$d/share/ivre/web/wsgi/app.wsgi"; break; fi; done && \
+    uwsgi --plugin /usr/lib/uwsgi/plugins/python_plugin.so \
+      --daemonize /var/log/nginx/uwsgi.log \
+      --socket /var/run/uwsgi/sock \
+      --processes 4 --threads 2 \
+      --mount /cgi="$APP" --manage-script-name && \
+    exec /usr/sbin/nginx
