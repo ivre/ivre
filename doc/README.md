@@ -36,7 +36,8 @@ IVRE relies on:
     [RHEL](https://www.redhat.com/fr/technologies/linux-platforms/enterprise-linux)
     and [CentOS](https://www.centos.org/) version 6.
 
-    * the [Crypto](http://www.pycrypto.org/) module.
+    * the [Bottle](https://bottlepy.org/) module,
+    * the [Crypto](http://www.pycrypto.org/) module,
     * the [pymongo](http://api.mongodb.org/python/) module,
       version 2.7.2 minimum.
     * optionally [PIL](http://www.pythonware.com/products/pil/), to

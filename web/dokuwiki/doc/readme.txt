@@ -18,7 +18,8 @@ IVRE is a **framework**. Meaning it does **not** come with ready-to-run scripts 
 IVRE relies on:
 
   * [[http://www.python.org/|Python]] 2 (version 2.6 minimum), or 3 (version 3.3 minimum). Python 2.6 compatibility is important to make sure IVRE works with [[https://www.redhat.com/fr/technologies/linux-platforms/enterprise-linux|RHEL]] and [[https://www.centos.org/|CentOS]] version 6.
-    * the [[http://www.pycrypto.org/|Crypto]] module.
+    * the [[https://bottlepy.org/|Bottle]] module,
+    * the [[http://www.pycrypto.org/|Crypto]] module,
     * the [[http://api.mongodb.org/python/|pymongo]] module, version 2.7.2 minimum.
     * optionally [[http://www.pythonware.com/products/pil/|PIL]], to trim screenshots.
     * optionally [[http://py2neo.org/v3/|py2neo]] to use the flow module, version 3 minimum.
