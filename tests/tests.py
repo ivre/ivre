@@ -858,8 +858,8 @@ class IvreTests(unittest.TestCase):
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
         ))['addr']
-        if not isinstance(addr, basestring):
-            addr = ivre.utils.int2ip(addr)
+        addr_i = ivre.utils.force_ip2int(addr)
+        addr = ivre.utils.force_int2ip(addr)
         queries = [
             ivre.db.db.nmap.searchhost(addr),
             ivre.db.db.nmap.searchnet('.'.join(addr.split('.')[:3]) + '.0/24'),
@@ -882,6 +882,30 @@ class IvreTests(unittest.TestCase):
                     ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
                 )
             # FIXME: test PostgreSQL indexes
+
+        # Check Web functions used for graphs
+        ## onlyips / IPs as strings
+        req = Request('http://%s:%d/cgi/scans/onlyips?q=net:%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT, '.'.join(addr.split('.')[:3]) + '.0/24',
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr in json.loads(udesc.read().decode()))
+        ## onlyips / IPs as numbers
+        req = Request(
+            'http://%s:%d/cgi/scans/onlyips?q=net:%s&ipsasnumbers=1' % (
+                HTTPD_HOSTNAME, HTTPD_PORT,
+                '.'.join(addr.split('.')[:3]) + '.0/24',
+            )
+        )
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr_i in json.loads(udesc.read().decode()))
+
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11access())
