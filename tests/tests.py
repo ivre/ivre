@@ -390,8 +390,12 @@ class IvreTests(unittest.TestCase):
 
     def test_nmap(self):
 
-        # Start a Web server to test CGI
+        # Start a Web server
         self.start_web_server()
+
+        #
+        # Web server tests
+        #
 
         # Test invalid Referer: header values
         ## no header
@@ -405,6 +409,7 @@ class IvreTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as herror:
             udesc = urlopen(req)
         self.assertEquals(herror.exception.getcode(), 400)
+
         # Get configuration
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
@@ -425,6 +430,36 @@ class IvreTests(unittest.TestCase):
             self.assertTrue(key.startswith('config.'))
             key = key[7:]
             self.assertEquals(json.loads(value), config_values[key])
+
+        # Test redirections & static files
+        req = Request('http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertEquals(udesc.url,
+                          'http://%s:%d/index.html' % (HTTPD_HOSTNAME,
+                                                       HTTPD_PORT))
+        result = False
+        for line in udesc:
+            if b'This file is part of IVRE.' in line:
+                result = True
+                break
+        self.assertTrue(result)
+
+        # Test dokuwiki pages
+        req = Request('http://%s:%d/dokuwiki/doc:readme' % (HTTPD_HOSTNAME,
+                                                            HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        result = False
+        for line in udesc:
+            if b'is a network recon framework' in line:
+                result = True
+                break
+        self.assertTrue(result)
+
+        #
+        # Database tests
+        #
 
         # Init DB
         self.init_nmap_db()
