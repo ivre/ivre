@@ -61,9 +61,9 @@ def server_doku(filepath):
 far from being great...
 
     """
+    filepath = filepath.lower().replace(':', '/')
     if '.' not in os.path.basename(filepath):
         filepath += '.txt'
-    utils.LOGGER.info("%r, %r", filepath, DOKUDIR)
     return static_file(filepath, root=DOKUDIR)
 
 
