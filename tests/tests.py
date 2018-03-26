@@ -611,6 +611,15 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
 
+        # Counting results with the web server
+        req = Request('http://%s:%d/cgi/scans/count' % (HTTPD_HOSTNAME,
+                                                        HTTPD_PORT))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertEquals(json.loads(udesc.read().decode()), hosts_count)
+
         # JSON
         res, out, _ = RUN(['ivre', 'scancli', '--json'])
         self.assertEqual(res, 0)
@@ -1783,6 +1792,10 @@ class IvreTests(unittest.TestCase):
 
             self.assertEqual(count, 40)
 
+        # Web utils
+        with self.assertRaises(ValueError):
+            ivre.web.utils.query_from_params({'q': '"'})
+
     def test_scans(self):
         "Run scans, with and without agents"
 
@@ -2090,6 +2103,7 @@ if __name__ == '__main__':
     import ivre.parser.iptables
     import ivre.passive
     import ivre.utils
+    import ivre.web.utils
     if not ivre.config.DEBUG:
         sys.stderr.write("You *must* have the DEBUG config value set to "
                          "True to run the tests.\n")
