@@ -976,6 +976,25 @@ class IvreTests(unittest.TestCase):
         self.assertEquals(udesc.getcode(), 200)
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
+        ## coordinates
+        result = next(ivre.db.db.nmap.get(
+            ivre.db.db.nmap.searchcity(re.compile('.'))
+        ))
+        addr = ivre.utils.force_int2ip(result['addr'])
+        coords = result['infos']['loc']['coordinates']
+        req = Request('http://%s:%d/cgi/scans/coordinates?q=net:%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT,
+            '.'.join(addr.split('.')[:3]) + '.0/24',
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(
+            coords in
+            (x['coordinates']
+             for x in json.loads(udesc.read().decode())['geometries'])
+        )
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
