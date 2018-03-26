@@ -905,6 +905,77 @@ class IvreTests(unittest.TestCase):
         udesc = urlopen(req)
         self.assertEquals(udesc.getcode(), 200)
         self.assertTrue(addr_i in json.loads(udesc.read().decode()))
+        ## ipsports / IPs as strings
+        req = Request('http://%s:%d/cgi/scans/ipsports?q=net:%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT, '.'.join(addr.split('.')[:3]) + '.0/24',
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr in
+                        (x[0] for x in json.loads(udesc.read().decode())))
+        ## ipsports / IPs as numbers
+        req = Request(
+            'http://%s:%d/cgi/scans/ipsports?q=net:%s&ipsasnumbers=1' % (
+                HTTPD_HOSTNAME, HTTPD_PORT,
+                '.'.join(addr.split('.')[:3]) + '.0/24',
+            )
+        )
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr_i in
+                        (x[0] for x in json.loads(udesc.read().decode())))
+        ## timeline / IPs as strings
+        req = Request('http://%s:%d/cgi/scans/timeline?q=net:%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT,
+            '.'.join(addr.split('.')[:3]) + '.0/24',
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr in
+                        (x[1] for x in json.loads(udesc.read().decode())))
+        ## timeline / IPs as numbers
+        req = Request(
+            'http://%s:%d/cgi/scans/timeline?q=net:%s&ipsasnumbers=1' % (
+                HTTPD_HOSTNAME, HTTPD_PORT,
+                '.'.join(addr.split('.')[:3]) + '.0/24',
+            )
+        )
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr_i in
+                        (x[1] for x in json.loads(udesc.read().decode())))
+        ## countopenports / IPs as strings
+        req = Request('http://%s:%d/cgi/scans/countopenports?q=net:%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT,
+            '.'.join(addr.split('.')[:3]) + '.0/24',
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr in
+                        (x[0] for x in json.loads(udesc.read().decode())))
+        ## countopenports / IPs as numbers
+        req = Request(
+            'http://%s:%d/cgi/scans/countopenports?q=net:%s&ipsasnumbers=1' % (
+                HTTPD_HOSTNAME, HTTPD_PORT,
+                '.'.join(addr.split('.')[:3]) + '.0/24',
+            )
+        )
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr_i in
+                        (x[0] for x in json.loads(udesc.read().decode())))
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
