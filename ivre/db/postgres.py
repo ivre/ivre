@@ -1636,7 +1636,7 @@ insert structures.
              "ports": [
                  {"proto": proto, "port": int(port), "state_state": state}
                  for proto, port, state in (
-                     elt.split(',') for elt in rec[0][3:-3].split(')","(')
+                     elt.split(',') for elt in ''.join(rec[0])[3:-3].split(')","(')
                  )
              ]}
             for rec in
@@ -1651,7 +1651,7 @@ insert structures.
                 ])\
                 .select_from(join(Port, Scan))\
                 .group_by(Scan.addr, Scan.time_start)\
-                .where(Scan.id.in_(base))
+                .where(and_(Port.port >= 0, Scan.id.in_(base)))
             )
         )
 
