@@ -357,9 +357,60 @@ class IvreTests(unittest.TestCase):
     def check_top_value(self, name, field, count=10):
         for method in ['api', 'cli', 'cgi']:
             getattr(self, "_check_top_value_%s" % method)(
-                "%s_%s" % (name, method),
-                field, count,
+                "%s_%s" % (name, method), field, count=count,
             )
+
+    def check_count_value_api(self, name_or_value, flt):
+        if isinstance(flt, tuple):
+            flt, archive = flt
+        else:
+            archive = False
+        count = ivre.db.db.nmap.count(flt, archive=archive)
+        if name_or_value is None:
+            pass
+        elif isinstance(name_or_value, str):
+            self.check_value(name_or_value, count)
+        else:
+            self.assertEqual(name_or_value, count)
+        return count
+
+    def check_count_value_cli(self, name_or_value, cliflt):
+        res, out, _ = RUN(["ivre", "scancli", "--count"] + cliflt)
+        self.assertEqual(res, 0)
+        count = int(out)
+        if name_or_value is None:
+            pass
+        elif isinstance(name_or_value, str):
+            self.check_value(name_or_value, count)
+        else:
+            self.assertEqual(name_or_value, count)
+        return count
+
+    def check_count_value_cgi(self, name_or_value, webflt):
+        req = Request('http://%s:%d/cgi/scans/count%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT,
+            '' if webflt is None else '?q=%s' % webflt,
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        count = json.loads(udesc.read().decode())
+        if name_or_value is None:
+            pass
+        elif isinstance(name_or_value, str):
+            self.check_value(name_or_value, count)
+        else:
+            self.assertEqual(name_or_value, count)
+        return count
+
+    def check_count_value(self, name_or_value, flt, cliflt, webflt):
+        cnt1 = self.check_count_value_api(name_or_value, flt)
+        cnt2 = self.check_count_value_cli(name_or_value, cliflt)
+        cnt3 = self.check_count_value_cgi(name_or_value, webflt)
+        self.assertEqual(cnt1, cnt2)
+        self.assertEqual(cnt1, cnt3)
+        return cnt1
 
     @classmethod
     def setUpClass(cls):
@@ -592,33 +643,23 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
 
-        res, out, _ = RUN(["ivre", "scancli", "--count"])
-        self.assertEqual(res, 0)
-        hosts_count = int(out)
-        res, out, _ = RUN(["ivre", "scancli", "--count", "--archives"])
-        self.assertEqual(res, 0)
-        archives_count = int(out)
+        hosts_count = self.check_count_value("nmap_get_count",
+                                             ivre.db.db.nmap.flt_empty,
+                                             [], None)
+        archives_count = self.check_count_value(
+            "nmap_get_archives_count",
+            (ivre.db.db.nmap.flt_empty, True),
+            ["--archives"], "archives",
+        )
 
-        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchnonexistent())
-        self.assertEqual(count, 0)
+        self.check_count_value_api(0, ivre.db.db.nmap.searchnonexistent())
 
         # Is the test case OK?
         self.assertGreater(hosts_count, 0)
-        self.check_value("nmap_get_count", hosts_count)
-        self.check_value("nmap_get_archives_count",
-                         archives_count)
+
         # Counting results
         self.assertEqual(hosts_count + archives_count,
                          host_counter)
-
-        # Counting results with the web server
-        req = Request('http://%s:%d/cgi/scans/count' % (HTTPD_HOSTNAME,
-                                                        HTTPD_PORT))
-        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
-                                                     HTTPD_PORT))
-        udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
-        self.assertEquals(json.loads(udesc.read().decode()), hosts_count)
 
         # JSON
         res, out, _ = RUN(['ivre', 'scancli', '--json'])
@@ -638,60 +679,53 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertEqual(int(out) + 1, hosts_count)
 
-        res, out, _ = RUN(["ivre", "scancli", "--count",
-                           "--countports", "20", "20"])
-        self.assertEqual(res, 0)
-        portsnb_20 = int(out)
-        self.check_value("nmap_20_ports", portsnb_20)
-
-        res, out, _ = RUN(["ivre", "scancli", "--count",
-                           "--no-countports", "20", "20"])
-        self.assertEqual(res, 0)
-        portsnb_not_20 = int(out)
-
-        self.assertEqual(portsnb_20 + portsnb_not_20, host_counter)
-
-        res, out, _ = RUN(["ivre", "scancli", "--count",
-                           "--countports", "10", "100"])
-        self.assertEqual(res, 0)
-        portsnb_10_100 = int(out)
-        self.check_value("nmap_10-100_ports", portsnb_10_100)
-
-        res, out, _ = RUN(["ivre", "scancli", "--count",
-                           "--no-countports", "10", "100"])
-        self.assertEqual(res, 0)
-        portsnb_not_10_100 = int(out)
-        self.check_int_value_cmd(
-            "nmap_extended_eu_count",
-            ["ivre", "scancli", "--count", "--country=EU*,CH,NO"],
+        portsnb_20 = self.check_count_value(
+            "nmap_20_ports",
+            ivre.db.db.nmap.searchcountopenports(20, 20),
+            ["--countports", "20", "20"], "countports:20",
+        )
+        self.check_count_value(
+            hosts_count - portsnb_20,
+            ivre.db.db.nmap.searchcountopenports(20, 20, neg=True),
+            ["--no-countports", "20", "20"], "!countports:20",
         )
 
-        self.assertEqual(portsnb_10_100 + portsnb_not_10_100, host_counter)
+        portsnb_10_100 = self.check_count_value(
+            "nmap_10-100_ports",
+            ivre.db.db.nmap.searchcountopenports(10, 100),
+            ["--countports", "10", "100"], "countports:10-100",
+        )
+        self.check_count_value(
+            hosts_count - portsnb_10_100,
+            ivre.db.db.nmap.searchcountopenports(10, 100, neg=True),
+            ["--no-countports", "10", "100"], "-countports:10-100",
+        )
+
+        self.check_count_value(
+            "nmap_extended_eu_count",
+            ivre.db.db.nmap.searchcountry(['EU*', 'CH', 'NO']),
+            ["--country=EU*,CH,NO"], "country:EU*,CH,NO"
+        )
 
         # Filters
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty, fields=["addr"]
         ))['addr']
-        count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchhost(addr)
-        )
-        self.assertEqual(count, 1)
+        self.check_count_value(1, ivre.db.db.nmap.searchhost(addr),
+                               ['--host', ivre.utils.force_int2ip(addr)],
+                               ivre.utils.force_int2ip(addr))
         result = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
         ))
         self.assertEqual(result['addr'], addr)
-        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
+        self.check_count_value_api(1, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchhost(addr),
             ivre.db.db.nmap.searchhost(addr),
         ))
-        self.assertEqual(count, 1)
         recid = ivre.db.db.nmap.getid(
             next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
         )
-        count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchid(recid)
-        )
-        self.assertEqual(count, 1)
+        self.check_count_value_api(1, ivre.db.db.nmap.searchid(recid))
         self.assertIsNotNone(
             ivre.db.db.nmap.getscan(
                 ivre.db.db.nmap.getscanids(
@@ -700,40 +734,40 @@ class IvreTests(unittest.TestCase):
             )
         )
 
-        count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchhost("127.12.34.56")
-        )
-        self.assertEqual(count, 0)
+        self.check_count_value(0, ivre.db.db.nmap.searchhost("127.12.34.56"),
+                               ["--host", "127.12.34.56"], "127.12.34.56")
 
         generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
-        addrrange = sorted((x['addr'] for x in [next(generator),
-                                                next(generator)]),
-                           key=lambda x: (ivre.utils.ip2int(x)
-                                          if isinstance(x, basestring) else x))
-        addr_range_count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchrange(*addrrange)
+        addrrange = sorted((x['addr'] for x in
+                            [next(generator), next(generator)]),
+                           key=ivre.utils.force_ip2int)
+        addr_range_count = self.check_count_value(
+            None, ivre.db.db.nmap.searchrange(*addrrange),
+            ["--range"] + [ivre.utils.force_int2ip(x) for x in addrrange],
+            "range:%s-%s" % tuple(ivre.utils.force_int2ip(x)
+                                  for x in addrrange),
         )
         self.assertGreaterEqual(addr_range_count, 2)
-        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
+        self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchcmp("addr", addrrange[0], '>='),
             ivre.db.db.nmap.searchcmp("addr", addrrange[1], '<='),
         ))
-        self.assertEqual(count, addr_range_count)
         addrrange2 = [
             ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1)
             if isinstance(addrrange[0], basestring) else addrrange[0] - 1,
             ivre.utils.int2ip(ivre.utils.ip2int(addrrange[1]) + 1)
             if isinstance(addrrange[1], basestring) else addrrange[1] + 1,
         ]
-        count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
+        self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchcmp("addr", addrrange2[0], '>'),
             ivre.db.db.nmap.searchcmp("addr", addrrange2[1], '<'),
         ))
-        self.assertEqual(count, addr_range_count)
-        count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchrange(*addrrange, neg=True)
+        self.check_count_value_api(
+            hosts_count - addr_range_count,
+            ivre.db.db.nmap.searchrange(*addrrange, neg=True),
         )
-        self.assertEqual(count + addr_range_count, hosts_count)
+        self.check_count_value_cgi(hosts_count - addr_range_count,
+                                   "-range:%s-%s" % tuple(addrrange))
         count = sum(
             ivre.db.db.nmap.count(ivre.db.db.nmap.searchnet(net))
             for net in ivre.utils.range2nets(
