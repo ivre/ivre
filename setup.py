@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -26,17 +26,19 @@ $ python setup.py build
 # python setup.py install
 """
 
+
 from distutils.core import setup
 from distutils.command.install_data import install_data
 from distutils.command.install_lib import install_lib
 import os
-import sys
+
 
 VERSION = __import__('ivre').VERSION
 
+
 class smart_install_data(install_data):
     """Replacement for distutils.command.install_data to handle
-    configuration files location and CGI files shebang lines.
+    configuration files location.
 
     """
     def run(self):
@@ -47,27 +49,7 @@ class smart_install_data(install_data):
                 ("/%s" % path if path.startswith('etc/') else path, files)
                 for path, files in self.data_files
             ]
-        result = install_data.run(self)
-        # handle CGI files like files in [PREFIX]/bin, replace first
-        # line based on sys.executable
-        for path, files in self.data_files:
-            for fname in files:
-                if fname.startswith('web/cgi-bin/') and fname.endswith('.py'):
-                    fullfname = os.path.join(self.install_dir, path,
-                                             os.path.basename(fname))
-                    tmpfname = "%s.tmp" % fullfname
-                    stat = os.stat(fullfname)
-                    os.rename(fullfname, tmpfname)
-                    with open(fullfname, 'w') as newf:
-                        with open(tmpfname) as oldf:
-                            oldf.readline()
-                            newf.write("#!%s\n" % sys.executable)
-                            for line in oldf:
-                                newf.write(line)
-                    os.chown(fullfname, stat.st_uid, stat.st_gid)
-                    os.chmod(fullfname, stat.st_mode)
-                    os.unlink(tmpfname)
-        return result
+        return install_data.run(self)
 
 class smart_install_lib(install_lib):
     """Replacement for distutils.command.install_lib to handle
@@ -139,6 +121,7 @@ specialized scripts.
         'pycrypto',
         'pymongo>=2.7.2',
         'future',
+        'bottle',
     ],
     extras_require={
         'Flow':  ["py2neo>=3"],
@@ -149,7 +132,8 @@ specialized scripts.
         '3D traceroute graphs': ["dbus-python"],
         'Plots': ["matplotlib"],
     },
-    packages=['ivre', 'ivre/tools', 'ivre/db', 'ivre/parser', 'ivre/analyzer'],
+    packages=['ivre', 'ivre/analyzer', 'ivre/db', 'ivre/parser', 'ivre/tools',
+              'ivre/web'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/passiverecon',
@@ -257,6 +241,9 @@ specialized scripts.
         ('share/ivre/web/static/fi/flags/4x3',
          [os.path.join('web/static/fi/flags/4x3/', x)
           for x in os.listdir('web/static/fi/flags/4x3/')]),
+        # WSGI application
+        ('share/ivre/web/wsgi',
+         ['web/wsgi/app.wsgi']),
         # Dokuwiki
         ('share/ivre/dokuwiki',
          ['web/dokuwiki/backlinks.patch']),
@@ -278,11 +265,6 @@ specialized scripts.
         ('share/ivre/dokuwiki/media/doc/screenshots',
          [os.path.join('doc/screenshots', x)
           for x in os.listdir('doc/screenshots')]),
-        ('share/ivre/web/cgi-bin',
-         ['web/cgi-bin/flowjson.py',
-          'web/cgi-bin/jsconfig.py',
-          'web/cgi-bin/scanjson.py',
-          'web/cgi-bin/scanupload.py']),
         ('share/ivre/nmap_scripts',
          ['nmap_scripts/http-screenshot.nse',
           'nmap_scripts/mainframe-banner.nse',

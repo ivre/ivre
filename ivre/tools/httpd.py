@@ -1,9 +1,8 @@
 #! /usr/bin/env python
-# -*- coding: utf-8 -*-
 
-# This program is part of IVRE.
+# This file is part of IVRE.
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
@@ -17,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """
 This program runs a simple httpd server to provide an out-of-the-box
 access to the web user interface.
@@ -26,39 +26,51 @@ deployments should use "real" web servers (IVRE has been successfully
 tested with both Apache and Nginx).
 """
 
-from __future__ import print_function
-from http.server import HTTPServer, CGIHTTPRequestHandler
+
 import os
 
 
-from ivre import config
+from bottle import default_app, get, redirect, run, static_file
 
 
-BASEDIR, CGIDIR, DOKUWIKIDIR = None, None, None
+from ivre import config, utils
+from ivre.web import app as webapp
 
 
-class IvreRequestHandler(CGIHTTPRequestHandler):
-    """Request handler to serve both static files from
-    [PREFIX]/share/ivre/web/static/ and the CGI from
-    [PREFIX]/share/ivre/web/cgi-bin/.
+BASEDIR = config.guess_prefix(directory='web/static')
+DOKUDIR = config.guess_prefix(directory='dokuwiki')
+
+
+#
+# Index page
+#
+
+@get('/')
+def server_index():
+    """Needed to redirect / to index.html"""
+    return redirect('index.html')
+
+
+#
+# Static files
+#
+
+@get('/dokuwiki/<filepath:path>')
+def server_doku(filepath):
+    """This function serves Dokuwiki files as static text files. This is
+far from being great...
 
     """
-    def translate_path(self, path):
-        if not path:
-            return path
-        if path.startswith('/cgi-bin/'):
-            return os.path.join(CGIDIR, os.path.basename(path))
-        if path.startswith('/dokuwiki/'):
-            path = os.path.basename(path).lower().replace(':', '/')
-            if '.' not in os.path.basename(path):
-                path += '.txt'
-            return os.path.join(DOKUWIKIDIR, path)
-        while path.startswith('/'):
-            path = path[1:]
-        path = os.path.join(BASEDIR, path)
-        if path.startswith(BASEDIR):
-            return path
-        raise ValueError("Invalid translated path")
+    filepath = filepath.lower().replace(':', '/')
+    if '.' not in os.path.basename(filepath):
+        filepath += '.txt'
+    return static_file(filepath, root=DOKUDIR)
+
+
+@get('/<filepath:path>')
+def server_static(filepath):
+    """Serve the static (HTML, JS, CSS, ...) content."""
+    return static_file(filepath, root=BASEDIR)
 
 
 def parse_args():
@@ -84,14 +96,9 @@ def parse_args():
 
 
 def main():
-    """This function is called when __name__ == "__main__"."""
-    global BASEDIR, CGIDIR, DOKUWIKIDIR
+    """Function run when the tool is called."""
     print(__doc__)
-    BASEDIR = config.guess_prefix(directory='web/static')
-    CGIDIR = config.guess_prefix(directory='web/cgi-bin')
-    DOKUWIKIDIR = config.guess_prefix(directory='dokuwiki')
-    if BASEDIR is None or CGIDIR is None or DOKUWIKIDIR is None:
-        raise Exception('Cannot find where IVRE is installed')
     args = parse_args()
-    httpd = HTTPServer((args.bind_address, args.port), IvreRequestHandler)
-    httpd.serve_forever()
+    application = default_app()
+    application.mount('/cgi/', webapp.application)
+    run(host=args.bind_address, port=args.port, debug=config.DEBUG)

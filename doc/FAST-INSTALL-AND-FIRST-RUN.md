@@ -23,11 +23,23 @@ You might also want to adapt it to your needs, architecture, etc.
 
 # Install #
 
-    $ sudo apt-get -y install mongodb python-pymongo python-crypto apache2 dokuwiki
+    $ sudo apt-get -y install mongodb python-pymongo python-crypto \
+    >   python-bottle apache2 libapache2-mod-wsgi dokuwiki
     $ git clone https://github.com/cea-sec/ivre
     $ cd ivre
     $ python setup.py build
     $ sudo python setup.py install
+
+NB: if you are running Debian stable, the dokuwiki package has been
+removed (no idea why: it exists in both oldstable and testing). Run
+the following commands (or similar) if you cannot install dokuwiki,
+and try again:
+
+    $ echo 'APT::Default-Release "stable";' | \
+    >   sudo tee /etc/apt/apt.conf.d/99defaultrelease
+    $ echo 'deb http://deb.debian.org/debian testing main' | \
+    >   sudo tee -a /etc/apt/sources.list
+    $ sudo apt-get update
 
 
 # Setup #
@@ -36,8 +48,6 @@ You might also want to adapt it to your needs, architecture, etc.
     # cd /var/www/html ## or depending on your version /var/www
     # rm index.html
     # ln -s /usr/local/share/ivre/web/static/* .
-    # cd /usr/lib/cgi-bin
-    # ln -s /usr/local/share/ivre/web/cgi-bin/* .
     # cd /var/lib/dokuwiki/data/pages
     # ln -s /usr/local/share/ivre/dokuwiki/doc
     # cd /var/lib/dokuwiki/data/media
@@ -46,10 +56,19 @@ You might also want to adapt it to your needs, architecture, etc.
     # cd /usr/share/dokuwiki
     # patch -p0 < /usr/local/share/ivre/dokuwiki/backlinks.patch
     # cd /etc/apache2/mods-enabled
-    # for m in cgi rewrite ; do [ -L $m.load ] || ln -s ../mods-available/$m.load ; done
-    # cd /usr/local/share/ivre/web/cgi-bin
+    # for m in rewrite.load wsgi.conf wsgi.load ; do
+    >   [ -L $m ] || ln -s ../mods-available/$m ; done
+    # cd ../
+    # ## replace /usr/share/ivre/web/wsgi/app.wsgi with the actual location if needed:
+    # echo 'Alias /cgi "/usr/share/ivre/web/wsgi/app.wsgi"' > conf-enabled/ivre.conf
+    # echo '<Location /cgi>' >> conf-enabled/ivre.conf
+    # echo 'SetHandler wsgi-script' >> conf-enabled/ivre.conf
+    # echo 'Options +ExecCGI' >> conf-enabled/ivre.conf
+    # echo 'Require all granted' >> conf-enabled/ivre.conf
+    # echo '</Location>' >> conf-enabled/ivre.conf
     # sed -i 's/^\(\s*\)#Rewrite/\1Rewrite/' /etc/dokuwiki/apache.conf
-    # service apache2 reload
+    # echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
+    # service apache2 reload  ## or start
     # exit
 
 Open a web browser and visit [http://localhost/](http://localhost/).
@@ -121,5 +140,5 @@ and the `ivre runscansagent` command.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2015
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

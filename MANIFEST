@@ -58,7 +58,6 @@ ivre/passive.py
 ivre/scanengine.py
 ivre/target.py
 ivre/utils.py
-ivre/webutils.py
 ivre/xmlnmap.py
 ivre/analyzer/__init__.py
 ivre/analyzer/ike.py
@@ -94,6 +93,9 @@ ivre/tools/scan2db.py
 ivre/tools/scancli.py
 ivre/tools/scanstatus.py
 ivre/tools/version.py
+ivre/web/__init__.py
+ivre/web/app.py
+ivre/web/utils.py
 nmap_scripts/http-screenshot.nse
 nmap_scripts/mainframe-banner.nse
 nmap_scripts/mainframe-screenshot.nse
@@ -103,10 +105,6 @@ nmap_scripts/x11-screenshot.nse
 nmap_scripts/patches/rtsp-url-brute.patch
 passiverecon/passiverecon.bro
 passiverecon/passiverecon2db-ignore.example
-web/cgi-bin/flowjson.py
-web/cgi-bin/jsconfig.py
-web/cgi-bin/scanjson.py
-web/cgi-bin/scanupload.py
 web/dokuwiki/backlinks.patch
 web/dokuwiki/doc/agent.txt
 web/dokuwiki/doc/docker.txt
@@ -427,3 +425,4 @@ web/static/templates/view-cpes-only.html
 web/static/templates/view-hosts.html
 web/static/templates/view-screenshots-only.html
 web/static/templates/view-scripts-only.html
+web/wsgi/app.wsgi

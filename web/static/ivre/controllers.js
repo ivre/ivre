@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -157,7 +157,7 @@ ivreWebUi
 	    else {
 		query = "limit:0";
 	    }
-	    return 'cgi-bin/scanjson.py?q=' + encodeURIComponent(query) +
+	    return 'cgi/scans?q=' + encodeURIComponent(query) +
 		'&ipsasnumbers=1&datesasstrings=1';
 	};
 	$scope.get_title = function() {return document.title;};
@@ -811,8 +811,7 @@ ivreWebUi
 		$("#uploadReferer")
 		    .attr("value", document.referrer);
 		$("#upload")
-		    .attr("action",
-			  'cgi-bin/scanupload.py')
+		    .attr("action", 'cgi/scans')
 		    .submit();
 	    }
 	};

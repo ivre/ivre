@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -96,9 +96,8 @@ var GraphTopValues = (function(_super) {
 
     $.extend(GraphTopValues.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi-bin/scanjson.py?action=topvalues:' +
-		encodeURIComponent(this.field) + ':' + this.count + '&q=' +
-		encodeURIComponent(this.query);
+	    return 'cgi/scans/top/' + encodeURIComponent(this.field) + ':' +
+                this.count + '?q=' + encodeURIComponent(this.query);
 	},
 	draw: function(dataset) {
 	    var field = this.field,
@@ -515,8 +514,8 @@ var GraphMap = (function(_super) {
 
     $.extend(GraphMap.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi-bin/scanjson.py?action=coordinates&ipsasnumbers=1&q=' +
-		encodeURIComponent(this.query);
+	    return 'cgi/scans/coordinates?ipsasnumbers=1&q=' +
+                encodeURIComponent(this.query);
 	},
 	draw: function(locs) {
 	    var chart = this.chart,
@@ -664,7 +663,7 @@ var GraphPlane = (function(_super) {
 
     $.extend(GraphPlane.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi-bin/scanjson.py?action=countopenports&ipsasnumbers=1&q=' +
+	    return 'cgi/scans/countopenports?ipsasnumbers=1&q=' +
 		encodeURIComponent(this.query);
 	},
 	draw: function(ips) {
@@ -848,7 +847,7 @@ var GraphIpPort = (function(_super) {
 
     $.extend(GraphIpPort.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi-bin/scanjson.py?action=ipsports&ipsasnumbers=1&q=' +
+	    return 'cgi/scans/ipsports?ipsasnumbers=1&q=' +
 		encodeURIComponent(this.query);
 	},
 	draw: function(ips) {
@@ -1006,7 +1005,7 @@ var GraphTimeline = (function(_super) {
 
     $.extend(GraphTimeline.prototype, _super.prototype, {
 	get_url: function() {
-	    var url =  'cgi-bin/scanjson.py?action=timeline&ipsasnumbers=1&q=' +
+	    var url =  'cgi/scans/timeline?ipsasnumbers=1&q=' +
 		encodeURIComponent(this.query);
 	    if(this.modulo) {
 		url += "&modulo=" + this.modulo;
@@ -1181,7 +1180,7 @@ var GraphDiffCategories = (function(_super) {
 
     $.extend(GraphDiffCategories.prototype, _super.prototype, {
 	get_url: function() {
-	    var url = 'cgi-bin/scanjson.py?action=diffcats&ipsasnumbers=1&cat1=' +
+	    var url = 'cgi/scans/diffcats?ipsasnumbers=1&cat1=' +
 		encodeURIComponent(this.category1) + '&cat2=' +
 		encodeURIComponent(this.category2) + '&query=' +
 		encodeURIComponent(this.query);

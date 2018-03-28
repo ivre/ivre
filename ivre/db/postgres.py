@@ -656,6 +656,19 @@ class PostgresDB(DB):
     def flt_or(*args):
         return or_(*args)
 
+    def flt2str(self, flt):
+        result = {}
+        for queryname, queries in viewitems(flt.all_queries):
+            outqueries = []
+            if not isinstance(queries, list):
+                queries = [queries]
+            for query in queries:
+                if query is not None:
+                    outqueries.append(str(query))
+            if outqueries:
+                result[queryname] = outqueries
+        return json.dumps(result)
+
     def store_host_context(self, addr, context, firstseen, lastseen):
         insrt = postgresql.insert(Context)
         ctxt = self.db.execute(insrt.values(name=context)\
@@ -1191,21 +1204,29 @@ class Filter(object):
 
 
 class NmapFilter(Filter):
-    def __init__(self, main=None, hostname=None, category=None, source=None,
-                 port=None, script=None, trace=None):
+    def __init__(self, main=None, hostname=None, category=None, port=None,
+                 script=None, trace=None):
         self.main = main
         self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
-        self.source = [] if source is None else source
         self.port = [] if port is None else port
         self.script = [] if script is None else script
         self.trace = [] if trace is None else trace
+    @property
+    def all_queries(self):
+        return {
+            "main": self.main,
+            "hostname": self.hostname,
+            "category": self.category,
+            "port": [elt[1] if elt[0] else not_(elt[1]) for elt in self.port],
+            "script": self.script,
+            "trace": self.trace,
+        }
     def copy(self):
         return self.__class__(
             main=self.main,
             hostname=self.hostname[:],
             category=self.category[:],
-            source=self.source[:],
             port=self.port[:],
             script=self.script[:],
             trace=self.trace[:],
@@ -1215,7 +1236,6 @@ class NmapFilter(Filter):
             main=self.fltand(self.main, other.main),
             hostname=self.hostname + other.hostname,
             category=self.category + other.category,
-            source=self.source + other.source,
             port=self.port + other.port,
             script=self.script + other.script,
             trace=self.trace + other.trace,
@@ -1226,8 +1246,6 @@ class NmapFilter(Filter):
             raise ValueError("Cannot 'OR' two filters on hostname")
         if self.category and other.category:
             raise ValueError("Cannot 'OR' two filters on category")
-        if self.source and other.source:
-            raise ValueError("Cannot 'OR' two filters on source")
         if self.port and other.port:
             raise ValueError("Cannot 'OR' two filters on port")
         if self.script and other.script:
@@ -1238,7 +1256,6 @@ class NmapFilter(Filter):
             main=self.fltor(self.main, other.main),
             hostname=self.hostname + other.hostname,
             category=self.category + other.category,
-            source=self.source + other.source,
             port=self.port + other.port,
             script=self.script + other.script,
             trace=self.trace + other.trace,
@@ -1636,7 +1653,7 @@ insert structures.
              "ports": [
                  {"proto": proto, "port": int(port), "state_state": state}
                  for proto, port, state in (
-                     elt.split(',') for elt in rec[0][3:-3].split(')","(')
+                     elt.split(',') for elt in ''.join(rec[0])[3:-3].split(')","(')
                  )
              ]}
             for rec in
@@ -1651,7 +1668,7 @@ insert structures.
                 ])\
                 .select_from(join(Port, Scan))\
                 .group_by(Scan.addr, Scan.time_start)\
-                .where(Scan.id.in_(base))
+                .where(and_(Port.port >= 0, Scan.id.in_(base)))
             )
         )
 
@@ -2485,6 +2502,13 @@ class PassiveFilter(Filter):
         self.location = location
         self.aut_sys = aut_sys
         self.uses_country = uses_country
+    @property
+    def all_queries(self):
+        return {
+            "main": self.main,
+            "location": self.location,
+            "aut_sys": self.aut_sys,
+        }
     def __nonzero__(self):
         return self.main is not None or self.location is not None \
             or self.aut_sys is not None or self.uses_country

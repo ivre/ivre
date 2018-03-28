@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 # This file is part of IVRE.
 # Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
@@ -13,19 +15,3 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
-
-LoadModule wsgi_module modules/mod_wsgi.so
-
-Alias /ivre/cgi "/usr/share/ivre/web/wsgi/app.wsgi"
-Alias /ivre "/usr/share/ivre/web/static"
-
-<Location /ivre/cgi>
-SetHandler wsgi-script
-Options +ExecCGI
-</Location>
-
-<Directory "/usr/share/ivre/web">
-    Options None
-    AllowOverride None
-    Require all granted
-</Directory>

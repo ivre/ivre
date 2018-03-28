@@ -42,7 +42,7 @@ def main():
     print()
     print("Dependencies:")
     for module in ['Crypto', 'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2',
-                   'krbV', 'PIL', 'MySQLdb', 'dbus', 'matplotlib']:
+                   'krbV', 'PIL', 'MySQLdb', 'dbus', 'matplotlib', 'bottle']:
         try:
             version = __import__(module).__version__
         except AttributeError:

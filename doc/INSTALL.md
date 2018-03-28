@@ -31,6 +31,7 @@ To install IVRE, you'll need [Python](http://www.python.org/) 2
 (version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the
 following modules:
 
+  * [Bottle](https://bottlepy.org/)
   * [Crypto](http://www.pycrypto.org/)
   * [pymongo](http://api.mongodb.org/python/) version 2.7.2 minimum.
   * [py2neo](http://py2neo.org/v3/) version 3 minimum, optional, to
@@ -148,9 +149,10 @@ have to copy or symlink IVRE files to your web server directories, or
 configure your web server to use IVRE files directly.
 
 The files the web server should serve statically are located in
-`[PREFIX]/share/ivre/web/static`, the folder the web server should
-serve as CGI is located in `[PREFIX]/share/ivre/web/cgi-bin`, and the
-(optional) folders to use as Dokuwiki content are located in
+`[PREFIX]/share/ivre/web/static`, the WSGI application the web server
+should forward `/cgi` requests is located in
+`[PREFIX]/share/ivre/web/wsgi/app.wsgi`, and the (optional) folders to
+use as Dokuwiki content are located in
 `[PREFIX]/share/ivre/dokuwiki/doc` and
 `[PREFIX]/share/ivre/dokuwiki/media`. Make sure your Dokuwiki has been
 configured with server-side URL rewriting; this means using proper
@@ -167,13 +169,16 @@ installed with the distribution packages, these files should be copied
 or (sym)linked at these locations:
 
  - `[PREFIX]/share/ivre/web/static/*` -> `/var/www` or `/var/www/html`
- - `[PREFIX]/share/ivre/web/cgi-bin/*` -> `/usr/lib/cgi-bin/`
  - `[PREFIX]/share/ivre/dokuwiki/doc`
      -> `/var/lib/dokuwiki/data/pages/`
  - `[PREFIX]/share/ivre/dokuwiki/media/logo.png`
      -> `/var/lib/dokuwiki/data/media/`
  - `[PREFIX]/share/ivre/dokuwiki/media/doc`
      -> `/var/lib/dokuwiki/data/media/`
+
+A specific configuration should also be done to serve the WSGI
+application. You can have a look at the file `pkg/apache/ivre.conf` as
+an example.
 
 ### Getting screenshots ###
 
@@ -210,5 +215,5 @@ information about that.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2017
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

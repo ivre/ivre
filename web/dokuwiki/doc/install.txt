@@ -14,6 +14,7 @@ If you plan to analyze PCAP file on a machine, install, depending on your needs,
 
 To install IVRE, you'll need [[http://www.python.org/|Python]] 2 (version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the following modules:
 
+  * [[https://bottlepy.org/|Bottle]]
   * [[http://www.pycrypto.org/|Crypto]]
   * [[http://api.mongodb.org/python/|pymongo]] version 2.7.2 minimum.
   * [[http://py2neo.org/v3/|py2neo]] version 3 minimum, optional, to use the flow module.
@@ -84,17 +85,18 @@ $ ivre ipdata --import-all --no-update-passive-db
 
 Once IVRE has been installed, to also install the web interface, you have to copy or symlink IVRE files to your web server directories, or configure your web server to use IVRE files directly.
 
-The files the web server should serve statically are located in ''%%[PREFIX]/share/ivre/web/static%%'', the folder the web server should serve as CGI is located in ''%%[PREFIX]/share/ivre/web/cgi-bin%%'', and the (optional) folders to use as Dokuwiki content are located in ''%%[PREFIX]/share/ivre/dokuwiki/doc%%'' and ''%%[PREFIX]/share/ivre/dokuwiki/media%%''. Make sure your Dokuwiki has been configured with server-side URL rewriting; this means using proper rewrite in your Web server configuration (with ''%%mod_rewrite%%'' when using Apache; you can use the provided ''%%Dockerfile%%''s as examples on how to configure Apache or Nginx) and adding ''%%$conf['userewrite'] = 1%%'' in your Dokuwiki config file.
+The files the web server should serve statically are located in ''%%[PREFIX]/share/ivre/web/static%%'', the WSGI application the web server should forward ''%%/cgi%%'' requests is located in ''%%[PREFIX]/share/ivre/web/wsgi/app.wsgi%%'', and the (optional) folders to use as Dokuwiki content are located in ''%%[PREFIX]/share/ivre/dokuwiki/doc%%'' and ''%%[PREFIX]/share/ivre/dokuwiki/media%%''. Make sure your Dokuwiki has been configured with server-side URL rewriting; this means using proper rewrite in your Web server configuration (with ''%%mod_rewrite%%'' when using Apache; you can use the provided ''%%Dockerfile%%''s as examples on how to configure Apache or Nginx) and adding ''%%$conf['userewrite'] = 1%%'' in your Dokuwiki config file.
 
 You may want to change some values, by creating or modifying ''%%/etc/ivre.conf%%''.
 
 On a typical Debian/Ubuntu installation with Apache and Dokuwiki installed with the distribution packages, these files should be copied or (sym)linked at these locations:
 
   * ''%%[PREFIX]/share/ivre/web/static/*%%'' -> ''%%/var/www%%'' or ''%%/var/www/html%%''
-  * ''%%[PREFIX]/share/ivre/web/cgi-bin/*%%'' -> ''%%/usr/lib/cgi-bin/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/doc%%'' -> ''%%/var/lib/dokuwiki/data/pages/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/logo.png%%'' -> ''%%/var/lib/dokuwiki/data/media/%%''
   * ''%%[PREFIX]/share/ivre/dokuwiki/media/doc%%'' -> ''%%/var/lib/dokuwiki/data/media/%%''
+
+A specific configuration should also be done to serve the WSGI application. You can have a look at the file ''%%pkg/apache/ivre.conf%%'' as an example.
 
 ==== Getting screenshots ====
 
@@ -126,5 +128,5 @@ It requires a POSIX environment, and the commands ''%%screen%%'', ''%%rsync%%'' 
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2017 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2018 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
