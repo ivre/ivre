@@ -371,9 +371,8 @@ def get_nmap():
 
     version_mismatch = {}
     if flt_params.callback is None:
-        tab, sep = "", "\n"
+        yield "[\n"
     else:
-        tab, sep = "\t", ",\n"
         yield "%s([\n" % flt_params.callback
     ## XXX-WORKAROUND-PGSQL
     # for rec in result:
@@ -410,17 +409,18 @@ def get_nmap():
                             hop['ipaddr'] = utils.int2ip(hop['ipaddr'])
                         except:
                             pass
-        yield "%s%s%s" % (
-            tab, json.dumps(rec, default=utils.serialize), sep
-        )
+        yield "%s\t%s" % ('' if i == 0 else ',\n',
+                          json.dumps(rec, default=utils.serialize))
         check = db.nmap.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
         # XXX-WORKAROUND-PGSQL
         if i + 1 >= flt_params.limit:
             break
-    if flt_params.callback is not None:
-        yield "]);\n"
+    if flt_params.callback is None:
+        yield "\n]\n"
+    else:
+        yield "\n]);\n"
 
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
