@@ -412,6 +412,33 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(cnt1, cnt3)
         return cnt1
 
+    def find_record_cgi(self, predicate, webflt=None):
+        """Browse the results from the JSON interface to find a record for
+which `predicate()` is True, given `webflt`.
+
+        """
+        current = 0
+        while True:
+            query = [] if webflt is None else [webflt]
+            if current:
+                query.append('skip%%3A%d' % current)
+            query = "?q=%s" % '%20'.join(query) if query else ""
+            req = Request('http://%s:%d/cgi/scans%s' % (
+                HTTPD_HOSTNAME, HTTPD_PORT, query,
+            ))
+            req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                         HTTPD_PORT))
+            udesc = urlopen(req)
+            self.assertEquals(udesc.getcode(), 200)
+            count = 0
+            for record in json.loads(udesc.read().decode()):
+                if predicate(record):
+                    return True
+                count += 1
+            if count < ivre.config.WEB_LIMIT:
+                return False
+            current += count
+
     @classmethod
     def setUpClass(cls):
         cls.nmap_files = (
@@ -903,9 +930,10 @@ class IvreTests(unittest.TestCase):
         ))['addr']
         addr_i = ivre.utils.force_ip2int(addr)
         addr = ivre.utils.force_int2ip(addr)
+        addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         queries = [
             ivre.db.db.nmap.searchhost(addr),
-            ivre.db.db.nmap.searchnet('.'.join(addr.split('.')[:3]) + '.0/24'),
+            ivre.db.db.nmap.searchnet(addr_net),
             ivre.db.db.nmap.searchrange(max(ivre.utils.ip2int(addr) - 256, 0),
                                         min(ivre.utils.ip2int(addr) + 256,
                                             4294967295)),
@@ -926,10 +954,16 @@ class IvreTests(unittest.TestCase):
                 )
             # FIXME: test PostgreSQL indexes
 
+        # Check Web /scans
+        ## In the whole database
+        self.find_record_cgi(lambda rec: addr == rec['addr'])
+        ## In the /24 network
+        self.find_record_cgi(lambda rec: addr == rec['addr'],
+                             webflt='net:%s' % addr_net)
         # Check Web functions used for graphs
         ## onlyips / IPs as strings
         req = Request('http://%s:%d/cgi/scans/onlyips?q=net:%s' % (
-            HTTPD_HOSTNAME, HTTPD_PORT, '.'.join(addr.split('.')[:3]) + '.0/24',
+            HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
@@ -939,8 +973,7 @@ class IvreTests(unittest.TestCase):
         ## onlyips / IPs as numbers
         req = Request(
             'http://%s:%d/cgi/scans/onlyips?q=net:%s&ipsasnumbers=1' % (
-                HTTPD_HOSTNAME, HTTPD_PORT,
-                '.'.join(addr.split('.')[:3]) + '.0/24',
+                HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -950,7 +983,7 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(addr_i in json.loads(udesc.read().decode()))
         ## ipsports / IPs as strings
         req = Request('http://%s:%d/cgi/scans/ipsports?q=net:%s' % (
-            HTTPD_HOSTNAME, HTTPD_PORT, '.'.join(addr.split('.')[:3]) + '.0/24',
+            HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
@@ -961,8 +994,7 @@ class IvreTests(unittest.TestCase):
         ## ipsports / IPs as numbers
         req = Request(
             'http://%s:%d/cgi/scans/ipsports?q=net:%s&ipsasnumbers=1' % (
-                HTTPD_HOSTNAME, HTTPD_PORT,
-                '.'.join(addr.split('.')[:3]) + '.0/24',
+                HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -973,8 +1005,7 @@ class IvreTests(unittest.TestCase):
                         (x[0] for x in json.loads(udesc.read().decode())))
         ## timeline / IPs as strings
         req = Request('http://%s:%d/cgi/scans/timeline?q=net:%s' % (
-            HTTPD_HOSTNAME, HTTPD_PORT,
-            '.'.join(addr.split('.')[:3]) + '.0/24',
+            HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
@@ -985,8 +1016,32 @@ class IvreTests(unittest.TestCase):
         ## timeline / IPs as numbers
         req = Request(
             'http://%s:%d/cgi/scans/timeline?q=net:%s&ipsasnumbers=1' % (
-                HTTPD_HOSTNAME, HTTPD_PORT,
-                '.'.join(addr.split('.')[:3]) + '.0/24',
+                HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
+            )
+        )
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr_i in
+                        (x[1] for x in json.loads(udesc.read().decode())))
+        ## timeline - modulo 24h / IPs as strings
+        req = Request(
+            'http://%s:%d/cgi/scans/timeline?q=net:%s&modulo=86400' % (
+                HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
+            )
+        )
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(addr in
+                        (x[1] for x in json.loads(udesc.read().decode())))
+        ## timeline - modulo 24h / IPs as numbers
+        req = Request(
+            'http://%s:%d/cgi/scans/timeline?'
+            'q=net:%s&ipsasnumbers=1&modulo=86400' % (
+                HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -997,8 +1052,7 @@ class IvreTests(unittest.TestCase):
                         (x[1] for x in json.loads(udesc.read().decode())))
         ## countopenports / IPs as strings
         req = Request('http://%s:%d/cgi/scans/countopenports?q=net:%s' % (
-            HTTPD_HOSTNAME, HTTPD_PORT,
-            '.'.join(addr.split('.')[:3]) + '.0/24',
+            HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
@@ -1009,8 +1063,7 @@ class IvreTests(unittest.TestCase):
         ## countopenports / IPs as numbers
         req = Request(
             'http://%s:%d/cgi/scans/countopenports?q=net:%s&ipsasnumbers=1' % (
-                HTTPD_HOSTNAME, HTTPD_PORT,
-                '.'.join(addr.split('.')[:3]) + '.0/24',
+                HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -1024,10 +1077,10 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchcity(re.compile('.'))
         ))
         addr = ivre.utils.force_int2ip(result['addr'])
+        addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         coords = result['infos']['loc']['coordinates']
         req = Request('http://%s:%d/cgi/scans/coordinates?q=net:%s' % (
-            HTTPD_HOSTNAME, HTTPD_PORT,
-            '.'.join(addr.split('.')[:3]) + '.0/24',
+            HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
@@ -1038,6 +1091,12 @@ class IvreTests(unittest.TestCase):
             (x['coordinates']
              for x in json.loads(udesc.read().decode())['geometries'])
         )
+        # Check Web /scans (again, new addresses)
+        ## In the whole database
+        self.find_record_cgi(lambda rec: addr == rec['addr'])
+        ## In the /24 network
+        self.find_record_cgi(lambda rec: addr == rec['addr'],
+                             webflt='net:%s' % addr_net)
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
