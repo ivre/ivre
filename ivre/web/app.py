@@ -511,7 +511,7 @@ def post_nmap():
 # /flow/
 #
 
-@application.get('/cgi/flows')
+@application.get('/flows')
 @check_referer
 def get_flow():
     callback = request.params.get("callback")
