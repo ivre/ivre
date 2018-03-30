@@ -389,7 +389,7 @@ ivreWebUi
                     labels: elt.labels,
                     type: type,
                 };
-                url = "cgi/flow?action=details&q=" +
+                url = "cgi/flows?action=details&q=" +
                          encodeURIComponent(angular.toJson(q));
                 $http.get(url).success(function (data) {
                     graphService.add_details($scope.sigma, elt, data);
@@ -729,10 +729,10 @@ ivreWebUi
             r = $scope.query_ready;
             if (r.nodes && r.edges) {
                 $scope.query.count = false;
-                $scope.load_json_url("cgi/flow?q=" +
+                $scope.load_json_url("cgi/flows?q=" +
                              encodeURIComponent(angular.toJson($scope.query)));
                 $scope.query.count = true;
-                $http.get("cgi/flow?q=" +
+                $http.get("cgi/flows?q=" +
                           encodeURIComponent(angular.toJson($scope.query)))
                      .success(function (data) {
                          $scope.counts = data;
