@@ -27,8 +27,10 @@ import errno
 from functools import reduce
 from glob import glob
 from io import BytesIO
+from itertools import chain
 import json
 import os
+import pipes
 import random
 import re
 from select import select
@@ -54,6 +56,17 @@ if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
 else:
     import unittest
+
+
+import ivre
+import ivre.config
+import ivre.db
+import ivre.mathutils
+import ivre.parser.bro
+import ivre.parser.iptables
+import ivre.passive
+import ivre.utils
+import ivre.web.utils
 
 
 HTTPD_PORT = 18080
@@ -90,10 +103,6 @@ def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
     return run_iter(cmd, interp=[sys.executable], stdin=stdin, stdout=stdout,
                     stderr=stderr)
 
-def coverage_init():
-    cov = coverage.coverage(data_suffix=True)
-    cov.erase()
-
 def coverage_run(cmd, stdin=None):
     return run_cmd(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
                    stdin=stdin)
@@ -102,11 +111,6 @@ def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
                       stderr=subprocess.PIPE):
     return run_iter(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
                     stdin=stdin, stdout=stdout, stderr=stderr)
-
-def coverage_report():
-    cov = coverage.coverage()
-    cov.combine(strict=True)
-    cov.save()
 
 
 class AgentScanner(object):
@@ -1321,6 +1325,11 @@ which `predicate()` is True, given `webflt`.
                 COVERAGE + [
                     "run", "--parallel-mode", which("ivre"),
                     "passivereconworker", "--directory", "logs",
+                    "--progname", " ".join(
+                        pipes.quote(elt) for elt in
+                        COVERAGE + ["run", "--parallel-mode", which("ivre"),
+                                    "passiverecon2db"]
+                    ),
                 ],
             )
         else:
@@ -2188,27 +2197,15 @@ if __name__ == '__main__':
     SAMPLES = None
     parse_args()
     parse_env()
-    import ivre
-    import ivre.config
-    import ivre.db
-    import ivre.mathutils
-    import ivre.parser.bro
-    import ivre.parser.iptables
-    import ivre.passive
-    import ivre.utils
-    import ivre.web.utils
     if not ivre.config.DEBUG:
         sys.stderr.write("You *must* have the DEBUG config value set to "
                          "True to run the tests.\n")
         sys.exit(-1)
     if USE_COVERAGE:
-        import coverage
-        COVERAGE = [sys.executable, os.path.dirname(coverage.__file__)]
+        COVERAGE = [sys.executable,
+                    os.path.dirname(__import__("coverage").__file__)]
         RUN = coverage_run
         RUN_ITER = coverage_run_iter
-        coverage_init()
-        cov = coverage.coverage(data_suffix=True)
-        cov.start()
     else:
         RUN = python_run
         RUN_ITER = python_run_iter
@@ -2220,10 +2217,6 @@ if __name__ == '__main__':
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
-    if USE_COVERAGE:
-        cov.stop()
-        cov.save()
-        coverage_report()
     print("run=%d fail=%d errors=%d skipped=%d" % (result.testsRun,
                                                    len(result.failures),
                                                    len(result.errors),
