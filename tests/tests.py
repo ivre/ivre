@@ -27,8 +27,10 @@ import errno
 from functools import reduce
 from glob import glob
 from io import BytesIO
+from itertools import chain
 import json
 import os
+import pipes
 import random
 import re
 from select import select
@@ -1321,6 +1323,11 @@ which `predicate()` is True, given `webflt`.
                 COVERAGE + [
                     "run", "--parallel-mode", which("ivre"),
                     "passivereconworker", "--directory", "logs",
+                    "--progname", " ".join(
+                        pipes.quote(elt) for elt in
+                        COVERAGE + ["run", "--parallel-mode", which("ivre"),
+                                    "passiverecon2db"]
+                    ),
                 ],
             )
         else:
