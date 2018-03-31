@@ -1,3 +1,7 @@
+[run]
+concurrency = multiprocessing
+parallel = True
+
 [report]
 exclude_lines =
     # Have to re-enable the standard pragma
@@ -5,5 +9,6 @@ exclude_lines =
     # Don't complain if tests don't hit defensive assertion code:
     raise NotImplementedError
     except ImportError:
+    except IOError:
     except IOError as exc:
     except Exception:
