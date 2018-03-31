@@ -813,12 +813,6 @@ field.
             req = req.limit(limit)
         return (next(iter(viewvalues(res))) for res in self.db.execute(req))
 
-    def get(self, *args, **kargs):
-        cur = self._get(*args, **kargs)
-        # mimic MongoDB cursor.count()
-        cur.count = lambda: cur.rowcount
-        return cur
-
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         hosts = [cls.convert_ip(host) for host in hosts]
@@ -2345,6 +2339,26 @@ insert structures.
             ))
         return NmapFilter(script=[req])
 
+    @classmethod
+    def searchcert(cls, keytype=None):
+        if keytype is None:
+            return cls.searchscript(name="ssl-cert")
+        try:
+            keytype = keytype.decode()
+        except AttributeError:
+            pass
+        return cls.searchscript(name="ssl-cert",
+                                values={'pubkey': {'type': keytype}})
+
+    @classmethod
+    def searchsshkey(cls, keytype=None):
+        if keytype is not None:
+            utils.LOGGER.warning(
+                "Cannot use keytype with PostgreSQL backend. "
+                "Filter will return more results than expected"
+            )
+        return cls.searchscript(name="ssh-hostkey")
+
     @staticmethod
     def searchsvchostname(srv):
         return NmapFilter(port=[(True, Port.service_hostname == srv)])
@@ -2610,16 +2624,18 @@ class PostgresDBPassive(PostgresDB, DBPassive):
         ).cte("base")
         self.db.execute(delete(Passive).where(Passive.id.in_(base)))
 
-    def _get(self, flt, limit=None, skip=None, sort=None):
+    def get(self, flt, limit=None, skip=None, sort=None):
         """Queries the passive database with the provided filter "flt", and
 returns a generator.
 
         """
         req = flt.query(
-            select([Host.addr, Passive.sensor, Passive.count, Passive.firstseen,
-                    Passive.lastseen, Passive.info, Passive.port,
-                    Passive.recontype, Passive.source, Passive.targetval,
-                    Passive.value, Passive.moreinfo]).select_from(flt.select_from)
+            select(
+                [Host.addr, Passive.sensor, Passive.count, Passive.firstseen,
+                 Passive.lastseen, Passive.port, Passive.recontype,
+                 Passive.source, Passive.targetval, Passive.value,
+                 Passive.fullvalue, Passive.info, Passive.moreinfo]
+            ).select_from(flt.select_from)
         )
         for key, way in sort or []:
             req = req.order_by(key if way >= 0 else desc(key))
@@ -2627,12 +2643,15 @@ returns a generator.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return self.db.execute(req)
+        for rec in self.db.execute(req):
+            rec = dict(rec)
+            rec["infos"] = dict(rec.pop("info"), **rec.pop("moreinfo"))
+            yield rec
 
     def get_one(self, flt, skip=None):
         """Queries the passive database with the provided filter "flt", and
 returns the first result, or None if no result exists."""
-        return self._get(flt, limit=1, skip=skip).fetchone()
+        return next(self.get(flt, limit=1, skip=skip))
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
         if spec is None:
@@ -2983,10 +3002,20 @@ passive table."""
         ))
 
     @staticmethod
-    def searchcert():
+    def searchcert(keytype=None):
+        if keytype is None:
+            return PassiveFilter(main=(
+                (Passive.recontype == 'SSL_SERVER') &
+                (Passive.source == 'cert')
+            ))
+        try:
+            keytype = keytype.decode()
+        except AttributeError:
+            pass
         return PassiveFilter(main=(
             (Passive.recontype == 'SSL_SERVER') &
-            (Passive.source == 'cert')
+            (Passive.source == 'cert') &
+            (Passive.moreinfo.op('->>')('pubkeyalgo') == keytype + 'Encryption')
         ))
 
     @classmethod

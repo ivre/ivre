@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This module implement tools to look for (public) keys in the database.
 
@@ -93,11 +93,11 @@ class PassiveKey(DBKey):
                                  else record['value'])
         if certtext is None:
             return
-        yield Key(utils.int2ip(record['addr']), record["port"], "ssl",
+        yield Key(utils.force_int2ip(record['addr']), record["port"], "ssl",
                   certtext['type'], int(certtext['len']),
                   RSA.construct((
                       long(self.modulus_badchars.sub(
-                          "", certtext['modulus']), 16),
+                          b"", certtext['modulus']), 16),
                       long(certtext['exponent']))),
                   utils.decode_hex(record['infos']['md5hash']))
 
@@ -112,7 +112,15 @@ class SSLKey(object):
         self.pem_borders = re.compile(b'^-*(BEGIN|END) CERTIFICATE-*$', re.M)
         self.modulus_badchars = re.compile(b'[ :\n]+')
 
+    @property
+    def fltkey(self):
+        return self.dbc.searchcert(keytype=self.keytype)
+
     def read_pem(self, pem):
+        try:
+            pem = pem.encode()
+        except AttributeError:
+            pass
         pem = utils.decode_b64(self.pem_borders.sub(b"", pem))
         proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
@@ -138,17 +146,9 @@ class SSLNmapKey(NmapKey, SSLKey):
         SSLKey.__init__(self)
         self.scriptid = "ssl-cert"
 
-    @property
-    def fltkey(self):
-        return self.dbc.searchscript(
-            name=self.scriptid,
-            values={'pem': re.compile('^-* *BEGIN CERTIFICATE'),
-                    'pubkey.type': self.keytype},
-        )
-
     def getkeys(self, host):
         for script in self.getscripts(host):
-            yield Key(utils.int2ip(host['addr']), script["port"], "ssl",
+            yield Key(utils.force_int2ip(host['addr']), script["port"], "ssl",
                       script["script"][self.scriptid]['pubkey']['type'],
                       script["script"][self.scriptid]['pubkey']['bits'],
                       self.pem2key(script["script"][self.scriptid]['pem']),
@@ -165,12 +165,6 @@ class SSLPassiveKey(PassiveKey, SSLKey):
         PassiveKey.__init__(self, baseflt=baseflt)
         SSLKey.__init__(self)
 
-    @property
-    def fltkey(self):
-        return {'source': 'cert',
-                'recontype': 'SSL_SERVER',
-                'infos.pubkeyalgo': '%sEncryption' % self.keytype}
-
 
 class SSHNmapKey(NmapKey):
     """Base class for the SSH keys within the active (Nmap) DB."""
@@ -181,25 +175,23 @@ class SSHNmapKey(NmapKey):
 
     @property
     def fltkey(self):
-        return self.dbc.searchscript(
-            name=self.scriptid,
-            values={'key': re.compile('^[a-zA-Z0-9/+]+={0,2}$'),
-                    'type': 'ssh-%s' % self.keytype},
-        )
+        return self.dbc.searchsshkey(keytype=self.keytype)
 
     def getkeys(self, host):
         for script in self.getscripts(host):
             for key in script['script'][self.scriptid]:
                 if key['type'][4:] == self.keytype:
-                    data = utils.decode_b64(key['key'])
+                    data = utils.decode_b64(key['key'].encode())
                     # Handle bug (in Nmap?) where data gets encoded
                     # twice.
-                    if data[0] != b'\x00':
+                    if data[:1] != b'\x00':
                         data = utils.decode_b64(data)
                     yield Key(
-                        utils.int2ip(host['addr']), script["port"], "ssh",
+                        utils.force_int2ip(host['addr']), script["port"], "ssh",
                         key['type'][4:],
-                        int(key['bits']),
+                        int(float(key['bits'])),  # for some reason,
+                                                  # Nmap sometimes
+                                                  # outputs 1024.0
                         self.data2key(data),
                         utils.decode_hex(key['fingerprint']),
                     )
@@ -218,13 +210,13 @@ class RSAKey(object):
     """
 
     def __init__(self):
-        self.keyincert = re.compile('\n *Issuer: (?P<issuer>.*)'
-                                    '\n(?:.*\n)* *Subject: (?P<subject>.*)'
-                                    '\n(?:.*\n)* *Public Key Algorithm:'
-                                    ' (?P<type>.*)Encryption'
-                                    '\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
-                                    '\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
-                                    '\n\\ *Exponent: (?P<exponent>[0-9]+) ')
+        self.keyincert = re.compile(b'\n *Issuer: (?P<issuer>.*)'
+                                    b'\n(?:.*\n)* *Subject: (?P<subject>.*)'
+                                    b'\n(?:.*\n)* *Public Key Algorithm:'
+                                    b' (?P<type>.*)Encryption'
+                                    b'\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
+                                    b'\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+                                    b'\n\\ *Exponent: (?P<exponent>[0-9]+) ')
         self.keytype = 'rsa'
 
     def _pem2key(self, pem):
@@ -233,7 +225,7 @@ class RSAKey(object):
     def pem2key(self, pem):
         certtext = self._pem2key(pem)
         return None if certtext is None else RSA.construct((
-            long(self.modulus_badchars.sub("", certtext['modulus']), 16),
+            long(self.modulus_badchars.sub(b"", certtext['modulus']), 16),
             long(certtext['exponent']),
         ))
 
