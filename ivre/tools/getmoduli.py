@@ -38,8 +38,8 @@ def main():
     bases = set()
     try:
         opts, _ = getopt.getopt(sys.argv[1:], "p:h",
-                                ['passive-ssl', 'active-ssl', 'active-ssh',
-                                 'help'])
+                                ['passive-ssl', 'active-ssl', 'passive-ssh',
+                                 'active-ssh', 'help'])
     except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
         sys.exit(-1)
@@ -48,11 +48,13 @@ def main():
             bases.add(ivre.keys.SSLRsaPassiveKey)
         elif o == '--active-ssl':
             bases.add(ivre.keys.SSLRsaNmapKey)
+        elif o == '--passive-ssh':
+            bases.add(ivre.keys.SSHRsaPassiveKey)
         elif o == '--active-ssh':
             bases.add(ivre.keys.SSHRsaNmapKey)
         elif o in ['-h', '--help']:
-            sys.stdout.write('usage: %s [-h] [--passive-ssl] [--active-ssl]'
-                             ' [--active-ssh]\n\n' % sys.argv[0])
+            sys.stdout.write('usage: %s [-h] [--passive-ssl] [--active-ssl] '
+                             '[--passive-ssh] [--active-ssh]\n\n' % sys.argv[0])
             sys.stdout.write(__doc__)
             sys.stdout.write("\n\n")
             sys.exit(0)
@@ -66,6 +68,7 @@ def main():
             ivre.keys.SSLRsaPassiveKey,
             ivre.keys.SSLRsaNmapKey,
             ivre.keys.SSHRsaNmapKey,
+            ivre.keys.SSHRsaPassiveKey,
         ]
     for base in bases:
         for key in base():

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,19 +19,21 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains functions used for passive recon.
 """
 
 
-import re
 import hashlib
+import math
+import re
 import subprocess
 import time
 
 
 from future.utils import viewitems
+from past.builtins import long
 
 
 from ivre import utils
@@ -146,7 +148,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # try to recover the passwords, but on the other hand we store
     # specs with different challenges but the same username, realm,
     # host and sensor in the same records.
-    if spec['recontype'] in ['HTTP_CLIENT_HEADER',
+    elif spec['recontype'] in ['HTTP_CLIENT_HEADER',
                              'HTTP_CLIENT_HEADER_SERVER'] and \
         spec.get('source') in ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']:
@@ -162,6 +164,16 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 pass
         elif authtype.lower() in ['negotiate', 'kerberos', 'oauth', 'ntlm']:
             spec['value'] = authtype
+    # p0f in Bro hack: we use the "source" field to provide the
+    # "distance" and "version" values
+    elif spec['recontype'] == 'P0F':
+        distance, version = spec.pop('source').split('-', 1)
+        try:
+            spec['distance'] = int(distance)
+        except ValueError:
+            pass
+        if version:
+            spec['version'] = version
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
     # so, we replace the value with its SHA1 hash and store the
@@ -177,7 +189,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
 
 def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by **bro_line
-               timestamp, host, srvport, recon_type, source, value, targetval):
+               timestamp, uid, host, srvport, recon_type, source, value,
+               targetval):
     if host is None:
         spec = {
             'targetval': targetval,
@@ -248,6 +261,13 @@ def _getinfos_http_client_authorization(spec):
     return res
 
 
+def _getinfos_http_server(spec):
+    header = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
+    banner = b"HTTP/1.1 200 OK\r\nServer: " + header + b"\r\n\r\n"
+    res = _getinfos_from_banner(banner, probe="GetRequest")
+    return res
+
+
 def _getinfos_dns(spec):
     """Extract domain names in an handy-to-index-and-query form."""
     infos = {}
@@ -277,6 +297,7 @@ def _getinfos_dns(spec):
     if fullinfos:
         res['fullinfos'] = fullinfos
     return res
+
 
 _CERTINFOS = re.compile(
     b'\n *'
@@ -313,9 +334,10 @@ def _getinfos_cert(spec):
         newinfos = _CERTINFOS.search(proc.stdout.read()).groupdict()
         newfullinfos = {}
         for field in newinfos:
-            if len(newinfos[field]) > utils.MAXVALLEN:
-                newfullinfos[field] = newinfos[field]
-                newinfos[field] = newinfos[field][:utils.MAXVALLEN]
+            data = newinfos[field] = newinfos[field].decode()
+            if len(data) > utils.MAXVALLEN:
+                newfullinfos[field] = data
+                newinfos[field] = data[:utils.MAXVALLEN]
         infos.update(newinfos)
         fullinfos.update(newfullinfos)
     except Exception:
@@ -328,6 +350,69 @@ def _getinfos_cert(spec):
         res['fullinfos'] = fullinfos
     return res
 
+
+def _fix_infos_size(spec):
+    for field in list(spec.get("infos", {})):
+        value = spec["infos"]
+        if len(value) > utils.MAXVALLEN:
+            spec.setdefault("fullinfos", {})[field] = value
+            spec["infos"][field] = value[:utils.MAXVALLEN]
+
+
+def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
+    infos = utils.match_nmap_svc_fp(banner, proto=proto, probe=probe)
+    if not infos:
+        return {}
+    res = {'infos': infos}
+    _fix_infos_size(res)
+    return res
+
+
+def _getinfos_tcp_srv_banner(spec):
+    """Extract info from a TCP server banner using Nmap database.
+
+    """
+    return _getinfos_from_banner(utils.nmap_decode_data(
+        spec.get('fullvalue', spec['value'])
+    ))
+
+
+def _getinfos_ssh_server(spec):
+    """Convert an SSH server banner to a TCP banner and use
+_getinfos_tcp_srv_banner()"""
+    return _getinfos_from_banner(utils.nmap_decode_data(
+        spec.get('fullvalue', spec['value'])
+    ) + b'\n')
+
+
+def _getinfos_ssh_hostkey(spec):
+    """Parse SSH host keys."""
+    infos = {}
+    data = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
+    infos["md5hash"] = hashlib.md5(data).hexdigest()
+    infos["sha1hash"] = hashlib.sha1(data).hexdigest()
+    infos["sha256hash"] = hashlib.sha256(data).hexdigest()
+    data = utils.parse_ssh_key(data)
+    keytype = infos["algo"] = next(data).decode()
+    if keytype == "ssh-rsa":
+        try:
+            infos["exponent"], infos["modulus"] = (
+                long(utils.encode_hex(elt), 16) for elt in data
+            )
+        except:
+            utils.LOGGER.info("Cannot parse SSH host key for record %r", spec,
+                              exc_info=True)
+        else:
+            infos["bits"] = math.ceil(math.log(infos["modulus"], 2))
+            # convert integer to strings to prevent overflow errors
+            # (e.g., "MongoDB can only handle up to 8-byte ints")
+            for val in ["exponent", "modulus"]:
+                infos[val] = str(infos[val])
+    res = {'infos': infos}
+    _fix_infos_size(res)
+    return res
+
+
 _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
@@ -335,8 +420,13 @@ _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER_SERVER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
      'PROXY-AUTHORIZATION': _getinfos_http_client_authorization},
+    'HTTP_SERVER_HEADER':
+    {'SERVER': _getinfos_http_server},
     'DNS_ANSWER': _getinfos_dns,
     'SSL_SERVER': _getinfos_cert,
+    'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,
+    'SSH_SERVER': _getinfos_ssh_server,
+    'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
 }
 
 

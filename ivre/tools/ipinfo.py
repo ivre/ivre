@@ -56,10 +56,10 @@ def disp_rec(rec):
             print(rec['recontype'], end=' ')
     if 'source' in rec:
         print(rec['source'], end=' ')
-    if 'infos' not in rec and 'value' in rec:
+    if 'value' in rec:
         if 'fullvalue' in rec:
             rec['value'] = rec['fullvalue']
-        print(rec['value'], end=' ')
+        print(ivre.utils.printable(rec['value']), end=' ')
     if 'version' in rec:
         print(rec['version'], end=' ')
     if 'signature' in rec:

@@ -1,6 +1,6 @@
 # This file is part of IVRE.
 #
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # This file contains expected results for IVRE's tests run with public
 # data. It is intended for use within the Travis CI platform with
@@ -95,23 +95,27 @@ nmap_max_moduli_ssl_reuse = 18
 nmap_distinct_ssh_moduli = 69
 nmap_max_moduli_ssh_reuse = 11
 passive_top_addr_distinct_count = 15
-passive_count = 119
+passive_count = 149
 passive_torcert_count = 0
 passive_iphost_count_com = 35
 passive_javaua_count = 0
 passive_popauth_count = 0
 passive_top_addr_distinct = 1447166179
 passive_cert_google = 0
-passive_top_addr_not_distinct_count = 158
-passive_ipinfo_short_count = 55
+passive_top_addr_not_distinct_count = 160
+passive_ipinfo_short_count = 59
 passive_basicauth_count = 0
 passive_httpauth_count = 0
 passive_ftpauth_count = 0
 passive_iphost_count = 80
 passive_cert_microsoft = 0
 passive_top_addr_not_distinct = 3232235522
-passive_distinct_moduli = 1
+passive_distinct_moduli = 2
 passive_max_moduli_reuse = 1
+passive_distinct_ssl_moduli = 1
+passive_max_moduli_ssl_reuse = 1
+passive_distinct_ssh_moduli = 1
+passive_max_moduli_ssh_reuse = 1
 utils_bro_btest_Baseline_core_tunnels_teredo_http_count = 4
 utils_bro_btest_Baseline_scripts_policy_protocols_conn_mac_logging_conn1_count = 34
 utils_bro_btest_Baseline_scripts_base_frameworks_logging_ascii_tsv_ssh_filtered_count = 6

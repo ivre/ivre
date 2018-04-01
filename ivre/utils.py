@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -941,7 +941,11 @@ def find_ike_vendor_id(vendorid):
             return name
 
 
+# Nmap (and Bro) encoding & decoding
+
+
 _REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}
+_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\'}
 
 
 def nmap_encode_data(data):
@@ -950,6 +954,63 @@ def nmap_encode_data(data):
         '\\x%02x' % ord(d)
         for d in (data[i:i+1] for i in range(len(data)))
     )
+
+
+def _nmap_decode_data(data):
+    status = 0
+    first_byte = None
+    for char in data:
+        if status == 0:
+            # not in an escape sequence
+            if char == '\\':
+                status = 1
+                continue
+            yield char.encode()
+            continue
+        if status == 1:
+            # after a backslash
+            if char in _RAWS:
+                yield _RAWS[char]
+                status = 0
+                continue
+            if char == 'x':
+                status = 2
+                continue
+            LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + char)
+            yield b'\\'
+            yield char.encode()
+            status = 0
+            continue
+        if status == 2:
+            # after \x
+            try:
+                first_byte = int(char, 16)
+            except ValueError:
+                LOGGER.warning('nmap_decode_data: cannot decode %r', '\\x' + char)
+                yield b'\\x'
+                yield char.encode()
+                status = 0
+                continue
+            status = 3
+            continue
+        if status == 3:
+            # after \x?
+            try:
+                value = bytes([first_byte * 16 + int(char, 16)])
+            except ValueError:
+                LOGGER.warning('nmap_decode_data: cannot decode %r',
+                               '\\x%x%s' % (first_byte, char))
+                yield ('\\x%x%s' % (first_byte, char)).encode()
+                status = 0
+                continue
+            yield value
+            first_byte = None
+            status = 0
+            continue
+
+
+def nmap_decode_data(data):
+    return b''.join(_nmap_decode_data(data))
 
 
 def nmap_svc_fp_format_data(data, match):
@@ -999,7 +1060,6 @@ def num2readable(value):
     return '%d%s' % (value / idx, unit)
 
 
-
 _DECODE_HEX = codecs.getdecoder("hex_codec")
 _ENCODE_HEX = codecs.getencoder("hex_codec")
 _DECODE_B64 = codecs.getdecoder("base64_codec")
@@ -1020,3 +1080,14 @@ def decode_b64(value):
 
 def encode_b64(value):
     return _ENCODE_B64(value)[0].replace(b'\n', b'')
+
+
+def printable(string):
+    return "".join(c if ' ' <= c <= '~' else '.' for c in string)
+
+def parse_ssh_key(data):
+    """Generates SSH key elements"""
+    while data:
+        length = struct.unpack('>I', data[:4])[0]
+        yield data[4:4 + length]
+        data = data[4 + length:]
