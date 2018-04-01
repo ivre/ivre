@@ -57,6 +57,8 @@ export {
     type Info: record {
         ## The time at which the software was detected.
         ts: time &log;
+        ## The connection uid
+        uid: string &log;
         ## The IP address detected running the software.
         host: addr &log &optional;
         ## The service port
@@ -131,6 +133,7 @@ event http_header(c: connection, is_orig: bool, name: string, value: string) {
     if (is_orig) {
         if (name in HTTP_CLIENT_HEADERS)
             Log::write(LOG, [$ts=c$start_time,
+                             $uid=c$uid,
                              $host=c$id$orig_h,
                              $recon_type=HTTP_CLIENT_HEADER,
                              $source=name,
@@ -141,6 +144,7 @@ event http_header(c: connection, is_orig: bool, name: string, value: string) {
             # if (name == "COOKIE")
             # 	value = split1(value, /=/)[1];
             Log::write(LOG, [$ts=c$start_time,
+                             $uid=c$uid,
                              $host=c$id$resp_h,
                              $srvport=c$id$resp_p,
                              $recon_type=HTTP_CLIENT_HEADER_SERVER,
@@ -153,6 +157,7 @@ event http_header(c: connection, is_orig: bool, name: string, value: string) {
             # if (name == "SET-COOKIE")
             #     value = split1(value, /=/)[1];
             Log::write(LOG, [$ts=c$start_time,
+                             $uid=c$uid,
                              $host=c$id$resp_h,
                              $srvport=c$id$resp_p,
                              $recon_type=HTTP_SERVER_HEADER,
@@ -164,6 +169,7 @@ event http_header(c: connection, is_orig: bool, name: string, value: string) {
 
 event ssh_client_version(c: connection, version: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=SSH_CLIENT,
                      $value=version]);
@@ -171,6 +177,7 @@ event ssh_client_version(c: connection, version: string) {
 
 event ssh_server_version(c: connection, version: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $host=c$id$resp_h,
                      $srvport=c$id$resp_p,
                      $recon_type=SSH_SERVER,
@@ -179,6 +186,7 @@ event ssh_server_version(c: connection, version: string) {
 
 event ssh1_server_host_key(c: connection, p: string, e: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $host=c$id$resp_h,
                      $srvport=c$id$resp_p,
                      $recon_type=SSH_SERVER_HOSTKEY,
@@ -188,6 +196,7 @@ event ssh1_server_host_key(c: connection, p: string, e: string) {
 
 event ssh2_server_host_key(c: connection, key: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $host=c$id$resp_h,
                      $srvport=c$id$resp_p,
                      $recon_type=SSH_SERVER_HOSTKEY,
@@ -199,6 +208,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
     if (capabilities$is_server) {
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$resp_h,
             $srvport=c$id$resp_p,
             $recon_type=SSH_SERVER_ALGOS,
@@ -207,6 +217,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$resp_h,
             $srvport=c$id$resp_p,
             $recon_type=SSH_SERVER_ALGOS,
@@ -215,6 +226,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$resp_h,
             $srvport=c$id$resp_p,
             $recon_type=SSH_SERVER_ALGOS,
@@ -223,6 +235,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$resp_h,
             $srvport=c$id$resp_p,
             $recon_type=SSH_SERVER_ALGOS,
@@ -231,6 +244,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$resp_h,
             $srvport=c$id$resp_p,
             $recon_type=SSH_SERVER_ALGOS,
@@ -241,6 +255,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
     else {
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$orig_h,
             $recon_type=SSH_CLIENT_ALGOS,
             $source="kex_algorithms",
@@ -248,6 +263,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$orig_h,
             $recon_type=SSH_CLIENT_ALGOS,
             $source="server_host_key_algorithms",
@@ -255,6 +271,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$orig_h,
             $recon_type=SSH_CLIENT_ALGOS,
             $source="encryption_algorithms",
@@ -262,6 +279,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$orig_h,
             $recon_type=SSH_CLIENT_ALGOS,
             $source="mac_algorithms",
@@ -269,6 +287,7 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         ]);
         Log::write(LOG, [
             $ts=c$start_time,
+            $uid=c$uid,
             $host=c$id$orig_h,
             $recon_type=SSH_CLIENT_ALGOS,
             $source="compression_algorithms",
@@ -282,6 +301,7 @@ event ssl_established(c: connection) {
         return;
     Log::write(LOG, [
         $ts=c$start_time,
+        $uid=c$uid,
         $host=c$id$resp_h,
         $srvport=c$id$resp_p,
         $recon_type=SSL_SERVER,
@@ -292,6 +312,7 @@ event ssl_established(c: connection) {
 
 event dns_A_reply(c: connection, msg: dns_msg, ans: dns_answer, a: addr) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $host=a,
                      $recon_type=DNS_ANSWER,
                      $source=fmt("A-%s-%d", c$id$resp_h, c$id$resp_p),
@@ -300,6 +321,7 @@ event dns_A_reply(c: connection, msg: dns_msg, ans: dns_answer, a: addr) {
 
 event dns_PTR_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $host=ptr_name_to_addr(ans$query),
                      $recon_type=DNS_ANSWER,
                      $source=fmt("PTR-%s-%d", c$id$resp_h, c$id$resp_p),
@@ -308,6 +330,7 @@ event dns_PTR_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) 
 
 event dns_CNAME_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $targetval=name,
                      $recon_type=DNS_ANSWER,
                      $source=fmt("CNAME-%s-%d", c$id$resp_h, c$id$resp_p),
@@ -316,6 +339,7 @@ event dns_CNAME_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string
 
 event dns_NS_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $targetval=name,
                      $recon_type=DNS_ANSWER,
                      $source=fmt("NS-%s-%d", c$id$resp_h, c$id$resp_p),
@@ -325,6 +349,7 @@ event dns_NS_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) {
 event dns_MX_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string,
            preference: count) {
     Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
                      $targetval=name,
                      $recon_type=DNS_ANSWER,
                      $source=fmt("MX-%s-%d", c$id$resp_h, c$id$resp_p),
@@ -334,11 +359,13 @@ event dns_MX_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string,
 event ftp_request(c: connection, command: string, arg: string) {
     if (command in FTP_COMMANDS) {
         Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
                          $host=c$id$orig_h,
                          $recon_type=FTP_CLIENT,
                          $source=command,
                          $value=arg]);
         Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
                          $host=c$id$resp_h,
                          $srvport=c$id$resp_p,
                          $recon_type=FTP_SERVER,
@@ -350,11 +377,13 @@ event ftp_request(c: connection, command: string, arg: string) {
 event pop3_request(c: connection, is_orig: bool, command: string, arg: string) {
     if (command in POP_COMMANDS) {
         Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
                          $host=c$id$orig_h,
                          $recon_type=POP_CLIENT,
                          $source=command,
                          $value=arg]);
         Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
                          $host=c$id$resp_h,
                          $srvport=c$id$resp_p,
                          $recon_type=POP_SERVER,
@@ -368,24 +397,27 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
         if (is_orig && c$resp$size == 0 && c$history == TCP_BANNER_HISTORY &&
             ! (TCP_CLIENT_BANNER_IGNORE in contents))
             Log::write(LOG, [$ts=c$start_time,
-                     $host=c$id$orig_h,
-                     $recon_type=TCP_CLIENT_BANNER,
-                     $value=contents]);
+                             $uid=c$uid,
+                             $host=c$id$orig_h,
+                             $recon_type=TCP_CLIENT_BANNER,
+                             $value=contents]);
         else if (c$orig$size == 0 && c$history == TCP_BANNER_HISTORY &&
              ! (TCP_SERVER_BANNER_IGNORE in contents))
             Log::write(LOG, [$ts=c$start_time,
-                     $host=c$id$resp_h,
-                     $srvport=c$id$resp_p,
-                     $recon_type=TCP_SERVER_BANNER,
-                     $value=contents]);
+                             $uid=c$uid,
+                             $host=c$id$resp_h,
+                             $srvport=c$id$resp_p,
+                             $recon_type=TCP_SERVER_BANNER,
+                             $value=contents]);
     }
 }
 
 event OS_version_found(c: connection, host: addr, OS: OS_version) {
     if (OS$match_type == direct_inference && OS$genre != "UNKNOWN")
         Log::write(LOG, [$ts=c$start_time,
-                 $host=host,
-                 $recon_type=P0F,
-                 $source=fmt("%d-%s", OS$dist, OS$detail),
-                 $value=OS$genre]);
+                         $uid=c$uid,
+                         $host=host,
+                         $recon_type=P0F,
+                         $source=fmt("%d-%s", OS$dist, OS$detail),
+                         $value=OS$genre]);
 }
