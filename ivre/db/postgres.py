@@ -2640,7 +2640,8 @@ returns a generator.
         if limit is not None:
             req = req.limit(limit)
         for rec in self.db.execute(req):
-            rec = dict(rec)
+            rec = dict((key, value) for key, value in viewitems(rec)
+                       if value is not None)
             rec["infos"] = dict(rec.pop("info"), **rec.pop("moreinfo"))
             yield rec
 
