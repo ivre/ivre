@@ -279,13 +279,13 @@ def _getinfos_dns(spec):
     return res
 
 _CERTINFOS = re.compile(
-    '\n *'
-    'Issuer: (?P<issuer>.*)'
-    '\n(?:.*\n)* *'
-    'Subject: (?P<subject>.*)'
-    '\n(?:.*\n)* *'
-    'Public Key Algorithm: (?P<pubkeyalgo>.*)'
-    '(?:\n|$)'
+    b'\n *'
+    b'Issuer: (?P<issuer>.*)'
+    b'\n(?:.*\n)* *'
+    b'Subject: (?P<subject>.*)'
+    b'\n(?:.*\n)* *'
+    b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
+    b'(?:\n|$)'
 )
 
 
@@ -297,8 +297,10 @@ def _getinfos_cert(spec):
     infos = {}
     fullinfos = {}
     try:
-        cert = utils.decode_b64(spec.get('fullvalue', spec['value']))
+        cert = utils.decode_b64(spec.get('fullvalue', spec['value']).encode())
     except Exception:
+        utils.LOGGER.info("Cannot parse certificate for record %r", spec,
+                          exc_info=True)
         return {}
     for hashtype in ['md5', 'sha1']:
         infos['%shash' % hashtype] = hashlib.new(hashtype, cert).hexdigest()
@@ -317,7 +319,8 @@ def _getinfos_cert(spec):
         infos.update(newinfos)
         fullinfos.update(newfullinfos)
     except Exception:
-        pass
+        utils.LOGGER.info("Cannot parse certificate for record %r", spec,
+                          exc_info=True)
     res = {}
     if infos:
         res['infos'] = infos

@@ -1265,6 +1265,45 @@ which `predicate()` is True, given `webflt`.
                             for elt in locations))
         self.assertTrue(all(isinstance(elt['count'], int) for elt in locations))
         self.check_value('nmap_location_count', len(locations))
+
+        # moduli
+        proc = RUN_ITER(["ivre", "getmoduli", "--active-ssl", "--active-ssh"],
+                        stderr=None)
+        distinct = 0
+        maxcount = 0
+        for line in proc.stdout:
+            distinct += 1
+            count = int(line.split()[1])
+            if count > maxcount:
+                maxcount = count
+        self.assertEqual(proc.wait(), 0)
+        self.check_value("nmap_distinct_moduli", distinct)
+        self.check_value("nmap_max_moduli_reuse", maxcount)
+        proc = RUN_ITER(["ivre", "getmoduli", "--active-ssl"],
+                        stderr=None)
+        distinct = 0
+        maxcount = 0
+        for line in proc.stdout:
+            distinct += 1
+            count = int(line.split()[1])
+            if count > maxcount:
+                maxcount = count
+        self.assertEqual(proc.wait(), 0)
+        self.check_value("nmap_distinct_ssl_moduli", distinct)
+        self.check_value("nmap_max_moduli_ssl_reuse", maxcount)
+        proc = RUN_ITER(["ivre", "getmoduli", "--active-ssh"],
+                        stderr=None)
+        distinct = 0
+        maxcount = 0
+        for line in proc.stdout:
+            distinct += 1
+            count = int(line.split()[1])
+            if count > maxcount:
+                maxcount = count
+        self.assertEqual(proc.wait(), 0)
+        self.check_value("nmap_distinct_ssh_moduli", distinct)
+        self.check_value("nmap_max_moduli_ssh_reuse", maxcount)
+
         # Remove
         result = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
@@ -1515,6 +1554,20 @@ which `predicate()` is True, given `webflt`.
                 values["count"],
             )
 
+        # moduli
+        proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl"],
+                        stderr=None)
+        distinct = 0
+        maxcount = 0
+        for line in proc.stdout:
+            distinct += 1
+            count = int(line.split()[1])
+            if count > maxcount:
+                maxcount = count
+        self.assertEqual(proc.wait(), 0)
+        self.check_value("passive_distinct_moduli", distinct)
+        self.check_value("passive_max_moduli_reuse", maxcount)
+
         # Delete
         flt = ivre.db.db.passive.searchcert()
         count = ivre.db.db.passive.count(flt)
@@ -1615,8 +1668,7 @@ which `predicate()` is True, given `webflt`.
         proc = RUN_ITER(["ivre", "ipdata", "--import-all",
                          "--no-update-passive-db"],
                         stdout=sys.stdout, stderr=sys.stderr)
-        res = proc.wait()
-        self.assertEqual(res, 0)
+        self.assertEqual(proc.wait(), 0)
 
         res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])
         self.assertEqual(res, 0)

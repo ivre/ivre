@@ -1566,6 +1566,28 @@ have no effect if it is not expected)."""
             return {"ports.scripts.%s" % field: value}
         return {"ports.scripts": {"$elemMatch": req}}
 
+    @classmethod
+    def searchcert(cls, keytype=None):
+        if keytype is None:
+            return cls.searchscript(name="ssl-cert")
+        try:
+            keytype = keytype.decode()
+        except AttributeError:
+            pass
+        return cls.searchscript(name="ssl-cert",
+                                values={'pubkey.type': keytype})
+
+    @classmethod
+    def searchsshkey(cls, keytype=None):
+        if keytype is None:
+            return cls.searchscript(name="ssh-hostkey")
+        try:
+            keytype = keytype.decode()
+        except AttributeError:
+            pass
+        return cls.searchscript(name="ssh-hostkey",
+                                values={'type': 'ssh-%s' % keytype})
+
     @staticmethod
     def searchsvchostname(srv):
         return {'ports.service_hostname': srv}
@@ -2882,9 +2904,17 @@ setting values according to the keyword arguments.
         }
 
     @staticmethod
-    def searchcert():
+    def searchcert(keytype=None):
+        if keytype is None:
+            return {'recontype': 'SSL_SERVER',
+                    'source': 'cert'}
+        try:
+            keytype = keytype.encode()
+        except AttributeError:
+            pass
         return {'recontype': 'SSL_SERVER',
-                'source': 'cert'}
+                'source': 'cert',
+                'infos.pubkeyalgo': keytype + b'Encryption'}
 
     @staticmethod
     def searchcertsubject(expr):
