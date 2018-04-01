@@ -1570,10 +1570,6 @@ have no effect if it is not expected)."""
     def searchcert(cls, keytype=None):
         if keytype is None:
             return cls.searchscript(name="ssl-cert")
-        try:
-            keytype = keytype.decode()
-        except AttributeError:
-            pass
         return cls.searchscript(name="ssl-cert",
                                 values={'pubkey.type': keytype})
 
@@ -1581,10 +1577,6 @@ have no effect if it is not expected)."""
     def searchsshkey(cls, keytype=None):
         if keytype is None:
             return cls.searchscript(name="ssh-hostkey")
-        try:
-            keytype = keytype.decode()
-        except AttributeError:
-            pass
         return cls.searchscript(name="ssh-hostkey",
                                 values={'type': 'ssh-%s' % keytype})
 
@@ -2908,13 +2900,18 @@ setting values according to the keyword arguments.
         if keytype is None:
             return {'recontype': 'SSL_SERVER',
                     'source': 'cert'}
-        try:
-            keytype = keytype.encode()
-        except AttributeError:
-            pass
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert',
-                'infos.pubkeyalgo': keytype + b'Encryption'}
+                'infos.pubkeyalgo': keytype + 'Encryption'}
+
+    @staticmethod
+    def searchsshkey(keytype=None):
+        if keytype is None:
+            return {'recontype': 'SSH_SERVER_HOSTKEY',
+                    'source': 'SSHv2'}
+        return {'recontype': 'SSH_SERVER_HOSTKEY',
+                'source': 'SSHv2',
+                'infos.algo': 'ssh-' + keytype}
 
     @staticmethod
     def searchcertsubject(expr):

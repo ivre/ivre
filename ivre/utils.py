@@ -1084,3 +1084,10 @@ def encode_b64(value):
 
 def printable(string):
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
+
+def parse_ssh_key(data):
+    """Generates SSH key elements"""
+    while data:
+        length = struct.unpack('>I', data[:4])[0]
+        yield data[4:4 + length]
+        data = data[4 + length:]

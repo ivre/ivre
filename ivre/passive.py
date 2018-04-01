@@ -25,13 +25,15 @@ This sub-module contains functions used for passive recon.
 """
 
 
-import re
 import hashlib
+import math
+import re
 import subprocess
 import time
 
 
 from future.utils import viewitems
+from past.builtins import long
 
 
 from ivre import utils
@@ -187,7 +189,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
 
 def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by **bro_line
-               timestamp, host, srvport, recon_type, source, value, targetval):
+               timestamp, uid, host, srvport, recon_type, source, value,
+               targetval):
     if host is None:
         spec = {
             'targetval': targetval,
@@ -331,9 +334,10 @@ def _getinfos_cert(spec):
         newinfos = _CERTINFOS.search(proc.stdout.read()).groupdict()
         newfullinfos = {}
         for field in newinfos:
-            if len(newinfos[field]) > utils.MAXVALLEN:
-                newfullinfos[field] = newinfos[field]
-                newinfos[field] = newinfos[field][:utils.MAXVALLEN]
+            data = newinfos[field] = newinfos[field].decode()
+            if len(data) > utils.MAXVALLEN:
+                newfullinfos[field] = data
+                newinfos[field] = data[:utils.MAXVALLEN]
         infos.update(newinfos)
         fullinfos.update(newfullinfos)
     except Exception:
@@ -381,6 +385,34 @@ _getinfos_tcp_srv_banner()"""
     ) + b'\n')
 
 
+def _getinfos_ssh_hostkey(spec):
+    """Parse SSH host keys."""
+    infos = {}
+    data = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
+    infos["md5hash"] = hashlib.md5(data).hexdigest()
+    infos["sha1hash"] = hashlib.sha1(data).hexdigest()
+    infos["sha256hash"] = hashlib.sha256(data).hexdigest()
+    data = utils.parse_ssh_key(data)
+    keytype = infos["algo"] = next(data).decode()
+    if keytype == "ssh-rsa":
+        try:
+            infos["exponent"], infos["modulus"] = (
+                long(utils.encode_hex(elt), 16) for elt in data
+            )
+        except:
+            utils.LOGGER.info("Cannot parse SSH host key for record %r", spec,
+                              exc_info=True)
+        else:
+            infos["bits"] = math.ceil(math.log(infos["modulus"], 2))
+            # convert integer to strings to prevent overflow errors
+            # (e.g., "MongoDB can only handle up to 8-byte ints")
+            for val in ["exponent", "modulus"]:
+                infos[val] = str(infos[val])
+    res = {'infos': infos}
+    _fix_infos_size(res)
+    return res
+
+
 _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
@@ -394,6 +426,7 @@ _GETINFOS_FUNCTIONS = {
     'SSL_SERVER': _getinfos_cert,
     'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,
     'SSH_SERVER': _getinfos_ssh_server,
+    'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
 }
 
 

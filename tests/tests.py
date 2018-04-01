@@ -1340,7 +1340,7 @@ which `predicate()` is True, given `webflt`.
                            fname])[0]
                 self.assertEqual(res, 0)
             broprocess = subprocess.Popen(
-                ['bro', '-b', '-r', fname,
+                ['bro', '-C', '-b', '-r', fname,
                  os.path.join(
                      ivre.config.guess_prefix('bro'),
                      'ivre', 'passiverecon', 'bare.bro'),
@@ -1558,7 +1558,7 @@ which `predicate()` is True, given `webflt`.
             )
 
         # moduli
-        proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl"],
+        proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl", "--passive-ssh"],
                         stderr=None)
         distinct = 0
         maxcount = 0
@@ -1570,6 +1570,30 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(proc.wait(), 0)
         self.check_value("passive_distinct_moduli", distinct)
         self.check_value("passive_max_moduli_reuse", maxcount)
+        proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl"],
+                        stderr=None)
+        distinct = 0
+        maxcount = 0
+        for line in proc.stdout:
+            distinct += 1
+            count = int(line.split()[1])
+            if count > maxcount:
+                maxcount = count
+        self.assertEqual(proc.wait(), 0)
+        self.check_value("passive_distinct_ssl_moduli", distinct)
+        self.check_value("passive_max_moduli_ssl_reuse", maxcount)
+        proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssh"],
+                        stderr=None)
+        distinct = 0
+        maxcount = 0
+        for line in proc.stdout:
+            distinct += 1
+            count = int(line.split()[1])
+            if count > maxcount:
+                maxcount = count
+        self.assertEqual(proc.wait(), 0)
+        self.check_value("passive_distinct_ssh_moduli", distinct)
+        self.check_value("passive_max_moduli_ssh_reuse", maxcount)
 
         # Delete
         flt = ivre.db.db.passive.searchcert()

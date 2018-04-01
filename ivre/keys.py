@@ -30,14 +30,14 @@ from collections import namedtuple
 import re
 import subprocess
 import struct
+
+
 from Crypto.PublicKey import RSA
+from past.builtins import long
 
 
 from ivre.db import db
 from ivre import utils
-
-
-from past.builtins import long
 
 
 Key = namedtuple("key", ["ip", "port", "service", "type", "size",
@@ -86,20 +86,6 @@ class PassiveKey(DBKey):
     """
     def __init__(self, baseflt=None):
         DBKey.__init__(self, db.passive, baseflt=baseflt)
-
-    def getkeys(self, record):
-        certtext = self._pem2key(record['fullvalue']
-                                 if 'fullvalue' in record
-                                 else record['value'])
-        if certtext is None:
-            return
-        yield Key(utils.force_int2ip(record['addr']), record["port"], "ssl",
-                  certtext['type'], int(certtext['len']),
-                  RSA.construct((
-                      long(self.modulus_badchars.sub(
-                          b"", certtext['modulus']), 16),
-                      long(certtext['exponent']))),
-                  utils.decode_hex(record['infos']['md5hash']))
 
 
 class SSLKey(object):
@@ -165,17 +151,42 @@ class SSLPassiveKey(PassiveKey, SSLKey):
         PassiveKey.__init__(self, baseflt=baseflt)
         SSLKey.__init__(self)
 
+    def getkeys(self, record):
+        certtext = self._pem2key(record['fullvalue']
+                                 if 'fullvalue' in record
+                                 else record['value'])
+        if certtext is None:
+            return
 
-class SSHNmapKey(NmapKey):
-    """Base class for the SSH keys within the active (Nmap) DB."""
+        yield Key(utils.force_int2ip(record['addr']), record["port"], "ssl",
+                  certtext['type'], int(certtext['len']),
+                  RSA.construct((
+                      long(self.modulus_badchars.sub(
+                          b"", certtext['modulus']), 16),
+                      long(certtext['exponent']))),
+                  utils.decode_hex(record['infos']['md5hash']))
 
-    def __init__(self, baseflt=None):
-        NmapKey.__init__(self, baseflt=baseflt)
-        self.scriptid = "ssh-hostkey"
+
+class SSHKey(DBKey):
+    """Base class for a key lookup tool specialized for the Keys from
+    SSH hosts.
+
+    """
+    def __init__(self):
+        pass
 
     @property
     def fltkey(self):
         return self.dbc.searchsshkey(keytype=self.keytype)
+
+
+class SSHNmapKey(NmapKey, SSHKey):
+    """Base class for the SSH keys within the active (Nmap) DB."""
+
+    def __init__(self, baseflt=None):
+        NmapKey.__init__(self, baseflt=baseflt)
+        SSHKey.__init__(self)
+        self.scriptid = "ssh-hostkey"
 
     def getkeys(self, host):
         for script in self.getscripts(host):
@@ -196,12 +207,23 @@ class SSHNmapKey(NmapKey):
                         utils.decode_hex(key['fingerprint']),
                     )
 
-    @staticmethod
-    def _data2key(data):
-        while data:
-            length = struct.unpack('>I', data[:4])[0]
-            yield data[4:4 + length]
-            data = data[4 + length:]
+
+class SSHPassiveKey(PassiveKey, SSHKey):
+    """Base class for the keys from SSH certificates within the passive
+    (Bro) DB.
+
+    """
+
+    def __init__(self, baseflt=None):
+        PassiveKey.__init__(self, baseflt=baseflt)
+        SSHKey.__init__(self)
+
+    def getkeys(self, record):
+        yield Key(utils.force_int2ip(record['addr']), record["port"], "ssh",
+                  record['infos']['algo'][4:], record['infos']['bits'],
+                  RSA.construct((long(record['infos']['modulus']),
+                                 long(record['infos']['exponent']))),
+                  utils.decode_hex(record['infos']['md5hash']))
 
 
 class RSAKey(object):
@@ -229,11 +251,8 @@ class RSAKey(object):
             long(certtext['exponent']),
         ))
 
-    def _data2key(self, data):
-        raise NotImplementedError
-
     def data2key(self, data):
-        data = self._data2key(data)
+        data = utils.parse_ssh_key(data)
         _, exp, mod = (next(data),
                        long(utils.encode_hex(next(data)), 16),
                        long(utils.encode_hex(next(data)), 16))
@@ -272,3 +291,13 @@ class SSLRsaPassiveKey(SSLPassiveKey, RSAKey):
         SSLPassiveKey.__init__(self, baseflt=baseflt)
         RSAKey.__init__(self)
 
+
+class SSHRsaPassiveKey(SSHPassiveKey, RSAKey):
+    """Tool for the RSA Keys from SSH services within the active
+    (Nmap) DB.
+
+    """
+
+    def __init__(self, baseflt=None):
+        SSHPassiveKey.__init__(self, baseflt=baseflt)
+        RSAKey.__init__(self)

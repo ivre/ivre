@@ -2343,10 +2343,6 @@ insert structures.
     def searchcert(cls, keytype=None):
         if keytype is None:
             return cls.searchscript(name="ssl-cert")
-        try:
-            keytype = keytype.decode()
-        except AttributeError:
-            pass
         return cls.searchscript(name="ssl-cert",
                                 values={'pubkey': {'type': keytype}})
 
@@ -3008,10 +3004,6 @@ passive table."""
                 (Passive.recontype == 'SSL_SERVER') &
                 (Passive.source == 'cert')
             ))
-        try:
-            keytype = keytype.decode()
-        except AttributeError:
-            pass
         return PassiveFilter(main=(
             (Passive.recontype == 'SSL_SERVER') &
             (Passive.source == 'cert') &
@@ -3032,6 +3024,19 @@ passive table."""
             (Passive.recontype == 'SSL_SERVER') &
             (Passive.source == 'cert') &
             (cls._searchstring_re(Passive.moreinfo.op('->>')('issuer'), expr))
+        ))
+
+    @classmethod
+    def searchsshkey(cls, keytype=None):
+        if keytype is None:
+            return PassiveFilter(main=(
+                (Passive.recontype == 'SSH_SERVER_HOSTKEY') &
+                (Passive.source == 'SSHv2')
+            ))
+        return PassiveFilter(main=(
+            (Passive.recontype == 'SSH_SERVER_HOSTKEY') &
+            (Passive.source == 'SSHv2') &
+            (Passive.moreinfo.op('->>')('algo') == 'ssh-' + keytype)
         ))
 
     @classmethod
