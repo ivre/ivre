@@ -1599,6 +1599,49 @@ insert structures.
     def store_or_merge_host(self, host, gettoarchive, merge=False):
         self.store_host(host, merge=merge)
 
+    def migrate_schema(self, archive, version):
+        """Migrates the scan data. When `archive` is True, do nothing (when
+`archive` is False, migrate both archived and non-archived records;
+this is to remain compatible with MongoDB API without impacting the
+performances).
+
+        """
+        failed = 0
+        if (version or 0) < 9:
+            failed += self.__migrate_schema_8_9()
+        return failed
+
+    def __migrate_schema_8_9(self):
+        """Converts records from version 8 to version 9. Version 9 creates a
+structured output for http-headers script.
+
+        """
+        failed = []
+        req = select([Scan.id, Script.port, Script.output, Script.data])\
+              .select_from(join(join(Scan, Port), Script))\
+              .where(and_(Scan.schema_version == 8, Script.name == "http-headers"))
+        for rec in self.db.execute(req):
+            if 'http-headers' not in rec.data:
+                try:
+                    data = xmlnmap.add_http_headers_data({'id': "http-headers", 'output': rec.output})
+                except:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id, exc_info=True)
+                    failed.append(rec.id)
+                else:
+                    if data:
+                        self.db.execute(
+                            update(Script)\
+                            .where(and_(Script.port == rec.port,
+                                        Script.name == "http-headers"))\
+                            .values(data={"http-headers": data})
+                        )
+        self.db.execute(
+            update(Scan)\
+            .where(Scan.id.notin_(failed))\
+            .values(schema_version=9)
+        )
+        return len(failed)
+
     def count(self, flt, archive=False, **_):
         return self.db.execute(
             flt.query(select([func.count()]), archive=archive)\
