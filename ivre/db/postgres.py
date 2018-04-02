@@ -25,6 +25,7 @@ databases.
 
 from bisect import bisect_left
 import codecs
+from collections import namedtuple
 import csv
 import datetime
 from functools import reduce
@@ -1827,6 +1828,10 @@ structured output for http-headers script.
         base = select([Association_Scan_ScanFile.scan_file]).cte('base')
         self.db.execute(delete(ScanFile).where(ScanFile.sha256.notin_(base)))
 
+    _topstructure = namedtuple("topstructure", ["base", "fields", "where",
+                                                "group_by", "extraselectfrom"])
+    _topstructure.__new__.__defaults__ = (None,) * len(_topstructure._fields)
+
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, archive=False):
         """
@@ -1861,12 +1866,13 @@ structured output for http-headers script.
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
-            field = (Port, [Port.protocol, Port.port], Port.state == "open")
+            field = self._topstructure(Port, [Port.protocol, Port.port],
+                                       Port.state == "open")
         elif field == "ttl":
-            field = (Port, [Port.state_reason_ttl],
-                     Port.state_reason_ttl != None)
+            field = self._topstructure(Port, [Port.state_reason_ttl],
+                                       Port.state_reason_ttl != None)
         elif field == "ttlinit":
-            field = (
+            field = self._topstructure(
                 Port,
                 [func.least(255, func.power(2, func.ceil(
                     func.log(2, Port.state_reason_ttl)
@@ -1876,10 +1882,12 @@ structured output for http-headers script.
             outputproc = int
         elif field.startswith('port:'):
             info = field[5:]
-            field = (Port, [Port.protocol, Port.port],
-                     (Port.state == info)
-                     if info in set(['open', 'filtered', 'closed', 'open|filtered'])
-                     else (Port.service_name == info))
+            field = self._topstructure(
+                Port, [Port.protocol, Port.port],
+                (Port.state == info)
+                if info in ['open', 'filtered', 'closed', 'open|filtered'] else
+                (Port.service_name == info),
+            )
         elif field.startswith('countports:'):
             info = field[11:]
             return ({"count": result[0], "_id": result[1]}
@@ -1946,116 +1954,150 @@ structured output for http-headers script.
                         .group_by('ports').order_by(order).limit(topnbr)
                     ))
         elif field == "service":
-            field = (Port, [Port.service_name], Port.state == "open")
+            field = self._topstructure(Port, [Port.service_name],
+                                       Port.state == "open")
         elif field.startswith("service:"):
             info = field[8:]
             if '/' in info:
                 info = info.split('/', 1)
-                field = (Port, [Port.service_name],
-                         and_(Port.protocol == info[0],
-                              Port.port == int(info[1])))
+                field = self._topstructure(
+                    Port, [Port.service_name],
+                    and_(Port.protocol == info[0], Port.port == int(info[1])),
+                )
             else:
-                field = (Port, [Port.service_name], Port.port == int(info))
+                field = self._topstructure(Port, [Port.service_name],
+                                           Port.port == int(info))
         elif field == "product":
-            field = (Port, [Port.service_name, Port.service_product],
-                     Port.state == "open")
+            field = self._topstructure(
+                Port, [Port.service_name, Port.service_product],
+                Port.state == "open",
+            )
         elif field.startswith("product:"):
             info = field[8:]
             if info.isdigit():
                 info = int(info)
                 flt = self.flt_and(flt, self.searchport(info))
-                field = (Port, [Port.service_name, Port.service_product],
-                         and_(Port.state == "open", Port.port == info))
+                field = self._topstructure(
+                    Port, [Port.service_name, Port.service_product],
+                    and_(Port.state == "open", Port.port == info),
+                )
             elif info.startswith('tcp/') or info.startswith('udp/'):
                 info = (info[:3], int(info[4:]))
                 flt = self.flt_and(flt, self.searchport(info[1],
                                                         protocol=info[0]))
-                field = (Port, [Port.service_name, Port.service_product],
-                         and_(Port.state == "open", Port.port == info[1],
-                              Port.protocol == info[0]))
+                field = self._topstructure(
+                    Port, [Port.service_name, Port.service_product],
+                    and_(Port.state == "open", Port.port == info[1],
+                         Port.protocol == info[0]),
+                )
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
-                field = (Port, [Port.service_name, Port.service_product],
-                         and_(Port.state == "open", Port.service_name == info))
+                field = self._topstructure(
+                    Port, [Port.service_name, Port.service_product],
+                    and_(Port.state == "open", Port.service_name == info),
+                )
         elif field == "devicetype":
-            field = (Port, [Port.service_devicetype], Port.state == "open")
+            field = self._topstructure(Port, [Port.service_devicetype],
+                                       Port.state == "open")
         elif field.startswith("devicetype:"):
             info = field[11:]
             if info.isdigit():
                 info = int(info)
                 flt = self.flt_and(flt, self.searchport(info))
-                field = (Port, [Port.service_devicetype],
-                         and_(Port.state == "open", Port.port == info))
+                field = self._topstructure(Port, [Port.service_devicetype],
+                                           and_(Port.state == "open",
+                                                Port.port == info))
             elif info.startswith('tcp/') or info.startswith('udp/'):
                 info = (info[:3], int(info[4:]))
                 flt = self.flt_and(flt, self.searchport(info[1],
                                                         protocol=info[0]))
-                field = (Port, [Port.service_devicetype],
-                         and_(Port.state == "open", Port.port == info[1],
-                              Port.protocol == info[0]))
+                field = self._topstructure(Port, [Port.service_devicetype],
+                                           and_(Port.state == "open",
+                                                Port.port == info[1],
+                                                Port.protocol == info[0]))
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
-                field = (Port, [Port.service_devicetype],
-                         and_(Port.state == "open", Port.service_name == info))
+                field = self._topstructure(Port, [Port.service_devicetype],
+                                           and_(Port.state == "open",
+                                                Port.service_name == info))
         elif field == "version":
-            field = (Port, [Port.service_name, Port.service_product,
-                            Port.service_version],
-                     Port.state == "open")
+            field = self._topstructure(
+                Port,
+                [Port.service_name, Port.service_product, Port.service_version],
+                Port.state == "open",
+            )
         elif field.startswith("version:"):
             info = field[8:]
             if info.isdigit():
                 info = int(info)
                 flt = self.flt_and(flt, self.searchport(info))
-                field = (Port, [Port.service_name, Port.service_product,
-                                Port.service_version],
-                         and_(Port.state == "open", Port.port == info))
+                field = self._topstructure(
+                    Port,
+                    [Port.service_name, Port.service_product,
+                     Port.service_version],
+                    and_(Port.state == "open", Port.port == info),
+                )
             elif info.startswith('tcp/') or info.startswith('udp/'):
                 info = (info[:3], int(info[4:]))
                 flt = self.flt_and(flt, self.searchport(info[1],
                                                         protocol=info[0]))
-                field = (Port, [Port.service_name, Port.service_product,
-                                Port.service_version],
-                         and_(Port.state == "open", Port.port == info[1],
-                              Port.protocol == info[0]))
+                field = self._topstructure(
+                    Port,
+                    [Port.service_name, Port.service_product,
+                     Port.service_version],
+                    and_(Port.state == "open", Port.port == info[1],
+                         Port.protocol == info[0]),
+                )
             elif ':' in info:
                 info = info.split(':', 1)
                 flt = self.flt_and(flt, self.searchproduct(info[1], service=info[0]))
-                field = (Port, [Port.service_name, Port.service_product,
-                                Port.service_version],
-                         and_(Port.state == "open", Port.service_name == info[0],
-                              Port.service_product == info[1]))
+                field = self._topstructure(
+                    Port,
+                    [Port.service_name, Port.service_product,
+                     Port.service_version],
+                    and_(Port.state == "open", Port.service_name == info[0],
+                         Port.service_product == info[1]),
+                )
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
-                field = (Port, [Port.service_name, Port.service_product,
-                                Port.service_version],
-                         and_(Port.state == "open", Port.service_name == info))
-
-
+                field = self._topstructure(
+                    Port,
+                    [Port.service_name, Port.service_product,
+                     Port.service_version],
+                    and_(Port.state == "open", Port.service_name == info),
+                )
         elif field == "asnum":
-            field = (Scan, [Scan.info["as_num"]], None)
+            field = self._topstructure(Scan, [Scan.info["as_num"]])
         elif field == "as":
-            field = (Scan, [Scan.info["as_num"], Scan.info["as_name"]], None)
+            field = self._topstructure(Scan, [Scan.info["as_num"],
+                                              Scan.info["as_name"]])
         elif field == "country":
-            field = (Scan, [Scan.info["country_code"],
-                            Scan.info["country_name"]], None)
+            field = self._topstructure(Scan, [Scan.info["country_code"],
+                                              Scan.info["country_name"]])
         elif field == "city":
-            field = (Scan, [Scan.info["country_code"], Scan.info["city"]], None)
+            field = self._topstructure(Scan, [Scan.info["country_code"],
+                                              Scan.info["city"]])
         elif field == "net" or field.startswith("net:"):
             info = field[4:]
             info = int(info) if info else 24
-            field = (Scan, [func.set_masklen(text("scan.addr::cidr"), info)], None)
+            field = self._topstructure(
+                Scan,
+                [func.set_masklen(text("scan.addr::cidr"), info)],
+            )
         elif field == "script" or field.startswith("script:"):
             info = field[7:]
             if info:
-                field = (Script, [Script.output], Script.name == info)
+                field = self._topstructure(Script, [Script.output],
+                                           Script.name == info)
             else:
-                field = (Script, [Script.name], None)
+                field = self._topstructure(Script, [Script.name])
         elif field in ["category", "categories"]:
-            field = (Category, [Category.name], None)
+            field = self._topstructure(Category, [Category.name])
         elif field == "source":
-            field = (Scan, [Scan.source], None)
+            field = self._topstructure(Scan, [Scan.source])
         elif field == "domains":
-            field = (Hostname, [func.unnest(Hostname.domains)], None)
+            field = self._topstructure(Hostname,
+                                       [func.unnest(Hostname.domains)])
         elif field.startswith("domains:"):
             level = int(field[8:]) - 1
             base1 = select([func.unnest(Hostname.domains).label("domains")])\
@@ -2074,11 +2116,13 @@ structured output for http-headers script.
                         .limit(topnbr)
                     ))
         elif field == "hop":
-            field = (Hop, [Hop.ipaddr], None)
+            field = self._topstructure(Hop, [Hop.ipaddr])
         elif field.startswith('hop') and field[3] in ':>':
             ttl = int(field[4:])
-            field = (Hop, [Hop.ipaddr],
-                     (Hop.ttl > ttl) if field[3] == '>' else (Hop.ttl == ttl))
+            field = self._topstructure(
+                Hop, [Hop.ipaddr],
+                (Hop.ttl > ttl) if field[3] == '>' else (Hop.ttl == ttl),
+            )
         elif field == 'file' or (field.startswith('file') and field[4] in '.:'):
             if field.startswith('file:'):
                 scripts = field[5:]
@@ -2092,7 +2136,7 @@ structured output for http-headers script.
             else:
                 field = field[5:] or 'filename'
                 flt = True
-            field = (
+            field = self._topstructure(
                 Script,
                 [func.jsonb_array_elements(
                     func.jsonb_array_elements(
@@ -2108,24 +2152,43 @@ structured output for http-headers script.
             )
         elif field.startswith('modbus.'):
             subfield = field[7:]
-            field = (Script,
-                     [Script.data['modbus-discover'][subfield]],
-                     and_(Script.name == 'modbus-discover',
-                          Script.data['modbus-discover'].has_key(subfield)))
+            field = self._topstructure(
+                Script, [Script.data['modbus-discover'][subfield]],
+                and_(Script.name == 'modbus-discover',
+                     Script.data['modbus-discover'].has_key(subfield)),
+            )
         elif field == 'httphdr':
-            field = (Script,
-                     [Script.data['http-headers']['name'],
-                      Script.data['http-headers']['value']],
-                     Script.name == 'http-headers')
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = self._topstructure(
+                Script, [column("hdr").op('->>')('name').label("name"),
+                         column("hdr").op('->>')('value').label("value")],
+                Script.name == 'http-headers',
+                [column("name"), column("value")],
+                func.jsonb_array_elements(
+                    Script.data['http-headers']
+                ).alias('hdr'),
+            )
         elif field.startswith('httphdr.'):
-            field = (Script,
-                     [Script.data['http-headers'][field[8:]]],
-                     Script.name == 'http-headers')
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = self._topstructure(
+                Script, [column("hdr").op('->>')(field[8:]).label("topvalue")],
+                Script.name == 'http-headers', [column("topvalue")],
+                func.jsonb_array_elements(
+                    Script.data['http-headers']
+                ).alias('hdr'),
+            )
         elif field.startswith('httphdr:'):
-            field = (Script,
-                     [Script.data['http-headers']['value']],
-                     and_(Script.name == 'http-headers',
-                          Script.data['http-headers']['name'] == field[8:]))
+            ## FIXME, find headers (field[8:]) in flt
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = self._topstructure(
+                Script, [column("hdr").op('->>')("value").label("value")],
+                and_(Script.name == 'http-headers',
+                     column("hdr").op('->>')("name") == field[8:]),
+                [column("value")],
+                func.jsonb_array_elements(
+                    Script.data['http-headers']
+                ).alias('hdr'),
+            )
         else:
             raise NotImplementedError()
         s_from = {
@@ -2142,21 +2205,26 @@ structured output for http-headers script.
             Hostname: Hostname.scan == base.c.id,
             Hop: Trace.scan == base.c.id
         }
-        if field[0] == Scan:
+        if field.base == Scan:
             req = flt.query(
-                select([func.count().label("count")] + field[1])\
+                select([func.count().label("count")] + field.fields)\
                 .select_from(Scan)\
-                .group_by(*field[1]),
+                .group_by(*field.fields),
                 archive=archive,
             )
         else:
-            req = select([func.count().label("count")] + field[1])\
-                  .select_from(s_from[field[0]])\
-                  .group_by(*field[1])\
+            req = select([func.count().label("count")] + field.fields)\
+                  .select_from(s_from[field.base])
+            if field.extraselectfrom is not None:
+                req = req.select_from(field.extraselectfrom)
+            req = req\
+                  .group_by(*(field.fields if field.group_by is None
+                              else field.group_by))
+            req = req\
                   .where(exists(select([1]).select_from(base)\
-                                .where(where_clause[field[0]])))
-        if field[2] is not None:
-            req = req.where(field[2])
+                                .where(where_clause[field.base])))
+        if field.where is not None:
+            req = req.where(field.where)
         if outputproc is None:
             return ({"count": result[0],
                      "_id": result[1:] if len(result) > 2 else result[1]}
