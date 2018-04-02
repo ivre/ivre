@@ -216,6 +216,8 @@ passed to `ivre runscansagent --feed`.
 
 class IvreTests(unittest.TestCase):
 
+    maxDiff = None
+
     def setUp(self):
         try:
             with open(os.path.join(SAMPLES, "results")) as fdesc:
@@ -312,7 +314,8 @@ class IvreTests(unittest.TestCase):
         while cls.children:
             os.waitpid(cls.children.pop(), 0)
 
-    def _sort_top_values(self, listval):
+    @staticmethod
+    def _sort_top_values(listval):
         maxval = None
         values = []
         for elem in listval:
@@ -1222,6 +1225,10 @@ which `predicate()` is True, given `webflt`.
         #    ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
         #)
         self.check_top_value("nmap_ssh_top_port", "port:ssh")
+        self.check_top_value("nmap_http_top_content_type",
+                             "httphdr:content-type")
+        self.check_top_value("nmap_http_top_header", "httphdr.name")
+        self.check_top_value("nmap_http_top_header_value", "httphdr.value")
         self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
