@@ -1300,12 +1300,15 @@ class NmapFilter(Filter):
                 base = select([Port.scan]).where(subflt).cte("base")
                 req = req.where(Scan.id.notin_(base))
         for subflt in self.script:
-            req = req.where(exists(
-                select([1])\
-                .select_from(join(Script, Port))\
-                .where(subflt)\
-                .where(Port.scan == Scan.id)
-            ))
+            subreq = select([1]).select_from(join(Script, Port))
+            if isinstance(subflt, tuple):
+                for selectfrom in subflt[1]:
+                    subreq = subreq.select_from(selectfrom)
+                subreq = subreq.where(subflt[0])
+            else:
+                subreq = subreq.where(subflt)
+            subreq = subreq.where(Port.scan == Scan.id)
+            req = req.where(exists(subreq))
         for subflt in self.trace:
             req = req.where(exists(
                 select([1])\
@@ -1335,6 +1338,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         "hostnames.name": Hostname.name,
         "hostnames.domains": Hostname.domains,
     }
+    _needunwind_script = set([
+        "http-headers",
+    ])
+
+    @classmethod
+    def needunwind_script(cls, key):
+        key = key.split('.')
+        for i in range(len(key)):
+            subkey = '.'.join(key[:i])
+            if subkey in cls._needunwind_script:
+                yield subkey
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
@@ -2460,9 +2474,64 @@ structured output for http-headers script.
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            req = and_(req, Script.data.contains(
-                {xmlnmap.ALIASES_TABLE_ELEMS.get(name, name): values}
+            basekey = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
+            needunwind = sorted(set(
+                unwind
+                for subkey in values
+                for unwind in cls.needunwind_script("%s.%s" % (basekey, subkey))
             ))
+            def _find_subkey(key):
+                lastmatch = None
+                key = key.split('.')
+                for subkey in needunwind:
+                    subkey = subkey.split('.')[1:]
+                    if len(key) < len(subkey):
+                        continue
+                    if key == subkey:
+                        return (".".join([basekey] + subkey), None)
+                    if subkey == key[:len(subkey)]:
+                        lastmatch = (".".join([basekey] + subkey),
+                                     ".".join(key[len(subkey):]))
+                return lastmatch
+            def _to_json(key, value):
+                key = key.split('.')
+                result = value
+                while key:
+                    result = {key.pop(): result}
+                return result
+            for key, value in viewitems(values):
+                subkey = _find_subkey(key)
+                if subkey is None:
+                    # XXX TEST THIS
+                    req = and_(
+                        req,
+                        Script.data.contains(_to_json("%s.%s" % (basekey, key), value)),
+                    )
+                elif subkey[1] is None:
+                    # XXX TEST THIS
+                    req = and_(
+                        req,
+                        column(subkey[0].replace(".", "_").replace('-', '_')) == value,
+                    )
+                elif '.' in subkey[1]:
+                    # XXX TEST THIS
+                    firstpart, tail = subkey.split('.', 1)
+                    req = and_(
+                        req,
+                        column(subkey[0].replace(".", "_").replace('-', '_'))\
+                        .op('->')(firstpart).contains(_to_json(tail))
+                    )
+                else:
+                    req = and_(
+                        req,
+                        column(subkey[0].replace(".", "_").replace('-', '_'))\
+                        .op('->>')(subkey[1]) == value,
+                    )
+            return NmapFilter(script=[(
+                req,
+                [func.jsonb_array_elements(Script.data[subkey]).alias(subkey.replace('.', '_').replace('-', '_'))
+                 for subkey in needunwind],
+            )])
         return NmapFilter(script=[req])
 
     @classmethod
