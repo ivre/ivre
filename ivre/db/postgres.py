@@ -2192,12 +2192,11 @@ structured output for http-headers script.
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr:'):
-            ## FIXME, find headers (field[8:]) in flt
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr(name=field[8:].lower()))
             field = self._topstructure(
                 Script, [column("hdr").op('->>')("value").label("value")],
                 and_(Script.name == 'http-headers',
-                     column("hdr").op('->>')("name") == field[8:]),
+                     column("hdr").op('->>')("name") == field[8:].lower()),
                 [column("value")],
                 func.jsonb_array_elements(
                     Script.data['http-headers']
@@ -2524,8 +2523,12 @@ structured output for http-headers script.
                 else:
                     req = and_(
                         req,
-                        column(subkey[0].replace(".", "_").replace('-', '_'))\
-                        .op('->>')(subkey[1]) == value,
+                        cls._searchstring_re(
+                            column(
+                                subkey[0].replace(".", "_").replace('-', '_')
+                            ).op('->>')(subkey[1]),
+                            value, neg=False,
+                        )
                     )
             return NmapFilter(script=[(
                 req,

@@ -863,6 +863,18 @@ insert structures.
             ),
         )
 
+    @classmethod
+    def searchhttphdr(cls, name=None, value=None):
+        if name is None and value is None:
+            return cls.searchscript(name="http-headers")
+        if value is None:
+            return cls.searchscript(name="http-headers", values={"name": name})
+        if name is None:
+            return cls.searchscript(name="http-headers",
+                                    values={"value": value})
+        return cls.searchscript(name="http-headers",
+                                values={"name": name, "value": value})
+
     def searchgeovision(self):
         return self.searchproduct(re.compile('^GeoVision', re.I))
 
