@@ -177,6 +177,8 @@ single or double quotes.
     the `sa` account.
   - `mysqlemptypwd` look for MySQL servers with an empty password for
     the `root` account.
+  - `httphdr`, `httphdr:[header]`, `httphdr:[header]:[value]` look for
+    HTTP headers.
   - `owa` look for OWA (Outlook Web App) servers.
   - `phpmyadmin` look for phpMyAdmin servers.
   - `smb.dnsdomain:[FQDN]` search results with SMB service in a
@@ -244,5 +246,5 @@ single or double quotes.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2015
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

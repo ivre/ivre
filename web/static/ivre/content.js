@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -205,6 +205,11 @@ var HELP_FILTERS = {
 	    "title": "mysqlemptypwd",
 	    "content": "Look for MySQL servers with an empty password for the <code>root</code> account.",
 	},
+        "httphdr": {
+	    "title": "httphdr<b>(:[header](:[value]))</b>",
+            "title": "httphdr",
+            "content": "Look for HTTP headers."
+        },
 	"owa": {
 	    "title": "owa",
 	    "content": "Look for OWA (Outlook Web App) servers.",
@@ -744,6 +749,18 @@ var HELP_TOPVALUES = {
 	"ike.vendor_ids.value": {
 	    "content": "ike.vendor_ids.value",
 	    "title": "<b>(!)</b>ike.vendor_ids.value"
+	},
+	"httphdr:": {
+	    "title": "httphdr<b>(:[name])",
+	    "content": "Top HTTP header values seen",
+	},
+	"httphdr.name": {
+	    "title": "httphdr.name",
+	    "content": "Top HTTP headers used",
+	},
+	"httphdr.value": {
+	    "title": "httphdr.value",
+	    "content": "Top HTTP header values seen, regardless of the header name",
 	},
     }
 };

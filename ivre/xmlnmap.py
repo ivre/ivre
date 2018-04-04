@@ -43,7 +43,7 @@ from ivre import utils
 from ivre.analyzer import ike
 
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -533,11 +533,29 @@ def add_ftp_anon_data(script):
         result["volumes"].append(cur_vol)
         return result
 
+def add_http_headers_data(script):
+    result = []
+    output = script.get("output", "").splitlines()
+    if not output:
+        return
+    if not output[0]:
+        output = output[1:]
+    for line in output:
+        line = line.strip()
+        if not line:
+            return result
+        try:
+            field, value = (elt.strip() for elt in line.split(":", 1))
+        except ValueError:
+            field, value = line, None
+        result.append({"name": field.lower(), "value": value})
+
 ADD_TABLE_ELEMS = {
     'modbus-discover':
     re.compile('^ *DEVICE IDENTIFICATION: *(?P<deviceid>.*?) *$', re.M),
     'ls': add_ls_data,
     'mongodb-databases': add_mongodb_databases_data,
+    'http-headers': add_http_headers_data,
 }
 
 def change_smb_enum_shares(table):

@@ -105,6 +105,7 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%nis%%'', ''%%yp%%'' look for NIS servers.
   * ''%%mssqlemptypwd%%'' look for MS-SQL servers with an empty password for the ''%%sa%%'' account.
   * ''%%mysqlemptypwd%%'' look for MySQL servers with an empty password for the ''%%root%%'' account.
+  * ''%%httphdr%%'', ''%%httphdr:[header]%%'', ''%%httphdr:[header]:[value]%%'' look for HTTP headers.
   * ''%%owa%%'' look for OWA (Outlook Web App) servers.
   * ''%%phpmyadmin%%'' look for phpMyAdmin servers.
   * ''%%smb.dnsdomain:[FQDN]%%'' search results with SMB service in a specific DNS domain.
@@ -152,5 +153,5 @@ If your command includes spaces, you need to protect it by using single or doubl
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2015 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2018 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

@@ -432,6 +432,18 @@ def flt_from_query(query, base_flt=None):
                     **{subfield: utils.str2regexp(value)}))
             else:
                 add_unused(neg, param, value)
+        elif not neg and param == 'httphdr':
+            if value is None:
+                flt = db.nmap.flt_and(flt, db.nmap.searchhttphdr())
+            elif ':' in value:
+                name, value = (utils.str2regexp(string) for
+                               string in value.split(':', 1))
+                flt = db.nmap.flt_and(flt, db.nmap.searchhttphdr(name=name,
+                                                                 value=value))
+            else:
+                flt = db.nmap.flt_and(flt, db.nmap.searchhttphdr(
+                    name=utils.str2regexp(value)
+                ))
         elif not neg and param == 'owa':
             flt = db.nmap.flt_and(flt, db.nmap.searchowa())
         elif param == 'phpmyadmin':

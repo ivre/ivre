@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -281,6 +281,7 @@ class DBNmap(DB):
                 5: (6, self.__migrate_schema_hosts_5_6),
                 6: (7, self.__migrate_schema_hosts_6_7),
                 7: (8, self.__migrate_schema_hosts_7_8),
+                8: (9, self.__migrate_schema_hosts_8_9),
             },
         }
         try:
@@ -346,6 +347,7 @@ class DBNmap(DB):
         self.argparser.add_argument('--nfs', action='store_true')
         self.argparser.add_argument('--x11', action='store_true')
         self.argparser.add_argument('--xp445', action='store_true')
+        self.argparser.add_argument('--httphdr')
         self.argparser.add_argument('--owa', action='store_true')
         self.argparser.add_argument('--vuln-boa', '--vuln-intersil',
                                     action='store_true')
@@ -694,6 +696,22 @@ insert structures.
                                            viewitems(script['vulns'])]
 
     @staticmethod
+    def __migrate_schema_hosts_8_9(doc):
+        """Converts a record from version 8 to version 9. Version 9 creates a
+        structured output for http-headers script.
+
+        """
+        assert doc["schema_version"] == 8
+        doc["schema_version"] = 9
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-headers":
+                    if 'http-headers' not in script:
+                        data = xmlnmap.add_http_headers_data(script)
+                        if data is not None:
+                            script['http-headers'] = data
+
+    @staticmethod
     def json2dbrec(host):
         return host
 
@@ -845,6 +863,18 @@ insert structures.
                 flags=0,
             ),
         )
+
+    @classmethod
+    def searchhttphdr(cls, name=None, value=None):
+        if name is None and value is None:
+            return cls.searchscript(name="http-headers")
+        if value is None:
+            return cls.searchscript(name="http-headers", values={"name": name})
+        if name is None:
+            return cls.searchscript(name="http-headers",
+                                    values={"value": value})
+        return cls.searchscript(name="http-headers",
+                                values={"name": name, "value": value})
 
     def searchgeovision(self):
         return self.searchproduct(re.compile('^GeoVision', re.I))
@@ -1021,6 +1051,19 @@ insert structures.
             flt = self.flt_and(flt, self.searchx11access())
         if args.xp445:
             flt = self.flt_and(flt, self.searchxp445())
+        if args.httphdr is not None:
+            if not args.httphdr:
+                flt = self.flt_and(flt, self.searchhttphdr())
+            elif ":" in args.httphdr:
+                name, value = args.httphdr.split(':', 1)
+                name = utils.str2regexp(name.lower())
+                value = utils.str2regexp(value)
+                flt = self.flt_and(flt, self.searchhttphdr(name=name,
+                                                           value=value))
+            else:
+                flt = self.flt_and(flt, self.searchhttphdr(
+                    name=utils.str2regexp(args.httphdr.lower())
+                ))
         if args.owa:
             flt = self.flt_and(flt, self.searchowa())
         if args.vuln_boa:

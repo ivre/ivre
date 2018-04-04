@@ -223,8 +223,7 @@ class MongoDB(DB):
                     update = migration_function(record)
                 except Exception as exc:
                     utils.LOGGER.warning(
-                        "Cannot migrate host %s [%s: %s]", record['_id'],
-                        exc.__class__.__name__, exc.message,
+                        "Cannot migrate host %s", record['_id'], exc_info=True,
                     )
                     failed += 1
                 else:
@@ -496,6 +495,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "ports.scripts.vulns.extra_info",
                   "ports.scripts.vulns.ids",
                   "ports.scripts.vulns.refs",
+                  "ports.scripts.http-headers",
                   "ports.screenwords",
                   "traces", "traces.hops",
                   "os.osmatch", "os.osclass", "hostnames",
@@ -588,6 +588,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 5: (6, self.migrate_schema_hosts_5_6),
                 6: (7, self.migrate_schema_hosts_6_7),
                 7: (8, self.migrate_schema_hosts_7_8),
+                8: (9, self.migrate_schema_hosts_8_9),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -890,6 +891,27 @@ creates the default indexes."""
                                            for vulnid, tab in
                                            viewitems(script['vulns'])]
                     updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_8_9(doc):
+        """Converts a record from version 8 to version 9. Version 9 creates a
+        structured output for http-headers script.
+
+        """
+        assert doc["schema_version"] == 8
+        update = {"$set": {"schema_version": 9}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-headers":
+                    if 'http-headers' not in script:
+                        data = xmlnmap.add_http_headers_data(script)
+                        if data is not None:
+                            script['http-headers'] = data
+                            updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update
@@ -1875,6 +1897,7 @@ have no effect if it is not expected)."""
           - script:<scriptid> / script:<port>:<scriptid>
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.* / ike.*
+          - httphdr / httphdr.{name,value} / httphdr:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -2391,6 +2414,35 @@ have no effect if it is not expected)."""
         elif field.startswith('ike.'):
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
+        elif field == 'httphdr':
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
+                           "ports.scripts.http-headers.value": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.http-headers": {
+                    "$concat": [
+                        "$ports.scripts.http-headers.name",
+                        "###",
+                        "$ports.scripts.http-headers.value",
+                    ]
+                }
+            }}]
+            field = "ports.scripts.http-headers"
+            outputproc = lambda x: {'count': x['count'],
+                                    '_id': tuple(null_if_empty(val) for val in
+                                                 x['_id'].split('###'))}
+        elif field.startswith('httphdr.'):
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = "ports.scripts.http-headers.%s" % field[8:]
+        elif field.startswith('httphdr:'):
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
+                           "ports.scripts.http-headers.value": 1}
+            specialflt = [
+                {"$match": {"ports.scripts.http-headers.name": field[8:].lower()}}
+            ]
+            field = "ports.scripts.http-headers.value"
         elif field.startswith('modbus.'):
             flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
             subfield = field[7:]

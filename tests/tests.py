@@ -216,6 +216,8 @@ passed to `ivre runscansagent --feed`.
 
 class IvreTests(unittest.TestCase):
 
+    maxDiff = None
+
     def setUp(self):
         try:
             with open(os.path.join(SAMPLES, "results")) as fdesc:
@@ -312,7 +314,8 @@ class IvreTests(unittest.TestCase):
         while cls.children:
             os.waitpid(cls.children.pop(), 0)
 
-    def _sort_top_values(self, listval):
+    @staticmethod
+    def _sort_top_values(listval):
         maxval = None
         values = []
         for elem in listval:
@@ -1222,6 +1225,10 @@ which `predicate()` is True, given `webflt`.
         #    ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
         #)
         self.check_top_value("nmap_ssh_top_port", "port:ssh")
+        self.check_top_value("nmap_http_top_content_type",
+                             "httphdr:content-type")
+        self.check_top_value("nmap_http_top_header", "httphdr.name")
+        self.check_top_value("nmap_http_top_header_value", "httphdr.value")
         self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
@@ -1303,6 +1310,30 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(proc.wait(), 0)
         self.check_value("nmap_distinct_ssh_moduli", distinct)
         self.check_value("nmap_max_moduli_ssh_reuse", maxcount)
+
+        # http headers
+        self.check_count_value("nmap_count_httphdr",
+                               ivre.db.db.nmap.searchhttphdr(),
+                               ["--httphdr", ""], "httphdr")
+        self.check_count_value(
+            "nmap_count_httphdr_contentype",
+            ivre.db.db.nmap.searchhttphdr(name="content-type"),
+            ["--httphdr", "content-type"], "httphdr:content-type",
+        )
+        self.check_count_value(
+            "nmap_count_httphdr_contentype_textplain",
+            ivre.db.db.nmap.searchhttphdr(name="content-type",
+                                          value="text/plain"),
+            ["--httphdr", "content-type:text/plain"],
+            "httphdr:content-type:text/plain",
+        )
+        self.check_count_value(
+            "nmap_count_httphdr_contentype_plain",
+            ivre.db.db.nmap.searchhttphdr(name="content-type",
+                                          value=re.compile("plain", re.I)),
+            ["--httphdr", "content-type:/plain/i"],
+            "httphdr:content-type:/plain/i",
+        )
 
         # Remove
         result = next(ivre.db.db.nmap.get(
