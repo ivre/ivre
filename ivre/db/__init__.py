@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -347,6 +347,7 @@ class DBNmap(DB):
         self.argparser.add_argument('--nfs', action='store_true')
         self.argparser.add_argument('--x11', action='store_true')
         self.argparser.add_argument('--xp445', action='store_true')
+        self.argparser.add_argument('--httphdr')
         self.argparser.add_argument('--owa', action='store_true')
         self.argparser.add_argument('--vuln-boa', '--vuln-intersil',
                                     action='store_true')
@@ -1050,6 +1051,19 @@ insert structures.
             flt = self.flt_and(flt, self.searchx11access())
         if args.xp445:
             flt = self.flt_and(flt, self.searchxp445())
+        if args.httphdr is not None:
+            if not args.httphdr:
+                flt = self.flt_and(flt, self.searchhttphdr())
+            elif ":" in args.httphdr:
+                name, value = args.httphdr.split(':', 1)
+                name = utils.str2regexp(name.lower())
+                value = utils.str2regexp(value)
+                flt = self.flt_and(flt, self.searchhttphdr(name=name,
+                                                           value=value))
+            else:
+                flt = self.flt_and(flt, self.searchhttphdr(
+                    name=utils.str2regexp(args.httphdr.lower())
+                ))
         if args.owa:
             flt = self.flt_and(flt, self.searchowa())
         if args.vuln_boa:
