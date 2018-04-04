@@ -1311,6 +1311,30 @@ which `predicate()` is True, given `webflt`.
         self.check_value("nmap_distinct_ssh_moduli", distinct)
         self.check_value("nmap_max_moduli_ssh_reuse", maxcount)
 
+        # http headers
+        self.check_count_value("nmap_count_httphdr",
+                               ivre.db.db.nmap.searchhttphdr(),
+                               ["--httphdr", ""], "httphdr")
+        self.check_count_value(
+            "nmap_count_httphdr_contentype",
+            ivre.db.db.nmap.searchhttphdr(name="content-type"),
+            ["--httphdr", "content-type"], "httphdr:content-type",
+        )
+        self.check_count_value(
+            "nmap_count_httphdr_contentype_textplain",
+            ivre.db.db.nmap.searchhttphdr(name="content-type",
+                                          value="text/plain"),
+            ["--httphdr", "content-type:text/plain"],
+            "httphdr:content-type:text/plain",
+        )
+        self.check_count_value(
+            "nmap_count_httphdr_contentype_plain",
+            ivre.db.db.nmap.searchhttphdr(name="content-type",
+                                          value=re.compile("plain", re.I)),
+            ["--httphdr", "content-type:/plain/i"],
+            "httphdr:content-type:/plain/i",
+        )
+
         # Remove
         result = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
