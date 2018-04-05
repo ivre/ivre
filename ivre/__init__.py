@@ -17,10 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """
 This module is part of IVRE.
 Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 """
+
 
 import os
 import re
@@ -37,6 +39,7 @@ def _get_version_from_file():
             return fdesc.read()
     except IOError:
         return
+
 
 def _get_version_from_git():
     proc = subprocess.Popen([b'git', b'rev-parse', b'--show-toplevel'],
@@ -64,6 +67,7 @@ def _get_version_from_git():
         value = tag[1:] if tag.startswith(u'v') else tag
     return value
 
+
 def _version():
     try:
         tag = _get_version_from_git()
@@ -83,7 +87,8 @@ def _version():
         pass
     hashval, refnames = u'$Format:%h %D$'.split(' ', 1)
     try:
-        return next(ref[6:] for ref in refnames.split(u', ') if ref.startswith(u'tag: v'))
+        return next(ref[6:] for ref in refnames.split(u', ')
+                    if ref.startswith(u'tag: v'))
     except StopIteration:
         pass
     if hashval == u'$Format:%h':

@@ -27,6 +27,7 @@ from ivre.utils import find_ike_vendor_id, encode_hex
 
 
 class Values(dict):
+
     def __getitem__(self, item):
         try:
             return super(Values, self).__getitem__(item)
@@ -35,16 +36,20 @@ class Values(dict):
 
 
 class NumValues(object):
+
     def __getitem__(self, item):
         return item
 
-# Internet Key Exchange (IKE) Attributes - ISAKMP Domain of Interpretation (DOI)
+
+# Internet Key Exchange (IKE) Attributes - ISAKMP Domain of Interpretation
+# (DOI)
 # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-19
 DOI = Values({
     0: "ISAKMP",  # RFC2408
     1: "IPSEC",  # RFC2407
     2: "GDOI",  # RFC3547
 })
+
 
 # RFC 2407 - 4.4.1 - IPSEC Security Protocol Identifier
 # https://tools.ietf.org/html/rfc2407#section-4.4.1
@@ -54,6 +59,7 @@ PROTO = Values({
     3: "IPSEC_ESP",
     4: "IPCOMP",
 })
+
 
 # RFC 2408 - 3.14.1 - Notify Message Types
 # https://tools.ietf.org/html/rfc2408#section-3.14.1
@@ -90,6 +96,7 @@ NOTIFICATION = Values({
     30: "UNEQUAL-PAYLOAD-LENGTHS",
 })
 
+
 # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-2
 TRANSFORM_VALUES = {
     # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-4
@@ -122,7 +129,7 @@ TRANSFORM_VALUES = {
         8: "ECDSA Signature",
         9: "ECDSA with SHA-256 on the P-256 curve",
         10: "ECDSA with SHA-384 on the P-384 curve",
-        10: "ECDSA with SHA-512 on the P-521 curve",
+        11: "ECDSA with SHA-512 on the P-521 curve",
         # A Hybrid Authentication Mode for IKE
         # 3.2.1 - Authentication Methods Types
         # https://tools.ietf.org/html/draft-ietf-ipsec-isakmp-hybrid-auth-05#section-3.2.1
@@ -191,9 +198,11 @@ def info_from_notification(payload, _, output):
     output.update({
         "DOI": DOI[struct.unpack(">I", payload[4:8])[0]],
         "protocol_id": PROTO[ord(payload[8:9])],
-        "notification_type": NOTIFICATION[struct.unpack(">H", payload[10:12])[0]],
-        #"notification_data": payload[12:],
+        "notification_type": NOTIFICATION[struct.unpack(">H",
+                                                        payload[10:12])[0]],
+        # "notification_data": payload[12:],
     })
+
 
 def info_from_vendorid(payload, service, output):
     name = find_ike_vendor_id(payload[4:])
@@ -210,7 +219,8 @@ def info_from_vendorid(payload, service, output):
             service['service_version'] = name.decode().split(None, 1)[1]
             service['service_devicetype'] = 'security-misc'
         elif name.startswith(b'SSH IPSEC Express '):
-            service['service_product'] = 'SSH Communications Security IPSec Express'
+            service['service_product'] = ('SSH Communications Security IPSec '
+                                          'Express')
             service['service_version'] = name.decode().split(None, 3)[3]
         elif name.startswith(b'SSH Sentinel'):
             service['service_product'] = 'SSH Communications Security Sentinel'
@@ -252,7 +262,8 @@ def info_from_vendorid(payload, service, output):
             service['service_product'] = 'FreeS/WAN'
             service['service_version'] = name.decode().split(None, 2)[2]
             service['service_ostype'] = 'Unix'
-        elif name.startswith(b'Openswan ') or name.startswith(b'Linux Openswan '):
+        elif (name.startswith(b'Openswan ') or
+              name.startswith(b'Linux Openswan ')):
             service['service_product'] = 'Openswan'
             version = name.split(b'Openswan ', 1)[1].decode().split(None, 1)
             service['service_version'] = version[0]
@@ -293,6 +304,7 @@ def info_from_vendorid(payload, service, output):
     if name is not None:
         entry["name"] = name.decode()
     output.setdefault('vendor_ids', []).append(entry)
+
 
 def info_from_sa(payload, _, output):
     payload_len = len(payload)
@@ -342,11 +354,13 @@ def info_from_sa(payload, _, output):
             "unexpected payload in transforms: %r" % payload
         )
 
+
 PAYLOADS = {
     1: (info_from_sa, "SA"),
     11: (info_from_notification, "Notification"),
     13: (info_from_vendorid, "Vendor ID"),
 }
+
 
 def analyze_ike_payload(payload, probe='ike'):
     service = {}

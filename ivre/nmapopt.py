@@ -83,9 +83,11 @@ class Scan(object):
     def options(self):
         options = [self.nmap]
         # use -A instead of many options when possible
-        if (('C' in self.scans or self.scripts_categories or
-             self.scripts_exclude or self.scripts_force) and
-            'V' in self.scans and self.osdetect and self.traceroute):
+        if (
+                ('C' in self.scans or self.scripts_categories or
+                 self.scripts_exclude or self.scripts_force) and
+                'V' in self.scans and self.osdetect and self.traceroute
+        ):
             options.append('-A')
             self.scans.difference_update('CV')
             self.osdetect = False

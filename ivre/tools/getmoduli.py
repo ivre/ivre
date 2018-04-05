@@ -25,12 +25,15 @@ Widespread Weak Keys in Network Devices"
 To do so, you need to strip the output from the information after the
 moduli. A simple sed with 's# .*##' will do the trick."""
 
+
 import sys
 import getopt
+
 
 import ivre.db
 import ivre.keys
 import ivre.utils
+
 
 def main():
     # FIXME: this will not work if .nmap and .passive have different
@@ -53,8 +56,10 @@ def main():
         elif o == '--active-ssh':
             bases.add(ivre.keys.SSHRsaNmapKey)
         elif o in ['-h', '--help']:
-            sys.stdout.write('usage: %s [-h] [--passive-ssl] [--active-ssl] '
-                             '[--passive-ssh] [--active-ssh]\n\n' % sys.argv[0])
+            sys.stdout.write(
+                'usage: %s [-h] [--passive-ssl] [--active-ssl] '
+                '[--passive-ssh] [--active-ssh]\n\n' % sys.argv[0]
+            )
             sys.stdout.write(__doc__)
             sys.stdout.write("\n\n")
             sys.exit(0)

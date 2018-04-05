@@ -29,7 +29,6 @@ This module implement tools to look for (public) keys in the database.
 from collections import namedtuple
 import re
 import subprocess
-import struct
 
 
 from Crypto.PublicKey import RSA
@@ -42,6 +41,7 @@ from ivre import utils
 
 Key = namedtuple("key", ["ip", "port", "service", "type", "size",
                          "key", "md5"])
+
 
 class DBKey(object):
     """Base class for a key lookup tool"""
@@ -198,8 +198,8 @@ class SSHNmapKey(NmapKey, SSHKey):
                     if data[:1] != b'\x00':
                         data = utils.decode_b64(data)
                     yield Key(
-                        utils.force_int2ip(host['addr']), script["port"], "ssh",
-                        key['type'][4:],
+                        utils.force_int2ip(host['addr']), script["port"],
+                        "ssh", key['type'][4:],
                         int(float(key['bits'])),  # for some reason,
                                                   # Nmap sometimes
                                                   # outputs 1024.0
@@ -232,13 +232,15 @@ class RSAKey(object):
     """
 
     def __init__(self):
-        self.keyincert = re.compile(b'\n *Issuer: (?P<issuer>.*)'
-                                    b'\n(?:.*\n)* *Subject: (?P<subject>.*)'
-                                    b'\n(?:.*\n)* *Public Key Algorithm:'
-                                    b' (?P<type>.*)Encryption'
-                                    b'\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
-                                    b'\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
-                                    b'\n\\ *Exponent: (?P<exponent>[0-9]+) ')
+        self.keyincert = re.compile(
+            b'\n *Issuer: (?P<issuer>.*)'
+            b'\n(?:.*\n)* *Subject: (?P<subject>.*)'
+            b'\n(?:.*\n)* *Public Key Algorithm:'
+            b' (?P<type>.*)Encryption'
+            b'\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
+            b'\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+            b'\n\\ *Exponent: (?P<exponent>[0-9]+) '
+        )
         self.keytype = 'rsa'
 
     def _pem2key(self, pem):
@@ -253,7 +255,7 @@ class RSAKey(object):
 
     def data2key(self, data):
         data = utils.parse_ssh_key(data)
-        _, exp, mod = (next(data),
+        _, exp, mod = (next(data),  # noqa: F841 (_)
                        long(utils.encode_hex(next(data)), 16),
                        long(utils.encode_hex(next(data)), 16))
         return RSA.construct((mod, exp))

@@ -54,6 +54,7 @@ warnings.filterwarnings(
     module="py2neo.database",
 )
 
+
 class Neo4jDB(DB):
     values = re.compile('{([^}]+)}')
 
@@ -77,7 +78,7 @@ class Neo4jDB(DB):
         """The tuple representing the database version"""
         try:
             return self._db_version
-        except:
+        except AttributeError:
             self._db_version = self.db.neo4j_version
         return self._db_version
 
@@ -253,7 +254,8 @@ class Query(object):
                     'Parameter%s overwritten:%s',
                     "s" if len(keys) > 1 else "",
                     ("\n%" % "\n".join(
-                        '  - %r [%r -> %r]' % (key, self._params[key], params[key])
+                        '  - %r [%r -> %r]' % (key, self._params[key],
+                                               params[key])
                         for key in keys
                     )) if keys else "",
                 )
@@ -372,7 +374,8 @@ class Query(object):
 
             clauses = []
             for elt in elements:
-                attr_expr = "%s.%s" % tuple(cypher_escape(s) for s in (elt, attr))
+                attr_expr = "%s.%s" % tuple(cypher_escape(s) for s in
+                                            (elt, attr))
                 if array_mode is not None:
                     lval = "x"
                 elif len_mode is not None:
@@ -428,7 +431,8 @@ class Query(object):
         clauses, params = [], {}
         for subflt in self._split_filter_or(flt):
             if subflt:
-                subclause, subparams = self._add_clause_from_filter(subflt, mode=mode)
+                subclause, subparams = self._add_clause_from_filter(subflt,
+                                                                    mode=mode)
                 clauses.append(subclause)
                 params.update(subparams)
         return self.add_clause(
@@ -444,7 +448,8 @@ class Query(object):
                 cur_where.append(clause[6:].lstrip())
             else:
                 if cur_where:
-                    yield "WHERE %s" % " AND ".join("(%s)" % whc for whc in cur_where)
+                    yield "WHERE %s" % " AND ".join("(%s)" % whc
+                                                    for whc in cur_where)
                     cur_where = []
                 yield clause
         if cur_where:
@@ -506,7 +511,7 @@ class BulkInsert(object):
                         "DB:Concurrent access error (%r), retrying.", e,
                     )
                     # Reduce contention with a little sleep
-                    time.sleep(random.random()/10)
+                    time.sleep(random.random() / 10)
                 else:
                     raise
 
@@ -577,15 +582,15 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         if end is None:
             end = "{end_time}"
         on_create_set.append("%s.firstseen = %s" % (elt, start))
-        on_match_set.append("%(elt)s.firstseen = CASE WHEN %(elt)s.firstseen > "
-                            "%(start)s THEN %(start)s ELSE "
+        on_match_set.append("%(elt)s.firstseen = CASE WHEN %(elt)s.firstseen"
+                            " > %(start)s THEN %(start)s ELSE "
                             "%(elt)s.firstseen END" %
-                            {"elt":elt, "start": start})
+                            {"elt": elt, "start": start})
         on_create_set.append("%s.lastseen = %s" % (elt, end))
         on_match_set.append("%(elt)s.lastseen = CASE WHEN %(elt)s.lastseen < "
                             "%(end)s THEN %(end)s ELSE "
                             "%(elt)s.lastseen END" %
-                            {"elt":elt, "end": end})
+                            {"elt": elt, "end": end})
 
     @classmethod
     def _update_time_seen(cls, elt):
@@ -634,14 +639,16 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                               for field, (srcfield, _) in
                               viewitems(accumulators)])
         on_match_set.extend([
-            ("%(elt)s.%(field)s = CASE WHEN " +
-             ("" if maxvalue is None else
-              "SIZE(%(elt)s.%(field)s) > %(maxvalue)d OR ") +
-             "%(srcfield)s IN %(elt)s.%(field)s THEN %(elt)s.%(field)s ELSE " +
-             "COALESCE(%(elt)s.%(field)s, []) + %(srcfield)s END") % {
-                 "elt": elt, "field": field, "srcfield": srcfield,
-                 "maxvalue": maxvalue
-             } for field, (srcfield, maxvalue) in viewitems(accumulators)
+            (
+                "%(elt)s.%(field)s = CASE WHEN " +
+                ("" if maxvalue is None else
+                 "SIZE(%(elt)s.%(field)s) > %(maxvalue)d OR ") +
+                "%(srcfield)s IN %(elt)s.%(field)s THEN %(elt)s.%(field)s " +
+                "ELSE COALESCE(%(elt)s.%(field)s, []) + %(srcfield)s END"
+            ) % {
+                "elt": elt, "field": field, "srcfield": srcfield,
+                "maxvalue": maxvalue
+            } for field, (srcfield, maxvalue) in viewitems(accumulators)
         ])
 
     @classmethod
@@ -724,7 +731,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     def add_flow(self, *args, **kargs):
         kargs.setdefault("counters", [])
         query = self._add_flow(*args, **kargs)
-        #utils.LOGGER.debug("DB:%s", query)
+        # utils.LOGGER.debug("DB:%s", query)
         return query
 
     @classmethod
@@ -739,8 +746,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         query.append(cls._prop_update(elt, time=time))
         return "\n".join(query)
 
-    def add_flow_metadata(self, labels, linktype, keys, flow_keys, counters=None,
-                          accumulators=None, time=True, flow_labels=["Flow"]):
+    def add_flow_metadata(self, labels, linktype, keys, flow_keys,
+                          counters=None, accumulators=None, time=True,
+                          flow_labels=["Flow"]):
         counters = {} if counters is None else counters
         query = [self._add_flow(flow_labels, flow_keys)]
         keys = utils.normalize_props(keys)
@@ -778,7 +786,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         for k, v in viewitems(elt):
             if isinstance(v, list) and len(v) == 1 and \
                     isinstance(v[0], dict) and \
-                    all(x == None for x in viewvalues(v[0])):
+                    all(x is None for x in viewvalues(v[0])):
                 elt[k] = []
 
         cls.from_dbdict(cls._get_props(elt["elt"]))
@@ -790,7 +798,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 info = rec["info"] or {}
                 info_props = cls._get_props(info)
                 link = rec["link"] or {}
-                link_tag = link.get("type", link.get("labels", [""])[0]).lower()
+                link_tag = link.get("type",
+                                    link.get("labels", [""])[0]).lower()
                 link_props = cls._get_props(link)
                 key = "%s%s" % (
                     "_".join(label
@@ -830,10 +839,12 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         WITH n, collect(distinct {info: infos, link: sr}) as infos
         OPTIONAL MATCH (n)<-[:TO]-(in:Flow)<-[:SEND]-()
         WITH n, infos,
-             COLLECT(DISTINCT [in.proto, COALESCE(in.dport, in.type)]) as in_flows
+             COLLECT(DISTINCT [in.proto, COALESCE(in.dport, in.type)])
+             AS in_flows
         OPTIONAL MATCH (n)-[:SEND]->(out:Flow)-[:TO]->()
         WITH n, infos, in_flows,
-             COLLECT(DISTINCT [out.proto, COALESCE(out.dport, out.type)]) as out_flows
+             COLLECT(DISTINCT [out.proto, COALESCE(out.dport, out.type)])
+             AS out_flows
         OPTIONAL MATCH (n)-[:SEND]->(:Flow)-[:TO]->(dst:Host)
         WITH n, infos, in_flows, out_flows,
              COLLECT(DISTINCT dst.addr) as servers
@@ -861,8 +872,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return node
 
     @classmethod
-    def _filters2cypher(cls, queries, limit=None, skip=0, orderby="", mode=None,
-                        timeline=False):
+    def _filters2cypher(cls, queries, limit=None, skip=0, orderby="",
+                        mode=None, timeline=False):
         limit = config.WEB_GRAPH_LIMIT if limit is None else limit
         query = cls.query(
             skip=skip, limit=limit,
@@ -887,8 +898,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
         elif mode == "flow_map":
             query.add_clause('WITH src, dst, '
-                             'COLLECT(DISTINCT [link.proto, link.dport]) AS flows, '
-                             'HEAD(COLLECT(ID(link))) AS ref')
+                             'COLLECT(DISTINCT [link.proto, link.dport]) '
+                             'AS flows, HEAD(COLLECT(ID(link))) AS ref')
             query.add_clause('WITH src, dst, flows, ref, SIZE(flows) AS t')
             query.add_clause(
                 "WITH {elt: src, meta: []} as src,\n"
@@ -1030,7 +1041,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             flow_node = cls._edge2json(flow_ref, src_ref, dst_ref, flow_labels,
                                        flow_props)
             yield {"src": src_node, "dst": dst_node, "flow": flow_node}
-
 
     @classmethod
     def cursor2json_graph(cls, cursor):
@@ -1287,6 +1297,7 @@ DETACH DELETE old_f
         self.db.run(q)
         if config.DEBUG_DB:
             utils.LOGGER.debug("DB:Took %f secs", time.time() - tstamp)
+
 
 Neo4jDBFlow.LABEL2NAME.update({
     "Host": ["addr"],

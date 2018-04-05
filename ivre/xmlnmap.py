@@ -135,10 +135,12 @@ ALIASES_TABLE_ELEMS = {
 SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
 RTSP_SCREENSHOT_PATTERN = re.compile('^ *Saved [^ ]* to (.*)$', re.MULTILINE)
 
+
 def screenshot_extract(script):
     fname = (RTSP_SCREENSHOT_PATTERN if script['id'] == 'rtsp-screenshot'
              else SCREENSHOT_PATTERN).search(script['output'])
     return None if fname is None else fname.groups()[0]
+
 
 SCREENSHOTS_SCRIPTS = {
     "http-screenshot": screenshot_extract,
@@ -160,6 +162,7 @@ _MONGODB_DATABASES_TYPES = {
     "ok": lambda x: (_MONGODB_DATABASES_CONVERTS.get(x, x)
                      if isinstance(x, basestring) else float(x)),
 }
+
 
 def _parse_mongodb_databases_kv(line, out, prefix=None, force_type=None,
                                 value_name=None):
@@ -297,6 +300,7 @@ def add_mongodb_databases_data(script):
 
     return out
 
+
 def add_ls_data(script):
     """This function calls the appropriate `add_*_data()` function to
     convert output from scripts that do not include a structured
@@ -318,6 +322,7 @@ def add_ls_data(script):
         # http-ls has used the "ls" module since the beginning
     }.get(script['id'], notimplemented)(script)
 
+
 def add_smb_ls_data(script):
     """This function converts output from smb-ls that do not include a
     structured output to a structured output similar to the one
@@ -329,23 +334,24 @@ def add_smb_ls_data(script):
     """
     assert script["id"] == "smb-ls"
     result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
-    state = 0 # outside a volume
+    state = 0  # outside a volume
     cur_vol = None
     for line in script["output"].splitlines():
         line = line.lstrip()
-        if state == 0: # outside a volume
+        if state == 0:  # outside a volume
             if line.startswith('Directory of '):
                 if cur_vol is not None:
-                    utils.LOGGER.warning("cur_vol should be None here [got %r]",
-                                         cur_vol)
+                    utils.LOGGER.warning(
+                        "cur_vol should be None here [got %r]", cur_vol,
+                    )
                 cur_vol = {"volume": line[13:], "files": []}
-                state = 1 # listing
+                state = 1  # listing
             elif line:
                 utils.LOGGER.warning("Unexpected line [%r] outside a volume",
                                      line)
-        elif state == 1: # listing
+        elif state == 1:  # listing
             if line == "Total Files Listed:":
-                state = 2 # total values
+                state = 2  # total values
             elif line:
                 date, time, size, fname = line.split(None, 3)
                 if size.isdigit():
@@ -354,17 +360,18 @@ def add_smb_ls_data(script):
                 cur_vol["files"].append({"size": size, "filename": fname,
                                          'time': "%s %s" % (date, time)})
                 result["total"]["files"] += 1
-        elif state == 2: # total values
+        elif state == 2:  # total values
             if line:
                 # we do not use this data
                 pass
             else:
-                state = 0 # outside a volume
+                state = 0  # outside a volume
                 result["volumes"].append(cur_vol)
                 cur_vol = None
     if state != 0:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
+
 
 def add_nfs_ls_data(script):
     """This function converts output from nfs-ls that do not include a
@@ -377,26 +384,27 @@ def add_nfs_ls_data(script):
     """
     assert script["id"] == "nfs-ls"
     result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
-    state = 0 # outside a volume
+    state = 0  # outside a volume
     cur_vol = None
     for line in script["output"].splitlines():
         line = line.lstrip()
-        if state == 0: # outside a volume
+        if state == 0:  # outside a volume
             if line.startswith('NFS Export: '):
                 if cur_vol is not None:
-                    utils.LOGGER.warning("cur_vol should be None here [got %r]",
-                                         cur_vol)
+                    utils.LOGGER.warning(
+                        "cur_vol should be None here [got %r]", cur_vol,
+                    )
                 cur_vol = {"volume": line[12:], "files": []}
-                state = 1 # volume info
+                state = 1  # volume info
             # We silently discard any other lines
-        elif state == 1: # volume info
+        elif state == 1:  # volume info
             if line.startswith('NFS '):
                 cur_vol.setdefault('info', []).append(
                     line[4].lower() + line[5:])
             elif line.startswith('PERMISSION'):
-                state = 2 # listing
+                state = 2  # listing
             # We silently discard any other lines
-        elif state == 2: # listing
+        elif state == 2:  # listing
             if line:
                 permission, uid, gid, size, time, fname = line.split(None, 5)
                 if size.isdigit():
@@ -408,16 +416,17 @@ def add_nfs_ls_data(script):
                                          "filename": fname})
                 result["total"]["files"] += 1
             else:
-                state = 0 # outsize a volume
+                state = 0  # outside a volume
                 result["volumes"].append(cur_vol)
                 cur_vol = None
     if state == 2:
-        state = 0 # outsize a volume
+        state = 0  # outside a volume
         result["volumes"].append(cur_vol)
         cur_vol = None
     if state != 0:
         utils.LOGGER.warning("Expected state == 0, got %r", state)
     return result if result["volumes"] else None
+
 
 def add_afp_ls_data(script):
     """This function converts output from afp-ls that do not include a
@@ -430,7 +439,7 @@ def add_afp_ls_data(script):
     """
     assert script["id"] == "afp-ls"
     result = {"total": {"files": 0, "bytes": 0}, "volumes": []}
-    state = 0 # volumes / listings
+    state = 0  # volumes / listings
     cur_vol = None
     for line in script["output"].splitlines():
         if state == 0:
@@ -456,17 +465,18 @@ def add_afp_ls_data(script):
                 # setting ls.errors=true
                 pass
             elif line == "  ":
-                state = 1 # end of volumes
+                state = 1  # end of volumes
             elif line.startswith("  "):
                 result["volumes"].append(cur_vol)
                 cur_vol = {"volume": line[2:], "files": []}
         elif state == 1:
             if line.startswith("  "):
-                result.setdefault("info", []).append(line[3].lower()
-                                                     + line[4:])
+                result.setdefault("info", []).append(line[3].lower() +
+                                                     line[4:])
             else:
                 utils.LOGGER.warning("Skip not understood line [%r]", line)
     return result if result["volumes"] else None
+
 
 def add_ftp_anon_data(script):
     """This function converts output from ftp-anon that do not include a
@@ -533,6 +543,7 @@ def add_ftp_anon_data(script):
         result["volumes"].append(cur_vol)
         return result
 
+
 def add_http_headers_data(script):
     result = []
     output = script.get("output", "").splitlines()
@@ -550,6 +561,7 @@ def add_http_headers_data(script):
             field, value = line, None
         result.append({"name": field.lower(), "value": value})
 
+
 ADD_TABLE_ELEMS = {
     'modbus-discover':
     re.compile('^ *DEVICE IDENTIFICATION: *(?P<deviceid>.*?) *$', re.M),
@@ -557,6 +569,7 @@ ADD_TABLE_ELEMS = {
     'mongodb-databases': add_mongodb_databases_data,
     'http-headers': add_http_headers_data,
 }
+
 
 def change_smb_enum_shares(table):
     """Adapt structured data from script smb-enum-shares so that it is
@@ -575,6 +588,7 @@ def change_smb_enum_shares(table):
         result["shares"].append(value)
     return result
 
+
 def change_ls(table):
     """Adapt structured data from "ls" NSE module to convert some
     fields to integers.
@@ -590,9 +604,11 @@ def change_ls(table):
                 fileentry['size'] = int(fileentry['size'])
     return table
 
+
 def change_vulns(table):
     """Adapt structured output generated by "vulns" NSE module."""
     return [dict(tab, id=vulnid) for vulnid, tab in viewitems(table)]
+
 
 CHANGE_TABLE_ELEMS = {
     'smb-enum-shares': change_smb_enum_shares,
@@ -797,15 +813,19 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "pop": "pop3",
 }
 
+
 MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
+
 
 def _masscan_decode_print(match):
     char = utils.decode_hex(match.groups()[0])
     return (char if (32 <= ord(char) <= 126 or char in b"\t\r\n")
             else match.group())
 
+
 def _masscan_decode_raw(match):
     return utils.decode_hex(match.groups()[0])
+
 
 def masscan_x509(output):
     """Produces an output similar to Nmap script ssl-cert from Masscan
@@ -822,7 +842,8 @@ X509 "service" tag.
         ))
     b64cert = utils.encode_b64(certificate).decode()
     newout.append('-----BEGIN CERTIFICATE-----\n')
-    newout.extend('%s\n' % b64cert[i:i + 64] for i in range(0, len(b64cert), 64))
+    newout.extend('%s\n' % b64cert[i:i + 64] for i in
+                  range(0, len(b64cert), 64))
     newout.append('-----END CERTIFICATE-----\n')
     return "".join(newout)
 
@@ -842,9 +863,9 @@ def ignore_script(script):
     if output in IGNORE_SCRIPT_OUTPUTS:
         return True
     if (
-            IGNORE_SCRIPTS_REGEXP.get(sid)
-            and output is not None
-            and IGNORE_SCRIPTS_REGEXP[sid].search(output)
+            IGNORE_SCRIPTS_REGEXP.get(sid) and
+            output is not None and
+            IGNORE_SCRIPTS_REGEXP[sid].search(output)
     ):
         return True
     if output is not None and any(expr.search(output)
@@ -1001,8 +1022,8 @@ class NmapHandler(ContentHandler):
                     self._curhost['addr'] = attrs['addr']
         elif name == 'hostnames':
             if self._curhostnames is not None:
-                utils.LOGGER.warning("self._curhostnames should be None at this"
-                                     "point (got %r)", self._curhostnames)
+                utils.LOGGER.warning("self._curhostnames should be None at "
+                                     "this point (got %r)", self._curhostnames)
             self._curhostnames = []
         elif name == 'hostname':
             if self._curhostnames is None:
@@ -1022,7 +1043,8 @@ class NmapHandler(ContentHandler):
         elif name == 'extraports':
             if self._curextraports is not None:
                 utils.LOGGER.warning("self._curextraports should be None at "
-                                     "this point (got %r)", self._curextraports)
+                                     "this point (got %r)",
+                                     self._curextraports)
             self._curextraports = {
                 attrs['state']: {"total": int(attrs['count']), "reasons": {}},
             }
@@ -1055,9 +1077,11 @@ class NmapHandler(ContentHandler):
             if self.scanner == "masscan":
                 banner = attrs["banner"]
                 if attrs['name'] == 'vnc' and "=" in attrs["banner"]:
-                    # See also https://github.com/robertdavidgraham/masscan/pull/250
+                    # See also
+                    # https://github.com/robertdavidgraham/masscan/pull/250
                     banner = banner.split(' ')
-                    banner, vncinfo = '%s\\x0a' % ' '.join(banner[:2]), banner[2:]
+                    banner, vncinfo = ('%s\\x0a' % ' '.join(banner[:2]),
+                                       banner[2:])
                     if vncinfo:
                         output = []
                         while vncinfo:
@@ -1104,8 +1128,8 @@ class NmapHandler(ContentHandler):
                 self.masscan_post_script(script)
                 # attempt to use Nmap service fingerprints
                 probes = self.masscan_probes[:]
-                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES\
-                              .get(self._curport['protocol'], {})\
+                probes.extend(MASSCAN_NMAP_SCRIPT_NMAP_PROBES
+                              .get(self._curport['protocol'], {})
                               .get(scriptid, []))
                 match = {}
                 for probe in probes:
@@ -1117,7 +1141,9 @@ class NmapHandler(ContentHandler):
                             raw_output, probe=probe,
                         ))
                         if self._curport.get('service_name') == 'isakmp':
-                            self._curport['scripts'][0]['masscan'] = masscan_data
+                            self._curport['scripts'][0][
+                                'masscan'
+                            ] = masscan_data
                         return
                     match = utils.match_nmap_svc_fp(
                         output=raw_output,
@@ -1145,8 +1171,8 @@ class NmapHandler(ContentHandler):
             if name == 'elem':
                 # start recording characters
                 if self._curdata is not None:
-                    utils.LOGGER.warning("self._curdata should be None at this "
-                                         "point (got %r)" % self._curdata)
+                    utils.LOGGER.warning("self._curdata should be None at "
+                                         "this point (got %r)", self._curdata)
                 self._curdata = ''
             if 'key' in attrs:
                 key = attrs['key'].replace('.', '_')
@@ -1236,10 +1262,12 @@ class NmapHandler(ContentHandler):
         elif name == 'host':
             # masscan -oX output has no "state" tag
             if self._curhost.get('state', 'up') == 'up' and (
-                    not self._needports
-                    or 'ports' in self._curhost) and (
-                        not self._needopenports
-                        or self._curhost.get('openports', {}).get('count')):
+                    not self._needports or
+                    'ports' in self._curhost
+            ) and (
+                not self._needopenports or
+                self._curhost.get('openports', {}).get('count')
+            ):
                 if 'openports' not in self._curhost:
                     self._curhost['openports'] = {'count': 0}
                 self._pre_addhost()
@@ -1329,7 +1357,9 @@ class NmapHandler(ContentHandler):
                     utils.LOGGER.warning("self._curtablepath should be empty, "
                                          "got [%r]", self._curtablepath)
                 if infokey in CHANGE_TABLE_ELEMS:
-                    self._curtable = CHANGE_TABLE_ELEMS[infokey](self._curtable)
+                    self._curtable = CHANGE_TABLE_ELEMS[infokey](
+                        self._curtable
+                    )
                 self._curscript[infokey] = self._curtable
                 self._curtable = {}
             elif infokey in ADD_TABLE_ELEMS:
@@ -1412,7 +1442,6 @@ class NmapHandler(ContentHandler):
         })
         self._curport['service_product'] = utils.nmap_encode_data(header)
 
-
     def _add_cpe_to_host(self):
         """Adds the cpe in self._curdata to the host-wide cpe list, taking
         port/script/osmatch context into account.
@@ -1426,8 +1455,8 @@ class NmapHandler(ContentHandler):
         if self._curport is not None:
             if self._curscript is not None and 'id' in self._curscript:
                 # Should not happen, but handle the case anyway
-                path = 'ports{port:%s, scripts.id:%s}'\
-                        % (self._curport['port'], self._curscript['id'])
+                path = ('ports{port:%s, scripts.id:%s}'
+                        % (self._curport['port'], self._curscript['id']))
             else:
                 path = 'ports.port:%s' % self._curport['port']
 
@@ -1436,7 +1465,7 @@ class NmapHandler(ContentHandler):
             path = 'scripts.id:%s' % self._curscript['id']
 
         elif 'os' in self._curhost and\
-                self._curhost['os'].get('osmatch', []): # Host-wide
+                self._curhost['os'].get('osmatch', []):  # Host-wide
             lastosmatch = self._curhost['os']['osmatch'][-1]
             line = lastosmatch['line']
             path = "os.osmatch.line:%s" % line
@@ -1454,7 +1483,6 @@ class NmapHandler(ContentHandler):
         else:
             cpeobj = cpes[cpe]
         cpeobj.setdefault('origins', []).append(path)
-
 
     def characters(self, content):
         if self._curdata is not None:
@@ -1520,8 +1548,8 @@ class Nmap2DB(NmapHandler):
             for func in [self._db.data.country_byip,
                          self._db.data.as_byip,
                          self._db.data.location_byip]:
-                self._curhost['infos'].update(func(self._curhost['addr'])
-                                              or {})
+                self._curhost['infos'].update(func(self._curhost['addr']) or
+                                              {})
         if self.source:
             self._curhost['source'] = self.source
         # We are about to insert data based on this file, so we want

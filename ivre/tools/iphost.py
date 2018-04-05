@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 'Query the passive database to perform DNS resolutions (passive DNS).'
 
 
@@ -23,7 +24,6 @@ from __future__ import print_function
 from datetime import datetime
 import getopt
 import re
-import struct
 import sys
 try:
     reload(sys)
@@ -82,19 +82,22 @@ def disp_rec(r):
         else:
             ivre.utils.LOGGER.warning("Cannot display record %r", r)
 
+
 def main():
     baseflt = db.passive.searchrecontype('DNS_ANSWER')
     subdomains = False
     try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                   "s:h",
-                                   [
-                                       # filters
-                                       "sensor=",
-                                       # subdomains
-                                       "sub",
-                                       "help",
-                                   ])
+        opts, args = getopt.getopt(
+            sys.argv[1:],
+            "s:h",
+            [
+                # filters
+                "sensor=",
+                # subdomains
+                "sub",
+                "help",
+            ],
+        )
     except getopt.GetoptError as err:
         sys.stderr.write(str(err) + '\n')
         sys.exit(-1)

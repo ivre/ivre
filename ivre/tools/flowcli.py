@@ -16,6 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+"""
+Access and query the flows database.
+
+See doc/FLOW.md for more information.
+"""
 
 import os
 import sys
@@ -39,29 +44,27 @@ from ivre.db import db
 from ivre import utils
 
 
-DESCRIPTION = 'Access and query the flows database. See doc/FLOW.md for more ' \
-              'information.'
-
 def main():
     try:
         import argparse
-        parser = argparse.ArgumentParser(description=DESCRIPTION)
+        parser = argparse.ArgumentParser(description=__doc__)
     except ImportError:
         import optparse
-        parser = optparse.OptionParser(description=DESCRIPTION)
+        parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
         parser.parse_args = lambda: parser.parse_args_orig()[0]
         parser.add_argument = parser.add_option
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the database).')
-    parser.add_argument('--node-filters', '-n', nargs="+",
+                        help='Create missing indexes (will lock the '
+                        'database).')
+    parser.add_argument('--node-filters', '-n', nargs="+", metavar="FILTER",
                         help='Filter the results with a list of ivre specific '
-                             'node textual filters (see WebUI doc in FLOW.md).')
-    parser.add_argument('--flow-filters', '-f', nargs="+",
+                        'node textual filters (see WebUI doc in FLOW.md).')
+    parser.add_argument('--flow-filters', '-f', nargs="+", metavar="FILTER",
                         help='Filter the results with a list of ivre specific '
-                             'flow textual filters (see WebUI doc in FLOW.md).')
+                        'flow textual filters (see WebUI doc in FLOW.md).')
     parser.add_argument('--json', '-j', action='store_true',
                         help='Outputs the full json records of results.')
     parser.add_argument('--count', '-c', action='store_true',
@@ -77,7 +80,8 @@ def main():
                         help='Top flows for a given set of fields, e.g. '
                         '"--top src.addr dport".')
     parser.add_argument('--collect', '-C', nargs="+",
-                        help='When using --top, also collect these properties.')
+                        help='When using --top, also collect these '
+                        'properties.')
     parser.add_argument('--sum', '-S', nargs="+",
                         help='When using --top, sum on these properties to '
                         'order the result.')

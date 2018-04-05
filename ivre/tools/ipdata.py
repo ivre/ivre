@@ -16,10 +16,12 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """This tool can be used to manage IP addresses related data, such as
 AS number and country information.
 
 """
+
 
 from __future__ import print_function
 import os
@@ -54,6 +56,7 @@ def main():
         parser = optparse.OptionParser(
             description=__doc__)
         parser.parse_args_orig = parser.parse_args
+
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('ip', res[1])
@@ -64,7 +67,8 @@ def main():
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the database).')
+                        help='Create missing indexes (will lock the '
+                        'database).')
     parser.add_argument('--download', action='store_true',
                         help='Fetch all data files.')
     parser.add_argument('--country-csv', metavar='FILE',

@@ -59,6 +59,7 @@ else:
     USE_PARTIAL = False
     # Also Python version <= 2.6: cannot use a function defined in
     # another function in a multiprocessing.Pool.imap()
+
     def _call_nmap_single_tuple(args):
         return _call_nmap_single(*args)
 
@@ -454,12 +455,16 @@ def main():
             for _ in pool.imap(call_nmap_single, targets, chunksize=1):
                 pass
         else:
-            for _ in pool.imap(_call_nmap_single_tuple,
-                               ((targets.infos['categories'][0],
-                                 options,
-                                 accept_target_status,
-                                 target) for target in targets),
-                                chunksize=1):
+            for _ in pool.imap(
+                    _call_nmap_single_tuple,
+                    (
+                        (targets.infos['categories'][0],
+                         options,
+                         accept_target_status,
+                         target) for target in targets
+                    ),
+                    chunksize=1
+            ):
                 pass
         exit(0)
     elif args.output == 'ListAllRand':

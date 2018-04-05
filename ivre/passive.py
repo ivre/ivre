@@ -76,14 +76,15 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
             osname = line[1][:line[1].index(b' (up: ')]
         else:
             osname = line[1][:line[1].index(b' Signature: ')]
-        osname, version = osname.split(b' ')[0], b' '.join(osname.split(b' ')[1:])
+        osname = osname.split(b' ')
+        osname, version = osname[0], b' '.join(osname[1:])
         dist = int(P0F_DIST.search(line[2]).groups()[0])
     # We wildcard any window size which is not Sxxx or Tyyy
     if sig[0][0] not in b'ST':
         sig[0] = b'*'
     spec = {
-        'addr': utils.ip2int(line[0][line[0].index(b'> ')
-                                     + 2:line[0].index(b':')]),
+        'addr': utils.ip2int(line[0][line[0].index(b'> ') + 2:
+                                     line[0].index(b':')]),
         'distance': dist,
         'value': osname.decode(),
         'version': version.decode(),
@@ -108,7 +109,7 @@ def _split_digest_auth(data):
     """This function handles (Proxy-)Authorization: Digest values"""
     values = []
     curdata = []
-    state = 0 # state init
+    state = 0  # state init
     for char in data:
         if state == 0:
             if char == ',':
@@ -116,7 +117,7 @@ def _split_digest_auth(data):
                 curdata = []
             else:
                 if char == '"':
-                    state = 1 # inside " "
+                    state = 1  # inside " "
                 curdata.append(char)
         elif state == 1:
             if char == '"':
@@ -149,7 +150,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # specs with different challenges but the same username, realm,
     # host and sensor in the same records.
     elif spec['recontype'] in ['HTTP_CLIENT_HEADER',
-                             'HTTP_CLIENT_HEADER_SERVER'] and \
+                               'HTTP_CLIENT_HEADER_SERVER'] and \
         spec.get('source') in ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']:
         authtype = spec['value'].split(None, 1)[0]
@@ -160,8 +161,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
                          _split_digest_auth(spec['value'][6:].strip())
                          if DIGEST_AUTH_INFOS.match(val)]
                 spec['value'] = '%s %s' % (authtype, ','.join(value))
-            except:
-                pass
+            except Exception:
+                utils.LOGGER.warning("Cannot parse digest error for %r", spec,
+                                     exc_info=True)
         elif authtype.lower() in ['negotiate', 'kerberos', 'oauth', 'ntlm']:
             spec['value'] = authtype
     # p0f in Bro hack: we use the "source" field to provide the
@@ -183,7 +185,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
         spec['value'] = hashlib.sha1(spec['fullvalue'].encode()).hexdigest()
     if 'targetval' in spec and len(spec['targetval']) > utils.MAXVALLEN:
         spec['fulltargetval'] = spec['targetval']
-        spec['targetval'] = hashlib.sha1(spec['fulltargetval'].encode()).hexdigest()
+        spec['targetval'] = hashlib.sha1(
+            spec['fulltargetval'].encode()
+        ).hexdigest()
     return spec
 
 
@@ -198,10 +202,7 @@ def handle_rec(sensor, ignorenets, neverignore,
             'value': value
         }
     else:
-        try:
-            host = utils.ip2int(host)
-        except:
-            pass
+        host = utils.force_ip2int(host)
         spec = {
             'addr': host,
             'recontype': recon_type,
@@ -218,8 +219,8 @@ def handle_rec(sensor, ignorenets, neverignore,
     try:
         float_ts = timestamp.timestamp()
     except AttributeError:
-        float_ts = time.mktime(timestamp.timetuple()) \
-                   + timestamp.microsecond / (1000.*1000.)
+        float_ts = (time.mktime(timestamp.timetuple()) +
+                    timestamp.microsecond / (1000000.))
     return float_ts, spec
 
 
@@ -399,7 +400,7 @@ def _getinfos_ssh_hostkey(spec):
             infos["exponent"], infos["modulus"] = (
                 long(utils.encode_hex(elt), 16) for elt in data
             )
-        except:
+        except Exception:
             utils.LOGGER.info("Cannot parse SSH host key for record %r", spec,
                               exc_info=True)
         else:

@@ -96,6 +96,7 @@ def rename(src, dst):
     os.rename(os.path.join(config.GEOIP_PATH, src),
               os.path.join(config.GEOIP_PATH, dst))
 
+
 PARSERS = [
     (unzip_all, ['GeoIPCountryCSV.zip'], {}),
     (unzip_all, ['GeoIPCityCSV.zip'], {}),
@@ -256,6 +257,7 @@ def get_ranges_by_data(datafile, parseline, data, multiple=False):
                 rnge.append(start, stop)
     return rnge
 
+
 get_ranges_by_country = functools.partial(
     get_ranges_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCountry.csv'),
@@ -269,12 +271,15 @@ get_ranges_by_location = functools.partial(
     multiple=True,
 )
 
+
 def get_ranges_by_city(country_code, city):
     return get_ranges_by_location(set(locids_by_city(country_code, city)))
+
 
 def get_ranges_by_region(country_code, region_code):
     return get_ranges_by_location(set(locids_by_region(country_code,
                                                        region_code)))
+
 
 get_ranges_by_asnum = functools.partial(
     get_ranges_by_data,
@@ -297,7 +302,8 @@ def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None,
         for line in fdesc:
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
-                curaddrs = [utils.int2ip(addr) for addr in range(start, stop + 1)]
+                curaddrs = [utils.int2ip(addr) for addr in
+                            range(start, stop + 1)]
                 if skip > 0:
                     skip -= len(curaddrs)
                     if skip <= 0:
@@ -313,6 +319,7 @@ def get_ips_by_data(datafile, parseline, data, skip=0, maxnbr=None,
                 res += curaddrs
     return res
 
+
 get_ips_by_country = functools.partial(
     get_ips_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCountry.csv'),
@@ -326,14 +333,17 @@ get_ips_by_location = functools.partial(
     multiple=True,
 )
 
+
 def get_ips_by_city(country_code, city, **kargs):
     return get_ips_by_location(set(locids_by_city(country_code, city)),
                                **kargs)
+
 
 def get_ips_by_region(country_code, region_code, **kargs):
     return get_ips_by_location(set(locids_by_region(country_code,
                                                     region_code)),
                                **kargs)
+
 
 get_ips_by_asnum = functools.partial(
     get_ips_by_data,
@@ -358,6 +368,7 @@ def count_ips_by_data(datafile, parseline, data, multiple=False):
                 res += stop - start + 1
     return res
 
+
 count_ips_by_country = functools.partial(
     count_ips_by_data,
     os.path.join(config.GEOIP_PATH, 'GeoIPCountry.csv'),
@@ -371,12 +382,15 @@ count_ips_by_location = functools.partial(
     multiple=True,
 )
 
+
 def count_ips_by_city(country_code, city):
     return count_ips_by_location(set(locids_by_city(country_code, city)))
+
 
 def count_ips_by_region(country_code, region_code):
     return count_ips_by_location(set(locids_by_region(country_code,
                                                       region_code)))
+
 
 count_ips_by_asnum = functools.partial(
     count_ips_by_data,
@@ -405,7 +419,8 @@ def list_ips_by_data(datafile, parseline, data,
             start, stop, curdata = parseline(line)
             if (multiple and curdata in data) or curdata == data:
                 if listall:
-                    curaddrs = [utils.int2ip(addr) for addr in range(start, stop + 1)]
+                    curaddrs = [utils.int2ip(addr) for addr in
+                                range(start, stop + 1)]
                     if skip > 0:
                         skip -= len(curaddrs)
                         if skip <= 0:
@@ -424,7 +439,8 @@ def list_ips_by_data(datafile, parseline, data,
                     for net in utils.range2nets((start, stop)):
                         print(net)
                 else:
-                    print("%s - %s" % (utils.int2ip(start), utils.int2ip(stop)))
+                    print("%s - %s" % (utils.int2ip(start),
+                                       utils.int2ip(stop)))
 
 
 list_ips_by_country = functools.partial(
@@ -440,14 +456,17 @@ list_ips_by_location = functools.partial(
     multiple=True,
 )
 
+
 def list_ips_by_city(country_code, city, **kargs):
     return list_ips_by_location(set(locids_by_city(country_code, city)),
                                 **kargs)
+
 
 def list_ips_by_region(country_code, region_code, **kargs):
     return list_ips_by_location(set(locids_by_region(country_code,
                                                      region_code)),
                                 **kargs)
+
 
 list_ips_by_asnum = functools.partial(
     list_ips_by_data,

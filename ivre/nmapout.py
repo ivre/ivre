@@ -53,16 +53,14 @@ def _scriptoutput(record):
         out.append('\t\t%s:%s\n' % (script['id'], scriptout))
     return out
 
+
 def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
                 out=sys.stdout):
     """Displays (on `out`, by default `sys.stdout`) the Nmap scan
     result contained in `record`.
 
     """
-    try:
-        line = "Host %s" % utils.int2ip(record['addr'])
-    except:
-        line = "Host %s" % record['addr']
+    line = "Host %s" % utils.force_int2ip(record['addr'])
     if record.get('hostnames'):
         line += " (%s)" % '/'.join(x['name'] for x in record['hostnames'])
     if 'source' in record:
@@ -140,13 +138,13 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
             hops = trace['hops']
             hops.sort(key=lambda hop: hop['ttl'])
             for hop in hops:
-                try:
-                    out.write('\t\t%3s %15s %7s\n' %
-                              (hop['ttl'], utils.int2ip(hop['ipaddr']),
-                               hop['rtt']))
-                except:
-                    out.write('\t\t%3s %15s %7s\n' %
-                              (hop['ttl'], hop['ipaddr'], hop['rtt']))
+                out.write(
+                    '\t\t%3s %15s %7s\n' % (
+                        hop['ttl'],
+                        utils.force_int2ip(hop['ipaddr']),
+                        hop['rtt'],
+                    )
+                )
     if showos and record.get('os', {}).get('osclass'):
         osclasses = record['os']['osclass']
         maxacc = str(max(int(x['accuracy']) for x in osclasses))
@@ -157,6 +155,7 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
             out.write(
                 '\t\t%(osfamily)s / %(type)s / %(vendor)s / '
                 'accuracy = %(accuracy)s\n' % osclass)
+
 
 def displayhosts(recordsgen, out=sys.stdout, **kargs):
     """Displays (on `out`, by default `sys.stdout`) the Nmap scan
@@ -169,6 +168,7 @@ def displayhosts(recordsgen, out=sys.stdout, **kargs):
             input()
         else:
             out.write('\n')
+
 
 def displayhosts_json(recordsgen, out=sys.stdout):
     """Displays (on `out`, by default `sys.stdout`) the Nmap scan

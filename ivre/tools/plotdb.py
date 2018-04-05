@@ -23,7 +23,7 @@ import math
 import matplotlib
 import matplotlib.pyplot
 # from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d import axes3d, Axes3D
+from mpl_toolkits.mplot3d import axes3d, Axes3D  # noqa: F401 (needed)
 
 
 from ivre import db
@@ -80,6 +80,7 @@ def graph2d(mainflt=db.db.nmap.flt_empty, alertflt=None):
         if h:
             ax.semilogy(h, p, '.', c='r')
     matplotlib.pyplot.show()
+
 
 def main():
     try:

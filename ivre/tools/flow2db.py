@@ -36,29 +36,34 @@ FIELD_REQUEST_EXT = [
     (('type', 'code'), ('proto', 'type'), {'codes': ('{code}', None)}),
     (('type'), ('proto', 'type'), {}),
 ]
+
+
 COUNTERS = ["cspkts", "scpkts", "csbytes", "scbytes"]
 
+
 PARSERS_CHOICE = {
-    #'airodump': Airodump,
+    # 'airodump': Airodump,
     'argus': Argus,
-    #'bro': BroFile,
+    # 'bro': BroFile,
     'netflow': NetFlow,
     'iptables': Iptables,
 }
 
+
 PARSERS_MAGIC = {
     # Pcap: ARP
-    #'\xa1\xb2\xd3\xc4': None,
-    #'\xd4\xc3\xb2\xa1': None,
+    # '\xa1\xb2\xd3\xc4': None,
+    # '\xd4\xc3\xb2\xa1': None,
     # NetFlow
     b'\x0c\xa5\x01\x00': NetFlow,
     # Argus
     b'\x83\x10\x00\x20': Argus,
     # Bro
-    #'#sep': BroFile,
+    # '#sep': BroFile,
     # Airodump CSV
-    #'\x0d\x0aBS': Airodump,
+    # '\x0d\x0aBS': Airodump,
 }
+
 
 def main():
     """Update the flow database from log files"""
@@ -71,6 +76,7 @@ def main():
         import optparse
         parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
+
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('files', res[1])
@@ -102,7 +108,8 @@ def main():
                     fileparser = PARSERS_MAGIC[fdesc.read(4)]
                 except KeyError:
                     utils.LOGGER.warning(
-                        'Cannot find the appropriate parser for file %r', fname,
+                        'Cannot find the appropriate parser for file %r',
+                        fname,
                     )
                     continue
         bulk = db.flow.start_bulk_insert()
@@ -112,7 +119,8 @@ def main():
                     continue
                 linkattrs = ('proto',)
                 accumulators = {}
-                for (fields, sp_linkattrs, sp_accumulators) in FIELD_REQUEST_EXT:
+                for (fields, sp_linkattrs,
+                     sp_accumulators) in FIELD_REQUEST_EXT:
                     if all(field in rec for field in fields):
                         linkattrs = sp_linkattrs
                         accumulators = sp_accumulators
@@ -126,4 +134,3 @@ def main():
 
     if not args.no_cleanup:
         db.flow.cleanup_flows()
-

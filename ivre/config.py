@@ -59,23 +59,23 @@ NMAP_SCAN_TEMPLATES = {
     "default": {
         ## Commented values are default values and to not need to be
         ## specified
-        #"nmap": "nmap",
-        #"pings": "SE",
-        #"scans": "SV",
-        #"osdetect": True,
-        #"traceroute": True,
-        #"resolve": 1,
-        #"verbosity": 2,
-        #"ports": None,
-        "host_timeout": "15m", # default value: None
-        "script_timeout": "2m", # default value: None
+        # "nmap": "nmap",
+        # "pings": "SE",
+        # "scans": "SV",
+        # "osdetect": True,
+        # "traceroute": True,
+        # "resolve": 1,
+        # "verbosity": 2,
+        # "ports": None,
+        "host_timeout": "15m",  # default value: None
+        "script_timeout": "2m",  # default value: None
         "scripts_categories": ['default', 'discovery',
-                               'auth'], # default value: None
+                               'auth'],  # default value: None
         "scripts_exclude": ['broadcast', 'brute', 'dos',
                             'exploit', 'external', 'fuzzer',
-                            'intrusive'], # default value: None
-        #"scripts_force": None,
-        #"extra_options": None,
+                            'intrusive'],  # default value: None
+        # "scripts_force": None,
+        # "extra_options": None,
     }
 }
 
@@ -92,8 +92,8 @@ NMAP_SCAN_TEMPLATES = {
 #     "scripts_exclude": ['broadcast', 'external']
 # })
 
-## Dictionary that helps determine server ports of communications. Each entry is
-## {proto: {port: proba}}. The when two ports are known, the port with the
+## Dictionary that helps determine server ports of communications. Each entry
+## is {proto: {port: proba}}. The when two ports are known, the port with the
 ## highest probability is used.
 ## When /usr/share/nmap/nmap-services is available, these probas are taken,
 ## otherwise /etc/services is used with proba=0.5 for each entry.
@@ -195,6 +195,7 @@ WEB_SECRET = None
 # )
 # WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
+
 def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""
     if paths is None:
@@ -208,8 +209,10 @@ def get_config_file(paths=None):
         if os.path.isfile(path):
             yield path
 
+
 for fname in get_config_file():
     exec(compile(open(fname, "rb").read(), fname, 'exec'))
+
 
 def guess_prefix(directory=None):
     """Attempts to find the base directory where IVRE components are
@@ -243,6 +246,7 @@ def guess_prefix(directory=None):
         if candidate is not None:
             return candidate
 
+
 def guess_share(soft):
     for path in ['/usr/local/share/%s' % soft,
                  '/opt/%s/share/%s' % (soft, soft),
@@ -250,14 +254,18 @@ def guess_share(soft):
         if os.path.isdir(path):
             return path
 
+
 if GEOIP_PATH is None:
     GEOIP_PATH = guess_prefix('geoip')
+
 
 if DATA_PATH is None:
     DATA_PATH = guess_prefix('data')
 
+
 if HONEYD_IVRE_SCRIPTS_PATH is None and DATA_PATH is not None:
     HONEYD_IVRE_SCRIPTS_PATH = os.path.join(DATA_PATH, 'honeyd')
+
 
 if NMAP_SHARE_PATH is None:
     NMAP_SHARE_PATH = guess_share('nmap')

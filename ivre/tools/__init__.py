@@ -16,7 +16,9 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """This sub-module contains functions to implement ivre commands."""
+
 
 __all__ = [
     'airodump2db',
@@ -42,6 +44,7 @@ __all__ = [
     'version',
 ]
 
+
 ALIASES = {
     "httpd-ivre": "httpd",
     "ipinfohost": "iphost",
@@ -50,12 +53,14 @@ ALIASES = {
     "nmap2db": "scan2db",
 }
 
+
 def get_command(name):
     if name in __all__:
         return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
     if name in ALIASES:
         name = ALIASES[name]
         return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
+
 
 def guess_command(name):
     if name in __all__:

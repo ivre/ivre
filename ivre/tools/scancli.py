@@ -72,10 +72,10 @@ def nmap_port2honeyd_action(port):
         return 'reset'
     elif port['state_state'] != 'open':
         return 'block'
-    if 'service_tunnel' in port and port['service_tunnel'] == 'ssl':
-        sslrelay = True
-    else:
-        sslrelay = False
+    # if 'service_tunnel' in port and port['service_tunnel'] == 'ssl':
+    #     sslrelay = True
+    # else:
+    #     sslrelay = False
     if 'service_name' in port:
         if port['service_name'] == 'tcpwrapped':
             return '"true"'
@@ -145,8 +145,8 @@ def display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
                         'count': route['count'] + 1,
                         'high': max(route['high'], latency),
                         'low': min(route['low'], latency),
-                        'mean': (route['mean'] * route['count']
-                                 + latency) / (route['count'] + 1),
+                        'mean': (route['mean'] * route['count'] +
+                                 latency) / (route['count'] + 1),
                         'targets': route['targets'],
                     }
                 curhop = t
@@ -265,11 +265,8 @@ def display_xml_host(h, out=sys.stdout):
         out.write('/>')
     out.write('\n')
     if 'addr' in h:
-        try:
-            out.write('<address addr="%s" addrtype="ipv4"/>\n' %
-                      utils.int2ip(h['addr']))
-        except:
-            out.write('<address addr="%s" addrtype="ipv4"/>\n' % h['addr'])
+        out.write('<address addr="%s" addrtype="ipv4"/>\n' %
+                  utils.force_int2ip(h['addr']))
     for t in h.get('addresses', []):
         for a in h['addresses'][t]:
             out.write('<address addr="%s" addrtype="%s"/>\n' % (a, t))
@@ -372,6 +369,7 @@ def displayhost_csv(fields, separator, nastr, dic, out=sys.stdout):
                         for line in utils.doc2csv(dic, fields, nastr=nastr)))
     out.write('\n')
 
+
 def main():
     try:
         import argparse
@@ -392,7 +390,8 @@ def main():
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the database).')
+                        help='Create missing indexes (will lock the '
+                        'database).')
     parser.add_argument('--short', action='store_true',
                         help='Output only IP addresses, one per line.')
     parser.add_argument('--json', action='store_true',
@@ -530,10 +529,7 @@ def main():
         for val in db.db.nmap.distinct("addr", flt=hostfilter, sort=sortkeys,
                                        limit=args.limit, skip=args.skip,
                                        archive=args.archives):
-            try:
-                out.write(utils.int2ip(val) + '\n')
-            except:
-                out.write(str(val) + '\n')
+            out.write(utils.force_int2ip(val) + '\n')
         sys.exit(0)
     elif args.distinct is not None:
         for val in db.db.nmap.distinct(args.distinct, flt=hostfilter,
@@ -567,7 +563,9 @@ def main():
                     for script in port.get('scripts', []):
                         if 'masscan' in script and 'raw' in script['masscan']:
                             script['masscan']['raw'] = utils.encode_b64(
-                                db.db.nmap.from_binary(script['masscan']['raw'])
+                                db.db.nmap.from_binary(
+                                    script['masscan']['raw']
+                                )
                             )
                 print(json.dumps(h, indent=indent,
                                  default=db.db.nmap.serialize))
@@ -588,7 +586,8 @@ def main():
         def displayfunction(x):
             display_xml_preamble(out=out)
             if x.count() == 1 and not isinstance(x[0]['scanid'], list):
-                scan = db.db.nmap.getscan(x[0]['scanid'], archive=args.archives)
+                scan = db.db.nmap.getscan(x[0]['scanid'],
+                                          archive=args.archives)
                 if 'scaninfos' in scan and scan['scaninfos']:
                     for k in scan['scaninfos'][0]:
                         scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
@@ -641,11 +640,13 @@ def main():
                 db.db.nmap.remove(h, archive=args.archives)
     elif args.move_to_archives:
         args.archives = False
+
         def displayfunction(x):
             for h in x:
                 db.db.nmap.archive(h)
     elif args.move_from_archives:
         args.archives = True
+
         def displayfunction(x):
             for h in x:
                 db.db.nmap.archive(h, unarchive=True)
@@ -685,6 +686,7 @@ def main():
                 ["city", True],
                 ["as_num", str],
             ])
+
         def displayfunction(x):
             out.write(args.csv_separator.join(utils.fields2csv_head(fields)))
             out.write('\n')
@@ -692,6 +694,7 @@ def main():
                 displayhost_csv(fields, args.csv_separator, args.csv_na_str,
                                 h, out=out)
     else:
+
         def displayfunction(cursor):
             nmapout.displayhosts(cursor, out=out)
 
