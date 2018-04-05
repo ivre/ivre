@@ -16,11 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Update the flow database from Airodump CSV files"""
+
 
 from ivre import config
 from ivre.db import db
 from ivre.parser.airodump import Airodump
+
 
 def main():
     """Update the flow database from Airodump CSV files"""
@@ -33,6 +36,7 @@ def main():
         import optparse
         parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
+
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('files', res[1])
@@ -73,8 +77,23 @@ def main():
                     line["lan_ip"] = line.pop("LAN IP")
                     query = [
                         "MERGE (wlan:Intel:Wlan {addr: {BSSID}})",
-                        "ON CREATE SET wlan.essid = {ESSID}, wlan.firstseen = {start_time}, wlan.lastseen = {end_time}, wlan.channel = {channel}, wlan.speed = {Speed}, wlan.privacy = {Privacy}, wlan.cipher = {Cipher}, wlan.authentication = {Authentication}, wlan.ip = {lan_ip}",
-                        "ON MATCH SET wlan.essid = {ESSID}, wlan.firstseen = CASE WHEN wlan.firstseen > {start_time} THEN {start_time} ELSE wlan.firstseen END, wlan.lastseen = CASE WHEN wlan.lastseen < {end_time} THEN {end_time} ELSE wlan.lastseen END, wlan.channel = {channel}, wlan.speed = {Speed}, wlan.privacy = {Privacy}, wlan.cipher = {Cipher}, wlan.authentication = {Authentication}, wlan.ip = {lan_ip}",
+                        "ON CREATE SET wlan.essid = {ESSID}, "
+                        "wlan.firstseen = {start_time}, "
+                        "wlan.lastseen = {end_time}, "
+                        "wlan.channel = {channel}, wlan.speed = {Speed}, "
+                        "wlan.privacy = {Privacy}, wlan.cipher = {Cipher}, "
+                        "wlan.authentication = {Authentication}, "
+                        "wlan.ip = {lan_ip}",
+                        "ON MATCH SET wlan.essid = {ESSID}, "
+                        "wlan.firstseen = CASE WHEN "
+                        "wlan.firstseen > {start_time} THEN {start_time} "
+                        "ELSE wlan.firstseen END, wlan.lastseen = CASE WHEN "
+                        "wlan.lastseen < {end_time} THEN {end_time} ELSE "
+                        "wlan.lastseen END, wlan.channel = {channel}, "
+                        "wlan.speed = {Speed}, wlan.privacy = {Privacy}, "
+                        "wlan.cipher = {Cipher}, "
+                        "wlan.authentication = {Authentication}, "
+                        "wlan.ip = {lan_ip}",
                     ]
                     bulk.append("\n".join(query), line)
     bulk.close()

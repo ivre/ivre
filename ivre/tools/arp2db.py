@@ -26,10 +26,12 @@ from scapy.all import PcapReader
 from ivre import config
 from ivre.db import db
 
+
 def reader(fname):
     proc = subprocess.Popen(['tcpdump', '-n', '-r', fname, '-w', '-', 'arp'],
                             stdout=subprocess.PIPE)
     return PcapReader(proc.stdout)
+
 
 def main():
     """Update the flow database from Airodump CSV files"""
@@ -42,6 +44,7 @@ def main():
         import optparse
         parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
+
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('files', res[1])

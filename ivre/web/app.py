@@ -383,10 +383,7 @@ def get_nmap():
             except KeyError:
                 pass
         if not flt_params.ipsasnumbers:
-            try:
-                rec['addr'] = utils.int2ip(rec['addr'])
-            except:
-                pass
+            rec['addr'] = utils.force_int2ip(rec['addr'])
         for field in ['starttime', 'endtime']:
             if field in rec:
                 if not flt_params.datesasstrings:
@@ -405,10 +402,7 @@ def get_nmap():
                 for trace in rec['traces']:
                     trace['hops'].sort(key=lambda x: x['ttl'])
                     for hop in trace['hops']:
-                        try:
-                            hop['ipaddr'] = utils.int2ip(hop['ipaddr'])
-                        except:
-                            pass
+                        hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
         yield "%s\t%s" % ('' if i == 0 else ',\n',
                           json.dumps(rec, default=utils.serialize))
         check = db.nmap.cmp_schema_version_host(rec)
@@ -436,8 +430,10 @@ def get_nmap():
     for mismatch, count in viewitems(version_mismatch):
         message = messages[mismatch](count)
         if flt_params.callback is not None:
-            yield webutils.js_alert("version-mismatch-%d" % ((mismatch + 1) // 2),
-                                    "warning", message)
+            yield webutils.js_alert(
+                "version-mismatch-%d" % ((mismatch + 1) // 2),
+                "warning", message
+            )
         utils.LOGGER.warning(message)
 
 
@@ -484,8 +480,9 @@ def import_files(source, categories, files):
                 os.unlink(fdesc.name)
             else:
                 utils.LOGGER.warning("Could not import %s", fdesc.name)
-        except:
-            utils.LOGGER.warning("Could not import %s", fdesc.name, exc_info=True)
+        except Exception:
+            utils.LOGGER.warning("Could not import %s", fdesc.name,
+                                 exc_info=True)
     return count
 
 

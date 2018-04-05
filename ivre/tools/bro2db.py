@@ -31,6 +31,7 @@ from ivre.db import db
 from ivre import config
 from ivre import utils
 
+
 FLOW_KEYS_TCP = {"dport": "{id_resp_p}", "proto": '"tcp"'}
 FLOW_KEYS_UDP = {"dport": "{id_resp_p}", "proto": '"udp"'}
 DEFAULT_FLOW_KEYS = FLOW_KEYS_TCP
@@ -214,6 +215,7 @@ def conn2neo(bulk, rec):
             accumulators=accumulators)
     bulk.append(query_cache[linkattrs], rec)
 
+
 conn2neo.query_cache = {}
 
 
@@ -246,9 +248,11 @@ def dns2neo(bulk, rec):
         tmp_rec["addr"] = addr
         any2neo(ALL_DESCS["dns"], "host")(bulk, tmp_rec)
 
+
 def knwon_devices2neo(bulk, rec):
     any2neo(ALL_DESCS["known_devices__name"], "host")(bulk, rec)
     any2neo(ALL_DESCS["known_devices__mac"], "host")(bulk, rec)
+
 
 FUNCTIONS = {
     "conn": conn2neo,

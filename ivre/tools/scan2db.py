@@ -34,6 +34,7 @@ def recursive_filelisting(base_directories):
             for leaffile in files:
                 yield os.path.join(root, leaffile)
 
+
 def main():
     try:
         import argparse
@@ -69,7 +70,8 @@ def main():
                         help='Store only hosts with open ports.')
     parser.add_argument('--never-archive', action='store_true',
                         help='Never archive.')
-    parser.add_argument('--archive', '--archive-same-host', action='store_true',
+    parser.add_argument('--archive', '--archive-same-host',
+                        action='store_true',
                         help='Archive results for the same host.')
     parser.add_argument('--archive-same-host-and-source', action='store_true',
                         help='Archive results with both the same host and'
@@ -101,7 +103,7 @@ def main():
     elif args.archive:
         def gettoarchive(addr, _):
             return database.get(database.searchhost(addr))
-    else:  #args.archive_same_host_and_source
+    else:  # args.archive_same_host_and_source
         def gettoarchive(addr, source):
             return database.get(
                 database.flt_and(database.searchhost(addr),

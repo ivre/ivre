@@ -39,6 +39,7 @@ import ivre.passive
 def terminate(signum, _):
     p0fprocess.terminate()
 
+
 signal.signal(signal.SIGINT, terminate)
 signal.signal(signal.SIGTERM, terminate)
 
@@ -49,13 +50,13 @@ def process_file(fname, sensor, bulk, mode):
         fname = ['-i', fname[6:]]
     else:
         fname = ['-s', fname]
-    if mode == None:
+    if mode is None:
         mode = 'SYN'
     mode = ivre.passive.P0F_MODES[mode]
     recontype = 'P0F2-%s' % mode['name']
     p0fprocess = subprocess.Popen(
-        ['p0f', '-q', '-l', '-S', '-ttt'] + fname
-        + mode['options'] + [mode['filter']],
+        ['p0f', '-q', '-l', '-S', '-ttt'] + fname +
+        mode['options'] + [mode['filter']],
         stdout=subprocess.PIPE,
         preexec_fn=os.setpgrp,
     )
@@ -74,6 +75,7 @@ def process_file(fname, sensor, bulk, mode):
             recontype=recontype,
         ) for line in p0fprocess.stdout
     )
+
 
 def main():
     if USING_ARGPARSE:

@@ -51,6 +51,7 @@ class smart_install_data(install_data):
             ]
         return install_data.run(self)
 
+
 class smart_install_lib(install_lib):
     """Replacement for distutils.command.install_lib to handle
     version file.
@@ -73,6 +74,7 @@ class smart_install_lib(install_lib):
         os.chmod(fullfname, stat.st_mode)
         os.unlink(tmpfname)
         return result
+
 
 setup(
     name='ivre',

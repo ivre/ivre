@@ -17,10 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """
 This sub-module contains functions that might be usefull to any other
 sub-module or script.
 """
+
 
 import ast
 import bz2
@@ -70,15 +72,15 @@ LOGGER = logging.getLogger("ivre")
 REGEXP_T = type(re.compile(''))
 
 
-NMAP_FINGERPRINT_IVRE_KEY = { 
-    # TODO: cpe 
-    'd': 'service_devicetype', 
-    'h': 'service_hostname', 
-    'i': 'service_extrainfo', 
-    'o': 'service_ostype', 
-    'p': 'service_product', 
-    'v': 'service_version', 
-} 
+NMAP_FINGERPRINT_IVRE_KEY = {
+    # TODO: cpe
+    'd': 'service_devicetype',
+    'h': 'service_hostname',
+    'i': 'service_extrainfo',
+    'o': 'service_ostype',
+    'p': 'service_product',
+    'v': 'service_version',
+}
 
 
 logging.basicConfig()
@@ -563,12 +565,14 @@ config.DEBUG_DB) is True.
 
     """
     MAX_WARNINGS_STORED = 100
+
     def __init__(self):
         # Python 2.6: logging.Filter is an old-style class, super()
         # cannot be used.
         # super(LogFilter, self).__init__()
         logging.Filter.__init__(self)
         self.warnings = set()
+
     def filter(self, record):
         """Decides whether we should log a record"""
         if record.levelno < logging.INFO:
@@ -672,6 +676,7 @@ def screenwords(imgdata):
                         break
         if result:
             return result
+
 
 if USE_PIL:
     def _img_size(bbox):
@@ -797,6 +802,7 @@ _NMAP_CUR_PROBE = None
 def _read_nmap_probes():
     global _NMAP_CUR_PROBE, _NMAP_PROBES_POPULATED
     _NMAP_CUR_PROBE = None
+
     def parse_line(line):
         global _NMAP_PROBES, _NMAP_CUR_PROBE
         if line.startswith(b'match '):
@@ -952,7 +958,7 @@ def nmap_encode_data(data):
     return "".join(
         _REPRS[d] if d in _REPRS else d.decode() if b" " <= d <= b"~" else
         '\\x%02x' % ord(d)
-        for d in (data[i:i+1] for i in range(len(data)))
+        for d in (data[i:i + 1] for i in range(len(data)))
     )
 
 
@@ -986,7 +992,8 @@ def _nmap_decode_data(data):
             try:
                 first_byte = int(char, 16)
             except ValueError:
-                LOGGER.warning('nmap_decode_data: cannot decode %r', '\\x' + char)
+                LOGGER.warning('nmap_decode_data: cannot decode %r',
+                               '\\x' + char)
                 yield b'\\x'
                 yield char.encode()
                 status = 0
@@ -1084,6 +1091,7 @@ def encode_b64(value):
 
 def printable(string):
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
+
 
 def parse_ssh_key(data):
     """Generates SSH key elements"""

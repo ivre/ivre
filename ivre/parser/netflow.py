@@ -28,6 +28,7 @@ from past.builtins import basestring
 from ivre import utils
 from ivre.parser import CmdParser
 
+
 class NetFlow(CmdParser):
     """NetFlow log generator"""
 
@@ -85,7 +86,8 @@ class NetFlow(CmdParser):
 
     @classmethod
     def parse_line(cls, line):
-        fields = dict((name[0], val.strip()) for name, val in zip(cls.fields, line.split(",")))
+        fields = dict((name[0], val.strip())
+                      for name, val in zip(cls.fields, line.split(",")))
         fields["proto"] = fields["proto"].lower()
         srv_idx = None
         if fields["proto"] == "icmp":
@@ -132,4 +134,3 @@ class NetFlow(CmdParser):
         fields["csbytes"] = cls.str2int(fields.pop("bytes%d" % srv_idx))
         fields["cspkts"] = cls.str2int(fields.pop("pkts%d" % srv_idx))
         return fields
-

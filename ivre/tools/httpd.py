@@ -33,7 +33,7 @@ import os
 from bottle import default_app, get, redirect, run, static_file
 
 
-from ivre import config, utils
+from ivre import config
 from ivre.web import app as webapp
 
 

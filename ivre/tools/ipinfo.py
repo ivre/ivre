@@ -21,7 +21,6 @@ from __future__ import print_function
 import datetime
 import functools
 import os
-import struct
 import time
 try:
     import argparse
@@ -65,9 +64,11 @@ def disp_rec(rec):
     if 'signature' in rec:
         print('[%s]' % rec['signature'], end=' ')
     if 'distance' in rec:
-        print("at %s hop%s" % (rec['distance'], rec['distance'] > 1 and 's' or ''), end=' ')
+        print("at %s hop%s" % (rec['distance'],
+                               's' if rec['distance'] > 1 else ''), end=' ')
     if 'count' in rec:
-        print("(%d time%s)" % (rec['count'], rec['count'] > 1 and 's' or ''), end=' ')
+        print("(%d time%s)" % (rec['count'], 's' if rec['count'] > 1 else ''),
+              end=' ')
     if 'firstseen' in rec and 'lastseen' in rec:
         if isinstance(rec['firstseen'], datetime.datetime):
             print(
@@ -77,8 +78,10 @@ def disp_rec(rec):
                 end=' '
             )
         else:
-            print(datetime.datetime.fromtimestamp(int(rec['firstseen'])), '-', end=' ')
-            print(datetime.datetime.fromtimestamp(int(rec['lastseen'])), end=' ')
+            print(datetime.datetime.fromtimestamp(int(rec['firstseen'])), '-',
+                  end=' ')
+            print(datetime.datetime.fromtimestamp(int(rec['lastseen'])),
+                  end=' ')
     if 'sensor' in rec:
         print(rec['sensor'], end=' ')
     print()
@@ -96,7 +99,7 @@ def disp_recs_std(flt):
     c = db.passive.get(flt, sort=[('addr', 1), ('recontype', 1), ('source', 1),
                                   ('port', 1)])
     for rec in c:
-        if not 'addr' in rec or not rec['addr']:
+        if 'addr' not in rec or not rec['addr']:
             continue
         if oa != rec['addr']:
             if oa is not None:
@@ -108,12 +111,17 @@ def disp_recs_std(flt):
                 if 'country_code' in c:
                     print('\t', end=' ')
                     print(c['country_code'], end=' ')
-                    try:
-                        print('[%s]' % db.data.country_name_by_code(
-                            c['country_code']
-                        ), end=' ')
-                    except:
-                        pass
+                    if 'country_name' in c:
+                        cname = c['country_name']
+                    else:
+                        try:
+                            cname = db.data.country_name_by_code(
+                                c['country_code']
+                            )
+                        except AttributeError:
+                            cname = None
+                    if cname:
+                        print('[%s]' % cname, end=' ')
                     print()
                 if 'as_num' in c:
                     print('\t', end=' ')
@@ -190,7 +198,7 @@ def _disp_recs_tailf(flt, field):
                     db.passive.flt_and(
                         baseflt,
                         db.passive.searchnewer(prevtime,
-                                               new=field=='lastseen'),
+                                               new=field == 'lastseen'),
                     ),
                     sort=[(field, 1)]):
                 if 'addr' in r:
@@ -217,6 +225,7 @@ def disp_recs_tailf():
 def disp_recs_explain(flt):
     print(db.passive.explain(db.passive.get(flt), indent=4))
 
+
 def main():
     global baseflt
     if USING_ARGPARSE:
@@ -226,6 +235,7 @@ def main():
         parser = optparse.OptionParser(
             description='Access and query the passive database.')
         parser.parse_args_orig = parser.parse_args
+
         def my_parse_args():
             res = parser.parse_args_orig()
             res[0].ensure_value('ips', res[1])
@@ -238,7 +248,8 @@ def main():
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the database).')
+                        help='Create missing indexes (will lock the '
+                        'database).')
     # filters
     parser.add_argument('--sensor')
     parser.add_argument('--country')

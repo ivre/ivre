@@ -70,6 +70,7 @@ def js_del_alert(ident):
 
 GET_NOTEPAD_PAGES = {}
 
+
 def get_notepad_pages_localdokuwiki(pagesdir="/var/lib/dokuwiki/data/pages"):
     """Returns a list of the IP addresses for which a Dokuwiki page
     exists.
@@ -79,6 +80,7 @@ def get_notepad_pages_localdokuwiki(pagesdir="/var/lib/dokuwiki/data/pages"):
     return [page[:-4]
             for page in os.listdir(pagesdir)
             if ipaddr_page.match(page)]
+
 
 GET_NOTEPAD_PAGES["localdokuwiki"] = get_notepad_pages_localdokuwiki
 
@@ -131,9 +133,14 @@ def query_from_params(params):
     except KeyError:
         return []
     try:
-        return [[neg] + pval.split(':', 1) if ':' in pval else [neg, pval, None]
-                for neg, pval in ((True, x[1:]) if x[:1] in '!-' else (False, x)
-                                  for x in shlex.split(query))]
+        return [
+            [neg] + pval.split(':', 1) if ':' in pval
+            else [neg, pval, None]
+            for neg, pval in (
+                (True, x[1:]) if x[:1] in '!-' else (False, x)
+                for x in shlex.split(query)
+            )
+        ]
     except ValueError as exc:
         sys.stdout.write(
             js_alert("param-parsing", "warning",
@@ -166,6 +173,7 @@ QUERIES = {
     'category': lambda cat: db.nmap.searchcategory(cat.split(',')),
 }
 
+
 def _parse_query(query):
     """Returns a DB filter (valid for db.nmap) from a query string
     usable in WEB_DEFAULT_INIT_QUERY and WEB_INIT_QUERIES
@@ -177,9 +185,11 @@ def _parse_query(query):
     query = query.split(':')
     return QUERIES[query[0]](*query[1:])
 
+
 DEFAULT_INIT_QUERY = _parse_query(config.WEB_DEFAULT_INIT_QUERY)
 INIT_QUERIES = dict([key, _parse_query(value)]
                     for key, value in viewitems(config.WEB_INIT_QUERIES))
+
 
 def get_init_flt():
     """Return a filter corresponding to the current user's
@@ -222,6 +232,7 @@ def flt_from_query(query, base_flt=None):
     skip = 0
     limit = None
     flt = get_init_flt() if base_flt is None else base_flt
+
     def add_unused(neg, param, value):
         """Add to the `unused` list a string representing (neg, param,
         value).
@@ -575,8 +586,8 @@ def flt_from_query(query, base_flt=None):
                 elif params[1].isdigit():
                     flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
                         port=int(value), neg=neg, words=words))
-                elif (params[1].startswith('tcp/')
-                      or params[1].startswith('udp/')):
+                elif (params[1].startswith('tcp/') or
+                      params[1].startswith('udp/')):
                     params[1] = params[1].split('/', 1)
                     flt = db.nmap.flt_and(flt, db.nmap.searchscreenshot(
                         port=int(params[1][1]), protocol=params[1][0],

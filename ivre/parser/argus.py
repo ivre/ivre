@@ -55,7 +55,7 @@ class Argus(CmdParser):
         if pcap_filter is not None:
             cmd.extend(["--", pcap_filter])
         super(Argus, self).__init__(
-            cmd, {} if isinstance(fdesc,  basestring) else {"stdin": fdesc},
+            cmd, {} if isinstance(fdesc, basestring) else {"stdin": fdesc},
         )
         self.fdesc.readline()
 
@@ -78,6 +78,10 @@ class Argus(CmdParser):
         fields["cspkts"] = int(fields.pop("spkts"))
         fields["scbytes"] = int(fields.pop("dbytes"))
         fields["scpkts"] = int(fields.pop("dpkts"))
-        fields["start_time"] = datetime.datetime.fromtimestamp(float(fields.pop("stime")))
-        fields["end_time"] = datetime.datetime.fromtimestamp(float(fields.pop("ltime")))
+        fields["start_time"] = datetime.datetime.fromtimestamp(
+            float(fields.pop("stime"))
+        )
+        fields["end_time"] = datetime.datetime.fromtimestamp(
+            float(fields.pop("ltime"))
+        )
         return fields

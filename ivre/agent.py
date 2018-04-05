@@ -61,7 +61,8 @@ scan () {
 
 _get_screenshots () {
     fname="$1"
-    bzgrep -o 'output=\"Saved to [^\"]*\"' "$fname" | sed 's#^output="Saved to ##;s#"$##'
+    bzgrep -o 'output=\"Saved to [^\"]*\"' "$fname" | \\
+        sed 's#^output="Saved to ##;s#"$##'
 }
 
 post_scan () {

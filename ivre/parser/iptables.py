@@ -57,9 +57,12 @@ class Iptables(Parser):
         # Converts the syslog iptables log into hash
         fields = dict(
             (key.lower(), value)
-               for key, value in (val.split(b'=', 1)
-                                  if b'=' in val else (val, b'')
-                                  for val in line[field_idx:].rstrip(b'\r\n').split())
+            for key, value in
+            (
+                val.split(b'=', 1)
+                if b'=' in val else (val, b'')
+                for val in line[field_idx:].rstrip(b'\r\n').split()
+            )
         )
 
         try:

@@ -22,7 +22,6 @@ database backends.
 """
 
 
-import datetime
 from functools import reduce
 import json
 import os
@@ -253,7 +252,7 @@ class DB(object):
             return cluster.HierarchicalClustering(
                 [rec for rec in values],
                 lambda x, y: abs(x['mean'] - y['mean'])
-                )
+            )
 
     @staticmethod
     def serialize(obj):
@@ -330,11 +329,13 @@ class DBNmap(DB):
         self.argparser.add_argument('--openport', action='store_true')
         self.argparser.add_argument('--no-openport', action='store_true')
         self.argparser.add_argument('--countports', metavar='COUNT',
-                                    help='show only results with a number of open '
-                                    'ports within the provided range', nargs=2)
+                                    help='show only results with a number of '
+                                    'open ports within the provided range',
+                                    nargs=2)
         self.argparser.add_argument('--no-countports', metavar='COUNT',
-                                    help='show only results with a number of open '
-                                    'ports NOT within the provided range', nargs=2)
+                                    help='show only results with a number of '
+                                    'open ports NOT within the provided range',
+                                    nargs=2)
         self.argparser.add_argument('--service', metavar='SVC')
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
         self.argparser.add_argument('--svchostname')
@@ -497,7 +498,8 @@ insert structures.
                         self.__schema_migrations["hosts"][oldvers][1](host)
                         if oldvers == host.get("schema_version"):
                             utils.LOGGER.warning(
-                                "[%r] could not migrate host from version %r [%r]",
+                                "[%r] could not migrate host from version "
+                                "%r [%r]",
                                 self.__class__, oldvers, host
                             )
                             break
@@ -631,7 +633,8 @@ insert structures.
         for port in doc.get('ports', []):
             if port['port'] == 'host':
                 port['port'] = -1
-        for state, (total, counts) in list(viewitems(doc.get('extraports', {}))):
+        for state, (total, counts) in list(viewitems(doc.get('extraports',
+                                                             {}))):
             doc['extraports'][state] = {"total": total, "reasons": counts}
 
     @staticmethod
@@ -838,7 +841,8 @@ insert structures.
     def searchowa(self):
         return self.searchscript(
             name=re.compile('^(http-(headers|auth-finder|title)|html-title)$'),
-            output=re.compile('[ /](owa|exchweb)|X-OWA-Version|Outlook Web A', re.I)
+            output=re.compile('[ /](owa|exchweb)|X-OWA-Version|Outlook Web A',
+                              re.I)
         )
 
     def searchxp445(self):
@@ -1244,7 +1248,6 @@ class DBData(DB):
         return parsedline
 
 
-
 class LockError(RuntimeError):
     """A runtime error used when a lock cannot be acquired or released."""
     pass
@@ -1532,7 +1535,7 @@ class DBAgent(DB):
         raise NotImplementedError
 
     def get_scan_target(self, scanid):
-        res =  pickle.loads(self._get_scan_target(scanid))
+        res = pickle.loads(self._get_scan_target(scanid))
         if hasattr(res, "fdesc"):
             opened, seekval = res.fdesc
             res.fdesc = open(res.target.filename)
@@ -1554,10 +1557,13 @@ and raises a LockError on failure.
         scan = self._lock_scan(scanid, None, lockid.bytes)
         if scan['lock'] is not None:
             # This might be a bug in uuid module, Python 2 only
-            ##  File "/opt/python/2.6.9/lib/python2.6/uuid.py", line 145, in __init__
+            ##  File "/opt/python/2.6.9/lib/python2.6/uuid.py", line 145,
+            ## in __init__
             ##    int = long(('%02x'*16) % tuple(map(ord, bytes)), 16)
             # scan['lock'] = uuid.UUID(bytes=scan['lock'])
-            scan['lock'] = uuid.UUID(hex=utils.encode_hex(scan['lock']).decode())
+            scan['lock'] = uuid.UUID(
+                hex=utils.encode_hex(scan['lock']).decode()
+            )
         if scan['lock'] == lockid:
             return scan
 
@@ -1655,7 +1661,8 @@ def _mongodb_url2dbinfos(url):
         username = url.netloc[:url.netloc.index('@')]
         if ':' in username:
             userinfo = dict(zip(["username", "password"],
-                                [unquote(val) for val in username.split(':', 1)]))
+                                [unquote(val) for val in
+                                 username.split(':', 1)]))
         else:
             username = unquote(username)
             if username == 'GSSAPI':
@@ -1686,8 +1693,10 @@ def _mongodb_url2dbinfos(url):
             (hostname, dbname),
             params)
 
+
 def _neo4j_url2dbinfos(url):
     return (url.scheme, (url._replace(scheme='http').geturl(),), {})
+
 
 class MetaDB(object):
     db_types = {
@@ -1754,6 +1763,7 @@ class MetaDB(object):
                         datatype,
                         dbtypes[spurlscheme](*spurlargs, **spurlkargs))
                     getattr(self, datatype).globaldb = self
+
 
 db = MetaDB(
     url=config.DB if hasattr(config, "DB") else None,

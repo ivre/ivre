@@ -550,8 +550,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 ([
                     ('ports.screenshot', pymongo.ASCENDING),
                     ('ports.screenwords', pymongo.ASCENDING),
-                ],
-                 {"sparse": True}),
+                ], {"sparse": True}),
                 ([('infos.as_num', pymongo.ASCENDING)], {}),
                 ([
                     ('traces.hops.ipaddr', pymongo.ASCENDING),
@@ -567,8 +566,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('cpes.vendor', pymongo.ASCENDING),
                     ('cpes.product', pymongo.ASCENDING),
                     ('cpes.version', pymongo.ASCENDING),
-                ],
-                 {"sparse": True}),
+                ], {"sparse": True}),
             ],
             self.colname_oldhosts: [
                 ([('scanid', pymongo.ASCENDING)], {}),
@@ -611,7 +609,8 @@ class MongoDBNmap(MongoDB, DBNmap):
             3: {"ensure": [
                 ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
                  {"sparse": True}),
-                ([('ports.scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                ([('ports.scripts.ls.volumes.files.filename',
+                   pymongo.ASCENDING)],
                  {"sparse": True}),
                 ## let's skip these ones since we are going to drop
                 ## them right after that
@@ -623,7 +622,8 @@ class MongoDBNmap(MongoDB, DBNmap):
             4: {"drop": [
                 ([('scripts.id', pymongo.ASCENDING)], {}),
                 ([('scripts.ls.volumes.volume', pymongo.ASCENDING)], {}),
-                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)], {}),
+                ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],
+                 {}),
             ]},
             6: {"ensure": [
                 ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
@@ -637,13 +637,12 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('ports.screenshot', pymongo.ASCENDING),
                     ('ports.screenwords', pymongo.ASCENDING),
                 ], {}),
-                ]}
+            ]}
         }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,
             self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,
         }
-
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -984,18 +983,18 @@ have no effect if it is not expected)."""
             if overwrite:
                 flt_cond = lambda p: 'screenshot' in p
             else:
-                flt_cond = lambda p: ('screenshot' in p
-                                      and 'screenwords' not in p)
+                flt_cond = lambda p: ('screenshot' in p and
+                                      'screenwords' not in p)
         else:
             if overwrite:
-                flt_cond = lambda p: ('screenshot' in p
-                                      and p.get('port') == port
-                                      and p.get('protocol') == protocol)
+                flt_cond = lambda p: ('screenshot' in p and
+                                      p.get('port') == port and
+                                      p.get('protocol') == protocol)
             else:
-                flt_cond = lambda p: ('screenshot' in p
-                                      and 'screenwords' not in p
-                                      and p.get('port') == port
-                                      and p.get('protocol') == protocol)
+                flt_cond = lambda p: ('screenshot' in p and
+                                      'screenwords' not in p and
+                                      p.get('port') == port and
+                                      p.get('protocol') == protocol)
         updated = False
         for port in host.get('ports', []):
             if not flt_cond(port):
@@ -1104,8 +1103,8 @@ have no effect if it is not expected)."""
             rec["infos"].update(record.get("infos", {}))
         # We want to make sure of (type, name) unicity
         hostnames = dict(((h['type'], h['name']), h.get('domains'))
-                         for h in (rec1.get("hostnames", [])
-                                   + rec2.get("hostnames", [])))
+                         for h in (rec1.get("hostnames", []) +
+                                   rec2.get("hostnames", [])))
         rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
                             for h, d in viewitems(hostnames)]
         ports = dict(((port.get("protocol"), port["port"]), port.copy())
@@ -1125,7 +1124,7 @@ have no effect if it is not expected)."""
                         curport['scripts'].append(script)
                 if not curport['scripts']:
                     del curport['scripts']
-                if 'service_name' in port and not 'service_name' in curport:
+                if 'service_name' in port and 'service_name' not in curport:
                     for key in port:
                         if key.startswith("service_"):
                             curport[key] = port[key]
@@ -1524,7 +1523,7 @@ have no effect if it is not expected)."""
             return {'$or': [{'openports.count': cond} for cond in flt]}
         # return {'openports.count':
         #         dict(item for cond in flt for item in viewitems(cond))}
-        return {'openports.count': {'$lte':maxn, '$gte':minn}}
+        return {'openports.count': {'$lte': maxn, '$gte': minn}}
 
     @staticmethod
     def searchopenport(neg=False):
@@ -1955,7 +1954,7 @@ have no effect if it is not expected)."""
                     {"$toLower": "$infos.as_num"},
                     "###",
                     {"$ifNull": ['$infos.as_name', ""]},
-                    #"$infos.as_name",
+                    # "$infos.as_name",
                 ]}}
             field = "as"
             outputproc = lambda x: {
@@ -2002,7 +2001,8 @@ have no effect if it is not expected)."""
                 )
             field = "ports.port"
             flt = self.flt_and(flt, {flt_field: info})
-            specialproj = {"_id": 0, flt_field: 1, field: 1, "ports.protocol": 1}
+            specialproj = {"_id": 0, flt_field: 1, field: 1,
+                           "ports.protocol": 1}
             specialflt = [
                 {"$match": {flt_field: info}},
                 {"$project": {field: {"$concat": [
@@ -2065,8 +2065,8 @@ have no effect if it is not expected)."""
                 specialflt = [
                     {"$project": {"ports": {"$ifNull": ["$ports", []]}}},
                     # See "portlist:".
-                    {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull": ["$ports",
-                                                                       None]},
+                    {"$redact": {"$cond": {"if": {"$eq": [{"$ifNull":
+                                                           ["$ports", None]},
                                                           None]},
                                            "then": {
                                                "$cond": {
@@ -2090,8 +2090,7 @@ have no effect if it is not expected)."""
                 {"$match": {"ports.state_state": "open"}},
                 {"$project":
                  {"ports.service_name":
-                  {"$ifNull": ["$ports.service_name", ""]},
-                 }},
+                  {"$ifNull": ["$ports.service_name", ""]}}},
             ]
             field = "ports.service_name"
             outputproc = lambda x: {'count': x['count'],
@@ -2104,8 +2103,7 @@ have no effect if it is not expected)."""
                 {"$match": {"ports.port": port}},
                 {"$project":
                  {"ports.service_name":
-                  {"$ifNull": ["$ports.service_name", ""]},
-                 }},
+                  {"$ifNull": ["$ports.service_name", ""]}}},
             ]
             field = "ports.service_name"
         elif field == 'product':
@@ -2127,9 +2125,11 @@ have no effect if it is not expected)."""
                   ]}}}
             ]
             field = "ports.service_product"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(elt if elt else None for elt in
-                                                 x['_id'].split('###'))}
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': tuple(elt if elt else None for elt in
+                             x['_id'].split('###')),
+            }
         elif field.startswith('product:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
@@ -2159,9 +2159,11 @@ have no effect if it is not expected)."""
                   ]}}}
             )
             field = "ports.service_product"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(elt if elt else None for elt in
-                                                 x['_id'].split('###'))}
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': tuple(elt if elt else None for elt in
+                             x['_id'].split('###')),
+            }
         elif field == 'version':
             flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
@@ -2184,9 +2186,11 @@ have no effect if it is not expected)."""
                   ]}}}
             ]
             field = "ports.service_product"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(elt if elt else None for elt in
-                                                 x['_id'].split('###'))}
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': tuple(elt if elt else None for elt in
+                             x['_id'].split('###')),
+            }
         elif field.startswith('version:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
@@ -2229,9 +2233,11 @@ have no effect if it is not expected)."""
                   ]}}}
             )
             field = "ports.service_product"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(elt if elt else None for elt in
-                                                 x['_id'].split('###'))}
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': tuple(elt if elt else None for elt in
+                             x['_id'].split('###')),
+            }
         elif field.startswith("cpe"):
             try:
                 field, cpeflt = field.split(":", 1)
@@ -2368,7 +2374,8 @@ have no effect if it is not expected)."""
                     "$concat": [
                         "$ports.scripts.ike-info.vendor_ids.value",
                         "###",
-                        {"$ifNull": ["$ports.scripts.ike-info.vendor_ids.name", ""]},
+                        {"$ifNull": ["$ports.scripts.ike-info.vendor_ids.name",
+                                     ""]},
                     ]}}}]
             field = "ports.scripts.ike-info.vendor_ids"
             outputproc = lambda x: {'count': x['count'],
@@ -2379,27 +2386,40 @@ have no effect if it is not expected)."""
                 name="ike-info",
                 values={"transforms": {"$exists": True}},
             ))
-            specialproj = {"ports.scripts.ike-info.transforms.Authentication": 1,
-                           "ports.scripts.ike-info.transforms.Encryption": 1,
-                           "ports.scripts.ike-info.transforms.GroupDesc": 1,
-                           "ports.scripts.ike-info.transforms.Hash": 1,
-                           "ports.scripts.ike-info.transforms.LifeDuration": 1,
-                           "ports.scripts.ike-info.transforms.LifeType": 1}
+            specialproj = {
+                "ports.scripts.ike-info.transforms.Authentication": 1,
+                "ports.scripts.ike-info.transforms.Encryption": 1,
+                "ports.scripts.ike-info.transforms.GroupDesc": 1,
+                "ports.scripts.ike-info.transforms.Hash": 1,
+                "ports.scripts.ike-info.transforms.LifeDuration": 1,
+                "ports.scripts.ike-info.transforms.LifeType": 1,
+            }
             specialflt = [{"$project": {
                 "_id": 0,
                 "ports.scripts.ike-info.transforms": {
                     "$concat": [
-                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Authentication", ""]},
+                        {"$ifNull": [
+                            "$ports.scripts.ike-info.transforms."
+                            "Authentication",
+                            "",
+                        ]},
                         "###",
-                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Encryption", ""]},
+                        {"$ifNull": [
+                            "$ports.scripts.ike-info.transforms.Encryption",
+                            "",
+                        ]},
                         "###",
-                        {"$ifNull": ["$ports.scripts.ike-info.transforms.GroupDesc", ""]},
+                        {"$ifNull":
+                         ["$ports.scripts.ike-info.transforms.GroupDesc", ""]},
                         "###",
-                        {"$ifNull": ["$ports.scripts.ike-info.transforms.Hash", ""]},
+                        {"$ifNull":
+                         ["$ports.scripts.ike-info.transforms.Hash", ""]},
                         "###",
-                        {"$toLower": "$ports.scripts.ike-info.transforms.LifeDuration"},
+                        {"$toLower":
+                         "$ports.scripts.ike-info.transforms.LifeDuration"},
                         "###",
-                        {"$ifNull": ["$ports.scripts.ike-info.transforms.LifeType", ""]},
+                        {"$ifNull":
+                         ["$ports.scripts.ike-info.transforms.LifeType", ""]},
                     ]}}}]
             field = "ports.scripts.ike-info.transforms"
             outputproc = lambda x: {'count': x['count'],
@@ -2440,7 +2460,8 @@ have no effect if it is not expected)."""
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
             specialflt = [
-                {"$match": {"ports.scripts.http-headers.name": field[8:].lower()}}
+                {"$match": {"ports.scripts.http-headers.name":
+                            field[8:].lower()}}
             ]
             field = "ports.scripts.http-headers.value"
         elif field.startswith('modbus.'):
@@ -2465,7 +2486,8 @@ have no effect if it is not expected)."""
             }.get(subfield, subfield)
             field = 'ports.scripts.enip-info.' + subfield
         elif field.startswith('mongo.dbs.'):
-            flt = self.flt_and(flt, self.searchscript(name="mongodb-databases"))
+            flt = self.flt_and(flt,
+                               self.searchscript(name="mongodb-databases"))
             field = 'ports.scripts.mongodb-databases.' + field[10:]
         elif field.startswith('vulns.'):
             flt = self.flt_and(flt, self.searchvuln())
@@ -2487,7 +2509,8 @@ have no effect if it is not expected)."""
                                             ]}}}]
                 outputproc = lambda x: {'count': x['count'],
                                         '_id': tuple(x['_id'].split('###', 1))}
-        elif field == 'file' or (field.startswith('file') and field[4] in '.:'):
+        elif field == 'file' or (field.startswith('file') and
+                                 field[4] in '.:'):
             if field.startswith('file:'):
                 scripts = field[5:]
                 if '.' in scripts:
@@ -2508,7 +2531,7 @@ have no effect if it is not expected)."""
                     {"$match": {"ports.scripts.id":
                                 flt['ports.scripts']['$elemMatch']['id']}},
                     {"$project": {field: {"$ifNull": ["$" + field, ""]}}},
-                    #{"$project": {field: 1}},
+                    # {"$project": {field: 1}},
                 ]
             else:
                 specialflt = [
@@ -2560,13 +2583,15 @@ have no effect if it is not expected)."""
 
         """
         cursor = self.set_limits(
-            self.db[self.colname_oldhosts
-                    if archive else
-                    self.colname_hosts].aggregate(
-                        self._distinct(field, flt=flt, sort=sort,
-                                       limit=limit, skip=skip),
-                        cursor={},
-                    )
+            self.db[
+                self.colname_oldhosts
+                if archive else
+                self.colname_hosts
+            ].aggregate(
+                self._distinct(field, flt=flt, sort=sort,
+                               limit=limit, skip=skip),
+                cursor={}
+            )
         )
         return (res['_id'] for res in cursor)
 
@@ -2607,6 +2632,7 @@ have no effect if it is not expected)."""
         ]
         cursor = self.db[self.colname_oldhosts if archive else
                          self.colname_hosts].aggregate(pipeline, cursor={})
+
         def categories_to_val(categories):
             state1, state2 = category1 in categories, category2 in categories
             # assert any(states)
@@ -3028,8 +3054,8 @@ setting values according to the keyword arguments.
     def searchnewer(timestamp, neg=False, new=False):
         field = 'lastseen' if new else 'firstseen'
         if isinstance(timestamp, datetime.datetime):
-            timestamp = (int(timestamp.strftime('%s'))
-                         + timestamp.microsecond * 1e-6)
+            timestamp = (int(timestamp.strftime('%s')) +
+                         timestamp.microsecond * 1e-6)
         return {field: {'$lte' if neg else '$gt': timestamp}}
 
     def knownip_bycountry(self, code):
@@ -3458,7 +3484,8 @@ class MongoDBAgent(MongoDB, DBAgent):
         return scan
 
     def _get_scan_target(self, scanid):
-        scan = self.find_one(self.colname_scans, {"_id": scanid}, fields={'target': 1, '_id': 0})
+        scan = self.find_one(self.colname_scans, {"_id": scanid},
+                             fields={'target': 1, '_id': 0})
         return None if scan is None else scan['target']
 
     def _lock_scan(self, scanid, oldlockid, newlockid):

@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """
 This module is part of IVRE.
 Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
@@ -38,7 +39,6 @@ except ImportError:
 
 
 from ivre import utils
-
 
 
 def buildgraph(cursor, include_last_hop=False, include_target=False,

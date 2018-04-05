@@ -39,9 +39,9 @@ import time
 from builtins import int, range
 from future.utils import viewitems, viewvalues
 from past.builtins import basestring
-from sqlalchemy import event, create_engine, desc, func, text, column, delete, \
-    exists, insert, join, select, union, update, null, and_, not_, or_, \
-    Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
+from sqlalchemy import event, create_engine, desc, func, text, column, \
+    delete, exists, insert, join, select, union, update, null, and_, not_, \
+    or_, Column, ForeignKey, Index, Table, ARRAY, Boolean, DateTime, Float, \
     Integer, LargeBinary, String, Text, tuple_
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType
@@ -54,6 +54,7 @@ from ivre import config, utils, xmlnmap
 
 Base = declarative_base()
 
+
 class Context(Base):
     __tablename__ = "context"
     id = Column(Integer, primary_key=True)
@@ -62,8 +63,10 @@ class Context(Base):
         Index('ix_context_name', 'name', unique=True),
     )
 
+
 def _after_context_create(target, connection, **_):
     connection.execute(insert(Context).values(id=0))
+
 
 event.listen(Context.__table__, "after_create", _after_context_create)
 
@@ -79,8 +82,10 @@ class Host(Base):
         Index('ix_host_addr_context', 'addr', 'context', unique=True),
     )
 
+
 def _after_host_create(target, connection, **_):
     connection.execute(insert(Host).values(id=0, context=0))
+
 
 event.listen(Host.__table__, "after_create", _after_host_create)
 
@@ -100,8 +105,9 @@ class Flow(Base):
     csbytes = Column(Integer)
     sports = Column(postgresql.ARRAY(Integer))
     __table_args__ = (
-        #Index('host_idx_tag_addr', 'tag', 'addr', unique=True),
+        # Index('host_idx_tag_addr', 'tag', 'addr', unique=True),
     )
+
 
 # Data
 
@@ -115,6 +121,7 @@ is set to True when the `limit` has been reached, and to False when
 there is no more data to read from the input.
 
     """
+
     def __init__(self, fname, skip=0, limit=None):
         self.fdesc = codecs.open(fname, encoding='latin-1')
         for _ in range(skip):
@@ -124,6 +131,7 @@ there is no more data to read from the input.
             self.count = 0
         self.more_to_read = None
         self.inp = csv.reader(self.fdesc)
+
     @staticmethod
     def fixline(line):
         """Subclasses can override this method to generate the CSV line from
@@ -131,6 +139,7 @@ the original line.
 
         """
         return line
+
     def read(self, size=None):
         if self.limit is not None:
             if self.count >= self.limit:
@@ -146,18 +155,23 @@ the original line.
         except StopIteration:
             self.more_to_read = False
             return ''
+
     def readline(self):
         return self.read()
+
     def __exit__(self, *args):
         if self.fdesc is not None:
             self.fdesc.__exit__(*args)
+
     def __enter__(self):
         return self
+
 
 class GeoIPCSVLocationFile(CSVFile):
     @staticmethod
     def fixline(line):
         return line[:5] + ["%s,%s" % tuple(line[5:7])] + line[7:]
+
 
 class GeoIPCSVLocationRangeFile(CSVFile):
     @staticmethod
@@ -166,11 +180,13 @@ class GeoIPCSVLocationRangeFile(CSVFile):
             line[i] = utils.int2ip(int(line[i]))
         return line
 
+
 class GeoIPCSVASFile(CSVFile):
     @staticmethod
     def fixline(line):
         line = line[2].split(' ', 1)
         return [line[0][2:], '' if len(line) == 1 else line[1]]
+
 
 class GeoIPCSVASRangeFile(CSVFile):
     @staticmethod
@@ -179,6 +195,7 @@ class GeoIPCSVASRangeFile(CSVFile):
             line[i] = utils.int2ip(int(line[i]))
         line[2] = line[2].split(' ', 1)[0][2:]
         return line
+
 
 class Country(Base):
     __tablename__ = "country"
@@ -218,9 +235,10 @@ class Point(UserDefinedType):
 class Location(Base):
     __tablename__ = "location"
     id = Column(Integer, primary_key=True)
-    country_code = Column(String(2), ForeignKey('country.code', ondelete='CASCADE'))
+    country_code = Column(String(2), ForeignKey('country.code',
+                                                ondelete='CASCADE'))
     city = Column(String(64))
-    coordinates = Column(Point) #, index=True
+    coordinates = Column(Point)  # , index=True
     area_code = Column(Integer)
     metro_code = Column(Integer)
     postal_code = Column(String(16))
@@ -241,7 +259,8 @@ class AS_Range(Base):
 class Location_Range(Base):
     __tablename__ = "location_range"
     id = Column(Integer, primary_key=True)
-    location_id = Column(Integer, ForeignKey('location.id', ondelete='CASCADE'))
+    location_id = Column(Integer, ForeignKey('location.id',
+                                             ondelete='CASCADE'))
     start = Column(postgresql.INET, index=True)
     stop = Column(postgresql.INET)
 
@@ -249,12 +268,14 @@ class Location_Range(Base):
 # Nmap
 
 class ScanCSVFile(CSVFile):
+
     def __init__(self, hostgen, get_context, table, merge):
         self.get_context = get_context
         self.table = table
         self.inp = hostgen
         self.merge = merge
         self.fdesc = None
+
     def fixline(self, line):
         for field in ["cpes", "extraports", "openports", "os", "traces"]:
             line.pop(field, None)
@@ -285,7 +306,8 @@ class ScanCSVFile(CSVFile):
         for field in ["hostnames", "ports", "info"]:
             if field in line:
                 line[field] = json.dumps(line[field]).replace('\\', '\\\\')
-        return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
+        return ["\\N" if line.get(col.name) is None else
+                str(line.get(col.name))
                 for col in self.table.columns]
 
 
@@ -297,6 +319,7 @@ class Association_Scan_ScanFile(Base):
                                                    ondelete='CASCADE'),
                        primary_key=True)
 
+
 class ScanFile(Base):
     __tablename__ = "scan_file"
     sha256 = Column(LargeBinary(32), primary_key=True)
@@ -307,12 +330,14 @@ class ScanFile(Base):
     version = Column(String(16))
     xmloutputversion = Column(String(16))
 
+
 class Association_Scan_Category(Base):
     __tablename__ = 'association_scan_category'
     scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
                   primary_key=True)
     category = Column(Integer, ForeignKey('category.id', ondelete='CASCADE'),
                       primary_key=True)
+
 
 class Category(Base):
     __tablename__ = 'category'
@@ -321,6 +346,7 @@ class Category(Base):
     __table_args__ = (
         Index('ix_category_name', 'name', unique=True),
     )
+
 
 class Script(Base):
     __tablename__ = 'script'
@@ -333,6 +359,7 @@ class Script(Base):
         Index('ix_script_data', 'data', postgresql_using='gin'),
         Index('ix_script_name', 'name'),
     )
+
 
 class Port(Base):
     __tablename__ = 'port'
@@ -358,6 +385,7 @@ class Port(Base):
         Index('ix_port_scan_port', 'scan', 'port', 'protocol', unique=True),
     )
 
+
 class Hostname(Base):
     __tablename__ = "hostname"
     id = Column(Integer, primary_key=True)
@@ -370,12 +398,14 @@ class Hostname(Base):
               unique=True),
     )
 
+
 class Association_Scan_Hostname(Base):
     __tablename__ = 'association_scan_hostname'
     scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
                   primary_key=True)
     hostname = Column(Integer, ForeignKey('hostname.id', ondelete='CASCADE'),
                       primary_key=True)
+
 
 class Trace(Base):
     # FIXME: unicity (scan, port, protocol) to handle merge. Special
@@ -386,6 +416,7 @@ class Trace(Base):
                   nullable=False)
     port = Column(Integer)
     protocol = Column(String(16))
+
 
 class Hop(Base):
     __tablename__ = "hop"
@@ -400,6 +431,7 @@ class Hop(Base):
     __table_args__ = (
         Index('ix_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
     )
+
 
 class Scan(Base):
     __tablename__ = "scan"
@@ -417,7 +449,8 @@ class Scan(Base):
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_scan_host_archive', 'addr', 'source', 'archive', unique=True),
+        Index('ix_scan_host_archive', 'addr', 'source', 'archive',
+              unique=True),
         Index('ix_scan_time', 'time_start', 'time_stop'),
     )
 
@@ -426,6 +459,7 @@ class Scan(Base):
 
 class PassiveCSVFile(CSVFile):
     info_fields = set(["distance", "signature", "version"])
+
     def __init__(self, siggen, get_context, table, limit=None, getinfos=None,
                  separated_timestamps=True):
         self.get_context = get_context
@@ -437,20 +471,25 @@ class PassiveCSVFile(CSVFile):
             self.count = 0
         self.getinfos = getinfos
         self.timestamps = separated_timestamps
+
     def fixline(self, line):
         if self.timestamps:
             timestamp, line = line
             if isinstance(timestamp, datetime.datetime):
                 line["firstseen"] = line["lastseen"] = timestamp
             else:
-                line["firstseen"] = line["lastseen"] = datetime\
-                                                       .datetime\
-                                                       .fromtimestamp(timestamp)
+                line["firstseen"] = line["lastseen"] = (
+                    datetime.datetime.fromtimestamp(timestamp)
+                )
         else:
             if not isinstance(line["firstseen"], datetime.datetime):
-                line["firstseen"] = datetime.datetime.fromtimestamp(line["firstseen"])
+                line["firstseen"] = datetime.datetime.fromtimestamp(
+                    line["firstseen"]
+                )
             if not isinstance(line["lastseen"], datetime.datetime):
-                line["lastseen"] = datetime.datetime.fromtimestamp(line["lastseen"])
+                line["lastseen"] = datetime.datetime.fromtimestamp(
+                    line["lastseen"]
+                )
         if self.getinfos is not None:
             additional_info = self.getinfos(line)
             try:
@@ -477,7 +516,7 @@ class PassiveCSVFile(CSVFile):
                isinstance(value, basestring):
                 try:
                     value = value.encode('latin-1')
-                except:
+                except Exception:
                     pass
                 line[key] = "".join(
                     c.decode() if b' ' <= c <= b'~' else
@@ -492,7 +531,8 @@ class PassiveCSVFile(CSVFile):
             dict((key, line.pop(key)) for key in list(line)
                  if key not in self.table.columns),
         ).replace('\\', '\\\\')
-        return ["\\N" if line.get(col.name) is None else str(line.get(col.name))
+        return ["\\N" if line.get(col.name) is None else
+                str(line.get(col.name))
                 for col in self.table.columns]
 
 
@@ -605,11 +645,11 @@ class PostgresDB(DB):
         # Make sur we always have the 0 record
         try:
             _after_context_create(None, self.db)
-        except:
+        except Exception:
             pass
         try:
             _after_host_create(None, self.db)
-        except:
+        except Exception:
             pass
 
     def init(self):
@@ -649,14 +689,6 @@ class PostgresDB(DB):
         t.create(bind=self.db, checkfirst=True)
         return t
 
-    @staticmethod
-    def flt_and(*args):
-        return and_(*args)
-
-    @staticmethod
-    def flt_or(*args):
-        return or_(*args)
-
     def flt2str(self, flt):
         result = {}
         for queryname, queries in viewitems(flt.all_queries):
@@ -672,30 +704,34 @@ class PostgresDB(DB):
 
     def store_host_context(self, addr, context, firstseen, lastseen):
         insrt = postgresql.insert(Context)
-        ctxt = self.db.execute(insrt.values(name=context)\
-                               .on_conflict_do_update(
-                                   index_elements=['name'],
-                                   set_={'name': insrt.excluded.name}
-                               )\
-                               .returning(Context.id)).fetchone()[0]
+        ctxt = self.db.execute(
+            insrt.values(name=context)
+            .on_conflict_do_update(
+                index_elements=['name'],
+                set_={'name': insrt.excluded.name}
+            )
+            .returning(Context.id)
+        ).fetchone()[0]
         insrt = postgresql.insert(Host)
-        return self.db.execute(insrt.values(context=ctxt,
-                                            addr=addr,
-                                            firstseen=firstseen,
-                                            lastseen=lastseen)\
-                               .on_conflict_do_update(
-                                   index_elements=['addr', 'context'],
-                                   set_={
-                                       'firstseen': func.least(
-                                           Host.firstseen,
-                                           insrt.excluded.firstseen,
-                                       ),
-                                       'lastseen': func.greatest(
-                                           Host.lastseen,
-                                           insrt.excluded.lastseen,
-                                       )},
-                               )\
-                               .returning(Host.id)).fetchone()[0]
+        return self.db.execute(
+            insrt.values(context=ctxt,
+                         addr=addr,
+                         firstseen=firstseen,
+                         lastseen=lastseen)
+            .on_conflict_do_update(
+                index_elements=['addr', 'context'],
+                set_={
+                    'firstseen': func.least(
+                        Host.firstseen,
+                        insrt.excluded.firstseen,
+                    ),
+                    'lastseen': func.greatest(
+                        Host.lastseen,
+                        insrt.excluded.lastseen,
+                    )},
+            )
+            .returning(Host.id)
+        ).fetchone()[0]
 
     def create_indexes(self):
         raise NotImplementedError()
@@ -972,11 +1008,12 @@ class PostgresDBFlow(PostgresDB, DBFlow):
 
     @classmethod
     def add_host(cls, labels=None, keys=None, time=True):
-        q = postgresql.insert(Host)
+        # q = postgresql.insert(Host)
         raise NotImplementedError()
 
-    def add_flow_metadata(self, labels, linktype, keys, flow_keys, counters=None,
-                          accumulators=None, time=True, flow_labels=["Flow"]):
+    def add_flow_metadata(self, labels, linktype, keys, flow_keys,
+                          counters=None, accumulators=None, time=True,
+                          flow_labels=["Flow"]):
         raise NotImplementedError()
 
     def add_host_metadata(self, labels, linktype, keys, host_keys=None,
@@ -1015,10 +1052,12 @@ class PostgresDBFlow(PostgresDB, DBFlow):
     def cleanup_flows(self):
         raise NotImplementedError()
 
-#Neo4jDBFlow.LABEL2NAME.update({
-#    "Host": ["addr"],
-#    "Flow": [Neo4jDBFlow._flow2name],
-#})
+
+# Neo4jDBFlow.LABEL2NAME.update({
+#     "Host": ["addr"],
+#     "Flow": [Neo4jDBFlow._flow2name],
+# })
+
 
 class PostgresDBData(PostgresDB, DBData):
     tables = [Country, Location, Location_Range, AS, AS_Range]
@@ -1083,17 +1122,17 @@ class PostgresDBData(PostgresDB, DBData):
             addr = utils.int2ip(addr)
         except (TypeError, struct.error):
             pass
-        data_range = select([Location_Range.stop, Location_Range.location_id])\
-                     .where(Location_Range.start <= addr)\
-                     .order_by(Location_Range.start.desc())\
-                     .limit(1)\
-                     .cte("data_range")
-        location = select([Location.country_code])\
-                   .where(Location.id == select([data_range.c.location_id]))\
-                   .limit(1)\
-                   .cte("location")
+        data_range = (select([Location_Range.stop, Location_Range.location_id])
+                      .where(Location_Range.start <= addr)
+                      .order_by(Location_Range.start.desc())
+                      .limit(1)
+                      .cte("data_range"))
+        location = (select([Location.country_code])
+                    .where(Location.id == select([data_range.c.location_id]))
+                    .limit(1)
+                    .cte("location"))
         data = self.db.execute(
-            select([data_range.c.stop, location.c.country_code, Country.name])\
+            select([data_range.c.stop, location.c.country_code, Country.name])
             .where(location.c.country_code == Country.code)
         ).fetchone()
         if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
@@ -1107,20 +1146,20 @@ class PostgresDBData(PostgresDB, DBData):
             addr = utils.int2ip(addr)
         except (TypeError, struct.error):
             pass
-        data_range = select([Location_Range.stop, Location_Range.location_id])\
-                     .where(Location_Range.start <= addr)\
-                     .order_by(Location_Range.start.desc())\
-                     .limit(1)\
-                     .cte("data_range")
-        location = select([Location])\
-                   .where(Location.id == select([data_range.c.location_id]))\
-                   .limit(1)\
-                   .cte("location")
+        data_range = (select([Location_Range.stop, Location_Range.location_id])
+                      .where(Location_Range.start <= addr)
+                      .order_by(Location_Range.start.desc())
+                      .limit(1)
+                      .cte("data_range"))
+        location = (select([Location])
+                    .where(Location.id == select([data_range.c.location_id]))
+                    .limit(1)
+                    .cte("location"))
         data = self.db.execute(
             select([data_range.c.stop, location.c.coordinates,
                     location.c.country_code, Country.name, location.c.city,
                     location.c.area_code, location.c.metro_code,
-                    location.c.postal_code, location.c.region_code])\
+                    location.c.postal_code, location.c.region_code])
             .where(location.c.country_code == Country.code)
         ).fetchone()
         if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
@@ -1135,13 +1174,13 @@ class PostgresDBData(PostgresDB, DBData):
             addr = utils.int2ip(addr)
         except (TypeError, struct.error):
             pass
-        data_range = select([AS_Range.stop, AS_Range.aut_sys])\
-                  .where(AS_Range.start <= addr)\
-                  .order_by(AS_Range.start.desc())\
-                  .limit(1)\
-                  .cte("data_range")
+        data_range = (select([AS_Range.stop, AS_Range.aut_sys])
+                      .where(AS_Range.start <= addr)
+                      .order_by(AS_Range.start.desc())
+                      .limit(1)
+                      .cte("data_range"))
         data = self.db.execute(
-            select([data_range.c.stop, data_range.c.aut_sys, AS.name])\
+            select([data_range.c.stop, data_range.c.aut_sys, AS.name])
             .where(AS.num == select([data_range.c.aut_sys]))
         ).fetchone()
         if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
@@ -1155,13 +1194,13 @@ class PostgresDBData(PostgresDB, DBData):
 given its ISO-3166-1 "alpha-2" code or its name."""
         if len(code) != 2:
             return self.db.execute(
-                select([Location_Range.start, Location_Range.stop])\
-                .select_from(join(join(Location, Location_Range), Country))\
+                select([Location_Range.start, Location_Range.stop])
+                .select_from(join(join(Location, Location_Range), Country))
                 .where(Country.name == code)
             )
         return self.db.execute(
-            select([Location_Range.start, Location_Range.stop])\
-            .select_from(join(Location, Location_Range))\
+            select([Location_Range.start, Location_Range.stop])
+            .select_from(join(Location, Location_Range))
             .where(Location.country_code == code)
         )
 
@@ -1179,26 +1218,31 @@ Autonomous System given its number or its name.
             except ValueError:
                 # lookup by name
                 return self.db.execute(
-                    select([AS_Range.start, AS_Range.stop])\
-                    .select_from(join(AS, AS_Range))\
+                    select([AS_Range.start, AS_Range.stop])
+                    .select_from(join(AS, AS_Range))
                     .where(AS.name == asnum)
                 )
         return self.db.execute(
-            select([AS_Range.start, AS_Range.stop])\
+            select([AS_Range.start, AS_Range.stop])
             .where(AS_Range.aut_sys == asnum)
         )
 
 
 class Filter(object):
+
     @staticmethod
     def fltand(flt1, flt2):
-        return flt1 if flt2 is None else flt2 if flt1 is None else and_(flt1, flt2)
+        return (flt1 if flt2 is None else
+                flt2 if flt1 is None else and_(flt1, flt2))
+
     @staticmethod
     def fltor(flt1, flt2):
-        return flt1 if flt2 is None else flt2 if flt1 is None else or_(flt1, flt2)
+        return (flt1 if flt2 is None else
+                flt2 if flt1 is None else or_(flt1, flt2))
 
 
 class NmapFilter(Filter):
+
     def __init__(self, main=None, hostname=None, category=None, port=None,
                  script=None, trace=None):
         self.main = main
@@ -1207,6 +1251,7 @@ class NmapFilter(Filter):
         self.port = [] if port is None else port
         self.script = [] if script is None else script
         self.trace = [] if trace is None else trace
+
     @property
     def all_queries(self):
         return {
@@ -1217,6 +1262,7 @@ class NmapFilter(Filter):
             "script": self.script,
             "trace": self.trace,
         }
+
     def copy(self):
         return self.__class__(
             main=self.main,
@@ -1226,6 +1272,7 @@ class NmapFilter(Filter):
             script=self.script[:],
             trace=self.trace[:],
         )
+
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
@@ -1235,6 +1282,7 @@ class NmapFilter(Filter):
             script=self.script + other.script,
             trace=self.trace + other.trace,
         )
+
     def __or__(self, other):
         # FIXME: this has to be implemented
         if self.hostname and other.hostname:
@@ -1255,15 +1303,18 @@ class NmapFilter(Filter):
             script=self.script + other.script,
             trace=self.trace + other.trace,
         )
+
     def select_from_base(self, base=Scan):
         if base in [Scan, Scan.__mapper__]:
             base = Scan
         else:
             base = join(Scan, base)
         return base
+
     @property
     def select_from(self):
         return self.select_from_base()
+
     def query(self, req, archive=False):
         # TODO: improve performances
         #   - use a materialized view for `Scan` with `archive == 0`?
@@ -1283,17 +1334,17 @@ class NmapFilter(Filter):
         # INTERSECT with tables from a WITH clause"
         for subflt in self.category:
             req = req.where(exists(
-                select([1])\
-                .select_from(join(Category, Association_Scan_Category))\
-                .where(subflt)\
+                select([1])
+                .select_from(join(Category, Association_Scan_Category))
+                .where(subflt)
                 .where(Association_Scan_Category.scan == Scan.id)
             ))
         for incl, subflt in self.port:
             if incl:
                 req = req.where(exists(
-                    select([1])\
-                    .select_from(Port)\
-                    .where(subflt)\
+                    select([1])
+                    .select_from(Port)
+                    .where(subflt)
                     .where(Port.scan == Scan.id)
                 ))
             else:
@@ -1311,9 +1362,9 @@ class NmapFilter(Filter):
             req = req.where(exists(subreq))
         for subflt in self.trace:
             req = req.where(exists(
-                select([1])\
-                .select_from(join(Trace, Hop))\
-                .where(subflt)\
+                select([1])
+                .select_from(join(Trace, Hop))
+                .where(subflt)
                 .where(Trace.scan == Scan.id)
             ))
         return req
@@ -1365,13 +1416,17 @@ class PostgresDBNmap(PostgresDB, DBNmap):
         return 'Public' if ctxt == 'Public' else '%s-%s' % (ctxt, source)
 
     def is_scan_present(self, scanid):
-        return bool(self.db.execute(select([True])\
-                                    .where(
-                                        ScanFile.sha256 == utils.decode_hex(
-                                            scanid
-                                        )
-                                    )\
-                                    .limit(1)).fetchone())
+        return bool(
+            self.db.execute(
+                select([True])
+                .where(
+                    ScanFile.sha256 == utils.decode_hex(
+                        scanid
+                    )
+                )
+                .limit(1)
+            ).fetchone()
+        )
 
     def store_scan_doc(self, scan):
         scan = scan.copy()
@@ -1404,13 +1459,13 @@ class PostgresDBNmap(PostgresDB, DBNmap):
             Column("scanfileid", ARRAY(LargeBinary(32))),
             Column("categories", ARRAY(String(32))),
             Column("source", String(32)),
-            #Column("cpe", postgresql.JSONB),
-            #Column("extraports", postgresql.JSONB),
+            # Column("cpe", postgresql.JSONB),
+            # Column("extraports", postgresql.JSONB),
             Column("hostnames", postgresql.JSONB),
             # openports
-            #Column("os", postgresql.JSONB),
+            # Column("os", postgresql.JSONB),
             Column("ports", postgresql.JSONB),
-            #Column("traceroutes", postgresql.JSONB),
+            # Column("traceroutes", postgresql.JSONB),
         ])
         with ScanCSVFile(hosts, self.get_context, tmp, merge) as fdesc:
             self.copy_from(fdesc, tmp.name)
@@ -1449,11 +1504,11 @@ insert structures.
                     archive=0,
                     merge=False,
                     **dict(
-                        (key, host.get(key)) for key in ['state', 'state_reason',
-                                                         'state_reason_ttl']
+                        (key, host.get(key)) for key in
+                        ['state', 'state_reason', 'state_reason_ttl']
                         if key in host
                     )
-                )\
+                )
                 .on_conflict_do_update(
                     index_elements=['addr', 'source', 'archive'],
                     set_={
@@ -1467,7 +1522,7 @@ insert structures.
                         ),
                         'merge': True,
                     },
-                )\
+                )
                 .returning(Scan.id, Scan.time_stop,
                            Scan.merge)).fetchone()
             if merge:
@@ -1477,7 +1532,7 @@ insert structures.
             else:
                 newest = None
         else:
-            curarchive = self.db.execute(select([func.max(Scan.archive)])\
+            curarchive = self.db.execute(select([func.max(Scan.archive)])
                                          .where(and_(Scan.addr == addr,
                                                      Scan.source == source)))\
                                 .fetchone()[0]
@@ -1487,40 +1542,43 @@ insert structures.
                     Scan.source == source,
                     Scan.archive == 0,
                 )).values(archive=curarchive + 1))
-            scanid = self.db.execute(insert(Scan)\
-                                     .values(
-                                         addr=addr,
-                                         source=source,
-                                         info=info,
-                                         time_start=host['starttime'],
-                                         time_stop=host['endtime'],
-                                         state=host['state'],
-                                         state_reason=host['state_reason'],
-                                         state_reason_ttl=host.get('state_reason_ttl'),
-                                         archive=0,
-                                         merge=False,
-                                     )\
-                                     .returning(Scan.id)).fetchone()[0]
+            scanid = self.db.execute(
+                insert(Scan).values(
+                    addr=addr,
+                    source=source,
+                    info=info,
+                    time_start=host['starttime'],
+                    time_stop=host['endtime'],
+                    state=host['state'],
+                    state_reason=host['state_reason'],
+                    state_reason_ttl=host.get('state_reason_ttl'),
+                    archive=0,
+                    merge=False,
+                ).returning(Scan.id)
+            ).fetchone()[0]
         insrt = postgresql.insert(Association_Scan_ScanFile)
-        self.db.execute(insrt\
+        self.db.execute(insrt
                         .values(scan=scanid,
-                                scan_file=utils.decode_hex(host['scanid']))\
+                                scan_file=utils.decode_hex(host['scanid']))
                         .on_conflict_do_nothing())
         for category in host.get("categories", []):
             insrt = postgresql.insert(Category)
-            catid = self.db.execute(insrt.values(name=category)\
-                                    .on_conflict_do_update(
-                                        index_elements=['name'],
-                                        set_={'name': insrt.excluded.name}
-                                    )\
-                                    .returning(Category.id)).fetchone()[0]
-            self.db.execute(postgresql.insert(Association_Scan_Category)\
-                            .values(scan=scanid, category=catid)\
+            catid = self.db.execute(
+                insrt.values(name=category)
+                .on_conflict_do_update(
+                    index_elements=['name'],
+                    set_={'name': insrt.excluded.name}
+                )
+                .returning(Category.id)
+            ).fetchone()[0]
+            self.db.execute(postgresql.insert(Association_Scan_Category)
+                            .values(scan=scanid, category=catid)
                             .on_conflict_do_nothing())
         for port in host.get('ports', []):
             scripts = port.pop('scripts', [])
             # FIXME: handle screenshots
-            for fld in ['screendata', 'screenshot', 'screenwords', 'service_method']:
+            for fld in ['screendata', 'screenshot', 'screenwords',
+                        'service_method']:
                 try:
                     del port[fld]
                 except KeyError:
@@ -1530,51 +1588,56 @@ insert structures.
             if 'state_state' in port:
                 port['state'] = port.pop('state_state')
             if 'state_reason_ip' in port:
-                port['state_reason_ip'] = self.convert_ip(port['state_reason_ip'])
+                port['state_reason_ip'] = self.convert_ip(
+                    port['state_reason_ip']
+                )
             if merge:
                 insrt = postgresql.insert(Port)
-                portid = self.db.execute(insrt.values(scan=scanid, **port)\
-                                         .on_conflict_do_update(
-                                             index_elements=['scan', 'port',
-                                                             'protocol'],
-                                             set_=dict(
-                                                 scan=scanid,
-                                                 **(port if newest else {})
-                                             )
-                                         )\
-                                         .returning(Port.id)).fetchone()[0]
+                portid = self.db.execute(
+                    insrt.values(scan=scanid, **port)
+                    .on_conflict_do_update(
+                        index_elements=['scan', 'port',
+                                        'protocol'],
+                        set_=dict(
+                            scan=scanid,
+                            **(port if newest else {})
+                        )
+                    )
+                    .returning(Port.id)
+                ).fetchone()[0]
             else:
                 portid = self.db.execute(insert(Port).values(scan=scanid,
-                                                             **port)\
+                                                             **port)
                                          .returning(Port.id)).fetchone()[0]
             for script in scripts:
                 name, output = script.pop('id'), script.pop('output')
                 if merge:
                     if newest:
                         insrt = postgresql.insert(Script)
-                        self.bulk.append(insrt\
+                        self.bulk.append(insrt
                                          .values(
                                              port=portid,
                                              name=name,
                                              output=output,
                                              data=script
-                                         )\
+                                         )
                                          .on_conflict_do_update(
                                              index_elements=['port', 'name'],
                                              set_={
-                                                 "output": insrt.excluded.output,
+                                                 "output":
+                                                 insrt.excluded.output,
                                                  "data": insrt.excluded.data,
                                              },
                                          ))
                     else:
                         insrt = postgresql.insert(Script)
-                        self.bulk.append(insrt\
+                        self.bulk.append(insrt
                                          .values(
                                              port=portid,
                                              name=name,
                                              output=output,
                                              data=script
-                                         )\
+                                         )
                                          .on_conflict_do_nothing())
                 else:
                     self.bulk.append(insert(Script).values(
@@ -1632,34 +1695,39 @@ structured output for http-headers script.
 
         """
         failed = []
-        req = select([Scan.id, Script.port, Script.output, Script.data])\
-              .select_from(join(join(Scan, Port), Script))\
-              .where(and_(Scan.schema_version == 8, Script.name == "http-headers"))
+        req = (select([Scan.id, Script.port, Script.output, Script.data])
+               .select_from(join(join(Scan, Port), Script))
+               .where(and_(Scan.schema_version == 8,
+                           Script.name == "http-headers")))
         for rec in self.db.execute(req):
             if 'http-headers' not in rec.data:
                 try:
-                    data = xmlnmap.add_http_headers_data({'id': "http-headers", 'output': rec.output})
-                except:
-                    utils.LOGGER.warning("Cannot migrate host %r", rec.id, exc_info=True)
+                    data = xmlnmap.add_http_headers_data({
+                        'id': "http-headers",
+                        'output': rec.output
+                    })
+                except Exception:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id,
+                                         exc_info=True)
                     failed.append(rec.id)
                 else:
                     if data:
                         self.db.execute(
-                            update(Script)\
+                            update(Script)
                             .where(and_(Script.port == rec.port,
-                                        Script.name == "http-headers"))\
+                                        Script.name == "http-headers"))
                             .values(data={"http-headers": data})
                         )
         self.db.execute(
-            update(Scan)\
-            .where(Scan.id.notin_(failed))\
+            update(Scan)
+            .where(Scan.id.notin_(failed))
             .values(schema_version=9)
         )
         return len(failed)
 
     def count(self, flt, archive=False, **_):
         return self.db.execute(
-            flt.query(select([func.count()]), archive=archive)\
+            flt.query(select([func.count()]), archive=archive)
             .select_from(flt.select_from)
         ).fetchone()[0]
 
@@ -1685,10 +1753,10 @@ structured output for http-headers script.
              "openports": {"count": rec[0]}}
             for rec in
             self.db.execute(
-                select([func.count(Port.id), Scan.time_start, Scan.addr])\
-                .select_from(join(Port, Scan))\
-                .where(Port.state == "open")\
-                .group_by(Scan.addr, Scan.time_start)\
+                select([func.count(Port.id), Scan.time_start, Scan.addr])
+                .select_from(join(Port, Scan))
+                .where(Port.state == "open")
+                .group_by(Scan.addr, Scan.time_start)
                 .where(Scan.id.in_(base))
             )
         )
@@ -1701,13 +1769,16 @@ structured output for http-headers script.
             req = req.limit(limit)
         base = req.cte("base")
         return (
-            {"addr": rec[2], "starttime": rec[1],
-             "ports": [
-                 {"proto": proto, "port": int(port), "state_state": state}
-                 for proto, port, state in (
-                     elt.split(',') for elt in ''.join(rec[0])[3:-3].split(')","(')
-                 )
-             ]}
+            {
+                "addr": rec[2], "starttime": rec[1],
+                "ports": [
+                    {"proto": proto, "port": int(port), "state_state": state}
+                    for proto, port, state in (
+                        elt.split(',') for elt in
+                        ''.join(rec[0])[3:-3].split(')","(')
+                    )
+                ]
+            }
             for rec in
             self.db.execute(
                 select([
@@ -1717,17 +1788,18 @@ structured output for http-headers script.
                         tuple_(Port.protocol, Port.port).label('a')
                     )).label('ports'),
                     Scan.time_start, Scan.addr,
-                ])\
-                .select_from(join(Port, Scan))\
-                .group_by(Scan.addr, Scan.time_start)\
+                ])
+                .select_from(join(Port, Scan))
+                .group_by(Scan.addr, Scan.time_start)
                 .where(and_(Port.port >= 0, Scan.id.in_(base)))
             )
         )
 
     def getlocations(self, flt, archive=False, limit=None, skip=None):
         req = flt.query(
-            select([func.count(Scan.id), Scan.info['coordinates'].astext])\
+            select([func.count(Scan.id), Scan.info['coordinates'].astext])
             .where(Scan.info.has_key('coordinates')),
+            # noqa: W601 (BinaryExpression)
             archive=archive,
         )
         if skip is not None:
@@ -1754,9 +1826,9 @@ structured output for http-headers script.
         for scanrec in self.db.execute(req):
             rec = {}
             (rec["_id"], rec["addr"], rec["source"], rec["infos"],
-             rec["starttime"], rec["endtime"], rec["state"], rec["state_reason"],
-             rec["state_reason_ttl"], rec["archive"], rec["merge"],
-             rec["schema_version"]) = scanrec
+             rec["starttime"], rec["endtime"], rec["state"],
+             rec["state_reason"], rec["state_reason_ttl"],
+             rec["archive"], rec["merge"], rec["schema_version"]) = scanrec
             if rec["infos"]:
                 if 'coordinates' in rec['infos']:
                     rec['infos']['loc'] = {
@@ -1765,36 +1837,38 @@ structured output for http-headers script.
                     }
             else:
                 del rec["infos"]
-            categories = select([Association_Scan_Category.category])\
-                         .where(Association_Scan_Category.scan == rec["_id"])\
-                         .cte("categories")
-            rec["categories"] = [cat[0] for cat in
-                                 self.db.execute(
-                                     select([Category.name])\
-                                     .where(Category.id == categories.c.category)
-                                 )]
+            categories = (select([Association_Scan_Category.category])
+                          .where(Association_Scan_Category.scan == rec["_id"])
+                          .cte("categories"))
+            rec["categories"] = [
+                cat[0] for cat in
+                self.db.execute(
+                    select([Category.name])
+                    .where(Category.id == categories.c.category)
+                )
+            ]
             rec["scanid"] = [
                 scanfile[0] for scanfile in self.db.execute(
-                    select([Association_Scan_ScanFile.scan_file])\
+                    select([Association_Scan_ScanFile.scan_file])
                     .where(Association_Scan_ScanFile.scan == rec["_id"]))
             ]
-            for port in self.db.execute(select([Port])\
+            for port in self.db.execute(select([Port])
                                         .where(Port.scan == rec["_id"])):
                 recp = {}
-                (portid, _, recp["port"], recp["protocol"], recp["state_state"],
-                 recp["state_reason"], recp["state_reason_ip"],
-                 recp["state_reason_ttl"], recp["service_name"],
-                 recp["service_tunnel"], recp["service_product"],
-                 recp["service_version"], recp["service_conf"],
-                 recp["service_devicetype"], recp["service_extrainfo"],
-                 recp["service_hostname"], recp["service_ostype"],
-                 recp["service_servicefp"]) = port
+                (portid, _, recp["port"], recp["protocol"],
+                 recp["state_state"], recp["state_reason"],
+                 recp["state_reason_ip"], recp["state_reason_ttl"],
+                 recp["service_name"], recp["service_tunnel"],
+                 recp["service_product"], recp["service_version"],
+                 recp["service_conf"], recp["service_devicetype"],
+                 recp["service_extrainfo"], recp["service_hostname"],
+                 recp["service_ostype"], recp["service_servicefp"]) = port
                 for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
                 for script in self.db.execute(select([Script.name,
                                                       Script.output,
-                                                      Script.data])\
+                                                      Script.data])
                                               .where(Script.port == portid)):
                     recp.setdefault('scripts', []).append(
                         dict(id=script.name,
@@ -1802,22 +1876,22 @@ structured output for http-headers script.
                              **(script.data if script.data else {}))
                     )
                 rec.setdefault('ports', []).append(recp)
-            for trace in self.db.execute(select([Trace])\
+            for trace in self.db.execute(select([Trace])
                                          .where(Trace.scan == rec["_id"])):
                 curtrace = {}
                 rec.setdefault('traces', []).append(curtrace)
                 curtrace['port'] = trace['port']
                 curtrace['protocol'] = trace['protocol']
                 curtrace['hops'] = []
-                for hop in self.db.execute(select([Hop])\
-                                           .where(Hop.trace == trace['id'])\
+                for hop in self.db.execute(select([Hop])
+                                           .where(Hop.trace == trace['id'])
                                            .order_by(Hop.ttl)):
                     curtrace['hops'].append(dict(
                         (key, hop[key]) for key in ['ipaddr', 'ttl', 'rtt',
                                                     'host', 'domains']
                     ))
             for hostname in self.db.execute(
-                    select([Hostname])\
+                    select([Hostname])
                     .where(Hostname.scan == rec["_id"])
             ):
                 rec.setdefault('hostnames', []).append(dict(
@@ -1883,15 +1957,17 @@ structured output for http-headers script.
             field = self._topstructure(Port, [Port.protocol, Port.port],
                                        Port.state == "open")
         elif field == "ttl":
-            field = self._topstructure(Port, [Port.state_reason_ttl],
-                                       Port.state_reason_ttl != None)
+            field = self._topstructure(
+                Port, [Port.state_reason_ttl],
+                Port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
+            )
         elif field == "ttlinit":
             field = self._topstructure(
                 Port,
                 [func.least(255, func.power(2, func.ceil(
                     func.log(2, Port.state_reason_ttl)
                 )))],
-                Port.state_reason_ttl != None,
+                Port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
             )
             outputproc = int
         elif field.startswith('port:'):
@@ -1904,25 +1980,30 @@ structured output for http-headers script.
             )
         elif field.startswith('countports:'):
             info = field[11:]
-            return ({"count": result[0], "_id": result[1]}
-                    for result in self.db.execute(
-                        select([func.count().label("count"),
-                                column('cnt')])\
-                        .select_from(select([func.count().label('cnt')])\
-                                     .select_from(Port)\
-                                     .where(and_(
-                                         Port.state == info,
-                                         # Port.scan.in_(base),
-                                         exists(select([1])\
-                                                .select_from(base)\
-                                                .where(
-                                                    Port.scan == base.c.id
-                                                )),
-                                     ))\
-                                     .group_by(Port.scan)\
-                                     .alias('cnt'))\
-                        .group_by('cnt').order_by(order).limit(topnbr)
-                    ))
+            return (
+                {"count": result[0], "_id": result[1]}
+                for result in self.db.execute(
+                    select([func.count().label("count"),
+                            column('cnt')])
+                    .select_from(
+                        select([func.count().label('cnt')])
+                        .select_from(Port)
+                        .where(and_(
+                            Port.state == info,
+                            # Port.scan.in_(base),
+                            exists(
+                                select([1])\
+                                .select_from(base)\
+                                .where(
+                                    Port.scan == base.c.id
+                                )
+                            ),
+                        ))\
+                        .group_by(Port.scan)\
+                        .alias('cnt')
+                    ).group_by('cnt').order_by(order).limit(topnbr)
+                )
+            )
         elif field.startswith('portlist:'):
             ### Deux options pour filtrer:
             ###   -1- Port.scan.in_(base),
@@ -1940,33 +2021,38 @@ structured output for http-headers script.
             ###  - countports:open
             ###  - tous les autres
             info = field[9:]
-            return ({"count": result[0], "_id": [
-                (proto, int(port)) for proto, port in (
-                    elt.split(',') for elt in result[1][3:-3].split(')","(')
-                )
-            ]}
-                    for result in self.db.execute(
-                        select([func.count().label("count"),
-                                column('ports')])\
-                        .select_from(select([
+            return (
+                {"count": result[0], "_id": [
+                    (proto, int(port)) for proto, port in (
+                        elt.split(',') for elt in
+                        result[1][3:-3].split(')","(')
+                    )
+                ]}
+                for result in self.db.execute(
+                    select([func.count().label("count"),
+                            column('ports')])
+                    .select_from(
+                        select([
                             func.array_agg(postgresql.aggregate_order_by(
                                 tuple_(Port.protocol, Port.port).label('a'),
                                 tuple_(Port.protocol, Port.port).label('a')
                             )).label('ports'),
-                        ])\
-                                     .where(and_(
-                                         Port.state == info,
-                                         Port.scan.in_(base),
-                                         # exists(select([1])\
-                                         #        .select_from(base)\
-                                         #        .where(
-                                         #            Port.scan == base.c.id
-                                         #        )),
-                                     ))\
-                                     .group_by(Port.scan)\
-                                     .alias('ports'))\
-                        .group_by('ports').order_by(order).limit(topnbr)
-                    ))
+                        ])
+                        .where(and_(
+                            Port.state == info,
+                            Port.scan.in_(base),
+                            # exists(select([1])\
+                            #        .select_from(base)\
+                            #        .where(
+                            #            Port.scan == base.c.id
+                            #        )),
+                        ))
+                        .group_by(Port.scan)
+                        .alias('ports')
+                    )
+                    .group_by('ports').order_by(order).limit(topnbr)
+                )
+            )
         elif field == "service":
             field = self._topstructure(Port, [Port.service_name],
                                        Port.state == "open")
@@ -2037,7 +2123,8 @@ structured output for http-headers script.
         elif field == "version":
             field = self._topstructure(
                 Port,
-                [Port.service_name, Port.service_product, Port.service_version],
+                [Port.service_name, Port.service_product,
+                 Port.service_version],
                 Port.state == "open",
             )
         elif field.startswith("version:"):
@@ -2064,7 +2151,8 @@ structured output for http-headers script.
                 )
             elif ':' in info:
                 info = info.split(':', 1)
-                flt = self.flt_and(flt, self.searchproduct(info[1], service=info[0]))
+                flt = self.flt_and(flt, self.searchproduct(info[1],
+                                                           service=info[0]))
                 field = self._topstructure(
                     Port,
                     [Port.service_name, Port.service_product,
@@ -2114,21 +2202,23 @@ structured output for http-headers script.
                                        [func.unnest(Hostname.domains)])
         elif field.startswith("domains:"):
             level = int(field[8:]) - 1
-            base1 = select([func.unnest(Hostname.domains).label("domains")])\
-                   .where(exists(select([1])\
-                                 .select_from(base)\
-                                 .where(Hostname.scan == base.c.id)))\
-                   .cte("base1")
-            return ({"count": result[1], "_id": result[0]}
-                    for result in self.db.execute(
-                        select([base1.c.domains, func.count().label("count")])\
-                        .where(base1.c.domains.op('~')(
-                            '^([^\\.]+\\.){%d}[^\\.]+$' % level
-                        ))\
-                        .group_by(base1.c.domains)\
-                        .order_by(order)\
-                        .limit(topnbr)
+            base1 = (select([func.unnest(Hostname.domains).label("domains")])
+                     .where(exists(select([1])
+                                   .select_from(base)
+                                   .where(Hostname.scan == base.c.id)))
+                     .cte("base1"))
+            return (
+                {"count": result[1], "_id": result[0]}
+                for result in self.db.execute(
+                    select([base1.c.domains, func.count().label("count")])
+                    .where(base1.c.domains.op('~')(
+                        '^([^\\.]+\\.){%d}[^\\.]+$' % level
                     ))
+                    .group_by(base1.c.domains)
+                    .order_by(order)
+                    .limit(topnbr)
+                )
+            )
         elif field == "hop":
             field = self._topstructure(Hop, [Hop.ipaddr])
         elif field.startswith('hop') and field[3] in ':>':
@@ -2137,7 +2227,8 @@ structured output for http-headers script.
                 Hop, [Hop.ipaddr],
                 (Hop.ttl > ttl) if field[3] == '>' else (Hop.ttl == ttl),
             )
-        elif field == 'file' or (field.startswith('file') and field[4] in '.:'):
+        elif field == 'file' or (field.startswith('file') and
+                                 field[4] in '.:'):
             if field.startswith('file:'):
                 scripts = field[5:]
                 if '.' in scripts:
@@ -2170,6 +2261,7 @@ structured output for http-headers script.
                 Script, [Script.data['modbus-discover'][subfield]],
                 and_(Script.name == 'modbus-discover',
                      Script.data['modbus-discover'].has_key(subfield)),
+                # noqa: W601 (BinaryExpression)
             )
         elif field == 'httphdr':
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
@@ -2220,33 +2312,34 @@ structured output for http-headers script.
         }
         if field.base == Scan:
             req = flt.query(
-                select([func.count().label("count")] + field.fields)\
-                .select_from(Scan)\
+                select([func.count().label("count")] + field.fields)
+                .select_from(Scan)
                 .group_by(*field.fields),
                 archive=archive,
             )
         else:
-            req = select([func.count().label("count")] + field.fields)\
-                  .select_from(s_from[field.base])
+            req = (select([func.count().label("count")] + field.fields)
+                   .select_from(s_from[field.base]))
             if field.extraselectfrom is not None:
                 req = req.select_from(field.extraselectfrom)
-            req = req\
-                  .group_by(*(field.fields if field.group_by is None
-                              else field.group_by))
-            req = req\
-                  .where(exists(select([1]).select_from(base)\
-                                .where(where_clause[field.base])))
+            req = (req
+                   .group_by(*(field.fields if field.group_by is None
+                               else field.group_by))
+                   .where(exists(select([1]).select_from(base)
+                                 .where(where_clause[field.base]))))
         if field.where is not None:
             req = req.where(field.where)
         if outputproc is None:
             return ({"count": result[0],
                      "_id": result[1:] if len(result) > 2 else result[1]}
-                    for result in self.db.execute(req.order_by(order).limit(topnbr)))
+                    for result in
+                    self.db.execute(req.order_by(order).limit(topnbr)))
         else:
             return ({"count": result[0],
                      "_id": outputproc(result[1:] if len(result) > 2
                                        else result[1])}
-                    for result in self.db.execute(req.order_by(order).limit(topnbr)))
+                    for result in
+                    self.db.execute(req.order_by(order).limit(topnbr)))
 
     @staticmethod
     def getscanids(host):
@@ -2255,7 +2348,7 @@ structured output for http-headers script.
     def getscan(self, scanid, archive=False):
         if isinstance(scanid, basestring) and len(scanid) == 64:
             scanid = utils.decode_hex(scanid)
-        return self.db.execute(select([ScanFile])\
+        return self.db.execute(select([ScanFile])
                                .where(ScanFile.sha256 == scanid)).fetchone()
 
     @staticmethod
@@ -2411,11 +2504,11 @@ structured output for http-headers script.
     def searchcountopenports(minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert minn is not None or maxn is not None
-        req = select([column("scan")])\
-              .select_from(select([Port.scan.label("scan"),
-                                   func.count().label("count")])\
-                           .where(Port.state == "open")\
-                           .group_by(Port.scan).alias("pcnt"))
+        req = (select([column("scan")])
+               .select_from(select([Port.scan.label("scan"),
+                                    func.count().label("count")])
+                            .where(Port.state == "open")
+                            .group_by(Port.scan).alias("pcnt")))
         if minn == maxn:
             req = req.where(column("count") == minn)
         else:
@@ -2423,7 +2516,8 @@ structured output for http-headers script.
                 req = req.where(column("count") >= minn)
             if maxn is not None:
                 req = req.where(column("count") <= maxn)
-        return NmapFilter(main=Scan.id.notin_(req) if neg else Scan.id.in_(req))
+        return NmapFilter(main=Scan.id.notin_(req) if neg else
+                          Scan.id.in_(req))
 
     @staticmethod
     def searchopenport(neg=False):
@@ -2450,7 +2544,8 @@ structured output for http-headers script.
         """
         req = cls._searchstring_re(Port.service_product, product)
         if version is not None:
-            req = and_(req, cls._searchstring_re(Port.service_version, version))
+            req = and_(req, cls._searchstring_re(Port.service_version,
+                                                 version))
         if service is not None:
             req = and_(req, cls._searchstring_re(Port.service_name, service))
         if port is not None:
@@ -2468,7 +2563,8 @@ structured output for http-headers script.
         if name is not None:
             req = and_(req, cls._searchstring_re(Script.name, name, neg=False))
         if output is not None:
-            req = and_(req, cls._searchstring_re(Script.output, output, neg=False))
+            req = and_(req, cls._searchstring_re(Script.output, output,
+                                                 neg=False))
         if values:
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
@@ -2477,8 +2573,10 @@ structured output for http-headers script.
             needunwind = sorted(set(
                 unwind
                 for subkey in values
-                for unwind in cls.needunwind_script("%s.%s" % (basekey, subkey))
+                for unwind in cls.needunwind_script("%s.%s" % (basekey,
+                                                               subkey))
             ))
+
             def _find_subkey(key):
                 lastmatch = None
                 key = key.split('.')
@@ -2492,6 +2590,7 @@ structured output for http-headers script.
                         lastmatch = (".".join([basekey] + subkey),
                                      ".".join(key[len(subkey):]))
                 return lastmatch
+
             def _to_json(key, value):
                 key = key.split('.')
                 result = value
@@ -2504,20 +2603,23 @@ structured output for http-headers script.
                     # XXX TEST THIS
                     req = and_(
                         req,
-                        Script.data.contains(_to_json("%s.%s" % (basekey, key), value)),
+                        Script.data.contains(_to_json("%s.%s" % (basekey, key),
+                                                      value)),
                     )
                 elif subkey[1] is None:
                     # XXX TEST THIS
                     req = and_(
                         req,
-                        column(subkey[0].replace(".", "_").replace('-', '_')) == value,
+                        column(
+                            subkey[0].replace(".", "_").replace('-', '_')
+                        ) == value,
                     )
                 elif '.' in subkey[1]:
                     # XXX TEST THIS
                     firstpart, tail = subkey.split('.', 1)
                     req = and_(
                         req,
-                        column(subkey[0].replace(".", "_").replace('-', '_'))\
+                        column(subkey[0].replace(".", "_").replace('-', '_'))
                         .op('->')(firstpart).contains(_to_json(tail))
                     )
                 else:
@@ -2532,8 +2634,9 @@ structured output for http-headers script.
                     )
             return NmapFilter(script=[(
                 req,
-                [func.jsonb_array_elements(Script.data[subkey]).alias(subkey.replace('.', '_').replace('-', '_'))
-                 for subkey in needunwind],
+                [func.jsonb_array_elements(Script.data[subkey]).alias(
+                    subkey.replace('.', '_').replace('-', '_')
+                ) for subkey in needunwind],
             )])
         return NmapFilter(script=[req])
 
@@ -2606,12 +2709,12 @@ structured output for http-headers script.
                         '{"ls": {"volumes": [{"files": []}]}}'
                     ))\
                     .cte('base1')
-                base2 = select([column('port')])\
-                        .select_from(base1)\
-                        .where(column('filename').op(
-                            '~*' if (fname.flags & re.IGNORECASE) else '~'
-                        )(fname.pattern))\
-                        .cte('base2')
+                base2 = (select([column('port')])
+                         .select_from(base1)
+                         .where(column('filename').op(
+                             '~*' if (fname.flags & re.IGNORECASE) else '~'
+                         )(fname.pattern))
+                         .cte('base2'))
                 return NmapFilter(port=[(True, Port.id.in_(base2))])
             else:
                 req = Script.data.op('@>')(json.dumps(
@@ -2704,12 +2807,14 @@ structured output for http-headers script.
 
 
 class PassiveFilter(Filter):
+
     def __init__(self, main=None, location=None, aut_sys=None,
                  uses_country=False):
         self.main = main
         self.location = location
         self.aut_sys = aut_sys
         self.uses_country = uses_country
+
     @property
     def all_queries(self):
         return {
@@ -2717,9 +2822,11 @@ class PassiveFilter(Filter):
             "location": self.location,
             "aut_sys": self.aut_sys,
         }
+
     def __nonzero__(self):
         return self.main is not None or self.location is not None \
             or self.aut_sys is not None or self.uses_country
+
     def copy(self):
         return self.__class__(
             main=self.main,
@@ -2727,6 +2834,7 @@ class PassiveFilter(Filter):
             aut_sys=self.aut_sys,
             uses_country=self.uses_country,
         )
+
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
@@ -2734,6 +2842,7 @@ class PassiveFilter(Filter):
             aut_sys=self.fltand(self.aut_sys, other.aut_sys),
             uses_country=self.uses_country or other.uses_country,
         )
+
     def __or__(self, other):
         return self.__class__(
             main=self.fltor(self.main, other.main),
@@ -2741,6 +2850,7 @@ class PassiveFilter(Filter):
             aut_sys=self.fltor(self.aut_sys, other.aut_sys),
             uses_country=self.uses_country or other.uses_country,
         )
+
     @property
     def select_from(self):
         if self.location is not None:
@@ -2753,6 +2863,7 @@ class PassiveFilter(Filter):
         if self.aut_sys is not None:
             return [join(Host, Passive), join(AS, AS_Range)]
         return join(Host, Passive)
+
     def query(self, req):
         if self.main is not None:
             req = req.where(self.main)
@@ -2866,16 +2977,18 @@ returns the first result, or None if no result exists."""
         if addr:
             addr = self.convert_ip(addr)
             context = self.get_context(addr, sensor=spec.get('sensor'))
-            hostid = self.store_host_context(addr, context, timestamp, timestamp)
+            hostid = self.store_host_context(addr, context, timestamp,
+                                             timestamp)
         else:
             hostid = 0
         insrt = postgresql.insert(Passive)
         otherfields = dict(
-            (key, spec.pop(key, "")) for key in ["sensor", "source",
-                                                 "targetval", "value"]
+            (key, spec.pop(key, ""))
+            for key in ["sensor", "source", "targetval", "value"]
         )
         info = dict(
-            (key, spec.pop(key)) for key in ["distance", "signature", "version"]
+            (key, spec.pop(key))
+            for key in ["distance", "signature", "version"]
             if key in spec
         )
         upsert = {
@@ -2905,8 +3018,8 @@ returns the first result, or None if no result exists."""
                 **otherfields
             )\
             .on_conflict_do_update(
-                index_elements=['host', 'sensor', 'recontype', 'port', 'source',
-                                'value', 'targetval', 'info'],
+                index_elements=['host', 'sensor', 'recontype', 'port',
+                                'source', 'value', 'targetval', 'info'],
                 set_=upsert,
             )
         )
@@ -2937,7 +3050,8 @@ returns the first result, or None if no result exists."""
         while more_to_read:
             if config.DEBUG_DB:
                 start_time = time.time()
-            with PassiveCSVFile(specs, self.get_context, tmp, getinfos=getinfos,
+            with PassiveCSVFile(specs, self.get_context, tmp,
+                                getinfos=getinfos,
                                 separated_timestamps=separated_timestamps,
                                 limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
@@ -2946,24 +3060,24 @@ returns the first result, or None if no result exists."""
                     count_upserted = fdesc.count
             self.db.execute(postgresql.insert(Context).from_select(
                 ['name'],
-                select([column("context")]).select_from(tmp)\
-                .where(tmp.columns["context"].isnot(null()))\
+                select([column("context")]).select_from(tmp)
+                .where(tmp.columns["context"].isnot(null()))
                 .distinct(column("context")),
             ).on_conflict_do_nothing())
             insrt = postgresql.insert(Host)
             self.db.execute(
-                insrt\
+                insrt
                 .from_select(
                     [column(col) for col in ['context', 'addr', 'firstseen',
                                              'lastseen']],
                     select([Context.id, column("addr"),
                             func.min_(column("firstseen")),
-                            func.max_(column("lastseen"))])\
+                            func.max_(column("lastseen"))])
                     .select_from(join(Context, tmp,
-                                      Context.name == column("context")))\
-                    .where(tmp.columns["addr"].isnot(null()))\
+                                      Context.name == column("context")))
+                    .where(tmp.columns["addr"].isnot(null()))
                     .group_by(Context.id, column("addr"))
-                )\
+                )
                 .on_conflict_do_update(
                     index_elements=['addr', 'context'],
                     set_={
@@ -2979,8 +3093,7 @@ returns the first result, or None if no result exists."""
             )
             insrt = postgresql.insert(Passive)
             self.db.execute(
-                insrt\
-                .from_select(
+                insrt.from_select(
                     [column(col) for col in [
                         # Host.id
                         'host',
@@ -2997,13 +3110,15 @@ returns the first result, or None if no result exists."""
                                     'sensor', 'port', 'recontype', 'source',
                                     'targetval', 'value', 'fullvalue', 'info',
                                     'moreinfo']])\
-                    .select_from(join(tmp, join(Context, Host),
-                                      ((Context.name == tmp.columns["context"]) |
-                                       (Context.name.is_(null()) &
-                                        tmp.columns["context"].is_(null()))) &
-                                      ((Host.addr == tmp.columns["addr"]) |
-                                       (Host.addr.is_(null()) &
-                                        tmp.columns["addr"].is_(null())))))\
+                    .select_from(join(
+                        tmp, join(Context, Host),
+                        ((Context.name == tmp.columns["context"]) |
+                         (Context.name.is_(null()) &
+                          tmp.columns["context"].is_(null()))) &
+                        ((Host.addr == tmp.columns["addr"]) |
+                         (Host.addr.is_(null()) &
+                          tmp.columns["addr"].is_(null())))
+                    ))\
                     .group_by(Host.id, *(tmp.columns[col] for col in [
                         'sensor', 'port', 'recontype', 'source', 'targetval',
                         'value', 'fullvalue', 'info', 'moreinfo']))
@@ -3089,14 +3204,11 @@ passive table."""
         outputproc = None
         if flt is None:
             flt = PassiveFilter()
-        base = flt.query(
-            select([Passive.id]).select_from(flt.select_from),
-        ).cte("base")
         order = "count" if least else desc("count")
         req = flt.query(
-            select([(func.count() if distinct else func.sum(Passive.count))\
-                    .label("count"), field])\
-            .select_from(flt.select_from)\
+            select([(func.count() if distinct else func.sum(Passive.count))
+                    .label("count"), field])
+            .select_from(flt.select_from)
             .group_by(field)
         )
         if outputproc is None:
@@ -3149,6 +3261,7 @@ passive table."""
                 (Passive.moreinfo['domaintarget'
                                   if reverse else
                                   'domain'].has_key(name))
+                # noqa: W601 (BinaryExpression)
                 if subdomains else
                 cls._searchstring_re(Passive.targetval
                                      if reverse else Passive.value, name)
@@ -3206,7 +3319,9 @@ passive table."""
         return PassiveFilter(main=(
             (Passive.recontype == 'SSL_SERVER') &
             (Passive.source == 'cert') &
-            (Passive.moreinfo.op('->>')('pubkeyalgo') == keytype + 'Encryption')
+            (Passive.moreinfo.op('->>')(
+                'pubkeyalgo'
+            ) == keytype + 'Encryption')
         ))
 
     @classmethod
