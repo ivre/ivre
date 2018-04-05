@@ -89,6 +89,9 @@ We try to comply with the some guidelines for new code:
   - [Pylint](http://www.pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
     or even undesirable; human brain needed!).
+  - [flake8](http://flake8.pycqa.org/) tests are run for each pull
+    request (see .travis.yml for the specific options). Pull requests
+    will not be accepted when the tests fail.
   - [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
   - Avoid creating `list` objects when generators can be used,
@@ -100,12 +103,15 @@ We try to comply with the some guidelines for new code:
 
 We do not accept PEP-8 fixes or similar contributions, because they
 break the code history that we use a lot. If you change code, it's OK
-(and even reconmmended) to
+(and even reconmmended) to include PEP-8 fixes **for the lines you
+need to change** and **only for theese lines**.
 
 ### Tests
 
 Please consider adding tests for each new feature and for each bug
 fixed. This will prevent a regression from being unnoticed.
+
+Pull requests will not be accepted if the tests fail.
 
 ### Code review
 
