@@ -16,16 +16,21 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """IVRE command line"""
+
 
 import sys
 import os
 
+
 from ivre import utils, tools
 from ivre.tools.version import main as version
 
+
 HELP_COMMANDS = ["-h", "--help", "h", "help"]
 VERSION_COMMANDS = ["-v", "--version"]
+
 
 def main():
     executable = os.path.basename(sys.argv[0])
@@ -59,7 +64,7 @@ def main():
             retcode = 0
         else:
             output = sys.stderr
-            output.write("%s command: %s\n\n" %  (
+            output.write("%s command: %s\n\n" % (
                 "Ambiguous" if possible_commands else "Unknown", command
             ))
             retcode = 1
@@ -73,6 +78,7 @@ def main():
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)
         exit(retcode)
-        
+
+
 if __name__ == "__main__":
     main()
