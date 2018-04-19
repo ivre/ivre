@@ -22,74 +22,179 @@
 """
 
 
-from sqlalchemy import event, func, insert, Column, ForeignKey, Index, \
-    ARRAY, Boolean, DateTime, Float, Integer, LargeBinary, String, Text
+import json
+import re
+import sqlite3
+
+
+from sqlalchemy import event, func, Column, ForeignKey, Index, Boolean, \
+    DateTime, Float, Integer, LargeBinary, String, Text
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.types import UserDefinedType
+from sqlalchemy.types import UserDefinedType, TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.sql.operators import custom_op, json_getitem_op
+from sqlalchemy.sql.expression import BinaryExpression
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.engine import Engine
 
 
-from ivre import xmlnmap
+from ivre import xmlnmap, utils
 
 
-Base = declarative_base()
+# sqlite
+
+@event.listens_for(Engine, 'connect')
+def sqlite_engine_connect(dbapi_connection, connection_record):
+    if not isinstance(dbapi_connection, sqlite3.Connection):
+        return
+
+    def least(a, b):
+        return min(a, b)
+
+    dbapi_connection.create_function('least', 2, least)
+
+    def greatest(a, b):
+        return max(a, b)
+
+    dbapi_connection.create_function('greatest', 2, greatest)
+
+    def regexp(s, p):
+        return re.search(p, s) is not None
+
+    dbapi_connection.create_function('REGEXP', 2, regexp)
+
+    def iregexp(s, p):
+        return re.search(p, s, re.IGNORECASE) is not None
+
+    dbapi_connection.create_function('IREGEXP', 2, iregexp)
+
+    def access(d, k):
+        return json.dumps(json.loads(d).get(k), sort_keys=True)
+
+    dbapi_connection.create_function('ACCESS', 2, access)
+
+    def access_astext(d, k):
+        return str(json.loads(d).get(k))
+
+    dbapi_connection.create_function('ACCESS_TXT', 2, access_astext)
+
+    def has_key(d, k):
+        return k in json.loads(d) if json.loads(d) else False
+
+    dbapi_connection.create_function('HAS_KEY', 2, has_key)
 
 
-class Context(Base):
-    __tablename__ = "context"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(32))
-    __table_args__ = (
-        Index('ix_context_name', 'name', unique=True),
-    )
+@compiles(BinaryExpression, 'sqlite')
+def extend_binary_expression(element, compiler, **kwargs):
+    if isinstance(element.operator, custom_op):
+        opstring = element.operator.opstring
+        if opstring == '~':
+            return compiler.process(func.REGEXP(element.left, element.right))
+        if opstring == '~*':
+            return compiler.process(func.IREGEXP(element.left, element.right))
+        if opstring == '->':
+            return compiler.process(func.ACCESS(element.left, element.right))
+        if opstring == '->>':
+            return compiler.process(func.ACCESS_TXT(element.left,
+                                                    element.right))
+        if opstring == '?':
+            return compiler.process(func.HAS_KEY(element.left, element.right))
+    # FIXME: Variant base type Comparator seems to be used here.
+    if element.operator == json_getitem_op:
+        return compiler.process(func.ACCESS(element.left, element.right))
+    return compiler.visit_binary(element)
 
 
-def _after_context_create(target, connection, **_):
-    connection.execute(insert(Context).values(id=0))
+# Types
+
+class DefaultJSONB(UserDefinedType):
+
+    def __init__(self):
+        self.__visit_name__ = "DefaultJSONB"
+
+    @property
+    def python_type(self):
+        return dict
+
+    def get_col_spec(self):
+        return self.__visit_name__
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is not None:
+                value = json.dumps(value, sort_keys=True)
+            return value
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value is not None:
+                value = json.loads(value)
+            return value
+        return process
 
 
-event.listen(Context.__table__, "after_create", _after_context_create)
+SQLJSONB = postgresql.JSONB().with_variant(DefaultJSONB(), "sqlite")
 
 
-class Host(Base):
-    __tablename__ = "host"
-    id = Column(Integer, primary_key=True)
-    context = Column(Integer, ForeignKey('context.id', ondelete='RESTRICT'))
-    addr = Column(postgresql.INET)
-    firstseen = Column(DateTime)
-    lastseen = Column(DateTime)
-    __table_args__ = (
-        Index('ix_host_addr_context', 'addr', 'context', unique=True),
-    )
+class DefaultARRAY(TypeDecorator):
+
+    impl = Text
+
+    def __init__(self, item_type, *args, **kwargs):
+        TypeDecorator.__init__(self, *args, **kwargs)
+        self.item_type = item_type
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = json.dumps(value, sort_keys=True)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = json.loads(value)
+        return value
 
 
-def _after_host_create(target, connection, **_):
-    connection.execute(insert(Host).values(id=0, context=0))
+def SQLARRAY(item_type):
+    return postgresql.ARRAY(item_type)\
+        .with_variant(DefaultARRAY(item_type), "sqlite")
 
 
-event.listen(Host.__table__, "after_create", _after_host_create)
+class DefaultINET(UserDefinedType):
+
+    def __init__(self):
+        self.__visit_name__ = "DefaultINET"
+
+    @property
+    def python_type(self):
+        return int
+
+    def get_col_spec(self):
+        return self.__visit_name__
+
+    def bind_processor(self, dialect):
+        def process(value):
+            if value is None:
+                return -1
+            if value is not None:
+                value = utils.ip2int(value)
+            return value
+        return process
+
+    def result_processor(self, dialect, coltype):
+        def process(value):
+            if value == -1:
+                return None
+            if value is not None:
+                value = utils.int2ip(value)
+            return value
+        return process
 
 
-class Flow(Base):
-    __tablename__ = "flow"
-    id = Column(Integer, primary_key=True)
-    proto = Column(String(32), index=True)
-    dport = Column(Integer, index=True)
-    src = Column(Integer, ForeignKey('host.id', ondelete='RESTRICT'))
-    dst = Column(Integer, ForeignKey('host.id', ondelete='RESTRICT'))
-    firstseen = Column(DateTime)
-    lastseen = Column(DateTime)
-    scpkts = Column(Integer)
-    scbytes = Column(Integer)
-    cspkts = Column(Integer)
-    csbytes = Column(Integer)
-    sports = Column(postgresql.ARRAY(Integer))
-    __table_args__ = (
-        # Index('host_idx_tag_addr', 'tag', 'addr', unique=True),
-    )
+SQLINET = postgresql.INET()\
+    .with_variant(DefaultINET(), "sqlite")
 
-
-# Data
 
 class Point(UserDefinedType):
 
@@ -114,8 +219,31 @@ class Point(UserDefinedType):
         return process
 
 
-# Nmap
+# Tables
+Base = declarative_base()
 
+
+# Flow
+class Flow(Base):
+    __tablename__ = "flow"
+    id = Column(Integer, primary_key=True)
+    proto = Column(String(32), index=True)
+    dport = Column(Integer, index=True)
+    src = Column(Integer, ForeignKey('host.id', ondelete='RESTRICT'))
+    dst = Column(Integer, ForeignKey('host.id', ondelete='RESTRICT'))
+    firstseen = Column(DateTime)
+    lastseen = Column(DateTime)
+    scpkts = Column(Integer)
+    scbytes = Column(Integer)
+    cspkts = Column(Integer)
+    csbytes = Column(Integer)
+    sports = Column(SQLARRAY(Integer))
+    __table_args__ = (
+        # Index('host_idx_tag_addr', 'tag', 'addr', unique=True),
+    )
+
+
+# Nmap
 class Association_Scan_ScanFile(Base):
     __tablename__ = 'association_scan_scanfile'
     scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
@@ -129,7 +257,7 @@ class ScanFile(Base):
     __tablename__ = "scan_file"
     sha256 = Column(LargeBinary(32), primary_key=True)
     args = Column(Text)
-    scaninfo = Column(postgresql.JSONB)
+    scaninfo = Column(SQLJSONB)
     scanner = Column(String(16))
     start = Column(DateTime)
     version = Column(String(16))
@@ -159,7 +287,7 @@ class Script(Base):
                   primary_key=True)
     name = Column(String(64), primary_key=True)
     output = Column(Text)
-    data = Column(postgresql.JSONB)
+    data = Column(SQLJSONB)
     __table_args__ = (
         Index('ix_script_data', 'data', postgresql_using='gin'),
         Index('ix_script_name', 'name'),
@@ -174,7 +302,7 @@ class Port(Base):
     protocol = Column(String(16))
     state = Column(String(32))
     state_reason = Column(String(32))
-    state_reason_ip = Column(postgresql.INET)
+    state_reason_ip = Column(SQLINET)
     state_reason_ttl = Column(Integer)
     service_name = Column(String(64))
     service_tunnel = Column(String(16))
@@ -195,7 +323,7 @@ class Hostname(Base):
     __tablename__ = "hostname"
     id = Column(Integer, primary_key=True)
     scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'))
-    domains = Column(ARRAY(String(255)), index=True)
+    domains = Column(SQLARRAY(String(255)), index=True)
     name = Column(String(255), index=True)
     type = Column(String(16), index=True)
     __table_args__ = (
@@ -228,11 +356,11 @@ class Hop(Base):
     id = Column(Integer, primary_key=True)
     trace = Column(Integer, ForeignKey('trace.id', ondelete='CASCADE'),
                    nullable=False)
-    ipaddr = Column(postgresql.INET)
+    ipaddr = Column(SQLINET)
     ttl = Column(Integer)
     rtt = Column(Float)
     host = Column(String(255), index=True)
-    domains = Column(ARRAY(String(255)), index=True)
+    domains = Column(SQLARRAY(String(255)), index=True)
     __table_args__ = (
         Index('ix_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
     )
@@ -241,9 +369,9 @@ class Hop(Base):
 class Scan(Base):
     __tablename__ = "scan"
     id = Column(Integer, primary_key=True)
-    addr = Column(postgresql.INET, nullable=False)
+    addr = Column(SQLINET, nullable=False)
     source = Column(String(32), nullable=False)
-    info = Column(postgresql.JSONB)
+    info = Column(SQLJSONB)
     time_start = Column(DateTime)
     time_stop = Column(DateTime)
     state = Column(String(32))
@@ -265,7 +393,7 @@ class Scan(Base):
 class Passive(Base):
     __tablename__ = "passive"
     id = Column(Integer, primary_key=True)
-    addr = Column(postgresql.INET)
+    addr = Column(SQLINET)
     sensor = Column(String(64))
     count = Column(Integer)
     firstseen = Column(DateTime)
@@ -276,8 +404,8 @@ class Passive(Base):
     targetval = Column(Text)
     value = Column(Text)
     fullvalue = Column(Text)
-    info = Column(postgresql.JSONB)
-    moreinfo = Column(postgresql.JSONB)
+    info = Column(SQLJSONB)
+    moreinfo = Column(SQLJSONB)
     # moreinfo and fullvalue contain data that are not tested for
     # unicity on insertion (the unicity is guaranteed by the value)
     # for performance reasons
