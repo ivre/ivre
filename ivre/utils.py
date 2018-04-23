@@ -860,6 +860,7 @@ def _read_nmap_probes():
                 except UnicodeDecodeError:
                     value = repr(value)
             info[key] = (value, flag)
+            data = data.lstrip(b' ')
         _NMAP_CUR_PROBE.append((service.decode(), info))
     try:
         with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes'),
