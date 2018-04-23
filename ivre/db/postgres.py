@@ -1687,6 +1687,8 @@ performances).
         failed = 0
         if (version or 0) < 9:
             failed += self.__migrate_schema_8_9()
+        if (version or 0) < 10:
+            failed += self.__migrate_schema_9_10()
         return failed
 
     def __migrate_schema_8_9(self):
@@ -1720,8 +1722,41 @@ structured output for http-headers script.
                         )
         self.db.execute(
             update(Scan)
-            .where(Scan.id.notin_(failed))
+            .where(and_(Scan.schema_version == 8, Scan.id.notin_(failed)))
             .values(schema_version=9)
+        )
+        return len(failed)
+
+    def __migrate_schema_9_10(self):
+        """Converts a record from version 8 to version 9. Version 10 changes
+the field names of the structured output for s7-info script.
+
+        """
+        failed = []
+        req = (select([Scan.id, Script.port, Script.output, Script.data])
+               .select_from(join(join(Scan, Port), Script))
+               .where(and_(Scan.schema_version == 9,
+                           Script.name == "s7-info")))
+        for rec in self.db.execute(req):
+            if 's7-info' in rec.data:
+                try:
+                    data = xmlnmap.change_s7_info_keys(rec.data['s7-info'])
+                except Exception:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id,
+                                         exc_info=True)
+                    failed.append(rec.id)
+                else:
+                    if data:
+                        self.db.execute(
+                            update(Script)
+                            .where(and_(Script.port == rec.port,
+                                        Script.name == "s7-info"))
+                            .values(data={"s7-info": data})
+                        )
+        self.db.execute(
+            update(Scan)
+            .where(and_(Scan.schema_version == 9, Scan.id.notin_(failed)))
+            .values(schema_version=10)
         )
         return len(failed)
 
