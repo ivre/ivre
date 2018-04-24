@@ -1929,25 +1929,36 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(ivre.utils.ports2nmapspec(ports), '1-6,80,110-111')
 
         # Nmap fingerprints
-        ivre.config.NMAP_SHARE_PATH = './share/nmap/'
-        ivre.utils.makedirs(ivre.config.NMAP_SHARE_PATH)
-        with open(os.path.join(ivre.config.NMAP_SHARE_PATH,
-                               'nmap-service-probes'), 'w') as fdesc:
-            fdesc.write(
-                "Probe TCP NULL q||\n"
-                "match test m|^test$|\n"
-                "softmatch softtest m|^softtest$|\n"
-            )
-        ## We need to have at least one "hard" and one soft match
-        self.assertTrue(any(
-            not fp[1]['soft'] for fp in
-            ivre.utils.get_nmap_svc_fp()['fp']
-        ))
-        self.assertTrue(any(
-            fp[1]['soft'] for fp in
-            ivre.utils.get_nmap_svc_fp()['fp']
-        ))
-        ivre.utils.cleandir(ivre.config.NMAP_SHARE_PATH)
+        match = ivre.utils.match_nmap_svc_fp(
+            b'SSH-2.0-OpenSSH_6.0p1 Debian-4+deb7u7\r\n'
+        )
+        self.assertEqual(match['service_name'], 'ssh')
+        self.assertEqual(match['service_extrainfo'], 'protocol 2.0')
+        self.assertEqual(match['service_ostype'], 'Linux')
+        self.assertEqual(match['service_product'], 'OpenSSH')
+        self.assertEqual(match['service_version'], '6.0p1 Debian 4+deb7u7')
+        match = ivre.utils.match_nmap_svc_fp(
+            b'HTTP/1.1 400 Bad Request\r\n'
+            b'Date: Sun, 22 Apr 2018 12:21:46 GMT\r\n'
+            b'Server: Apache/2.4.10 (Debian)\r\n'
+            b'Content-Length: 312\r\n'
+            b'Connection: close\r\n'
+            b'Content-Type: text/html; charset=iso-8859-1\r\n',
+            probe="GetRequest"
+        )
+        self.assertEqual(match['service_name'], 'http')
+        self.assertEqual(match['service_extrainfo'], '(Debian)')
+        self.assertEqual(match['service_product'], 'Apache httpd')
+        self.assertEqual(match['service_version'], '2.4.10')
+        match = ivre.utils.match_nmap_svc_fp(
+            b'220 localhost.localdomain ESMTP Server (Microsoft Exchange '
+            b'Internet Mail Service 5.5.2653.13) ready\n'
+        )
+        self.assertEqual(match['service_name'], 'smtp')
+        self.assertEqual(match['service_hostname'], 'localhost.localdomain')
+        self.assertEqual(match['service_ostype'], 'Windows')
+        self.assertEqual(match['service_product'], 'Microsoft Exchange smtpd')
+        self.assertEqual(match['service_version'], '5.5.2653.13')
 
         # Nmap (and Bro) encoding & decoding
         # >>> from random import randint
