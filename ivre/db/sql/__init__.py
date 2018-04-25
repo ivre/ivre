@@ -1595,7 +1595,7 @@ returns the first result, or None if no result exists."""
         method.
 
         """
-        if separated_timestamp:
+        if separated_timestamps:
             for ts, spec in specs:
                 self.insert_or_update(ts, spec, getinfos)
         else:
