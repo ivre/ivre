@@ -858,6 +858,7 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "vnc": "vnc",
     "imap": "imap",
     "pop": "pop3",
+    "smtp": "smtp",
     "s7comm": "iso-tsap",
 }
 
@@ -1318,6 +1319,9 @@ class NmapHandler(ContentHandler):
                                 'masscan'
                             ] = masscan_data
                         return
+                    if self._curport.get('service_name') in ['ftp', 'imap',
+                                                             'pop3', 'smtp']:
+                        raw_output = raw_output.split(b'\n', 1)[0]
                     match = utils.match_nmap_svc_fp(
                         output=raw_output,
                         proto=self._curport['protocol'],
