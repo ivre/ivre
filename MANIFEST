@@ -8,6 +8,7 @@ bro/ivre/__load__.bro
 bro/ivre/dhcp_names.bro
 bro/ivre/passiverecon/__load__.bro
 bro/ivre/passiverecon/bare.bro
+data/.empty
 data/ike-vendor-ids
 data/honeyd/sshd
 doc/AGENT.md
