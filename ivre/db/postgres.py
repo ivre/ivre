@@ -2298,6 +2298,14 @@ the field names of the structured output for s7-info script.
                      Script.data['modbus-discover'].has_key(subfield)),
                 # noqa: W601 (BinaryExpression)
             )
+        elif field.startswith('s7.'):
+            subfield = field[3:]
+            field = self._topstructure(
+                Script, [Script.data['s7-info'][subfield]],
+                and_(Script.name == 's7-info',
+                     Script.data['s7-info'].has_key(subfield)),
+                # noqa: W601 (BinaryExpression)
+            )
         elif field == 'httphdr':
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             field = self._topstructure(
