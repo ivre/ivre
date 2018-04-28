@@ -1234,6 +1234,9 @@ which `predicate()` is True, given `webflt`.
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
              "--distinct", "hostnames.name"]
         )
+        self.check_top_value("nmap_top_s7_module_name", "s7.module_name")
+        self.check_top_value("nmap_top_s7_plant", "s7.plant")
+        self.check_top_value("nmap_top_isotsap_product", "product:iso-tsap")
         self._check_top_value_cli("nmap_top_filename", "file")
         self._check_top_value_cli("nmap_top_filename", "file.filename")
         self._check_top_value_cli("nmap_top_anonftp_filename", "file:ftp-anon")
