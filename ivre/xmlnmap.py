@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the parser for nmap's XML output files.
 
@@ -30,6 +30,7 @@ import datetime
 import hashlib
 import os
 import re
+import struct
 import sys
 from xml.sax.handler import ContentHandler, EntityResolver
 
@@ -43,7 +44,7 @@ from ivre import utils
 from ivre.analyzer import ike
 
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -571,6 +572,14 @@ ADD_TABLE_ELEMS = {
 }
 
 
+def change_s7_info_keys(table):
+    """Change key names in s7-info structured output"""
+    for key in list(table or []):
+        if key in NMAP_S7_INDEXES:
+            table[NMAP_S7_INDEXES[key]] = table.pop(key)
+    return table
+
+
 def change_smb_enum_shares(table):
     """Adapt structured data from script smb-enum-shares so that it is
     easy to query when inserted in DB.
@@ -582,10 +591,9 @@ def change_smb_enum_shares(table):
     for field in ["account_used", "note"]:
         if field in table:
             result[field] = table.pop(field)
-    result["shares"] = []
-    for key, value in viewitems(table):
-        value.update({"Share": key})
-        result["shares"].append(value)
+    result["shares"] = [
+        dict(value, Share=key) for key, value in viewitems(table)
+    ]
     return result
 
 
@@ -612,6 +620,7 @@ def change_vulns(table):
 
 CHANGE_TABLE_ELEMS = {
     'smb-enum-shares': change_smb_enum_shares,
+    "s7-info": change_s7_info_keys,
     'ls': change_ls,
     'vulns': change_vulns,
 }
@@ -785,6 +794,43 @@ IGNORE_SCRIPT_OUTPUTS_REGEXP = set([
     re.compile('^ *(SMB|ERROR):.*TIMEOUT', re.MULTILINE)
 ])
 
+MASSCAN_S7_INDEXES = {
+    0x11: {
+        1: "module",  # "Module"
+        6: "hardware",  # "Basic Hardware"
+        7: "firmware",  # "Basic Firmware"
+        0x81: "vipa_firmware",  # "Identification data of the VIPA Firmware"
+        0x82: "svn_cpu",  # "Identification of the SVN version CPU"
+        # 0x83: "Identification of the version CP",
+    },
+    0x1c: {
+        1: "system_name",  # "Name of the PLC"
+        2: "module_name",  # "Name of the module"
+        3: "plant",  # "Plant identification"
+        4: "copyright",  # "Copyright"
+        5: "module_sn",  # "Serial number of module"
+        6: "reserved",  # "Reserved for operating system"
+        7: "module_type",  # "Module type name"
+        8: "memory_card_sn",  # "Serial number of memory card"
+        # 9: "Manufacturer and profile of a CPU module",
+        # 10: "OEM ID of a module",
+        11: "location",  #  "Location designation of a module"
+    },
+}
+
+NMAP_S7_INDEXES = {
+        # 0x11
+        "Module": MASSCAN_S7_INDEXES[0x11][1],
+        "Basic Hardware": MASSCAN_S7_INDEXES[0x11][6],
+        "Version": "version",
+        # 0x1c
+        "System Name": MASSCAN_S7_INDEXES[0x1c][1],
+        "Module Type": MASSCAN_S7_INDEXES[0x1c][2],
+        "Serial Number": MASSCAN_S7_INDEXES[0x1c][5],
+        "Plant Identification": MASSCAN_S7_INDEXES[0x1c][3],
+        "Copyright": MASSCAN_S7_INDEXES[0x1c][4],
+}
+
 MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "http": "http-headers",
     "title": "http-title",
@@ -794,7 +840,8 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "vnc": "banner",
     "imap": "banner",
     "pop": "banner",
-    "X509": "ssl-cert"
+    "X509": "ssl-cert",
+    "s7comm": "s7-info",
 }
 
 MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
@@ -811,6 +858,8 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "vnc": "vnc",
     "imap": "imap",
     "pop": "pop3",
+    "smtp": "smtp",
+    "s7comm": "iso-tsap",
 }
 
 
@@ -825,6 +874,131 @@ def _masscan_decode_print(match):
 
 def _masscan_decode_raw(match):
     return utils.decode_hex(match.groups()[0])
+
+
+def masscan_parse_s7info(data):
+    fulldata = data
+    output_data = {}
+    output_text = [""]
+    state = 0
+    service_info = {
+        'service_name': 'iso-tsap',
+        'service_devicetype': 'specialized',
+    }
+    while data:
+        if data[:1] != b"\x03":
+            utils.LOGGER.warning(
+                "Masscan s7-info: invalid data [%r]",
+                data
+            )
+            return
+        length = struct.unpack(">H", data[2:4])[0]
+        curdata, data = data[4:length], data[length:]
+        if len(curdata) < length - 4:
+            utils.LOGGER.warning(
+                "Masscan s7-info: record too short [%r] length %d, should be "
+                "%d", curdata, len(curdata), length - 4
+            )
+        datatype = curdata[1:2]
+        if state == 0:  # Connect Confirm
+            if datatype == b"\xd0":  # OK
+                state += 1
+                continue
+            utils.LOGGER.warning(
+                "Masscan s7-info: invalid data type in Connect Confirm "
+                "[%r]",
+                curdata,
+            )
+            return
+        if datatype != b"\xf0":
+            utils.LOGGER.warning(
+                "Masscan s7-info: invalid data type [%r]", curdata,
+            )
+            return
+        if curdata[3:4] != b"2":
+            utils.LOGGER.warning(
+                "Masscan s7-info: invalid magic [%r]", curdata,
+            )
+            return
+        if state == 1:  # ROSCTR setup response
+            state += 1
+            continue
+        # state in [2, 3]: first or second SZL request response
+        state += 1
+        try:
+            hdrlen = struct.unpack('>H', curdata[9:11])[0]
+            szl_id, reclen = struct.unpack('>H2xH',
+                                           curdata[17 + hdrlen:23 + hdrlen])
+        except struct.error:
+            utils.LOGGER.warning("Not enough data to parse [%r]", curdata)
+            continue
+        if reclen not in [28, 34]:
+            utils.LOGGER.info(
+                'STRANGE LEN szl_id=%04x, reclen=%d [%r] [%r]', szl_id, reclen,
+                curdata, fulldata
+            )
+        if szl_id not in [0x11, 0x1c]:
+            utils.LOGGER.warning("Do not know how to parse szl_id %04x [%r]",
+                                 szl_id, curdata)
+            continue
+        values = []
+        curdata = curdata[25 + hdrlen:]
+        curdata_len = min(reclen, len(curdata))
+        while curdata_len > 2:
+            if curdata_len < reclen:
+                utils.LOGGER.warning(
+                    'Masscan s7-info: record too short at szl_id=%04x [%r], '
+                    'length %d, should be %d',
+                    szl_id, curdata[:reclen], curdata_len, reclen,
+                )
+            curvalues = struct.unpack(
+                '>H%ds%dB' % (min(curdata_len - 2, reclen - 8),
+                              max(curdata_len - reclen + 6, 0)),
+                curdata[:reclen],
+            )
+            utils.LOGGER.debug(
+                'Masscan s7-info: szl_id=%04x index=%04x values=%r',
+                szl_id, curvalues[0], curvalues[1:],
+            )
+            values.append(curvalues[:2])
+            curdata = curdata[reclen:]
+            curdata_len = min(reclen, len(curdata))
+        indexes = MASSCAN_S7_INDEXES.get(szl_id, {})
+        for index, value in values:
+            try:
+                key = indexes[index]
+            except KeyError:
+                utils.LOGGER.info(
+                    "Masscan s7-info: cannot find key "
+                    "(szl_id=%04x, index=%04x, value=%r)",
+                    szl_id, index, value
+                )
+                key = "UNK-%04x-%04x" % (szl_id, index)
+            value = value.rstrip(b" \x00")
+            try:
+                value = value.decode()
+            except UnicodeDecodeError:
+                utils.LOGGER.info(
+                    "Masscan s7-info: cannot decode value "
+                    "(szl_id=%04x, index=%04x, key=%s, value=%r). "
+                    "Using latin-1.",
+                    szl_id, index, key, value
+                )
+                value = value.decode('latin-1')
+            else:
+                output_data[key] = value
+                output_text.append("  %s: %s" % (key, value))
+    if output_data.get('system_name') == 'Technodrome':
+        service_info = {'service_name': 'honeypot',
+                        'service_product': 'MushMush Conpot'}
+    else:
+        product = {
+            'Original Siemens Equipment': 'Siemens S7 PLC',
+            'Original INSEVIS equipment': 'Insevis S7 PLC',
+        }.get(output_data.get('copyright'))
+        if product:
+            service_info['service_product'] = product
+    return service_info, output_text, output_data
 
 
 def masscan_x509(output):
@@ -1145,6 +1319,9 @@ class NmapHandler(ContentHandler):
                                 'masscan'
                             ] = masscan_data
                         return
+                    if self._curport.get('service_name') in ['ftp', 'imap',
+                                                             'pop3', 'smtp']:
+                        raw_output = raw_output.split(b'\n', 1)[0]
                     match = utils.match_nmap_svc_fp(
                         output=raw_output,
                         proto=self._curport['protocol'],
@@ -1417,11 +1594,27 @@ class NmapHandler(ContentHandler):
         try:
             function = {
                 "http-headers": self.masscan_post_http,
+                "s7-info": self.masscan_post_s7info,
             }[script['id']]
         except KeyError:
             pass
         else:
             return function(script)
+
+    def masscan_post_s7info(self, script):
+        try:
+            data = self._from_binary(script['masscan']['raw'])
+        except KeyError:
+            return
+        try:
+            service_info, output_text, output_data = masscan_parse_s7info(data)
+        except TypeError:
+            script["id"] = "banner"
+            return
+        self._curport.update(service_info)
+        if output_data:
+            script["output"] = "\n".join(output_text)
+            script[script["id"]] = output_data
 
     def masscan_post_http(self, script):
         header = re.search(
@@ -1440,6 +1633,7 @@ class NmapHandler(ContentHandler):
                 "raw": self._to_binary(header),
             },
         })
+        # XXX use fingerprints
         self._curport['service_product'] = utils.nmap_encode_data(header)
 
     def _add_cpe_to_host(self):

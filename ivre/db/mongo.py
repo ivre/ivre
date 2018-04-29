@@ -587,6 +587,7 @@ class MongoDBNmap(MongoDB, DBNmap):
                 6: (7, self.migrate_schema_hosts_6_7),
                 7: (8, self.migrate_schema_hosts_7_8),
                 8: (9, self.migrate_schema_hosts_8_9),
+                9: (10, self.migrate_schema_hosts_9_10),
             },
         }
         self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
@@ -911,6 +912,25 @@ creates the default indexes."""
                         if data is not None:
                             script['http-headers'] = data
                             updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_9_10(doc):
+        """Converts a record from version 8 to version 9. Version 10 changes
+the field names of the structured output for s7-info script.
+
+        """
+        assert doc["schema_version"] == 9
+        update = {"$set": {"schema_version": 10}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "s7-info":
+                    if 's7-info' in script:
+                        xmlnmap.change_s7_info_keys(script['s7-info'])
+                        updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update

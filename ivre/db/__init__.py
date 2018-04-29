@@ -281,6 +281,7 @@ class DBNmap(DB):
                 6: (7, self.__migrate_schema_hosts_6_7),
                 7: (8, self.__migrate_schema_hosts_7_8),
                 8: (9, self.__migrate_schema_hosts_8_9),
+                9: (10, self.__migrate_schema_hosts_9_10),
             },
         }
         try:
@@ -713,6 +714,20 @@ insert structures.
                         data = xmlnmap.add_http_headers_data(script)
                         if data is not None:
                             script['http-headers'] = data
+
+    @staticmethod
+    def __migrate_schema_hosts_9_10(doc):
+        """Converts a record from version 9 to version 10. Version 10 changes
+the field names of the structured output for s7-info script.
+
+        """
+        assert doc["schema_version"] == 9
+        doc["schema_version"] = 10
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "s7-info":
+                    if 's7-info' in script:
+                        xmlnmap.change_s7_info_keys(script['s7-info'])
 
     @staticmethod
     def json2dbrec(host):

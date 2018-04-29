@@ -594,9 +594,29 @@ var HELP_TOPVALUES = {
 	    "content": "source",
 	    "title": "<b>(!)</b>source"
 	},
-	"s7.Module Type": {
-	    "content": "s7.Module Type",
-	    "title": "<b>(!)</b>s7.Module Type"
+	"s7.module": {
+	    "content": "s7.module",
+	    "title": "<b>(!)</b>s7.module"
+	},
+	"s7.version": {
+	    "content": "s7.version",
+	    "title": "<b>(!)</b>s7.version"
+	},
+	"s7.system_name": {
+	    "content": "s7.system_name",
+	    "title": "<b>(!)</b>s7.system_name"
+	},
+	"s7.module_name": {
+	    "content": "s7.module_name",
+	    "title": "<b>(!)</b>s7.module_name"
+	},
+	"s7.plant": {
+	    "content": "s7.plant",
+	    "title": "<b>(!)</b>s7.plant"
+	},
+	"s7.copyright": {
+	    "content": "s7.copyright",
+	    "title": "<b>(!)</b>s7.copyright"
 	},
 	"version": {
 	    "content": "version",
@@ -613,10 +633,6 @@ var HELP_TOPVALUES = {
 	"product:": {
 	    "content": "product:",
 	    "title": "<b>(!)</b>product:"
-	},
-	"s7.Module": {
-	    "content": "s7.Module",
-	    "title": "<b>(!)</b>s7.Module"
 	},
 	"countports:open": {
 	    "content": "countports:open",
@@ -665,10 +681,6 @@ var HELP_TOPVALUES = {
 	"port:open": {
 	    "content": "port:open",
 	    "title": "<b>(!)</b>port:open"
-	},
-	"s7.Version": {
-	    "content": "s7.Version",
-	    "title": "<b>(!)</b>s7.Version"
 	},
 	"enip.devtype": {
 	    "content": "enip.devtype",
