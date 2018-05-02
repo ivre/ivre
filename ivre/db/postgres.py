@@ -2228,6 +2228,13 @@ the field names of the structured output for s7-info script.
                                            Script.name == info)
             else:
                 field = self._topstructure(Script, [Script.name])
+        elif field.startswith('cert.'):
+            subfield = field[5:]
+            field = self._topstructure(
+                Script, [Script.data['ssl-cert'][subfield]],
+                and_(Script.name == 'ssl-cert',
+                     Script.data['ssl-cert'].has_key(subfield))
+            )  # noqa: W601 (BinaryExpression)
         elif field in ["category", "categories"]:
             field = self._topstructure(Category, [Category.name])
         elif field == "source":
