@@ -370,8 +370,11 @@ class IvreTests(unittest.TestCase):
 
     def check_top_value(self, name, field, count=10):
         for method in ['api', 'cli', 'cgi']:
+            specific_name = "%s_%s" % (name, method)
+            if name in self.results and specific_name not in self.results:
+                specific_name = name
             getattr(self, "_check_top_value_%s" % method)(
-                "%s_%s" % (name, method), field, count=count,
+                specific_name, field, count=count,
             )
 
     def check_count_value_api(self, name_or_value, flt):
