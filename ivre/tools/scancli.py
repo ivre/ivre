@@ -18,6 +18,7 @@
 
 
 from __future__ import print_function
+import json
 import os
 from xml.sax import saxutils
 try:
@@ -515,11 +516,19 @@ def main():
                             if elt else "None"
                             for elt in entry['_id']
                         )
+                    elif isinstance(entry['_id'][0], dict):
+                        entry['_id'] = sep.join(
+                            json.dumps(elt, default=utils.serialize)
+                            for elt in entry['_id']
+                        )
                     else:
                         entry['_id'] = sep.join(str(elt)
                                                 for elt in entry['_id'])
                 else:
                     entry['_id'] = "None"
+            elif isinstance(entry['_id'], dict):
+                entry['_id'] = json.dumps(entry['_id'],
+                                          default=utils.serialize)
             print("%(_id)s: %(count)d" % entry)
         sys.exit(0)
     if args.sort is not None:
@@ -538,7 +547,6 @@ def main():
             out.write(str(val) + '\n')
         sys.exit(0)
     if args.json:
-        import json
 
         def displayfunction(x):
             if os.isatty(sys.stdout.fileno()):
