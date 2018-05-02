@@ -344,8 +344,15 @@ class IvreTests(unittest.TestCase):
         for line in out.decode().split('\n'):
             if not line:
                 continue
-            line = line.split(": ", 1)
-            listval.append({'_id': line[0], 'count': int(line[1])})
+            value, count = line.rsplit(": ", 1)
+            for function in [int, float, json.loads]:
+                try:
+                    value = function(value)
+                except ValueError:
+                    continue
+                else:
+                    break
+            listval.append({'_id': value, 'count': int(count)})
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
@@ -1237,6 +1244,8 @@ which `predicate()` is True, given `webflt`.
         self.check_top_value("nmap_top_s7_module_name", "s7.module_name")
         self.check_top_value("nmap_top_s7_plant", "s7.plant")
         self.check_top_value("nmap_top_isotsap_product", "product:iso-tsap")
+        self.check_top_value("nmap_top_cert_issuer", "cert.issuer")
+        self.check_top_value("nmap_top_cert_subject", "cert.subject")
         self._check_top_value_cli("nmap_top_filename", "file")
         self._check_top_value_cli("nmap_top_filename", "file.filename")
         self._check_top_value_cli("nmap_top_anonftp_filename", "file:ftp-anon")
