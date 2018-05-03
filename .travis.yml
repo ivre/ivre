@@ -106,7 +106,7 @@ before_script:
   - export BRO_SAMPLES=`pwd`/usr/local/bro/testing
   - ivre --version; echo; bro --version
 
-script: (test "$TRAVIS_PYTHON_VERSION" = 2.6 || (flake8 setup.py && flake8 bin/ivre && flake8 ivre/ --ignore=E266,E731 && echo "flake8 OK (except E266,E731)")) && cd tests/ && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report
+script: (test "$TRAVIS_PYTHON_VERSION" = 2.6 || (flake8 setup.py && flake8 bin/ivre && flake8 ivre/ --ignore=E266,E731,W504 && echo "flake8 OK (except E266,E731,W504)")) && cd tests/ && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report
 
 after_success:
   - codecov
