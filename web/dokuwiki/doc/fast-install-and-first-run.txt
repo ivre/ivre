@@ -10,7 +10,7 @@ You might also want to adapt it to your needs, architecture, etc.
 
 <code>
 $ sudo apt-get -y install mongodb python-pymongo python-crypto \
->   python-bottle apache2 libapache2-mod-wsgi dokuwiki
+>   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
 $ git clone https://github.com/cea-sec/ivre
 $ cd ivre
 $ python setup.py build

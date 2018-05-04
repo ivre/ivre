@@ -814,21 +814,21 @@ MASSCAN_S7_INDEXES = {
         8: "memory_card_sn",  # "Serial number of memory card"
         # 9: "Manufacturer and profile of a CPU module",
         # 10: "OEM ID of a module",
-        11: "location",  #  "Location designation of a module"
+        11: "location",  # "Location designation of a module"
     },
 }
 
 NMAP_S7_INDEXES = {
-        # 0x11
-        "Module": MASSCAN_S7_INDEXES[0x11][1],
-        "Basic Hardware": MASSCAN_S7_INDEXES[0x11][6],
-        "Version": "version",
-        # 0x1c
-        "System Name": MASSCAN_S7_INDEXES[0x1c][1],
-        "Module Type": MASSCAN_S7_INDEXES[0x1c][2],
-        "Serial Number": MASSCAN_S7_INDEXES[0x1c][5],
-        "Plant Identification": MASSCAN_S7_INDEXES[0x1c][3],
-        "Copyright": MASSCAN_S7_INDEXES[0x1c][4],
+    # 0x11
+    "Module": MASSCAN_S7_INDEXES[0x11][1],
+    "Basic Hardware": MASSCAN_S7_INDEXES[0x11][6],
+    "Version": "version",
+    # 0x1c
+    "System Name": MASSCAN_S7_INDEXES[0x1c][1],
+    "Module Type": MASSCAN_S7_INDEXES[0x1c][2],
+    "Serial Number": MASSCAN_S7_INDEXES[0x1c][5],
+    "Plant Identification": MASSCAN_S7_INDEXES[0x1c][3],
+    "Copyright": MASSCAN_S7_INDEXES[0x1c][4],
 }
 
 MASSCAN_SERVICES_NMAP_SCRIPTS = {

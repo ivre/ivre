@@ -29,7 +29,7 @@ from ivre.parser import Parser
 from ivre.utils import LOGGER, decode_hex
 
 
-CONTAINER_TYPE = re.compile(b"^(table|set|vector)\[([a-z]+)\]$")
+CONTAINER_TYPE = re.compile(b"^(table|set|vector)\\[([a-z]+)\\]$")
 
 
 class BroFile(Parser):
