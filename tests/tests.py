@@ -1586,6 +1586,70 @@ which `predicate()` is True, given `webflt`.
             )
             self.check_value("passive_%sauth_count" % auth_type, count)
 
+        for service in ['ssh', 'imap', 'http']:
+            flt = ivre.db.db.passive.searchservice(service)
+            count = ivre.db.db.passive.count(flt)
+            self.check_value("passive_count_%s" % service, count)
+            for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['infos']['service_name'] == service)
+
+        for service, port in [('ssh', 22), ('ssh', 23), ('imap', 143),
+                              ('imap', 110)]:
+            flt = ivre.db.db.passive.searchservice(service)
+            count = ivre.db.db.passive.count(flt)
+            self.check_value("passive_count_%s_port_%d" % (service, port),
+                             count)
+            for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['infos']['service_name'] == service)
+
+        for service, product in [('ssh', 'Cisco SSH'),
+                                 ('http', 'Apache httpd'),
+                                 ('imap', 'Microsoft Exchange imapd')]:
+            flt = ivre.db.db.passive.searchproduct(product, service=service)
+            count = ivre.db.db.passive.count(flt)
+            self.check_value(
+                "passive_count_%s_%s" % (service, product.replace(' ', '')),
+                count,
+            )
+            for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['infos']['service_name'] == service)
+                self.assertTrue(res['infos']['service_product'] == product)
+
+        for service, product, version in [
+                ('ssh', 'Cisco SSH', "1.25"),
+                ('ssh', 'OpenSSH', '3.1p1')
+        ]:
+            flt = ivre.db.db.passive.searchproduct(product, service=service,
+                                                   version=version)
+            count = ivre.db.db.passive.count(flt)
+            self.check_value(
+                "passive_count_%s_%s_%s" % (service, product.replace(' ', ''),
+                                            version.replace('.', '_')),
+                count,
+            )
+            for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['infos']['service_name'] == service)
+                self.assertTrue(res['infos']['service_product'] == product)
+                self.assertTrue(res['infos']['service_version'] == version)
+
+        for service, product, port in [
+                ('ssh', 'Cisco SSH', 22),
+                ('ssh', 'OpenSSH', 22)
+        ]:
+            flt = ivre.db.db.passive.searchproduct(product, service=service,
+                                                   port=port)
+            count = ivre.db.db.passive.count(flt)
+            self.check_value(
+                "passive_count_%s_%s_port_%d" % (service,
+                                                 product.replace(' ', ''),
+                                                 port),
+                count,
+            )
+            for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['port'] == port)
+                self.assertTrue(res['infos']['service_name'] == service)
+                self.assertTrue(res['infos']['service_product'] == product)
+
         # Top values
         for distinct in [True, False]:
             values = next(ivre.db.db.passive.topvalues(field="addr",

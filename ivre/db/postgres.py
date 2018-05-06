@@ -2948,6 +2948,11 @@ class PostgresDBPassive(PostgresDB, DBPassive):
         "infos.domaintarget": Passive.moreinfo.op('->>')('domaintarget'),
         "infos.username": Passive.moreinfo.op('->>')('username'),
         "infos.password": Passive.moreinfo.op('->>')('password'),
+        "infos.service_name": Passive.moreinfo.op('->>')('service_name'),
+        "infos.service_ostype": Passive.moreinfo.op('->>')('service_ostype'),
+        "infos.service_product": Passive.moreinfo.op('->>')('service_product'),
+        "infos.service_version": Passive.moreinfo.op('->>')('service_version'),
+        "infos.service_extrainfo": Passive.moreinfo.op('->>')('service_extrainfo'),
         "port": Passive.port,
         "recontype": Passive.recontype,
         "source": Passive.source,
@@ -3415,6 +3420,51 @@ passive table."""
         return PassiveFilter(
             main=(cls._searchstring_re(Passive.sensor, sensor, neg=neg)),
         )
+
+    @classmethod
+    def searchservice(cls, srv, port=None, protocol=None):
+        """Search a port with a particular service."""
+        flt = [cls._searchstring_re(Passive.moreinfo.op('->>')('service_name'),
+                                    srv)]
+        if port is not None:
+            flt.append(Passive.port == port)
+        if protocol is not None:
+            if protocol != 'tcp':
+                raise ValueError("Protocols other than TCP are not supported "
+                                 "in passive")
+        return PassiveFilter(main=and_(*flt))
+
+    @classmethod
+    def searchproduct(cls, product, version=None, service=None, port=None,
+                      protocol=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        flt = [
+            cls._searchstring_re(Passive.moreinfo.op('->>')('service_product'),
+                                 product)
+        ]
+        if version is not None:
+            flt.append(
+                cls._searchstring_re(
+                    Passive.moreinfo.op('->>')('service_version'), version,
+                )
+            )
+        if service is not None:
+            flt.append(
+                cls._searchstring_re(
+                    Passive.moreinfo.op('->>')('service_name'), service,
+                )
+            )
+        if port is not None:
+            flt.append(Passive.port == port)
+        if protocol is not None:
+            if protocol != 'tcp':
+                raise ValueError("Protocols other than TCP are not supported "
+                                 "in passive")
+        return PassiveFilter(main=and_(*flt))
 
     @staticmethod
     def searchtimeago(delta, neg=False, new=False):

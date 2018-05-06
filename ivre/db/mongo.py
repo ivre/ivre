@@ -2978,6 +2978,39 @@ setting values according to the keyword arguments.
         return {'sensor': sensor}
 
     @staticmethod
+    def searchservice(srv, port=None, protocol=None):
+        """Search a port with a particular service."""
+        flt = {'infos.service_name': srv}
+        if port is not None:
+            flt['port'] = port
+        if protocol is not None:
+            if protocol != 'tcp':
+                raise ValueError("Protocols other than TCP are not supported "
+                                 "in passive")
+        return flt
+
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None,
+                      protocol=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        flt = {'infos.service_product': product}
+        if version is not None:
+            flt['infos.service_version'] = version
+        if service is not None:
+            flt['infos.service_name'] = service
+        if port is not None:
+            flt['port'] = port
+        if protocol is not None:
+            if protocol != 'tcp':
+                raise ValueError("Protocols other than TCP are not supported "
+                                 "in passive")
+        return flt
+
+    @staticmethod
     def searchuseragent(useragent):
         return {
             'recontype': 'HTTP_CLIENT_HEADER',
