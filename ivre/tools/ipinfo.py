@@ -230,10 +230,15 @@ def main():
     global baseflt
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
-            description='Access and query the passive database.')
+            description='Access and query the passive database.',
+            parents=[db.passive.argparser],
+        )
     else:
         parser = optparse.OptionParser(
-            description='Access and query the passive database.')
+            description='Access and query the passive database.',
+        )
+        for args, kargs in db.passive.argparser.args:
+            parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
 
         def my_parse_args():
@@ -250,22 +255,6 @@ def main():
     parser.add_argument('--ensure-indexes', action='store_true',
                         help='Create missing indexes (will lock the '
                         'database).')
-    # filters
-    parser.add_argument('--sensor')
-    parser.add_argument('--country')
-    parser.add_argument('--asnum')
-    parser.add_argument('--torcert', action='store_true')
-    parser.add_argument('--dns')
-    parser.add_argument('--dnssub')
-    parser.add_argument('--cert')
-    parser.add_argument('--basicauth', action='store_true')
-    parser.add_argument('--auth', action='store_true')
-    parser.add_argument('--java', action='store_true')
-    parser.add_argument('--ua')
-    parser.add_argument('--ftp', action='store_true')
-    parser.add_argument('--pop', action='store_true')
-    parser.add_argument('--timeago', type=int)
-    parser.add_argument('--timeagonew', type=int)
     # display modes
     parser.add_argument('--short', action='store_true',
                         help='Output only IP addresses, one per line.')
@@ -292,6 +281,7 @@ def main():
                             help='Display results for specified IP addresses'
                             ' or ranges.')
     args = parser.parse_args()
+    baseflt = db.passive.parse_args(args, baseflt)
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -313,70 +303,6 @@ def main():
                 exit(0)
         db.passive.ensure_indexes()
         exit(0)
-    if args.sensor is not None:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchsensor(args.sensor)
-        )
-    if args.asnum is not None:
-        if args.asnum.startswith('!') or args.asnum.startswith('-'):
-            baseflt = db.passive.flt_and(
-                baseflt,
-                db.passive.searchasnum(int(args.asnum[1:]), neg=True)
-            )
-        else:
-            baseflt = db.passive.flt_and(
-                baseflt,
-                db.passive.searchasnum(int(args.asnum))
-            )
-    if args.country is not None:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchcountry(args.country)
-        )
-    if args.torcert:
-        baseflt = db.passive.flt_and(baseflt, db.passive.searchtorcert())
-    if args.basicauth:
-        baseflt = db.passive.flt_and(baseflt, db.passive.searchbasicauth())
-    if args.auth:
-        baseflt = db.passive.flt_and(baseflt, db.passive.searchhttpauth())
-    if args.ua is not None:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchuseragent(ivre.utils.str2regexp(args.ua))
-        )
-    if args.java:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchjavaua()
-        )
-    if args.ftp:
-        baseflt = db.passive.flt_and(baseflt, db.passive.searchftpauth())
-    if args.pop:
-        baseflt = db.passive.flt_and(baseflt, db.passive.searchpopauth())
-    if args.dns is not None:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchdns(
-                ivre.utils.str2regexp(args.dns),
-                subdomains=False))
-    if args.dnssub is not None:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchdns(
-                ivre.utils.str2regexp(args.dnssub),
-                subdomains=True))
-    if args.cert is not None:
-        baseflt = db.passive.flt_and(
-            baseflt,
-            db.passive.searchcertsubject(
-                ivre.utils.str2regexp(args.cert)))
-    if args.timeago is not None:
-        baseflt = db.passive.flt_and(db.passive.searchtimeago(args.timeago,
-                                                              new=False))
-    if args.timeagonew is not None:
-        baseflt = db.passive.flt_and(db.passive.searchtimeago(args.timeagonew,
-                                                              new=True))
     if args.short:
         disp_recs = disp_recs_short
     elif args.distinct is not None:

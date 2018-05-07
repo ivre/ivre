@@ -1622,8 +1622,8 @@ have no effect if it is not expected)."""
                                 values={'type': 'ssh-%s' % keytype})
 
     @staticmethod
-    def searchsvchostname(srv):
-        return {'ports.service_hostname': srv}
+    def searchsvchostname(hostname):
+        return {'ports.service_hostname': hostname}
 
     @staticmethod
     def searchwebmin():
@@ -2978,15 +2978,27 @@ setting values according to the keyword arguments.
         return {'sensor': sensor}
 
     @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        """Filters (if `neg` == True, filters out) records on the specified
+        protocol/port.
+
+        """
+        if protocol != 'tcp':
+            raise ValueError("Protocols other than TCP are not supported "
+                             "in passive")
+        if state != 'open':
+            raise ValueError("Only open ports can be found in passive")
+        return {'port': {'$ne': port} if neg else port}
+
+    @staticmethod
     def searchservice(srv, port=None, protocol=None):
         """Search a port with a particular service."""
         flt = {'infos.service_name': srv}
         if port is not None:
             flt['port'] = port
-        if protocol is not None:
-            if protocol != 'tcp':
-                raise ValueError("Protocols other than TCP are not supported "
-                                 "in passive")
+        if protocol is not None and protocol != 'tcp':
+            raise ValueError("Protocols other than TCP are not supported "
+                             "in passive")
         return flt
 
     @staticmethod
@@ -3009,6 +3021,10 @@ setting values according to the keyword arguments.
                 raise ValueError("Protocols other than TCP are not supported "
                                  "in passive")
         return flt
+
+    @staticmethod
+    def searchsvchostname(hostname):
+        return {'infos.service_hostname': hostname}
 
     @staticmethod
     def searchuseragent(useragent):

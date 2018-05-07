@@ -599,8 +599,11 @@ class FakeArgparserParent(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, parents=None):
         self.args = []
+        if parents is not None:
+            for parent in parents:
+                self.args.extend(parent.args)
 
     def add_argument(self, *args, **kargs):
         """Stores parent's arguments for latter (manual)
