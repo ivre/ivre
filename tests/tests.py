@@ -1618,7 +1618,7 @@ which `predicate()` is True, given `webflt`.
             count1 = int(out)
             self.check_value("passive_count_%s_port_%d" % (service, port),
                              count1)
-            flt = ivre.db.db.passive.searchservice(service)
+            flt = ivre.db.db.passive.searchservice(service, port=port)
             count2 = ivre.db.db.passive.count(flt)
             self.assertEqual(count1, count2)
             for res in ivre.db.db.passive.get(flt):
