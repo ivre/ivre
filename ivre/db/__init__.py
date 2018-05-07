@@ -22,6 +22,12 @@ database backends.
 """
 
 
+try:
+    import argparse
+except ImportError:
+    USING_ARGPARSE = False
+else:
+    USING_ARGPARSE = True
 from functools import reduce
 import json
 import os
@@ -77,6 +83,62 @@ class DB(object):
 
     """
     globaldb = None
+
+    def __init__(self):
+        if USING_ARGPARSE:
+            self.argparser = argparse.ArgumentParser(add_help=False)
+        else:
+            self.argparser = utils.FakeArgparserParent()
+        self.argparser.add_argument(
+            '--country', metavar='CODE',
+            help='show only results from this country'
+        )
+        self.argparser.add_argument(
+            '--asnum', metavar='NUM[,NUM[...]]',
+            help='show only results from this(those) AS(es)'
+        )
+        self.argparser.add_argument('--port', metavar='PORT')
+        self.argparser.add_argument('--service', metavar='SVC')
+        self.argparser.add_argument('--svchostname', metavar='HOSTNAME')
+
+    def parse_args(self, args, flt=None):
+        if flt is None:
+            flt = self.flt_empty
+        if args.country is not None:
+            flt = self.flt_and(flt, self.searchcountry(
+                utils.str2list(args.country)
+            ))
+        if args.asnum is not None:
+            if args.asnum[:1] in '!-':
+                flt = self.flt_and(flt, self.searchasnum(
+                    utils.str2list(args.asnum[1:]), neg=True
+                ))
+            else:
+                flt = self.flt_and(flt, self.searchasnum(
+                    utils.str2list(args.asnum)
+                ))
+        if args.port is not None:
+            port = args.port.replace('_', '/')
+            if '/' in port:
+                proto, port = port.split('/', 1)
+            else:
+                proto = 'tcp'
+            port = int(port)
+            flt = self.flt_and(
+                flt,
+                self.searchport(port=port, protocol=proto)
+            )
+        if args.service is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchservice(utils.str2regexp(args.service)),
+            )
+        if args.svchostname is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchsvchostname(utils.str2regexp(args.svchostname))
+            )
+        return flt
 
     @staticmethod
     def to_binary(data):
@@ -265,6 +327,7 @@ class DB(object):
 
 class DBNmap(DB):
     def __init__(self, output_mode="json", output=sys.stdout):
+        super(DBNmap, self).__init__()
         self.content_handler = xmlnmap.Nmap2Txt
         self.output_function = {
             "normal": nmapout.displayhosts,
@@ -284,25 +347,14 @@ class DBNmap(DB):
                 9: (10, self.__migrate_schema_hosts_9_10),
             },
         }
-        try:
-            import argparse
-            self.argparser = argparse.ArgumentParser(add_help=False)
-            USING_ARGPARSE = True
-        except ImportError:
-            self.argparser = utils.FakeArgparserParent()
-            USING_ARGPARSE = False
         self.argparser.add_argument(
             '--category', metavar='CAT',
-            help='show only results from this category')
-        self.argparser.add_argument(
-            '--country', metavar='CODE',
-            help='show only results from this country')
-        self.argparser.add_argument(
-            '--asnum', metavar='NUM[,NUM[...]]',
-            help='show only results from this(those) AS(es)')
+            help='show only results from this category'
+        )
         self.argparser.add_argument(
             '--asname', metavar='NAME',
-            help='show only results from this(those) AS(es)')
+            help='show only results from this(those) AS(es)'
+        )
         self.argparser.add_argument('--source', metavar='SRC',
                                     help='show only results from this source')
         self.argparser.add_argument('--version', metavar="VERSION", type=int)
@@ -325,7 +377,6 @@ class DBNmap(DB):
         self.argparser.add_argument('--net', metavar='IP/MASK')
         self.argparser.add_argument('--range', metavar='IP', nargs=2)
         self.argparser.add_argument('--hop', metavar='IP')
-        self.argparser.add_argument('--port', metavar='PORT')
         self.argparser.add_argument('--not-port', metavar='PORT')
         self.argparser.add_argument('--openport', action='store_true')
         self.argparser.add_argument('--no-openport', action='store_true')
@@ -337,9 +388,7 @@ class DBNmap(DB):
                                     help='show only results with a number of '
                                     'open ports NOT within the provided range',
                                     nargs=2)
-        self.argparser.add_argument('--service', metavar='SVC')
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
-        self.argparser.add_argument('--svchostname')
         self.argparser.add_argument('--os')
         self.argparser.add_argument('--anonftp', action='store_true')
         self.argparser.add_argument('--anonldap', action='store_true')
@@ -941,17 +990,10 @@ the field names of the structured output for s7-info script.
         return cls.searchscript(name='smb-os-discovery', values=args)
 
     def parse_args(self, args, flt=None):
-        if flt is None:
-            flt = self.flt_empty
+        flt = super(DBNmap, self).parse_args(args, flt=flt)
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(
                 utils.str2list(args.category)))
-        if args.country is not None:
-            flt = self.flt_and(flt, self.searchcountry(
-                utils.str2list(args.country)))
-        if args.asnum is not None:
-            flt = self.flt_and(flt, self.searchasnum(
-                utils.str2list(args.asnum)))
         if args.asname is not None:
             flt = self.flt_and(flt, self.searchasname(
                 utils.str2regexp(args.asname)))
@@ -997,16 +1039,6 @@ the field names of the structured output for s7-info script.
             flt = self.flt_and(flt, self.searchrange(*args.range))
         if args.hop is not None:
             flt = self.flt_and(flt, self.searchhop(args.hop))
-        if args.port is not None:
-            port = args.port.replace('_', '/')
-            if '/' in port:
-                proto, port = port.split('/', 1)
-            else:
-                proto = 'tcp'
-            port = int(port)
-            flt = self.flt_and(
-                flt,
-                self.searchport(port=port, protocol=proto))
         if args.not_port is not None:
             not_port = args.not_port.replace('_', '/')
             if '/' in not_port:
@@ -1033,11 +1065,6 @@ the field names of the structured output for s7-info script.
                                self.searchcountopenports(minn=minn,
                                                          maxn=maxn,
                                                          neg=True))
-        if args.service is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchservice(utils.str2regexp(args.service)),
-            )
         if args.script is not None:
             if ':' in args.script:
                 name, output = (utils.str2regexp(string) for
@@ -1046,14 +1073,11 @@ the field names of the structured output for s7-info script.
                 name, output = utils.str2regexp(args.script), None
             flt = self.flt_and(flt, self.searchscript(name=name,
                                                       output=output))
-        if args.svchostname is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchsvchostname(utils.str2regexp(args.svchostname)))
         if args.os is not None:
             flt = self.flt_and(
                 flt,
-                self.searchos(utils.str2regexp(args.os)))
+                self.searchos(utils.str2regexp(args.os))
+            )
         if args.anonftp:
             flt = self.flt_and(flt, self.searchftpanon())
         if args.anonldap:
@@ -1104,6 +1128,70 @@ the field names of the structured output for s7-info script.
 
 
 class DBPassive(DB):
+
+    def __init__(self):
+        super(DBPassive, self).__init__()
+        self.argparser.add_argument('--sensor')
+        self.argparser.add_argument('--torcert', action='store_true')
+        self.argparser.add_argument('--dns')
+        self.argparser.add_argument('--dnssub')
+        self.argparser.add_argument('--cert')
+        self.argparser.add_argument('--basicauth', action='store_true')
+        self.argparser.add_argument('--auth', action='store_true')
+        self.argparser.add_argument('--java', action='store_true')
+        self.argparser.add_argument('--ua')
+        self.argparser.add_argument('--ftp', action='store_true')
+        self.argparser.add_argument('--pop', action='store_true')
+        self.argparser.add_argument('--timeago', type=int)
+        self.argparser.add_argument('--timeagonew', type=int)
+
+    def parse_args(self, args, flt=None):
+        flt = super(DBPassive, self).parse_args(args, flt=flt)
+        if args.sensor is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchsensor(args.sensor)
+            )
+        if args.torcert:
+            flt = self.flt_and(flt, self.searchtorcert())
+        if args.basicauth:
+            flt = self.flt_and(flt, self.searchbasicauth())
+        if args.auth:
+            flt = self.flt_and(flt, self.searchhttpauth())
+        if args.ua is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchuseragent(utils.str2regexp(args.ua))
+            )
+        if args.java:
+            flt = self.flt_and(
+                flt,
+                self.searchjavaua()
+            )
+        if args.ftp:
+            flt = self.flt_and(flt, self.searchftpauth())
+        if args.pop:
+            flt = self.flt_and(flt, self.searchpopauth())
+        if args.dns is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchdns(utils.str2regexp(args.dns), subdomains=False)
+            )
+        if args.dnssub is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchdns(utils.str2regexp(args.dnssub), subdomains=True)
+            )
+        if args.cert is not None:
+            flt = self.flt_and(
+                flt,
+                self.searchcertsubject(utils.str2regexp(args.cert)),
+            )
+        if args.timeago is not None:
+            flt = self.flt_and(self.searchtimeago(args.timeago, new=False))
+        if args.timeagonew is not None:
+            flt = self.flt_and(self.searchtimeago(args.timeagonew, new=True))
+        return flt
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
         raise NotImplementedError

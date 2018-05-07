@@ -1586,20 +1586,43 @@ which `predicate()` is True, given `webflt`.
             )
             self.check_value("passive_%sauth_count" % auth_type, count)
 
+        for port in [22, 143]:
+            res, out, _ = RUN(["ivre", "ipinfo", "--count", "--port",
+                               str(port)])
+            self.assertEqual(res, 0)
+            count1 = int(out)
+            self.check_value("passive_count_port_%d" % port, count1)
+            flt = ivre.db.db.passive.searchport(port)
+            count2 = ivre.db.db.passive.count(flt)
+            self.assertEqual(count1, count2)
+            for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['port'] == port)
+
         for service in ['ssh', 'imap', 'http']:
+            res, out, _ = RUN(["ivre", "ipinfo", "--count", "--service",
+                               service])
+            self.assertEqual(res, 0)
+            count1 = int(out)
+            self.check_value("passive_count_%s" % service, count1)
             flt = ivre.db.db.passive.searchservice(service)
-            count = ivre.db.db.passive.count(flt)
-            self.check_value("passive_count_%s" % service, count)
+            count2 = ivre.db.db.passive.count(flt)
+            self.assertEqual(count1, count2)
             for res in ivre.db.db.passive.get(flt):
                 self.assertTrue(res['infos']['service_name'] == service)
 
         for service, port in [('ssh', 22), ('ssh', 23), ('imap', 143),
                               ('imap', 110)]:
-            flt = ivre.db.db.passive.searchservice(service)
-            count = ivre.db.db.passive.count(flt)
+            res, out, _ = RUN(["ivre", "ipinfo", "--count", "--service",
+                               service, "--port", str(port)])
+            self.assertEqual(res, 0)
+            count1 = int(out)
             self.check_value("passive_count_%s_port_%d" % (service, port),
-                             count)
+                             count1)
+            flt = ivre.db.db.passive.searchservice(service)
+            count2 = ivre.db.db.passive.count(flt)
+            self.assertEqual(count1, count2)
             for res in ivre.db.db.passive.get(flt):
+                self.assertTrue(res['port'] == port)
                 self.assertTrue(res['infos']['service_name'] == service)
 
         for service, product in [('ssh', 'Cisco SSH'),

@@ -2706,9 +2706,11 @@ the field names of the structured output for s7-info script.
             )
         return cls.searchscript(name="ssh-hostkey")
 
-    @staticmethod
-    def searchsvchostname(srv):
-        return NmapFilter(port=[(True, Port.service_hostname == srv)])
+    @classmethod
+    def searchsvchostname(cls, hostname):
+        return NmapFilter(port=[(
+            True, cls._searchstring_re(Port.service_hostname, hostname)
+        )])
 
     @staticmethod
     def searchwebmin():
@@ -2952,7 +2954,9 @@ class PostgresDBPassive(PostgresDB, DBPassive):
         "infos.service_ostype": Passive.moreinfo.op('->>')('service_ostype'),
         "infos.service_product": Passive.moreinfo.op('->>')('service_product'),
         "infos.service_version": Passive.moreinfo.op('->>')('service_version'),
-        "infos.service_extrainfo": Passive.moreinfo.op('->>')('service_extrainfo'),
+        "infos.service_extrainfo": Passive.moreinfo.op('->>')(
+            'service_extrainfo'
+        ),
         "port": Passive.port,
         "recontype": Passive.recontype,
         "source": Passive.source,
@@ -3421,6 +3425,20 @@ passive table."""
             main=(cls._searchstring_re(Passive.sensor, sensor, neg=neg)),
         )
 
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        """Filters (if `neg` == True, filters out) records on the specified
+        protocol/port.
+
+        """
+        if protocol != 'tcp':
+            raise ValueError("Protocols other than TCP are not supported "
+                             "in passive")
+        if state != 'open':
+            raise ValueError("Only open ports can be found in passive")
+        return PassiveFilter(main=(Passive.port != port)
+                             if neg else (Passive.port == port))
+
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
         """Search a port with a particular service."""
@@ -3428,10 +3446,9 @@ passive table."""
                                     srv)]
         if port is not None:
             flt.append(Passive.port == port)
-        if protocol is not None:
-            if protocol != 'tcp':
-                raise ValueError("Protocols other than TCP are not supported "
-                                 "in passive")
+        if protocol is not None and protocol != 'tcp':
+            raise ValueError("Protocols other than TCP are not supported "
+                             "in passive")
         return PassiveFilter(main=and_(*flt))
 
     @classmethod
@@ -3465,6 +3482,17 @@ passive table."""
                 raise ValueError("Protocols other than TCP are not supported "
                                  "in passive")
         return PassiveFilter(main=and_(*flt))
+
+    @classmethod
+    def searchsvchostname(cls, hostname):
+        return PassiveFilter(
+            main=cls._searchstring_re(
+                Passive.moreinfo.op('->>')(
+                    'service_hostname'
+                ),
+                hostname,
+            )
+        )
 
     @staticmethod
     def searchtimeago(delta, neg=False, new=False):
