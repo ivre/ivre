@@ -126,7 +126,7 @@ TCP_SERVER_PATTERNS = [
     (re.compile(b'You are user number [0-9]+ of '),
      b'You are user number 1 of '),
     (re.compile(
-        b'(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-3]?[0-9] '
+        b'(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [ 0-3]?[0-9] '
         b'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '
         b'[12][0123456789]{3} [0-2][0-9]:[0-9][0-9]:[0-9][0-9]'
     ), b'Thu 1 Jan 1970 00:00:00'),
