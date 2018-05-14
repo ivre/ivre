@@ -244,13 +244,12 @@ def _prepare_rec(spec, ignorenets, neverignore):
             spec['version'] = version
     # TCP server banners: try to normalize data
     elif spec['recontype'] == 'TCP_SERVER_BANNER':
-        value = utils.nmap_decode_data(spec['value'])
-        newvalue = value
+        newvalue = value = utils.nmap_decode_data(spec['value'])
         for pattern, replace in TCP_SERVER_PATTERNS:
             if pattern.search(newvalue):
                 newvalue = pattern.sub(replace, newvalue)
         if newvalue != value:
-            spec['value'] = utils.nmap_encode_data(spec['value'])
+            spec['value'] = utils.nmap_encode_data(newvalue)
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
     # so, we replace the value with its SHA1 hash and store the
