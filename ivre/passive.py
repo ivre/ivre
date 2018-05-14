@@ -28,6 +28,7 @@ This sub-module contains functions used for passive recon.
 import hashlib
 import math
 import re
+import struct
 import subprocess
 import time
 
@@ -105,6 +106,71 @@ SYMANTEC_UA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
 DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
 
 
+def _fix_mysql_banner(match):
+    # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_handshake_v10.html
+    plugin_data_len = max(13, struct.unpack('B', match.group(3)[-1:])[0] - 8)
+    return (
+        match.group(1) + b'\x00\x00' +
+        b'\x00' +
+        b'\x0a' +
+        match.group(2) + b'\x00' +
+        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' +
+        match.group(3) +
+        match.group(4) +
+        b'\x00' * plugin_data_len +
+        match.group(5)[plugin_data_len:]
+    )
+
+
+TCP_SERVER_PATTERNS = [
+    (re.compile(b'You are user number [0-9]+ of '),
+     b'You are user number 1 of '),
+    (re.compile(
+        b'(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [0-3]?[0-9] '
+        b'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '
+        b'[12][0123456789]{3} [0-2][0-9]:[0-9][0-9]:[0-9][0-9]'
+    ), b'Thu 1 Jan 1970 00:00:00'),
+    (re.compile(b'Local time is now [0-2][0-9]:[0-9][0-9]'),
+     b'Local time is now 00:00'),
+    (re.compile(
+        # MySQL banner
+        # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_packets.html
+        b'^(.)\x00\x00'  # packet length
+        b'\x00'  # packet number
+        # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_connection_phase_packets_protocol_handshake_v10.html
+        b'\x0a'  # protocol
+        b'([3456]\\.[-_~\\.\\+\\w]+)\x00'  # version
+        # Thread ID (4) + auth-plugin-data-part-1 (8) + filler (\x00)
+        b'.{12}\x00'
+        # capabilities 1 (2) + language (1) + status (2) +
+        # capabilities 2 (2) + auth_plugin_data_len or 0 (1)
+        b'(.{8})'
+        b'(.{10})'  # reserved
+        b'(.*)',  # auth-plugin-data-part-2 + auth_plugin_name
+        re.DOTALL
+    ), _fix_mysql_banner),
+    # based on Nmap fingerprint
+    (re.compile(
+        b'^220 ([\\w._-]+) ESMTP '
+        b'[a-z]{0,2}[0-9]{1,3}((?:-v6)?)([a-z]{2})[0-9]+[a-z]{3}\\.[0-9]{1,3}'
+        b' - gsmtp'
+    ), b'220 \\1 ESMTP xx000\\2\\g<3>00000000xxx.000'),
+    # OVH
+    (re.compile(
+        b'220([ -][\\w._-]+) in[0-9]{1,2}($|[\\r\\n])'
+    ), b'220\\1 in00\\2'),
+    # Outlook
+    (re.compile(
+        b'^220 ([A-Z]{2})[0-9]([A-Z]{3,4})[0-9]{2}([A-Z]{2,3})[0-9]{3}\\.mail'
+        b'\\.protection\\.outlook\\.com '
+    ), b'220 \\g<1>0\\g<2>00\\g<3>000.mail.protection.outlook.com '),
+    # Yahoo
+    (re.compile(
+        b'220 mta[0-9]{4}\\.mail\\.([a-z0-9]+)\\.yahoo\\.com ESMTP ready'
+    ), b'220 mta0000.mail.\\1.yahoo.com ESMTP ready'),
+]
+
+
 def _split_digest_auth(data):
     """This function handles (Proxy-)Authorization: Digest values"""
     values = []
@@ -176,6 +242,15 @@ def _prepare_rec(spec, ignorenets, neverignore):
             pass
         if version:
             spec['version'] = version
+    # TCP server banners: try to normalize data
+    elif spec['recontype'] == 'TCP_SERVER_BANNER':
+        value = utils.nmap_decode_data(spec['value'])
+        newvalue = value
+        for pattern, replace in TCP_SERVER_PATTERNS:
+            if pattern.search(newvalue):
+                newvalue = pattern.sub(replace, newvalue)
+        if newvalue != value:
+            spec['value'] = utils.nmap_encode_data(spec['value'])
     # Finally we prepare the record to be stored. For that, we make
     # sure that no indexed value has a size greater than MAXVALLEN. If
     # so, we replace the value with its SHA1 hash and store the
