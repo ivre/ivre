@@ -477,8 +477,8 @@ class DBNmap(DB):
                     flt,
                     self.searchsource(host["source"]),
                 )
-            rec = self.get(flt)[0]
-        except IndexError:
+            rec = next(self.get(flt))
+        except StopIteration:
             # "Merge" mode but no record for that host, let's add
             # the result normally
             return False

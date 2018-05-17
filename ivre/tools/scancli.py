@@ -598,16 +598,7 @@ def main():
     elif args.nmap_xml:
         def displayfunction(x):
             display_xml_preamble(out=out)
-            if x.count() == 1 and not isinstance(x[0]['scanid'], list):
-                scan = db.db.nmap.getscan(x[0]['scanid'],
-                                          archive=args.archives)
-                if 'scaninfos' in scan and scan['scaninfos']:
-                    for k in scan['scaninfos'][0]:
-                        scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
-                    del scan['scaninfos']
-            else:
-                scan = {}
-            display_xml_scan(scan, out=out)
+            display_xml_scan({}, out=out)
             for h in x:
                 display_xml_host(h, out=out)
             display_xml_epilogue(out=out)

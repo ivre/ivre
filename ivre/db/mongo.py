@@ -1066,6 +1066,12 @@ have no effect if it is not expected)."""
         return False
 
     def store_host(self, host):
+        # keep location data in appropriate format for GEOSPHERE index
+        if 'coordinates' in host.get('infos', {}):
+            host['infos']['loc'] = {
+                "type": "Point",
+                "coordinates": host['infos'].pop('coordinates'),
+            }
         ident = self.db[self.colname_hosts].insert(host)
         utils.LOGGER.debug("HOST STORED: %r in %r", ident, self.colname_hosts)
         return ident
@@ -2819,8 +2825,8 @@ setting values according to the keyword arguments.
         if hint is not None:
             current.hint(hint)
         try:
-            current = current[0]
-        except IndexError:
+            current = next(current)
+        except StopIteration:
             current = None
         updatespec = {
             '$inc': {'count': 1},
