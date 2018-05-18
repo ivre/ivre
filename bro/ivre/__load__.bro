@@ -27,6 +27,7 @@
 
 @load policy/frameworks/software/windows-version-detection
 
+@load policy/protocols/dhcp/software
 @load policy/protocols/ftp/software
 @load policy/protocols/http/detect-webapps
 @load policy/protocols/http/software
@@ -53,6 +54,4 @@ export {
     redef Software::asset_tracking = ALL_HOSTS;
 }
 
-
-@load ./dhcp_names
 @load ./passiverecon
