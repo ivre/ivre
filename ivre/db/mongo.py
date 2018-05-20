@@ -1070,7 +1070,7 @@ have no effect if it is not expected)."""
         if 'coordinates' in host.get('infos', {}):
             host['infos']['loc'] = {
                 "type": "Point",
-                "coordinates": host['infos'].pop('coordinates'),
+                "coordinates": host['infos'].pop('coordinates')[::-1],
             }
         ident = self.db[self.colname_hosts].insert(host)
         utils.LOGGER.debug("HOST STORED: %r in %r", ident, self.colname_hosts)
