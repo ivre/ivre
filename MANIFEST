@@ -5,7 +5,6 @@ bash_completion/ivre
 bin/ivre
 bro/passiverecon2db-ignore.example
 bro/ivre/__load__.bro
-bro/ivre/dhcp_names.bro
 bro/ivre/passiverecon/__load__.bro
 bro/ivre/passiverecon/bare.bro
 data/.empty
