@@ -2076,6 +2076,17 @@ which `predicate()` is True, given `webflt`.
             raw_data,
         )
 
+        # get_addr_type()
+        self.assertEqual(ivre.utils.get_addr_type('0.123.45.67'), 'Current-Net')
+        self.assertIsNone(ivre.utils.get_addr_type('8.8.8.8'))
+        self.assertEqual(ivre.utils.get_addr_type('10.0.0.0'), 'Private')
+        self.assertIsNone(ivre.utils.get_addr_type('100.63.255.255'))
+        self.assertEqual(ivre.utils.get_addr_type('100.67.89.123'), 'CGN')
+        self.assertEqual(ivre.utils.get_addr_type('239.255.255.255'), 'Multicast')
+        self.assertEqual(ivre.utils.get_addr_type('240.0.0.0'), 'Reserved')
+        self.assertEqual(ivre.utils.get_addr_type('255.255.255.254'), 'Reserved')
+        self.assertEqual(ivre.utils.get_addr_type('255.255.255.255'), 'Broadcast')
+
         # Math utils
         # http://stackoverflow.com/a/15285588/3223422
         def is_prime(n):
@@ -2457,6 +2468,11 @@ if __name__ == '__main__':
         IvreTests.assertItemsEqual = IvreTests.assertCountEqual
     except AttributeError:
         pass
+    try:
+        IvreTests.assertIsNone
+    except AttributeError:
+        # Python 2.6
+        IvreTests.assertIsNone = lambda self, obj: self.assertTrue(obj is None)
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )
