@@ -25,6 +25,7 @@ sub-module or script.
 
 
 import ast
+from bisect import bisect_left
 import bz2
 import codecs
 import datetime
@@ -1103,3 +1104,63 @@ def parse_ssh_key(data):
         length = struct.unpack('>I', data[:4])[0]
         yield data[4:4 + length]
         data = data[4 + length:]
+
+
+_ADDR_TYPES = [
+    "Current-Net",
+    "Public",
+    "Private",
+    "Public",
+    "CGN",
+    "Public",
+    "Loopback",
+    "Public",
+    "Link-Local",
+    "Public",
+    "Private",
+    "Public",
+    "IPv6-to-IPv4",
+    "Public",
+    "Private",
+    "Public",
+    "Multicast",
+    "Reserved",
+    "Broadcast",
+]
+
+_ADDR_TYPES_LAST_IP = [
+    ip2int("0.255.255.255"),
+    ip2int("9.255.255.255"),
+    ip2int("10.255.255.255"),
+    ip2int("100.63.255.255"),
+    ip2int("100.127.255.255"),
+    ip2int("126.255.255.255"),
+    ip2int("127.255.255.255"),
+    ip2int("169.253.255.255"),
+    ip2int("169.254.255.255"),
+    ip2int("172.15.255.255"),
+    ip2int("172.31.255.255"),
+    ip2int("192.88.98.255"),
+    ip2int("192.88.99.255"),
+    ip2int("192.167.255.255"),
+    ip2int("192.168.255.255"),
+    ip2int("223.255.255.255"),
+    ip2int("239.255.255.255"),
+    ip2int("255.255.255.254"),
+    ip2int("255.255.255.255"),
+]
+
+
+def get_addr_type(addr):
+    """Returns the type (Public, Private, Loopback, etc.) of an IPv4
+    address.
+
+    TODO: implement IPv6
+
+    """
+    try:
+        addr = ip2int(addr)
+    except (TypeError, socket.error):
+            # FIXME no IPv6 support
+            return "Public"
+    return _ADDR_TYPES[bisect_left(_ADDR_TYPES_LAST_IP, addr)]
