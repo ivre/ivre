@@ -657,6 +657,10 @@ class PostgresDB(DB):
         self.create()
 
     @staticmethod
+    def convert_ip(addr):
+        return utils.force_int2ip(addr)
+
+    @staticmethod
     def to_binary(data):
         return utils.encode_b64(data).decode()
 

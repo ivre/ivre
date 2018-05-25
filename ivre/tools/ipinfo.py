@@ -41,7 +41,7 @@ from builtins import input
 
 
 from ivre.db import db
-import ivre.utils
+from ivre import utils
 
 
 def disp_rec(rec):
@@ -58,7 +58,7 @@ def disp_rec(rec):
     if 'value' in rec:
         if 'fullvalue' in rec:
             rec['value'] = rec['fullvalue']
-        print(ivre.utils.printable(rec['value']), end=' ')
+        print(utils.printable(rec['value']), end=' ')
     if 'version' in rec:
         print(rec['version'], end=' ')
     if 'signature' in rec:
@@ -105,7 +105,7 @@ def disp_recs_std(flt):
             if oa is not None:
                 print()
             oa = rec['addr']
-            print(db.passive.convert_ip(oa))
+            print(utils.force_int2ip(oa))
             c = db.data.infos_byip(oa)
             if c:
                 if 'country_code' in c:
@@ -137,7 +137,7 @@ def disp_recs_std(flt):
 
 def disp_recs_short(flt):
     for addr in db.passive.distinct('addr', flt=flt):
-        print(db.passive.convert_ip(addr))
+        print(utils.force_int2ip(addr))
 
 
 def disp_recs_distinct(field, flt):
@@ -155,7 +155,7 @@ def _disp_recs_tail(flt, field, n):
     recs.reverse()
     for r in recs:
         if 'addr' in r:
-            print(db.passive.convert_ip(r['addr']), end=' ')
+            print(utils.force_int2ip(r['addr']), end=' ')
         else:
             if 'fulltargetval' in r:
                 print(r['fulltargetval'], end=' ')
@@ -181,7 +181,7 @@ def _disp_recs_tailf(flt, field):
     r = {'firstseen': 0, 'lastseen': 0}
     for r in firstrecs:
         if 'addr' in r:
-            print(db.passive.convert_ip(r['addr']), end=' ')
+            print(utils.force_int2ip(r['addr']), end=' ')
         else:
             if 'fulltargetval' in r:
                 print(r['fulltargetval'], end=' ')
@@ -202,7 +202,7 @@ def _disp_recs_tailf(flt, field):
                     ),
                     sort=[(field, 1)]):
                 if 'addr' in r:
-                    print(db.passive.convert_ip(r['addr']), end=' ')
+                    print(utils.force_int2ip(r['addr']), end=' ')
                 else:
                     if 'fulltargetval' in r:
                         print(r['fulltargetval'], end=' ')
@@ -352,6 +352,6 @@ def main():
             flt = db.passive.flt_and(flt, db.passive.searchnet(a))
         else:
             if a.isdigit():
-                a = db.passive.convert_ip(int(a))
+                a = utils.force_int2ip(int(a))
             flt = db.passive.flt_and(flt, db.passive.searchhost(a))
         disp_recs(flt)
