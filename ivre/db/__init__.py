@@ -188,10 +188,11 @@ class DB(object):
 
     @staticmethod
     def convert_ip(addr):
-        try:
-            return utils.int2ip(addr)
-        except (TypeError, struct.error):
-            return addr
+        """Converts an IP address (given as either an integer or a string) to
+        the internal value used by the backend
+
+        """
+        raise NotImplementedError
 
     @staticmethod
     def searchversion(version):

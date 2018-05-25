@@ -33,8 +33,8 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
-import ivre.utils
 from ivre.db import db
+from ivre import utils
 
 
 IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
@@ -50,7 +50,7 @@ def disp_rec(r):
     if 'addr' in r and r['addr']:
         if r['source'].startswith('PTR-'):
             print('%s PTR %s (%s, %s time%s, %s - %s)' % (
-                db.passive.convert_ip(r['addr']),
+                utils.force_int2ip(r['addr']),
                 r['value'], r['source'][4:], r['count'],
                 r['count'] > 1 and 's' or '',
                 firstseen,
@@ -59,14 +59,14 @@ def disp_rec(r):
         elif r['source'].startswith('A-'):
             print('%s A %s (%s, %s time%s, %s - %s)' % (
                 r['value'],
-                db.passive.convert_ip(r['addr']),
+                utils.force_int2ip(r['addr']),
                 r['source'][2:], r['count'],
                 r['count'] > 1 and 's' or '',
                 firstseen,
                 lastseen,
             ))
         else:
-            ivre.utils.LOGGER.warning("Cannot display record %r", r)
+            utils.LOGGER.warning("Cannot display record %r", r)
     else:
         if r['source'].split('-')[0] in ['CNAME', 'NS', 'MX']:
             print('%s %s %s (%s, %s time%s, %s - %s)' % (
@@ -80,7 +80,7 @@ def disp_rec(r):
                 lastseen,
             ))
         else:
-            ivre.utils.LOGGER.warning("Cannot display record %r", r)
+            utils.LOGGER.warning("Cannot display record %r", r)
 
 
 def main():
@@ -130,11 +130,11 @@ def main():
                 db.passive.flt_and(
                     baseflt,
                     db.passive.searchdns(
-                        ivre.utils.str2regexp(a), subdomains=subdomains)),
+                        utils.str2regexp(a), subdomains=subdomains)),
                 db.passive.flt_and(
                     baseflt,
                     db.passive.searchdns(
-                        ivre.utils.str2regexp(a),
+                        utils.str2regexp(a),
                         reverse=True, subdomains=subdomains))
             ]
     for flt in flts:
