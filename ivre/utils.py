@@ -1108,21 +1108,21 @@ def parse_ssh_key(data):
 
 _ADDR_TYPES = [
     "Current-Net",
-    "Public",
+    None,
     "Private",
-    "Public",
+    None,
     "CGN",
-    "Public",
+    None,
     "Loopback",
-    "Public",
+    None,
     "Link-Local",
-    "Public",
+    None,
     "Private",
-    "Public",
+    None,
     "IPv6-to-IPv4",
-    "Public",
+    None,
     "Private",
-    "Public",
+    None,
     "Multicast",
     "Reserved",
     "Broadcast",
@@ -1152,8 +1152,8 @@ _ADDR_TYPES_LAST_IP = [
 
 
 def get_addr_type(addr):
-    """Returns the type (Public, Private, Loopback, etc.) of an IPv4
-    address.
+    """Returns the type (Private, Loopback, etc.) of an IPv4 address, or
+None if it is a "normal", usable address.
 
     TODO: implement IPv6
 
@@ -1162,5 +1162,5 @@ def get_addr_type(addr):
         addr = ip2int(addr)
     except (TypeError, socket.error):
             # FIXME no IPv6 support
-            return "Public"
+            return None
     return _ADDR_TYPES[bisect_left(_ADDR_TYPES_LAST_IP, addr)]
