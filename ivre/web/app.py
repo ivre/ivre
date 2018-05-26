@@ -156,9 +156,9 @@ def get_nmap_action(action):
             )
             count = result.count()
         if request.params.get("modulo") is None:
-            r2time = lambda r: int(r['starttime'].strftime('%s'))
+            r2time = lambda r: int(utils.datetime2timestamp(r['starttime']))
         else:
-            r2time = lambda r: (int(r['starttime'].strftime('%s'))
+            r2time = lambda r: (int(utils.datetime2timestamp(r['starttime']))
                                 % int(request.params.get("modulo")))
         if flt_params.ipsasnumbers:
             r2res = lambda r: [r2time(r), utils.force_ip2int(r['addr']),
@@ -387,7 +387,7 @@ def get_nmap():
         for field in ['starttime', 'endtime']:
             if field in rec:
                 if not flt_params.datesasstrings:
-                    rec[field] = int(rec[field].strftime('%s'))
+                    rec[field] = int(utils.datetime2timestamp(rec[field]))
         for port in rec.get('ports', []):
             if 'screendata' in port:
                 port['screendata'] = utils.encode_b64(port['screendata'])

@@ -21,6 +21,7 @@ from __future__ import print_function
 import datetime
 import re
 import sys
+import time
 
 
 def main():
@@ -71,7 +72,7 @@ def main():
             curprogress = None
 
     if curtask is not None:
-        now = int(datetime.datetime.now().strftime('%s'))
+        now = int(time.time())
         if curprogress is None:
             progress = ''
         else:
