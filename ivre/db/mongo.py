@@ -3118,20 +3118,17 @@ setting values according to the keyword arguments.
 
     @staticmethod
     def searchtimeago(delta, neg=False, new=False):
-        field = 'lastseen' if new else 'firstseen'
         if isinstance(delta, datetime.timedelta):
             delta = delta.total_seconds()
-        now = datetime.datetime.now()
-        now = int(now.strftime('%s')) + now.microsecond * 1e-6
-        return {field: {'$lt' if neg else '$gte': now - delta}}
+        return {'lastseen' if new else 'firstseen':
+                {'$lt' if neg else '$gte': time.time() - delta}}
 
     @staticmethod
     def searchnewer(timestamp, neg=False, new=False):
-        field = 'lastseen' if new else 'firstseen'
         if isinstance(timestamp, datetime.datetime):
-            timestamp = (int(timestamp.strftime('%s')) +
-                         timestamp.microsecond * 1e-6)
-        return {field: {'$lte' if neg else '$gt': timestamp}}
+            timestamp = utils.datetime2timestamp(timestamp)
+        return {'lastseen' if new else 'firstseen':
+                {'$lte' if neg else '$gt': timestamp}}
 
     def knownip_bycountry(self, code):
         return self.set_limits(self.find(

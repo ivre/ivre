@@ -42,6 +42,7 @@ import shutil
 import socket
 import struct
 import subprocess
+import time
 try:
     import PIL.Image
     import PIL.ImageChops
@@ -1050,8 +1051,14 @@ def normalize_props(props):
     return props
 
 
-def datetime2timestamp(dtetme):
-    return float(dtetme.strftime("%s.%f"))
+def datetime2timestamp(dtm):
+    """Returns the timestamp (as a float value) corresponding to the
+datetime.datetime instance `dtm`"""
+    # Python 2/3 compat: python 3 has datetime.timestamp()
+    try:
+        return dtm.timestamp()
+    except AttributeError:
+        return time.mktime(dtm.timetuple()) + dtm.microsecond / (1000000.)
 
 
 _UNITS = ['']
