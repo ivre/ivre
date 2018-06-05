@@ -30,7 +30,6 @@ import datetime
 from functools import reduce
 import json
 import re
-import struct
 import time
 
 
@@ -46,7 +45,7 @@ from sqlalchemy.types import UserDefinedType
 from sqlalchemy.ext.declarative import declarative_base
 
 
-from ivre.db import DB, DBFlow, DBData, DBNmap, DBPassive
+from ivre.db import DB, DBFlow, DBNmap, DBPassive
 from ivre import config, utils, xmlnmap
 
 
@@ -130,48 +129,6 @@ the original line.
         return self
 
 
-class GeoIPCSVLocationFile(CSVFile):
-    @staticmethod
-    def fixline(line):
-        return line[:5] + ["%s,%s" % tuple(line[5:7])] + line[7:]
-
-
-class GeoIPCSVLocationRangeFile(CSVFile):
-    @staticmethod
-    def fixline(line):
-        for i in range(2):
-            line[i] = utils.int2ip(int(line[i]))
-        return line
-
-
-class GeoIPCSVASFile(CSVFile):
-    @staticmethod
-    def fixline(line):
-        line = line[2].split(' ', 1)
-        return [line[0][2:], '' if len(line) == 1 else line[1]]
-
-
-class GeoIPCSVASRangeFile(CSVFile):
-    @staticmethod
-    def fixline(line):
-        for i in range(2):
-            line[i] = utils.int2ip(int(line[i]))
-        line[2] = line[2].split(' ', 1)[0][2:]
-        return line
-
-
-class Country(Base):
-    __tablename__ = "country"
-    code = Column(String(2), primary_key=True)
-    name = Column(String(64), index=True)
-
-
-class AS(Base):
-    __tablename__ = "aut_sys"
-    num = Column(Integer, primary_key=True)
-    name = Column(String(128), index=True)
-
-
 class Point(UserDefinedType):
 
     def get_col_spec(self):
@@ -193,39 +150,6 @@ class Point(UserDefinedType):
                 return None
             return tuple(float(val) for val in value[1:-1].split(','))
         return process
-
-
-class Location(Base):
-    __tablename__ = "location"
-    id = Column(Integer, primary_key=True)
-    country_code = Column(String(2), ForeignKey('country.code',
-                                                ondelete='CASCADE'))
-    city = Column(String(64))
-    coordinates = Column(Point)  # , index=True
-    area_code = Column(Integer)
-    metro_code = Column(Integer)
-    postal_code = Column(String(16))
-    region_code = Column(String(2), index=True)
-    __table_args__ = (
-        Index('ix_location_country_city', 'country_code', 'city'),
-    )
-
-
-class AS_Range(Base):
-    __tablename__ = "as_range"
-    id = Column(Integer, primary_key=True)
-    aut_sys = Column(Integer, ForeignKey('aut_sys.num', ondelete='CASCADE'))
-    start = Column(postgresql.INET, index=True)
-    stop = Column(postgresql.INET)
-
-
-class Location_Range(Base):
-    __tablename__ = "location_range"
-    id = Column(Integer, primary_key=True)
-    location_id = Column(Integer, ForeignKey('location.id',
-                                             ondelete='CASCADE'))
-    start = Column(postgresql.INET, index=True)
-    stop = Column(postgresql.INET)
 
 
 # Nmap
@@ -878,175 +802,6 @@ class PostgresDBFlow(PostgresDB, DBFlow):
 
     def cleanup_flows(self):
         raise NotImplementedError()
-
-
-class PostgresDBData(PostgresDB, DBData):
-    tables = [Country, Location, Location_Range, AS, AS_Range]
-
-    def __init__(self, url):
-        PostgresDB.__init__(self, url)
-        DBData.__init__(self)
-
-    def feed_geoip_country(self, *_, **__):
-        "Country database has been dropped in favor of Location/City"
-        pass
-
-    def feed_geoip_city(self, fname, feedipdata=None,
-                        createipdata=False):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with GeoIPCSVLocationRangeFile(fname, skip=2) as fdesc:
-            self.copy_from(
-                fdesc, Location_Range.__tablename__, null='',
-                columns=['start', 'stop', 'location_id'],
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_country_codes(self, fname):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with CSVFile(fname) as fdesc:
-            self.copy_from(fdesc, Country.__tablename__, null='')
-        # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
-        self.db.execute(insert(Country).values(
-            code="AN",
-            name="Netherlands Antilles",
-        ))
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_city_location(self, fname):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with GeoIPCSVLocationFile(fname, skip=2) as fdesc:
-            self.copy_from(
-                fdesc, Location.__tablename__, null='',
-                columns=['id', 'country_code', 'region_code', 'city',
-                         'postal_code', 'coordinates', 'metro_code',
-                         'area_code'],
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_geoip_asnum(self, fname, feedipdata=None,
-                         createipdata=False):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with GeoIPCSVASFile(fname) as fdesc:
-            tmp = self.create_tmp_table(AS)
-            self.copy_from(fdesc, tmp.name, null='')
-        self.db.execute(insert(AS).from_select(['num', 'name'],
-                                               select([tmp]).distinct("num")))
-        with GeoIPCSVASRangeFile(fname) as fdesc:
-            self.copy_from(
-                fdesc, AS_Range.__tablename__, null='',
-                columns=['start', 'stop', 'aut_sys'],
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def country_byip(self, addr):
-        try:
-            addr = utils.int2ip(addr)
-        except (TypeError, struct.error):
-            pass
-        data_range = (select([Location_Range.stop, Location_Range.location_id])
-                      .where(Location_Range.start <= addr)
-                      .order_by(Location_Range.start.desc())
-                      .limit(1)
-                      .cte("data_range"))
-        location = (select([Location.country_code])
-                    .where(Location.id == select([data_range.c.location_id]))
-                    .limit(1)
-                    .cte("location"))
-        data = self.db.execute(
-            select([data_range.c.stop, location.c.country_code, Country.name])
-            .where(location.c.country_code == Country.code)
-        ).fetchone()
-        if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
-            return self.fmt_results(
-                ['country_code', 'country_name'],
-                data[1:],
-            )
-
-    def location_byip(self, addr):
-        try:
-            addr = utils.int2ip(addr)
-        except (TypeError, struct.error):
-            pass
-        data_range = (select([Location_Range.stop, Location_Range.location_id])
-                      .where(Location_Range.start <= addr)
-                      .order_by(Location_Range.start.desc())
-                      .limit(1)
-                      .cte("data_range"))
-        location = (select([Location])
-                    .where(Location.id == select([data_range.c.location_id]))
-                    .limit(1)
-                    .cte("location"))
-        data = self.db.execute(
-            select([data_range.c.stop, location.c.coordinates,
-                    location.c.country_code, Country.name, location.c.city,
-                    location.c.area_code, location.c.metro_code,
-                    location.c.postal_code, location.c.region_code])
-            .where(location.c.country_code == Country.code)
-        ).fetchone()
-        if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
-            return self.fmt_results(
-                ['coordinates', 'country_code', 'country_name', 'city',
-                 'area_code', 'metro_code', 'postal_code', 'region_code'],
-                data[1:],
-            )
-
-    def as_byip(self, addr):
-        try:
-            addr = utils.int2ip(addr)
-        except (TypeError, struct.error):
-            pass
-        data_range = (select([AS_Range.stop, AS_Range.aut_sys])
-                      .where(AS_Range.start <= addr)
-                      .order_by(AS_Range.start.desc())
-                      .limit(1)
-                      .cte("data_range"))
-        data = self.db.execute(
-            select([data_range.c.stop, data_range.c.aut_sys, AS.name])
-            .where(AS.num == select([data_range.c.aut_sys]))
-        ).fetchone()
-        if data and utils.ip2int(addr) <= utils.ip2int(data[0]):
-            return self.fmt_results(
-                ['as_num', 'as_name'],
-                data[1:],
-            )
-
-    def ipranges_bycountry(self, code):
-        """Returns a generator of every (start, stop) IP ranges for a country
-given its ISO-3166-1 "alpha-2" code or its name."""
-        if len(code) != 2:
-            return self.db.execute(
-                select([Location_Range.start, Location_Range.stop])
-                .select_from(join(join(Location, Location_Range), Country))
-                .where(Country.name == code)
-            )
-        return self.db.execute(
-            select([Location_Range.start, Location_Range.stop])
-            .select_from(join(Location, Location_Range))
-            .where(Location.country_code == code)
-        )
-
-    def ipranges_byas(self, asnum):
-        """Returns a generator of every (start, stop) IP ranges for an
-Autonomous System given its number or its name.
-
-        """
-        if isinstance(asnum, basestring):
-            try:
-                if asnum.startswith('AS'):
-                    asnum = int(asnum[2:])
-                else:
-                    asnum = int(asnum)
-            except ValueError:
-                # lookup by name
-                return self.db.execute(
-                    select([AS_Range.start, AS_Range.stop])
-                    .select_from(join(AS, AS_Range))
-                    .where(AS.name == asnum)
-                )
-        return self.db.execute(
-            select([AS_Range.start, AS_Range.stop])
-            .where(AS_Range.aut_sys == asnum)
-        )
 
 
 class Filter(object):
@@ -1860,11 +1615,11 @@ the field names of the structured output for s7-info script.
             ###         Port.scan == base.c.id
             ###       )),
             ###
-            ### D'après quelques tests, l'option -1- est plus beaucoup
-            ### rapide quand (base) est pas ou peu sélectif, l'option
-            ### -2- un peu plus rapide quand (base) est très sélectif
+            ### D'apres quelques tests, l'option -1- est plus beaucoup
+            ### rapide quand (base) est pas ou peu selectif, l'option
+            ### -2- un peu plus rapide quand (base) est tres selectif
             ###
-            ### TODO: vérifier si c'est pareil pour:
+            ### TODO: verifier si c'est pareil pour:
             ###  - countports:open
             ###  - tous les autres
             info = field[9:]
@@ -2672,69 +2427,40 @@ the field names of the structured output for s7-info script.
 
 class PassiveFilter(Filter):
 
-    def __init__(self, main=None, location=None, aut_sys=None,
-                 uses_country=False):
+    def __init__(self, main=None):
         self.main = main
-        self.location = location
-        self.aut_sys = aut_sys
-        self.uses_country = uses_country
 
     @property
     def all_queries(self):
         return {
             "main": self.main,
-            "location": self.location,
-            "aut_sys": self.aut_sys,
         }
 
     def __nonzero__(self):
-        return self.main is not None or self.location is not None \
-            or self.aut_sys is not None or self.uses_country
+        return self.main is not None
 
     def copy(self):
         return self.__class__(
             main=self.main,
-            location=self.location,
-            aut_sys=self.aut_sys,
-            uses_country=self.uses_country,
         )
 
     def __and__(self, other):
         return self.__class__(
             main=self.fltand(self.main, other.main),
-            location=self.fltand(self.location, other.location),
-            aut_sys=self.fltand(self.aut_sys, other.aut_sys),
-            uses_country=self.uses_country or other.uses_country,
         )
 
     def __or__(self, other):
         return self.__class__(
             main=self.fltor(self.main, other.main),
-            location=self.fltor(self.location, other.location),
-            aut_sys=self.fltor(self.aut_sys, other.aut_sys),
-            uses_country=self.uses_country or other.uses_country,
         )
 
     @property
     def select_from(self):
-        if self.location is not None:
-            return [
-                Passive,
-                join(join(Location, Country), Location_Range)
-                if self.uses_country else
-                join(Location, Location_Range),
-            ]
-        if self.aut_sys is not None:
-            return [Passive, join(AS, AS_Range)]
         return Passive
 
     def query(self, req):
         if self.main is not None:
             req = req.where(self.main)
-        if self.location is not None:
-            req = req.where(self.location)
-        if self.aut_sys is not None:
-            req = req.where(self.aut_sys)
         return req
 
 

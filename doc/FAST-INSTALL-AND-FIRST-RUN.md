@@ -82,12 +82,10 @@ button to check if everything works.
     This will remove any scan result in your database. Process ? [y/N] y
     $ ivre ipinfo --init
     This will remove any passive information in your database. Process ? [y/N] y
-    $ ivre ipdata --init
-    This will remove any country/AS information in your database. Process ? [y/N] y
     $ sudo ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
     $ sudo ivre ipdata --download
-    $ ivre ipdata --import-all --no-update-passive-db
+    $ ivre ipdata --import-all
 
 The two latest steps may take a long time to run, nothing to worry
 about.
