@@ -119,10 +119,10 @@ can be achieved with users or hosts dedicated to insertion tasks.
 Once IVRE has been properly configured, it's time to initialize its
 databases.
 
-For that, the command-line tools (namely `ivre ipdata`, `ivre ipinfo`,
-`ivre scancli` and `ivre runscansagentdb`, respectively for
-information about IP addresses, passive information, active
-information and running scans through agents) have a `--init` option.
+For that, the command-line tools (namely `ivre ipinfo`, `ivre scancli`
+and `ivre runscansagentdb`, respectively for information about IP
+addresses, passive information, active information and running scans
+through agents) have a `--init` option.
 
 So you can run, with a user or from a host where the configuration has
 a write access to the database (add `< /dev/null` to skip the
@@ -132,15 +132,13 @@ confirmation):
     This will remove any scan result in your database. Process ? [y/N] y
     $ ivre ipinfo --init
     This will remove any passive information in your database. Process ? [y/N] y
-    $ ivre ipdata --init
-    This will remove any country/AS information in your database. Process ? [y/N] y
     # ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
 
 ### Getting IP data ###
 
     # ivre ipdata --download
-    $ ivre ipdata --import-all --no-update-passive-db
+    $ ivre ipdata --import-all
 
 ### Web Server ###
 

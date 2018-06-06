@@ -1224,10 +1224,9 @@ class DBData(DB):
     def infos_byip(self, addr):
         infos = {}
         for infos_byip in [self.as_byip,
+                           self.country_byip,
                            self.location_byip]:
-            newinfos = infos_byip(addr)
-            if newinfos is not None:
-                infos.update(newinfos)
+            infos.update(infos_byip(addr) or {})
         if infos:
             return infos
 
@@ -1236,120 +1235,6 @@ class DBData(DB):
 
     def location_byip(self, addr):
         raise NotImplementedError
-
-    def parse_line_country_codes(self, line):
-        assert line.endswith(b'"\n')
-        line = line[:-2].split(b',"')
-        return {'code': line[0].decode(), 'name': line[1].decode()}
-
-    def parse_line_country(self, line, feedipdata=None,
-                           createipdata=False):
-        if line.endswith(b'\n'):
-            line = line[:-1]
-        if line.endswith(b'"'):
-            line = line[:-1]
-        if line.startswith(b'"'):
-            line = line[1:]
-        line = line.split(b'","')
-        if feedipdata is not None:
-            for dbinst in feedipdata:
-                dbinst.update_country(
-                    int(line[2]), int(line[3]), line[4],
-                    create=createipdata
-                )
-        return {'start': int(line[2]),
-                'stop': int(line[3]),
-                'country_code': line[4].decode()}
-
-    @staticmethod
-    def parse_line_city(line, feedipdata=None, createipdata=False):
-        if line.endswith(b'\n'):
-            line = line[:-1]
-        if line.endswith(b'"'):
-            line = line[:-1]
-        if line.startswith(b'"'):
-            line = line[1:]
-        line = line.split(b'","')
-        if feedipdata is not None:
-            for dbinst in feedipdata:
-                dbinst.update_city(
-                    int(line[0]), int(line[1]), int(line[2]),
-                    create=createipdata
-                )
-        return {'start': int(line[0]),
-                'stop': int(line[1]),
-                'location_id': int(line[2])}
-
-    @staticmethod
-    def parse_line_city_location(line):
-        if line.endswith(b'\n'):
-            line = line[:-1]
-        # Get an integer
-        i = line.index(b',')
-        parsedline = {'location_id': int(line[:i])}
-        line = line[i + 1:]
-        # Get 4 strings
-        for field in ['country_code', 'region_code', 'city',
-                      'postal_code']:
-            i = line.index(b'",')
-            curval = line[1:i]
-            if curval:
-                parsedline[field] = curval.decode('latin-1')
-            line = line[i + 2:]
-        # Get 2 floats
-        coords = []
-        for i in range(2):
-            i = line.index(b',')
-            curval = line[:i]
-            if curval:
-                coords.append(float(curval))
-            line = line[i + 1:]
-        if len(coords) == 2:
-            parsedline['loc'] = {
-                'type': 'Point',
-                'coordinates': [coords[1], coords[0]],
-            }
-        # Get 1 int
-        i = line.index(b',')
-        curval = line[:i]
-        if curval:
-            parsedline['metro_code'] = int(curval)
-        line = line[i + 1:]
-        # Pop 1 int or None (at the end of the line)
-        if line:
-            parsedline['area_code'] = int(line)
-        return parsedline
-
-    @staticmethod
-    def parse_line_asnum(line, feedipdata=None, createipdata=False):
-        if line.endswith(b'\n'):
-            line = line[:-1]
-        line = line.split(b',', 2)
-        parsedline = {
-            'start': int(line[0]),
-            'stop': int(line[1]),
-        }
-        data = line[2]
-        if data.endswith(b'"'):
-            data = data[:-1]
-        if data.startswith(b'"'):
-            data = data[1:]
-        if data.startswith(b'AS'):
-            data = data.split(None, 1)
-            parsedline['as_num'] = int(data[0][2:])
-            if len(data) == 2:
-                parsedline['as_name'] = data[1].decode('latin-1')
-        else:
-            parsedline['as_num'] = -1
-            parsedline['as_name'] = data.decode('latin-1')
-        if feedipdata is not None:
-            for dbinst in feedipdata:
-                dbinst.update_as(parsedline['start'],
-                                 parsedline['stop'],
-                                 parsedline['as_num'],
-                                 parsedline.get('as_name'),
-                                 create=createipdata)
-        return parsedline
 
 
 class LockError(RuntimeError):
@@ -1802,6 +1687,10 @@ def _neo4j_url2dbinfos(url):
     return (url.scheme, (url._replace(scheme='http').geturl(),), {})
 
 
+def _maxmind_url2dbinfos(url):
+    return (url.scheme, (url.path,), {})
+
+
 class MetaDB(object):
     db_types = {
         "nmap": {},
@@ -1817,6 +1706,7 @@ class MetaDB(object):
     extract_dbinfos = {
         "mongodb": _mongodb_url2dbinfos,
         "neo4j": _neo4j_url2dbinfos,
+        "maxmind": _maxmind_url2dbinfos,
     }
 
     @classmethod
@@ -1829,13 +1719,12 @@ class MetaDB(object):
     def __init__(self, url=None, urls=None):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
-                                       MongoDBData, MongoDBAgent)
+                                       MongoDBAgent)
         except ImportError:
             pass
         else:
             self.db_types["nmap"]["mongodb"] = MongoDBNmap
             self.db_types["passive"]["mongodb"] = MongoDBPassive
-            self.db_types["data"]["mongodb"] = MongoDBData
             self.db_types["agent"]["mongodb"] = MongoDBAgent
         try:
             from ivre.db.neo4j import Neo4jDBFlow
@@ -1844,17 +1733,22 @@ class MetaDB(object):
         else:
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         try:
-            from ivre.db.postgres import (PostgresDBFlow, PostgresDBData,
-                                          PostgresDBNmap, PostgresDBPassive)
+            from ivre.db.postgres import (PostgresDBFlow, PostgresDBNmap,
+                                          PostgresDBPassive)
         except ImportError:
             pass
         else:
             self.db_types["flow"]["postgresql"] = PostgresDBFlow
             self.db_types["nmap"]["postgresql"] = PostgresDBNmap
-            self.db_types["data"]["postgresql"] = PostgresDBData
             self.db_types["passive"]["postgresql"] = PostgresDBPassive
         if urls is None:
             urls = {}
+        try:
+            from ivre.db.maxmind import MaxMindDBData
+        except ImportError:
+            pass
+        else:
+            self.db_types["data"]["maxmind"] = MaxMindDBData
         for datatype, dbtypes in viewitems(self.db_types):
             specificurl = urls.get(datatype, url)
             if specificurl is not None:

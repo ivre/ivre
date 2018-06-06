@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ import stat
 
 # Default values:
 DB = "mongodb:///ivre"
+DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
 DB_FLOW = "neo4j://neo4j:neo4j@localhost:7474/"
 BULK_UPSERTS_MAXSIZE = 100
 NEO4J_BATCH_SIZE = 1000
@@ -120,41 +121,26 @@ FLOW_TIME_PRECISION = 3600
 FLOW_TIME_FULL_RANGE = False
 
 IPDATA_URLS = {
-    # 'GeoIPCountry.dat':
-    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/'
-    # 'GeoIP.dat.gz',
-    'GeoIPCountryCSV.zip':
-    'http://geolite.maxmind.com/download/geoip/database/GeoIPCountryCSV.zip',
-    # 'GeoIPCity.dat':
-    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz',
-    'GeoIPCityCSV.zip':
-    'http://geolite.maxmind.com/download/geoip/database/GeoLiteCity_CSV/'
-    'GeoLiteCity-latest.zip',
-    # 'GeoIPASNum.dat':
-    # 'http://geolite.maxmind.com/download/geoip/database/asnum/'
-    # 'GeoIPASNum.dat.gz',
-    'GeoIPASNumCSV.zip':
-    'http://geolite.maxmind.com/download/geoip/database/asnum/GeoIPASNum2.zip',
-    # 'GeoIPCountryIPv6.dat':
-    # 'http://geolite.maxmind.com/download/geoip/database/GeoIPv6.dat.gz',
-    # 'GeoIPCountryIPv6.csv':
-    # 'http://geolite.maxmind.com/download/geoip/database/GeoIPv6.csv.gz',
-    # 'GeoIPCityIPv6.dat':
-    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/'
-    # 'GeoLiteCityv6.dat.gz',
-    # 'GeoIPCityIPv6.csv':
-    # 'http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/'
-    # 'GeoLiteCityv6.csv.gz',
-    # 'GeoIPASNumIPv6.dat':
-    # 'http://download.maxmind.com/download/geoip/database/asnum/'
-    # 'GeoIPASNumv6.dat.gz',
-    # 'GeoIPASNumIPv6.csv':
-    # 'http://download.maxmind.com/download/geoip/database/asnum/'
-    # 'GeoIPASNum2v6.zip',
+    'GeoLite2-City.tar.gz':
+    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz',
+    'GeoLite2-City-CSV.zip':
+    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip',
+    'GeoLite2-Country.tar.gz':
+    'http://geolite.maxmind.com/download/geoip/database/'
+    'GeoLite2-Country.tar.gz',
+    'GeoLite2-Country-CSV.zip':
+    'http://geolite.maxmind.com/download/geoip/database/'
+    'GeoLite2-Country-CSV.zip',
+    'GeoLite2-ASN.tar.gz':
+    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz',
+    'GeoLite2-ASN-CSV.zip':
+    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip',
     'iso3166.csv': 'http://dev.maxmind.com/static/csv/codes/iso3166.csv',
     # This one is not from maxmind -- see http://thyme.apnic.net/
     'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
 }
+
+GEOIP_LANG = "en"
 
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"
@@ -257,6 +243,10 @@ def guess_share(soft):
 
 if GEOIP_PATH is None:
     GEOIP_PATH = guess_prefix('geoip')
+
+
+if DB_DATA is None and GEOIP_PATH is not None:
+    DB_DATA = "maxmind:///%s" % GEOIP_PATH
 
 
 if DATA_PATH is None:

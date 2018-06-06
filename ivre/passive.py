@@ -30,7 +30,6 @@ import math
 import re
 import struct
 import subprocess
-import time
 
 
 from future.utils import viewitems

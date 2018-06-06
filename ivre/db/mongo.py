@@ -23,16 +23,17 @@ databases.
 """
 
 
-import datetime
-import json
-import os
-import re
-import uuid
 try:
     from collections import OrderedDict
 except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
+import datetime
+import json
+import os
+import re
+import time
+import uuid
 
 
 from builtins import bytes, range
@@ -42,8 +43,8 @@ import bson
 import pymongo
 
 
-from ivre.db import DB, DBNmap, DBPassive, DBData, DBAgent, LockError
-from ivre import utils, xmlnmap, config
+from ivre.db import DB, DBNmap, DBPassive, DBAgent, LockError
+from ivre import config, geoiputils, utils, xmlnmap
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -221,7 +222,7 @@ class MongoDB(DB):
             for record in self.find(colname, self.searchversion(version)):
                 try:
                     update = migration_function(record)
-                except Exception as exc:
+                except Exception:
                     utils.LOGGER.warning(
                         "Cannot migrate host %s", record['_id'], exc_info=True,
                     )
@@ -446,14 +447,36 @@ class MongoDB(DB):
         address range.
 
         """
-        try:
-            start = utils.ip2int(start)
-        except (TypeError, utils.socket.error):
-            pass
-        try:
-            stop = utils.ip2int(stop)
-        except (TypeError, utils.socket.error):
-            pass
+        start = utils.force_ip2int(start)
+        stop = utils.force_ip2int(stop)
+        if neg:
+            return {'$or': [
+                {'addr': {'$lt': start}},
+                {'addr': {'$gt': stop}}
+            ]}
+        return {'addr': {'$gte': start,
+                         '$lte': stop}}
+
+    @classmethod
+    def searchranges(cls, ranges, neg=False):
+        """Filters (if `neg` == True, filters out) some IP address ranges.
+
+`ranges` is an instance of ivre.geoiputils.IPRanges().
+
+        """
+        flt = []
+        for start, stop in ranges.iter_ranges():
+            if neg:
+                flt.append({'$or': [{'addr': {'$lt': start}},
+                                    {'addr': {'$gt': stop}}]})
+            else:
+                flt.append({'addr': {'$gte': start,
+                                     '$lte': stop}})
+        if flt:
+            if neg:
+                return {'$and': flt}
+            return {'$or': flt}
+        return cls.flt_empty if neg else cls.searchnonexistent()
         if neg:
             return {'$or': [
                 {'addr': {'$lt': start}},
@@ -2670,59 +2693,15 @@ have no effect if it is not expected)."""
         else:
             return (result for result in cursor if result["value"])
 
-    def update_country(self, start, stop, code, create=False):
-        """Update country info on existing Nmap scan result documents"""
-        name = self.globaldb.data.country_name_by_code(code)
-        for colname in [self.colname_hosts, self.colname_oldhosts]:
-            self.db[colname].update(
-                self.searchrange(start, stop),
-                {'$set': {'infos.country_code': code,
-                          'infos.country_name': name}},
-                multi=True,
-            )
-
-    def update_city(self, start, stop, locid, create=False):
-        """Update city/location info on existing Nmap scan result documents"""
-        updatespec = dict(("infos.%s" % key, value) for key, value in
-                          viewitems(self.globaldb.data.location_byid(locid)))
-        if "infos.country_code" in updatespec:
-            updatespec[
-                "infos.country_name"
-            ] = self.globaldb.data.country_name_by_code(
-                updatespec["infos.country_code"]
-            )
-        for colname in [self.colname_hosts, self.colname_oldhosts]:
-            self.db[colname].update(
-                self.searchrange(start, stop),
-                {'$set': updatespec},
-                multi=True,
-            )
-
-    def update_as(self, start, stop, asnum, asname, create=False):
-        """Update AS info on existing Nmap scan result documents"""
-        if asname is None:
-            updatespec = {'infos.as_num': asnum}
-        else:
-            updatespec = {'infos.as_num': asnum, 'infos.as_name': asname}
-        # we first update existing records
-        for colname in [self.colname_hosts, self.colname_oldhosts]:
-            self.db[colname].update(
-                self.searchrange(start, stop),
-                {'$set': updatespec},
-                multi=True,
-            )
-
 
 class MongoDBPassive(MongoDB, DBPassive):
 
     def __init__(self, host, dbname,
                  colname_passive="passive",
-                 colname_ipdata="ipdata",
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBPassive.__init__(self)
         self.colname_passive = colname_passive
-        self.colname_ipdata = colname_ipdata
         self.indexes = {
             self.colname_passive: [
                 ([('port', pymongo.ASCENDING)], {}),
@@ -2759,13 +2738,6 @@ class MongoDBPassive(MongoDB, DBPassive):
                 ([('infos.pubkeyalgo', pymongo.ASCENDING)],
                  {"sparse": True}),
             ],
-            self.colname_ipdata: [
-                ([('country_code', pymongo.ASCENDING)], {}),
-                ([('location_id', pymongo.ASCENDING)], {}),
-                ([('as_num', pymongo.ASCENDING)], {}),
-                ([('addr', pymongo.ASCENDING)],
-                 {'unique': True}),
-            ],
         }
         self.hint_indexes = OrderedDict([
             ["addr", [("addr", 1), ("recontype", 1), ("port", 1)]],
@@ -2776,7 +2748,6 @@ class MongoDBPassive(MongoDB, DBPassive):
         """Initializes the "passive" columns, i.e., drops the columns, and
 creates the default indexes."""
         self.db[self.colname_passive].drop()
-        self.db[self.colname_ipdata].drop()
         self.create_indexes()
 
     def get(self, spec, **kargs):
@@ -2814,8 +2785,6 @@ setting values according to the keyword arguments.
         if getinfos is not None:
             spec.update(getinfos(spec))
         self.db[self.colname_passive].insert(spec)
-        if 'addr' in spec:
-            self.set_data(spec['addr'])
 
     def insert_or_update(self, timestamp, spec, getinfos=None):
         if spec is None:
@@ -3110,11 +3079,14 @@ setting values according to the keyword arguments.
         return {'recontype': 'TCP_SERVER_BANNER', 'value': banner}
 
     def searchcountry(self, code, neg=False):
-        return {'addr': {'$nin' if neg else '$in':
-                         self.knownip_bycountry(code)}}
+        return self.searchranges(
+            geoiputils.get_ranges_by_country(code), neg=neg
+        )
 
     def searchasnum(self, asnum, neg=False):
-        return {'addr': {'$nin' if neg else '$in': self.knownip_byas(asnum)}}
+        return self.searchranges(
+            geoiputils.get_ranges_by_asnum(asnum), neg=neg
+        )
 
     @staticmethod
     def searchtimeago(delta, neg=False, new=False):
@@ -3129,302 +3101,6 @@ setting values according to the keyword arguments.
             timestamp = utils.datetime2timestamp(timestamp)
         return {'lastseen' if new else 'firstseen':
                 {'$lte' if neg else '$gt': timestamp}}
-
-    def knownip_bycountry(self, code):
-        return self.set_limits(self.find(
-            self.colname_ipdata,
-            {'country_code': code},
-        )).distinct('addr')
-
-    def knownip_byas(self, asnum):
-        if isinstance(asnum, basestring):
-            if asnum.startswith('AS'):
-                asnum = asnum[2:]
-            asnum = int(asnum)
-        return self.set_limits(self.find(
-            self.colname_ipdata,
-            {'as_num': asnum}
-        )).distinct('addr')
-
-    def set_data(self, addr, force=False):
-        """Sets IP information in colname_ipdata."""
-        if not force and self.get_data(addr) is not None:
-            return
-        for data in [self.globaldb.data.country_byip(addr),
-                     self.globaldb.data.as_byip(addr),
-                     self.globaldb.data.location_byip(addr)]:
-            if data is not None:
-                self.db[self.colname_ipdata].update(
-                    {'addr': addr},
-                    {'$set': data},
-                    upsert=True)
-
-    def update_country(self, start, stop, code, create=False):
-        # we first update existing records
-        self.db[self.colname_ipdata].update(
-            self.searchrange(start, stop),
-            {'$set': {'country_code': code}},
-            multi=True,
-        )
-        # then (if requested), we add a record for addresses we
-        # have in database (first the active one, then the
-        # passive)
-        if create:
-            for addr in self.get_known_ips(start, stop):
-                self.db[self.colname_ipdata].update(
-                    {'addr': addr},
-                    {'$set': {'country_code': code}},
-                    upsert=True)
-
-    def update_city(self, start, stop, locid, create=False):
-        # we first update existing records
-        self.db[self.colname_ipdata].update(
-            self.searchrange(start, stop),
-            {'$set': {'location_id': locid}},
-            multi=True,
-        )
-        # then (if requested), we add a record for addresses we
-        # have in database (first the active one, then the
-        # passive)
-        if create:
-            for addr in self.get_known_ips(start, stop):
-                self.db[self.colname_ipdata].update(
-                    {'addr': addr},
-                    {'$set': {'location_id': locid}},
-                    upsert=True)
-
-    def update_as(self, start, stop, asnum, asname, create=False):
-        if asname is None:
-            updatespec = {'as_num': asnum}
-        else:
-            updatespec = {'as_num': asnum, 'as_name': asname}
-        # we first update existing records
-        self.db[self.colname_ipdata].update(
-            self.searchrange(start, stop),
-            {'$set': updatespec},
-            multi=True,
-        )
-        # then (if requested), we add a record for addresses we
-        # have in database (first the active one, then the
-        # passive)
-        if create:
-            for addr in self.get_known_ips(start, stop):
-                self.db[self.colname_ipdata].update(
-                    {'addr': addr},
-                    {'$set': updatespec},
-                    upsert=True)
-
-    def get_data(self, addr):
-        """Gets IP information in colname_ipdata."""
-        data = self.find_one(self.colname_ipdata, {'addr': addr})
-        if data is not None:
-            del data['_id']
-        return data
-
-    def get_known_ips(self, start, stop):
-        self.get(self.searchrange(start, stop)).distinct('addr')
-
-
-class MongoDBData(MongoDB, DBData):
-
-    def __init__(self, host, dbname,
-                 colname_geoip_country="geoipcountry",
-                 colname_geoip_as="geoipas",
-                 colname_geoip_city="geoipcity",
-                 colname_country_codes="countries",
-                 colname_city_locations="cities",
-                 **kargs):
-        MongoDB.__init__(self, host, dbname, **kargs)
-        DBData.__init__(self)
-        self.colname_geoip_country = colname_geoip_country
-        self.colname_geoip_as = colname_geoip_as
-        self.colname_geoip_city = colname_geoip_city
-        self.colname_country_codes = colname_country_codes
-        self.colname_city_locations = colname_city_locations
-        self.indexes = {
-            self.colname_geoip_country: [
-                ([('start', pymongo.ASCENDING)], {}),
-                ([('country_code', pymongo.ASCENDING)], {}),
-            ],
-            self.colname_geoip_as: [
-                ([('start', pymongo.ASCENDING)], {}),
-                ([('as_num', pymongo.ASCENDING)], {}),
-            ],
-            self.colname_geoip_city: [
-                ([('start', pymongo.ASCENDING)], {}),
-                ([('location_id', pymongo.ASCENDING)], {}),
-            ],
-            self.colname_city_locations: [
-                ([('location_id', pymongo.ASCENDING)], {}),
-                ([('country_code', pymongo.ASCENDING)], {}),
-                ([('region_code', pymongo.ASCENDING)], {}),
-                ([('city', pymongo.ASCENDING)], {}),
-                ([('loc', pymongo.GEOSPHERE)], {}),
-            ],
-            self.colname_country_codes: [
-                ([('country_code', pymongo.ASCENDING)],
-                 {'unique': True}),
-            ],
-        }
-
-    def init(self):
-        """Initializes the data columns, and creates the default
-        indexes.
-
-        """
-        self.db[self.colname_geoip_country].drop()
-        self.db[self.colname_geoip_as].drop()
-        self.db[self.colname_geoip_city].drop()
-        self.db[self.colname_country_codes].drop()
-        self.db[self.colname_city_locations].drop()
-        self.create_indexes()
-
-    def parse_line_country_codes(self, line):
-        data = super(MongoDBData, self).parse_line_country_codes(line)
-        if 'code' in data:
-            data['country_code'] = data.pop('code')
-        return data
-
-    def feed_country_codes(self, fname):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with open(fname, "rb") as fdesc:
-            self.db[self.colname_country_codes].insert(
-                self.parse_line_country_codes(line)
-                for line in fdesc
-            )
-        # Missing from iso3166.csv file but used in GeoIPCity-Location.csv
-        self.db[self.colname_country_codes].insert(
-            {'country_code': "AN", 'name': "Netherlands Antilles"}
-        )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_geoip_country(self, fname, feedipdata=None,
-                           createipdata=False):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with open(fname, "rb") as fdesc:
-            self.db[self.colname_geoip_country].insert(
-                self.parse_line_country(line, feedipdata=feedipdata,
-                                        createipdata=createipdata)
-                for line in fdesc
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_geoip_city(self, fname, feedipdata=None,
-                        createipdata=False):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with open(fname, "rb") as fdesc:
-            # Skip the two first lines
-            fdesc.readline()
-            fdesc.readline()
-            self.db[self.colname_geoip_city].insert(
-                self.parse_line_city(line, feedipdata=feedipdata,
-                                     createipdata=createipdata)
-                for line in fdesc
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_city_location(self, fname):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with open(fname, "rb") as fdesc:
-            # Skip the two first lines
-            fdesc.readline()
-            fdesc.readline()
-            self.db[self.colname_city_locations].insert(
-                self.parse_line_city_location(line)
-                for line in fdesc
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def feed_geoip_asnum(self, fname, feedipdata=None,
-                         createipdata=False):
-        utils.LOGGER.debug("START IMPORT: %s", fname)
-        with open(fname, "rb") as fdesc:
-            self.db[self.colname_geoip_as].insert(
-                self.parse_line_asnum(line, feedipdata=feedipdata,
-                                      createipdata=createipdata)
-                for line in fdesc
-            )
-        utils.LOGGER.debug("IMPORT DONE (%s)", fname)
-
-    def country_name_by_code(self, code):
-        rec = self.find_one(self.colname_country_codes,
-                            {'country_code': code},
-                            fields=['name'])
-        if rec:
-            return rec['name']
-        return rec
-
-    def country_codes_by_name(self, name):
-        return self.set_limits(
-            self.find(self.colname_country_codes,
-                      {'name': name})).distinct('country_code')
-
-    def find_data_byip(self, addr, column):
-        try:
-            addr = utils.ip2int(addr)
-        except (TypeError, utils.socket.error):
-            pass
-        rec = self.find_one(column, {'start': {'$lte': addr}},
-                            sort=[('start', -1)])
-        if rec and addr <= rec['stop']:
-            del rec['_id'], rec['start'], rec['stop']
-            return rec
-
-    def country_byip(self, addr):
-        rec = self.find_data_byip(addr, self.colname_geoip_country)
-        if rec:
-            name = self.country_name_by_code(rec['country_code'])
-            if name:
-                rec['country_name'] = name
-        return rec
-
-    def as_byip(self, addr):
-        return self.find_data_byip(addr, self.colname_geoip_as)
-
-    def locationid_byip(self, addr):
-        return self.find_data_byip(addr, self.colname_geoip_city)
-
-    def location_byid(self, locid):
-        rec = self.find_one(self.colname_city_locations,
-                            {'location_id': locid})
-        if rec:
-            del rec['_id'], rec['location_id']
-            if 'loc' in rec:
-                if 'coordinates' in rec['loc']:
-                    rec['coordinates'] = tuple(rec['loc']['coordinates'][::-1])
-                del rec['loc']
-            if 'country_code' in rec:
-                name = self.country_name_by_code(rec['country_code'])
-                if name:
-                    rec['country_name'] = name
-        return rec
-
-    def location_byip(self, addr):
-        locid = self.locationid_byip(addr)
-        if locid:
-            return self.location_byid(locid.get('location_id'))
-
-    def ipranges_bycountry(self, code):
-        return [
-            (x['start'], x['stop']) for x in
-            self.set_limits(
-                self.find(self.colname_geoip_country,
-                          {'country_code': code},
-                          fields=['start', 'stop']))
-        ]
-
-    def ipranges_byas(self, asnum):
-        if isinstance(asnum, basestring):
-            if asnum.startswith('AS'):
-                asnum = asnum[2:]
-            asnum = int(asnum)
-        return [
-            (x['start'], x['stop']) for x in
-            self.set_limits(
-                self.find(self.colname_geoip_as,
-                          {'as_num': asnum},
-                          fields=['start', 'stop']))
-        ]
 
 
 class MongoDBAgent(MongoDB, DBAgent):

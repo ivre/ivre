@@ -1816,23 +1816,20 @@ which `predicate()` is True, given `webflt`.
     def test_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
 
-        # Init DB
-        res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])
-        self.assertEqual(res, 0)
-        self.assertEqual(out, b"8.8.8.8\n")
-        res = RUN(["ivre", "ipdata", "--init"], stdin=open(os.devnull))[0]
-        self.assertEqual(res, 0)
-        res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])
-        self.assertEqual(res, 0)
-        self.assertEqual(out, b"8.8.8.8\n")
-
         # Download
         res = RUN(["ivre", "ipdata", "--download"])[0]
         self.assertEqual(res, 0)
 
-        # Insert
-        proc = RUN_ITER(["ivre", "ipdata", "--import-all",
-                         "--no-update-passive-db"],
+        # CSV creation -- disabled on Travis CI: this is way too slow.
+        # Files are downloaded from ivre.rocks in .travis.yml instead,
+        # and "touched" here to make sure they are newer than the
+        # .mmdb files. Only the Country file is created.
+        for sub in ['ASN', 'City']:
+            fname = os.path.join(ivre.config.GEOIP_PATH,
+                                 'GeoLite2-%s.dump-IPv4.csv' % sub)
+            if os.path.isfile(fname):
+                os.utime(fname, None)
+        proc = RUN_ITER(["ivre", "ipdata", "--import-all"],
                         stdout=sys.stdout, stderr=sys.stderr)
         self.assertEqual(proc.wait(), 0)
 
@@ -1849,108 +1846,52 @@ which `predicate()` is True, given `webflt`.
         )
         self.assertEqual(out, sorted(b'''8.8.8.8
     as_num 15169
-    as_name Google Inc.
-    coordinates (37.751, -97.822)
+    as_name Google LLC
+    continent_code NA
+    continent_name North America
     country_code US
     country_name United States
+    registered_country_code US
+    registered_country_name United States
+    coordinates (37.751, -97.822)
+    coordinates_accuracy_radius 1000
 '''.splitlines()))
 
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--asnum", "15169"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'AS15169 has 2685951 IPs.\n')
+        self.assertEqual(out, b'AS15169 has 4521723 IPs.\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--country", "US"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'US has 1595080627 IPs.\n')
-        res, out, _ = RUN(["ivre", "runscans", "--output", "List", "--country", "A2"])
+        self.assertEqual(out, b'US has 1581733971 IPs.\n')
+        res, out, _ = RUN(["ivre", "runscans", "--output", "List", "--country", "PN"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'''5.145.149.142 - 5.145.149.142
-57.72.6.0 - 57.72.6.255
-62.56.206.0 - 62.56.206.255
-62.128.160.0 - 62.128.160.255
-62.128.167.0 - 62.128.167.255
-62.145.35.0 - 62.145.35.255
-77.220.0.0 - 77.220.7.255
-78.41.29.0 - 78.41.29.255
-78.41.227.0 - 78.41.227.255
-80.78.16.152 - 80.78.16.167
-80.78.16.192 - 80.78.16.207
-80.78.16.224 - 80.78.16.224
-80.78.19.57 - 80.78.19.63
-80.78.19.233 - 80.78.19.239
-80.231.5.0 - 80.231.5.255
-82.206.239.0 - 82.206.239.255
-83.229.22.0 - 83.229.22.255
-84.22.67.0 - 84.22.67.255
-86.62.5.0 - 86.62.5.255
-86.62.30.0 - 86.62.30.255
-87.234.247.0 - 87.234.247.255
-93.93.101.96 - 93.93.101.127
-93.93.102.96 - 93.93.102.127
-111.90.150.0 - 111.90.150.255
-185.38.108.0 - 185.38.108.255
-196.15.8.0 - 196.15.8.255
-196.15.10.0 - 196.15.11.255
-196.47.77.0 - 196.47.78.255
-196.201.132.0 - 196.201.132.255
-196.201.135.0 - 196.201.135.255
-196.201.148.0 - 196.201.148.255
-199.190.44.0 - 199.190.47.255
-213.193.49.0 - 213.193.49.255
-216.147.155.0 - 216.147.155.255
-217.30.26.0 - 217.30.26.255
-217.175.75.0 - 217.175.75.255
+        self.assertEqual(out, b'''5.62.56.189 - 5.62.56.191
+5.62.58.165 - 5.62.58.167
+46.36.201.141 - 46.36.201.145
+104.224.47.0 - 104.224.47.255
 ''')
-        res, out, _ = RUN(["ivre", "runscans", "--output", "ListCIDRs", "--country", "A1"])
+        res, out, _ = RUN(["ivre", "runscans", "--output", "ListCIDRs", "--country", "BV"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'''31.14.133.39/32
-37.221.172.0/23
-46.19.137.0/24
-46.19.143.0/24
-50.7.78.88/31
-62.73.8.0/23
-63.235.155.210/32
-64.12.118.23/32
-64.12.118.88/32
-67.43.156.0/24
-69.10.139.0/24
-70.232.245.0/24
-74.82.9.224/32
-80.254.74.0/23
-93.115.82.0/23
-93.115.84.0/23
-96.47.226.20/32
-147.203.120.0/24
-176.9.75.43/32
-185.36.100.145/32
-192.238.21.0/24
-193.107.17.71/32
-193.200.150.0/24
-198.144.105.88/32
-199.114.223.0/24
-199.188.236.0/23
-200.200.200.200/32
-206.71.162.0/24
-206.196.103.0/24
-208.43.225.52/32
-209.216.198.0/24
-213.234.249.115/32
-216.151.180.0/24
+        self.assertEqual(out, b'''31.28.161.170/32
+172.94.114.0/24
+185.193.124.0/24
+195.181.215.206/32
 ''')
         # ListAll and ListAllRand use different mechanisms
         res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
-                            "--country", "A1"])
+                            "--country", "PN"])
         self.assertEqual(res, 0)
         res, out2, _ = RUN(["ivre", "runscans", "--output", "ListAllRand",
-                            "--country", "A1"])
+                            "--country", "PN"])
         self.assertEqual(res, 0)
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
         self.assertItemsEqual(out1, out2)
         res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
-                            "--region", "GP", "R5"])
+                            "--region", "WF", "UV"])
         self.assertEqual(res, 0)
         res, out2, _ = RUN(["ivre", "runscans", "--output", "ListAllRand",
-                            "--region", "GP", "R5"])
+                            "--region", "WF", "UV"])
         self.assertEqual(res, 0)
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
@@ -1973,10 +1914,6 @@ which `predicate()` is True, given `webflt`.
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
         self.assertItemsEqual(out1, out2)
-
-        # Clean
-        res = RUN(["ivre", "ipdata", "--init"], stdin=open(os.devnull))[0]
-        self.assertEqual(res, 0)
 
     def test_utils(self):
         """Functions that have not yet been tested"""
