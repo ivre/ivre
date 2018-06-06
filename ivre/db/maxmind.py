@@ -408,7 +408,7 @@ class MaxMindDBData(DBData):
                 data[5:]
             ))
 
-    def build_dumps(self):
+    def build_dumps(self, force=False):
         for attr, func in [
                 ("db_asn", self.dump_as_ranges),
                 ("db_country", self.dump_country_ranges),
@@ -420,6 +420,20 @@ class MaxMindDBData(DBData):
                 continue
             if not subdb.path.endswith('.mmdb'):
                 continue
-            with codecs.open(subdb.path[:-4] + 'dump-IPv4.csv',
-                             mode="w", encoding='utf-8') as fdesc:
+            csv_file = subdb.path[:-4] + 'dump-IPv4.csv'
+            if not force:
+                mmdb_mtime = os.path.getmtime(subdb.path)
+                try:
+                    csv_mtime = os.path.getmtime(csv_file)
+                except OSError:
+                    pass
+                else:
+                    if csv_mtime > mmdb_mtime:
+                        utils.LOGGER.info('Skipping %r since %r is newer',
+                                          os.path.basename(subdb.path),
+                                          os.path.basename(csv_file))
+                        continue
+            utils.LOGGER.info('Dumping %r to %r', os.path.basename(subdb.path),
+                              os.path.basename(csv_file))
+            with codecs.open(csv_file, mode="w", encoding='utf-8') as fdesc:
                 func(fdesc)

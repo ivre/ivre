@@ -1821,14 +1821,17 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
 
         # CSV creation -- disabled on Travis CI: this is way too slow.
-        # Files are downloaded from ivre.rocks in .travis.yml instead.
-        if not all(os.path.isfile(os.path.join(
-                ivre.config.GEOIP_PATH,
-                'GeoLite2-%s.dump-IPv4.csv' % sub
-        )) for sub in ['ASN', 'City', 'Country']):
-            proc = RUN_ITER(["ivre", "ipdata", "--import-all"],
-                            stdout=sys.stdout, stderr=sys.stderr)
-            self.assertEqual(proc.wait(), 0)
+        # Files are downloaded from ivre.rocks in .travis.yml instead,
+        # and "touched" here to make sure they are newer than the
+        # .mmdb files. Only the Country file is created.
+        for sub in ['ASN', 'City']:
+            fname = os.path.join(ivre.config.GEOIP_PATH,
+                                 'GeoLite2-%s.dump-IPv4.csv' % sub)
+            if os.path.isfile(fname):
+                os.utime(fname, None)
+        proc = RUN_ITER(["ivre", "ipdata", "--import-all"],
+                        stdout=sys.stdout, stderr=sys.stderr)
+        self.assertEqual(proc.wait(), 0)
 
         res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])
         self.assertEqual(res, 0)
