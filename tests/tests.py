@@ -1819,7 +1819,8 @@ which `predicate()` is True, given `webflt`.
         shutil.rmtree("logs")
 
 
-    def test_data(self):
+    # This test have to be done first.
+    def test_10_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
 
         # Download
@@ -2320,7 +2321,7 @@ which `predicate()` is True, given `webflt`.
             del os.environ["IVRE_CONF"]
 
 
-TESTS = set(["nmap", "passive", "data", "utils", "scans", "conf"])
+TESTS = set(["nmap", "passive", "10_data", "utils", "scans", "conf"])
 
 
 DATABASES = {
