@@ -24,7 +24,6 @@ AS number and country information.
 
 
 from __future__ import print_function
-import os
 try:
     import argparse
     USING_ARGPARSE = True
@@ -40,7 +39,6 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
-from builtins import input
 from future.utils import viewitems
 
 
