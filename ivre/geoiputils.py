@@ -48,38 +48,34 @@ from ivre import utils, config
 
 
 def bgp_raw_to_csv(fname, out):
-    out = open(os.path.join(config.GEOIP_PATH, out), 'wb')
-    cur = []
+    out = open(os.path.join(config.GEOIP_PATH, out), 'w')
+    cur = None
     with open(os.path.join(config.GEOIP_PATH, fname), 'rb') as fdesc:
         for line in fdesc:
             start, stop = (utils.ip2int(elt) for elt in
-                           utils.net2range(line[:-1].split()[0]))
+                           utils.net2range(line[:-1].split(None, 1)[0]))
             if cur:
                 if start >= cur[0] and stop <= cur[1]:
                     continue
                 if start >= cur[0] and start <= cur[1]:
-                    cur = [cur[0], stop]
+                    cur = (cur[0], stop)
                     continue
                 if stop >= cur[0] and stop <= cur[1]:
-                    cur = [start, cur[1]]
+                    cur = (start, cur[1])
                     continue
                 if start <= cur[0] and stop >= cur[1]:
-                    cur = [start, stop]
+                    cur = (start, stop)
                     continue
                 if start == cur[1] + 1:
-                    cur = [cur[0], stop]
+                    cur = (cur[0], stop)
                     continue
                 if stop == cur[0] + 1:
-                    cur = [start, cur[1]]
+                    cur = (start, cur[1])
                     continue
-                out.write(('"%s","%s","%d","%d"\n' % (
-                    utils.int2ip(cur[0]), utils.int2ip(cur[1]), cur[0], cur[1],
-                )).encode())
-            cur = [start, stop]
+                out.write('%d,%d\n' % cur)
+            cur = (start, stop)
     if cur:
-        out.write(('"%s","%s","%d","%d"\n' % (
-            utils.int2ip(cur[0]), utils.int2ip(cur[1]), cur[0], cur[1],
-        )).encode())
+        out.write('%d,%d\n' % cur)
 
 
 def unzip_all(fname, cond=lambda _: True, clean=True):
