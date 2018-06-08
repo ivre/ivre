@@ -404,7 +404,8 @@ class MaxMindDBData(DBData):
                 break
             fdesc.write('%d,%d,%s,%s,%s,%s\n' % (
                 data[:4] +
-                (utils.encode_b64(data[4].encode('utf-8')).decode('utf-8'),) +
+                (utils.encode_b64((data[4] or
+                                   "").encode('utf-8')).decode('utf-8'),) +
                 data[5:]
             ))
 

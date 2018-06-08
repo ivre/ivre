@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the classes and functions to handle
 information about IP addresses (mostly from Maxmind GeoIP files).
@@ -48,38 +48,34 @@ from ivre import utils, config
 
 
 def bgp_raw_to_csv(fname, out):
-    out = open(os.path.join(config.GEOIP_PATH, out), 'wb')
-    cur = []
+    out = open(os.path.join(config.GEOIP_PATH, out), 'w')
+    cur = None
     with open(os.path.join(config.GEOIP_PATH, fname), 'rb') as fdesc:
         for line in fdesc:
             start, stop = (utils.ip2int(elt) for elt in
-                           utils.net2range(line[:-1].split()[0]))
+                           utils.net2range(line[:-1].split(None, 1)[0]))
             if cur:
                 if start >= cur[0] and stop <= cur[1]:
                     continue
                 if start >= cur[0] and start <= cur[1]:
-                    cur = [cur[0], stop]
+                    cur = (cur[0], stop)
                     continue
                 if stop >= cur[0] and stop <= cur[1]:
-                    cur = [start, cur[1]]
+                    cur = (start, cur[1])
                     continue
                 if start <= cur[0] and stop >= cur[1]:
-                    cur = [start, stop]
+                    cur = (start, stop)
                     continue
                 if start == cur[1] + 1:
-                    cur = [cur[0], stop]
+                    cur = (cur[0], stop)
                     continue
                 if stop == cur[0] + 1:
-                    cur = [start, cur[1]]
+                    cur = (start, cur[1])
                     continue
-                out.write(('"%s","%s","%d","%d"\n' % (
-                    utils.int2ip(cur[0]), utils.int2ip(cur[1]), cur[0], cur[1],
-                )).encode())
-            cur = [start, stop]
+                out.write('%d,%d\n' % cur)
+            cur = (start, stop)
     if cur:
-        out.write(('"%s","%s","%d","%d"\n' % (
-            utils.int2ip(cur[0]), utils.int2ip(cur[1]), cur[0], cur[1],
-        )).encode())
+        out.write('%d,%d\n' % cur)
 
 
 def unzip_all(fname, cond=lambda _: True, clean=True):
@@ -181,7 +177,8 @@ def locids_by_city(country_code, city_name):
         config.GEOIP_PATH,
         'GeoLite2-City-Locations-%s.csv' % config.GEOIP_LANG,
     ), encoding='utf-8'))
-    city_name = utils.encode_b64(city_name.encode('utf-8')).decode('utf-8')
+    city_name = utils.encode_b64((city_name or
+                                  "").encode('utf-8')).decode('utf-8')
     for line in fdesc:
         if (line['country_iso_code'], line['city_name']) == \
            (country_code, city_name):
@@ -260,7 +257,8 @@ get_ranges_by_location = lambda locid: get_ranges_by_data(
 
 get_ranges_by_city = lambda country_code, city: get_ranges_by_data(
     'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[4] == city
+    lambda line: line[2] == country_code and
+    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
 )
 
 get_ranges_by_region = lambda country_code, reg_code: get_ranges_by_data(
@@ -310,7 +308,8 @@ get_ips_by_location = lambda locid, **kargs: get_ips_by_data(
 
 get_ips_by_city = lambda country_code, city, **kargs: get_ips_by_data(
     'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[4] == city,
+    lambda line: line[2] == country_code and
+    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
     **kargs
 )
 
@@ -350,7 +349,8 @@ count_ips_by_location = lambda locid: count_ips_by_data(
 
 count_ips_by_city = lambda country_code, city: count_ips_by_data(
     'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[4] == city,
+    lambda line: line[2] == country_code and
+    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
 )
 
 count_ips_by_region = lambda country_code, reg_code: count_ips_by_data(
@@ -417,7 +417,8 @@ list_ips_by_location = lambda locid, **kargs: list_ips_by_data(
 
 list_ips_by_city = lambda country_code, city, **kargs: list_ips_by_data(
     'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[4] == city,
+    lambda line: line[2] == country_code and
+    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
     **kargs
 )
 
