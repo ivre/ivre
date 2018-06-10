@@ -44,6 +44,8 @@ DEBUG_DB = False
 DATA_PATH = None
 GEOIP_PATH = None
 HONEYD_IVRE_SCRIPTS_PATH = None
+WEB_STATIC_PATH = None
+WEB_DOKU_PATH = None
 AGENT_MASTER_PATH = "/var/lib/ivre/master"
 TESSERACT_CMD = "tesseract"
 GZ_CMD = "zcat"
@@ -251,6 +253,14 @@ if DB_DATA is None and GEOIP_PATH is not None:
 
 if DATA_PATH is None:
     DATA_PATH = guess_prefix('data')
+
+
+if WEB_STATIC_PATH is None:
+    WEB_STATIC_PATH = guess_prefix(directory='web/static')
+
+
+if WEB_DOKU_PATH is None:
+    WEB_DOKU_PATH = guess_prefix(directory='dokuwiki')
 
 
 if HONEYD_IVRE_SCRIPTS_PATH is None and DATA_PATH is not None:

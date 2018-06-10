@@ -33,12 +33,8 @@ import os
 from bottle import default_app, get, redirect, run, static_file
 
 
-from ivre import config
+from ivre.config import DEBUG, WEB_DOKU_PATH, WEB_STATIC_PATH
 from ivre.web import app as webapp
-
-
-BASEDIR = config.guess_prefix(directory='web/static')
-DOKUDIR = config.guess_prefix(directory='dokuwiki')
 
 
 #
@@ -64,13 +60,13 @@ far from being great...
     filepath = filepath.lower().replace(':', '/')
     if '.' not in os.path.basename(filepath):
         filepath += '.txt'
-    return static_file(filepath, root=DOKUDIR)
+    return static_file(filepath, root=WEB_DOKU_PATH)
 
 
 @get('/<filepath:path>')
 def server_static(filepath):
     """Serve the static (HTML, JS, CSS, ...) content."""
-    return static_file(filepath, root=BASEDIR)
+    return static_file(filepath, root=WEB_STATIC_PATH)
 
 
 def parse_args():
@@ -101,4 +97,4 @@ def main():
     args = parse_args()
     application = default_app()
     application.mount('/cgi/', webapp.application)
-    run(host=args.bind_address, port=args.port, debug=config.DEBUG)
+    run(host=args.bind_address, port=args.port, debug=DEBUG)
