@@ -1535,10 +1535,10 @@ returns a generator.
 returns the first result, or None if no result exists."""
         return next(self.get(flt, limit=1, skip=skip))
 
-    def _insert_or_update(self, timestamp, values):
+    def _insert_or_update(self, timestamp, values, lastseen=None):
         raise NotImplementedError()
 
-    def insert_or_update(self, timestamp, spec, getinfos=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         if spec is None:
             return
         if getinfos is not None:
@@ -1553,6 +1553,8 @@ returns the first result, or None if no result exists."""
                 pass
         addr = spec.pop("addr", None)
         timestamp = datetime.datetime.fromtimestamp(timestamp)
+        if lastseen is not None:
+            lastseen = datetime.datetime.fromtimestamp(lastseen)
         if addr:
             addr = self.convert_ip(addr)
         otherfields = dict(
@@ -1569,7 +1571,7 @@ returns the first result, or None if no result exists."""
             # sensor: otherfields
             'count': spec.pop("count", 1),
             'firstseen': timestamp,
-            'lastseen': timestamp,
+            'lastseen': lastseen or timestamp,
             'port': spec.pop("port", 0),
             'recontype': spec.pop("recontype"),
             # source, targetval, value: otherfields
@@ -1578,7 +1580,7 @@ returns the first result, or None if no result exists."""
             'moreinfo': spec,
         }
         vals.update(otherfields)
-        self._insert_or_update(timestamp, vals)
+        self._insert_or_update(timestamp, vals, lastseen=lastseen)
 
     def insert_or_update_bulk(self, specs, getinfos=None,
                               separated_timestamps=True):
@@ -1597,11 +1599,13 @@ returns the first result, or None if no result exists."""
         """
         if separated_timestamps:
             for ts, spec in specs:
-                self.insert_or_update(ts, spec, getinfos)
+                self.insert_or_update(ts, spec, getinfos=getinfos)
         else:
             for spec in specs:
-                # No default timestamp parameter.
-                raise NotImplementedError()
+                timestamp = spec.pop("firstseen", None)
+                lastseen = spec.pop("lastseen", None)
+                self.insert_or_update(timestamp or lastseen, spec,
+                                      getinfos=getinfos, lastseen=lastseen)
 
     def migrate_from_db(self, db, flt=None, limit=None, skip=None, sort=None):
         if flt is None:

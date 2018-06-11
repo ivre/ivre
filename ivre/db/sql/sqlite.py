@@ -47,7 +47,7 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
         SqliteDB.__init__(self, url)
         SQLDBPassive.__init__(self, url)
 
-    def _insert_or_update(self, timestamp, vals):
+    def _insert_or_update(self, timestamp, vals, lastseen=None):
         stmt = insert(Passive)\
             .values(dict(vals, addr=utils.force_int2ip(vals['addr'])))
         try:
@@ -70,7 +70,7 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
                 ),
                 'lastseen': func.greatest(
                     Passive.lastseen,
-                    timestamp,
+                    lastseen or timestamp,
                 ),
                 'count': Passive.count + vals['count'],
             }
