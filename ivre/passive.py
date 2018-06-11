@@ -266,8 +266,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
 
 def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by **bro_line
-               timestamp, uid, host, srvport, recon_type, source, value,
-               targetval):
+               timestamp=None, uid=None, host=None, srvport=None,
+               recon_type=None, source=None, value=None, targetval=None):
     if host is None:
         spec = {
             'targetval': targetval,
@@ -275,9 +275,8 @@ def handle_rec(sensor, ignorenets, neverignore,
             'value': value
         }
     else:
-        host = utils.force_ip2int(host)
         spec = {
-            'addr': host,
+            'addr': utils.force_ip2int(host),
             'recontype': recon_type,
             'value': value
         }
