@@ -63,9 +63,13 @@ ivre/xmlnmap.py
 ivre/analyzer/__init__.py
 ivre/analyzer/ike.py
 ivre/db/__init__.py
+ivre/db/maxmind.py
 ivre/db/mongo.py
 ivre/db/neo4j.py
-ivre/db/postgres.py
+ivre/db/sql/__init__.py
+ivre/db/sql/postgres.py
+ivre/db/sql/sqlite.py
+ivre/db/sql/tables.py
 ivre/parser/__init__.py
 ivre/parser/airodump.py
 ivre/parser/argus.py
