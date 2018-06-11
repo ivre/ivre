@@ -167,13 +167,6 @@ def get_anonymized_user():
                                      msg=get_user().encode()).digest()[:9])
 
 
-QUERIES = {
-    'full': lambda: db.nmap.flt_empty,
-    'noaccess': db.nmap.searchnonexistent,
-    'category': lambda cat: db.nmap.searchcategory(cat.split(',')),
-}
-
-
 def _parse_query(query):
     """Returns a DB filter (valid for db.nmap) from a query string
     usable in WEB_DEFAULT_INIT_QUERY and WEB_INIT_QUERIES
@@ -183,12 +176,11 @@ def _parse_query(query):
     if query is None:
         query = 'full'
     query = query.split(':')
-    return QUERIES[query[0]](*query[1:])
-
-
-DEFAULT_INIT_QUERY = _parse_query(config.WEB_DEFAULT_INIT_QUERY)
-INIT_QUERIES = dict([key, _parse_query(value)]
-                    for key, value in viewitems(config.WEB_INIT_QUERIES))
+    return {
+        'full': lambda: db.nmap.flt_empty,
+        'noaccess': db.nmap.searchnonexistent,
+        'category': lambda cat: db.nmap.searchcategory(cat.split(',')),
+    }[query[0]](*query[1:])
 
 
 def get_init_flt():
@@ -196,16 +188,18 @@ def get_init_flt():
     privileges.
 
     """
+    init_queries = dict([key, _parse_query(value)]
+                        for key, value in viewitems(config.WEB_INIT_QUERIES))
     user = get_user()
-    if user in INIT_QUERIES:
-        return INIT_QUERIES[user]
+    if user in init_queries:
+        return init_queries[user]
     if isinstance(user, basestring) and '@' in user:
         realm = user[user.index('@'):]
-        if realm in INIT_QUERIES:
-            return INIT_QUERIES[realm]
+        if realm in init_queries:
+            return init_queries[realm]
     if config.WEB_PUBLIC_SRV:
         return db.nmap.searchcategory(["Shared", get_anonymized_user()])
-    return DEFAULT_INIT_QUERY
+    return _parse_query(config.WEB_DEFAULT_INIT_QUERY)
 
 
 def flt_from_query(query, base_flt=None):
