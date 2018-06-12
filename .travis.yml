@@ -18,6 +18,8 @@ sudo: required
 dist: trusty
 
 env:
+  # Sqlite
+  - DB=sqlite
   # PostgreSQL 10.1, 9.6.6, 9.5.10
   - DB=postgres POSTGRES_VERSION=9.5.10
   - DB=postgres POSTGRES_VERSION=9.6.6
@@ -73,8 +75,8 @@ before_script:
   # display version
   - ivre version
   # init DB
-  - ivre ipinfo --init < /dev/null
-  - ivre scancli --init < /dev/null
+  - ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
+  - ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
   - cat .travis/ivre.conf >> ~/.ivre.conf
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)

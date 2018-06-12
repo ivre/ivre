@@ -1,0 +1,4 @@
+pycrypto
+sqlalchemy
+future
+bottle

@@ -1691,6 +1691,11 @@ def _maxmind_url2dbinfos(url):
     return (url.scheme, (url.path,), {})
 
 
+def _sqlite_url2dbinfos(url):
+    # url.geturl() would remove two necessary '/' from url.
+    return (url.scheme, ("%s://%s" % (url.scheme, url.path),), {})
+
+
 class MetaDB(object):
     db_types = {
         "nmap": {},
@@ -1707,6 +1712,7 @@ class MetaDB(object):
         "mongodb": _mongodb_url2dbinfos,
         "neo4j": _neo4j_url2dbinfos,
         "maxmind": _maxmind_url2dbinfos,
+        "sqlite": _sqlite_url2dbinfos,
     }
 
     @classmethod
@@ -1733,14 +1739,20 @@ class MetaDB(object):
         else:
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         try:
-            from ivre.db.postgres import (PostgresDBFlow, PostgresDBNmap,
-                                          PostgresDBPassive)
+            from ivre.db.sql.postgres import (PostgresDBFlow, PostgresDBNmap,
+                                              PostgresDBPassive)
         except ImportError:
             pass
         else:
             self.db_types["flow"]["postgresql"] = PostgresDBFlow
             self.db_types["nmap"]["postgresql"] = PostgresDBNmap
             self.db_types["passive"]["postgresql"] = PostgresDBPassive
+        try:
+            from ivre.db.sql.sqlite import SqliteDBPassive
+        except ImportError:
+            pass
+        else:
+            self.db_types["passive"]["sqlite"] = SqliteDBPassive
         if urls is None:
             urls = {}
         try:

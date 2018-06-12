@@ -135,7 +135,7 @@ specialized scripts.
         'Plots': ["matplotlib"],
     },
     packages=['ivre', 'ivre/analyzer', 'ivre/db', 'ivre/parser', 'ivre/tools',
-              'ivre/web'],
+              'ivre/web', 'ivre/db/sql'],
     scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/bro',

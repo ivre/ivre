@@ -185,6 +185,10 @@ class MongoDB(DB):
         return self.get(*args, **kargs).count()
 
     @staticmethod
+    def convert_ip(addr):
+        return utils.force_ip2int(addr)
+
+    @staticmethod
     def serialize(obj):
         if isinstance(obj, bson.ObjectId):
             return utils.encode_hex(obj.binary)
