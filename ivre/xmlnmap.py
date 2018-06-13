@@ -998,28 +998,47 @@ def masscan_parse_s7info(data):
         }.get(output_data.get('copyright'))
         if product:
             service_info['service_product'] = product
+    output_text.append('\n')
     return service_info, output_text, output_data
 
 
-def masscan_x509(output):
+def masscan_parse_x509(data):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
 
-    XXX WORK IN PROGRESS"""
-    certificate = utils.decode_b64(output)
+    """
+    cert = utils.decode_b64(data)
+    info = utils.get_cert_info(cert)
     newout = []
-    for hashtype, hashname in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:
-        hashvalue = hashlib.new(hashtype, certificate).hexdigest()
-        newout.append('%-7s%s\n' % (
-            hashname,
-            ' '.join(hashvalue[i:i + 4] for i in range(0, len(hashvalue), 4))
-        ))
-    b64cert = utils.encode_b64(certificate).decode()
-    newout.append('-----BEGIN CERTIFICATE-----\n')
-    newout.extend('%s\n' % b64cert[i:i + 64] for i in
-                  range(0, len(b64cert), 64))
-    newout.append('-----END CERTIFICATE-----\n')
-    return "".join(newout)
+    for key, name in [('subject_text', 'Subject'),
+                      ('issuer_text', 'Issuer')]:
+        try:
+            newout.append('%s: %s' % (name, info.pop(key)))
+        except KeyError:
+            pass
+    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:
+        try:
+            newout.append('%-7s%s\n' % (name, info[key]))
+        except KeyError:
+            pass
+    try:
+        newout.append('Public Key type: %s\n' % {
+            'rsaEncryption': 'rsa',
+            'id-ecPublicKey': 'ec',
+            'id-dsa': 'dsa',
+            'dhpublicnumber': 'dh',
+        }.get(info['pubkeyalgo'], info['pubkeyalgo']))
+    except KeyError:
+        pass
+    b64cert = data.decode()
+    pem = []
+    pem.append('-----BEGIN CERTIFICATE-----')
+    pem.extend(b64cert[i:i + 64] for i in range(0, len(b64cert), 64))
+    pem.append('-----END CERTIFICATE-----')
+    pem.append('')
+    newout.extend(pem)
+    info['pem'] = '\n'.join(pem)
+    return newout, info
 
 
 def ignore_script(script):
@@ -1595,6 +1614,7 @@ class NmapHandler(ContentHandler):
             function = {
                 "http-headers": self.masscan_post_http,
                 "s7-info": self.masscan_post_s7info,
+                "ssl-cert": self.masscan_post_x509,
             }[script['id']]
         except KeyError:
             pass
@@ -1612,6 +1632,16 @@ class NmapHandler(ContentHandler):
             script["id"] = "banner"
             return
         self._curport.update(service_info)
+        if output_data:
+            script["output"] = "\n".join(output_text)
+            script[script["id"]] = output_data
+
+    def masscan_post_x509(self, script):
+        try:
+            data = self._from_binary(script['masscan']['raw'])
+        except KeyError:
+            return
+        output_text, output_data = masscan_parse_x509(data)
         if output_data:
             script["output"] = "\n".join(output_text)
             script[script["id"]] = output_data
