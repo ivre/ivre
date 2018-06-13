@@ -164,7 +164,7 @@ class SSLPassiveKey(PassiveKey, SSLKey):
                       long(self.modulus_badchars.sub(
                           b"", certtext['modulus']), 16),
                       long(certtext['exponent']))),
-                  utils.decode_hex(record['infos']['md5hash']))
+                  utils.decode_hex(record['infos']['md5']))
 
 
 class SSHKey(DBKey):
@@ -223,7 +223,7 @@ class SSHPassiveKey(PassiveKey, SSHKey):
                   record['infos']['algo'][4:], record['infos']['bits'],
                   RSA.construct((long(record['infos']['modulus']),
                                  long(record['infos']['exponent']))),
-                  utils.decode_hex(record['infos']['md5hash']))
+                  utils.decode_hex(record['infos']['md5']))
 
 
 class RSAKey(object):

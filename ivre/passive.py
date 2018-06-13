@@ -378,6 +378,74 @@ _CERTINFOS = re.compile(
 )
 
 
+_CERTKEYS = {
+    'C': 'countryName',
+    'CN': 'commonName',
+    'DC': 'domainComponent',
+    'L': 'localityName',
+    'O': 'organizationName',
+    'OU': 'organizationalUnitName',
+    'ST': 'stateOrProvinceName',
+    'SN': 'surname',
+}
+
+
+def _parse_cert_subject(subject):
+    status = 0
+    curkey = []
+    curvalue = []
+    for char in subject:
+        if status == -1:
+            # reading space before the key
+            if char == ' ':
+                continue
+            curkey.append(char)
+            status += 1
+        elif status == 0:
+            # reading key
+            if char == ' ':
+                status += 1
+                continue
+            curkey.append(char)
+        elif status == 1:
+            # reading '='
+            if char != '=':
+                return
+            status += 1
+        elif status == 2:
+            # reading space after '='
+            if char == ' ':
+                continue
+            # reading beginning of value
+            if char == '"':
+                status += 2
+                continue
+            curvalue.append(char)
+            status += 1
+        elif status == 3:
+            # reading value without quotes
+            if char == ',':
+                yield "".join(curkey), "".join(curvalue)
+                curkey = []
+                curvalue = []
+                status = -1
+                continue
+            curvalue.append(char)
+        elif status == 4:
+            # reading value with quotes
+            if char == '"':
+                status -= 1
+                continue
+            if char == '\\':
+                status += 1
+                continue
+            curvalue.append(char)
+        elif status == 5:
+            curvalue.append(char)
+            status -= 1
+    yield "".join(curkey), "".join(curvalue)
+
+
 def _getinfos_cert(spec):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
@@ -391,21 +459,33 @@ def _getinfos_cert(spec):
         utils.LOGGER.info("Cannot parse certificate for record %r", spec,
                           exc_info=True)
         return {}
-    for hashtype in ['md5', 'sha1']:
-        infos['%shash' % hashtype] = hashlib.new(hashtype, cert).hexdigest()
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        infos[hashtype] = hashlib.new(hashtype, cert).hexdigest()
     proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
                              '-inform', 'DER'], stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE)
     proc.stdin.write(cert)
     proc.stdin.close()
     try:
-        newinfos = _CERTINFOS.search(proc.stdout.read()).groupdict()
+        newinfos = {}
         newfullinfos = {}
-        for field in newinfos:
-            data = newinfos[field] = newinfos[field].decode()
-            if len(data) > utils.MAXVALLEN:
+        for field, data in viewitems(
+                _CERTINFOS.search(proc.stdout.read()).groupdict()
+        ):
+            data = data.decode()
+            if field in ['issuer', 'subject']:
+                data = dict((_CERTKEYS.get(key, key), value)
+                            for key, value in _parse_cert_subject(data))
+                newinfos[field] = data
+                for key, value in list(viewitems(data)):
+                    if len(value) > utils.MAXVALLEN:
+                        newfullinfos.setdefault(field, {})[key] = value
+                        newinfos[field] = value[:utils.MAXVALLEN]
+            elif len(data) > utils.MAXVALLEN:
                 newfullinfos[field] = data
                 newinfos[field] = data[:utils.MAXVALLEN]
+            else:
+                newinfos[field] = data
         infos.update(newinfos)
         fullinfos.update(newfullinfos)
     except Exception:
@@ -457,9 +537,8 @@ def _getinfos_ssh_hostkey(spec):
     """Parse SSH host keys."""
     infos = {}
     data = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
-    infos["md5hash"] = hashlib.md5(data).hexdigest()
-    infos["sha1hash"] = hashlib.sha1(data).hexdigest()
-    infos["sha256hash"] = hashlib.sha256(data).hexdigest()
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        infos[hashtype] = hashlib.new(hashtype, data).hexdigest()
     data = utils.parse_ssh_key(data)
     keytype = infos["algo"] = next(data).decode()
     if keytype == "ssh-rsa":
