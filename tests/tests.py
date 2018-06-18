@@ -584,6 +584,9 @@ which `predicate()` is True, given `webflt`.
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(err))
             scan_counter += sum(1 for _ in scan_stored.finditer(err))
+            for line in err.split(b'\n'):
+                if line[:11] != b'DEBUG:ivre:':
+                    print(line.decode())
             # Insertion test (== parsing only)
             res, out, _ = RUN(["ivre", "scan2db", "--port", "--test",
                                "-c", "TEST", "-s", "SOURCE", fname])

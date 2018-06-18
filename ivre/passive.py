@@ -367,55 +367,33 @@ def _getinfos_dns(spec):
     return res
 
 
-_CERTINFOS = re.compile(
-    b'\n *'
-    b'Issuer: (?P<issuer>.*)'
-    b'\n(?:.*\n)* *'
-    b'Subject: (?P<subject>.*)'
-    b'\n(?:.*\n)* *'
-    b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
-    b'(?:\n|$)'
-)
-
-
 def _getinfos_cert(spec):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
 
     """
-    infos = {}
-    fullinfos = {}
     try:
         cert = utils.decode_b64(spec.get('fullvalue', spec['value']).encode())
     except Exception:
         utils.LOGGER.info("Cannot parse certificate for record %r", spec,
                           exc_info=True)
         return {}
-    for hashtype in ['md5', 'sha1']:
-        infos['%shash' % hashtype] = hashlib.new(hashtype, cert).hexdigest()
-    proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
-                             '-inform', 'DER'], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE)
-    proc.stdin.write(cert)
-    proc.stdin.close()
-    try:
-        newinfos = _CERTINFOS.search(proc.stdout.read()).groupdict()
-        newfullinfos = {}
-        for field in newinfos:
-            data = newinfos[field] = newinfos[field].decode()
-            if len(data) > utils.MAXVALLEN:
-                newfullinfos[field] = data
-                newinfos[field] = data[:utils.MAXVALLEN]
-        infos.update(newinfos)
-        fullinfos.update(newfullinfos)
-    except Exception:
-        utils.LOGGER.info("Cannot parse certificate for record %r", spec,
-                          exc_info=True)
+    info = utils.get_cert_info(cert)
+    fullinfo = {}
+    for key, value in list(viewitems(info)):
+        if key in ['issuer', 'subject']:
+            for skey, svalue in list(viewitems(value)):
+                if len(svalue) > utils.MAXVALLEN:
+                    fullinfo.setdefault(key, {})[skey] = svalue
+                    info[key][skey] = svalue[:utils.MAXVALLEN]
+        elif len(value) > utils.MAXVALLEN:
+            fullinfo[key] = value
+            info[key] = value[:utils.MAXVALLEN]
     res = {}
-    if infos:
-        res['infos'] = infos
-    if fullinfos:
-        res['fullinfos'] = fullinfos
+    if info:
+        res['infos'] = info
+    if fullinfo:
+        res['fullinfos'] = fullinfo
     return res
 
 
@@ -457,9 +435,8 @@ def _getinfos_ssh_hostkey(spec):
     """Parse SSH host keys."""
     infos = {}
     data = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
-    infos["md5hash"] = hashlib.md5(data).hexdigest()
-    infos["sha1hash"] = hashlib.sha1(data).hexdigest()
-    infos["sha256hash"] = hashlib.sha256(data).hexdigest()
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        infos[hashtype] = hashlib.new(hashtype, data).hexdigest()
     data = utils.parse_ssh_key(data)
     keytype = infos["algo"] = next(data).decode()
     if keytype == "ssh-rsa":

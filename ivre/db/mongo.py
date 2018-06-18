@@ -2731,9 +2731,11 @@ class MongoDBPassive(MongoDB, DBPassive):
                 ([('infos.domaintarget', pymongo.ASCENDING)],
                  {"sparse": True}),
                 # SSL
-                ([('infos.md5hash', pymongo.ASCENDING)],
+                ([('infos.md5', pymongo.ASCENDING)],
                  {"sparse": True}),
-                ([('infos.sha1hash', pymongo.ASCENDING)],
+                ([('infos.sha1', pymongo.ASCENDING)],
+                 {"sparse": True}),
+                ([('infos.sha256', pymongo.ASCENDING)],
                  {"sparse": True}),
                 ([('infos.issuer', pymongo.ASCENDING)],
                  {"sparse": True}),

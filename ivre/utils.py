@@ -1171,3 +1171,116 @@ None if it is a "normal", usable address.
             # FIXME no IPv6 support
             return None
     return _ADDR_TYPES[bisect_left(_ADDR_TYPES_LAST_IP, addr)]
+
+
+_CERTINFOS = re.compile(
+    b'\n *'
+    b'Issuer: (?P<issuer>.*)'
+    b'\n(?:.*\n)* *'
+    b'Subject: (?P<subject>.*)'
+    b'\n(?:.*\n)* *'
+    b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
+    b'(?:\n|$)'
+)
+
+
+_CERTKEYS = {
+    'C': 'countryName',
+    'CN': 'commonName',
+    'DC': 'domainComponent',
+    'L': 'localityName',
+    'O': 'organizationName',
+    'OU': 'organizationalUnitName',
+    'ST': 'stateOrProvinceName',
+    'SN': 'surname',
+}
+
+
+def _parse_cert_subject(subject):
+    status = 0
+    curkey = []
+    curvalue = []
+    for char in subject:
+        if status == -1:
+            # reading space before the key
+            if char == ' ':
+                continue
+            curkey.append(char)
+            status += 1
+        elif status == 0:
+            # reading key
+            if char == ' ':
+                status += 1
+                continue
+            if char == '=':
+                status += 2
+                continue
+            curkey.append(char)
+        elif status == 1:
+            # reading '='
+            if char != '=':
+                return
+            status += 1
+        elif status == 2:
+            # reading space after '='
+            if char == ' ':
+                continue
+            # reading beginning of value
+            if char == '"':
+                status += 2
+                continue
+            curvalue.append(char)
+            status += 1
+        elif status == 3:
+            # reading value without quotes
+            if char == ',':
+                yield "".join(curkey), "".join(curvalue)
+                curkey = []
+                curvalue = []
+                status = -1
+                continue
+            curvalue.append(char)
+        elif status == 4:
+            # reading value with quotes
+            if char == '"':
+                status -= 1
+                continue
+            if char == '\\':
+                status += 1
+                continue
+            curvalue.append(char)
+        elif status == 5:
+            curvalue.append(char)
+            status -= 1
+    yield "".join(curkey), "".join(curvalue)
+
+
+def get_cert_info(cert):
+    """Extract info from a certificate (hash values, issuer, subject,
+    algorithm) in an handy-to-index-and-query form.
+
+    """
+    result = {}
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
+    proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+                             '-inform', 'DER'], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE)
+    proc.stdin.write(cert)
+    proc.stdin.close()
+    try:
+        for field, data in viewitems(
+                _CERTINFOS.search(proc.stdout.read()).groupdict()
+        ):
+            data = data.decode()
+            if field in ['issuer', 'subject']:
+                data = [(_CERTKEYS.get(key, key), value)
+                        for key, value in _parse_cert_subject(data)]
+                result[field] = dict(data)
+                result['%s_text' % field] = '/'.join('%s=%s' % item
+                                                     for item in data)
+            else:
+                result[field] = data
+    except Exception:
+        LOGGER.info("Cannot parse certificate %r", cert, exc_info=True)
+    return result
