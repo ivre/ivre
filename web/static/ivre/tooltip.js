@@ -104,10 +104,12 @@ var ToolTip = {
 		    "title": "Possible commands",
 		    "content": matching_keys.map(
 			function(x) {
-			    return x.substr(0, key.length) +
+			    return "<span onclick=\"$('#" + elt.id +
+                                "').val('" + x + "').focus();\">" +
+                                x.substr(0, key.length) +
 				"<b><span style=\"color: red;\">" +
 				x.substr(key.length, 1) + "</span>" +
-				x.substr(key.length + 1) + "</b>";
+				x.substr(key.length + 1) + "</b></span>";
 			}).join("<br>"),
 		};
 	    }
