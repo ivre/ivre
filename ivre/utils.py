@@ -1276,7 +1276,9 @@ def get_cert_info(cert):
             if field in ['issuer', 'subject']:
                 data = [(_CERTKEYS.get(key, key), value)
                         for key, value in _parse_cert_subject(data)]
-                result[field] = dict(data)
+                # replace '.' by '_' in keys to produce valid JSON
+                result[field] = dict((key.replace('.', '_'), value)
+                                     for key, value in data)
                 result['%s_text' % field] = '/'.join('%s=%s' % item
                                                      for item in data)
             else:
