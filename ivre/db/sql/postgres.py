@@ -29,17 +29,14 @@ import time
 
 from builtins import int
 from sqlalchemy import desc, func, text, column, delete, exists, insert, \
-    join, select, update, and_, Column, Table, ARRAY, LargeBinary, String, \
-    tuple_
+    join, select, and_, Column, Table, ARRAY, LargeBinary, String, tuple_
 from sqlalchemy.dialects import postgresql
 
 
 from ivre import config, utils
 from ivre.db.sql import NmapFilter, PassiveCSVFile, ScanCSVFile, SQLDB, \
     SQLDBFlow, SQLDBNmap, SQLDBPassive
-from ivre.db.sql.tables import Association_Scan_Category, \
-    Association_Scan_ScanFile, Category, Hop, Hostname, Passive, Point, Port, \
-    Scan, ScanFile, Script, Trace
+from ivre.db.sql.tables import Point
 
 
 class PostgresDB(SQLDB):
@@ -154,7 +151,7 @@ class PostgresDBNmap(PostgresDB, SQLDBNmap):
         if 'scaninfos' in scan:
             scan["scaninfo"] = scan.pop('scaninfos')
         scan["sha256"] = utils.decode_hex(scan.pop('_id'))
-        insrt = insert(ScanFile).values(
+        insrt = insert(self.tables.scanfile).values(
             **dict(
                 (key, scan[key])
                 for key in ['sha256', 'args', 'scaninfo', 'scanner', 'start',
@@ -164,14 +161,14 @@ class PostgresDBNmap(PostgresDB, SQLDBNmap):
         )
         if config.DEBUG:
             scanfileid = self.db.execute(
-                insrt.returning(ScanFile.sha256)
+                insrt.returning(self.tables.scanfile.sha256)
             ).fetchone()[0]
             utils.LOGGER.debug("SCAN STORED: %r", utils.encode_hex(scanfileid))
         else:
             self.db.execute(insrt)
 
     def store_hosts(self, hosts, merge=False):
-        tmp = self.create_tmp_table(Scan, extracols=[
+        tmp = self.create_tmp_table(self.tables.scan, extracols=[
             Column("scanfileid", ARRAY(LargeBinary(32))),
             Column("categories", ARRAY(String(32))),
             Column("source", String(32)),
@@ -208,7 +205,7 @@ insert structures.
             info['coordinates'] = info.pop('loc')['coordinates'][::-1]
         source = host.get('source', '')
         if merge:
-            insrt = postgresql.insert(Scan)
+            insrt = postgresql.insert(self.tables.scan)
             scanid, scan_tstop, merge = self.db.execute(
                 insrt.values(
                     addr=addr,
@@ -227,18 +224,18 @@ insert structures.
                     index_elements=['addr', 'source'],
                     set_={
                         'time_start': func.least(
-                            Scan.time_start,
+                            self.tables.scan.time_start,
                             insrt.excluded.time_start,
                         ),
                         'time_stop': func.greatest(
-                            Scan.time_stop,
+                            self.tables.scan.time_stop,
                             insrt.excluded.time_stop,
                         ),
                         'merge': True,
                     },
                 )
-                .returning(Scan.id, Scan.time_stop,
-                           Scan.merge)).fetchone()
+                .returning(self.tables.scan.id, self.tables.scan.time_stop,
+                           self.tables.scan.merge)).fetchone()
             if merge:
                 # Test should be ==, using <= in case of rounding
                 # issues.
@@ -247,7 +244,7 @@ insert structures.
                 newest = None
         else:
             scanid = self.db.execute(
-                postgresql.insert(Scan).values(
+                postgresql.insert(self.tables.scan).values(
                     addr=addr,
                     source=source,
                     info=info,
@@ -259,25 +256,26 @@ insert structures.
                     merge=False,
                 )
                 .on_conflict_do_nothing()
-                .returning(Scan.id)
+                .returning(self.tables.scan.id)
             ).fetchone()[0]
-        insrt = postgresql.insert(Association_Scan_ScanFile)
+        insrt = postgresql.insert(self.tables.association_scan_scanfile)
         self.db.execute(insrt
                         .values(scan=scanid,
                                 scan_file=utils.decode_hex(host['scanid']))
                         .on_conflict_do_nothing())
         for category in host.get("categories", []):
-            insrt = postgresql.insert(Category)
+            insrt = postgresql.insert(self.tables.category)
             catid = self.db.execute(
                 insrt.values(name=category)
                 .on_conflict_do_update(
                     index_elements=['name'],
                     set_={'name': insrt.excluded.name}
                 )
-                .returning(Category.id)
+                .returning(self.tables.category.id)
             ).fetchone()[0]
-            self.db.execute(postgresql.insert(Association_Scan_Category)
-                            .values(scan=scanid, category=catid)
+            self.db.execute(postgresql.insert(
+                self.tables.association_scan_category
+            ).values(scan=scanid, category=catid)
                             .on_conflict_do_nothing())
         for port in host.get('ports', []):
             scripts = port.pop('scripts', [])
@@ -297,7 +295,7 @@ insert structures.
                     port['state_reason_ip']
                 )
             if merge:
-                insrt = postgresql.insert(Port)
+                insrt = postgresql.insert(self.tables.port)
                 portid = self.db.execute(
                     insrt.values(scan=scanid, **port)
                     .on_conflict_do_update(
@@ -308,17 +306,19 @@ insert structures.
                             **(port if newest else {})
                         )
                     )
-                    .returning(Port.id)
+                    .returning(self.tables.port.id)
                 ).fetchone()[0]
             else:
-                portid = self.db.execute(insert(Port).values(scan=scanid,
-                                                             **port)
-                                         .returning(Port.id)).fetchone()[0]
+                portid = self.db.execute(
+                    insert(self.tables.port)\
+                    .values(scan=scanid, **port)
+                    .returning(self.tables.port.id)
+                ).fetchone()[0]
             for script in scripts:
                 name, output = script.pop('id'), script.pop('output')
                 if merge:
                     if newest:
-                        insrt = postgresql.insert(Script)
+                        insrt = postgresql.insert(self.tables.script)
                         self.bulk.append(insrt
                                          .values(
                                              port=portid,
@@ -335,7 +335,7 @@ insert structures.
                                              },
                                          ))
                     else:
-                        insrt = postgresql.insert(Script)
+                        insrt = postgresql.insert(self.tables.script)
                         self.bulk.append(insrt
                                          .values(
                                              port=portid,
@@ -345,7 +345,7 @@ insert structures.
                                          )
                                          .on_conflict_do_nothing())
                 else:
-                    self.bulk.append(insert(Script).values(
+                    self.bulk.append(insert(self.tables.script).values(
                         port=portid,
                         name=name,
                         output=output,
@@ -354,14 +354,14 @@ insert structures.
         if not merge:
             # FIXME: handle traceroutes on merge
             for trace in host.get('traces', []):
-                traceid = self.db.execute(insert(Trace).values(
+                traceid = self.db.execute(insert(self.tables.trace).values(
                     scan=scanid,
                     port=trace.get('port'),
                     protocol=trace['protocol']
-                ).returning(Trace.id)).fetchone()[0]
+                ).returning(self.tables.trace.id)).fetchone()[0]
                 for hop in trace.get('hops'):
                     hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
-                    self.bulk.append(insert(Hop).values(
+                    self.bulk.append(insert(self.tables.hop).values(
                         trace=traceid,
                         ipaddr=self.convert_ip(hop['ipaddr']),
                         ttl=hop["ttl"],
@@ -371,7 +371,7 @@ insert structures.
                     ))
             # FIXME: handle hostnames on merge
             for hostname in host.get('hostnames', []):
-                self.bulk.append(insert(Hostname).values(
+                self.bulk.append(insert(self.tables.hostname).values(
                     scan=scanid,
                     domains=hostname.get('domains'),
                     name=hostname.get('name'),
@@ -380,7 +380,7 @@ insert structures.
         utils.LOGGER.debug("HOST STORED: %r", scanid)
 
     def get_ips_ports(self, flt, limit=None, skip=None):
-        req = flt.query(select([Scan.id]))
+        req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -401,32 +401,20 @@ insert structures.
             self.db.execute(
                 select([
                     func.array_agg(postgresql.aggregate_order_by(
-                        tuple_(Port.protocol, Port.port,
-                               Port.state).label('a'),
-                        tuple_(Port.protocol, Port.port).label('a')
+                        tuple_(self.tables.port.protocol, self.tables.port.port,
+                               self.tables.port.state).label('a'),
+                        tuple_(self.tables.port.protocol,
+                               self.tables.port.port).label('a')
                     )).label('ports'),
-                    Scan.time_start, Scan.addr,
+                    self.tables.scan.time_start, self.tables.scan.addr,
                 ])
-                .select_from(join(Port, Scan))
-                .group_by(Scan.addr, Scan.time_start)
-                .where(and_(Port.port >= 0, Scan.id.in_(base)))
+                .select_from(join(self.tables.port, self.tables.scan))
+                .group_by(self.tables.scan.addr, self.tables.scan.time_start)
+                .where(and_(self.tables.port.port >= 0,
+                            self.tables.scan.id.in_(base)))
             )
         )
 
-    def getlocations(self, flt, limit=None, skip=None):
-        req = flt.query(
-            select([func.count(Scan.id), Scan.info['coordinates'].astext])
-            .where(Scan.info.has_key('coordinates')),
-            # noqa: W601 (BinaryExpression)
-        )
-        if skip is not None:
-            req = req.offset(skip)
-        if limit is not None:
-            req = req.limit(limit)
-        return ({'_id': Point().result_processor(None, None)(rec[1])[::-1],
-                 'count': rec[0]}
-                for rec in
-                self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False):
@@ -456,34 +444,37 @@ insert structures.
         if flt is None:
             flt = NmapFilter()
         base = flt.query(
-            select([Scan.id]).select_from(flt.select_from)
+            select([self.tables.scan.id]).select_from(flt.select_from)
         ).cte("base")
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
-            field = self._topstructure(Port, [Port.protocol, Port.port],
-                                       Port.state == "open")
+            field = self._topstructure(self.tables.port,
+                                       [self.tables.port.protocol,
+                                        self.tables.port.port],
+                                       self.tables.port.state == "open")
         elif field == "ttl":
             field = self._topstructure(
-                Port, [Port.state_reason_ttl],
-                Port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
+                self.tables.port, [self.tables.port.state_reason_ttl],
+                self.tables.port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
             )
         elif field == "ttlinit":
             field = self._topstructure(
-                Port,
+                self.tables.port,
                 [func.least(255, func.power(2, func.ceil(
-                    func.log(2, Port.state_reason_ttl)
+                    func.log(2, self.tables.port.state_reason_ttl)
                 )))],
-                Port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
+                self.tables.port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
             )
             outputproc = int
         elif field.startswith('port:'):
             info = field[5:]
             field = self._topstructure(
-                Port, [Port.protocol, Port.port],
-                (Port.state == info)
+                self.tables.port,
+                [self.tables.port.protocol, self.tables.port.port],
+                (self.tables.port.state == info)
                 if info in ['open', 'filtered', 'closed', 'open|filtered'] else
-                (Port.service_name == info),
+                (self.tables.port.service_name == info),
             )
         elif field.startswith('countports:'):
             info = field[11:]
@@ -494,30 +485,30 @@ insert structures.
                             column('cnt')])
                     .select_from(
                         select([func.count().label('cnt')])
-                        .select_from(Port)
+                        .select_from(self.tables.port)
                         .where(and_(
-                            Port.state == info,
-                            # Port.scan.in_(base),
+                            self.tables.port.state == info,
+                            # self.tables.port.scan.in_(base),
                             exists(
                                 select([1])\
                                 .select_from(base)\
                                 .where(
-                                    Port.scan == base.c.id
+                                    self.tables.port.scan == base.c.id
                                 )
                             ),
                         ))\
-                        .group_by(Port.scan)\
+                        .group_by(self.tables.port.scan)\
                         .alias('cnt')
                     ).group_by('cnt').order_by(order).limit(topnbr)
                 )
             )
         elif field.startswith('portlist:'):
             ### Deux options pour filtrer:
-            ###   -1- Port.scan.in_(base),
+            ###   -1- self.tables.port.scan.in_(base),
             ###   -2- exists(select([1])\
             ###       .select_from(base)\
             ###       .where(
-            ###         Port.scan == base.c.id
+            ###         self.tables.port.scan == base.c.id
             ###       )),
             ###
             ### D'après quelques tests, l'option -1- est plus beaucoup
@@ -541,43 +532,50 @@ insert structures.
                     .select_from(
                         select([
                             func.array_agg(postgresql.aggregate_order_by(
-                                tuple_(Port.protocol, Port.port).label('a'),
-                                tuple_(Port.protocol, Port.port).label('a')
+                                tuple_(self.tables.port.protocol,
+                                       self.tables.port.port).label('a'),
+                                tuple_(self.tables.port.protocol,
+                                       self.tables.port.port).label('a')
                             )).label('ports'),
                         ])
                         .where(and_(
-                            Port.state == info,
-                            Port.scan.in_(base),
+                            self.tables.port.state == info,
+                            self.tables.port.scan.in_(base),
                             # exists(select([1])\
                             #        .select_from(base)\
                             #        .where(
-                            #            Port.scan == base.c.id
+                            #            self.tables.port.scan == base.c.id
                             #        )),
                         ))
-                        .group_by(Port.scan)
+                        .group_by(self.tables.port.scan)
                         .alias('ports')
                     )
                     .group_by('ports').order_by(order).limit(topnbr)
                 )
             )
         elif field == "service":
-            field = self._topstructure(Port, [Port.service_name],
-                                       Port.state == "open")
+            field = self._topstructure(self.tables.port,
+                                       [self.tables.port.service_name],
+                                       self.tables.port.state == "open")
         elif field.startswith("service:"):
             info = field[8:]
             if '/' in info:
                 info = info.split('/', 1)
                 field = self._topstructure(
-                    Port, [Port.service_name],
-                    and_(Port.protocol == info[0], Port.port == int(info[1])),
+                    self.tables.port, [self.tables.port.service_name],
+                    and_(self.tables.port.protocol == info[0],
+                         self.tables.port.port == int(info[1])),
                 )
             else:
-                field = self._topstructure(Port, [Port.service_name],
-                                           Port.port == int(info))
+                field = self._topstructure(self.tables.port,
+                                           [self.tables.port.service_name],
+                                           self.tables.port.port == int(info))
         elif field == "product":
             field = self._topstructure(
-                Port, [Port.service_name, Port.service_product],
-                Port.state == "open",
+                self.tables.port,
+                [self.tables.port.service_name,
+                 self.tables.port.service_product],
+                self.tables.port.state == "open",
             )
         elif field.startswith("product:"):
             info = field[8:]
@@ -585,54 +583,74 @@ insert structures.
                 info = int(info)
                 flt = self.flt_and(flt, self.searchport(info))
                 field = self._topstructure(
-                    Port, [Port.service_name, Port.service_product],
-                    and_(Port.state == "open", Port.port == info),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.port == info),
                 )
             elif info.startswith('tcp/') or info.startswith('udp/'):
                 info = (info[:3], int(info[4:]))
                 flt = self.flt_and(flt, self.searchport(info[1],
                                                         protocol=info[0]))
                 field = self._topstructure(
-                    Port, [Port.service_name, Port.service_product],
-                    and_(Port.state == "open", Port.port == info[1],
-                         Port.protocol == info[0]),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.port == info[1],
+                         self.tables.port.protocol == info[0]),
                 )
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
                 field = self._topstructure(
-                    Port, [Port.service_name, Port.service_product],
-                    and_(Port.state == "open", Port.service_name == info),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.service_name == info),
                 )
         elif field == "devicetype":
-            field = self._topstructure(Port, [Port.service_devicetype],
-                                       Port.state == "open")
+            field = self._topstructure(self.tables.port,
+                                       [self.tables.port.service_devicetype],
+                                       self.tables.port.state == "open")
         elif field.startswith("devicetype:"):
             info = field[11:]
             if info.isdigit():
                 info = int(info)
                 flt = self.flt_and(flt, self.searchport(info))
-                field = self._topstructure(Port, [Port.service_devicetype],
-                                           and_(Port.state == "open",
-                                                Port.port == info))
+                field = self._topstructure(
+                    self.tables.port,
+                    [self.tables.port.service_devicetype],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.port == info)
+                )
             elif info.startswith('tcp/') or info.startswith('udp/'):
                 info = (info[:3], int(info[4:]))
                 flt = self.flt_and(flt, self.searchport(info[1],
                                                         protocol=info[0]))
-                field = self._topstructure(Port, [Port.service_devicetype],
-                                           and_(Port.state == "open",
-                                                Port.port == info[1],
-                                                Port.protocol == info[0]))
+                field = self._topstructure(
+                    self.tables.port,
+                    [self.tables.port.service_devicetype],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.port == info[1],
+                         self.tables.port.protocol == info[0])
+                )
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
-                field = self._topstructure(Port, [Port.service_devicetype],
-                                           and_(Port.state == "open",
-                                                Port.service_name == info))
+                field = self._topstructure(
+                    self.tables.port,
+                    [self.tables.port.service_devicetype],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.service_name == info)
+                )
         elif field == "version":
             field = self._topstructure(
-                Port,
-                [Port.service_name, Port.service_product,
-                 Port.service_version],
-                Port.state == "open",
+                self.tables.port,
+                [self.tables.port.service_name,
+                 self.tables.port.service_product,
+                 self.tables.port.service_version],
+                self.tables.port.state == "open",
             )
         elif field.startswith("version:"):
             info = field[8:]
@@ -640,86 +658,107 @@ insert structures.
                 info = int(info)
                 flt = self.flt_and(flt, self.searchport(info))
                 field = self._topstructure(
-                    Port,
-                    [Port.service_name, Port.service_product,
-                     Port.service_version],
-                    and_(Port.state == "open", Port.port == info),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product,
+                     self.tables.port.service_version],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.port == info),
                 )
             elif info.startswith('tcp/') or info.startswith('udp/'):
                 info = (info[:3], int(info[4:]))
                 flt = self.flt_and(flt, self.searchport(info[1],
                                                         protocol=info[0]))
                 field = self._topstructure(
-                    Port,
-                    [Port.service_name, Port.service_product,
-                     Port.service_version],
-                    and_(Port.state == "open", Port.port == info[1],
-                         Port.protocol == info[0]),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product,
+                     self.tables.port.service_version],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.port == info[1],
+                         self.tables.port.protocol == info[0]),
                 )
             elif ':' in info:
                 info = info.split(':', 1)
                 flt = self.flt_and(flt, self.searchproduct(info[1],
                                                            service=info[0]))
                 field = self._topstructure(
-                    Port,
-                    [Port.service_name, Port.service_product,
-                     Port.service_version],
-                    and_(Port.state == "open", Port.service_name == info[0],
-                         Port.service_product == info[1]),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product,
+                     self.tables.port.service_version],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.service_name == info[0],
+                         self.tables.port.service_product == info[1]),
                 )
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
                 field = self._topstructure(
-                    Port,
-                    [Port.service_name, Port.service_product,
-                     Port.service_version],
-                    and_(Port.state == "open", Port.service_name == info),
+                    self.tables.port,
+                    [self.tables.port.service_name,
+                     self.tables.port.service_product,
+                     self.tables.port.service_version],
+                    and_(self.tables.port.state == "open",
+                         self.tables.port.service_name == info),
                 )
         elif field == "asnum":
-            field = self._topstructure(Scan, [Scan.info["as_num"]])
+            field = self._topstructure(self.tables.scan,
+                                       [self.tables.scan.info["as_num"]])
         elif field == "as":
-            field = self._topstructure(Scan, [Scan.info["as_num"],
-                                              Scan.info["as_name"]])
+            field = self._topstructure(self.tables.scan,
+                                       [self.tables.scan.info["as_num"],
+                                        self.tables.scan.info["as_name"]])
         elif field == "country":
-            field = self._topstructure(Scan, [Scan.info["country_code"],
-                                              Scan.info["country_name"]])
+            field = self._topstructure(self.tables.scan,
+                                       [self.tables.scan.info["country_code"],
+                                        self.tables.scan.info["country_name"]])
         elif field == "city":
-            field = self._topstructure(Scan, [Scan.info["country_code"],
-                                              Scan.info["city"]])
+            field = self._topstructure(self.tables.scan,
+                                       [self.tables.scan.info["country_code"],
+                                        self.tables.scan.info["city"]])
         elif field == "net" or field.startswith("net:"):
             info = field[4:]
             info = int(info) if info else 24
             field = self._topstructure(
-                Scan,
+                self.tables.scan,
                 [func.set_masklen(text("scan.addr::cidr"), info)],
             )
         elif field == "script" or field.startswith("script:"):
             info = field[7:]
             if info:
-                field = self._topstructure(Script, [Script.output],
-                                           Script.name == info)
+                field = self._topstructure(self.tables.script,
+                                           [self.tables.script.output],
+                                           self.tables.script.name == info)
             else:
-                field = self._topstructure(Script, [Script.name])
+                field = self._topstructure(self.tables.script,
+                                           [self.tables.script.name])
         elif field in ["category", "categories"]:
-            field = self._topstructure(Category, [Category.name])
+            field = self._topstructure(self.tables.category,
+                                       [self.tables.category.name])
         elif field.startswith('cert.'):
             subfield = field[5:]
             field = self._topstructure(
-                Script, [Script.data['ssl-cert'][subfield]],
-                and_(Script.name == 'ssl-cert',
-                     Script.data['ssl-cert'].has_key(subfield))
+                self.tables.script,
+                [self.tables.script.data['ssl-cert'][subfield]],
+                and_(self.tables.script.name == 'ssl-cert',
+                     self.tables.script.data['ssl-cert'].has_key(subfield))
             )  # noqa: W601 (BinaryExpression)
         elif field == "source":
-            field = self._topstructure(Scan, [Scan.source])
+            field = self._topstructure(self.tables.scan,
+                                       [self.tables.scan.source])
         elif field == "domains":
-            field = self._topstructure(Hostname,
-                                       [func.unnest(Hostname.domains)])
+            field = self._topstructure(
+                self.tables.hostname,
+                [func.unnest(self.tables.hostname.domains)]
+            )
         elif field.startswith("domains:"):
             level = int(field[8:]) - 1
-            base1 = (select([func.unnest(Hostname.domains).label("domains")])
+            base1 = (select([func.unnest(self.tables.hostname.domains)
+                             .label("domains")])
                      .where(exists(select([1])
                                    .select_from(base)
-                                   .where(Hostname.scan == base.c.id)))
+                                   .where(self.tables.hostname.scan ==\
+                                          base.c.id)))
                      .cte("base1"))
             return (
                 {"count": result[1], "_id": result[0]}
@@ -734,12 +773,14 @@ insert structures.
                 )
             )
         elif field == "hop":
-            field = self._topstructure(Hop, [Hop.ipaddr])
+            field = self._topstructure(self.tables.hop,
+                                       [self.tables.hop.ipaddr])
         elif field.startswith('hop') and field[3] in ':>':
             ttl = int(field[4:])
             field = self._topstructure(
-                Hop, [Hop.ipaddr],
-                (Hop.ttl > ttl) if field[3] == '>' else (Hop.ttl == ttl),
+                self.tables.hop, [self.tables.hop.ipaddr],
+                (self.tables.hop.ttl > ttl) if field[3] == '>' else
+                (self.tables.hop.ttl == ttl),
             )
         elif field == 'file' or (field.startswith('file') and
                                  field[4] in '.:'):
@@ -750,21 +791,22 @@ insert structures.
                 else:
                     field = 'filename'
                 scripts = scripts.split(',')
-                flt = (Script.name == scripts[0] if len(scripts) == 1 else
-                       Script.name.in_(scripts))
+                flt = (self.tables.script.name == scripts[0]
+                       if len(scripts) == 1 else
+                       self.tables.script.name.in_(scripts))
             else:
                 field = field[5:] or 'filename'
                 flt = True
             field = self._topstructure(
-                Script,
+                self.tables.script,
                 [func.jsonb_array_elements(
                     func.jsonb_array_elements(
-                        Script.data['ls']['volumes']
+                        self.tables.script.data['ls']['volumes']
                     ).op('->')('files')
                 ).op('->>')(field).label(field)],
                 and_(
                     flt,
-                    Script.data.op('@>')(
+                    self.tables.script.data.op('@>')(
                         '{"ls": {"volumes": [{"files": []}]}}'
                     ),
                 ),
@@ -772,70 +814,76 @@ insert structures.
         elif field.startswith('modbus.'):
             subfield = field[7:]
             field = self._topstructure(
-                Script, [Script.data['modbus-discover'][subfield]],
-                and_(Script.name == 'modbus-discover',
-                     Script.data['modbus-discover'].has_key(subfield)),
+                self.tables.script,
+                [self.tables.script.data['modbus-discover'][subfield]],
+                and_(self.tables.script.name == 'modbus-discover',
+                     self.tables.script.data['modbus-discover'].has_key(subfield)),
                 # noqa: W601 (BinaryExpression)
             )
         elif field.startswith('s7.'):
             subfield = field[3:]
             field = self._topstructure(
-                Script, [Script.data['s7-info'][subfield]],
-                and_(Script.name == 's7-info',
-                     Script.data['s7-info'].has_key(subfield)),
+                self.tables.script,
+                [self.tables.script.data['s7-info'][subfield]],
+                and_(self.tables.script.name == 's7-info',
+                     self.tables.script.data['s7-info'].has_key(subfield)),
                 # noqa: W601 (BinaryExpression)
             )
         elif field == 'httphdr':
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             field = self._topstructure(
-                Script, [column("hdr").op('->>')('name').label("name"),
-                         column("hdr").op('->>')('value').label("value")],
-                Script.name == 'http-headers',
+                self.tables.script,
+                [column("hdr").op('->>')('name').label("name"),
+                 column("hdr").op('->>')('value').label("value")],
+                self.tables.script.name == 'http-headers',
                 [column("name"), column("value")],
                 func.jsonb_array_elements(
-                    Script.data['http-headers']
+                    self.tables.script.data['http-headers']
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr.'):
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             field = self._topstructure(
-                Script, [column("hdr").op('->>')(field[8:]).label("topvalue")],
-                Script.name == 'http-headers', [column("topvalue")],
+                self.tables.script,
+                [column("hdr").op('->>')(field[8:]).label("topvalue")],
+                self.tables.script.name == 'http-headers', [column("topvalue")],
                 func.jsonb_array_elements(
-                    Script.data['http-headers']
+                    self.tables.script.data['http-headers']
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr:'):
             flt = self.flt_and(flt, self.searchhttphdr(name=field[8:].lower()))
             field = self._topstructure(
-                Script, [column("hdr").op('->>')("value").label("value")],
-                and_(Script.name == 'http-headers',
+                self.tables.script,
+                [column("hdr").op('->>')("value").label("value")],
+                and_(self.tables.script.name == 'http-headers',
                      column("hdr").op('->>')("name") == field[8:].lower()),
                 [column("value")],
                 func.jsonb_array_elements(
-                    Script.data['http-headers']
+                    self.tables.script.data['http-headers']
                 ).alias('hdr'),
             )
         else:
             raise NotImplementedError()
         s_from = {
-            Script: join(Script, Port),
-            Port: Port,
-            Category: join(Association_Scan_Category, Category),
-            Hostname: Hostname,
-            Hop: join(Trace, Hop),
+            self.tables.script: join(self.tables.script, self.tables.port),
+            self.tables.port: self.tables.port,
+            self.tables.category: join(self.tables.association_scan_category,
+                                       self.tables.category),
+            self.tables.hostname: self.tables.hostname,
+            self.tables.hop: join(self.tables.trace, self.tables.hop),
         }
         where_clause = {
-            Script: Port.scan == base.c.id,
-            Port: Port.scan == base.c.id,
-            Category: Association_Scan_Category.scan == base.c.id,
-            Hostname: Hostname.scan == base.c.id,
-            Hop: Trace.scan == base.c.id
+            self.tables.script: self.tables.port.scan == base.c.id,
+            self.tables.port: self.tables.port.scan == base.c.id,
+            self.tables.category: self.tables.association_scan_category.scan == base.c.id,
+            self.tables.hostname: self.tables.hostname.scan == base.c.id,
+            self.tables.hop: self.tables.trace.scan == base.c.id
         }
-        if field.base == Scan:
+        if field.base == self.tables.scan:
             req = flt.query(
                 select([func.count().label("count")] + field.fields)
-                .select_from(Scan)
+                .select_from(self.tables.scan)
                 .group_by(*field.fields)
             )
         else:
@@ -870,19 +918,19 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         SQLDBPassive.__init__(self, url)
 
     def _insert_or_update(self, timestamp, vals, lastseen=None):
-        stmt = postgresql.insert(Passive).values(vals)
+        stmt = postgresql.insert(self.tables.passive).values(vals)
         index = ['addr', 'sensor', 'recontype', 'port',
                  'source', 'value', 'targetval', 'info']
         upsert = {
             'firstseen': func.least(
-                Passive.firstseen,
+                self.tables.passive.firstseen,
                 timestamp,
             ),
             'lastseen': func.greatest(
-                Passive.lastseen,
+                self.tables.passive.lastseen,
                 lastseen or timestamp,
             ),
-            'count': Passive.count + stmt.excluded.count,
+            'count': self.tables.passive.count + stmt.excluded.count,
         }
         self.db.execute(
             stmt.on_conflict_do_update(index_elements=index, set_=upsert,)
@@ -904,7 +952,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
 
         """
         more_to_read = True
-        tmp = self.create_tmp_table(Passive)
+        tmp = self.create_tmp_table(self.tables.passive)
         if config.DEBUG_DB:
             total_upserted = 0
             total_start_time = time.time()
@@ -919,7 +967,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 more_to_read = fdesc.more_to_read
                 if config.DEBUG_DB:
                     count_upserted = fdesc.count
-            insrt = postgresql.insert(Passive)
+            insrt = postgresql.insert(self.tables.passive)
             self.db.execute(
                 insrt.from_select(
                     [column(col) for col in [
@@ -948,14 +996,14 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                     'source', 'value', 'targetval', 'info'],
                     set_={
                         'firstseen': func.least(
-                            Passive.firstseen,
+                            self.tables.passive.firstseen,
                             insrt.excluded.firstseen,
                         ),
                         'lastseen': func.greatest(
-                            Passive.lastseen,
+                            self.tables.passive.lastseen,
                             insrt.excluded.lastseen,
                         ),
-                        'count': Passive.count + insrt.excluded.count,
+                        'count': self.tables.passive.count + insrt.excluded.count,
                     },
                 )
             )

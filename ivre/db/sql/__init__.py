@@ -224,7 +224,8 @@ class PassiveCSVFile(CSVFile):
 
 
 class SQLDB(DB):
-    tables = []
+    table_layout = namedtuple("empty_layout", [])
+    tables = table_layout()
     fields = {}
 
     def __init__(self, url):
@@ -264,7 +265,8 @@ class SQLDB(DB):
     def from_binary(data):
         return utils.decode_b64(data.encode())
 
-    def flt2str(self, flt):
+    @staticmethod
+    def flt2str(flt):
         result = {}
         for queryname, queries in viewitems(flt.all_queries):
             outqueries = []
@@ -440,7 +442,8 @@ field.
 
 
 class SQLDBFlow(SQLDB, DBFlow):
-    tables = [Flow]
+    table_layout = namedtuple("flow_layout", ['flow'])
+    tables = table_layout(Flow)
 
     def __init__(self, url):
         DBFlow.__init__(self)
@@ -516,12 +519,13 @@ class Filter(object):
 class NmapFilter(Filter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
-                 script=None, trace=None):
+                 script=None, tables=None, trace=None):
         self.main = main
         self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
         self.port = [] if port is None else port
         self.script = [] if script is None else script
+        self.tables = SQLDBNmap.tables if tables is None else tables
         self.trace = [] if trace is None else trace
 
     @property
@@ -532,6 +536,7 @@ class NmapFilter(Filter):
             "category": self.category,
             "port": [elt[1] if elt[0] else not_(elt[1]) for elt in self.port],
             "script": self.script,
+            "tables": self.tables,
             "trace": self.trace,
         }
 
@@ -542,16 +547,20 @@ class NmapFilter(Filter):
             category=self.category[:],
             port=self.port[:],
             script=self.script[:],
+            tables=self.tables,
             trace=self.trace[:],
         )
 
     def __and__(self, other):
+        if self.tables != other.tables:
+            raise ValueError("Cannot 'AND' two filters on separate tables")
         return self.__class__(
             main=self.fltand(self.main, other.main),
             hostname=self.hostname + other.hostname,
             category=self.category + other.category,
             port=self.port + other.port,
             script=self.script + other.script,
+            tables=self.tables,
             trace=self.trace + other.trace,
         )
 
@@ -567,20 +576,23 @@ class NmapFilter(Filter):
             raise ValueError("Cannot 'OR' two filters on script")
         if self.trace and other.trace:
             raise ValueError("Cannot 'OR' two filters on trace")
+        if self.tables != other.tables:
+            raise ValueError("Cannot 'OR' two filters on separate tables")
         return self.__class__(
             main=self.fltor(self.main, other.main),
             hostname=self.hostname + other.hostname,
             category=self.category + other.category,
             port=self.port + other.port,
             script=self.script + other.script,
+            tables=self.tables,
             trace=self.trace + other.trace,
         )
 
-    def select_from_base(self, base=Scan):
-        if base in [Scan, Scan.__mapper__]:
-            base = Scan
+    def select_from_base(self, base=None):
+        if base in [None, self.tables.scan, self.tables.scan.__mapper__]:
+            base = self.tables.scan
         else:
-            base = join(Scan, base)
+            base = join(self.tables.scan, base)
         return base
 
     @property
@@ -591,55 +603,64 @@ class NmapFilter(Filter):
         if self.main is not None:
             req = req.where(self.main)
         for incl, subflt in self.hostname:
-            base = select([Hostname.scan]).where(subflt).cte("base")
+            base = select([self.tables.hostname.scan]).where(subflt).cte("base")
             if incl:
-                req = req.where(Scan.id.in_(base))
+                req = req.where(self.tables.scan.id.in_(base))
             else:
-                req = req.where(Scan.id.notin_(base))
+                req = req.where(self.tables.scan.id.notin_(base))
         # See <http://stackoverflow.com/q/17112345/3223422> - "Using
         # INTERSECT with tables from a WITH clause"
         for subflt in self.category:
             req = req.where(exists(
                 select([1])
-                .select_from(join(Category, Association_Scan_Category))
+                .select_from(join(self.tables.category,
+                                  self.tables.association_scan_category))
                 .where(subflt)
-                .where(Association_Scan_Category.scan == Scan.id)
+                .where(self.tables.association_scan_category.scan ==
+                       self.tables.scan.id)
             ))
         for incl, subflt in self.port:
             if incl:
                 req = req.where(exists(
                     select([1])
-                    .select_from(Port)
+                    .select_from(self.tables.port)
                     .where(subflt)
-                    .where(Port.scan == Scan.id)
+                    .where(self.tables.port.scan == self.tables.scan.id)
                 ))
             else:
-                base = select([Port.scan]).where(subflt).cte("base")
-                req = req.where(Scan.id.notin_(base))
+                base = select([self.tables.port.scan]).where(subflt).cte("base")
+                req = req.where(self.tables.scan.id.notin_(base))
         for subflt in self.script:
-            subreq = select([1]).select_from(join(Script, Port))
+            subreq = select([1]).select_from(join(self.tables.script,
+                                                  self.tables.port))
             if isinstance(subflt, tuple):
                 for selectfrom in subflt[1]:
                     subreq = subreq.select_from(selectfrom)
                 subreq = subreq.where(subflt[0])
             else:
                 subreq = subreq.where(subflt)
-            subreq = subreq.where(Port.scan == Scan.id)
+            subreq = subreq.where(self.tables.port.scan == self.tables.scan.id)
             req = req.where(exists(subreq))
         for subflt in self.trace:
             req = req.where(exists(
                 select([1])
-                .select_from(join(Trace, Hop))
+                .select_from(join(self.tables.trace, self.tables.hop))
                 .where(subflt)
-                .where(Trace.scan == Scan.id)
+                .where(self.tables.trace.scan == self.tables.scan.id)
             ))
         return req
 
 
 class SQLDBNmap(SQLDB, DBNmap):
-    tables = [ScanFile, Category, Scan, Hostname, Port, Script, Trace, Hop,
-              Association_Scan_Hostname, Association_Scan_Category,
-              Association_Scan_ScanFile]
+    table_layout = namedtuple("nmap_layout", ['scanfile', 'category', 'scan',
+                                              'hostname', 'port', 'script',
+                                              'trace', 'hop',
+                                              'association_scan_hostname',
+                                              'association_scan_category',
+                                              'association_scan_scanfile'])
+    tables = table_layout(ScanFile, Category, Scan, Hostname, Port, Script,
+                          Trace, Hop, Association_Scan_Hostname,
+                          Association_Scan_Category, Association_Scan_ScanFile)
     fields = {
         "_id": Scan.id,
         "addr": Scan.addr,
@@ -680,7 +701,7 @@ class SQLDBNmap(SQLDB, DBNmap):
             self.db.execute(
                 select([True])
                 .where(
-                    ScanFile.sha256 == utils.decode_hex(
+                    self.tables.scanfile.sha256 == utils.decode_hex(
                         scanid
                     )
                 )
@@ -711,10 +732,14 @@ structured output for http-headers script.
 
         """
         failed = []
-        req = (select([Scan.id, Script.port, Script.output, Script.data])
-               .select_from(join(join(Scan, Port), Script))
-               .where(and_(Scan.schema_version == 8,
-                           Script.name == "http-headers")))
+        req = (select([self.tables.scan.id,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(self.tables.scan.schema_version == 8,
+                           self.tables.script.name == "http-headers")))
         for rec in self.db.execute(req):
             if 'http-headers' not in rec.data:
                 try:
@@ -729,14 +754,17 @@ structured output for http-headers script.
                 else:
                     if data:
                         self.db.execute(
-                            update(Script)
-                            .where(and_(Script.port == rec.port,
-                                        Script.name == "http-headers"))
+                            update(self.tables.script)
+                            .where(and_(
+                                self.tables.script.port == rec.port,
+                                self.tables.script.name == "http-headers"
+                            ))
                             .values(data={"http-headers": data})
                         )
         self.db.execute(
-            update(Scan)
-            .where(and_(Scan.schema_version == 8, Scan.id.notin_(failed)))
+            update(self.tables.scan)
+            .where(and_(self.tables.scan.schema_version == 8,
+                        self.tables.scan.id.notin_(failed)))
             .values(schema_version=9)
         )
         return len(failed)
@@ -747,10 +775,14 @@ the field names of the structured output for s7-info script.
 
         """
         failed = []
-        req = (select([Scan.id, Script.port, Script.output, Script.data])
-               .select_from(join(join(Scan, Port), Script))
-               .where(and_(Scan.schema_version == 9,
-                           Script.name == "s7-info")))
+        req = (select([self.tables.scan.id,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(self.tables.scan.schema_version == 9,
+                           self.tables.script.name == "s7-info")))
         for rec in self.db.execute(req):
             if 's7-info' in rec.data:
                 try:
@@ -762,14 +794,15 @@ the field names of the structured output for s7-info script.
                 else:
                     if data:
                         self.db.execute(
-                            update(Script)
-                            .where(and_(Script.port == rec.port,
-                                        Script.name == "s7-info"))
+                            update(self.tables.script)
+                            .where(and_(self.tables.script.port == rec.port,
+                                        self.tables.script.name == "s7-info"))
                             .values(data={"s7-info": data})
                         )
         self.db.execute(
-            update(Scan)
-            .where(and_(Scan.schema_version == 9, Scan.id.notin_(failed)))
+            update(self.tables.scan)
+            .where(and_(self.tables.scan.schema_version == 9,
+                        self.tables.scan.id.notin_(failed)))
             .values(schema_version=10)
         )
         return len(failed)
@@ -790,7 +823,7 @@ the field names of the structured output for s7-info script.
         )
 
     def get_open_port_count(self, flt, limit=None, skip=None):
-        req = flt.query(select([Scan.id]))
+        req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -801,18 +834,21 @@ the field names of the structured output for s7-info script.
              "openports": {"count": rec[0]}}
             for rec in
             self.db.execute(
-                select([func.count(Port.id), Scan.time_start, Scan.addr])
-                .select_from(join(Port, Scan))
-                .where(Port.state == "open")
-                .group_by(Scan.addr, Scan.time_start)
-                .where(Scan.id.in_(base))
+                select([func.count(self.tables.port.id),
+                        self.tables.scan.time_start,
+                        self.tables.scan.addr])
+                .select_from(join(self.tables.port, self.tables.scan))
+                .where(self.tables.port.state == "open")
+                .group_by(self.tables.scan.addr, self.tables.scan.time_start)
+                .where(self.tables.scan.id.in_(base))
             )
         )
 
     def getlocations(self, flt, limit=None, skip=None):
         req = flt.query(
-            select([func.count(Scan.id), Scan.info['coordinates'].astext])
-            .where(Scan.info.has_key('coordinates')),
+            select([func.count(self.tables.scan.id),
+                    self.tables.scan.info['coordinates'].astext])
+            .where(self.tables.scan.info.has_key('coordinates')),
             # noqa: W601 (BinaryExpression)
         )
         if skip is not None:
@@ -822,11 +858,13 @@ the field names of the structured output for s7-info script.
         return ({'_id': Point().result_processor(None, None)(rec[1])[::-1],
                  'count': rec[0]}
                 for rec in
-                self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
+                self.db.execute(req.group_by(
+                    self.tables.scan.info['coordinates'].astext
+                )))
 
     def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
-        req = flt.query(select([Scan]).select_from(flt.select_from))
+        req = flt.query(select([self.tables.scan]).select_from(flt.select_from))
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
@@ -849,23 +887,27 @@ the field names of the structured output for s7-info script.
                     }
             else:
                 del rec["infos"]
-            categories = (select([Association_Scan_Category.category])
-                          .where(Association_Scan_Category.scan == rec["_id"])
-                          .cte("categories"))
+            categories = (
+                select([self.tables.association_scan_category.category])
+                .where(self.tables.association_scan_category.scan == rec["_id"])
+                .cte("categories")
+            )
             rec["categories"] = [
                 cat[0] for cat in
                 self.db.execute(
-                    select([Category.name])
-                    .where(Category.id == categories.c.category)
+                    select([self.tables.category.name])
+                    .where(self.tables.category.id == categories.c.category)
                 )
             ]
             rec["scanid"] = [
                 scanfile[0] for scanfile in self.db.execute(
-                    select([Association_Scan_ScanFile.scan_file])
-                    .where(Association_Scan_ScanFile.scan == rec["_id"]))
+                    select([self.tables.association_scan_scanfile.scan_file])
+                    .where(self.tables.association_scan_scanfile.scan ==
+                           rec["_id"]))
             ]
-            for port in self.db.execute(select([Port])
-                                        .where(Port.scan == rec["_id"])):
+            for port in self.db.execute(select([self.tables.port])
+                                        .where(self.tables.port.scan == \
+                                               rec["_id"])):
                 recp = {}
                 (portid, _, recp["port"], recp["protocol"],
                  recp["state_state"], recp["state_reason"],
@@ -878,33 +920,36 @@ the field names of the structured output for s7-info script.
                 for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
-                for script in self.db.execute(select([Script.name,
-                                                      Script.output,
-                                                      Script.data])
-                                              .where(Script.port == portid)):
+                for script in self.db.execute(select([self.tables.script.name,
+                                                      self.tables.script.output,
+                                                      self.tables.script.data])
+                                              .where(self.tables.script.port ==\
+                                                     portid)):
                     recp.setdefault('scripts', []).append(
                         dict(id=script.name,
                              output=script.output,
                              **(script.data if script.data else {}))
                     )
                 rec.setdefault('ports', []).append(recp)
-            for trace in self.db.execute(select([Trace])
-                                         .where(Trace.scan == rec["_id"])):
+            for trace in self.db.execute(select([self.tables.trace])
+                                         .where(self.tables.trace.scan == \
+                                                rec["_id"])):
                 curtrace = {}
                 rec.setdefault('traces', []).append(curtrace)
                 curtrace['port'] = trace['port']
                 curtrace['protocol'] = trace['protocol']
                 curtrace['hops'] = []
-                for hop in self.db.execute(select([Hop])
-                                           .where(Hop.trace == trace['id'])
-                                           .order_by(Hop.ttl)):
+                for hop in self.db.execute(select([self.tables.hop])
+                                           .where(self.tables.hop.trace ==
+                                                  trace['id'])
+                                           .order_by(self.tables.hop.ttl)):
                     curtrace['hops'].append(dict(
                         (key, hop[key]) for key in ['ipaddr', 'ttl', 'rtt',
                                                     'host', 'domains']
                     ))
             for hostname in self.db.execute(
-                    select([Hostname])
-                    .where(Hostname.scan == rec["_id"])
+                    select([self.tables.hostname])
+                    .where(self.tables.hostname.scan == rec["_id"])
             ):
                 rec.setdefault('hostnames', []).append(dict(
                     (key, hostname[key]) for key in ['name', 'type', 'domains']
@@ -922,11 +967,15 @@ the field names of the structured output for s7-info script.
         if isinstance(host, dict):
             base = [host['_id']]
         else:
-            base = host.query(select([Scan.id])).cte("base")
-        self.db.execute(delete(Scan).where(Scan.id.in_(base)))
+            base = host.query(select([self.tables.scan.id])).cte("base")
+        self.db.execute(delete(self.tables.scan)\
+                        .where(self.tables.scan.id.in_(base)))
         # remove unused scan files
-        base = select([Association_Scan_ScanFile.scan_file]).cte('base')
-        self.db.execute(delete(ScanFile).where(ScanFile.sha256.notin_(base)))
+        base = select(
+            [self.tables.association_scan_scanfile.scan_file]
+        ).cte('base')
+        self.db.execute(delete(self.tables.scanfile)\
+                        .where(self.tables.scanfile.sha256.notin_(base)))
 
     _topstructure = namedtuple("topstructure", ["base", "fields", "where",
                                                 "group_by", "extraselectfrom"])
@@ -939,20 +988,22 @@ the field names of the structured output for s7-info script.
     def getscan(self, scanid):
         if isinstance(scanid, basestring) and len(scanid) == 64:
             scanid = utils.decode_hex(scanid)
-        return self.db.execute(select([ScanFile])
-                               .where(ScanFile.sha256 == scanid)).fetchone()
+        return self.db.execute(
+            select([self.tables.scanfile])
+            .where(self.tables.scanfile.sha256 == scanid)
+        ).fetchone()
 
     @staticmethod
     def searchnonexistent():
         return NmapFilter(main=False)
 
-    @staticmethod
-    def _searchobjectid(oid, neg=False):
+    @classmethod
+    def _searchobjectid(cls, oid, neg=False):
         if len(oid) == 1:
-            return NmapFilter(main=(Scan.id != oid[0]) if neg else
-                              (Scan.id == oid[0]))
-        return NmapFilter(main=(Scan.id.notin_(oid[0])) if neg else
-                          (Scan.id.in_(oid[0])))
+            return NmapFilter(main=(cls.tables.scan.id != oid[0]) if neg else
+                              (cls.tables.scan.id == oid[0]))
+        return NmapFilter(main=(cls.tables.scan.id.notin_(oid[0])) if neg else
+                          (cls.tables.scan.id.in_(oid[0])))
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):
@@ -967,46 +1018,55 @@ the field names of the structured output for s7-info script.
 
         """
         if neg:
-            return NmapFilter(main=Scan.addr != cls.convert_ip(addr))
-        return NmapFilter(main=Scan.addr == cls.convert_ip(addr))
+            return NmapFilter(main=cls.tables.scan.addr != cls.convert_ip(addr))
+        return NmapFilter(main=cls.tables.scan.addr == cls.convert_ip(addr))
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         hosts = [cls.convert_ip(host) for host in hosts]
         if neg:
-            return NmapFilter(main=Scan.addr.notin_(hosts))
-        return NmapFilter(main=Scan.addr.in_(hosts))
+            return NmapFilter(main=cls.tables.scan.addr.notin_(hosts))
+        return NmapFilter(main=cls.tables.scan.addr.in_(hosts))
 
     @classmethod
     def searchrange(cls, start, stop, neg=False):
         start, stop = cls.convert_ip(start), cls.convert_ip(stop)
         if neg:
-            return NmapFilter(main=or_(Scan.addr < start, Scan.addr > stop))
-        return NmapFilter(main=and_(Scan.addr >= start, Scan.addr <= stop))
+            return NmapFilter(main=or_(cls.tables.scan.addr < start,
+                                       cls.tables.scan.addr > stop))
+        return NmapFilter(main=and_(cls.tables.scan.addr >= start,
+                                    cls.tables.scan.addr <= stop))
 
     @classmethod
     def searchdomain(cls, name, neg=False):
         return NmapFilter(hostname=[
-            (not neg, cls._searchstring_re_inarray(Hostname.id,
-                                                   Hostname.domains, name,
-                                                   neg=False)),
+            (not neg, cls._searchstring_re_inarray(cls.tables.hostname.id,
+                                                   cls.tables.hostname.domains,
+                                                   name, neg=False)),
         ])
 
     @classmethod
     def searchhostname(cls, name, neg=False):
         return NmapFilter(hostname=[
-            (not neg, cls._searchstring_re(Hostname.name, name, neg=False)),
+            (not neg, cls._searchstring_re(cls.tables.hostname.name,
+                                           name, neg=False)),
         ])
 
     @classmethod
     def searchcategory(cls, cat, neg=False):
-        return NmapFilter(category=[cls._searchstring_re(Category.name, cat,
-                                                         neg=neg)])
+        return NmapFilter(category=[cls._searchstring_re(
+            cls.tables.category.name,
+            cat,
+            neg=neg
+        )])
 
     @classmethod
     def searchsource(cls, src, neg=False):
-        return NmapFilter(main=cls._searchstring_re(Scan.source, src,
-                                                    neg=neg))
+        return NmapFilter(main=cls._searchstring_re(
+            cls.tables.scan.source,
+            src,
+            neg=neg
+        ))
 
     @classmethod
     def searchcountry(cls, country, neg=False):
@@ -1016,8 +1076,9 @@ the field names of the structured output for s7-info script.
         """
         country = utils.country_unalias(country)
         return NmapFilter(
-            main=cls._searchstring_list(Scan.info['country_code'].astext,
-                                        country, neg=neg)
+            main=cls._searchstring_list(
+                cls.tables.scan.info['country_code'].astext, country, neg=neg
+            )
         )
 
     @classmethod
@@ -1027,8 +1088,9 @@ the field names of the structured output for s7-info script.
 
         """
         return NmapFilter(
-            main=cls._searchstring_re(Scan.info['city'].astext,
-                                      city, neg=neg)
+            main=cls._searchstring_re(
+                cls.tables.scan.info['city'].astext, city, neg=neg
+            )
         )
 
     @classmethod
@@ -1038,7 +1100,7 @@ the field names of the structured output for s7-info script.
 
         """
         return NmapFilter(
-            main=cls._searchstring_list(Scan.info['as_num'], asnum,
+            main=cls._searchstring_list(cls.tables.scan.info['as_num'], asnum,
                                         neg=neg, map_=str)
         )
 
@@ -1049,12 +1111,12 @@ the field names of the structured output for s7-info script.
 
         """
         return NmapFilter(
-            main=cls._searchstring_re(Scan.info['as_name'].astext, asname,
-                                      neg=neg)
+            main=cls._searchstring_re(cls.tables.scan.info['as_name'].astext,
+                                      asname, neg=neg)
         )
 
-    @staticmethod
-    def searchport(port, protocol='tcp', state='open', neg=False):
+    @classmethod
+    def searchport(cls, port, protocol='tcp', state='open', neg=False):
         """Filters (if `neg` == True, filters out) records with
         specified protocol/port at required state. Be aware that when
         a host has a lot of ports filtered or closed, it will not
@@ -1065,25 +1127,26 @@ the field names of the structured output for s7-info script.
         """
         if port == "host":
             return NmapFilter(port=[
-                (True, (Port.port >= 0) if neg else (Port.port == -1)),
+                (True, (cls.tables.port.port >= 0) if neg else
+                 (cls.tables.port.port == -1)),
             ])
         return NmapFilter(port=[
             (not neg,
-             and_(Port.port == port,
-                  Port.protocol == protocol,
-                  Port.state == state)),
+             and_(cls.tables.port.port == port,
+                  cls.tables.port.protocol == protocol,
+                  cls.tables.port.state == state)),
         ])
 
-    @staticmethod
-    def searchportsother(ports, protocol='tcp', state='open'):
+    @classmethod
+    def searchportsother(cls, ports, protocol='tcp', state='open'):
         """Filters records with at least one port other than those
         listed in `ports` with state `state`.
 
         """
         return NmapFilter(port=[(True,
-                                 and_(or_(Port.port.notin_(ports),
-                                          Port.protocol != protocol),
-                                      Port.state == state))])
+                                 and_(or_(cls.tables.port.port.notin_(ports),
+                                          cls.tables.port.protocol != protocol),
+                                      cls.tables.port.state == state))])
 
     @classmethod
     def searchports(cls, ports, protocol='tcp', state='open', neg=False):
@@ -1091,15 +1154,15 @@ the field names of the structured output for s7-info script.
                                             state=state, neg=neg)
                              for port in ports))
 
-    @staticmethod
-    def searchcountopenports(minn=None, maxn=None, neg=False):
+    @classmethod
+    def searchcountopenports(cls, minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert minn is not None or maxn is not None
         req = (select([column("scan")])
-               .select_from(select([Port.scan.label("scan"),
+               .select_from(select([cls.tables.port.scan.label("scan"),
                                     func.count().label("count")])
-                            .where(Port.state == "open")
-                            .group_by(Port.scan).alias("pcnt")))
+                            .where(cls.tables.port.state == "open")
+                            .group_by(cls.tables.port.scan).alias("pcnt")))
         if minn == maxn:
             req = req.where(column("count") == minn)
         else:
@@ -1107,22 +1170,22 @@ the field names of the structured output for s7-info script.
                 req = req.where(column("count") >= minn)
             if maxn is not None:
                 req = req.where(column("count") <= maxn)
-        return NmapFilter(main=Scan.id.notin_(req) if neg else
-                          Scan.id.in_(req))
+        return NmapFilter(main=cls.tables.scan.id.notin_(req) if neg else
+                          cls.tables.scan.id.in_(req))
 
-    @staticmethod
-    def searchopenport(neg=False):
+    @classmethod
+    def searchopenport(cls, neg=False):
         "Filters records with at least one open port."
-        return NmapFilter(port=[(not neg, Port.state == "open")])
+        return NmapFilter(port=[(not neg, cls.tables.port.state == "open")])
 
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
         """Search an open port with a particular service."""
-        req = cls._searchstring_re(Port.service_name, srv)
+        req = cls._searchstring_re(cls.tables.port.service_name, srv)
         if port is not None:
-            req = and_(req, Port.port == port)
+            req = and_(req, cls.tables.port.port == port)
         if protocol is not None:
-            req = and_(req, Port.protocol == protocol)
+            req = and_(req, cls.tables.port.protocol == protocol)
         return NmapFilter(port=[(True, req)])
 
     @classmethod
@@ -1133,16 +1196,19 @@ the field names of the structured output for s7-info script.
         since those fields are indexed.
 
         """
-        req = cls._searchstring_re(Port.service_product, product)
+        req = cls._searchstring_re(cls.tables.port.service_product, product)
         if version is not None:
-            req = and_(req, cls._searchstring_re(Port.service_version,
-                                                 version))
+            req = and_(req, cls._searchstring_re(
+                cls.tables.port.service_version, version
+            ))
         if service is not None:
-            req = and_(req, cls._searchstring_re(Port.service_name, service))
+            req = and_(req, cls._searchstring_re(
+                cls.tables.port.service_name, service
+            ))
         if port is not None:
-            req = and_(req, Port.port == port)
+            req = and_(req, cls.tables.port.port == port)
         if protocol is not None:
-            req = and_(req, Port.protocol == protocol)
+            req = and_(req, cls.tables.port.protocol == protocol)
         return NmapFilter(port=[(True, req)])
 
     @classmethod
@@ -1152,10 +1218,13 @@ the field names of the structured output for s7-info script.
         """
         req = True
         if name is not None:
-            req = and_(req, cls._searchstring_re(Script.name, name, neg=False))
+            req = and_(req, cls._searchstring_re(
+                cls.tables.script.name, name, neg=False
+            ))
         if output is not None:
-            req = and_(req, cls._searchstring_re(Script.output, output,
-                                                 neg=False))
+            req = and_(req, cls._searchstring_re(
+                cls.tables.script.output, output, neg=False
+            ))
         if values:
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
@@ -1194,8 +1263,9 @@ the field names of the structured output for s7-info script.
                     # XXX TEST THIS
                     req = and_(
                         req,
-                        Script.data.contains(_to_json("%s.%s" % (basekey, key),
-                                                      value)),
+                        cls.tables.script.data.contains(
+                            _to_json("%s.%s" % (basekey, key), value)
+                        ),
                     )
                 elif subkey[1] is None:
                     # XXX TEST THIS
@@ -1225,9 +1295,10 @@ the field names of the structured output for s7-info script.
                     )
             return NmapFilter(script=[(
                 req,
-                [func.jsonb_array_elements(Script.data[subkey]).alias(
-                    subkey.replace('.', '_').replace('-', '_')
-                ) for subkey in needunwind],
+                [func.jsonb_array_elements(cls.tables.script.data[subkey])\
+                 .alias(
+                     subkey.replace('.', '_').replace('-', '_')
+                 ) for subkey in needunwind],
             )])
         return NmapFilter(script=[req])
 
@@ -1250,22 +1321,27 @@ the field names of the structured output for s7-info script.
     @classmethod
     def searchsvchostname(cls, hostname):
         return NmapFilter(port=[(
-            True, cls._searchstring_re(Port.service_hostname, hostname)
+            True, cls._searchstring_re(cls.tables.port.service_hostname,
+                                       hostname)
         )])
 
-    @staticmethod
-    def searchwebmin():
+    @classmethod
+    def searchwebmin(cls):
         return NmapFilter(
-            port=[(True, and_(Port.service_name == 'http',
-                              Port.service_product == 'MiniServ',
-                              Port.service_extrainfo != 'Webmin httpd'))]
+            port=[(True, and_(
+                cls.tables.port.service_name == 'http',
+                cls.tables.port.service_product == 'MiniServ',
+                cls.tables.port.service_extrainfo != 'Webmin httpd'
+            ))]
         )
 
-    @staticmethod
-    def searchx11():
+    @classmethod
+    def searchx11(cls):
         return NmapFilter(
-            port=[(True, and_(Port.service_name == 'X11',
-                              Port.service_extrainfo != 'access denied'))]
+            port=[(True, and_(
+                cls.tables.port.service_name == 'X11',
+                cls.tables.port.service_extrainfo != 'access denied'
+            ))]
         )
 
     def searchtimerange(self, start, stop, neg=False):
@@ -1275,10 +1351,12 @@ the field names of the structured output for s7-info script.
             stop = datetime.datetime.fromtimestamp(stop)
         if neg:
             return NmapFilter(
-                main=(Scan.time_start < start) | (Scan.time_stop > stop)
+                main=(self.tables.scan.time_start < start) | \
+                     (self.tables.scan.time_stop > stop)
             )
         return NmapFilter(
-            main=(Scan.time_start >= start) & (Scan.time_stop <= stop)
+            main=(self.tables.scan.time_start >= start) & \
+                 (self.tables.scan.time_stop <= stop)
         )
 
     @classmethod
@@ -1288,17 +1366,19 @@ the field names of the structured output for s7-info script.
 
         """
         if fname is None:
-            req = Script.data.op('@>')('{"ls": {"volumes": [{"files": []}]}}')
+            req = cls.tables.script.data.op('@>')(
+                '{"ls": {"volumes": [{"files": []}]}}'
+            )
         else:
             if isinstance(fname, utils.REGEXP_T):
                 base1 = select([
-                    Script.port,
+                    cls.tables.script.port,
                     func.jsonb_array_elements(
                         func.jsonb_array_elements(
-                            Script.data['ls']['volumes']
+                            cls.tables.script.data['ls']['volumes']
                         ).op('->')('files')
                     ).op('->>')('filename').label('filename')])\
-                    .where(Script.data.op('@>')(
+                    .where(cls.tables.script.data.op('@>')(
                         '{"ls": {"volumes": [{"files": []}]}}'
                     ))\
                     .cte('base1')
@@ -1308,9 +1388,9 @@ the field names of the structured output for s7-info script.
                              '~*' if (fname.flags & re.IGNORECASE) else '~'
                          )(fname.pattern))
                          .cte('base2'))
-                return NmapFilter(port=[(True, Port.id.in_(base2))])
+                return NmapFilter(port=[(True, cls.tables.port.id.in_(base2))])
             else:
-                req = Script.data.op('@>')(json.dumps(
+                req = cls.tables.script.data.op('@>')(json.dumps(
                     {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
                 ))
         if scripts is None:
@@ -1318,45 +1398,50 @@ the field names of the structured output for s7-info script.
         if isinstance(scripts, basestring):
             scripts = [scripts]
         if len(scripts) == 1:
-            return NmapFilter(script=[and_(Script.name == scripts.pop(), req)])
-        return NmapFilter(script=[and_(Script.name.in_(scripts), req)])
+            return NmapFilter(script=[and_(
+                cls.tables.script.name == scripts.pop(), req
+            )])
+        return NmapFilter(script=[and_(
+            cls.tables.script.name.in_(scripts), req
+        )])
 
     @classmethod
     def searchhttptitle(cls, title):
         return NmapFilter(script=[
-            Script.name.in_(['http-title', 'html-title']),
-            cls._searchstring_re(Script.output, title),
+            cls.tables.script.name.in_(['http-title', 'html-title']),
+            cls._searchstring_re(cls.tables.script.output, title),
         ])
 
     @classmethod
     def searchhop(cls, hop, ttl=None, neg=False):
-        res = Hop.ipaddr == cls.convert_ip(hop)
+        res = cls.tables.hop.ipaddr == cls.convert_ip(hop)
         if ttl is not None:
-            res &= Hop.ttl == ttl
+            res &= cls.tables.hop.ttl == ttl
         return NmapFilter(trace=[not_(res) if neg else res])
 
     @classmethod
     def searchhopdomain(cls, hop, neg=False):
         return NmapFilter(trace=[cls._searchstring_re_inarray(
-            Hop.id, Hop.domains, hop, neg=neg
+            cls.tables.hop.id, cls.tables.hop.domains, hop, neg=neg
         )])
 
     @classmethod
     def searchhopname(cls, hop, neg=False):
-        return NmapFilter(trace=[cls._searchstring_re(Hop.host,
+        return NmapFilter(trace=[cls._searchstring_re(cls.tables.hop.host,
                                                       hop, neg=neg)])
 
     @classmethod
     def searchdevicetype(cls, devtype):
         return NmapFilter(port=[
-            (True, cls._searchstring_re(Port.service_devicetype, devtype))
+            (True, cls._searchstring_re(cls.tables.port.service_devicetype,
+                                        devtype))
         ])
 
-    @staticmethod
-    def searchnetdev():
+    @classmethod
+    def searchnetdev(cls):
         return NmapFilter(port=[(
             True,
-            Port.service_devicetype.in_([
+            cls.tables.port.service_devicetype.in_([
                 'bridge',
                 'broadband router',
                 'firewall',
@@ -1369,11 +1454,11 @@ the field names of the structured output for s7-info script.
             ])
         )])
 
-    @staticmethod
-    def searchphonedev():
+    @classmethod
+    def searchphonedev(cls):
         return NmapFilter(port=[(
             True,
-            Port.service_devicetype.in_([
+            cls.tables.port.service_devicetype.in_([
                 'PBX',
                 'phone',
                 'telecom-misc',
@@ -1382,32 +1467,34 @@ the field names of the structured output for s7-info script.
             ])
         )])
 
-    @staticmethod
-    def searchldapanon():
+    @classmethod
+    def searchldapanon(cls):
         return NmapFilter(port=[(
-            True, Port.service_extrainfo == 'Anonymous bind OK',
+            True, cls.tables.port.service_extrainfo == 'Anonymous bind OK',
         )])
 
-    @staticmethod
-    def searchvsftpdbackdoor():
+    @classmethod
+    def searchvsftpdbackdoor(cls):
         return NmapFilter(port=[(
             True,
-            and_(Port.protocol == 'tcp',
-                 Port.state == 'open',
-                 Port.service_product == 'vsftpd',
-                 Port.service_version == '2.3.4')
+            and_(cls.tables.port.protocol == 'tcp',
+                 cls.tables.port.state == 'open',
+                 cls.tables.port.service_product == 'vsftpd',
+                 cls.tables.port.service_version == '2.3.4')
         )])
 
 
 class PassiveFilter(Filter):
 
-    def __init__(self, main=None):
+    def __init__(self, main=None, tables=None):
         self.main = main
+        self.tables = SQLDBPassive.tables if tables is None else tables
 
     @property
     def all_queries(self):
         return {
             "main": self.main,
+            "tables": self.tables,
         }
 
     def __nonzero__(self):
@@ -1416,21 +1503,28 @@ class PassiveFilter(Filter):
     def copy(self):
         return self.__class__(
             main=self.main,
+            tables=self.tables,
         )
 
     def __and__(self, other):
+        if self.tables != other.tables:
+            raise ValueError("Cannot 'AND' two filters on separate tables")
         return self.__class__(
             main=self.fltand(self.main, other.main),
+            tables=self.tables,
         )
 
     def __or__(self, other):
+        if self.tables != other.tables:
+            raise ValueError("Cannot 'OR' two filters on separate tables")
         return self.__class__(
             main=self.fltor(self.main, other.main),
+            tables=self.tables,
         )
 
     @property
     def select_from(self):
-        return Passive
+        return self.tables.passive
 
     def query(self, req):
         if self.main is not None:
@@ -1439,7 +1533,8 @@ class PassiveFilter(Filter):
 
 
 class SQLDBPassive(SQLDB, DBPassive):
-    tables = [Passive]
+    table_layout = namedtuple("passive_layout", ['passive'])
+    tables = table_layout(Passive)
     fields = {
         "_id": Passive.id,
         "addr": Passive.addr,
@@ -1489,9 +1584,11 @@ class SQLDBPassive(SQLDB, DBPassive):
 
     def remove(self, flt):
         base = flt.query(
-            select([Passive.id]).select_from(flt.select_from)
+            select([self.tables.passive.id]).select_from(flt.select_from)
         ).cte("base")
-        self.db.execute(delete(Passive).where(Passive.id.in_(base)))
+        self.db.execute(
+            delete(self.tables.passive).where(self.tables.passive.id.in_(base))
+        )
 
     def get(self, flt, limit=None, skip=None, sort=None):
         """Queries the passive database with the provided filter "flt", and
@@ -1500,10 +1597,13 @@ returns a generator.
         """
         req = flt.query(
             select([
-                Passive.addr, Passive.sensor, Passive.count, Passive.firstseen,
-                Passive.lastseen, Passive.port, Passive.recontype,
-                Passive.source, Passive.targetval, Passive.value,
-                Passive.fullvalue, Passive.info, Passive.moreinfo
+                self.tables.passive.addr, self.tables.passive.sensor,
+                self.tables.passive.count, self.tables.passive.firstseen,
+                self.tables.passive.lastseen, self.tables.passive.port,
+                self.tables.passive.recontype, self.tables.passive.source,
+                self.tables.passive.targetval, self.tables.passive.value,
+                self.tables.passive.fullvalue, self.tables.passive.info,
+                self.tables.passive.moreinfo
             ]).select_from(flt.select_from)
         )
         for key, way in sort or []:
@@ -1647,7 +1747,8 @@ passive table."""
             flt = PassiveFilter()
         order = "count" if least else desc("count")
         req = flt.query(
-            select([(func.count() if distinct else func.sum(Passive.count))
+            select([(func.count() if distinct else
+                     func.sum(self.tables.passive.count))
                     .label("count"), field])
             .select_from(flt.select_from)
             .group_by(field)
@@ -1660,13 +1761,16 @@ passive table."""
             for result in self.db.execute(req.order_by(order).limit(topnbr))
         )
 
-    @staticmethod
-    def _searchobjectid(oid, neg=False):
+    def _searchobjectid(self, oid, neg=False):
         if len(oid) == 1:
-            return PassiveFilter(main=(Passive.id != oid[0]) if neg else
-                                 (Passive.id == oid[0]))
-        return PassiveFilter(main=(Passive.id.notin_(oid[0])) if neg else
-                             (Passive.id.in_(oid[0])))
+            return PassiveFilter(
+                main=(self.tables.passive.id != oid[0]) if neg else
+                (self.tables.passive.id == oid[0])
+            )
+        return PassiveFilter(
+            main=(self.tables.passive.id.notin_(oid[0])) if neg else
+            (self.tables.passive.id.in_(oid[0]))
+        )
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):
@@ -1682,97 +1786,99 @@ passive table."""
         """
         addr = cls.convert_ip(addr)
         return PassiveFilter(
-            main=(Passive.addr != addr) if neg else (Passive.addr == addr),
+            main=(cls.tables.passive.addr != addr) if neg else
+            (cls.tables.passive.addr == addr),
         )
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         hosts = [cls.convert_ip(host) for host in hosts]
         return PassiveFilter(
-            main=(Passive.addr.notin_(hosts) if neg else
-                  Passive.addr.in_(hosts)),
+            main=(cls.tables.passive.addr.notin_(hosts) if neg else
+                  cls.tables.passive.addr.in_(hosts)),
         )
 
     @classmethod
     def searchrange(cls, start, stop, neg=False):
         start, stop = cls.convert_ip(start), cls.convert_ip(stop)
         if neg:
-            return PassiveFilter(main=or_(Passive.addr < start,
-                                          Passive.addr > stop))
-        return PassiveFilter(main=and_(Passive.addr >= start,
-                                       Passive.addr <= stop))
+            return PassiveFilter(main=or_(cls.tables.passive.addr < start,
+                                          cls.tables.passive.addr > stop))
+        return PassiveFilter(main=and_(cls.tables.passive.addr >= start,
+                                       cls.tables.passive.addr <= stop))
 
-    @staticmethod
-    def searchrecontype(rectype):
-        return PassiveFilter(main=(Passive.recontype == rectype))
+    @classmethod
+    def searchrecontype(cls, rectype):
+        return PassiveFilter(main=(cls.tables.passive.recontype == rectype))
 
     @classmethod
     def searchdns(cls, name, reverse=False, subdomains=False):
         return PassiveFilter(main=(
-            (Passive.recontype == 'DNS_ANSWER') &
+            (cls.tables.passive.recontype == 'DNS_ANSWER') &
             (
-                (Passive.moreinfo['domaintarget'
-                                  if reverse else
-                                  'domain'].has_key(name))
+                (cls.tables.passive.moreinfo['domaintarget'
+                                             if reverse else
+                                             'domain'].has_key(name))
                 # noqa: W601 (BinaryExpression)
                 if subdomains else
-                cls._searchstring_re(Passive.targetval
-                                     if reverse else Passive.value, name)
+                cls._searchstring_re(cls.tables.passive.targetval
+                                     if reverse else
+                                     cls.tables.passive.value, name)
             )
         ))
 
     @classmethod
     def searchuseragent(cls, useragent):
         return PassiveFilter(main=(
-            (Passive.recontype == 'HTTP_CLIENT_HEADER') &
-            (Passive.source == 'USER-AGENT') &
-            (cls._searchstring_re(Passive.value, useragent))
+            (cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER') &
+            (cls.tables.passive.source == 'USER-AGENT') &
+            (cls._searchstring_re(cls.tables.passive.value, useragent))
         ))
 
-    @staticmethod
-    def searchftpauth():
+    @classmethod
+    def searchftpauth(cls):
         return PassiveFilter(main=(
-            (Passive.recontype == 'FTP_CLIENT') |
-            (Passive.recontype == 'FTP_SERVER')
+            (cls.tables.passive.recontype == 'FTP_CLIENT') |
+            (cls.tables.passive.recontype == 'FTP_SERVER')
         ))
 
-    @staticmethod
-    def searchpopauth():
+    @classmethod
+    def searchpopauth(cls):
         return PassiveFilter(main=(
-            (Passive.recontype == 'POP_CLIENT') |
-            (Passive.recontype == 'POP_SERVER')
+            (cls.tables.passive.recontype == 'POP_CLIENT') |
+            (cls.tables.passive.recontype == 'POP_SERVER')
         ))
 
-    @staticmethod
-    def searchbasicauth():
+    @classmethod
+    def searchbasicauth(cls):
         return PassiveFilter(main=(
-            ((Passive.recontype == 'HTTP_CLIENT_HEADER') |
-             (Passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
-            ((Passive.source == 'AUTHORIZATION') |
-             (Passive.source == 'PROXY-AUTHORIZATION')) &
-            Passive.value.op('~*')('^Basic')
+            ((cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER') |
+             (cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
+            ((cls.tables.passive.source == 'AUTHORIZATION') |
+             (cls.tables.passive.source == 'PROXY-AUTHORIZATION')) &
+            cls.tables.passive.value.op('~*')('^Basic')
         ))
 
-    @staticmethod
-    def searchhttpauth():
+    @classmethod
+    def searchhttpauth(cls):
         return PassiveFilter(main=(
-            ((Passive.recontype == 'HTTP_CLIENT_HEADER') |
-             (Passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
-            ((Passive.source == 'AUTHORIZATION') |
-             (Passive.source == 'PROXY-AUTHORIZATION'))
+            ((cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER') |
+             (cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER_SERVER')) &
+            ((cls.tables.passive.source == 'AUTHORIZATION') |
+             (cls.tables.passive.source == 'PROXY-AUTHORIZATION'))
         ))
 
-    @staticmethod
-    def searchcert(keytype=None):
+    @classmethod
+    def searchcert(cls, keytype=None):
         if keytype is None:
             return PassiveFilter(main=(
-                (Passive.recontype == 'SSL_SERVER') &
-                (Passive.source == 'cert')
+                (cls.tables.passive.recontype == 'SSL_SERVER') &
+                (cls.tables.passive.source == 'cert')
             ))
         return PassiveFilter(main=(
-            (Passive.recontype == 'SSL_SERVER') &
-            (Passive.source == 'cert') &
-            (Passive.moreinfo.op('->>')(
+            (cls.tables.passive.recontype == 'SSL_SERVER') &
+            (cls.tables.passive.source == 'cert') &
+            (cls.tables.passive.moreinfo.op('->>')(
                 'pubkeyalgo'
             ) == keytype + 'Encryption')
         ))
@@ -1780,47 +1886,53 @@ passive table."""
     @classmethod
     def searchcertsubject(cls, expr):
         return PassiveFilter(main=(
-            (Passive.recontype == 'SSL_SERVER') &
-            (Passive.source == 'cert') &
-            (cls._searchstring_re(Passive.moreinfo.op('->>')('subject'), expr))
+            (cls.tables.passive.recontype == 'SSL_SERVER') &
+            (cls.tables.passive.source == 'cert') &
+            (cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('subject'), expr)
+            )
         ))
 
     @classmethod
     def searchcertissuer(cls, expr):
         return PassiveFilter(main=(
-            (Passive.recontype == 'SSL_SERVER') &
-            (Passive.source == 'cert') &
-            (cls._searchstring_re(Passive.moreinfo.op('->>')('issuer'), expr))
+            (cls.tables.passive.recontype == 'SSL_SERVER') &
+            (cls.tables.passive.source == 'cert') &
+            (cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('issuer'), expr)
+            )
         ))
 
     @classmethod
     def searchsshkey(cls, keytype=None):
         if keytype is None:
             return PassiveFilter(main=(
-                (Passive.recontype == 'SSH_SERVER_HOSTKEY') &
-                (Passive.source == 'SSHv2')
+                (cls.tables.passive.recontype == 'SSH_SERVER_HOSTKEY') &
+                (cls.tables.passive.source == 'SSHv2')
             ))
         return PassiveFilter(main=(
-            (Passive.recontype == 'SSH_SERVER_HOSTKEY') &
-            (Passive.source == 'SSHv2') &
-            (Passive.moreinfo.op('->>')('algo') == 'ssh-' + keytype)
+            (cls.tables.passive.recontype == 'SSH_SERVER_HOSTKEY') &
+            (cls.tables.passive.source == 'SSHv2') &
+            (cls.tables.passive.moreinfo.op('->>')('algo') == 'ssh-' + keytype)
         ))
 
     @classmethod
     def searchtcpsrvbanner(cls, banner):
         return PassiveFilter(main=(
-            (Passive.recontype == 'TCP_SERVER_BANNER') &
-            (cls._searchstring_re(Passive.value, banner))
+            (cls.tables.passive.recontype == 'TCP_SERVER_BANNER') &
+            (cls._searchstring_re(cls.tables.passive.value, banner))
         ))
 
     @classmethod
     def searchsensor(cls, sensor, neg=False):
         return PassiveFilter(
-            main=(cls._searchstring_re(Passive.sensor, sensor, neg=neg)),
+            main=(cls._searchstring_re(
+                cls.tables.passive.sensor, sensor, neg=neg
+            )),
         )
 
-    @staticmethod
-    def searchport(port, protocol='tcp', state='open', neg=False):
+    @classmethod
+    def searchport(cls, port, protocol='tcp', state='open', neg=False):
         """Filters (if `neg` == True, filters out) records on the specified
         protocol/port.
 
@@ -1830,16 +1942,18 @@ passive table."""
                              "in passive")
         if state != 'open':
             raise ValueError("Only open ports can be found in passive")
-        return PassiveFilter(main=(Passive.port != port)
-                             if neg else (Passive.port == port))
+        return PassiveFilter(main=(cls.tables.passive.port != port)
+                             if neg else (cls.tables.passive.port == port))
 
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
         """Search a port with a particular service."""
-        flt = [cls._searchstring_re(Passive.moreinfo.op('->>')('service_name'),
-                                    srv)]
+        flt = [cls._searchstring_re(
+            cls.tables.passive.moreinfo.op('->>')('service_name'),
+            srv
+        )]
         if port is not None:
-            flt.append(Passive.port == port)
+            flt.append(cls.tables.passive.port == port)
         if protocol is not None and protocol != 'tcp':
             raise ValueError("Protocols other than TCP are not supported "
                              "in passive")
@@ -1853,24 +1967,26 @@ passive table."""
         since those fields are indexed.
 
         """
-        flt = [
-            cls._searchstring_re(Passive.moreinfo.op('->>')('service_product'),
-                                 product)
-        ]
+        flt = [cls._searchstring_re(
+            cls.tables.passive.moreinfo.op('->>')('service_product'),
+            product
+        )]
         if version is not None:
             flt.append(
                 cls._searchstring_re(
-                    Passive.moreinfo.op('->>')('service_version'), version,
+                    cls.tables.passive.moreinfo.op('->>')('service_version'),
+                    version,
                 )
             )
         if service is not None:
             flt.append(
                 cls._searchstring_re(
-                    Passive.moreinfo.op('->>')('service_name'), service,
+                    cls.tables.passive.moreinfo.op('->>')('service_name'),
+                    service,
                 )
             )
         if port is not None:
-            flt.append(Passive.port == port)
+            flt.append(cls.tables.passive.port == port)
         if protocol is not None:
             if protocol != 'tcp':
                 raise ValueError("Protocols other than TCP are not supported "
@@ -1881,16 +1997,17 @@ passive table."""
     def searchsvchostname(cls, hostname):
         return PassiveFilter(
             main=cls._searchstring_re(
-                Passive.moreinfo.op('->>')(
+                cls.tables.passive.moreinfo.op('->>')(
                     'service_hostname'
                 ),
                 hostname,
             )
         )
 
-    @staticmethod
-    def searchtimeago(delta, neg=False, new=False):
-        field = Passive.lastseen if new else Passive.firstseen
+    @classmethod
+    def searchtimeago(cls, delta, neg=False, new=False):
+        field = cls.tables.passive.lastseen if new else \
+                cls.tables.passive.firstseen
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
         now = datetime.datetime.now()
@@ -1898,9 +2015,10 @@ passive table."""
         return PassiveFilter(main=(field < timestamp if neg else
                                    field >= timestamp))
 
-    @staticmethod
-    def searchnewer(timestamp, neg=False, new=False):
-        field = Passive.lastseen if new else Passive.firstseen
+    @classmethod
+    def searchnewer(cls, timestamp, neg=False, new=False):
+        field = cls.tables.passive.lastseen if new else \
+                cls.tables.passive.firstseen
         if not isinstance(timestamp, datetime.datetime):
             timestamp = datetime.datetime.fromtimestamp(timestamp)
         return PassiveFilter(main=(field <= timestamp if neg else
