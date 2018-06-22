@@ -216,7 +216,6 @@ insert structures.
                     info=info,
                     time_start=host['starttime'],
                     time_stop=host['endtime'],
-                    archive=0,
                     merge=False,
                     **dict(
                         (key, host.get(key)) for key in
@@ -225,7 +224,7 @@ insert structures.
                     )
                 )
                 .on_conflict_do_update(
-                    index_elements=['addr', 'source', 'archive'],
+                    index_elements=['addr', 'source'],
                     set_={
                         'time_start': func.least(
                             Scan.time_start,
@@ -247,18 +246,8 @@ insert structures.
             else:
                 newest = None
         else:
-            curarchive = self.db.execute(select([func.max(Scan.archive)])
-                                         .where(and_(Scan.addr == addr,
-                                                     Scan.source == source)))\
-                                .fetchone()[0]
-            if curarchive is not None:
-                self.db.execute(update(Scan).where(and_(
-                    Scan.addr == addr,
-                    Scan.source == source,
-                    Scan.archive == 0,
-                )).values(archive=curarchive + 1))
             scanid = self.db.execute(
-                insert(Scan).values(
+                postgresql.insert(Scan).values(
                     addr=addr,
                     source=source,
                     info=info,
@@ -267,9 +256,10 @@ insert structures.
                     state=host['state'],
                     state_reason=host['state_reason'],
                     state_reason_ttl=host.get('state_reason_ttl'),
-                    archive=0,
                     merge=False,
-                ).returning(Scan.id)
+                )
+                .on_conflict_do_nothing()
+                .returning(Scan.id)
             ).fetchone()[0]
         insrt = postgresql.insert(Association_Scan_ScanFile)
         self.db.execute(insrt
@@ -389,8 +379,8 @@ insert structures.
                 ))
         utils.LOGGER.debug("HOST STORED: %r", scanid)
 
-    def get_ips_ports(self, flt, archive=False, limit=None, skip=None):
-        req = flt.query(select([Scan.id]), archive=archive)
+    def get_ips_ports(self, flt, limit=None, skip=None):
+        req = flt.query(select([Scan.id]))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -423,12 +413,11 @@ insert structures.
             )
         )
 
-    def getlocations(self, flt, archive=False, limit=None, skip=None):
+    def getlocations(self, flt, limit=None, skip=None):
         req = flt.query(
             select([func.count(Scan.id), Scan.info['coordinates'].astext])
             .where(Scan.info.has_key('coordinates')),
             # noqa: W601 (BinaryExpression)
-            archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -440,7 +429,7 @@ insert structures.
                 self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
-                  limit=None, skip=None, least=False, archive=False):
+                  limit=None, skip=None, least=False):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
@@ -467,8 +456,7 @@ insert structures.
         if flt is None:
             flt = NmapFilter()
         base = flt.query(
-            select([Scan.id]).select_from(flt.select_from),
-            archive=archive,
+            select([Scan.id]).select_from(flt.select_from)
         ).cte("base")
         order = "count" if least else desc("count")
         outputproc = None
@@ -848,8 +836,7 @@ insert structures.
             req = flt.query(
                 select([func.count().label("count")] + field.fields)
                 .select_from(Scan)
-                .group_by(*field.fields),
-                archive=archive,
+                .group_by(*field.fields)
             )
         else:
             req = (select([func.count().label("count")] + field.fields)

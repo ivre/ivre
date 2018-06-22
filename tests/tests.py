@@ -378,11 +378,7 @@ class IvreTests(unittest.TestCase):
             )
 
     def check_count_value_api(self, name_or_value, flt):
-        if isinstance(flt, tuple):
-            flt, archive = flt
-        else:
-            archive = False
-        count = ivre.db.db.nmap.count(flt, archive=archive)
+        count = ivre.db.db.nmap.count(flt)
         if name_or_value is None:
             pass
         elif isinstance(name_or_value, str):
@@ -685,7 +681,6 @@ which `predicate()` is True, given `webflt`.
         shutil.rmtree('output')
 
         RUN(["ivre", "scancli", "--update-schema"])
-        RUN(["ivre", "scancli", "--update-schema", "--archives"])
 
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
@@ -693,11 +688,6 @@ which `predicate()` is True, given `webflt`.
         hosts_count = self.check_count_value("nmap_get_count",
                                              ivre.db.db.nmap.flt_empty,
                                              [], None)
-        archives_count = self.check_count_value(
-            "nmap_get_archives_count",
-            (ivre.db.db.nmap.flt_empty, True),
-            ["--archives"], "archives",
-        )
 
         self.check_count_value_api(0, ivre.db.db.nmap.searchnonexistent())
 
@@ -705,8 +695,7 @@ which `predicate()` is True, given `webflt`.
         self.assertGreater(hosts_count, 0)
 
         # Counting results
-        self.assertEqual(hosts_count + archives_count,
-                         host_counter)
+        self.assertEqual(hosts_count, host_counter)
 
         # JSON
         res, out, _ = RUN(['ivre', 'scancli', '--json'])

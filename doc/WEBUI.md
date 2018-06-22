@@ -124,8 +124,6 @@ single or double quotes.
 
 ### Filters ###
 
-  - `[!]archives` show results from the archives database (and
-    `!archives` has no effect since it is the default behavior).
   - `[!]host:[IP address]` filter a specific IP address. Using the IP
     address directly (without `host:`) is equivalent.
   - `[!]net:[IP address/netmask]` filter a specific network (CIDR

@@ -377,13 +377,11 @@ class Scan(Base):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
-    archive = Column(Integer, nullable=False, index=True)
     merge = Column(Boolean, nullable=False)
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
     __table_args__ = (
         Index('ix_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_scan_host_archive', 'addr', 'source', 'archive',
-              unique=True),
+        Index('ix_scan_host', 'addr', 'source', unique=True),
         Index('ix_scan_time', 'time_start', 'time_stop'),
     )
 

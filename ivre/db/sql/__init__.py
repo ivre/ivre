@@ -126,7 +126,6 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        line["archive"] = 0
         line["merge"] = False
         for field in ["categories"]:
             if field in line:
@@ -588,15 +587,9 @@ class NmapFilter(Filter):
     def select_from(self):
         return self.select_from_base()
 
-    def query(self, req, archive=False):
-        # TODO: improve performances
-        #   - use a materialized view for `Scan` with `archive == 0`?
+    def query(self, req):
         if self.main is not None:
             req = req.where(self.main)
-        if archive:
-            req = req.where(Scan.archive > 0)
-        else:
-            req = req.where(Scan.archive == 0)
         for incl, subflt in self.hostname:
             base = select([Hostname.scan]).where(subflt).cte("base")
             if incl:
@@ -698,14 +691,11 @@ class SQLDBNmap(SQLDB, DBNmap):
     def store_host(self, host, merge=False):
         raise NotImplementedError()
 
-    def store_or_merge_host(self, host, gettoarchive, merge=False):
+    def store_or_merge_host(self, host, merge=False):
         self.store_host(host, merge=merge)
 
-    def migrate_schema(self, archive, version):
-        """Migrates the scan data. When `archive` is True, do nothing (when
-`archive` is False, migrate both archived and non-archived records;
-this is to remain compatible with MongoDB API without impacting the
-performances).
+    def migrate_schema(self, version):
+        """Migrates the scan data.
 
         """
         failed = 0
@@ -784,24 +774,23 @@ the field names of the structured output for s7-info script.
         )
         return len(failed)
 
-    def count(self, flt, archive=False, **_):
+    def count(self, flt, **_):
         return self.db.execute(
-            flt.query(select([func.count()]), archive=archive)
+            flt.query(select([func.count()]))
             .select_from(flt.select_from)
         ).fetchone()[0]
 
     @staticmethod
-    def _distinct_req(field, flt, archive=False):
+    def _distinct_req(field, flt):
         flt = flt.copy()
         return flt.query(
             select([field.distinct()]).select_from(
                 flt.select_from_base(field.parent)
-            ),
-            archive=archive
+            )
         )
 
-    def get_open_port_count(self, flt, archive=False, limit=None, skip=None):
-        req = flt.query(select([Scan.id]), archive=archive)
+    def get_open_port_count(self, flt, limit=None, skip=None):
+        req = flt.query(select([Scan.id]))
         if skip is not None:
             req = req.offset(skip)
         if limit is not None:
@@ -820,12 +809,11 @@ the field names of the structured output for s7-info script.
             )
         )
 
-    def getlocations(self, flt, archive=False, limit=None, skip=None):
+    def getlocations(self, flt, limit=None, skip=None):
         req = flt.query(
             select([func.count(Scan.id), Scan.info['coordinates'].astext])
             .where(Scan.info.has_key('coordinates')),
             # noqa: W601 (BinaryExpression)
-            archive=archive,
         )
         if skip is not None:
             req = req.offset(skip)
@@ -836,10 +824,9 @@ the field names of the structured output for s7-info script.
                 for rec in
                 self.db.execute(req.group_by(Scan.info['coordinates'].astext)))
 
-    def get(self, flt, archive=False, limit=None, skip=None, sort=None,
+    def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
-        req = flt.query(select([Scan]).select_from(flt.select_from),
-                        archive=archive)
+        req = flt.query(select([Scan]).select_from(flt.select_from))
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
@@ -853,7 +840,7 @@ the field names of the structured output for s7-info script.
             (rec["_id"], rec["addr"], rec["source"], rec["infos"],
              rec["starttime"], rec["endtime"], rec["state"],
              rec["state_reason"], rec["state_reason_ttl"],
-             rec["archive"], rec["merge"], rec["schema_version"]) = scanrec
+             rec["merge"], rec["schema_version"]) = scanrec
             if rec["infos"]:
                 if 'coordinates' in rec['infos']:
                     rec['infos']['loc'] = {
@@ -924,7 +911,7 @@ the field names of the structured output for s7-info script.
                 ))
             yield rec
 
-    def remove(self, host, archive=False):
+    def remove(self, host):
         """Removes the host scan result. "host" must be a record as yielded by
         .get() or a valid NmapFilter() instance.
 
@@ -935,7 +922,7 @@ the field names of the structured output for s7-info script.
         if isinstance(host, dict):
             base = [host['_id']]
         else:
-            base = host.query(select([Scan.id]), archive=archive).cte("base")
+            base = host.query(select([Scan.id])).cte("base")
         self.db.execute(delete(Scan).where(Scan.id.in_(base)))
         # remove unused scan files
         base = select([Association_Scan_ScanFile.scan_file]).cte('base')
@@ -949,7 +936,7 @@ the field names of the structured output for s7-info script.
     def getscanids(host):
         return host['scanid']
 
-    def getscan(self, scanid, archive=False):
+    def getscan(self, scanid):
         if isinstance(scanid, basestring) and len(scanid) == 64:
             scanid = utils.decode_hex(scanid)
         return self.db.execute(select([ScanFile])

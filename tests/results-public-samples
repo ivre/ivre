@@ -75,7 +75,6 @@ nmap_tophop = ['23.92.24.2']
 nmap_domains_pttsh_tw = [u's228.pttsh.ttct.edu.tw']
 nmap_xp445_count = 7
 nmap_phonedev_count = 4
-nmap_get_archives_count = 0
 nmap_json_count = 913
 nmap_anonftp_count = 20
 nmap_tophop_10+ = ['66.174.52.193', '69.83.88.196', '69.83.89.53']

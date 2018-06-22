@@ -530,8 +530,6 @@ class MongoDBNmap(MongoDB, DBNmap):
 
     def __init__(self, host, dbname,
                  colname_scans="scans", colname_hosts="hosts",
-                 colname_oldscans="archivesscans",
-                 colname_oldhosts="archiveshosts",
                  **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBNmap.__init__(self)
@@ -539,8 +537,6 @@ class MongoDBNmap(MongoDB, DBNmap):
         self.output_function = None
         self.colname_scans = colname_scans
         self.colname_hosts = colname_hosts
-        self.colname_oldscans = colname_oldscans
-        self.colname_oldhosts = colname_oldhosts
         self.indexes = {
             self.colname_hosts: [
                 ([('scanid', pymongo.ASCENDING)], {}),
@@ -595,13 +591,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                     ('cpes.version', pymongo.ASCENDING),
                 ], {"sparse": True}),
             ],
-            self.colname_oldhosts: [
-                ([('scanid', pymongo.ASCENDING)], {}),
-                ([('schema_version', pymongo.ASCENDING)], {}),
-                ([('addr', pymongo.ASCENDING)], {}),
-                ([('starttime', pymongo.ASCENDING)], {}),
-                ([('source', pymongo.ASCENDING)], {}),
-            ],
         }
         self.schema_migrations = {
             self.colname_hosts: {
@@ -617,8 +606,6 @@ class MongoDBNmap(MongoDB, DBNmap):
                 9: (10, self.migrate_schema_hosts_9_10),
             },
         }
-        self.schema_migrations[self.colname_oldhosts] = self.schema_migrations[
-            self.colname_hosts].copy()
         self.schema_migrations_indexes[colname_hosts] = {
             1: {"ensure": [
                 ([
@@ -658,18 +645,8 @@ class MongoDBNmap(MongoDB, DBNmap):
                  {"sparse": True}),
             ]},
         }
-        self.schema_migrations_indexes[colname_oldhosts] = {
-            1: {"ensure": [([('schema_version', pymongo.ASCENDING)], {})]},
-            4: {"drop": [
-                ([
-                    ('ports.screenshot', pymongo.ASCENDING),
-                    ('ports.screenwords', pymongo.ASCENDING),
-                ], {}),
-            ]}
-        }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,
-            self.colname_oldhosts: xmlnmap.SCHEMA_VERSION,
         }
 
     def init(self):
@@ -677,8 +654,6 @@ class MongoDBNmap(MongoDB, DBNmap):
 creates the default indexes."""
         self.db[self.colname_scans].drop()
         self.db[self.colname_hosts].drop()
-        self.db[self.colname_oldscans].drop()
-        self.db[self.colname_oldhosts].drop()
         self.create_indexes()
 
     def cmp_schema_version_host(self, host):
@@ -697,16 +672,12 @@ creates the default indexes."""
         """
         return self.cmp_schema_version(self.colname_scans, scan)
 
-    def migrate_schema(self, archive, version):
-        """Process to schema migrations in column `colname_hosts` or
-        `colname_oldhosts` depending on `archive`archive value,
+    def migrate_schema(self, version):
+        """Process to schema migrations in column `colname_hosts`
         starting from `version`.
 
         """
-        MongoDB.migrate_schema(
-            self, self.colname_oldhosts if archive else self.colname_hosts,
-            version,
-        )
+        MongoDB.migrate_schema(self, self.colname_hosts, version)
 
     def migrate_schema_hosts_0_1(self, doc):
         """Converts a record from version 0 (no "schema_version" key
@@ -962,21 +933,19 @@ the field names of the structured output for s7-info script.
             update["$set"]["ports"] = doc['ports']
         return update
 
-    def get(self, flt, archive=False, **kargs):
-        """Queries the active column (the old one if "archive" is set to True)
-with the provided filter "flt", and returns a MongoDB cursor.
+    def get(self, flt, **kargs):
+        """Queries the active column with the provided filter "flt",
+and returns a MongoDB cursor.
 
 This should be very fast, as no operation is done (the cursor is only
 returned). Next operations (e.g., .count(), enumeration, etc.) might
 take a long time, depending on both the operations and the filter.
 
-Any keyword argument other than "archive" is passed to the .find()
-method of the Mongodb column object, without any validation (and might
-have no effect if it is not expected)."""
+Any keyword argument is passed to the .find() method of the Mongodb
+column object, without any validation (and might have no effect if
+it is not expected)."""
         return self.set_limits(self.find(
-            self.colname_oldhosts if archive else self.colname_hosts,
-            flt,
-            **kargs
+            self.colname_hosts, flt, **kargs
         ))
 
     @staticmethod
@@ -988,14 +957,11 @@ have no effect if it is not expected)."""
             return scanids
         return [scanids]
 
-    def getscan(self, scanid, archive=False):
-        return self.find_one(
-            self.colname_oldscans if archive else self.colname_scans,
-            {'_id': scanid},
-        )
+    def getscan(self, scanid):
+        return self.find_one(self.colname_scans, {'_id': scanid})
 
     def setscreenshot(self, host, port, data, protocol='tcp',
-                      archive=False, overwrite=False):
+                      overwrite=False):
         """Sets the content of a port's screenshot."""
         try:
             port = [p for p in host.get('ports', [])
@@ -1016,12 +982,12 @@ have no effect if it is not expected)."""
         screenwords = utils.screenwords(data)
         if screenwords is not None:
             port['screenwords'] = screenwords
-        self.db[
-            self.colname_oldhosts if archive else self.colname_hosts
-        ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
+        self.db[self.colname_hosts].update(
+            {"_id": host['_id']}, {"$set": {'ports': host['ports']}}
+        )
 
     def setscreenwords(self, host, port=None, protocol="tcp",
-                       archive=False, overwrite=False):
+                       overwrite=False):
         """Sets the `screenwords` attribute based on the screenshot
         data.
 
@@ -1051,12 +1017,11 @@ have no effect if it is not expected)."""
                 port['screenwords'] = screenwords
                 updated = True
         if updated:
-            self.db[
-                self.colname_oldhosts if archive else self.colname_hosts
-            ].update({"_id": host['_id']}, {"$set": {'ports': host['ports']}})
+            self.db[self.colname_hosts].update(
+                {"_id": host['_id']}, {"$set": {'ports': host['ports']}}
+            )
 
-    def removescreenshot(self, host, port=None, protocol='tcp',
-                         archive=False):
+    def removescreenshot(self, host, port=None, protocol='tcp'):
         """Removes screenshots"""
         changed = False
         for p in host.get('ports', []):
@@ -1071,12 +1036,12 @@ have no effect if it is not expected)."""
                     del p['screenshot']
                     changed = True
         if changed:
-            self.db[
-                self.colname_oldhosts if archive else self.colname_hosts
-            ].update({"_id": host["_id"]}, {"$set": {'ports': host['ports']}})
+            self.db[self.colname_hosts].update(
+                {"_id": host["_id"]}, {"$set": {'ports': host['ports']}}
+            )
 
-    def getlocations(self, flt, archive=False):
-        col = self.db[self.colname_oldhosts if archive else self.colname_hosts]
+    def getlocations(self, flt):
+        col = self.db[self.colname_hosts]
         pipeline = [
             {"$match": self.flt_and(flt, self.searchhaslocation())},
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
@@ -1086,10 +1051,9 @@ have no effect if it is not expected)."""
                 for rec in col.aggregate(pipeline, cursor={}))
 
     def is_scan_present(self, scanid):
-        for colname in [self.colname_scans, self.colname_oldscans]:
-            if self.find_one(colname, {"_id": scanid},
-                             fields=[]) is not None:
-                return True
+        if self.find_one(self.colname_scans, {"_id": scanid},
+                         fields=[]) is not None:
+            return True
         return False
 
     def store_host(self, host):
@@ -1208,92 +1172,26 @@ have no effect if it is not expected)."""
                 del rec[field]
         return rec
 
-    def remove(self, host, archive=False):
-        """Removes the host "host" from the active (the old one if
-        "archive" is set to True) column. "host" must be the host
-        record as returned by MongoDB.
+    def remove(self, host):
+        """Removes the host "host" from the active column.
+        "host" must be the host record as returned by MongoDB.
 
         If "host" has a "scanid" attribute, and if it refers to a scan
         that have no more host record after the deletion of "host",
         then the scan record is also removed.
 
         """
-        if archive:
-            colname_hosts = self.colname_oldhosts
-            colname_scans = self.colname_oldscans
-        else:
-            colname_hosts = self.colname_hosts
-            colname_scans = self.colname_scans
-        self.db[colname_hosts].remove(spec_or_id=host['_id'])
+        self.db[self.colname_hosts].remove(spec_or_id=host['_id'])
         for scanid in self.getscanids(host):
-            if self.find_one(colname_hosts, {'scanid': scanid}) is None:
-                self.db[colname_scans].remove(spec_or_id=scanid)
+            if self.find_one(self.colname_hosts, {'scanid': scanid}) is None:
+                self.db[self.colname_scans].remove(spec_or_id=scanid)
 
-    def store_or_merge_host(self, host, gettoarchive, merge=False):
+    def store_or_merge_host(self, host, merge=False):
         if merge and self.merge_host(host):
             return
-        self.archive_from_func(host, gettoarchive)
         self.store_host(host)
 
-    def archive(self, host, unarchive=False):
-        """Archives (when `unarchive` is True, unarchives) a given
-        host record. Also (un)archives the corresponding scan and
-        removes the scan from the "not archived" (or "archived") scan
-        collection if not there is no host left in the "not archived"
-        (or "archived") host collumn.
-
-        """
-        col_from_hosts, col_from_scans, col_to_hosts, col_to_scans = (
-            (self.colname_oldhosts, self.colname_oldscans,
-             self.colname_hosts, self.colname_scans)
-            if unarchive else
-            (self.colname_hosts, self.colname_scans,
-             self.colname_oldhosts, self.colname_oldscans)
-        )
-        if self.find_one(col_from_hosts, {"_id": host['_id']}) is None:
-            utils.LOGGER.warning(
-                "Cannot %sarchive: host %s does not exist in %r",
-                "un" if unarchive else "", host['_id'], col_from_hosts
-            )
-        # store the host in the archive hosts collection
-        self.db[col_to_hosts].insert(host)
-        utils.LOGGER.debug(
-            "HOST %sARCHIVED: %s in %r", "UN" if unarchive else "",
-            host['_id'], col_to_hosts,
-        )
-        # remove the host from the (not archived) hosts collection
-        self.db[col_from_hosts].remove(spec_or_id=host['_id'])
-        utils.LOGGER.debug("HOST REMOVED: %s from %r", host['_id'],
-                           col_from_hosts)
-        for scanid in self.getscanids(host):
-            scan = self.find_one(col_from_scans, {'_id': scanid})
-            if scan is not None:
-                # store the scan in the archive scans collection if it
-                # is not there yet
-                if self.find_one(col_to_scans,
-                                 {'_id': scanid}) is None:
-                    self.db[col_to_scans].insert(scan)
-                    utils.LOGGER.debug(
-                        "SCAN %sARCHIVED: %s in %r\n",
-                        "UN" if unarchive else "", scanid, col_to_scans,
-                    )
-                # remove the scan from the (not archived) scans
-                # collection if there is no more hosts related to this
-                # scan in the hosts collection
-                if self.find_one(col_from_hosts,
-                                 {'scanid': scanid}) is None:
-                    self.db[col_from_scans].remove(spec_or_id=scanid)
-                    utils.LOGGER.debug(
-                        "SCAN REMOVED: %s in %r", scanid, col_from_scans,
-                    )
-
-    def archive_from_func(self, host, gettoarchive):
-        if gettoarchive is None:
-            return
-        for rec in gettoarchive(host['addr'], host.get('source')):
-            self.archive(rec)
-
-    def get_mean_open_ports(self, flt, archive=False):
+    def get_mean_open_ports(self, flt):
         """This method returns for a specific query `flt` a list of
         dictionary objects whose keys are `id` and `mean`; the value
         for `id` is a backend-dependant and uniquely identifies a
@@ -1339,12 +1237,9 @@ have no effect if it is not expected)."""
                           "id": "$_id",
                           "mean": {"$multiply": ["$count", "$ports"]}}},
         ]
-        return self.db[
-            self.colname_oldhosts if archive
-            else self.colname_hosts
-        ].aggregate(aggr, cursor={})
+        return self.db[self.colname_hosts].aggregate(aggr, cursor={})
 
-    def group_by_port(self, flt, archive=False):
+    def group_by_port(self, flt):
         """Work-in-progress function to get scan results grouped by
         common open ports
 
@@ -1371,10 +1266,7 @@ have no effect if it is not expected)."""
             {"$group": {"_id": "$ports",
                         "ids": {"$addToSet": "$_id"}}},
         ]
-        return self.db[
-            self.colname_oldhosts if archive
-            else self.colname_hosts
-        ].aggregate(aggr, cursor={})
+        return self.db[self.colname_hosts].aggregate(aggr, cursor={})
 
     @staticmethod
     def json2dbrec(host):
@@ -1932,8 +1824,8 @@ have no effect if it is not expected)."""
             return {"cpes": {"$elemMatch": flt}}
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
-                  limit=None, skip=None, least=False, archive=False,
-                  aggrflt=None, specialproj=None, specialflt=None):
+                  limit=None, skip=None, least=False, aggrflt=None,
+                  specialproj=None, specialflt=None):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
@@ -2621,26 +2513,19 @@ have no effect if it is not expected)."""
             specialproj=specialproj, specialflt=specialflt,
         )
         cursor = self.set_limits(
-            self.db[self.colname_oldhosts
-                    if archive else
-                    self.colname_hosts].aggregate(pipeline, cursor={})
+            self.db[self.colname_hosts].aggregate(pipeline, cursor={})
         )
         if outputproc is not None:
             return (outputproc(res) for res in cursor)
         return cursor
 
-    def distinct(self, field, flt=None, sort=None, limit=None, skip=None,
-                 archive=False):
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
 
         """
         cursor = self.set_limits(
-            self.db[
-                self.colname_oldhosts
-                if archive else
-                self.colname_hosts
-            ].aggregate(
+            self.db[self.colname_hosts].aggregate(
                 self._distinct(field, flt=flt, sort=sort,
                                limit=limit, skip=skip),
                 cursor={}
@@ -2649,7 +2534,7 @@ have no effect if it is not expected)."""
         return (res['_id'] for res in cursor)
 
     def diff_categories(self, category1, category2, flt=None,
-                        archive=False, include_both_open=True):
+                        include_both_open=True):
         """`category1` and `category2` must be categories (provided as str or
         unicode objects)
 
@@ -2683,8 +2568,7 @@ have no effect if it is not expected)."""
                                 "port": "$ports.port"},
                         "categories": {"$push": "$categories"}}},
         ]
-        cursor = self.db[self.colname_oldhosts if archive else
-                         self.colname_hosts].aggregate(pipeline, cursor={})
+        cursor = self.db[self.colname_hosts].aggregate(pipeline, cursor={})
 
         def categories_to_val(categories):
             state1, state2 = category1 in categories, category2 in categories

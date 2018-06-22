@@ -109,7 +109,7 @@ def get_config():
 # /nmap/
 #
 
-FilterParams = namedtuple("flt_params", ['flt', 'archive', 'sortby', 'unused',
+FilterParams = namedtuple("flt_params", ['flt', 'sortby', 'unused',
                                          'skip', 'limit', 'callback',
                                          'ipsasnumbers', 'datesasstrings'])
 
@@ -117,7 +117,7 @@ FilterParams = namedtuple("flt_params", ['flt', 'archive', 'sortby', 'unused',
 def get_nmap_base():
     response.set_header('Content-Type', 'application/javascript')
     query = webutils.query_from_params(request.params)
-    flt, archive, sortby, unused, skip, limit = webutils.flt_from_query(query)
+    flt, sortby, unused, skip, limit = webutils.flt_from_query(query)
     if limit is None:
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:
@@ -129,7 +129,7 @@ def get_nmap_base():
     if callback is None:
         response.set_header('Content-Disposition',
                             'attachment; filename="IVRE-results.json"')
-    return FilterParams(flt, archive, sortby, unused, skip, limit, callback,
+    return FilterParams(flt, sortby, unused, skip, limit, callback,
                         ipsasnumbers, datesasstrings)
 
 
@@ -145,14 +145,11 @@ def get_nmap_action(action):
     r2res = lambda x: x
     if action == "timeline":
         if hasattr(db.nmap, "get_open_port_count"):
-            result = list(db.nmap.get_open_port_count(
-                flt_params.flt, archive=flt_params.archive,
-            ))
+            result = list(db.nmap.get_open_port_count(flt_params.flt))
             count = len(result)
         else:
             result = db.nmap.get(
-                flt_params.flt, archive=flt_params.archive,
-                fields=['addr', 'starttime', 'openports.count']
+                flt_params.flt, fields=['addr', 'starttime', 'openports.count']
             )
             count = result.count()
         if request.params.get("modulo") is None:
@@ -169,8 +166,7 @@ def get_nmap_action(action):
     elif action == "coordinates":
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
         postamble = ']}\n'
-        result = list(db.nmap.getlocations(flt_params.flt,
-                                           archive=flt_params.archive))
+        result = list(db.nmap.getlocations(flt_params.flt))
         count = len(result)
         r2res = lambda r: {
             "type": "Point",
@@ -179,16 +175,13 @@ def get_nmap_action(action):
         }
     elif action == "countopenports":
         if hasattr(db.nmap, "get_open_port_count"):
-            result = db.nmap.get_open_port_count(flt_params.flt,
-                                                 archive=flt_params.archive)
+            result = db.nmap.get_open_port_count(flt_params.flt)
         else:
-            result = db.nmap.get(flt_params.flt, archive=flt_params.archive,
-                                 fields=['addr', 'openports.count'])
+            result = db.nmap.get(flt_params.flt, fields=['addr', 'openports.count'])
         if hasattr(result, "count"):
             count = result.count()
         else:
-            count = db.nmap.count(flt_params.flt, archive=flt_params.archive,
-                                  fields=['addr', 'openports.count'])
+            count = db.nmap.count(flt_params.flt, fields=['addr', 'openports.count'])
         if flt_params.ipsasnumbers:
             r2res = lambda r: [utils.force_ip2int(r['addr']),
                                r['openports']['count']]
@@ -197,13 +190,11 @@ def get_nmap_action(action):
                                r['openports']['count']]
     elif action == "ipsports":
         if hasattr(db.nmap, "get_ips_ports"):
-            result = list(db.nmap.get_ips_ports(flt_params.flt,
-                                                archive=flt_params.archive))
+            result = list(db.nmap.get_ips_ports(flt_params.flt))
             count = sum(len(host.get('ports', [])) for host in result)
         else:
             result = db.nmap.get(
-                flt_params.flt, archive=flt_params.archive,
-                fields=['addr', 'ports.port', 'ports.state_state']
+                flt_params.flt, fields=['addr', 'ports.port', 'ports.state_state']
             )
             count = sum(len(host.get('ports', [])) for host in result)
             result.rewind()
@@ -222,13 +213,11 @@ def get_nmap_action(action):
                  if 'state_state' in p]
             ]
     elif action == "onlyips":
-        result = db.nmap.get(flt_params.flt, archive=flt_params.archive,
-                             fields=['addr'])
+        result = db.nmap.get(flt_params.flt, fields=['addr'])
         if hasattr(result, "count"):
             count = result.count()
         else:
-            count = db.nmap.count(flt_params.flt, archive=flt_params.archive,
-                                  fields=['addr'])
+            count = db.nmap.count(flt_params.flt, fields=['addr'])
         if flt_params.ipsasnumbers:
             r2res = lambda r: utils.force_ip2int(r['addr'])
         else:
@@ -291,7 +280,7 @@ def get_nmap_action(action):
 @check_referer
 def get_nmap_count():
     flt_params = get_nmap_base()
-    count = db.nmap.count(flt_params.flt, archive=flt_params.archive)
+    count = db.nmap.count(flt_params.flt)
     if flt_params.callback is None:
         return "%d\n" % count
     return "%s(%d);\n" % (flt_params.callback, count)
@@ -320,7 +309,7 @@ def get_nmap_top(field):
         yield "%s([\n" % flt_params.callback
     # hack to avoid a trailing comma
     cursor = iter(db.nmap.topvalues(field, flt=flt_params.flt, least=least,
-                                    topnbr=topnbr, archive=flt_params.archive))
+                                    topnbr=topnbr))
     try:
         rec = next(cursor)
     except StopIteration:
@@ -343,11 +332,10 @@ def get_nmap():
     ## PostgreSQL: the query plan if affected by the limit and gives
     ## really poor results. This is a temporary workaround (look for
     ## XXX-WORKAROUND-PGSQL)
-    # result = db.nmap.get(flt_params.flt, archive=flt_params.archive,
-    #                      limit=flt_params.limit, skip=flt_params.skip,
-    #                      sort=flt_params.sortby)
-    result = db.nmap.get(flt_params.flt, archive=flt_params.archive,
-                         skip=flt_params.skip, sort=flt_params.sortby)
+    # result = db.nmap.get(flt_params.flt, limit=flt_params.limit,
+    #                      skip=flt_params.skip, sort=flt_params.sortby)
+    result = db.nmap.get(flt_params.flt, skip=flt_params.skip,
+                         sort=flt_params.sortby)
 
     if flt_params.unused:
         msg = 'Option%s not understood: %s' % (
@@ -418,9 +406,8 @@ def get_nmap():
 
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
-                          "the following commands: 'ivre scancli "
-                          "--update-schema; ivre scancli --update-schema "
-                          "--archives'" % (count, 's' if count > 1 else '',
+                          "the following command: 'ivre scancli "
+                          "--update-schema;" % (count, 's' if count > 1 else '',
                                            'are' if count > 1 else 'is')),
         -1: lambda count: ('%d document%s displayed ha%s been inserted by '
                            'a more recent version of IVRE. Please update '
@@ -462,12 +449,6 @@ def parse_form():
 
 
 def import_files(source, categories, files):
-    # archive records from same source
-    def gettoarchive(addr, source):
-        return db.nmap.get(
-            db.nmap.flt_and(db.nmap.searchhost(addr),
-                            db.nmap.searchsource(source))
-        )
     count = 0
     categories = list(categories)
     for fileelt in files:
@@ -475,7 +456,7 @@ def import_files(source, categories, files):
         fileelt.save(fdesc)
         try:
             if db.nmap.store_scan(fdesc.name, categories=categories,
-                                  source=source, gettoarchive=gettoarchive):
+                                  source=source):
                 count += 1
                 os.unlink(fdesc.name)
             else:
