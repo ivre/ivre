@@ -2792,7 +2792,7 @@ setting values according to the keyword arguments.
             spec.update(getinfos(spec))
         self.db[self.colname_passive].insert(spec)
 
-    def insert_or_update(self, timestamp, spec, getinfos=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         if spec is None:
             return
         hint = self.get_hint(spec)
@@ -2804,9 +2804,9 @@ setting values according to the keyword arguments.
         except StopIteration:
             current = None
         updatespec = {
-            '$inc': {'count': 1},
+            '$inc': {'count': spec.pop("count", 1)},
             '$min': {'firstseen': timestamp},
-            '$max': {'lastseen': timestamp},
+            '$max': {'lastseen': lastseen or timestamp},
         }
         if current is not None:
             self.db[self.colname_passive].update(
@@ -2853,7 +2853,7 @@ setting values according to the keyword arguments.
                             updatespec['$setOnInsert'] = infos
                     bulk.find(spec).upsert().update(updatespec)
                     count += 1
-                    if count >= config.BULK_UPSERTS_MAXSIZE:
+                    if count >= config.MONGODB_BATCH_SIZE:
                         utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", count)
                         bulk.execute()
                         bulk = self.db[self.colname_passive]\
