@@ -29,7 +29,6 @@ import hashlib
 import math
 import re
 import struct
-import subprocess
 
 
 from future.utils import viewitems
