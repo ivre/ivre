@@ -1371,6 +1371,13 @@ which `predicate()` is True, given `webflt`.
 
     def test_passive(self):
 
+        if DATABASE == "postgres":
+            # FIXME: tests are broken with PostgreSQL & --no-bulk
+            bulk_mode = random.choice(['--bulk', '--local-bulk'])
+        else:
+            bulk_mode = random.choice(['--bulk', '--no-bulk', '--local-bulk'])
+        print('Running passive tests with %s' % bulk_mode)
+
         # Init DB
         self.assertEqual(RUN(["ivre", "ipinfo", "--count"])[1], b"0\n")
         self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
@@ -1386,7 +1393,7 @@ which `predicate()` is True, given `webflt`.
         for fname in self.pcap_files:
             for mode in ivre.passive.P0F_MODES:
                 res = RUN(["ivre", "p0f2db", "-s", "TEST", "-m", mode,
-                           fname])[0]
+                           bulk_mode, fname])[0]
                 self.assertEqual(res, 0)
             broprocess = subprocess.Popen(
                 ['bro', '-C', '-b', '-r', fname,
@@ -1419,13 +1426,14 @@ which `predicate()` is True, given `webflt`.
                     "--progname", " ".join(
                         pipes.quote(elt) for elt in
                         COVERAGE + ["run", "--parallel-mode", which("ivre"),
-                                    "passiverecon2db"]
+                                    "passiverecon2db", bulk_mode]
                     ),
                 ],
             )
         else:
             os.execlp("ivre", "ivre", "passivereconworker", "--directory",
-                      "logs")
+                      "logs", "--progname",
+                      "ivre passiverecon2db %s" % bulk_mode)
 
         # Counting
         total_count = ivre.db.db.passive.count(
