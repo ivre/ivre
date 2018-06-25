@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ signal.signal(signal.SIGINT, terminate)
 signal.signal(signal.SIGTERM, terminate)
 
 
-def process_file(fname, sensor, bulk, mode):
+def process_file(fname, sensor, bulk_db, bulk_local, mode):
     global p0fprocess
     if fname.lower().startswith('iface:'):
         fname = ['-i', fname[6:]]
@@ -60,8 +60,10 @@ def process_file(fname, sensor, bulk, mode):
         stdout=subprocess.PIPE,
         preexec_fn=os.setpgrp,
     )
-    if bulk:
+    if bulk_db:
         function = ivre.db.db.passive.insert_or_update_bulk
+    elif bulk_local:
+        function = ivre.db.db.passive.insert_or_update_local_bulk
     else:
         function = functools.partial(
             ivre.db.DBPassive.insert_or_update_bulk,
@@ -96,6 +98,8 @@ def main():
                         default="SYN")
     parser.add_argument('--bulk', action='store_true',
                         help='Use bulk inserts (this is the default)')
+    parser.add_argument('--local-bulk', action='store_true',
+                        help='Use local (memory) bulk inserts')
     parser.add_argument('--no-bulk', action='store_true',
                         help='Do not use bulk inserts')
     if USING_ARGPARSE:
@@ -105,5 +109,6 @@ def main():
         )
     args = parser.parse_args()
     for filename in args.filenames:
-        process_file(filename, args.sensor, (not args.no_bulk) or args.bulk,
-                     args.mode)
+        process_file(filename, args.sensor,
+                     (not (args.no_bulk or args.local_bulk)) or args.bulk,
+                     args.local_bulk, args.mode)

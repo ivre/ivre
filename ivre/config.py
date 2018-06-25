@@ -33,7 +33,8 @@ import stat
 DB = "mongodb:///ivre"
 DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
 DB_FLOW = "neo4j://neo4j:neo4j@localhost:7474/"
-BULK_UPSERTS_MAXSIZE = 100
+LOCAL_BATCH_SIZE = 10000
+MONGODB_BATCH_SIZE = 100
 NEO4J_BATCH_SIZE = 1000
 POSTGRES_BATCH_SIZE = 10000
 DEBUG = False

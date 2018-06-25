@@ -27,7 +27,6 @@ This sub-module contains the parser for nmap's XML output files.
 
 
 import datetime
-import hashlib
 import os
 import re
 import struct

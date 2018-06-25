@@ -1128,6 +1128,25 @@ the field names of the structured output for s7-info script.
         return 0
 
 
+class _RecInfo(object):
+    __slots__ = ["count", "firstseen", "lastseen"]
+
+    def __init__(self):
+        self.count = 0
+        self.firstseen = self.lastseen = None
+
+    def update(self, timestamp):
+        self.count += 1
+        if self.firstseen is None:
+            self.firstseen = timestamp
+        else:
+            self.firstseen = min(self.firstseen, timestamp)
+        if self.lastseen is None:
+            self.lastseen = timestamp
+        else:
+            self.lastseen = max(self.lastseen, timestamp)
+
+
 class DBPassive(DB):
 
     def __init__(self):
@@ -1194,19 +1213,43 @@ class DBPassive(DB):
             flt = self.flt_and(self.searchtimeago(args.timeagonew, new=True))
         return flt
 
-    def insert_or_update(self, timestamp, spec, getinfos=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         raise NotImplementedError
 
     def insert_or_update_bulk(self, specs, getinfos=None):
-        """Like `.insert_or_update()`, but `specs` parameter has to be
-        an iterable of (timestamp, spec) values. This generic
-        implementation does not use bulk capacity of the underlying DB
-        implementation but rather calls its `.insert_or_update()`
-        method.
+        """Like `.insert_or_update()`, but `specs` parameter has to be an
+        iterable of (timestamp, spec) values. This generic
+        implementation does not use the bulk capacity of the
+        underlying DB implementation but rather calls its
+        `.insert_or_update()` method.
 
         """
         for timestamp, spec in specs:
             self.insert_or_update(timestamp, spec, getinfos=getinfos)
+
+    def insert_or_update_local_bulk(self, specs, getinfos=None):
+        """Like `.insert_or_update()`, but `specs` parameter has to be an
+        iterable of (timestamp, spec) values. This generic
+        implementation does not use the bulk capacity of the
+        underlying DB implementation but uses a local cache and calls
+        its `.insert_or_update()` method.
+
+        """
+        def _bulk_execute(records):
+            utils.LOGGER.debug("DB:local bulk upsert: %d", len(records))
+            for spec, metadata in viewitems(records):
+                self.insert_or_update(metadata.firstseen,
+                                      dict(spec, count=metadata.count),
+                                      getinfos=getinfos,
+                                      lastseen=metadata.lastseen)
+        records = {}
+        for timestamp, spec in specs:
+            spec = tuple((key, spec[key]) for key in sorted(spec))
+            records.setdefault(spec, _RecInfo()).update(timestamp)
+            if len(records) >= config.LOCAL_BATCH_SIZE:
+                _bulk_execute(records)
+                records = {}
+        _bulk_execute(records)
 
     def searchtorcert(self):
         return self.searchcertsubject(

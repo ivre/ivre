@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -76,19 +76,23 @@ def main():
     parser.add_argument('--ignore-spec', '-i',
                         help='Filename containing ignore rules')
     parser.add_argument('--bulk', action='store_true',
-                        help='Use bulk inserts (this is the default)')
+                        help='Use DB bulk inserts (this is the default)')
+    parser.add_argument('--local-bulk', action='store_true',
+                        help='Use local (memory) bulk inserts')
     parser.add_argument('--no-bulk', action='store_true',
                         help='Do not use bulk inserts')
     args = parser.parse_args()
     ignore_rules = _get_ignore_rules(args.ignore_spec)
-    if (not args.no_bulk) or args.bulk:
+    if (not (args.no_bulk or args.local_bulk)) or args.bulk:
         function = ivre.db.db.passive.insert_or_update_bulk
+    elif args.local_bulk:
+        function = ivre.db.db.passive.insert_or_update_local_bulk
     else:
         function = functools.partial(
             ivre.db.DBPassive.insert_or_update_bulk,
             ivre.db.db.passive,
         )
-    # Python 2/3 compat: read stin as binary in Python 3 with .buffer
+    # Python 2/3 compat: read stdin as binary in Python 3 with .buffer
     try:
         stdin = sys.stdin.buffer
     except AttributeError:
