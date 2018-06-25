@@ -112,22 +112,23 @@ def worker(progname, directory, sensor=None):
         if config.DEBUG:
             utils.LOGGER.debug("Handling %s", fname)
         fname = os.path.join(directory, "current", fname)
-        if fname.endswith('.gz'):
-            fdesc = gzip.open(fname, "rb")
-        else:
-            fdesc = open(fname, "rb")
+        fdesc = utils.open_file(fname)
         handled_ok = True
         for line in fdesc:
             try:
                 proc.stdin.write(line)
             except ValueError:
+                utils.LOGGER.warning("Error while handling line %r. "
+                                     "Trying again", line)
                 proc = create_process(progname, fname_sensor)
                 procs[fname_sensor] = proc
                 # Second (and last) try
                 try:
                     proc.stdin.write(line)
+                    utils.LOGGER.warning("  ... OK")
                 except ValueError:
                     handled_ok = False
+                    utils.LOGGER.warning("  ... KO")
         fdesc.close()
         if handled_ok:
             os.unlink(fname)

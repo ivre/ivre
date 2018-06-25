@@ -1243,7 +1243,11 @@ class DBPassive(DB):
                                       getinfos=getinfos,
                                       lastseen=metadata.lastseen)
         records = {}
+        utils.LOGGER.debug("DB: creating a local bulk upsert (%d records)",
+                           config.LOCAL_BATCH_SIZE)
         for timestamp, spec in specs:
+            if spec is None:
+                continue
             spec = tuple((key, spec[key]) for key in sorted(spec))
             records.setdefault(spec, _RecInfo()).update(timestamp)
             if len(records) >= config.LOCAL_BATCH_SIZE:
