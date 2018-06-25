@@ -343,6 +343,17 @@ ivreWebUi
 		return true;
 	    return $scope.display_mode_args.indexOf(scriptid) !== -1;
 	};
+	$scope.port_display_mode_needed_port = function(protocol, port) {
+	    if($scope.display_mode_args.length === 0)
+		return true;
+	    return ($scope.display_mode_args.indexOf(String(port)) !== -1 ||
+                    $scope.display_mode_args.indexOf(protocol + '/' + String(port)) !== -1);
+	};
+	$scope.service_display_mode_needed_port = function(service) {
+	    if($scope.display_mode_args.length === 0)
+		return true;
+	    return $scope.display_mode_args.indexOf(service) !== -1;
+	};
 	$scope.set_timer_toggle_preview = function(event, host) {
 	    event = event || window.event;
 	    if((event.keyCode || event.which) === 1)
@@ -499,6 +510,16 @@ ivreWebUi
 	    templateUrl: 'templates/view-screenshots-only.html'
 	};
     })
+    .directive('displayPort', function() {
+        return {
+            templateUrl: 'templates/view-ports-only.html'
+        };
+    })
+    .directive('displayService', function() {
+        return {
+            templateUrl: 'templates/view-services-only.html'
+        };
+    })
     .directive('displayCpe', function() {
 	return {
 	    templateUrl: 'templates/view-cpes-only.html'
@@ -596,7 +617,7 @@ function set_display_mode(mode) {
     var scope = get_scope('IvreResultListCtrl'), args = [];
     if(mode === undefined)
 	mode = "host"; // default
-    if(mode.substr(0, 7) === "script:") {
+    else if(mode.substr(0, 7) === "script:") {
 	args = mode.substr(7).split(',').reduce(function(accu, value) {
 	    switch(value) {
 	    case "":
@@ -610,6 +631,14 @@ function set_display_mode(mode) {
 	    }
 	}, []);
 	mode = "script";
+    }
+    else if (mode.substr(0, 5) === "port:") {
+        args = mode.substr(5).split(',');
+	mode = "port";
+    }
+    else if (mode.substr(0, 8) === "service:") {
+        args = mode.substr(8).split(',');
+	mode = "service";
     }
     scope.display_mode_args = args;
     scope.display_mode = mode;

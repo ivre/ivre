@@ -400,6 +400,14 @@ var HELP_FILTERS = {
 	    "title": "display:host",
 	    "content": "Set the default display mode.",
 	},
+	"display:port": {
+	    "title": "display:port(:<b>([protocol]/)[port],(([protocol]/)[port],(...))</b>)",
+	    "content": "Display only (some) ports.",
+	},
+	"display:service": {
+	    "title": "display:service(:<b>[service],([service],(...))</b>)",
+	    "content": "Display only (some) services.",
+	},
 	"display:script": {
 	    "title": "display:script(:<b>[script id](,[script id](,...))</b>)",
 	    "content": "Display only script outputs. One or more scripts can be specified to only display those scripts' outputs.",
