@@ -118,13 +118,17 @@ def worker(progname, directory, sensor=None):
             try:
                 proc.stdin.write(line)
             except ValueError:
+                utils.LOGGER.warning("Error while handling line %r. "
+                                     "Trying again", line)
                 proc = create_process(progname, fname_sensor)
                 procs[fname_sensor] = proc
                 # Second (and last) try
                 try:
                     proc.stdin.write(line)
+                    utils.LOGGER.warning("  ... OK")
                 except ValueError:
                     handled_ok = False
+                    utils.LOGGER.warning("  ... KO")
         fdesc.close()
         if handled_ok:
             os.unlink(fname)
