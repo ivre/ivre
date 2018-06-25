@@ -112,10 +112,7 @@ def worker(progname, directory, sensor=None):
         if config.DEBUG:
             utils.LOGGER.debug("Handling %s", fname)
         fname = os.path.join(directory, "current", fname)
-        if fname.endswith('.gz'):
-            fdesc = gzip.open(fname, "rb")
-        else:
-            fdesc = open(fname, "rb")
+        fdesc = utils.open_file(fname)
         handled_ok = True
         for line in fdesc:
             try:
