@@ -1244,6 +1244,8 @@ class DBPassive(DB):
                                       lastseen=metadata.lastseen)
         records = {}
         for timestamp, spec in specs:
+            if spec is None:
+                continue
             spec = tuple((key, spec[key]) for key in sorted(spec))
             records.setdefault(spec, _RecInfo()).update(timestamp)
             if len(records) >= config.LOCAL_BATCH_SIZE:
