@@ -34,9 +34,8 @@ from sqlalchemy.dialects import postgresql
 
 
 from ivre import config, utils
-from ivre.db.sql import NmapFilter, PassiveCSVFile, ScanCSVFile, SQLDB, \
-    SQLDBFlow, SQLDBNmap, SQLDBPassive
-from ivre.db.sql.tables import Point
+from ivre.db.sql import PassiveCSVFile, ScanCSVFile, SQLDB, SQLDBActive, \
+    SQLDBFlow, SQLDBNmap, SQLDBPassive, SQLDBView
 
 
 class PostgresDB(SQLDB):
@@ -136,52 +135,11 @@ class PostgresDBFlow(PostgresDB, SQLDBFlow):
         SQLDBFlow.__init__(self, url)
 
 
-class PostgresDBNmap(PostgresDB, SQLDBNmap):
+class PostgresDBActive(PostgresDB, SQLDBActive):
 
     def __init__(self, url):
         PostgresDB.__init__(self, url)
-        SQLDBNmap.__init__(self, url)
-
-    def store_scan_doc(self, scan):
-        scan = scan.copy()
-        if 'start' in scan:
-            scan['start'] = datetime.datetime.utcfromtimestamp(
-                int(scan['start'])
-            )
-        if 'scaninfos' in scan:
-            scan["scaninfo"] = scan.pop('scaninfos')
-        scan["sha256"] = utils.decode_hex(scan.pop('_id'))
-        insrt = insert(self.tables.scanfile).values(
-            **dict(
-                (key, scan[key])
-                for key in ['sha256', 'args', 'scaninfo', 'scanner', 'start',
-                            'version', 'xmloutputversion']
-                if key in scan
-            )
-        )
-        if config.DEBUG:
-            scanfileid = self.db.execute(
-                insrt.returning(self.tables.scanfile.sha256)
-            ).fetchone()[0]
-            utils.LOGGER.debug("SCAN STORED: %r", utils.encode_hex(scanfileid))
-        else:
-            self.db.execute(insrt)
-
-    def store_hosts(self, hosts, merge=False):
-        tmp = self.create_tmp_table(self.tables.scan, extracols=[
-            Column("scanfileid", ARRAY(LargeBinary(32))),
-            Column("categories", ARRAY(String(32))),
-            Column("source", String(32)),
-            # Column("cpe", postgresql.JSONB),
-            # Column("extraports", postgresql.JSONB),
-            Column("hostnames", postgresql.JSONB),
-            # openports
-            # Column("os", postgresql.JSONB),
-            Column("ports", postgresql.JSONB),
-            # Column("traceroutes", postgresql.JSONB),
-        ])
-        with ScanCSVFile(hosts, self.convert_ip, tmp, merge) as fdesc:
-            self.copy_from(fdesc, tmp.name)
+        SQLDBActive.__init__(self, url)
 
     def start_store_hosts(self):
         """Backend-specific subclasses may use this method to create some bulk
@@ -198,7 +156,7 @@ insert structures.
         self.bulk.close()
         self.bulk = None
 
-    def store_host(self, host, merge=False):
+    def _store_host(self, host, merge=False):
         addr = self.convert_ip(host['addr'])
         info = host.get('infos')
         if 'coordinates' in (info or {}).get('loc', {}):
@@ -258,11 +216,6 @@ insert structures.
                 .on_conflict_do_nothing()
                 .returning(self.tables.scan.id)
             ).fetchone()[0]
-        insrt = postgresql.insert(self.tables.association_scan_scanfile)
-        self.db.execute(insrt
-                        .values(scan=scanid,
-                                scan_file=utils.decode_hex(host['scanid']))
-                        .on_conflict_do_nothing())
         for category in host.get("categories", []):
             insrt = postgresql.insert(self.tables.category)
             catid = self.db.execute(
@@ -276,7 +229,7 @@ insert structures.
             self.db.execute(postgresql.insert(
                 self.tables.association_scan_category
             ).values(scan=scanid, category=catid)
-                            .on_conflict_do_nothing())
+             .on_conflict_do_nothing())
         for port in host.get('ports', []):
             scripts = port.pop('scripts', [])
             # FIXME: handle screenshots
@@ -310,7 +263,7 @@ insert structures.
                 ).fetchone()[0]
             else:
                 portid = self.db.execute(
-                    insert(self.tables.port)\
+                    insert(self.tables.port)
                     .values(scan=scanid, **port)
                     .returning(self.tables.port.id)
                 ).fetchone()[0]
@@ -378,6 +331,7 @@ insert structures.
                     type=hostname.get('type'),
                 ))
         utils.LOGGER.debug("HOST STORED: %r", scanid)
+        return scanid
 
     def get_ips_ports(self, flt, limit=None, skip=None):
         req = flt.query(select([self.tables.scan.id]))
@@ -401,7 +355,8 @@ insert structures.
             self.db.execute(
                 select([
                     func.array_agg(postgresql.aggregate_order_by(
-                        tuple_(self.tables.port.protocol, self.tables.port.port,
+                        tuple_(self.tables.port.protocol,
+                               self.tables.port.port,
                                self.tables.port.state).label('a'),
                         tuple_(self.tables.port.protocol,
                                self.tables.port.port).label('a')
@@ -414,7 +369,6 @@ insert structures.
                             self.tables.scan.id.in_(base)))
             )
         )
-
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False):
@@ -442,7 +396,7 @@ insert structures.
           - hop
         """
         if flt is None:
-            flt = NmapFilter()
+            flt = self.flt_empty
         base = flt.query(
             select([self.tables.scan.id]).select_from(flt.select_from)
         ).cte("base")
@@ -456,7 +410,8 @@ insert structures.
         elif field == "ttl":
             field = self._topstructure(
                 self.tables.port, [self.tables.port.state_reason_ttl],
-                self.tables.port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
+                self.tables.port.state_reason_ttl != None,
+                # noqa: E711 (BinaryExpression)
             )
         elif field == "ttlinit":
             field = self._topstructure(
@@ -464,7 +419,8 @@ insert structures.
                 [func.least(255, func.power(2, func.ceil(
                     func.log(2, self.tables.port.state_reason_ttl)
                 )))],
-                self.tables.port.state_reason_ttl != None,  # noqa: E711 (BinaryExpression)
+                self.tables.port.state_reason_ttl != None,
+                # noqa: E711 (BinaryExpression)
             )
             outputproc = int
         elif field.startswith('port:'):
@@ -757,7 +713,7 @@ insert structures.
                              .label("domains")])
                      .where(exists(select([1])
                                    .select_from(base)
-                                   .where(self.tables.hostname.scan ==\
+                                   .where(self.tables.hostname.scan ==
                                           base.c.id)))
                      .cte("base1"))
             return (
@@ -817,7 +773,8 @@ insert structures.
                 self.tables.script,
                 [self.tables.script.data['modbus-discover'][subfield]],
                 and_(self.tables.script.name == 'modbus-discover',
-                     self.tables.script.data['modbus-discover'].has_key(subfield)),
+                     self.tables.script.data['modbus-discover']
+                     .has_key(subfield)),
                 # noqa: W601 (BinaryExpression)
             )
         elif field.startswith('s7.'):
@@ -846,7 +803,8 @@ insert structures.
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')(field[8:]).label("topvalue")],
-                self.tables.script.name == 'http-headers', [column("topvalue")],
+                self.tables.script.name == 'http-headers',
+                [column("topvalue")],
                 func.jsonb_array_elements(
                     self.tables.script.data['http-headers']
                 ).alias('hdr'),
@@ -876,7 +834,8 @@ insert structures.
         where_clause = {
             self.tables.script: self.tables.port.scan == base.c.id,
             self.tables.port: self.tables.port.scan == base.c.id,
-            self.tables.category: self.tables.association_scan_category.scan == base.c.id,
+            self.tables.category:
+            self.tables.association_scan_category.scan == base.c.id,
             self.tables.hostname: self.tables.hostname.scan == base.c.id,
             self.tables.hop: self.tables.trace.scan == base.c.id
         }
@@ -909,6 +868,72 @@ insert structures.
                                        else result[1])}
                     for result in
                     self.db.execute(req.order_by(order).limit(topnbr)))
+
+
+class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
+
+    def __init__(self, url):
+        PostgresDBActive.__init__(self, url)
+        SQLDBNmap.__init__(self, url)
+
+    def store_scan_doc(self, scan):
+        scan = scan.copy()
+        if 'start' in scan:
+            scan['start'] = datetime.datetime.utcfromtimestamp(
+                int(scan['start'])
+            )
+        if 'scaninfos' in scan:
+            scan["scaninfo"] = scan.pop('scaninfos')
+        scan["sha256"] = utils.decode_hex(scan.pop('_id'))
+        insrt = insert(self.tables.scanfile).values(
+            **dict(
+                (key, scan[key])
+                for key in ['sha256', 'args', 'scaninfo', 'scanner', 'start',
+                            'version', 'xmloutputversion']
+                if key in scan
+            )
+        )
+        if config.DEBUG:
+            scanfileid = self.db.execute(
+                insrt.returning(self.tables.scanfile.sha256)
+            ).fetchone()[0]
+            utils.LOGGER.debug("SCAN STORED: %r", utils.encode_hex(scanfileid))
+        else:
+            self.db.execute(insrt)
+
+    def store_host(self, host, merge=False):
+        scanid = self._store_host(host, merge=merge)
+        insrt = postgresql.insert(self.tables.association_scan_scanfile)
+        self.db.execute(insrt
+                        .values(scan=scanid,
+                                scan_file=utils.decode_hex(host['scanid']))
+                        .on_conflict_do_nothing())
+
+    def store_hosts(self, hosts, merge=False):
+        tmp = self.create_tmp_table(self.tables.scan, extracols=[
+            Column("scanfileid", ARRAY(LargeBinary(32))),
+            Column("categories", ARRAY(String(32))),
+            Column("source", String(32)),
+            # Column("cpe", postgresql.JSONB),
+            # Column("extraports", postgresql.JSONB),
+            Column("hostnames", postgresql.JSONB),
+            # openports
+            # Column("os", postgresql.JSONB),
+            Column("ports", postgresql.JSONB),
+            # Column("traceroutes", postgresql.JSONB),
+        ])
+        with ScanCSVFile(hosts, self.convert_ip, tmp, merge) as fdesc:
+            self.copy_from(fdesc, tmp.name)
+
+
+class PostgresDBView(PostgresDBActive, SQLDBView):
+
+    def __init__(self, url):
+        PostgresDBActive.__init__(self, url)
+        SQLDBView.__init__(self, url)
+
+    def store_host(self, host, merge=True):
+        self._store_host(host, merge=merge)
 
 
 class PostgresDBPassive(PostgresDB, SQLDBPassive):
@@ -1003,7 +1028,8 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                             self.tables.passive.lastseen,
                             insrt.excluded.lastseen,
                         ),
-                        'count': self.tables.passive.count + insrt.excluded.count,
+                        'count':
+                        self.tables.passive.count + insrt.excluded.count,
                     },
                 )
             )

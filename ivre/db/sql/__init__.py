@@ -38,11 +38,13 @@ from sqlalchemy import create_engine, desc, func, column, delete, \
     exists, join, select, update, and_, not_, or_
 
 
-from ivre.db import DB, DBFlow, DBNmap, DBPassive
+from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
 from ivre import config, utils, xmlnmap
-from ivre.db.sql.tables import Association_Scan_Category, \
-    Association_Scan_Hostname, Association_Scan_ScanFile, Category, Flow, \
-    Hop, Hostname, Passive, Point, Port, Scan, ScanFile, Script, Trace
+from ivre.db.sql.tables import N_Association_Scan_Category, \
+    N_Association_Scan_Hostname, N_Association_Scan_ScanFile, N_Category, \
+    N_Hop, N_Hostname, N_Port, N_Scan, N_ScanFile, N_Script, N_Trace, \
+    V_Association_Scan_Category, V_Association_Scan_Hostname, V_Category, \
+    V_Hop, V_Hostname, V_Port, V_Scan, V_Script, V_Trace, Flow, Passive, Point
 
 
 # Data
@@ -240,6 +242,10 @@ class SQLDB(DB):
             # echo on debug disabled for tests
             self._db = create_engine(self.dburl, echo=config.DEBUG_DB)
             return self._db
+
+    @property
+    def flt_empty(self):
+        return self.base_filter()
 
     def drop(self):
         for table in reversed(self.tables):
@@ -516,16 +522,15 @@ class Filter(object):
                 flt2 if flt1 is None else or_(flt1, flt2))
 
 
-class NmapFilter(Filter):
+class ActiveFilter(Filter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
-                 script=None, tables=None, trace=None):
+                 script=None, trace=None):
         self.main = main
         self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
         self.port = [] if port is None else port
         self.script = [] if script is None else script
-        self.tables = SQLDBNmap.tables if tables is None else tables
         self.trace = [] if trace is None else trace
 
     @property
@@ -553,6 +558,8 @@ class NmapFilter(Filter):
 
     def __and__(self, other):
         if self.tables != other.tables:
+            print("self.tables = %s" % str(self.tables))
+            print("other.tables = %s" % str(other.tables))
             raise ValueError("Cannot 'AND' two filters on separate tables")
         return self.__class__(
             main=self.fltand(self.main, other.main),
@@ -603,7 +610,9 @@ class NmapFilter(Filter):
         if self.main is not None:
             req = req.where(self.main)
         for incl, subflt in self.hostname:
-            base = select([self.tables.hostname.scan]).where(subflt).cte("base")
+            base = select(
+                [self.tables.hostname.scan]
+            ).where(subflt).cte("base")
             if incl:
                 req = req.where(self.tables.scan.id.in_(base))
             else:
@@ -628,7 +637,9 @@ class NmapFilter(Filter):
                     .where(self.tables.port.scan == self.tables.scan.id)
                 ))
             else:
-                base = select([self.tables.port.scan]).where(subflt).cte("base")
+                base = select(
+                    [self.tables.port.scan]
+                ).where(subflt).cte("base")
                 req = req.where(self.tables.scan.id.notin_(base))
         for subflt in self.script:
             subreq = select([1]).select_from(join(self.tables.script,
@@ -651,31 +662,27 @@ class NmapFilter(Filter):
         return req
 
 
-class SQLDBNmap(SQLDB, DBNmap):
-    table_layout = namedtuple("nmap_layout", ['scanfile', 'category', 'scan',
-                                              'hostname', 'port', 'script',
-                                              'trace', 'hop',
-                                              'association_scan_hostname',
-                                              'association_scan_category',
-                                              'association_scan_scanfile'])
-    tables = table_layout(ScanFile, Category, Scan, Hostname, Port, Script,
-                          Trace, Hop, Association_Scan_Hostname,
-                          Association_Scan_Category, Association_Scan_ScanFile)
-    fields = {
-        "_id": Scan.id,
-        "addr": Scan.addr,
-        "source": Scan.source,
-        "scanid": Association_Scan_ScanFile.scan_file,
-        "starttime": Scan.time_start,
-        "endtime": Scan.time_stop,
-        "infos": Scan.info,
-        "state": Scan.state_reason_ttl,
-        "state_reason": Scan.state_reason_ttl,
-        "state_reason_ttl": Scan.state_reason_ttl,
-        "categories": Category.name,
-        "hostnames.name": Hostname.name,
-        "hostnames.domains": Hostname.domains,
-    }
+class NmapFilter(ActiveFilter):
+
+    def __init__(self, main=None, hostname=None, category=None, port=None,
+                 script=None, tables=None, trace=None):
+        super(NmapFilter, self).__init__(main=main, hostname=hostname,
+                                         category=category, port=port,
+                                         script=script, trace=trace)
+        self.tables = SQLDBNmap.tables if tables is None else tables
+
+
+class ViewFilter(ActiveFilter):
+
+    def __init__(self, main=None, hostname=None, category=None, port=None,
+                 script=None, tables=None, trace=None):
+        super(ViewFilter, self).__init__(main=main, hostname=hostname,
+                                         category=category, port=port,
+                                         script=script, trace=trace)
+        self.tables = SQLDBView.tables if tables is None else tables
+
+
+class SQLDBActive(SQLDB, DBActive):
     _needunwind_script = set([
         "http-headers",
     ])
@@ -690,30 +697,15 @@ class SQLDBNmap(SQLDB, DBNmap):
 
     def __init__(self, url):
         SQLDB.__init__(self, url)
-        DBNmap.__init__(self)
-        self.content_handler = xmlnmap.Nmap2DB
+        DBActive.__init__(self)
         self.output_function = None
-        self.flt_empty = NmapFilter()
         self.bulk = None
-
-    def is_scan_present(self, scanid):
-        return bool(
-            self.db.execute(
-                select([True])
-                .where(
-                    self.tables.scanfile.sha256 == utils.decode_hex(
-                        scanid
-                    )
-                )
-                .limit(1)
-            ).fetchone()
-        )
 
     def store_host(self, host, merge=False):
         raise NotImplementedError()
 
     def store_or_merge_host(self, host, merge=False):
-        self.store_host(host, merge=merge)
+        raise NotImplementedError()
 
     def migrate_schema(self, version):
         """Migrates the scan data.
@@ -864,7 +856,9 @@ the field names of the structured output for s7-info script.
 
     def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
-        req = flt.query(select([self.tables.scan]).select_from(flt.select_from))
+        req = flt.query(select(
+            [self.tables.scan]
+        ).select_from(flt.select_from))
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
                 key = self.fields[key]
@@ -889,7 +883,9 @@ the field names of the structured output for s7-info script.
                 del rec["infos"]
             categories = (
                 select([self.tables.association_scan_category.category])
-                .where(self.tables.association_scan_category.scan == rec["_id"])
+                .where(
+                    self.tables.association_scan_category.scan == rec["_id"]
+                )
                 .cte("categories")
             )
             rec["categories"] = [
@@ -899,14 +895,8 @@ the field names of the structured output for s7-info script.
                     .where(self.tables.category.id == categories.c.category)
                 )
             ]
-            rec["scanid"] = [
-                scanfile[0] for scanfile in self.db.execute(
-                    select([self.tables.association_scan_scanfile.scan_file])
-                    .where(self.tables.association_scan_scanfile.scan ==
-                           rec["_id"]))
-            ]
             for port in self.db.execute(select([self.tables.port])
-                                        .where(self.tables.port.scan == \
+                                        .where(self.tables.port.scan ==
                                                rec["_id"])):
                 recp = {}
                 (portid, _, recp["port"], recp["protocol"],
@@ -920,11 +910,11 @@ the field names of the structured output for s7-info script.
                 for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
-                for script in self.db.execute(select([self.tables.script.name,
-                                                      self.tables.script.output,
-                                                      self.tables.script.data])
-                                              .where(self.tables.script.port ==\
-                                                     portid)):
+                for script in self.db.execute(
+                        select([self.tables.script.name,
+                                self.tables.script.output,
+                                self.tables.script.data])
+                        .where(self.tables.script.port == portid)):
                     recp.setdefault('scripts', []).append(
                         dict(id=script.name,
                              output=script.output,
@@ -932,7 +922,7 @@ the field names of the structured output for s7-info script.
                     )
                 rec.setdefault('ports', []).append(recp)
             for trace in self.db.execute(select([self.tables.trace])
-                                         .where(self.tables.trace.scan == \
+                                         .where(self.tables.trace.scan ==
                                                 rec["_id"])):
                 curtrace = {}
                 rec.setdefault('traces', []).append(curtrace)
@@ -968,48 +958,30 @@ the field names of the structured output for s7-info script.
             base = [host['_id']]
         else:
             base = host.query(select([self.tables.scan.id])).cte("base")
-        self.db.execute(delete(self.tables.scan)\
+        self.db.execute(delete(self.tables.scan)
                         .where(self.tables.scan.id.in_(base)))
-        # remove unused scan files
-        base = select(
-            [self.tables.association_scan_scanfile.scan_file]
-        ).cte('base')
-        self.db.execute(delete(self.tables.scanfile)\
-                        .where(self.tables.scanfile.sha256.notin_(base)))
 
     _topstructure = namedtuple("topstructure", ["base", "fields", "where",
                                                 "group_by", "extraselectfrom"])
     _topstructure.__new__.__defaults__ = (None,) * len(_topstructure._fields)
 
-    @staticmethod
-    def getscanids(host):
-        return host['scanid']
-
-    def getscan(self, scanid):
-        if isinstance(scanid, basestring) and len(scanid) == 64:
-            scanid = utils.decode_hex(scanid)
-        return self.db.execute(
-            select([self.tables.scanfile])
-            .where(self.tables.scanfile.sha256 == scanid)
-        ).fetchone()
-
-    @staticmethod
-    def searchnonexistent():
-        return NmapFilter(main=False)
+    @classmethod
+    def searchnonexistent(cls):
+        return cls.base_filter(main=False)
 
     @classmethod
     def _searchobjectid(cls, oid, neg=False):
         if len(oid) == 1:
-            return NmapFilter(main=(cls.tables.scan.id != oid[0]) if neg else
-                              (cls.tables.scan.id == oid[0]))
-        return NmapFilter(main=(cls.tables.scan.id.notin_(oid[0])) if neg else
-                          (cls.tables.scan.id.in_(oid[0])))
+            return cls.base_filter(main=(cls.tables.scan.id != oid[0]) if neg
+                                   else (cls.tables.scan.id == oid[0]))
+        return cls.base_filter(main=(cls.tables.scan.id.notin_(oid[0])) if neg
+                               else (cls.tables.scan.id.in_(oid[0])))
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):
         if isinstance(key, basestring):
             key = cls.fields[key]
-        return NmapFilter(main=key.op(cmpop)(val))
+        return cls.base_filter(main=key.op(cmpop)(val))
 
     @classmethod
     def searchhost(cls, addr, neg=False):
@@ -1018,28 +990,32 @@ the field names of the structured output for s7-info script.
 
         """
         if neg:
-            return NmapFilter(main=cls.tables.scan.addr != cls.convert_ip(addr))
-        return NmapFilter(main=cls.tables.scan.addr == cls.convert_ip(addr))
+            return cls.base_filter(
+                main=cls.tables.scan.addr != cls.convert_ip(addr)
+            )
+        return cls.base_filter(
+            main=cls.tables.scan.addr == cls.convert_ip(addr)
+        )
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         hosts = [cls.convert_ip(host) for host in hosts]
         if neg:
-            return NmapFilter(main=cls.tables.scan.addr.notin_(hosts))
-        return NmapFilter(main=cls.tables.scan.addr.in_(hosts))
+            return cls.base_filter(main=cls.tables.scan.addr.notin_(hosts))
+        return cls.base_filter(main=cls.tables.scan.addr.in_(hosts))
 
     @classmethod
     def searchrange(cls, start, stop, neg=False):
         start, stop = cls.convert_ip(start), cls.convert_ip(stop)
         if neg:
-            return NmapFilter(main=or_(cls.tables.scan.addr < start,
-                                       cls.tables.scan.addr > stop))
-        return NmapFilter(main=and_(cls.tables.scan.addr >= start,
-                                    cls.tables.scan.addr <= stop))
+            return cls.base_filter(main=or_(cls.tables.scan.addr < start,
+                                            cls.tables.scan.addr > stop))
+        return cls.base_filter(main=and_(cls.tables.scan.addr >= start,
+                                         cls.tables.scan.addr <= stop))
 
     @classmethod
     def searchdomain(cls, name, neg=False):
-        return NmapFilter(hostname=[
+        return cls.base_filter(hostname=[
             (not neg, cls._searchstring_re_inarray(cls.tables.hostname.id,
                                                    cls.tables.hostname.domains,
                                                    name, neg=False)),
@@ -1047,14 +1023,14 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchhostname(cls, name, neg=False):
-        return NmapFilter(hostname=[
+        return cls.base_filter(hostname=[
             (not neg, cls._searchstring_re(cls.tables.hostname.name,
                                            name, neg=False)),
         ])
 
     @classmethod
     def searchcategory(cls, cat, neg=False):
-        return NmapFilter(category=[cls._searchstring_re(
+        return cls.base_filter(category=[cls._searchstring_re(
             cls.tables.category.name,
             cat,
             neg=neg
@@ -1062,7 +1038,7 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchsource(cls, src, neg=False):
-        return NmapFilter(main=cls._searchstring_re(
+        return cls.base_filter(main=cls._searchstring_re(
             cls.tables.scan.source,
             src,
             neg=neg
@@ -1075,7 +1051,7 @@ the field names of the structured output for s7-info script.
 
         """
         country = utils.country_unalias(country)
-        return NmapFilter(
+        return cls.base_filter(
             main=cls._searchstring_list(
                 cls.tables.scan.info['country_code'].astext, country, neg=neg
             )
@@ -1087,7 +1063,7 @@ the field names of the structured output for s7-info script.
         city
 
         """
-        return NmapFilter(
+        return cls.base_filter(
             main=cls._searchstring_re(
                 cls.tables.scan.info['city'].astext, city, neg=neg
             )
@@ -1099,7 +1075,7 @@ the field names of the structured output for s7-info script.
         particular AS number(s).
 
         """
-        return NmapFilter(
+        return cls.base_filter(
             main=cls._searchstring_list(cls.tables.scan.info['as_num'], asnum,
                                         neg=neg, map_=str)
         )
@@ -1110,7 +1086,7 @@ the field names of the structured output for s7-info script.
         particular AS.
 
         """
-        return NmapFilter(
+        return cls.base_filter(
             main=cls._searchstring_re(cls.tables.scan.info['as_name'].astext,
                                       asname, neg=neg)
         )
@@ -1126,11 +1102,11 @@ the field names of the structured output for s7-info script.
 
         """
         if port == "host":
-            return NmapFilter(port=[
+            return cls.base_filter(port=[
                 (True, (cls.tables.port.port >= 0) if neg else
                  (cls.tables.port.port == -1)),
             ])
-        return NmapFilter(port=[
+        return cls.base_filter(port=[
             (not neg,
              and_(cls.tables.port.port == port,
                   cls.tables.port.protocol == protocol,
@@ -1143,10 +1119,11 @@ the field names of the structured output for s7-info script.
         listed in `ports` with state `state`.
 
         """
-        return NmapFilter(port=[(True,
-                                 and_(or_(cls.tables.port.port.notin_(ports),
-                                          cls.tables.port.protocol != protocol),
-                                      cls.tables.port.state == state))])
+        return cls.base_filter(
+            port=[(True, and_(or_(cls.tables.port.port.notin_(ports),
+                                  cls.tables.port.protocol != protocol),
+                              cls.tables.port.state == state))]
+        )
 
     @classmethod
     def searchports(cls, ports, protocol='tcp', state='open', neg=False):
@@ -1170,13 +1147,15 @@ the field names of the structured output for s7-info script.
                 req = req.where(column("count") >= minn)
             if maxn is not None:
                 req = req.where(column("count") <= maxn)
-        return NmapFilter(main=cls.tables.scan.id.notin_(req) if neg else
-                          cls.tables.scan.id.in_(req))
+        return cls.base_filter(main=cls.tables.scan.id.notin_(req) if neg else
+                               cls.tables.scan.id.in_(req))
 
     @classmethod
     def searchopenport(cls, neg=False):
         "Filters records with at least one open port."
-        return NmapFilter(port=[(not neg, cls.tables.port.state == "open")])
+        return cls.base_filter(
+            port=[(not neg, cls.tables.port.state == "open")]
+        )
 
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
@@ -1186,7 +1165,7 @@ the field names of the structured output for s7-info script.
             req = and_(req, cls.tables.port.port == port)
         if protocol is not None:
             req = and_(req, cls.tables.port.protocol == protocol)
-        return NmapFilter(port=[(True, req)])
+        return cls.base_filter(port=[(True, req)])
 
     @classmethod
     def searchproduct(cls, product, version=None, service=None, port=None,
@@ -1209,7 +1188,7 @@ the field names of the structured output for s7-info script.
             req = and_(req, cls.tables.port.port == port)
         if protocol is not None:
             req = and_(req, cls.tables.port.protocol == protocol)
-        return NmapFilter(port=[(True, req)])
+        return cls.base_filter(port=[(True, req)])
 
     @classmethod
     def searchscript(cls, name=None, output=None, values=None):
@@ -1293,14 +1272,13 @@ the field names of the structured output for s7-info script.
                             value, neg=False,
                         )
                     )
-            return NmapFilter(script=[(
+            return cls.base_filter(script=[(
                 req,
-                [func.jsonb_array_elements(cls.tables.script.data[subkey])\
-                 .alias(
-                     subkey.replace('.', '_').replace('-', '_')
-                 ) for subkey in needunwind],
+                [func.jsonb_array_elements(cls.tables.script.data[subkey])
+                 .alias(subkey.replace('.', '_').replace('-', '_'))
+                 for subkey in needunwind],
             )])
-        return NmapFilter(script=[req])
+        return cls.base_filter(script=[req])
 
     @classmethod
     def searchcert(cls, keytype=None):
@@ -1320,14 +1298,14 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchsvchostname(cls, hostname):
-        return NmapFilter(port=[(
+        return cls.base_filter(port=[(
             True, cls._searchstring_re(cls.tables.port.service_hostname,
                                        hostname)
         )])
 
     @classmethod
     def searchwebmin(cls):
-        return NmapFilter(
+        return cls.base_filter(
             port=[(True, and_(
                 cls.tables.port.service_name == 'http',
                 cls.tables.port.service_product == 'MiniServ',
@@ -1337,7 +1315,7 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchx11(cls):
-        return NmapFilter(
+        return cls.base_filter(
             port=[(True, and_(
                 cls.tables.port.service_name == 'X11',
                 cls.tables.port.service_extrainfo != 'access denied'
@@ -1350,12 +1328,12 @@ the field names of the structured output for s7-info script.
         if not isinstance(stop, datetime.datetime):
             stop = datetime.datetime.fromtimestamp(stop)
         if neg:
-            return NmapFilter(
-                main=(self.tables.scan.time_start < start) | \
+            return self.base_filter(
+                main=(self.tables.scan.time_start < start) |
                      (self.tables.scan.time_stop > stop)
             )
-        return NmapFilter(
-            main=(self.tables.scan.time_start >= start) & \
+        return self.base_filter(
+            main=(self.tables.scan.time_start >= start) &
                  (self.tables.scan.time_stop <= stop)
         )
 
@@ -1388,26 +1366,28 @@ the field names of the structured output for s7-info script.
                              '~*' if (fname.flags & re.IGNORECASE) else '~'
                          )(fname.pattern))
                          .cte('base2'))
-                return NmapFilter(port=[(True, cls.tables.port.id.in_(base2))])
+                return cls.base_filter(
+                    port=[(True, cls.tables.port.id.in_(base2))]
+                )
             else:
                 req = cls.tables.script.data.op('@>')(json.dumps(
                     {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
                 ))
         if scripts is None:
-            return NmapFilter(script=[req])
+            return cls.base_filter(script=[req])
         if isinstance(scripts, basestring):
             scripts = [scripts]
         if len(scripts) == 1:
-            return NmapFilter(script=[and_(
+            return cls.base_filter(script=[and_(
                 cls.tables.script.name == scripts.pop(), req
             )])
-        return NmapFilter(script=[and_(
+        return cls.base_filter(script=[and_(
             cls.tables.script.name.in_(scripts), req
         )])
 
     @classmethod
     def searchhttptitle(cls, title):
-        return NmapFilter(script=[
+        return cls.base_filter(script=[
             cls.tables.script.name.in_(['http-title', 'html-title']),
             cls._searchstring_re(cls.tables.script.output, title),
         ])
@@ -1417,29 +1397,29 @@ the field names of the structured output for s7-info script.
         res = cls.tables.hop.ipaddr == cls.convert_ip(hop)
         if ttl is not None:
             res &= cls.tables.hop.ttl == ttl
-        return NmapFilter(trace=[not_(res) if neg else res])
+        return cls.base_filter(trace=[not_(res) if neg else res])
 
     @classmethod
     def searchhopdomain(cls, hop, neg=False):
-        return NmapFilter(trace=[cls._searchstring_re_inarray(
+        return cls.base_filter(trace=[cls._searchstring_re_inarray(
             cls.tables.hop.id, cls.tables.hop.domains, hop, neg=neg
         )])
 
     @classmethod
     def searchhopname(cls, hop, neg=False):
-        return NmapFilter(trace=[cls._searchstring_re(cls.tables.hop.host,
-                                                      hop, neg=neg)])
+        return cls.base_filter(trace=[cls._searchstring_re(cls.tables.hop.host,
+                                                           hop, neg=neg)])
 
     @classmethod
     def searchdevicetype(cls, devtype):
-        return NmapFilter(port=[
+        return cls.base_filter(port=[
             (True, cls._searchstring_re(cls.tables.port.service_devicetype,
                                         devtype))
         ])
 
     @classmethod
     def searchnetdev(cls):
-        return NmapFilter(port=[(
+        return cls.base_filter(port=[(
             True,
             cls.tables.port.service_devicetype.in_([
                 'bridge',
@@ -1456,7 +1436,7 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchphonedev(cls):
-        return NmapFilter(port=[(
+        return cls.base_filter(port=[(
             True,
             cls.tables.port.service_devicetype.in_([
                 'PBX',
@@ -1469,19 +1449,139 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchldapanon(cls):
-        return NmapFilter(port=[(
+        return cls.base_filter(port=[(
             True, cls.tables.port.service_extrainfo == 'Anonymous bind OK',
         )])
 
     @classmethod
     def searchvsftpdbackdoor(cls):
-        return NmapFilter(port=[(
+        return cls.base_filter(port=[(
             True,
             and_(cls.tables.port.protocol == 'tcp',
                  cls.tables.port.state == 'open',
                  cls.tables.port.service_product == 'vsftpd',
                  cls.tables.port.service_version == '2.3.4')
         )])
+
+
+class SQLDBNmap(SQLDBActive, DBNmap):
+    table_layout = namedtuple("nmap_layout", ['scanfile', 'category', 'scan',
+                                              'hostname', 'port', 'script',
+                                              'trace', 'hop',
+                                              'association_scan_hostname',
+                                              'association_scan_category',
+                                              'association_scan_scanfile'])
+    tables = table_layout(N_ScanFile, N_Category, N_Scan, N_Hostname, N_Port,
+                          N_Script, N_Trace, N_Hop,
+                          N_Association_Scan_Hostname,
+                          N_Association_Scan_Category,
+                          N_Association_Scan_ScanFile)
+    fields = {
+        "_id": N_Scan.id,
+        "addr": N_Scan.addr,
+        "source": N_Scan.source,
+        "scanid": N_Association_Scan_ScanFile.scan_file,
+        "starttime": N_Scan.time_start,
+        "endtime": N_Scan.time_stop,
+        "infos": N_Scan.info,
+        "state": N_Scan.state_reason_ttl,
+        "state_reason": N_Scan.state_reason_ttl,
+        "state_reason_ttl": N_Scan.state_reason_ttl,
+        "categories": N_Category.name,
+        "hostnames.name": N_Hostname.name,
+        "hostnames.domains": N_Hostname.domains,
+    }
+
+    base_filter = NmapFilter
+
+    def __init__(self, url):
+        DBNmap.__init__(self)
+        SQLDBActive.__init__(self, url)
+        self.content_handler = xmlnmap.Nmap2DB
+
+    def store_or_merge_host(self, host, merge=False):
+        self.store_host(host, merge=merge)
+
+    def get(self, flt, limit=None, skip=None, sort=None, **kargs):
+        for rec in super(SQLDBNmap, self).get(flt, limit=limit, skip=skip,
+                                              sort=sort, **kargs):
+            rec["scanid"] = [
+                scanfile[0] for scanfile in self.db.execute(
+                    select([self.tables.association_scan_scanfile.scan_file])
+                    .where(self.tables.association_scan_scanfile.scan ==
+                           rec["_id"]))
+            ]
+            yield rec
+
+    def remove(self, host):
+        super(SQLDBNmap, self).remove(host)
+        # remove unused scan files
+        base = select(
+            [self.tables.association_scan_scanfile.scan_file]
+        ).cte('base')
+        self.db.execute(delete(self.tables.scanfile)
+                        .where(self.tables.scanfile.sha256.notin_(base)))
+
+    @staticmethod
+    def getscanids(host):
+        return host['scanid']
+
+    def getscan(self, scanid):
+        if isinstance(scanid, basestring) and len(scanid) == 64:
+            scanid = utils.decode_hex(scanid)
+        return self.db.execute(
+            select([self.tables.scanfile])
+            .where(self.tables.scanfile.sha256 == scanid)
+        ).fetchone()
+
+    def is_scan_present(self, scanid):
+        return bool(
+            self.db.execute(
+                select([True])
+                .where(
+                    self.tables.scanfile.sha256 == utils.decode_hex(
+                        scanid
+                    )
+                )
+                .limit(1)
+            ).fetchone()
+        )
+
+
+class SQLDBView(SQLDBActive, DBView):
+    table_layout = namedtuple("view_layout", ['category', 'scan', 'hostname',
+                                              'port', 'script', 'trace', 'hop',
+                                              'association_scan_hostname',
+                                              'association_scan_category'])
+    tables = table_layout(V_Category, V_Scan, V_Hostname, V_Port, V_Script,
+                          V_Trace, V_Hop, V_Association_Scan_Hostname,
+                          V_Association_Scan_Category)
+    fields = {
+        "_id": V_Scan.id,
+        "addr": V_Scan.addr,
+        "source": V_Scan.source,
+        "starttime": V_Scan.time_start,
+        "endtime": V_Scan.time_stop,
+        "infos": V_Scan.info,
+        "state": V_Scan.state_reason_ttl,
+        "state_reason": V_Scan.state_reason_ttl,
+        "state_reason_ttl": V_Scan.state_reason_ttl,
+        "categories": V_Category.name,
+        "hostnames.name": V_Hostname.name,
+        "hostnames.domains": V_Hostname.domains,
+    }
+
+    base_filter = ViewFilter
+
+    def __init__(self, url):
+        DBView.__init__(self)
+        SQLDBActive.__init__(self, url)
+
+    def store_or_merge_host(self, host, merge=True):
+        # FIXME: may cause performance issues
+        self.start_store_hosts()
+        self.store_host(host, merge=merge)
+        self.stop_store_hosts()
 
 
 class PassiveFilter(Filter):
@@ -1570,10 +1670,11 @@ class SQLDBPassive(SQLDB, DBPassive):
         "value": Passive.value,
     }
 
+    base_filter = PassiveFilter
+
     def __init__(self, url):
         SQLDB.__init__(self, url)
         DBPassive.__init__(self)
-        self.flt_empty = PassiveFilter()
 
     def count(self, flt):
         return self.db.execute(
@@ -1889,8 +1990,8 @@ passive table."""
             (cls.tables.passive.recontype == 'SSL_SERVER') &
             (cls.tables.passive.source == 'cert') &
             (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('subject'), expr)
-            )
+                cls.tables.passive.moreinfo.op('->>')('subject'), expr
+            ))
         ))
 
     @classmethod
@@ -1899,8 +2000,8 @@ passive table."""
             (cls.tables.passive.recontype == 'SSL_SERVER') &
             (cls.tables.passive.source == 'cert') &
             (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('issuer'), expr)
-            )
+                cls.tables.passive.moreinfo.op('->>')('issuer'), expr
+            ))
         ))
 
     @classmethod
@@ -2007,7 +2108,7 @@ passive table."""
     @classmethod
     def searchtimeago(cls, delta, neg=False, new=False):
         field = cls.tables.passive.lastseen if new else \
-                cls.tables.passive.firstseen
+            cls.tables.passive.firstseen
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
         now = datetime.datetime.now()
@@ -2018,7 +2119,7 @@ passive table."""
     @classmethod
     def searchnewer(cls, timestamp, neg=False, new=False):
         field = cls.tables.passive.lastseen if new else \
-                cls.tables.passive.firstseen
+            cls.tables.passive.firstseen
         if not isinstance(timestamp, datetime.datetime):
             timestamp = datetime.datetime.fromtimestamp(timestamp)
         return PassiveFilter(main=(field <= timestamp if neg else

@@ -452,6 +452,10 @@ def _getinfos_ssh_hostkey(spec):
             # (e.g., "MongoDB can only handle up to 8-byte ints")
             for val in ["exponent", "modulus"]:
                 infos[val] = str(infos[val])
+    elif keytype == 'ecdsa-sha2-nistp256':
+        infos['bits'] = 256
+    elif keytype == 'ssh-ed25519':
+        infos['bits'] = len(next(data)) * 8
     res = {'infos': infos}
     _fix_infos_size(res)
     return res

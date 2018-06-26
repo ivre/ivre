@@ -49,7 +49,7 @@ import xml.sax
 
 
 from builtins import range
-from future.utils import viewitems
+from future.utils import viewitems, viewvalues
 # tests: I don't want to depend on cluster for now
 try:
     import cluster
@@ -326,15 +326,10 @@ class DB(object):
         return 0
 
 
-class DBNmap(DB):
-    def __init__(self, output_mode="json", output=sys.stdout):
-        super(DBNmap, self).__init__()
-        self.content_handler = xmlnmap.Nmap2Txt
-        self.output_function = {
-            "normal": nmapout.displayhosts,
-        }.get(output_mode, nmapout.displayhosts_json)
-        self.output = output
-        self.__schema_migrations = {
+class DBActive(DB):
+    def __init__(self):
+        super(DBActive, self).__init__()
+        self._schema_migrations = {
             "hosts": {
                 None: (1, self.__migrate_schema_hosts_0_1),
                 1: (2, self.__migrate_schema_hosts_1_2),
@@ -409,56 +404,98 @@ class DBNmap(DB):
     def is_scan_present(self, _):
         return False
 
-    def store_scan(self, fname, **kargs):
-        """This method opens a scan result, and calls the appropriate
-        store_scan_* method to parse (and store) the scan result.
-
-        """
-        scanid = utils.hash_file(fname, hashtype="sha256")
-        if self.is_scan_present(scanid):
-            utils.LOGGER.debug("Scan already present in Database (%r).", fname)
-            return False
-        with utils.open_file(fname) as fdesc:
-            fchar = fdesc.read(1)
-        try:
-            store_scan_function = {
-                b'<': self.store_scan_xml,
-                b'{': self.store_scan_json,
-            }[fchar]
-        except KeyError:
-            raise ValueError("Unknown file type %s" % fname)
-        return store_scan_function(fname, filehash=scanid, **kargs)
-
-    def store_scan_xml(self, fname, **kargs):
-        """This method parses an XML scan result, displays a JSON
-        version of the result, and return True if everything went
-        fine, False otherwise.
-
-        In backend-specific subclasses, this method stores the result
-        instead of displaying it, thanks to the `content_handler`
-        attribute.
-
-        """
-        parser = xml.sax.make_parser()
-        self.start_store_hosts()
-        try:
-            content_handler = self.content_handler(fname, **kargs)
-        except Exception:
-            utils.LOGGER.warning('Exception (file %r)', fname, exc_info=True)
-        else:
-            parser.setContentHandler(content_handler)
-            parser.setEntityResolver(xmlnmap.NoExtResolver())
-            parser.parse(utils.open_file(fname))
-            if self.output_function is not None:
-                self.output_function(content_handler._db, out=self.output)
-            self.stop_store_hosts()
-            return True
-        self.stop_store_hosts()
-        return False
-
     @staticmethod
     def merge_host_docs(rec1, rec2):
-        raise NotImplementedError
+        """Merge two host records and return the result. Unmergeable /
+        hard-to-merge fields are lost (e.g., extraports).
+
+        """
+        if rec1.get("schema_version") != rec2.get("schema_version"):
+            raise ValueError("Cannot merge host documents. "
+                             "Schema versions differ (%r != %r)" % (
+                                 rec1.get("schema_version"),
+                                 rec2.get("schema_version")))
+        rec = {}
+        if "schema_version" in rec1:
+            rec["schema_version"] = rec1["schema_version"]
+        # When we have different values, we will use the one from the
+        # most recent scan, rec2
+        if rec1.get("endtime") > rec2.get("endtime"):
+            rec1, rec2 = rec2, rec1
+        for fname, function in [("starttime", min), ("endtime", max)]:
+            try:
+                rec[fname] = function(record[fname] for record in [rec1, rec2]
+                                      if fname in record)
+            except ValueError:
+                pass
+        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
+        if rec["state"] is None:
+            del rec["state"]
+        rec["categories"] = list(
+            set(rec1.get("categories", [])).union(
+                rec2.get("categories", []))
+        )
+        for field in ["addr", "source", "os"]:
+            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
+            if not rec[field]:
+                del rec[field]
+        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
+        rec["infos"] = {}
+        for record in [rec1, rec2]:
+            rec["infos"].update(record.get("infos", {}))
+        # We want to make sure of (type, name) unicity
+        hostnames = dict(((h['type'], h['name']), h.get('domains'))
+                         for h in (rec1.get("hostnames", []) +
+                                   rec2.get("hostnames", [])))
+        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
+                            for h, d in viewitems(hostnames)]
+        ports = dict(((port.get("protocol"), port["port"]), port.copy())
+                     for port in rec2.get("ports", []))
+        for port in rec1.get("ports", []):
+            if (port.get('protocol'), port['port']) in ports:
+                curport = ports[(port.get('protocol'), port['port'])]
+                if 'scripts' in curport:
+                    curport['scripts'] = curport['scripts'][:]
+                else:
+                    curport['scripts'] = []
+                present_scripts = set(
+                    script['id'] for script in curport['scripts']
+                )
+                for script in port.get("scripts", []):
+                    if script['id'] not in present_scripts:
+                        curport['scripts'].append(script)
+                if not curport['scripts']:
+                    del curport['scripts']
+                if 'service_name' in port and 'service_name' not in curport:
+                    for key in port:
+                        if key.startswith("service_"):
+                            curport[key] = port[key]
+            else:
+                ports[(port.get('protocol'), port['port'])] = port
+        rec["ports"] = list(viewvalues(ports))
+        rec["openports"] = {}
+        for record in [rec1, rec2]:
+            for proto in record.get('openports', {}):
+                if proto == 'count':
+                    continue
+                rec['openports'].setdefault(
+                    proto, {}).setdefault(
+                        'ports', set()).update(
+                            record['openports'][proto]['ports'])
+        if rec['openports']:
+            for proto in list(rec['openports']):
+                count = len(rec['openports'][proto]['ports'])
+                rec['openports'][proto]['count'] = count
+                rec['openports']['count'] = rec['openports'].get(
+                    'count', 0) + count
+                rec['openports'][proto]['ports'] = list(
+                    rec['openports'][proto]['ports'])
+        else:
+            rec['openports']["count"] = 0
+        for field in ["traces", "infos", "ports"]:
+            if not rec[field]:
+                del rec[field]
+        return rec
 
     def merge_host(self, host):
         """Attempt to merge `host` with an existing record.
@@ -499,71 +536,6 @@ insert structures.
 
         """
         pass
-
-    def store_scan_json(self, fname, filehash=None,
-                        needports=False, needopenports=False,
-                        categories=None, source=None,
-                        add_addr_infos=True, force_info=False,
-                        merge=False, **_):
-        """This method parses a JSON scan result as exported using
-        `ivre scancli --json > file`, displays the parsing result, and
-        return True if everything went fine, False otherwise.
-
-        In backend-specific subclasses, this method stores the result
-        instead of displaying it, thanks to the `store_host`
-        method.
-
-        """
-        if categories is None:
-            categories = []
-        scan_doc_saved = False
-        self.start_store_hosts()
-        with utils.open_file(fname) as fdesc:
-            for line in fdesc:
-                host = self.json2dbrec(json.loads(line.decode()))
-                for fname in ["_id"]:
-                    if fname in host:
-                        del host[fname]
-                host["scanid"] = filehash
-                if categories:
-                    host["categories"] = categories
-                if source is not None:
-                    host["source"] = source
-                if add_addr_infos and self.globaldb is not None and (
-                        force_info or 'infos' not in host or not host['infos']
-                ):
-                    host['infos'] = {}
-                    for func in [self.globaldb.data.country_byip,
-                                 self.globaldb.data.as_byip,
-                                 self.globaldb.data.location_byip]:
-                        host['infos'].update(func(host['addr']) or {})
-                if ((not needports or 'ports' in host) and
-                    (not needopenports or
-                     host.get('openports', {}).get('count'))):
-                    # Update schema if/as needed.
-                    while host.get(
-                            "schema_version"
-                    ) in self.__schema_migrations["hosts"]:
-                        oldvers = host.get("schema_version")
-                        self.__schema_migrations["hosts"][oldvers][1](host)
-                        if oldvers == host.get("schema_version"):
-                            utils.LOGGER.warning(
-                                "[%r] could not migrate host from version "
-                                "%r [%r]",
-                                self.__class__, oldvers, host
-                            )
-                            break
-                    # We are about to insert data based on this file,
-                    # so we want to save the scan document
-                    if not scan_doc_saved:
-                        self.store_scan_doc({'_id': filehash})
-                        scan_doc_saved = True
-                    if merge and self.merge_host(host):
-                        pass
-                    else:
-                         self.store_host(host)
-        self.stop_store_hosts()
-        return True
 
     @staticmethod
     def getscreenshot(port):
@@ -781,10 +753,6 @@ the field names of the structured output for s7-info script.
     def json2dbrec(host):
         return host
 
-    def store_host(self, host):
-        if self.output_function is not None:
-            self.output_function([host], out=self.output)
-
     def store_scan_doc(self, scan):
         pass
 
@@ -986,7 +954,7 @@ the field names of the structured output for s7-info script.
         return cls.searchscript(name='smb-os-discovery', values=args)
 
     def parse_args(self, args, flt=None):
-        flt = super(DBNmap, self).parse_args(args, flt=flt)
+        flt = super(DBActive, self).parse_args(args, flt=flt)
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(
                 utils.str2list(args.category)))
@@ -1121,6 +1089,139 @@ the field names of the structured output for s7-info script.
     @staticmethod
     def cmp_schema_version_scan(*_):
         return 0
+
+
+class DBNmap(DBActive):
+
+    def __init__(self, output_mode="json", output=sys.stdout):
+        super(DBNmap, self).__init__()
+        self.content_handler = xmlnmap.Nmap2Txt
+        self.output_function = {
+            "normal": nmapout.displayhosts,
+        }.get(output_mode, nmapout.displayhosts_json)
+        self.output = output
+
+    def store_host(self, host):
+        if self.output_function is not None:
+            self.output_function([host], out=self.output)
+
+    def store_scan(self, fname, **kargs):
+        """This method opens a scan result, and calls the appropriate
+        store_scan_* method to parse (and store) the scan result.
+
+        """
+        scanid = utils.hash_file(fname, hashtype="sha256")
+        if self.is_scan_present(scanid):
+            utils.LOGGER.debug("Scan already present in Database (%r).", fname)
+            return False
+        with utils.open_file(fname) as fdesc:
+            fchar = fdesc.read(1)
+        try:
+            store_scan_function = {
+                b'<': self.store_scan_xml,
+                b'{': self.store_scan_json,
+            }[fchar]
+        except KeyError:
+            raise ValueError("Unknown file type %s" % fname)
+        return store_scan_function(fname, filehash=scanid, **kargs)
+
+    def store_scan_xml(self, fname, **kargs):
+        """This method parses an XML scan result, displays a JSON
+        version of the result, and return True if everything went
+        fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `content_handler`
+        attribute.
+
+        """
+        parser = xml.sax.make_parser()
+        self.start_store_hosts()
+        try:
+            content_handler = self.content_handler(fname, **kargs)
+        except Exception:
+            utils.LOGGER.warning('Exception (file %r)', fname, exc_info=True)
+        else:
+            parser.setContentHandler(content_handler)
+            parser.setEntityResolver(xmlnmap.NoExtResolver())
+            parser.parse(utils.open_file(fname))
+            if self.output_function is not None:
+                self.output_function(content_handler._db, out=self.output)
+            self.stop_store_hosts()
+            return True
+        self.stop_store_hosts()
+        return False
+
+    def store_scan_json(self, fname, filehash=None,
+                        needports=False, needopenports=False,
+                        categories=None, source=None,
+                        add_addr_infos=True, force_info=False,
+                        merge=False, **_):
+        """This method parses a JSON scan result as exported using
+        `ivre scancli --json > file`, displays the parsing result, and
+        return True if everything went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                host = self.json2dbrec(json.loads(line.decode()))
+                for fname in ["_id"]:
+                    if fname in host:
+                        del host[fname]
+                host["scanid"] = filehash
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                if add_addr_infos and self.globaldb is not None and (
+                        force_info or 'infos' not in host or not host['infos']
+                ):
+                    host['infos'] = {}
+                    for func in [self.globaldb.data.country_byip,
+                                 self.globaldb.data.as_byip,
+                                 self.globaldb.data.location_byip]:
+                        host['infos'].update(func(host['addr']) or {})
+                if ((not needports or 'ports' in host) and
+                    (not needopenports or
+                     host.get('openports', {}).get('count'))):
+                    # Update schema if/as needed.
+                    while host.get(
+                            "schema_version"
+                    ) in self._schema_migrations["hosts"]:
+                        oldvers = host.get("schema_version")
+                        self._schema_migrations["hosts"][oldvers][1](host)
+                        if oldvers == host.get("schema_version"):
+                            utils.LOGGER.warning(
+                                "[%r] could not migrate host from version "
+                                "%r [%r]",
+                                self.__class__, oldvers, host
+                            )
+                            break
+                    # We are about to insert data based on this file,
+                    # so we want to save the scan document
+                    if not scan_doc_saved:
+                        self.store_scan_doc({'_id': filehash})
+                        scan_doc_saved = True
+                    if merge and self.merge_host(host):
+                        pass
+                    else:
+                        self.store_host(host)
+        self.stop_store_hosts()
+        return True
+
+
+class DBView(DBActive):
+
+    def __init__(self):
+        super(DBView, self).__init__()
 
 
 class _RecInfo(object):

@@ -37,13 +37,13 @@ import uuid
 
 
 from builtins import bytes, range
-from future.utils import viewitems, viewvalues
+from future.utils import viewitems
 from past.builtins import basestring
 import bson
 import pymongo
 
 
-from ivre.db import DB, DBNmap, DBPassive, DBAgent, LockError
+from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
 from ivre import config, geoiputils, utils, xmlnmap
 
 
@@ -363,9 +363,9 @@ class MongoDB(DB):
     def to_binary(data):
         return bson.Binary(data)
 
-    @staticmethod
-    def flt2str(flt):
-        return json.dumps(flt)
+    @classmethod
+    def flt2str(cls, flt):
+        return json.dumps(flt, default=cls.serialize)
 
     @staticmethod
     def _flt_and(cond1, cond2):
@@ -505,7 +505,7 @@ class MongoDB(DB):
             return {key: {'$gte': val}}
 
 
-class MongoDBNmap(MongoDB, DBNmap):
+class MongoDBActive(MongoDB, DBActive):
 
     needunwind = ["categories", "ports", "ports.scripts",
                   "ports.scripts.ssh-hostkey",
@@ -528,14 +528,9 @@ class MongoDBNmap(MongoDB, DBNmap):
                   "os.osmatch", "os.osclass", "hostnames",
                   "hostnames.domains", "cpes"]
 
-    def __init__(self, host, dbname,
-                 colname_scans="scans", colname_hosts="hosts",
-                 **kargs):
+    def __init__(self, host, dbname, colname_hosts, **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
-        DBNmap.__init__(self)
-        self.content_handler = Nmap2Mongo
-        self.output_function = None
-        self.colname_scans = colname_scans
+        DBActive.__init__(self)
         self.colname_hosts = colname_hosts
         self.indexes = {
             self.colname_hosts: [
@@ -652,7 +647,6 @@ class MongoDBNmap(MongoDB, DBNmap):
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
 creates the default indexes."""
-        self.db[self.colname_scans].drop()
         self.db[self.colname_hosts].drop()
         self.create_indexes()
 
@@ -663,14 +657,6 @@ creates the default indexes."""
 
         """
         return self.cmp_schema_version(self.colname_hosts, host)
-
-    def cmp_schema_version_scan(self, scan):
-        """Returns 0 if the `scan`'s schema version matches the code's
-        current version, -1 if it is higher (you need to update IVRE),
-        and 1 if it is lower (you need to call .migrate_schema()).
-
-        """
-        return self.cmp_schema_version(self.colname_scans, scan)
 
     def migrate_schema(self, version):
         """Process to schema migrations in column `colname_hosts`
@@ -957,9 +943,6 @@ it is not expected)."""
             return scanids
         return [scanids]
 
-    def getscan(self, scanid):
-        return self.find_one(self.colname_scans, {'_id': scanid})
-
     def setscreenshot(self, host, port, data, protocol='tcp',
                       overwrite=False):
         """Sets the content of a port's screenshot."""
@@ -1050,12 +1033,6 @@ it is not expected)."""
         return ({'_id': tuple(rec['_id']), 'count': rec['count']}
                 for rec in col.aggregate(pipeline, cursor={}))
 
-    def is_scan_present(self, scanid):
-        if self.find_one(self.colname_scans, {"_id": scanid},
-                         fields=[]) is not None:
-            return True
-        return False
-
     def store_host(self, host):
         # keep location data in appropriate format for GEOSPHERE index
         if 'coordinates' in host.get('infos', {}):
@@ -1067,28 +1044,12 @@ it is not expected)."""
         utils.LOGGER.debug("HOST STORED: %r in %r", ident, self.colname_hosts)
         return ident
 
-    def store_scan_doc(self, scan):
-        ident = self.db[self.colname_scans].insert(scan)
-        utils.LOGGER.debug("SCAN STORED: %r in %r", ident, self.colname_scans)
-        return ident
-
     def merge_host_docs(self, rec1, rec2):
         """Merge two host records and return the result. Unmergeable /
         hard-to-merge fields are lost (e.g., extraports).
 
         """
-        if rec1.get("schema_version") != rec2.get("schema_version"):
-            raise ValueError("Cannot merge host documents. "
-                             "Schema versions differ (%r != %r)" % (
-                                 rec1.get("schema_version"),
-                                 rec2.get("schema_version")))
-        rec = {}
-        if "schema_version" in rec1:
-            rec["schema_version"] = rec1["schema_version"]
-        # When we have different values, we will use the one from the
-        # most recent scan, rec2
-        if rec1.get("starttime") > rec2.get("starttime"):
-            rec1, rec2 = rec2, rec1
+        rec = super(MongoDBActive, self).merge_host_docs(rec1, rec2)
         scanid = set()
         for record in [rec1, rec2]:
             scanid.update(self.getscanids(record))
@@ -1097,94 +1058,14 @@ it is not expected)."""
                 rec["scanid"] = scanid.pop()
             else:
                 rec["scanid"] = list(scanid)
-        for fname, function in [("starttime", min), ("endtime", max)]:
-            try:
-                rec[fname] = function(record[fname] for record in [rec1, rec2]
-                                      if fname in record)
-            except ValueError:
-                pass
-        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
-        if rec["state"] is None:
-            del rec["state"]
-        rec["categories"] = list(
-            set(rec1.get("categories", [])).union(
-                rec2.get("categories", []))
-        )
-        for field in ["addr", "source", "os"]:
-            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
-            if not rec[field]:
-                del rec[field]
-        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
-        rec["infos"] = {}
-        for record in [rec1, rec2]:
-            rec["infos"].update(record.get("infos", {}))
-        # We want to make sure of (type, name) unicity
-        hostnames = dict(((h['type'], h['name']), h.get('domains'))
-                         for h in (rec1.get("hostnames", []) +
-                                   rec2.get("hostnames", [])))
-        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                            for h, d in viewitems(hostnames)]
-        ports = dict(((port.get("protocol"), port["port"]), port.copy())
-                     for port in rec2.get("ports", []))
-        for port in rec1.get("ports", []):
-            if (port.get('protocol'), port['port']) in ports:
-                curport = ports[(port.get('protocol'), port['port'])]
-                if 'scripts' in curport:
-                    curport['scripts'] = curport['scripts'][:]
-                else:
-                    curport['scripts'] = []
-                present_scripts = set(
-                    script['id'] for script in curport['scripts']
-                )
-                for script in port.get("scripts", []):
-                    if script['id'] not in present_scripts:
-                        curport['scripts'].append(script)
-                if not curport['scripts']:
-                    del curport['scripts']
-                if 'service_name' in port and 'service_name' not in curport:
-                    for key in port:
-                        if key.startswith("service_"):
-                            curport[key] = port[key]
-            else:
-                ports[(port.get('protocol'), port['port'])] = port
-        rec["ports"] = list(viewvalues(ports))
-        rec["openports"] = {}
-        for record in [rec1, rec2]:
-            for proto in record.get('openports', {}):
-                if proto == 'count':
-                    continue
-                rec['openports'].setdefault(
-                    proto, {}).setdefault(
-                        'ports', set()).update(
-                            record['openports'][proto]['ports'])
-        if rec['openports']:
-            for proto in list(rec['openports']):
-                count = len(rec['openports'][proto]['ports'])
-                rec['openports'][proto]['count'] = count
-                rec['openports']['count'] = rec['openports'].get(
-                    'count', 0) + count
-                rec['openports'][proto]['ports'] = list(
-                    rec['openports'][proto]['ports'])
-        else:
-            rec['openports']["count"] = 0
-        for field in ["traces", "infos", "ports"]:
-            if not rec[field]:
-                del rec[field]
         return rec
 
     def remove(self, host):
-        """Removes the host "host" from the active column.
-        "host" must be the host record as returned by MongoDB.
-
-        If "host" has a "scanid" attribute, and if it refers to a scan
-        that have no more host record after the deletion of "host",
-        then the scan record is also removed.
+        """Removes the host "view" from the active column.
+        "view" must be the record as returned by MongoDB.
 
         """
         self.db[self.colname_hosts].remove(spec_or_id=host['_id'])
-        for scanid in self.getscanids(host):
-            if self.find_one(self.colname_hosts, {'scanid': scanid}) is None:
-                self.db[self.colname_scans].remove(spec_or_id=scanid)
 
     def store_or_merge_host(self, host, merge=False):
         if merge and self.merge_host(host):
@@ -2580,6 +2461,66 @@ it is not expected)."""
             return cursor
         else:
             return (result for result in cursor if result["value"])
+
+
+class MongoDBNmap(MongoDBActive, DBNmap):
+
+    def __init__(self, host, dbname, colname_scans="scans",
+                 colname_hosts="hosts", **kwargs):
+        MongoDBActive.__init__(self, host, dbname, colname_hosts=colname_hosts,
+                               **kwargs)
+        DBNmap.__init__(self)
+        self.colname_scans = colname_scans
+        self.content_handler = Nmap2Mongo
+        self.output_function = None
+
+    def store_scan_doc(self, scan):
+        ident = self.db[self.colname_scans].insert(scan)
+        utils.LOGGER.debug("SCAN STORED: %r in %r", ident, self.colname_scans)
+        return ident
+
+    def init(self):
+        self.db[self.colname_scans].drop()
+        super(MongoDBNmap, self).init()
+
+    def cmp_schema_version_scan(self, scan):
+        """Returns 0 if the `scan`'s schema version matches the code's
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema()).
+
+        """
+        return self.cmp_schema_version(self.colname_scans, scan)
+
+    def getscan(self, scanid):
+        return self.find_one(self.colname_scans, {'_id': scanid})
+
+    def is_scan_present(self, scanid):
+        if self.find_one(self.colname_scans, {"_id": scanid},
+                         fields=[]) is not None:
+            return True
+        return False
+
+    def remove(self, host):
+        """Removes the host "host" from the active column.
+        "host" must be the host record as returned by MongoDB.
+
+        If "host" has a "scanid" attribute, and if it refers to a scan
+        that have no more host record after the deletion of "host",
+        then the scan record is also removed.
+
+        """
+        super(MongoDBNmap, self).remove(host)
+        for scanid in self.getscanids(host):
+            if self.find_one(self.colname_hosts, {'scanid': scanid}) is None:
+                self.db[self.colname_scans].remove(spec_or_id=scanid)
+
+
+class MongoDBView(MongoDBActive, DBView):
+
+    def __init__(self, host, dbname, colname_hosts="views", **kwargs):
+        MongoDBActive.__init__(self, host, dbname, colname_hosts=colname_hosts,
+                               **kwargs)
+        DBView.__init__(self)
 
 
 class MongoDBPassive(MongoDB, DBPassive):

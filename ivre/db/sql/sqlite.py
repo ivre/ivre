@@ -73,5 +73,7 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
                 ),
                 'count': self.tables.passive.count + vals['count'],
             }
-            updt = update(self.tables.passive).where(whereclause).values(upsert)
+            updt = update(
+                self.tables.passive
+            ).where(whereclause).values(upsert)
             self.db.execute(updt)
