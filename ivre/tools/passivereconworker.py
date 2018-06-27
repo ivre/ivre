@@ -19,7 +19,6 @@
 """Handle ivre passiverecon2db files."""
 
 
-import gzip
 import os
 import re
 import shutil
@@ -132,7 +131,6 @@ def worker(progname, directory, sensor=None):
         fdesc.close()
         if handled_ok:
             os.unlink(fname)
-        if handled_ok:
             utils.LOGGER.debug('  ... OK')
         else:
             utils.LOGGER.debug('  ... KO')
