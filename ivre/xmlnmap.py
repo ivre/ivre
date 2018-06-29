@@ -1001,7 +1001,7 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
-def masscan_parse_x509(data):
+def create_ssl_cert(data):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
 
@@ -1640,7 +1640,7 @@ class NmapHandler(ContentHandler):
             data = self._from_binary(script['masscan']['raw'])
         except KeyError:
             return
-        output_text, output_data = masscan_parse_x509(data)
+        output_text, output_data = create_ssl_cert(data)
         if output_data:
             script["output"] = "\n".join(output_text)
             script[script["id"]] = output_data

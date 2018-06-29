@@ -427,7 +427,7 @@ def _getinfos_ssh_server(spec):
 _getinfos_tcp_srv_banner()"""
     return _getinfos_from_banner(utils.nmap_decode_data(
         spec.get('fullvalue', spec['value'])
-    ) + b'\n')
+    ) + b'\r\n')
 
 
 def _getinfos_ssh_hostkey(spec):

@@ -1845,11 +1845,13 @@ class MetaDB(object):
         "data": {},
         "agent": {},
         "flow": {},
+        "view": {},
     }
     nmap = None
     passive = None
     data = None
     agent = None
+    view = None
     extract_dbinfos = {
         "mongodb": _mongodb_url2dbinfos,
         "neo4j": _neo4j_url2dbinfos,
@@ -1867,13 +1869,14 @@ class MetaDB(object):
     def __init__(self, url=None, urls=None):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
-                                       MongoDBAgent)
+                                       MongoDBAgent, MongoDBView)
         except ImportError:
             pass
         else:
             self.db_types["nmap"]["mongodb"] = MongoDBNmap
             self.db_types["passive"]["mongodb"] = MongoDBPassive
             self.db_types["agent"]["mongodb"] = MongoDBAgent
+            self.db_types["view"]["mongodb"] = MongoDBView
         try:
             from ivre.db.neo4j import Neo4jDBFlow
         except ImportError:
@@ -1882,13 +1885,15 @@ class MetaDB(object):
             self.db_types["flow"]["neo4j"] = Neo4jDBFlow
         try:
             from ivre.db.sql.postgres import (PostgresDBFlow, PostgresDBNmap,
-                                              PostgresDBPassive)
+                                              PostgresDBPassive,
+                                              PostgresDBView)
         except ImportError:
             pass
         else:
             self.db_types["flow"]["postgresql"] = PostgresDBFlow
             self.db_types["nmap"]["postgresql"] = PostgresDBNmap
             self.db_types["passive"]["postgresql"] = PostgresDBPassive
+            self.db_types["view"]["postgresql"] = PostgresDBView
         try:
             from ivre.db.sql.sqlite import SqliteDBPassive
         except ImportError:

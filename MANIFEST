@@ -47,6 +47,7 @@ docker/web-apache/Dockerfile
 docker/web-apache/doku-conf-local.php
 ivre/VERSION
 ivre/__init__.py
+ivre/activecli.py
 ivre/agent.py
 ivre/config.py
 ivre/geoiputils.py
@@ -59,6 +60,7 @@ ivre/passive.py
 ivre/scanengine.py
 ivre/target.py
 ivre/utils.py
+ivre/view.py
 ivre/xmlnmap.py
 ivre/analyzer/__init__.py
 ivre/analyzer/ike.py
@@ -80,6 +82,7 @@ ivre/tools/__init__.py
 ivre/tools/airodump2db.py
 ivre/tools/arp2db.py
 ivre/tools/bro2db.py
+ivre/tools/db2view.py
 ivre/tools/flow2db.py
 ivre/tools/flowcli.py
 ivre/tools/getmoduli.py
@@ -98,6 +101,7 @@ ivre/tools/scan2db.py
 ivre/tools/scancli.py
 ivre/tools/scanstatus.py
 ivre/tools/version.py
+ivre/tools/view.py
 ivre/web/__init__.py
 ivre/web/app.py
 ivre/web/utils.py
