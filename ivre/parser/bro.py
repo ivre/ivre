@@ -59,7 +59,7 @@ class BroFile(Parser):
     def __next__(self):
         return self.parse_line(self.nextlines.pop(0)
                                if self.nextlines else
-                               next(self.fdesc))
+                               next(self.fdesc).strip())
 
     def parse_header_line(self, line):
         if not line:
@@ -70,7 +70,11 @@ class BroFile(Parser):
 
         keyval = line[1:].split(self.sep, 1)
         if len(keyval) < 2:
-            LOGGER.warn("Invalid header line")
+            if line.startswith(b'#separator '):
+                keyval = [b'separator', line[11:]]
+            else:
+                LOGGER.warn("Invalid header line")
+                return
 
         directive = keyval[0]
         arg = keyval[1]
@@ -92,13 +96,12 @@ class BroFile(Parser):
         elif directive == b"types":
             self.types = arg.split(self.sep)
 
-        return None
-
     def parse_line(self, line):
         if line.startswith(b'#'):
+            self.parse_header_line(line)
             return next(self)
         res = {}
-        fields = line.strip().split(self.sep)
+        fields = line.split(self.sep)
 
         for field, name, typ in zip(fields, self.fields, self.types):
             name = name.replace(b".", b"_").decode()

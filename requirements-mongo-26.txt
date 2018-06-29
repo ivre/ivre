@@ -1,0 +1,4 @@
+pymongo>=2.7.2,<=3.6.1
+pycrypto
+future
+bottle
