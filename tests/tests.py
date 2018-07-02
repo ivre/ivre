@@ -112,6 +112,36 @@ def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
     return run_iter(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
                     stdin=stdin, stdout=stdout, stderr=stderr)
 
+def run_passiverecon_worker(bulk_mode=None):
+    time.sleep(1) # Hack for Travis CI
+    pid = os.fork()
+    if pid < 0:
+        raise Exception("Cannot fork")
+    elif pid:
+        # Wait for child process to handle every file in "logs"
+        while any(walk[2] for walk in os.walk("logs")):
+            print(u"Waiting for passivereconworker")
+            time.sleep(2)
+        os.kill(pid, signal.SIGINT)
+        os.waitpid(pid, 0)
+    elif USE_COVERAGE:
+        os.execvp(
+            sys.executable,
+            COVERAGE + [
+                "run", "--parallel-mode", which("ivre"),
+                "passivereconworker", "--directory", "logs",
+                "--progname", " ".join(
+                    pipes.quote(elt) for elt in
+                    COVERAGE + ["run", "--parallel-mode", which("ivre"),
+                                "passiverecon2db", bulk_mode]
+                ),
+            ],
+        )
+    else:
+        os.execlp("ivre", "ivre", "passivereconworker", "--directory",
+                  "logs", "--progname",
+                  "ivre passiverecon2db %s" % bulk_mode)
+
 
 class AgentScanner(object):
     """This builds an agent, runs it in the background, runs a feed
@@ -297,7 +327,7 @@ class IvreTests(unittest.TestCase):
                 signal.signal(sig, terminate)
             proc = RUN_ITER(["ivre", "httpd", "-p", str(HTTPD_PORT),
                              "-b", HTTPD_HOSTNAME],
-                            stdout=open(os.devnull, 'w'),
+                            stdout=open("/tmp/webserver.log", 'w'),
                             stderr=subprocess.STDOUT)
             proc.wait()
             sys.exit(0)
@@ -329,14 +359,16 @@ class IvreTests(unittest.TestCase):
             values.append(elem['_id'])
         return sorted(values)
 
-    def _check_top_value_api(self, name, field, count=10):
+    def _check_top_value_api(self, name, field, count=10, database=None,
+                             **kwargs):
         values = self._sort_top_values(
-            ivre.db.db.nmap.topvalues(field, topnbr=count)
+            database.topvalues(field, topnbr=count)
         )
         self.check_value(name, values, check=self.assertItemsEqual)
 
-    def _check_top_value_cli(self, name, field, count=10):
-        res, out, err = RUN(["ivre", "scancli", "--top", field, "--limit",
+    def _check_top_value_cli(self, name, field, count=10, command=None,
+                             **kwargs):
+        res, out, err = RUN(["ivre", command, "--top", field, "--limit",
                              str(count)])
         self.assertTrue(not err)
         self.assertEqual(res, 0)
@@ -356,7 +388,7 @@ class IvreTests(unittest.TestCase):
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
-    def _check_top_value_cgi(self, name, field, count=10):
+    def _check_top_value_cgi(self, name, field, count=10, **kwargs):
         req = Request('http://%s:%d/cgi/scans/top/%s:%d' % (
             HTTPD_HOSTNAME, HTTPD_PORT, field, count
         ))
@@ -368,17 +400,29 @@ class IvreTests(unittest.TestCase):
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
-    def check_top_value(self, name, field, count=10):
+    def check_nmap_top_value(self, name, field, count=10):
         for method in ['api', 'cli', 'cgi']:
             specific_name = "%s_%s" % (name, method)
             if name in self.results and specific_name not in self.results:
                 specific_name = name
             getattr(self, "_check_top_value_%s" % method)(
                 specific_name, field, count=count,
+                database=ivre.db.db.nmap, command="scancli"
             )
 
-    def check_count_value_api(self, name_or_value, flt):
-        count = ivre.db.db.nmap.count(flt)
+    def check_view_top_value(self, name, field, count=10):
+        for method in ['api', 'cli']:
+            specific_name = "%s_%s" % (name, method)
+            if name in self.results and specific_name not in self.results:
+                specific_name = name
+            getattr(self, "_check_top_value_%s" % method)(
+                specific_name, field, count=count,
+                database=ivre.db.db.view, command="view"
+            )
+
+    def check_count_value_api(self, name_or_value, flt, database=None,
+                              **kwargs):
+        count = database.count(flt)
         if name_or_value is None:
             pass
         elif isinstance(name_or_value, str):
@@ -387,8 +431,9 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(name_or_value, count)
         return count
 
-    def check_count_value_cli(self, name_or_value, cliflt):
-        res, out, _ = RUN(["ivre", "scancli", "--count"] + cliflt)
+    def check_count_value_cli(self, name_or_value, cliflt, command="",
+                              **kwargs):
+        res, out, _ = RUN(["ivre", command, "--count"] + cliflt)
         self.assertEqual(res, 0)
         count = int(out)
         if name_or_value is None:
@@ -417,12 +462,22 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(name_or_value, count)
         return count
 
-    def check_count_value(self, name_or_value, flt, cliflt, webflt):
-        cnt1 = self.check_count_value_api(name_or_value, flt)
-        cnt2 = self.check_count_value_cli(name_or_value, cliflt)
+    def check_nmap_count_value(self, name_or_value, flt, cliflt, webflt):
+        cnt1 = self.check_count_value_api(name_or_value, flt,
+                                          database=ivre.db.db.nmap)
+        cnt2 = self.check_count_value_cli(name_or_value, cliflt,
+                                          command="scancli")
         cnt3 = self.check_count_value_cgi(name_or_value, webflt)
         self.assertEqual(cnt1, cnt2)
         self.assertEqual(cnt1, cnt3)
+        return cnt1
+
+    def check_view_count_value(self, name_or_value, flt, cliflt, webflt):
+        cnt1 = self.check_count_value_api(name_or_value, flt,
+                                          database=ivre.db.db.view)
+        cnt2 = self.check_count_value_cli(name_or_value, cliflt,
+                                          command="view")
+        self.assertEqual(cnt1, cnt2)
         return cnt1
 
     def find_record_cgi(self, predicate, webflt=None):
@@ -479,7 +534,7 @@ which `predicate()` is True, given `webflt`.
                              stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
-    def test_nmap(self):
+    def test_30_nmap(self):
 
         # Start a Web server
         self.start_web_server()
@@ -685,11 +740,12 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)
 
-        hosts_count = self.check_count_value("nmap_get_count",
+        hosts_count = self.check_nmap_count_value("nmap_get_count",
                                              ivre.db.db.nmap.flt_empty,
                                              [], None)
 
-        self.check_count_value_api(0, ivre.db.db.nmap.searchnonexistent())
+        self.check_count_value_api(0, ivre.db.db.nmap.searchnonexistent(),
+                                   database=ivre.db.db.nmap)
 
         # Is the test case OK?
         self.assertGreater(hosts_count, 0)
@@ -715,29 +771,29 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
         self.assertEqual(int(out) + 1, hosts_count)
 
-        portsnb_20 = self.check_count_value(
+        portsnb_20 = self.check_nmap_count_value(
             "nmap_20_ports",
             ivre.db.db.nmap.searchcountopenports(20, 20),
             ["--countports", "20", "20"], "countports:20",
         )
-        self.check_count_value(
+        self.check_nmap_count_value(
             hosts_count - portsnb_20,
             ivre.db.db.nmap.searchcountopenports(20, 20, neg=True),
             ["--no-countports", "20", "20"], "!countports:20",
         )
 
-        portsnb_10_100 = self.check_count_value(
+        portsnb_10_100 = self.check_nmap_count_value(
             "nmap_10-100_ports",
             ivre.db.db.nmap.searchcountopenports(10, 100),
             ["--countports", "10", "100"], "countports:10-100",
         )
-        self.check_count_value(
+        self.check_nmap_count_value(
             hosts_count - portsnb_10_100,
             ivre.db.db.nmap.searchcountopenports(10, 100, neg=True),
             ["--no-countports", "10", "100"], "-countports:10-100",
         )
 
-        self.check_count_value(
+        self.check_nmap_count_value(
             "nmap_extended_eu_count",
             ivre.db.db.nmap.searchcountry(['EU*', 'CH', 'NO']),
             ["--country=EU*,CH,NO"], "country:EU*,CH,NO"
@@ -747,7 +803,7 @@ which `predicate()` is True, given `webflt`.
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty, fields=["addr"]
         ))['addr']
-        self.check_count_value(1, ivre.db.db.nmap.searchhost(addr),
+        self.check_nmap_count_value(1, ivre.db.db.nmap.searchhost(addr),
                                ['--host', ivre.utils.force_int2ip(addr)],
                                ivre.utils.force_int2ip(addr))
         result = next(ivre.db.db.nmap.get(
@@ -757,11 +813,12 @@ which `predicate()` is True, given `webflt`.
         self.check_count_value_api(1, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchhost(addr),
             ivre.db.db.nmap.searchhost(addr),
-        ))
+        ), database=ivre.db.db.nmap)
         recid = ivre.db.db.nmap.getid(
             next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
         )
-        self.check_count_value_api(1, ivre.db.db.nmap.searchid(recid))
+        self.check_count_value_api(1, ivre.db.db.nmap.searchid(recid),
+                                   database=ivre.db.db.nmap)
         self.assertIsNotNone(
             ivre.db.db.nmap.getscan(
                 ivre.db.db.nmap.getscanids(
@@ -770,14 +827,14 @@ which `predicate()` is True, given `webflt`.
             )
         )
 
-        self.check_count_value(0, ivre.db.db.nmap.searchhost("127.12.34.56"),
+        self.check_nmap_count_value(0, ivre.db.db.nmap.searchhost("127.12.34.56"),
                                ["--host", "127.12.34.56"], "127.12.34.56")
 
         generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
         addrrange = sorted((x['addr'] for x in
                             [next(generator), next(generator)]),
                            key=ivre.utils.force_ip2int)
-        addr_range_count = self.check_count_value(
+        addr_range_count = self.check_nmap_count_value(
             None, ivre.db.db.nmap.searchrange(*addrrange),
             ["--range"] + [ivre.utils.force_int2ip(x) for x in addrrange],
             "range:%s-%s" % tuple(ivre.utils.force_int2ip(x)
@@ -787,7 +844,7 @@ which `predicate()` is True, given `webflt`.
         self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchcmp("addr", addrrange[0], '>='),
             ivre.db.db.nmap.searchcmp("addr", addrrange[1], '<='),
-        ))
+        ), database=ivre.db.db.nmap)
         addrrange2 = [
             ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1)
             if isinstance(addrrange[0], basestring) else addrrange[0] - 1,
@@ -797,10 +854,11 @@ which `predicate()` is True, given `webflt`.
         self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchcmp("addr", addrrange2[0], '>'),
             ivre.db.db.nmap.searchcmp("addr", addrrange2[1], '<'),
-        ))
+        ), database=ivre.db.db.nmap)
         self.check_count_value_api(
             hosts_count - addr_range_count,
             ivre.db.db.nmap.searchrange(*addrrange, neg=True),
+            database=ivre.db.db.nmap
         )
         self.check_count_value_cgi(hosts_count - addr_range_count,
                                    "-range:%s-%s" % tuple(addrrange))
@@ -1226,49 +1284,66 @@ which `predicate()` is True, given `webflt`.
         #    "nmap_isakmp_top_products",
         #    ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
         #)
-        self.check_top_value("nmap_ssh_top_port", "port:ssh")
-        self.check_top_value("nmap_http_top_content_type",
+        self.check_nmap_top_value("nmap_ssh_top_port", "port:ssh")
+        self.check_nmap_top_value("nmap_http_top_content_type",
                              "httphdr:content-type")
-        self.check_top_value("nmap_http_top_header", "httphdr.name")
-        self.check_top_value("nmap_http_top_header_value", "httphdr.value")
+        self.check_nmap_top_value("nmap_http_top_header", "httphdr.name")
+        self.check_nmap_top_value("nmap_http_top_header_value", "httphdr.value")
         self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
             ["ivre", "scancli", "--domain", "/^pttsh.*tw$/i",
              "--distinct", "hostnames.name"]
         )
-        self.check_top_value("nmap_top_s7_module_name", "s7.module_name")
-        self.check_top_value("nmap_top_s7_plant", "s7.plant")
-        self.check_top_value("nmap_top_isotsap_product", "product:iso-tsap")
-        self.check_top_value("nmap_top_cert_issuer", "cert.issuer")
-        self.check_top_value("nmap_top_cert_subject", "cert.subject")
-        self._check_top_value_cli("nmap_top_filename", "file")
-        self._check_top_value_cli("nmap_top_filename", "file.filename")
-        self._check_top_value_cli("nmap_top_anonftp_filename", "file:ftp-anon")
-        self._check_top_value_cli("nmap_top_anonftp_filename", "file:ftp-anon.filename")
-        self._check_top_value_cli("nmap_top_uids", "file.uid")
-        self._check_top_value_cli("nmap_top_modbus_deviceids", "modbus.deviceid")
-        self._check_top_value_cli("nmap_top_services", "service")
-        self._check_top_value_cli("nmap_top_product", "product")
-        self._check_top_value_cli("nmap_top_product_http", "product:http")
-        self._check_top_value_cli("nmap_top_version", "version")
-        self._check_top_value_cli("nmap_top_version_http", "version:http")
-        self._check_top_value_cli("nmap_top_version_http_apache", "version:http:Apache")
+        self.check_nmap_top_value("nmap_top_s7_module_name", "s7.module_name")
+        self.check_nmap_top_value("nmap_top_s7_plant", "s7.plant")
+        self.check_nmap_top_value("nmap_top_isotsap_product", "product:iso-tsap")
+        self.check_nmap_top_value("nmap_top_cert_issuer", "cert.issuer")
+        self.check_nmap_top_value("nmap_top_cert_subject", "cert.subject")
+        self._check_top_value_cli("nmap_top_filename", "file", command="scancli")
+        self._check_top_value_cli("nmap_top_filename", "file.filename",
+                                  command="scancli")
+        self._check_top_value_cli("nmap_top_anonftp_filename", "file:ftp-anon",
+                                  command="scancli")
+        self._check_top_value_cli("nmap_top_anonftp_filename", "file:ftp-anon.filename",
+                                  command="scancli")
+        self._check_top_value_cli("nmap_top_uids", "file.uid", command="scancli")
+        self._check_top_value_cli("nmap_top_modbus_deviceids", "modbus.deviceid",
+                                  command="scancli")
+        self._check_top_value_cli("nmap_top_services", "service", command="scancli")
+        self._check_top_value_cli("nmap_top_product", "product", command="scancli")
+        self._check_top_value_cli("nmap_top_product_http", "product:http",
+                                  command="scancli")
+        self._check_top_value_cli("nmap_top_version", "version", command="scancli")
+        self._check_top_value_cli("nmap_top_version_http", "version:http",
+                                  command="scancli")
+        self._check_top_value_cli("nmap_top_version_http_apache", "version:http:Apache",
+                                  command="scancli")
         categories = ivre.db.db.nmap.topvalues("category")
         category = next(categories)
         self.assertEqual(category["_id"], "TEST")
         self.assertEqual(category["count"], hosts_count)
         with self.assertRaises(StopIteration):
             next(categories)
-        self._check_top_value_api("nmap_topsrv", "service")
-        self._check_top_value_api("nmap_topsrv_80", "service:80")
-        self._check_top_value_api("nmap_topprod", "product")
-        self._check_top_value_api("nmap_topprod_80", "product:80")
-        self._check_top_value_api("nmap_topdevtype", "devicetype")
-        self._check_top_value_api("nmap_topdevtype_80", "devicetype:80")
-        self._check_top_value_api("nmap_topdomain", "domains")
-        self._check_top_value_api("nmap_topdomains_1", "domains:1")
-        self._check_top_value_api("nmap_tophop", "hop")
-        self._check_top_value_api("nmap_tophop_10+", "hop>10")
+        self._check_top_value_api("nmap_topsrv", "service",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topsrv_80", "service:80",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topprod", "product",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topprod_80", "product:80",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topdevtype", "devicetype",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topdevtype_80", "devicetype:80",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topdomain", "domains",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_topdomains_1", "domains:1",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_tophop", "hop",
+                                  database=ivre.db.db.nmap)
+        self._check_top_value_api("nmap_tophop_10+", "hop>10",
+                                  database=ivre.db.db.nmap)
         locations = list(ivre.db.db.nmap.getlocations(
             ivre.db.db.nmap.flt_empty
         ))
@@ -1319,22 +1394,22 @@ which `predicate()` is True, given `webflt`.
         self.check_value("nmap_max_moduli_ssh_reuse", maxcount)
 
         # http headers
-        self.check_count_value("nmap_count_httphdr",
+        self.check_nmap_count_value("nmap_count_httphdr",
                                ivre.db.db.nmap.searchhttphdr(),
                                ["--httphdr", ""], "httphdr")
-        self.check_count_value(
+        self.check_nmap_count_value(
             "nmap_count_httphdr_contentype",
             ivre.db.db.nmap.searchhttphdr(name="content-type"),
             ["--httphdr", "content-type"], "httphdr:content-type",
         )
-        self.check_count_value(
+        self.check_nmap_count_value(
             "nmap_count_httphdr_contentype_textplain",
             ivre.db.db.nmap.searchhttphdr(name="content-type",
                                           value="text/plain"),
             ["--httphdr", "content-type:text/plain"],
             "httphdr:content-type:text/plain",
         )
-        self.check_count_value(
+        self.check_nmap_count_value(
             "nmap_count_httphdr_contentype_plain",
             ivre.db.db.nmap.searchhttphdr(name="content-type",
                                           value=re.compile("plain", re.I)),
@@ -1353,12 +1428,7 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(count, 0)
         hosts_count -= 1
 
-        if DATABASE not in ["postgres", "sqlite"]:
-            # FIXME: for some reason, this does not terminate
-            self.assertEqual(RUN(["ivre", "scancli", "--init"],
-                                 stdin=open(os.devnull))[0], 0)
-
-    def test_passive(self):
+    def test_40_passive(self):
 
         if DATABASE == "postgres":
             # FIXME: tests are broken with PostgreSQL & --no-bulk
@@ -1395,34 +1465,7 @@ which `predicate()` is True, given `webflt`.
                 env=broenv)
             broprocess.wait()
 
-        time.sleep(1) # Hack for Travis CI
-        pid = os.fork()
-        if pid < 0:
-            raise Exception("Cannot fork")
-        elif pid:
-            # Wait for child process to handle every file in "logs"
-            while any(walk[2] for walk in os.walk("logs")):
-                print(u"Waiting for passivereconworker")
-                time.sleep(2)
-            os.kill(pid, signal.SIGINT)
-            os.waitpid(pid, 0)
-        elif USE_COVERAGE:
-            os.execvp(
-                sys.executable,
-                COVERAGE + [
-                    "run", "--parallel-mode", which("ivre"),
-                    "passivereconworker", "--directory", "logs",
-                    "--progname", " ".join(
-                        pipes.quote(elt) for elt in
-                        COVERAGE + ["run", "--parallel-mode", which("ivre"),
-                                    "passiverecon2db", bulk_mode]
-                    ),
-                ],
-            )
-        else:
-            os.execlp("ivre", "ivre", "passivereconworker", "--directory",
-                      "logs", "--progname",
-                      "ivre passiverecon2db %s" % bulk_mode)
+        run_passiverecon_worker(bulk_mode=bulk_mode)
 
         # Counting
         total_count = ivre.db.db.passive.count(
@@ -1812,11 +1855,6 @@ which `predicate()` is True, given `webflt`.
                 )
                 if 'source' in rec
             ))
-
-        self.assertEqual(RUN(["ivre", "ipinfo", "--init"],
-                             stdin=open(os.devnull))[0], 0)
-        # Clean
-        shutil.rmtree("logs")
 
 
     # This test have to be done first.
@@ -2305,12 +2343,95 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(int(out), 4)
 
         # Clean
-        self.assertEqual(RUN(["ivre", "scancli", "--init"],
-                             stdin=open(os.devnull))[0], 0)
-        self.assertEqual(RUN(["ivre", "runscansagentdb", "--init"],
-                             stdin=open(os.devnull))[0], 0)
         for dirname in ['scans', 'tmp']:
             shutil.rmtree(dirname)
+
+    def test_50_view(self):
+
+        # Start a Web server to test CGI
+#        self.start_web_server()
+
+        # Init DB
+        self.assertEqual(RUN(["ivre", "view", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+        self.assertEqual(RUN(["ivre", "view", "--count"])[1], b"0\n")
+
+        # Test insertion
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_passive", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "nmap"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_active", len(out.splitlines()))
+
+        view_count = 0
+        # Count passive results
+        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        ret, out, _ = RUN(["ivre", "view", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_passive", view_count)
+        self.assertEqual(RUN(["ivre", "view", "--init"],
+                             stdin=open(os.devnull))[0], 0)
+        # Count active results
+        self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
+        ret, out, _ = RUN(["ivre", "view", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_active", view_count)
+        # Count merged results
+        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        ret, out, _ = RUN(["ivre", "view", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_total", view_count)
+        view_count = self.check_view_count_value("view_get_count",
+                                                 ivre.db.db.view.flt_empty,
+                                                 [], None)
+        ret, out, _ = RUN(["ivre", "view"])
+        self.assertEqual(ret, 0)
+        self.assertEqual(len(out.splitlines()), view_count)
+
+
+        # Filters
+        self.check_view_top_value("view_ssh_top_port", "port:ssh")
+        self.check_view_top_value("view_http_top_content_type",
+                             "httphdr:content-type")
+        self.check_view_top_value("view_http_top_header", "httphdr.name")
+        self.check_view_top_value("view_http_top_header_value", "httphdr.value")
+        self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
+        self.check_view_top_value("view_top_s7_plant", "s7.plant")
+        self.check_view_top_value("view_top_isotsap_product", "product:iso-tsap")
+        self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
+        self.check_view_top_value("view_top_cert_subject", "cert.subject")
+        self.check_view_top_value("view_top_filename", "file")
+        self.check_view_top_value("view_top_filename", "file.filename")
+        self.check_view_top_value("view_top_anonftp_filename", "file:ftp-anon")
+        self.check_view_top_value("view_top_anonftp_filename", "file:ftp-anon.filename")
+        self.check_view_top_value("view_top_uids", "file.uid")
+        self.check_view_top_value("view_top_modbus_deviceids", "modbus.deviceid")
+        self.check_view_top_value("view_top_services", "service")
+        self.check_view_top_value("view_top_product", "product")
+        self.check_view_top_value("view_top_product_http", "product:http")
+        self.check_view_top_value("view_top_version", "version")
+        self.check_view_top_value("view_top_version_http", "version:http")
+        self.check_view_top_value("view_top_version_http_apache", "version:http:Apache")
+        categories = ivre.db.db.view.topvalues("category")
+        category = next(categories)
+        self.assertEqual(category["_id"], "TEST")
+        self.check_view_top_value("view_topsrv", "service")
+        self.check_view_top_value("view_topsrv_80", "service:80")
+        self.check_view_top_value("view_topprod", "product")
+        self.check_view_top_value("view_topprod_80", "product:80")
+        self.check_view_top_value("view_topdevtype", "devicetype")
+        self.check_view_top_value("view_topdevtype_80", "devicetype:80")
+        self.check_view_top_value("view_topdomain", "domains")
+        self.check_view_top_value("view_topdomains_1", "domains:1")
+        self.check_view_top_value("view_tophop", "hop")
+        self.check_view_top_value("view_tophop_10+", "hop>10")
 
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
@@ -2326,15 +2447,25 @@ which `predicate()` is True, given `webflt`.
         if not has_env_conf:
             del os.environ["IVRE_CONF"]
 
+    def test_90_cleanup(self):
+        # Clean DB
+        if DATABASE not in ["postgres", "sqlite"]:
+            # FIXME: for some reason, this does not terminate
+            RUN(['ivre', 'scancli', '--init'], stdin=open(os.devnull))
+        RUN(['ivre', 'ipinfo', '--init'], stdin=open(os.devnull))
+        RUN(['ivre', 'view', '--init'], stdin=open(os.devnull))
+        RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
 
-TESTS = set(["nmap", "passive", "10_data", "utils", "scans", "conf"])
+
+TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "90_cleanup",
+             "conf", "scans", "utils"])
 
 
 DATABASES = {
     # **excluded** tests
     #"mongo": ["flow"],
     "postgres": ["scans"],
-    "sqlite": ["nmap", "scans"],
+    "sqlite": ["30_nmap", "scans", "50_view"],
 }
 
 
