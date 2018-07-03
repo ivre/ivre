@@ -144,11 +144,11 @@ def get_nmap_action(action):
     postamble = "]\n"
     r2res = lambda x: x
     if action == "timeline":
-        if hasattr(db.nmap, "get_open_port_count"):
-            result = list(db.nmap.get_open_port_count(flt_params.flt))
+        if hasattr(db.view, "get_open_port_count"):
+            result = list(db.view.get_open_port_count(flt_params.flt))
             count = len(result)
         else:
-            result = db.nmap.get(
+            result = db.view.get(
                 flt_params.flt, fields=['addr', 'starttime', 'openports.count']
             )
             count = result.count()
@@ -166,7 +166,7 @@ def get_nmap_action(action):
     elif action == "coordinates":
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
         postamble = ']}\n'
-        result = list(db.nmap.getlocations(flt_params.flt))
+        result = list(db.view.getlocations(flt_params.flt))
         count = len(result)
         r2res = lambda r: {
             "type": "Point",
@@ -174,14 +174,16 @@ def get_nmap_action(action):
             "properties": {"count": r['count']},
         }
     elif action == "countopenports":
-        if hasattr(db.nmap, "get_open_port_count"):
-            result = db.nmap.get_open_port_count(flt_params.flt)
+        if hasattr(db.view, "get_open_port_count"):
+            result = db.view.get_open_port_count(flt_params.flt)
         else:
-            result = db.nmap.get(flt_params.flt, fields=['addr', 'openports.count'])
+            result = db.view.get(flt_params.flt,
+                                 fields=['addr', 'openports.count'])
         if hasattr(result, "count"):
             count = result.count()
         else:
-            count = db.nmap.count(flt_params.flt, fields=['addr', 'openports.count'])
+            count = db.view.count(flt_params.flt,
+                                  fields=['addr', 'openports.count'])
         if flt_params.ipsasnumbers:
             r2res = lambda r: [utils.force_ip2int(r['addr']),
                                r['openports']['count']]
@@ -189,12 +191,13 @@ def get_nmap_action(action):
             r2res = lambda r: [utils.force_int2ip(r['addr']),
                                r['openports']['count']]
     elif action == "ipsports":
-        if hasattr(db.nmap, "get_ips_ports"):
-            result = list(db.nmap.get_ips_ports(flt_params.flt))
+        if hasattr(db.view, "get_ips_ports"):
+            result = list(db.view.get_ips_ports(flt_params.flt))
             count = sum(len(host.get('ports', [])) for host in result)
         else:
-            result = db.nmap.get(
-                flt_params.flt, fields=['addr', 'ports.port', 'ports.state_state']
+            result = db.view.get(
+                flt_params.flt,
+                fields=['addr', 'ports.port', 'ports.state_state']
             )
             count = sum(len(host.get('ports', [])) for host in result)
             result.rewind()
@@ -213,23 +216,23 @@ def get_nmap_action(action):
                  if 'state_state' in p]
             ]
     elif action == "onlyips":
-        result = db.nmap.get(flt_params.flt, fields=['addr'])
+        result = db.view.get(flt_params.flt, fields=['addr'])
         if hasattr(result, "count"):
             count = result.count()
         else:
-            count = db.nmap.count(flt_params.flt, fields=['addr'])
+            count = db.view.count(flt_params.flt, fields=['addr'])
         if flt_params.ipsasnumbers:
             r2res = lambda r: utils.force_ip2int(r['addr'])
         else:
             r2res = lambda r: utils.force_int2ip(r['addr'])
     elif action == "diffcats":
         if request.params.get("onlydiff"):
-            output = db.nmap.diff_categories(request.params.get("cat1"),
+            output = db.view.diff_categories(request.params.get("cat1"),
                                              request.params.get("cat2"),
                                              flt=flt_params.flt,
                                              include_both_open=False)
         else:
-            output = db.nmap.diff_categories(request.params.get("cat1"),
+            output = db.view.diff_categories(request.params.get("cat1"),
                                              request.params.get("cat2"),
                                              flt=flt_params.flt)
         count = 0
@@ -280,7 +283,7 @@ def get_nmap_action(action):
 @check_referer
 def get_nmap_count():
     flt_params = get_nmap_base()
-    count = db.nmap.count(flt_params.flt)
+    count = db.view.count(flt_params.flt)
     if flt_params.callback is None:
         return "%d\n" % count
     return "%s(%d);\n" % (flt_params.callback, count)
@@ -308,7 +311,7 @@ def get_nmap_top(field):
     else:
         yield "%s([\n" % flt_params.callback
     # hack to avoid a trailing comma
-    cursor = iter(db.nmap.topvalues(field, flt=flt_params.flt, least=least,
+    cursor = iter(db.view.topvalues(field, flt=flt_params.flt, least=least,
                                     topnbr=topnbr))
     try:
         rec = next(cursor)
@@ -332,9 +335,9 @@ def get_nmap():
     ## PostgreSQL: the query plan if affected by the limit and gives
     ## really poor results. This is a temporary workaround (look for
     ## XXX-WORKAROUND-PGSQL)
-    # result = db.nmap.get(flt_params.flt, limit=flt_params.limit,
+    # result = db.view.get(flt_params.flt, limit=flt_params.limit,
     #                      skip=flt_params.skip, sort=flt_params.sortby)
-    result = db.nmap.get(flt_params.flt, skip=flt_params.skip,
+    result = db.view.get(flt_params.flt, skip=flt_params.skip,
                          sort=flt_params.sortby)
 
     if flt_params.unused:
@@ -349,7 +352,7 @@ def get_nmap():
         yield webutils.js_del_alert("param-unused")
 
     if config.DEBUG:
-        msg1 = "filter: %s" % db.nmap.flt2str(flt_params.flt)
+        msg1 = "filter: %s" % db.view.flt2str(flt_params.flt)
         msg2 = "user: %r" % webutils.get_user()
         utils.LOGGER.debug(msg1)
         utils.LOGGER.debug(msg2)
@@ -393,7 +396,7 @@ def get_nmap():
                         hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
         yield "%s\t%s" % ('' if i == 0 else ',\n',
                           json.dumps(rec, default=utils.serialize))
-        check = db.nmap.cmp_schema_version_host(rec)
+        check = db.view.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
         # XXX-WORKAROUND-PGSQL
@@ -407,8 +410,9 @@ def get_nmap():
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
                           "the following command: 'ivre scancli "
-                          "--update-schema;" % (count, 's' if count > 1 else '',
-                                           'are' if count > 1 else 'is')),
+                          "--update-schema;" % (count,
+                                                's' if count > 1 else '',
+                                                'are' if count > 1 else 'is')),
         -1: lambda count: ('%d document%s displayed ha%s been inserted by '
                            'a more recent version of IVRE. Please update '
                            'IVRE!' % (count, 's' if count > 1 else '',
