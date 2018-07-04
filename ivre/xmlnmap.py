@@ -1736,7 +1736,7 @@ class Nmap2DB(NmapHandler):
 
     """Specific handler for MongoDB backend."""
 
-    def __init__(self, fname, categories=None, source=None,
+    def __init__(self, fname, categories=None, source=None, callback=None,
                  add_addr_infos=True, merge=False, **kargs):
         from ivre import db
         self._db = db.db
@@ -1747,6 +1747,7 @@ class Nmap2DB(NmapHandler):
         self._add_addr_infos = add_addr_infos
         self.source = source
         self.merge = merge
+        self.callback = callback
         NmapHandler.__init__(self, fname, categories=categories,
                              source=source, add_addr_infos=add_addr_infos,
                              merge=merge, **kargs)
@@ -1775,6 +1776,8 @@ class Nmap2DB(NmapHandler):
             self.scan_doc_saved = True
             self._storescan()
         self._db.nmap.store_or_merge_host(self._curhost, merge=self.merge)
+        if self.callback is not None:
+            self.callback(self._curhost)
 
     def _storescan(self):
         ident = self._db.nmap.store_scan_doc(self._curscan)

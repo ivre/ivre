@@ -1125,7 +1125,7 @@ class DBNmap(DBActive):
             raise ValueError("Unknown file type %s" % fname)
         return store_scan_function(fname, filehash=scanid, **kargs)
 
-    def store_scan_xml(self, fname, **kargs):
+    def store_scan_xml(self, fname, callback=None, **kargs):
         """This method parses an XML scan result, displays a JSON
         version of the result, and return True if everything went
         fine, False otherwise.
@@ -1133,6 +1133,10 @@ class DBNmap(DBActive):
         In backend-specific subclasses, this method stores the result
         instead of displaying it, thanks to the `content_handler`
         attribute.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
 
         """
         parser = xml.sax.make_parser()
@@ -1142,6 +1146,7 @@ class DBNmap(DBActive):
         except Exception:
             utils.LOGGER.warning('Exception (file %r)', fname, exc_info=True)
         else:
+            content_handler.callback = callback
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
             parser.parse(utils.open_file(fname))
@@ -1156,7 +1161,7 @@ class DBNmap(DBActive):
                         needports=False, needopenports=False,
                         categories=None, source=None,
                         add_addr_infos=True, force_info=False,
-                        merge=False, **_):
+                        merge=False, callback=None, **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -1164,6 +1169,10 @@ class DBNmap(DBActive):
         In backend-specific subclasses, this method stores the result
         instead of displaying it, thanks to the `store_host`
         method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
 
         """
         if categories is None:
@@ -1214,6 +1223,8 @@ class DBNmap(DBActive):
                         pass
                     else:
                         self.store_host(host)
+                if callback is not None:
+                    callback(host)
         self.stop_store_hosts()
         return True
 
