@@ -2045,6 +2045,12 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(ivre.utils.get_addr_type('255.255.255.254'), 'Reserved')
         self.assertEqual(ivre.utils.get_addr_type('255.255.255.255'), 'Broadcast')
 
+        # ip2int() / int2ip()
+        self.assertEqual(ivre.utils.ip2int("1.0.0.1"), (1 << 24) + 1)
+        self.assertEqual(ivre.utils.int2ip((1 << 24) + 1), "1.0.0.1")
+        self.assertEqual(ivre.utils.ip2int('::2:0:0:0:2'), (2 << 64) + 2)
+        self.assertEqual(ivre.utils.int2ip((2 << 64) + 2), '::2:0:0:0:2')
+
         # Math utils
         # http://stackoverflow.com/a/15285588/3223422
         def is_prime(n):

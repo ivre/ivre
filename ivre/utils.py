@@ -98,7 +98,13 @@ def ip2int(ipstr):
         ipstr = ipstr.decode()
     except AttributeError:
         pass
-    return struct.unpack('!I', socket.inet_aton(ipstr))[0]
+    try:
+        return struct.unpack('!I', socket.inet_aton(ipstr))[0]
+    except socket.error:
+        val1, val2 = struct.unpack(
+            '!QQ', socket.inet_pton(socket.AF_INET6, ipstr),
+        )
+        return (val1 << 64) + val2
 
 
 def force_ip2int(ipstr):
@@ -114,7 +120,15 @@ def int2ip(ipint):
     classical decimal, dot-separated, string representation.
 
     """
-    return socket.inet_ntoa(struct.pack('!I', ipint))
+    try:
+        if ipint > 0xffffffff:  # Python 2.6 would handle the overflow
+            raise struct.error()
+        return socket.inet_ntoa(struct.pack('!I', ipint))
+    except struct.error:
+        return socket.inet_ntop(
+            socket.AF_INET6,
+            struct.pack('!QQ', ipint >> 64, ipint & 0xffffffffffffffff),
+        )
 
 
 def force_int2ip(ipint):
