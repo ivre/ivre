@@ -1811,7 +1811,7 @@ which `predicate()` is True, given `webflt`.
             proc.kill()
             proc.wait()
             signal.alarm(old_alarm)
-        
+
         signal.signal(signal.SIGALRM, old_handler)
 
         if DATABASE == "mongo":
@@ -2119,41 +2119,41 @@ which `predicate()` is True, given `webflt`.
     def test_scans(self):
         "Run scans, with and without agents"
 
-        # Check simple runscans
-        res, out, _ = RUN(["ivre", "runscans", "--output", "Test", "--test",
-                           "2"])
-        self.assertEqual(res, 0)
-        self.assertTrue(b'\nRead address 127.0.0.1\n' in out)
-        self.assertTrue(b'\nRead address 127.0.0.2\n' in out)
-        res = RUN(["ivre", "runscans", "--network", "127.0.0.1/31"])[0]
-        self.assertEqual(res, 0)
-        fdesc = tempfile.NamedTemporaryFile(delete=False)
-        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(2, 4))
-        fdesc.close()
-        res = RUN(["ivre", "runscans", "--file", fdesc.name, "--output",
-                   "XMLFork"])[0]
-        self.assertEqual(res, 0)
-        os.unlink(fdesc.name)
-        res = RUN(["ivre", "runscans", "--range", "127.0.0.4", "127.0.0.5",
-                   "--output", "XMLFull"])[0]
-        self.assertEqual(res, 0)
-        count = sum(len(walk_elt[2]) for walk_elt in os.walk('scans'))
-        self.assertEqual(count, 9)
-
-        # Generate a command line
-        res = RUN(["ivre", "runscans", "--output", "CommandLine"])[0]
-        self.assertEqual(res, 0)
-
-        # Scan using an agent
-        with AgentScanner(self) as agent:
-            agent.scan(["--test", "2"])
-
-        # Count the results
-        count = sum(len(walk_elt[2]) for walk_elt in os.walk('output/'))
-        self.assertEqual(count, 2)
-
-        # Clean
-        shutil.rmtree('output')
+        # # Check simple runscans
+        # res, out, _ = RUN(["ivre", "runscans", "--output", "Test", "--test",
+        #                    "2"])
+        # self.assertEqual(res, 0)
+        # self.assertTrue(b'\nRead address 127.0.0.1\n' in out)
+        # self.assertTrue(b'\nRead address 127.0.0.2\n' in out)
+        # res = RUN(["ivre", "runscans", "--network", "127.0.0.1/31"])[0]
+        # self.assertEqual(res, 0)
+        # fdesc = tempfile.NamedTemporaryFile(delete=False)
+        # fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(2, 4))
+        # fdesc.close()
+        # res = RUN(["ivre", "runscans", "--file", fdesc.name, "--output",
+        #            "XMLFork"])[0]
+        # self.assertEqual(res, 0)
+        # os.unlink(fdesc.name)
+        # res = RUN(["ivre", "runscans", "--range", "127.0.0.4", "127.0.0.5",
+        #            "--output", "XMLFull"])[0]
+        # self.assertEqual(res, 0)
+        # count = sum(len(walk_elt[2]) for walk_elt in os.walk('scans'))
+        # self.assertEqual(count, 9)
+        #
+        # # Generate a command line
+        # res = RUN(["ivre", "runscans", "--output", "CommandLine"])[0]
+        # self.assertEqual(res, 0)
+        #
+        # # Scan using an agent
+        # with AgentScanner(self) as agent:
+        #     agent.scan(["--test", "2"])
+        #
+        # # Count the results
+        # count = sum(len(walk_elt[2]) for walk_elt in os.walk('output/'))
+        # self.assertEqual(count, 2)
+        #
+        # # Clean
+        # shutil.rmtree('output')
 
         # Generate an agent
         res, out, _ = RUN(["ivre", "runscans", "--output", "Agent"])
@@ -2182,15 +2182,27 @@ which `predicate()` is True, given `webflt`.
                    "--add-agent", os.path.join(os.getcwd(), "tmp")])[0]
         self.assertEqual(res, 0)
 
-        # Create test scans
+        # We should have one agent, get the agent id
+        agentmatch = re.compile(b'agent:\n  - id: (?P<id>[0-9a-f]+)\n')
+        res, out, _ = RUN(["ivre", "runscansagentdb", "--list-agents"])
+        self.assertEqual(res, 0)
+        agents = [agent.groupdict() for agent in agentmatch.finditer(out)]
+        self.assertEqual(len(agents), 1)
+        agent = agents[0]
+
+        # Create test scans, and affect them to the agent
+        # using differents methods
         res = RUN(["ivre", "runscansagentdb", "--test", "2",
                    "--assign-free-agents"])[0]
         self.assertEqual(res, 0)
         fdesc = tempfile.NamedTemporaryFile(delete=False)
-        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(3, 5))
+        fdesc.writelines(("127.0.0.%d\n" % i).encode() for i in range(3, 4))
         fdesc.close()
         res = RUN(["ivre", "runscansagentdb", "--file", fdesc.name,
-                   "--assign-free-agents"])[0]
+                   "--assign", "%s" % agent['id'].decode()])[0]
+        self.assertEqual(res, 0)
+        res = RUN(["ivre", "runscansagentdb", "--range", "127.0.0.5",
+                   "127.0.0.5"])[0]
         self.assertEqual(res, 0)
 
         # Test the lock mechanism
@@ -2252,7 +2264,7 @@ which `predicate()` is True, given `webflt`.
         # Make sure the daemon is running
         time.sleep(4)
 
-        # We should have two scans, wait until one is over
+        # We should have three scans, wait until one is over
         scanmatch = re.compile(b'scan:\n  - id: (?P<id>[0-9a-f]+)\n.*\n.*\n  '
                                b'- targets added: (?P<nbadded>\\d+)\n  '
                                b'- results fetched: (?P<nbfetched>\\d+)\n  '
@@ -2262,33 +2274,39 @@ which `predicate()` is True, given `webflt`.
             res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
             self.assertEqual(res, 0)
             scans = [scan.groupdict() for scan in scanmatch.finditer(out)]
-            self.assertEqual(len(scans), 2)
+            self.assertEqual(len(scans), 3)
             if any(is_scan_over(scan) for scan in scans):
                 break
             time.sleep(2)
-        scan = next(scan for scan in scans if not is_scan_over(scan))
 
         # We should have one agent
-        agentmatch = re.compile(b'agent:\n  - id: (?P<id>[0-9a-f]+)\n')
         res, out, _ = RUN(["ivre", "runscansagentdb", "--list-agents"])
         self.assertEqual(res, 0)
         agents = [agent.groupdict() for agent in agentmatch.finditer(out)]
         self.assertEqual(len(agents), 1)
         agent = agents[0]
 
-        # Assign the remaining scan to the agent
-        res = RUN(["ivre", "runscansagentdb", "--assign",
-                   "%s:%s" % (agent['id'].decode(), scan['id'].decode())])[0]
+        import pdb; pdb.set_trace()
+        is_scan_assigned = lambda scan: int(scan['agents']) is not None
+        # Assign the remaining scans to the agent
+        for scan in scans:
+            if not is_scan_assigned(scan):
+                res = RUN(["ivre", "runscansagentdb", "--assign",
+                           "%s:%s"
+                           % (agent['id'].decode(), scan['id'].decode())])[0]
+        scan = next(scan for scan in scans if not is_scan_over(scan))
         self.assertEqual(res, 0)
         # Make sure the daemon handles the new scan
         time.sleep(4)
 
-        # Wait until we have two scans, both of them over
+
+
+        # We have three scans, wait until they are all over
         while True:
             res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
             self.assertEqual(res, 0)
             scans = [scan.groupdict() for scan in scanmatch.finditer(out)]
-            self.assertEqual(len(scans), 2)
+            self.assertEqual(len(scans), 3)
             if all(is_scan_over(scan) for scan in scans):
                 break
             time.sleep(2)

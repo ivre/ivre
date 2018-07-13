@@ -124,6 +124,10 @@ Now we can add a scan, and assign the (available) agents to that scan:
 
     $ ivre runscansagentdb --assign-free-agents --routable --limit 1000
 
+We can also specify an agent id for the scan:
+
+        $ ivre runscansagentdb --assign 543bfc8a312f915728f1709b --routable --limit 1000
+
 And see if it works:
 
     $ ivre runscansagentdb --list-scans
