@@ -143,7 +143,9 @@ def main():
     parser.add_argument('--list-agents', action="store_true")
     parser.add_argument('--list-scans', action="store_true")
     parser.add_argument('--list-masters', action="store_true")
-    parser.add_argument('--assign', metavar="AGENT:SCAN")
+    parser.add_argument('--assign', metavar="AGENT(:SCAN)", help="""Affect a
+                        scan with an agent or affect an agent to use when
+                        specifying a target""")
     parser.add_argument('--unassign', metavar="AGENT")
     parser.add_argument('--force-unlock', action="store_true")
     parser.add_argument('--init', action="store_true",
@@ -193,23 +195,29 @@ def main():
         for agentid in args.del_agent:
             ivre.db.db.agent.del_agent(ivre.db.db.agent.str2id(agentid))
 
-    if args.assign is not None:
+    if args.unassign is not None:
+        ivre.db.db.agent.unassign_agent(ivre.db.db.agent.str2id(args.unassign))
+
+    targets = ivre.target.target_from_args(args)
+    if targets is not None:
+        if args.assign is not None:
+            agentid = ivre.db.db.agent.str2id(args.assign)
+            ivre.db.db.agent.add_scan(
+                 targets,
+                 assign_to_agent=agentid)
+        elif args.assign_free_agents:
+            ivre.db.db.agent.add_scan(
+                 targets,
+                 assign_to_agent=args.assign_free_agents)
+        else:
+            ivre.db.db.agent.add_scan(targets)
+    elif args.assign is not None:
         try:
             agentid, scanid = (ivre.db.db.agent.str2id(elt) for elt in
                                args.assign.split(':', 1))
         except ValueError:
             parser.error("argument --assign: must give agentid:scanid")
         ivre.db.db.agent.assign_agent(agentid, scanid)
-
-    if args.unassign is not None:
-        ivre.db.db.agent.unassign_agent(ivre.db.db.agent.str2id(args.unassign))
-
-    targets = ivre.target.target_from_args(args)
-    if targets is not None:
-        ivre.db.db.agent.add_scan(
-            targets,
-            assign_to_free_agents=bool(args.assign_free_agents)
-        )
 
     if args.force_unlock:
         if os.isatty(sys.stdin.fileno()):
