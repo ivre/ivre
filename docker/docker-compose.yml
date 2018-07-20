@@ -7,7 +7,7 @@ services:
       - ./var_log_mongodb:/var/log/mongodb
       - ./var_lib_neo4j:/var/lib/neo4j/data
       # v3
-      #- var_lib_neo4j:/var/lib/neo4j
+      #- ./var_lib_neo4j:/var/lib/neo4j
       - ./var_log_neo4j:/var/log/neo4j
     restart: always
   ivreweb:
