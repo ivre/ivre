@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,61 +16,62 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+"""Put selected results in views."""
 
 from __future__ import print_function
-try:
-    import argparse
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
 import os
-try:
-    from collections import OrderedDict
-except ImportError:
-    # fallback to dict for Python 2.6
-    OrderedDict = dict
 import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
-
 
 from builtins import input
 
-from ivre import db, graphroute, nmapout
+from ivre import graphroute
+from ivre.db import db
 from ivre.activecli import display_top, display_short, display_distinct, \
     displayfunction_json, displayfunction_honeyd, displayfunction_nmapxml, \
     displayfunction_graphroute, displayfunction_explain, \
     displayfunction_remove, displayfunction_csv
 
+try:
+    import argparse
+    USING_ARGPARSE = True
+except ImportError:
+    import optparse
+    USING_ARGPARSE = False
+
 
 def main():
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
-            description='Access and query the active scans database.',
-            parents=[db.db.nmap.argparser],
-        )
+            description='Print out views.',
+            parents=[db.view.argparser])
     else:
         parser = optparse.OptionParser(
-            description='Access and query the active scans database.',
-        )
-        for args, kargs in db.db.nmap.argparser.args:
+            description='Print out views.')
+        for args, kargs in db.view.argparser.args:
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
+
+        def my_parse_args():
+            res = parser.parse_args_orig()
+            res[0].ensure_value('ips', res[1])
+            return res[0]
+        parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
+
+    flt = db.view.flt_empty
+
+    parser.add_argument('--delete', action='store_true',
+                        help='Remove results instead of displaying them.')
     parser.add_argument('--init', '--purgedb', action='store_true',
-                        help='Purge or create and initialize the database.')
-    parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the '
-                        'database).')
+                        help='Purge or create and initialize view.')
+    parser.add_argument('--verbose', '-v', action='store_true',
+                        help='Print out formated results.')
+    parser.add_argument('--count', action='store_true',
+                        help='Output number of results.')
     parser.add_argument('--short', action='store_true',
-                        help='Output only IP addresses, one per line.')
+                        help='Print only addresses of filtered results.')
+    parser.add_argument('--distinct', metavar='FIELD',
+                        help='Output only unique FIELD part of the results.')
     parser.add_argument('--json', action='store_true',
                         help='Output results as JSON documents.')
     parser.add_argument('--no-screenshots', action='store_true',
@@ -98,23 +99,12 @@ def main():
     parser.add_argument('--graphroute-include', choices=['last-hop', 'target'],
                         help='How far should graphroute go? Default if to '
                         'exclude the last hop and the target for each result.')
-    parser.add_argument('--count', action='store_true',
-                        help='Count matched results.')
     parser.add_argument('--explain', action='store_true',
                         help='MongoDB specific: .explain() the query.')
-    parser.add_argument('--distinct', metavar='FIELD',
-                        help='Output only unique FIELD part of the '
-                        'results, one per line.')
     parser.add_argument('--top', metavar='FIELD / ~FIELD',
                         help='Output most common (least common: ~) values for '
                         'FIELD, by default 10, use --limit to change that, '
                         '--limit 0 means unlimited.')
-    parser.add_argument('--delete', action='store_true',
-                        help='DELETE the matched results instead of '
-                        'displaying them.')
-    parser.add_argument('--update-schema', action='store_true',
-                        help='update (host) schema. Use with --version to '
-                        'specify your current version')
     parser.add_argument('--csv', metavar='TYPE',
                         help='Output result as a CSV file',
                         choices=['ports', 'hops'])
@@ -139,48 +129,40 @@ def main():
                         help='Ouput at most LIMIT results.')
     parser.add_argument('--skip', type=int,
                         help='Skip first SKIP results.')
+
     args = parser.parse_args()
 
-    out = sys.stdout
+    flt = db.view.parse_args(args)
 
-    hostfilter = db.db.nmap.parse_args(args)
-    sortkeys = []
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
-                'This will remove any scan result in your database. '
-                'Process ? [y/N] ')
+                'This will remove any view in your database. Process ? [y/N] '
+            )
             ans = input()
-            if ans.lower() != 'y':
-                sys.exit(-1)
-        db.db.nmap.init()
-        sys.exit(0)
-    if args.ensure_indexes:
-        if os.isatty(sys.stdin.fileno()):
-            sys.stdout.write(
-                'This will lock your database. '
-                'Process ? [y/N] ')
-            ans = input()
-            if ans.lower() != 'y':
-                sys.exit(-1)
-        db.db.nmap.ensure_indexes()
-        sys.exit(0)
+            if ans.lower() not in ['y', 'yes']:
+                exit(0)
+        db.view.init()
+        exit(0)
+
     if args.top is not None:
-        display_top(db.db.nmap, args.top, hostfilter, args.limit)
+        display_top(db.view, args.top, flt, args.limit)
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [(field[1:], -1) if field.startswith('~') else (field, 1)
                     for field in args.sort]
+    else:
+        sortkeys = []
     if args.short:
-        display_short(db.db.nmap, hostfilter, sortkeys, args.limit, args.skip)
+        display_short(db.view, flt, sortkeys, args.limit, args.skip)
         sys.exit(0)
     elif args.distinct is not None:
-        display_distinct(db.db.nmap, args.distinct, hostfilter, sortkeys,
+        display_distinct(db.view, args.distinct, flt, sortkeys,
                          args.limit, args.skip)
         sys.exit(0)
     if args.json:
         displayfunction = lambda x: displayfunction_json(
-            x, db.db.nmap, args.no_screenshots
+            x, db.view, args.no_screenshot
         )
     elif args.honeyd:
         displayfunction = displayfunction_honeyd
@@ -192,9 +174,9 @@ def main():
             args.graphroute_dont_reset
         )
     elif args.explain:
-        displayfunction = lambda x: displayfunction_explain(x, db.db.nmap)
+        displayfunction = lambda x: displayfunction_explain(x, db.view)
     elif args.delete:
-        displayfunction = lambda x: displayfunction_remove(x, db.db.nmap)
+        displayfunction = lambda x: displayfunction_remove(x, db.view)
     elif args.csv is not None:
         displayfunction = lambda x: displayfunction_csv(
             x, args.csv, args.csv_separator, args.csv_na_str,
@@ -203,13 +185,12 @@ def main():
     else:
 
         def displayfunction(cursor):
-            nmapout.displayhosts(cursor, out=out)
+            for rec in cursor:
+                sys.stdout.write(str(rec) + '\n')
 
-    if args.update_schema:
-        db.db.nmap.migrate_schema(args.version)
-    elif args.count:
-        out.write(
-            str(db.db.nmap.count(hostfilter)) + '\n'
+    if args.count:
+        sys.stdout.write(
+            str(db.view.count(flt)) + '\n'
         )
     else:
         kargs = {}
@@ -219,6 +200,6 @@ def main():
             kargs["skip"] = args.skip
         if sortkeys:
             kargs["sort"] = sortkeys
-        cursor = db.db.nmap.get(hostfilter, **kargs)
+        cursor = db.view.get(flt, **kargs)
         displayfunction(cursor)
         sys.exit(0)

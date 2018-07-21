@@ -1001,7 +1001,7 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
-def masscan_parse_x509(data):
+def create_ssl_cert(data):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
 
@@ -1640,7 +1640,7 @@ class NmapHandler(ContentHandler):
             data = self._from_binary(script['masscan']['raw'])
         except KeyError:
             return
-        output_text, output_data = masscan_parse_x509(data)
+        output_text, output_data = create_ssl_cert(data)
         if output_data:
             script["output"] = "\n".join(output_text)
             script[script["id"]] = output_data
@@ -1736,9 +1736,8 @@ class Nmap2DB(NmapHandler):
 
     """Specific handler for MongoDB backend."""
 
-    def __init__(self, fname, categories=None, source=None,
-                 gettoarchive=None, add_addr_infos=True, merge=False,
-                 **kargs):
+    def __init__(self, fname, categories=None, source=None, callback=None,
+                 add_addr_infos=True, merge=False, **kargs):
         from ivre import db
         self._db = db.db
         if categories is None:
@@ -1747,15 +1746,11 @@ class Nmap2DB(NmapHandler):
             self.categories = categories
         self._add_addr_infos = add_addr_infos
         self.source = source
-        if gettoarchive is None:
-            self._gettoarchive = lambda a, s: []
-        else:
-            self._gettoarchive = gettoarchive
         self.merge = merge
+        self.callback = callback
         NmapHandler.__init__(self, fname, categories=categories,
-                             source=source, gettoarchive=gettoarchive,
-                             add_addr_infos=add_addr_infos, merge=merge,
-                             **kargs)
+                             source=source, add_addr_infos=add_addr_infos,
+                             merge=merge, **kargs)
 
     def _to_binary(self, data):
         return self._db.nmap.to_binary(data)
@@ -1780,8 +1775,9 @@ class Nmap2DB(NmapHandler):
         if not self.scan_doc_saved:
             self.scan_doc_saved = True
             self._storescan()
-        self._db.nmap.store_or_merge_host(self._curhost, self._gettoarchive,
-                                          merge=self.merge)
+        self._db.nmap.store_or_merge_host(self._curhost, merge=self.merge)
+        if self.callback is not None:
+            self.callback(self._curhost)
 
     def _storescan(self):
         ident = self._db.nmap.store_scan_doc(self._curscan)

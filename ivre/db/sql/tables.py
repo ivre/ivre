@@ -28,7 +28,7 @@ import sqlite3
 
 
 from sqlalchemy import event, func, Column, ForeignKey, Index, Boolean, \
-    DateTime, Float, Integer, LargeBinary, String, Text
+    DateTime, Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType, TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
@@ -243,18 +243,13 @@ class Flow(Base):
     )
 
 
-# Nmap
-class Association_Scan_ScanFile(Base):
-    __tablename__ = 'association_scan_scanfile'
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
-                  primary_key=True)
-    scan_file = Column(LargeBinary(32), ForeignKey('scan_file.sha256',
-                                                   ondelete='CASCADE'),
-                       primary_key=True)
+# Active
+class _Association_Scan_ScanFile(object):
+    scan = Column(Integer, primary_key=True)
+    scan_file = Column(LargeBinary(32), primary_key=True)
 
 
-class ScanFile(Base):
-    __tablename__ = "scan_file"
+class _ScanFile(object):
     sha256 = Column(LargeBinary(32), primary_key=True)
     args = Column(Text)
     scaninfo = Column(SQLJSONB)
@@ -264,40 +259,26 @@ class ScanFile(Base):
     xmloutputversion = Column(String(16))
 
 
-class Association_Scan_Category(Base):
-    __tablename__ = 'association_scan_category'
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
-                  primary_key=True)
-    category = Column(Integer, ForeignKey('category.id', ondelete='CASCADE'),
-                      primary_key=True)
+class _Association_Scan_Category(object):
+    scan = Column(Integer, primary_key=True)
+    category = Column(Integer, primary_key=True)
 
 
-class Category(Base):
-    __tablename__ = 'category'
+class _Category(object):
     id = Column(Integer, primary_key=True)
     name = Column(String(32))
-    __table_args__ = (
-        Index('ix_category_name', 'name', unique=True),
-    )
 
 
-class Script(Base):
-    __tablename__ = 'script'
-    port = Column(Integer, ForeignKey('port.id', ondelete='CASCADE'),
-                  primary_key=True)
+class _Script(object):
+    port = Column(Integer, primary_key=True)
     name = Column(String(64), primary_key=True)
     output = Column(Text)
     data = Column(SQLJSONB)
-    __table_args__ = (
-        Index('ix_script_data', 'data', postgresql_using='gin'),
-        Index('ix_script_name', 'name'),
-    )
 
 
-class Port(Base):
-    __tablename__ = 'port'
+class _Port(object):
     id = Column(Integer, primary_key=True)
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'))
+    scan = Column(Integer)
     port = Column(Integer)
     protocol = Column(String(16))
     state = Column(String(32))
@@ -314,60 +295,42 @@ class Port(Base):
     service_hostname = Column(String(256))
     service_ostype = Column(String(64))
     service_fp = Column(Text)
-    __table_args__ = (
-        Index('ix_port_scan_port', 'scan', 'port', 'protocol', unique=True),
-    )
 
 
-class Hostname(Base):
-    __tablename__ = "hostname"
+class _Hostname(object):
     id = Column(Integer, primary_key=True)
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'))
+    scan = Column(Integer)
     domains = Column(SQLARRAY(String(255)), index=True)
     name = Column(String(255), index=True)
     type = Column(String(16), index=True)
-    __table_args__ = (
-        Index('ix_hostname_scan_name_type', 'scan', 'name', 'type',
-              unique=True),
-    )
 
 
-class Association_Scan_Hostname(Base):
+class _Association_Scan_Hostname(object):
     __tablename__ = 'association_scan_hostname'
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
-                  primary_key=True)
-    hostname = Column(Integer, ForeignKey('hostname.id', ondelete='CASCADE'),
-                      primary_key=True)
+    scan = Column(Integer, primary_key=True)
+    hostname = Column(Integer, primary_key=True)
 
 
-class Trace(Base):
+class _Trace(object):
     # FIXME: unicity (scan, port, protocol) to handle merge. Special
     # value for port when not present?
-    __tablename__ = "trace"
     id = Column(Integer, primary_key=True)
-    scan = Column(Integer, ForeignKey('scan.id', ondelete='CASCADE'),
-                  nullable=False)
+    scan = Column(Integer, nullable=False)
     port = Column(Integer)
     protocol = Column(String(16))
 
 
-class Hop(Base):
-    __tablename__ = "hop"
+class _Hop(object):
     id = Column(Integer, primary_key=True)
-    trace = Column(Integer, ForeignKey('trace.id', ondelete='CASCADE'),
-                   nullable=False)
+    trace = Column(Integer, nullable=False)
     ipaddr = Column(SQLINET)
     ttl = Column(Integer)
     rtt = Column(Float)
     host = Column(String(255), index=True)
     domains = Column(SQLARRAY(String(255)), index=True)
-    __table_args__ = (
-        Index('ix_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
-    )
 
 
-class Scan(Base):
-    __tablename__ = "scan"
+class _Scan(object):
     id = Column(Integer, primary_key=True)
     addr = Column(SQLINET, nullable=False)
     source = Column(String(32), nullable=False)
@@ -377,19 +340,180 @@ class Scan(Base):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
-    archive = Column(Integer, nullable=False, index=True)
     merge = Column(Boolean, nullable=False)
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
+
+
+# Nmap
+class N_Association_Scan_ScanFile(Base, _Association_Scan_ScanFile):
+    __tablename__ = 'n_association_scan_scanfile'
     __table_args__ = (
-        Index('ix_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_scan_host_archive', 'addr', 'source', 'archive',
+        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(['scan_file'], ['n_scan_file.sha256'],
+                             ondelete='CASCADE')
+    )
+
+
+class N_ScanFile(Base, _ScanFile):
+    __tablename__ = "n_scan_file"
+
+
+class N_Association_Scan_Category(Base, _Association_Scan_Category):
+    __tablename__ = 'n_association_scan_category'
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(['category'], ['n_category.id'],
+                             ondelete='CASCADE'),
+    )
+
+
+class N_Category(Base, _Category):
+    __tablename__ = 'n_category'
+    __table_args__ = (
+        Index('ix_n_category_name', 'name', unique=True),
+    )
+
+
+class N_Script(Base, _Script):
+    __tablename__ = 'n_script'
+    __table_args__ = (
+        ForeignKeyConstraint(['port'], ['n_port.id'], ondelete='CASCADE'),
+        Index('ix_n_script_data', 'data', postgresql_using='gin'),
+        Index('ix_n_script_name', 'name'),
+    )
+
+
+class N_Port(Base, _Port):
+    __tablename__ = 'n_port'
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+        Index('ix_n_port_scan_port', 'scan', 'port', 'protocol', unique=True),
+    )
+
+
+class N_Hostname(Base, _Hostname):
+    __tablename__ = "n_hostname"
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+        Index('ix_n_hostname_scan_name_type', 'scan', 'name', 'type',
               unique=True),
-        Index('ix_scan_time', 'time_start', 'time_stop'),
+    )
+
+
+class N_Association_Scan_Hostname(Base, _Association_Scan_Hostname):
+    __tablename__ = 'n_association_scan_hostname'
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(['hostname'], ['n_hostname.id'],
+                             ondelete='CASCADE'),
+    )
+
+
+class N_Trace(Base, _Trace):
+    # FIXME: unicity (scan, port, protocol) to handle merge. Special
+    # value for port when not present?
+    __tablename__ = "n_trace"
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+    )
+
+
+class N_Hop(Base, _Hop):
+    __tablename__ = "n_hop"
+    __table_args__ = (
+        Index('ix_n_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
+        ForeignKeyConstraint(['trace'], ['n_trace.id'], ondelete='CASCADE')
+    )
+
+
+class N_Scan(Base, _Scan):
+    __tablename__ = "n_scan"
+    __table_args__ = (
+        Index('ix_n_scan_info', 'info', postgresql_using='gin'),
+        Index('ix_n_scan_host', 'addr', 'source', unique=True),
+        Index('ix_n_scan_time', 'time_start', 'time_stop'),
+    )
+
+
+# View
+class V_Association_Scan_Category(Base, _Association_Scan_Category):
+    __tablename__ = 'v_association_scan_category'
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(['category'], ['v_category.id'],
+                             ondelete='CASCADE'),
+    )
+
+
+class V_Category(Base, _Category):
+    __tablename__ = 'v_category'
+    __table_args__ = (
+        Index('ix_v_category_name', 'name', unique=True),
+    )
+
+
+class V_Script(Base, _Script):
+    __tablename__ = 'v_script'
+    __table_args__ = (
+        ForeignKeyConstraint(['port'], ['v_port.id'], ondelete='CASCADE'),
+        Index('ix_v_script_data', 'data', postgresql_using='gin'),
+        Index('ix_v_script_name', 'name'),
+    )
+
+
+class V_Port(Base, _Port):
+    __tablename__ = 'v_port'
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
+        Index('ix_v_port_scan_port', 'scan', 'port', 'protocol', unique=True),
+    )
+
+
+class V_Hostname(Base, _Hostname):
+    __tablename__ = "v_hostname"
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
+        Index('ix_v_hostname_scan_name_type', 'scan', 'name', 'type',
+              unique=True),
+    )
+
+
+class V_Association_Scan_Hostname(Base, _Association_Scan_Hostname):
+    __tablename__ = 'v_association_scan_hostname'
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(['hostname'], ['v_hostname.id'],
+                             ondelete='CASCADE'),
+    )
+
+
+class V_Trace(Base, _Trace):
+    # FIXME: unicity (scan, port, protocol) to handle merge. Special
+    # value for port when not present?
+    __tablename__ = "v_trace"
+    __table_args__ = (
+        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
+    )
+
+
+class V_Hop(Base, _Hop):
+    __tablename__ = "v_hop"
+    __table_args__ = (
+        Index('ix_v_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
+        ForeignKeyConstraint(['trace'], ['v_trace.id'], ondelete='CASCADE')
+    )
+
+
+class V_Scan(Base, _Scan):
+    __tablename__ = "v_scan"
+    __table_args__ = (
+        Index('ix_v_scan_info', 'info', postgresql_using='gin'),
+        Index('ix_v_scan_host', 'addr', 'source', unique=True),
+        Index('ix_v_scan_time', 'time_start', 'time_stop'),
     )
 
 
 # Passive
-
 class Passive(Base):
     __tablename__ = "passive"
     id = Column(Integer, primary_key=True)

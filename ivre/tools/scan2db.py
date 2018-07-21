@@ -68,14 +68,6 @@ def main():
                         help='Store only hosts with a "ports" element.')
     parser.add_argument('--open-ports', action='store_true',
                         help='Store only hosts with open ports.')
-    parser.add_argument('--never-archive', action='store_true',
-                        help='Never archive.')
-    parser.add_argument('--archive', '--archive-same-host',
-                        action='store_true',
-                        help='Archive results for the same host.')
-    parser.add_argument('--archive-same-host-and-source', action='store_true',
-                        help='Archive results with both the same host and'
-                        ' source (this is the default).')
     parser.add_argument('--merge', action='store_true', help='Merge '
                         'result with previous scan result for same host '
                         'and source. Useful to use multiple partial '
@@ -90,29 +82,24 @@ def main():
                         ' renewal (only useful with JSON format)')
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='Import all files from given directories.')
+    parser.add_argument('--no-update-view', action='store_true',
+                        help='Do not merge hosts in current view')
     args = parser.parse_args()
     database = ivre.db.db.nmap
     categories = args.categories.split(',') if args.categories else []
+    callback = ivre.db.db.view.store_or_merge_host
     if args.test:
+        args.no_update_view = True
         database = ivre.db.DBNmap()
     if args.test_normal:
+        args.no_update_view = True
         database = ivre.db.DBNmap(output_mode="normal")
-    if args.never_archive:
-        def gettoarchive(addr, _):
-            return []
-    elif args.archive:
-        def gettoarchive(addr, _):
-            return database.get(database.searchhost(addr))
-    else:  # args.archive_same_host_and_source
-        def gettoarchive(addr, source):
-            return database.get(
-                database.flt_and(database.searchhost(addr),
-                                 database.searchsource(source))
-            )
     if args.recursive:
         scans = recursive_filelisting(args.scan)
     else:
         scans = args.scan
+    if args.no_update_view:
+        callback = None
     count = 0
     for scan in scans:
         try:
@@ -120,8 +107,8 @@ def main():
                     scan,
                     categories=categories, source=args.source,
                     needports=args.ports, needopenports=args.open_ports,
-                    gettoarchive=gettoarchive, force_info=args.force_info,
-                    merge=args.merge, masscan_probes=args.masscan_probes,
+                    force_info=args.force_info, merge=args.merge,
+                    masscan_probes=args.masscan_probes, callback=callback,
             ):
                 count += 1
         except Exception:

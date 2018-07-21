@@ -28,7 +28,6 @@ from sqlalchemy.exc import IntegrityError
 
 from ivre import utils
 from ivre.db.sql import SQLDB, SQLDBPassive
-from ivre.db.sql.tables import Passive
 
 
 class SqliteDB(SQLDB):
@@ -48,31 +47,33 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
         SQLDBPassive.__init__(self, url)
 
     def _insert_or_update(self, timestamp, vals, lastseen=None):
-        stmt = insert(Passive)\
+        stmt = insert(self.tables.passive)\
             .values(dict(vals, addr=utils.force_int2ip(vals['addr'])))
         try:
             self.db.execute(stmt)
         except IntegrityError:
             whereclause = and_(
-                Passive.addr == vals['addr'],
-                Passive.sensor == vals['sensor'],
-                Passive.recontype == vals['recontype'],
-                Passive.source == vals['source'],
-                Passive.value == vals['value'],
-                Passive.targetval == vals['targetval'],
-                Passive.info == vals['info'],
-                Passive.port == vals['port']
+                self.tables.passive.addr == vals['addr'],
+                self.tables.passive.sensor == vals['sensor'],
+                self.tables.passive.recontype == vals['recontype'],
+                self.tables.passive.source == vals['source'],
+                self.tables.passive.value == vals['value'],
+                self.tables.passive.targetval == vals['targetval'],
+                self.tables.passive.info == vals['info'],
+                self.tables.passive.port == vals['port']
             )
             upsert = {
                 'firstseen': func.least(
-                    Passive.firstseen,
+                    self.tables.passive.firstseen,
                     timestamp,
                 ),
                 'lastseen': func.greatest(
-                    Passive.lastseen,
+                    self.tables.passive.lastseen,
                     lastseen or timestamp,
                 ),
-                'count': Passive.count + vals['count'],
+                'count': self.tables.passive.count + vals['count'],
             }
-            updt = update(Passive).where(whereclause).values(upsert)
+            updt = update(
+                self.tables.passive
+            ).where(whereclause).values(upsert)
             self.db.execute(updt)
