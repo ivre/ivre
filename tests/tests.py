@@ -1526,6 +1526,17 @@ which `predicate()` is True, given `webflt`.
                 values["count"],
             )
 
+        res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
+        self.assertEqual(res, 0)
+        addr, count = out.decode().split('\n', 1)[0].split(': ')
+        try:
+            addr = int(addr)
+        except ValueError:
+            addr = ivre.utils.ip2int(addr)
+        count = int(count)
+        self.check_value("passive_top_addr_distinct", addr)
+        self.check_value("passive_top_addr_distinct_count", count)
+
         # moduli
         proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl", "--passive-ssh"],
                         stderr=None)

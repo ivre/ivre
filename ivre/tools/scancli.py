@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -43,10 +43,11 @@ else:
 from builtins import input
 
 from ivre import db, graphroute, nmapout
-from ivre.activecli import display_top, display_short, display_distinct, \
+from ivre.activecli import display_short, display_distinct, \
     displayfunction_json, displayfunction_honeyd, displayfunction_nmapxml, \
     displayfunction_graphroute, displayfunction_explain, \
     displayfunction_remove, displayfunction_csv
+from ivre.utils import display_top
 
 
 def main():

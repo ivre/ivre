@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -273,6 +273,9 @@ def main():
     parser.add_argument('--distinct', metavar='FIELD',
                         help='Output only unique FIELD part of the '
                         'results, one per line.')
+    parser.add_argument('--top', metavar='FIELD / ~FIELD',
+                        help='Output 10 most common (least common: ~) values '
+                        'for FIELD.')
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
@@ -307,6 +310,9 @@ def main():
         disp_recs = disp_recs_short
     elif args.distinct is not None:
         disp_recs = functools.partial(disp_recs_distinct, args.distinct)
+    elif args.top is not None:
+        disp_recs = lambda flt: utils.display_top(db.passive, args.top, flt,
+                                                  None)
     elif args.tail is not None:
         disp_recs = disp_recs_tail(args.tail)
     elif args.tailnew is not None:
