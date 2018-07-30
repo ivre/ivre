@@ -162,6 +162,8 @@ insert structures.
         if 'coordinates' in (info or {}).get('loc', {}):
             info['coordinates'] = info.pop('loc')['coordinates'][::-1]
         source = host.get('source', '')
+        host_tstart = utils.all2datetime(host['starttime'])
+        host_tstop = utils.all2datetime(host['endtime'])
         if merge:
             insrt = postgresql.insert(self.tables.scan)
             scanid, scan_tstop, merge = self.db.execute(
@@ -169,8 +171,8 @@ insert structures.
                     addr=addr,
                     source=source,
                     info=info,
-                    time_start=host['starttime'],
-                    time_stop=host['endtime'],
+                    time_start=host_tstart,
+                    time_stop=host_tstop,
                     merge=False,
                     **dict(
                         (key, host.get(key)) for key in
@@ -197,7 +199,7 @@ insert structures.
             if merge:
                 # Test should be ==, using <= in case of rounding
                 # issues.
-                newest = scan_tstop <= host['endtime']
+                newest = scan_tstop <= host_tstop
             else:
                 newest = None
         else:
@@ -206,8 +208,8 @@ insert structures.
                     addr=addr,
                     source=source,
                     info=info,
-                    time_start=host['starttime'],
-                    time_stop=host['endtime'],
+                    time_start=host_tstart,
+                    time_stop=host_tstop,
                     state=host['state'],
                     state_reason=host['state_reason'],
                     state_reason_ttl=host.get('state_reason_ttl'),
