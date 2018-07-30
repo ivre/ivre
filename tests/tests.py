@@ -2286,7 +2286,6 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(len(agents), 1)
         agent = agents[0]
 
-        import pdb; pdb.set_trace()
         is_scan_assigned = lambda scan: int(scan['agents']) is not None
         # Assign the remaining scans to the agent
         for scan in scans:
@@ -2298,7 +2297,6 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
         # Make sure the daemon handles the new scan
         time.sleep(4)
-
 
 
         # We have three scans, wait until they are all over
