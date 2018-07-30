@@ -2265,10 +2265,18 @@ which `predicate()` is True, given `webflt`.
         time.sleep(4)
 
         # We should have three scans, wait until one is over
-        scanmatch = re.compile(b'scan:\n  - id: (?P<id>[0-9a-f]+)\n.*\n.*\n  '
-                               b'- targets added: (?P<nbadded>\\d+)\n  '
-                               b'- results fetched: (?P<nbfetched>\\d+)\n  '
-                               b'- total targets to add: (?P<nbtargets>\\d+)\n')
+        scanmatch = re.compile(
+          b'scan:\n  - id: (?P<id>[0-9a-f]+)\n.*\n.*\n'
+          b'  - targets added: (?P<nbadded>\\d+)\n'
+          b'  - results fetched: (?P<nbfetched>\\d+)\n'
+          b'  - total targets to add: (?P<nbtargets>\\d+)\n'
+          b'  - available targets: (?P<availabletargets>\\d+)\n'
+          b'(    - all targets have been added\n)?'
+          b'(    - all results have been retrieved\n)?'
+          b'  - internal state: \((?P<s1>\\d+), (?P<s2>\\d+),'
+          b' (?P<s3>\\d+), (?P<s4>\\d+)\)\n'
+          b'  - agents:\n'
+          b'(    - (?P<agent_id>[0-9a-f]+)?\n?)*')
         is_scan_over = lambda scan: int(scan['nbtargets']) == int(scan['nbfetched'])
         while True:
             res, out, _ = RUN(["ivre", "runscansagentdb", "--list-scans"])
@@ -2286,10 +2294,10 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(len(agents), 1)
         agent = agents[0]
 
-        is_scan_assigned = lambda scan: int(scan['agents']) is not None
+        is_scan_assigned = lambda scan: int(scan['agent_id']) is not None
         # Assign the remaining scans to the agent
         for scan in scans:
-            if not is_scan_assigned(scan):
+            if not is_scan_over(scan) and not is_scan_assigned(scan):
                 res = RUN(["ivre", "runscansagentdb", "--assign",
                            "%s:%s"
                            % (agent['id'].decode(), scan['id'].decode())])[0]
