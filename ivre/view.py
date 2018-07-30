@@ -126,21 +126,23 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
     if 'bits' in rec['infos']:  # FIXME
         key['bits'] = rec['infos']['bits']
     fingerprint = utils.decode_hex(fingerprint)
-    script = {'id': 'ssh-hostkey', 'ssh-hostkey': [key],
-              'output': '\n  %s %s (%s)\n%s %s' % (
-                  key.get('bits', '-'),  # FIXME
-                  ':'.join('%02x' % (
-                      ord(i) if isinstance(i, (bytes, str)) else i
-                  ) for i in fingerprint),
-                  _KEYS.get(
-                      key['type'],
-                      (key['type'][4:] if key['type'][:4] == 'ssh-'
-                       else key['type']).upper()
-                  ),
-                  key['type'],
-                  value
-              ),
-              'key': key}
+    script = {
+        'id': 'ssh-hostkey', 'ssh-hostkey': [key],
+        'output': '\n  %s %s (%s)\n%s %s' % (
+            key.get('bits', '-'),  # FIXME
+            ':'.join('%02x' % (
+                ord(i) if isinstance(i, (bytes, str)) else i
+            ) for i in fingerprint),
+            _KEYS.get(
+                key['type'],
+                (key['type'][4:] if key['type'][:4] == 'ssh-'
+                 else key['type']).upper()
+            ),
+            key['type'],
+            value
+        ),
+        'key': key
+    }
     return {'ports': [{
         'state_state': 'open',
         'state_reason': "passive",

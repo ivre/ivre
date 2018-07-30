@@ -33,6 +33,7 @@ import errno
 from functools import reduce
 import gzip
 import hashlib
+import json
 from io import BytesIO
 import logging
 import math
@@ -1300,3 +1301,34 @@ def get_cert_info(cert):
     except Exception:
         LOGGER.info("Cannot parse certificate %r", cert, exc_info=True)
     return result
+
+
+def display_top(db, arg, flt, lmt):
+    field, least = ((arg[1:], True)
+                    if arg[:1] in '!-~' else
+                    (arg, False))
+    topnbr = {0: None, None: 10}.get(lmt, lmt)
+    for entry in db.topvalues(field, flt=flt, topnbr=topnbr, least=least):
+        if isinstance(entry['_id'], (list, tuple)):
+            sep = ' / ' if isinstance(entry['_id'], tuple) else ', '
+            if entry['_id']:
+                if isinstance(entry['_id'][0], (list, tuple)):
+                    entry['_id'] = sep.join(
+                        '/'.join(str(subelt) for subelt in elt)
+                        if elt else "None"
+                        for elt in entry['_id']
+                    )
+                elif isinstance(entry['_id'][0], dict):
+                    entry['_id'] = sep.join(
+                        json.dumps(elt, default=serialize)
+                        for elt in entry['_id']
+                    )
+                else:
+                    entry['_id'] = sep.join(str(elt)
+                                            for elt in entry['_id'])
+            else:
+                entry['_id'] = "None"
+        elif isinstance(entry['_id'], dict):
+            entry['_id'] = json.dumps(entry['_id'],
+                                      default=serialize)
+        print("%(_id)s: %(count)d" % entry)

@@ -26,10 +26,11 @@ from builtins import input
 
 from ivre import graphroute
 from ivre.db import db
-from ivre.activecli import display_top, display_short, display_distinct, \
+from ivre.activecli import display_short, display_distinct, \
     displayfunction_json, displayfunction_honeyd, displayfunction_nmapxml, \
     displayfunction_graphroute, displayfunction_explain, \
     displayfunction_remove, displayfunction_csv
+from ivre.utils import display_top
 
 try:
     import argparse
