@@ -1647,7 +1647,7 @@ class DBAgent(DB):
         """
         raise NotImplementedError
 
-    def add_scan(self, target, assign_to_free_agents=True):
+    def add_scan(self, target, assign_to_agent=None):
         itertarget = iter(target)
         try:
             fdesc = itertarget.fdesc
@@ -1669,9 +1669,15 @@ class DBAgent(DB):
             "lock": None
         }
         scanid = self._add_scan(scan)
-        if assign_to_free_agents:
+        if assign_to_agent is True:
+            # If no agent id is specified but "True" is passed then assign
+            # any free agents available).
             for agentid in self.get_free_agents():
                 self.assign_agent(agentid, scanid)
+        elif assign_to_agent is not None:
+            self.assign_agent(assign_to_agent, scanid)
+        # If no agent id is specified and assign-to-free agent is not set,
+        # just create the scan and do not affect it to an agent.
 
     def _add_scan(self, scan):
         raise NotImplementedError
