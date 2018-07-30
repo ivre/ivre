@@ -333,7 +333,7 @@ class _Hop(object):
 class _Scan(object):
     id = Column(Integer, primary_key=True)
     addr = Column(SQLINET, nullable=False)
-    source = Column(String(32), nullable=False)
+    # source = Column()
     info = Column(SQLJSONB)
     time_start = Column(DateTime)
     time_stop = Column(DateTime)
@@ -428,6 +428,7 @@ class N_Hop(Base, _Hop):
 
 class N_Scan(Base, _Scan):
     __tablename__ = "n_scan"
+    source = Column(String(32), nullable=False)
     __table_args__ = (
         Index('ix_n_scan_info', 'info', postgresql_using='gin'),
         Index('ix_n_scan_host', 'addr', 'source', unique=True),
@@ -506,6 +507,7 @@ class V_Hop(Base, _Hop):
 
 class V_Scan(Base, _Scan):
     __tablename__ = "v_scan"
+    source = Column(SQLARRAY(String(32)))
     __table_args__ = (
         Index('ix_v_scan_info', 'info', postgresql_using='gin'),
         Index('ix_v_scan_host', 'addr', 'source', unique=True),

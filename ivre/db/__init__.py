@@ -1234,6 +1234,12 @@ class DBView(DBActive):
     def __init__(self):
         super(DBView, self).__init__()
 
+    def merge_host_docs(self, rec1, rec2):
+        sources = set(rec1.get("source", [])).union(rec2.get("source", []))
+        rec = super(DBView, self).merge_host_docs(rec1, rec2)
+        rec["source"] = list(sources)
+        return rec
+
 
 class _RecInfo(object):
     __slots__ = ["count", "firstseen", "lastseen"]

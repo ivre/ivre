@@ -212,7 +212,7 @@ def passive_record_to_view(rec):
         'state': "up",
         'state_reason': 'passive',
         'schema_version': SCHEMA_VERSION,
-        'source': rec["sensor"],
+        'source': [rec["sensor"]],
     }
     try:
         outrec['starttime'] = datetime.fromtimestamp(rec["firstseen"])
@@ -275,6 +275,20 @@ def from_passive(flt):
         yield cur_rec
 
 
+def nmap_record_to_view(rec):
+    """Convert an nmap result in view.
+
+    """
+    if 'scanid' in rec:
+        del rec['scanid']
+    if 'source' in rec:
+        if not rec['source']:
+            rec['source'] = []
+        elif not isinstance(rec['source'], list):
+            rec['source'] = [rec['source']]
+    return rec
+
+
 def from_nmap(flt):
     """Return an Nmap entry in the View format."""
     cur_addr = None
@@ -283,9 +297,7 @@ def from_nmap(flt):
     for rec in db.nmap.get(flt, sort=[("addr", 1)]):
         if 'addr' not in rec:
             continue
-        if 'scanid' in rec:
-            # No reason to keep relation with scanfiles.
-            del rec['scanid']
+        rec = nmap_record_to_view(rec)
         if cur_addr is None:
             cur_addr = rec['addr']
             cur_rec = rec

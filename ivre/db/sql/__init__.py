@@ -857,7 +857,12 @@ the field names of the structured output for s7-info script.
     def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
         req = flt.query(select(
-            [self.tables.scan]
+            [self.tables.scan.id, self.tables.scan.addr,
+             self.tables.scan.source, self.tables.scan.info,
+             self.tables.scan.time_start, self.tables.scan.time_stop,
+             self.tables.scan.state, self.tables.scan.state_reason,
+             self.tables.scan.state_reason_ttl, self.tables.scan.merge,
+             self.tables.scan.schema_version]
         ).select_from(flt.select_from))
         for key, way in sort or []:
             if isinstance(key, basestring) and key in self.fields:
