@@ -728,8 +728,8 @@ which `predicate()` is True, given `webflt`.
 
         self.check_nmap_count_value(
             "nmap_extended_eu_count",
-            ivre.db.db.nmap.searchcountry(['EU*', 'CH', 'NO']),
-            ["--country=EU*,CH,NO"], "country:EU*,CH,NO"
+            ivre.db.db.nmap.searchcountry(['EU', 'CH', 'NO']),
+            ["--country=EU,CH,NO"], "country:EU,CH,NO"
         )
 
         # Filters
