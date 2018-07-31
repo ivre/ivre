@@ -71,10 +71,13 @@
 	 >AS{{::host.infos.as_num}}</a>
     </span>
     <span ng-if="::host.source">from
-      <a class="category clickable"
-	 ng-click="setparam('source', host.source)"
-	 ng-class="{highlight: wanted_param('source', host.source)}"
-	 >{{::host.source}}</a>
+      <span ng-repeat="src in ::host.source">
+        <a class="category clickable"
+       ng-click="setparam('source', src)"
+       ng-class="{highlight: wanted_param('source', src)}"
+       >{{::src}}</a>
+        <span ng-if="!$last">, </span>
+      </span>
     </span>
   </span>
 </dd>
