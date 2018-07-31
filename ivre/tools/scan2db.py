@@ -111,7 +111,7 @@ def main():
                     scan,
                     categories=categories, source=args.source,
                     needports=args.ports, needopenports=args.open_ports,
-                    force_info=args.force_info, merge=args.merge,
+                    force_info=args.force_info,
                     masscan_probes=args.masscan_probes, callback=callback,
             ):
                 count += 1

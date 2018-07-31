@@ -404,125 +404,6 @@ class DBActive(DB):
     def is_scan_present(self, _):
         return False
 
-    @staticmethod
-    def merge_host_docs(rec1, rec2):
-        """Merge two host records and return the result. Unmergeable /
-        hard-to-merge fields are lost (e.g., extraports).
-
-        """
-        if rec1.get("schema_version") != rec2.get("schema_version"):
-            raise ValueError("Cannot merge host documents. "
-                             "Schema versions differ (%r != %r)" % (
-                                 rec1.get("schema_version"),
-                                 rec2.get("schema_version")))
-        rec = {}
-        if "schema_version" in rec1:
-            rec["schema_version"] = rec1["schema_version"]
-        # When we have different values, we will use the one from the
-        # most recent scan, rec2
-        if rec1.get("endtime") > rec2.get("endtime"):
-            rec1, rec2 = rec2, rec1
-        for fname, function in [("starttime", min), ("endtime", max)]:
-            try:
-                rec[fname] = function(record[fname] for record in [rec1, rec2]
-                                      if fname in record)
-            except ValueError:
-                pass
-        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
-        if rec["state"] is None:
-            del rec["state"]
-        rec["categories"] = list(
-            set(rec1.get("categories", [])).union(
-                rec2.get("categories", []))
-        )
-        for field in ["addr", "source", "os"]:
-            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
-            if not rec[field]:
-                del rec[field]
-        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
-        rec["infos"] = {}
-        for record in [rec1, rec2]:
-            rec["infos"].update(record.get("infos", {}))
-        # We want to make sure of (type, name) unicity
-        hostnames = dict(((h['type'], h['name']), h.get('domains'))
-                         for h in (rec1.get("hostnames", []) +
-                                   rec2.get("hostnames", [])))
-        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                            for h, d in viewitems(hostnames)]
-        ports = dict(((port.get("protocol"), port["port"]), port.copy())
-                     for port in rec2.get("ports", []))
-        for port in rec1.get("ports", []):
-            if (port.get('protocol'), port['port']) in ports:
-                curport = ports[(port.get('protocol'), port['port'])]
-                if 'scripts' in curport:
-                    curport['scripts'] = curport['scripts'][:]
-                else:
-                    curport['scripts'] = []
-                present_scripts = set(
-                    script['id'] for script in curport['scripts']
-                )
-                for script in port.get("scripts", []):
-                    if script['id'] not in present_scripts:
-                        curport['scripts'].append(script)
-                if not curport['scripts']:
-                    del curport['scripts']
-                if 'service_name' in port and 'service_name' not in curport:
-                    for key in port:
-                        if key.startswith("service_"):
-                            curport[key] = port[key]
-            else:
-                ports[(port.get('protocol'), port['port'])] = port
-        rec["ports"] = list(viewvalues(ports))
-        rec["openports"] = {}
-        for record in [rec1, rec2]:
-            for proto in record.get('openports', {}):
-                if proto == 'count':
-                    continue
-                rec['openports'].setdefault(
-                    proto, {}).setdefault(
-                        'ports', set()).update(
-                            record['openports'][proto]['ports'])
-        if rec['openports']:
-            for proto in list(rec['openports']):
-                count = len(rec['openports'][proto]['ports'])
-                rec['openports'][proto]['count'] = count
-                rec['openports']['count'] = rec['openports'].get(
-                    'count', 0) + count
-                rec['openports'][proto]['ports'] = list(
-                    rec['openports'][proto]['ports'])
-        else:
-            rec['openports']["count"] = 0
-        for field in ["traces", "infos", "ports"]:
-            if not rec[field]:
-                del rec[field]
-        return rec
-
-    def merge_host(self, host):
-        """Attempt to merge `host` with an existing record.
-
-        Return `True` if another record for the same address (and
-        source if `host['source'] exists`) has been found, merged and
-        the resulting document inserted in the database, `False`
-        otherwise (in that case, it is the caller's responsibility to
-        add `host` to the database if necessary).
-
-        """
-        try:
-            flt = self.searchhost(host['addr'])
-            if host.get("source"):
-                flt = self.flt_and(
-                    flt,
-                    self.searchsource(host["source"]),
-                )
-            rec = next(self.get(flt))
-        except StopIteration:
-            # "Merge" mode but no record for that host, let's add
-            # the result normally
-            return False
-        self.store_host(self.merge_host_docs(rec, host))
-        self.remove(rec)
-        return True
-
     def start_store_hosts(self):
         """Backend-specific subclasses may use this method to create some bulk
 insert structures.
@@ -1161,7 +1042,7 @@ class DBNmap(DBActive):
                         needports=False, needopenports=False,
                         categories=None, source=None,
                         add_addr_infos=True, force_info=False,
-                        merge=False, callback=None, **_):
+                        callback=None, **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -1219,10 +1100,7 @@ class DBNmap(DBActive):
                     if not scan_doc_saved:
                         self.store_scan_doc({'_id': filehash})
                         scan_doc_saved = True
-                    if merge and self.merge_host(host):
-                        pass
-                    else:
-                        self.store_host(host)
+                    self.store_host(host)
                 if callback is not None:
                     callback(host)
         self.stop_store_hosts()
@@ -1234,11 +1112,120 @@ class DBView(DBActive):
     def __init__(self):
         super(DBView, self).__init__()
 
-    def merge_host_docs(self, rec1, rec2):
-        sources = set(rec1.get("source", [])).union(rec2.get("source", []))
-        rec = super(DBView, self).merge_host_docs(rec1, rec2)
-        rec["source"] = list(sources)
+    @staticmethod
+    def merge_host_docs(rec1, rec2):
+        """Merge two host records and return the result. Unmergeable /
+        hard-to-merge fields are lost (e.g., extraports).
+
+        """
+        if rec1.get("schema_version") != rec2.get("schema_version"):
+            raise ValueError("Cannot merge host documents. "
+                             "Schema versions differ (%r != %r)" % (
+                                 rec1.get("schema_version"),
+                                 rec2.get("schema_version")))
+        rec = {}
+        if "schema_version" in rec1:
+            rec["schema_version"] = rec1["schema_version"]
+        # When we have different values, we will use the one from the
+        # most recent scan, rec2
+        if rec1.get("endtime") > rec2.get("endtime"):
+            rec1, rec2 = rec2, rec1
+        for fname, function in [("starttime", min), ("endtime", max)]:
+            try:
+                rec[fname] = function(record[fname] for record in [rec1, rec2]
+                                      if fname in record)
+            except ValueError:
+                pass
+        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
+        if rec["state"] is None:
+            del rec["state"]
+        rec["categories"] = list(
+            set(rec1.get("categories", [])).union(
+                rec2.get("categories", []))
+        )
+        for field in ["addr", "os"]:
+            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
+            if not rec[field]:
+                del rec[field]
+        rec['source'] = list(set(rec1.get('source', []))
+                             .union(set(rec2.get('source', []))))
+        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
+        rec["infos"] = {}
+        for record in [rec1, rec2]:
+            rec["infos"].update(record.get("infos", {}))
+        # We want to make sure of (type, name) unicity
+        hostnames = dict(((h['type'], h['name']), h.get('domains'))
+                         for h in (rec1.get("hostnames", []) +
+                                   rec2.get("hostnames", [])))
+        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
+                            for h, d in viewitems(hostnames)]
+        ports = dict(((port.get("protocol"), port["port"]), port.copy())
+                     for port in rec2.get("ports", []))
+        for port in rec1.get("ports", []):
+            if (port.get('protocol'), port['port']) in ports:
+                curport = ports[(port.get('protocol'), port['port'])]
+                if 'scripts' in curport:
+                    curport['scripts'] = curport['scripts'][:]
+                else:
+                    curport['scripts'] = []
+                present_scripts = set(
+                    script['id'] for script in curport['scripts']
+                )
+                for script in port.get("scripts", []):
+                    if script['id'] not in present_scripts:
+                        curport['scripts'].append(script)
+                if not curport['scripts']:
+                    del curport['scripts']
+                if 'service_name' in port and 'service_name' not in curport:
+                    for key in port:
+                        if key.startswith("service_"):
+                            curport[key] = port[key]
+            else:
+                ports[(port.get('protocol'), port['port'])] = port
+        rec["ports"] = list(viewvalues(ports))
+        rec["openports"] = {}
+        for record in [rec1, rec2]:
+            for proto in record.get('openports', {}):
+                if proto == 'count':
+                    continue
+                rec['openports'].setdefault(
+                    proto, {}).setdefault(
+                        'ports', set()).update(
+                            record['openports'][proto]['ports'])
+        if rec['openports']:
+            for proto in list(rec['openports']):
+                count = len(rec['openports'][proto]['ports'])
+                rec['openports'][proto]['count'] = count
+                rec['openports']['count'] = rec['openports'].get(
+                    'count', 0) + count
+                rec['openports'][proto]['ports'] = list(
+                    rec['openports'][proto]['ports'])
+        else:
+            rec['openports']["count"] = 0
+        for field in ["traces", "infos", "ports"]:
+            if not rec[field]:
+                del rec[field]
         return rec
+
+    def merge_host(self, host):
+        """Attempt to merge `host` with an existing record.
+
+        Return `True` if another record for the same address has been found,
+        merged and the resulting document inserted in the database, `False`
+        otherwise (in that case, it is the caller's responsibility to
+        add `host` to the database if necessary).
+
+        """
+        try:
+            flt = self.searchhost(host['addr'])
+            rec = next(self.get(flt))
+        except StopIteration:
+            # "Merge" mode but no record for that host, let's add
+            # the result normally
+            return False
+        self.store_host(self.merge_host_docs(rec, host))
+        self.remove(rec)
+        return True
 
 
 class _RecInfo(object):

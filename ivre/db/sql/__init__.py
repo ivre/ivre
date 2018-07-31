@@ -109,11 +109,10 @@ the original line.
 
 class ScanCSVFile(CSVFile):
 
-    def __init__(self, hostgen, convert_ip, table, merge):
+    def __init__(self, hostgen, convert_ip, table):
         self.convert_ip = convert_ip
         self.table = table
         self.inp = hostgen
-        self.merge = merge
         self.fdesc = None
 
     def fixline(self, line):
@@ -128,7 +127,6 @@ class ScanCSVFile(CSVFile):
         line["time_start"] = line.pop('starttime')
         line["time_stop"] = line.pop('endtime')
         line["info"] = line.pop('infos', None)
-        line["merge"] = False
         for field in ["categories"]:
             if field in line:
                 line[field] = "{%s}" % json.dumps(line[field])[1:-1]
@@ -701,10 +699,10 @@ class SQLDBActive(SQLDB, DBActive):
         self.output_function = None
         self.bulk = None
 
-    def store_host(self, host, merge=False):
+    def store_host(self, host):
         raise NotImplementedError()
 
-    def store_or_merge_host(self, host, merge=False):
+    def store_or_merge_host(self, host):
         raise NotImplementedError()
 
     def migrate_schema(self, version):
@@ -861,7 +859,7 @@ the field names of the structured output for s7-info script.
              self.tables.scan.source, self.tables.scan.info,
              self.tables.scan.time_start, self.tables.scan.time_stop,
              self.tables.scan.state, self.tables.scan.state_reason,
-             self.tables.scan.state_reason_ttl, self.tables.scan.merge,
+             self.tables.scan.state_reason_ttl,
              self.tables.scan.schema_version]
         ).select_from(flt.select_from))
         for key, way in sort or []:
@@ -877,7 +875,7 @@ the field names of the structured output for s7-info script.
             (rec["_id"], rec["addr"], rec["source"], rec["infos"],
              rec["starttime"], rec["endtime"], rec["state"],
              rec["state_reason"], rec["state_reason_ttl"],
-             rec["merge"], rec["schema_version"]) = scanrec
+             rec["schema_version"]) = scanrec
             if rec["infos"]:
                 if 'coordinates' in rec['infos']:
                     rec['infos']['loc'] = {
@@ -1040,14 +1038,6 @@ the field names of the structured output for s7-info script.
             cat,
             neg=neg
         )])
-
-    @classmethod
-    def searchsource(cls, src, neg=False):
-        return cls.base_filter(main=cls._searchstring_re(
-            cls.tables.scan.source,
-            src,
-            neg=neg
-        ))
 
     @classmethod
     def searchcountry(cls, country, neg=False):
@@ -1504,8 +1494,8 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         SQLDBActive.__init__(self, url)
         self.content_handler = xmlnmap.Nmap2DB
 
-    def store_or_merge_host(self, host, merge=False):
-        self.store_host(host, merge=merge)
+    def store_or_merge_host(self, host):
+        self.store_host(host)
 
     def get(self, flt, limit=None, skip=None, sort=None, **kargs):
         for rec in super(SQLDBNmap, self).get(flt, limit=limit, skip=skip,
@@ -1552,6 +1542,14 @@ class SQLDBNmap(SQLDBActive, DBNmap):
             ).fetchone()
         )
 
+    @classmethod
+    def searchsource(cls, src, neg=False):
+        return cls.base_filter(main=cls._searchstring_re(
+            cls.tables.scan.source,
+            src,
+            neg=neg
+        ))
+
 
 class SQLDBView(SQLDBActive, DBView):
     table_layout = namedtuple("view_layout", ['category', 'scan', 'hostname',
@@ -1582,11 +1580,20 @@ class SQLDBView(SQLDBActive, DBView):
         DBView.__init__(self)
         SQLDBActive.__init__(self, url)
 
-    def store_or_merge_host(self, host, merge=True):
+    def store_or_merge_host(self, host):
         # FIXME: may cause performance issues
         self.start_store_hosts()
-        self.store_host(host, merge=merge)
+        self.store_host(host)
         self.stop_store_hosts()
+
+    @classmethod
+    def searchsource(cls, src, neg=False):
+        return cls.base_filter(main=cls._searchstring_re_inarray(
+            cls.tables.scan.id,
+            cls.tables.scan.source,
+            src,
+            neg=neg
+        ))
 
 
 class PassiveFilter(Filter):

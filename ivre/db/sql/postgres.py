@@ -156,185 +156,6 @@ insert structures.
         self.bulk.close()
         self.bulk = None
 
-    def _store_host(self, host, merge=False):
-        addr = self.convert_ip(host['addr'])
-        info = host.get('infos')
-        if 'coordinates' in (info or {}).get('loc', {}):
-            info['coordinates'] = info.pop('loc')['coordinates'][::-1]
-        source = host.get('source', '')
-        host_tstart = utils.all2datetime(host['starttime'])
-        host_tstop = utils.all2datetime(host['endtime'])
-        if merge:
-            insrt = postgresql.insert(self.tables.scan)
-            scanid, scan_tstop, merge = self.db.execute(
-                insrt.values(
-                    addr=addr,
-                    source=source,
-                    info=info,
-                    time_start=host_tstart,
-                    time_stop=host_tstop,
-                    merge=False,
-                    **dict(
-                        (key, host.get(key)) for key in
-                        ['state', 'state_reason', 'state_reason_ttl']
-                        if key in host
-                    )
-                )
-                .on_conflict_do_update(
-                    index_elements=['addr', 'source'],
-                    set_={
-                        'time_start': func.least(
-                            self.tables.scan.time_start,
-                            insrt.excluded.time_start,
-                        ),
-                        'time_stop': func.greatest(
-                            self.tables.scan.time_stop,
-                            insrt.excluded.time_stop,
-                        ),
-                        'merge': True,
-                    },
-                )
-                .returning(self.tables.scan.id, self.tables.scan.time_stop,
-                           self.tables.scan.merge)).fetchone()
-            if merge:
-                # Test should be ==, using <= in case of rounding
-                # issues.
-                newest = scan_tstop <= host_tstop
-            else:
-                newest = None
-        else:
-            scanid = self.db.execute(
-                postgresql.insert(self.tables.scan).values(
-                    addr=addr,
-                    source=source,
-                    info=info,
-                    time_start=host_tstart,
-                    time_stop=host_tstop,
-                    state=host['state'],
-                    state_reason=host['state_reason'],
-                    state_reason_ttl=host.get('state_reason_ttl'),
-                    merge=False,
-                )
-                .on_conflict_do_nothing()
-                .returning(self.tables.scan.id)
-            ).fetchone()[0]
-        for category in host.get("categories", []):
-            insrt = postgresql.insert(self.tables.category)
-            catid = self.db.execute(
-                insrt.values(name=category)
-                .on_conflict_do_update(
-                    index_elements=['name'],
-                    set_={'name': insrt.excluded.name}
-                )
-                .returning(self.tables.category.id)
-            ).fetchone()[0]
-            self.db.execute(postgresql.insert(
-                self.tables.association_scan_category
-            ).values(scan=scanid, category=catid)
-             .on_conflict_do_nothing())
-        for port in host.get('ports', []):
-            scripts = port.pop('scripts', [])
-            # FIXME: handle screenshots
-            for fld in ['screendata', 'screenshot', 'screenwords',
-                        'service_method']:
-                try:
-                    del port[fld]
-                except KeyError:
-                    pass
-            if 'service_servicefp' in port:
-                port['service_fp'] = port.pop('service_servicefp')
-            if 'state_state' in port:
-                port['state'] = port.pop('state_state')
-            if 'state_reason_ip' in port:
-                port['state_reason_ip'] = self.convert_ip(
-                    port['state_reason_ip']
-                )
-            if merge:
-                insrt = postgresql.insert(self.tables.port)
-                portid = self.db.execute(
-                    insrt.values(scan=scanid, **port)
-                    .on_conflict_do_update(
-                        index_elements=['scan', 'port',
-                                        'protocol'],
-                        set_=dict(
-                            scan=scanid,
-                            **(port if newest else {})
-                        )
-                    )
-                    .returning(self.tables.port.id)
-                ).fetchone()[0]
-            else:
-                portid = self.db.execute(
-                    insert(self.tables.port)
-                    .values(scan=scanid, **port)
-                    .returning(self.tables.port.id)
-                ).fetchone()[0]
-            for script in scripts:
-                name, output = script.pop('id'), script.pop('output')
-                if merge:
-                    if newest:
-                        insrt = postgresql.insert(self.tables.script)
-                        self.bulk.append(insrt
-                                         .values(
-                                             port=portid,
-                                             name=name,
-                                             output=output,
-                                             data=script
-                                         )
-                                         .on_conflict_do_update(
-                                             index_elements=['port', 'name'],
-                                             set_={
-                                                 "output":
-                                                 insrt.excluded.output,
-                                                 "data": insrt.excluded.data,
-                                             },
-                                         ))
-                    else:
-                        insrt = postgresql.insert(self.tables.script)
-                        self.bulk.append(insrt
-                                         .values(
-                                             port=portid,
-                                             name=name,
-                                             output=output,
-                                             data=script
-                                         )
-                                         .on_conflict_do_nothing())
-                else:
-                    self.bulk.append(insert(self.tables.script).values(
-                        port=portid,
-                        name=name,
-                        output=output,
-                        data=script
-                    ))
-        if not merge:
-            # FIXME: handle traceroutes on merge
-            for trace in host.get('traces', []):
-                traceid = self.db.execute(insert(self.tables.trace).values(
-                    scan=scanid,
-                    port=trace.get('port'),
-                    protocol=trace['protocol']
-                ).returning(self.tables.trace.id)).fetchone()[0]
-                for hop in trace.get('hops'):
-                    hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
-                    self.bulk.append(insert(self.tables.hop).values(
-                        trace=traceid,
-                        ipaddr=self.convert_ip(hop['ipaddr']),
-                        ttl=hop["ttl"],
-                        rtt=None if hop["rtt"] == '--' else hop["rtt"],
-                        host=hop.get("host"),
-                        domains=hop.get("domains"),
-                    ))
-            # FIXME: handle hostnames on merge
-            for hostname in host.get('hostnames', []):
-                self.bulk.append(insert(self.tables.hostname).values(
-                    scan=scanid,
-                    domains=hostname.get('domains'),
-                    name=hostname.get('name'),
-                    type=hostname.get('type'),
-                ))
-        utils.LOGGER.debug("HOST STORED: %r", scanid)
-        return scanid
-
     def get_ips_ports(self, flt, limit=None, skip=None):
         req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
@@ -903,15 +724,108 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         else:
             self.db.execute(insrt)
 
-    def store_host(self, host, merge=False):
-        scanid = self._store_host(host, merge=merge)
+    def _store_host(self, host):
+        addr = self.convert_ip(host['addr'])
+        info = host.get('infos')
+        if 'coordinates' in (info or {}).get('loc', {}):
+            info['coordinates'] = info.pop('loc')['coordinates'][::-1]
+        source = host.get('source', '')
+        host_tstart = utils.all2datetime(host['starttime'])
+        host_tstop = utils.all2datetime(host['endtime'])
+        scanid = self.db.execute(
+            postgresql.insert(self.tables.scan).values(
+                addr=addr,
+                source=source,
+                info=info,
+                time_start=host_tstart,
+                time_stop=host_tstop,
+                # FIXME: masscan results may lack 'state' and 'state_reason'
+                state=host.get('state'),
+                state_reason=host.get('state_reason'),
+                state_reason_ttl=host.get('state_reason_ttl'),
+            )
+            .on_conflict_do_nothing()
+            .returning(self.tables.scan.id)
+        ).fetchone()[0]
+        for category in host.get("categories", []):
+            insrt = postgresql.insert(self.tables.category)
+            catid = self.db.execute(
+                insrt.values(name=category)
+                .on_conflict_do_update(
+                    index_elements=['name'],
+                    set_={'name': insrt.excluded.name}
+                )
+                .returning(self.tables.category.id)
+            ).fetchone()[0]
+            self.db.execute(postgresql.insert(
+                self.tables.association_scan_category
+            ).values(scan=scanid, category=catid)
+             .on_conflict_do_nothing())
+        for port in host.get('ports', []):
+            scripts = port.pop('scripts', [])
+            # FIXME: handle screenshots
+            for fld in ['screendata', 'screenshot', 'screenwords',
+                        'service_method']:
+                try:
+                    del port[fld]
+                except KeyError:
+                    pass
+            if 'service_servicefp' in port:
+                port['service_fp'] = port.pop('service_servicefp')
+            if 'state_state' in port:
+                port['state'] = port.pop('state_state')
+            if 'state_reason_ip' in port:
+                port['state_reason_ip'] = self.convert_ip(
+                    port['state_reason_ip']
+                )
+            portid = self.db.execute(
+                insert(self.tables.port)
+                .values(scan=scanid, **port)
+                .returning(self.tables.port.id)
+            ).fetchone()[0]
+            for script in scripts:
+                name, output = script.pop('id'), script.pop('output')
+                self.bulk.append(insert(self.tables.script).values(
+                    port=portid,
+                    name=name,
+                    output=output,
+                    data=script
+                ))
+        for trace in host.get('traces', []):
+            traceid = self.db.execute(insert(self.tables.trace).values(
+                scan=scanid,
+                port=trace.get('port'),
+                protocol=trace['protocol']
+            ).returning(self.tables.trace.id)).fetchone()[0]
+            for hop in trace.get('hops'):
+                hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
+                self.bulk.append(insert(self.tables.hop).values(
+                    trace=traceid,
+                    ipaddr=self.convert_ip(hop['ipaddr']),
+                    ttl=hop["ttl"],
+                    rtt=None if hop["rtt"] == '--' else hop["rtt"],
+                    host=hop.get("host"),
+                    domains=hop.get("domains"),
+                ))
+        for hostname in host.get('hostnames', []):
+            self.bulk.append(insert(self.tables.hostname).values(
+                scan=scanid,
+                domains=hostname.get('domains'),
+                name=hostname.get('name'),
+                type=hostname.get('type'),
+            ))
+        utils.LOGGER.debug("HOST STORED: %r", scanid)
+        return scanid
+
+    def store_host(self, host):
+        scanid = self._store_host(host)
         insrt = postgresql.insert(self.tables.association_scan_scanfile)
         self.db.execute(insrt
                         .values(scan=scanid,
                                 scan_file=utils.decode_hex(host['scanid']))
                         .on_conflict_do_nothing())
 
-    def store_hosts(self, hosts, merge=False):
+    def store_hosts(self, hosts):
         tmp = self.create_tmp_table(self.tables.scan, extracols=[
             Column("scanfileid", ARRAY(LargeBinary(32))),
             Column("categories", ARRAY(String(32))),
@@ -924,7 +838,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             Column("ports", postgresql.JSONB),
             # Column("traceroutes", postgresql.JSONB),
         ])
-        with ScanCSVFile(hosts, self.convert_ip, tmp, merge) as fdesc:
+        with ScanCSVFile(hosts, self.convert_ip, tmp) as fdesc:
             self.copy_from(fdesc, tmp.name)
 
 
@@ -934,8 +848,149 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
         PostgresDBActive.__init__(self, url)
         SQLDBView.__init__(self, url)
 
-    def store_host(self, host, merge=True):
-        self._store_host(host, merge=merge)
+    def _store_host(self, host):
+        addr = self.convert_ip(host['addr'])
+        info = host.get('infos')
+        if 'coordinates' in (info or {}).get('loc', {}):
+            info['coordinates'] = info.pop('loc')['coordinates'][::-1]
+        source = host.get('source', [])
+        host_tstart = utils.all2datetime(host['starttime'])
+        host_tstop = utils.all2datetime(host['endtime'])
+        insrt = postgresql.insert(self.tables.scan)
+        scanid, scan_tstop = self.db.execute(
+            insrt.values(
+                addr=addr,
+                source=source,
+                info=info,
+                time_start=host_tstart,
+                time_stop=host_tstop,
+                **dict(
+                    (key, host.get(key)) for key in
+                    ['state', 'state_reason', 'state_reason_ttl']
+                    if key in host
+                )
+            )
+            .on_conflict_do_update(
+                index_elements=['addr'],
+                set_={
+                    'source': self.tables.scan.source + insrt.excluded.source,
+                    'time_start': func.least(
+                        self.tables.scan.time_start,
+                        insrt.excluded.time_start,
+                    ),
+                    'time_stop': func.greatest(
+                        self.tables.scan.time_stop,
+                        insrt.excluded.time_stop,
+                    ),
+                },
+            )
+            .returning(self.tables.scan.id, self.tables.scan.time_stop)
+        ).fetchone()
+        newest = scan_tstop <= host_tstop
+        for category in host.get("categories", []):
+            insrt = postgresql.insert(self.tables.category)
+            catid = self.db.execute(
+                insrt.values(name=category)
+                .on_conflict_do_update(
+                    index_elements=['name'],
+                    set_={'name': insrt.excluded.name}
+                )
+                .returning(self.tables.category.id)
+            ).fetchone()[0]
+            self.db.execute(postgresql.insert(
+                self.tables.association_scan_category
+            ).values(scan=scanid, category=catid)
+             .on_conflict_do_nothing())
+        for port in host.get('ports', []):
+            scripts = port.pop('scripts', [])
+            # FIXME: handle screenshots
+            for fld in ['screendata', 'screenshot', 'screenwords',
+                        'service_method']:
+                try:
+                    del port[fld]
+                except KeyError:
+                    pass
+            if 'service_servicefp' in port:
+                port['service_fp'] = port.pop('service_servicefp')
+            if 'state_state' in port:
+                port['state'] = port.pop('state_state')
+            if 'state_reason_ip' in port:
+                port['state_reason_ip'] = self.convert_ip(
+                    port['state_reason_ip']
+                )
+            insrt = postgresql.insert(self.tables.port)
+            portid = self.db.execute(
+                insrt.values(scan=scanid, **port)
+                .on_conflict_do_update(
+                    index_elements=['scan', 'port',
+                                    'protocol'],
+                    set_=dict(
+                        scan=scanid,
+                        **(port if newest else {})
+                    )
+                )
+                .returning(self.tables.port.id)
+            ).fetchone()[0]
+            for script in scripts:
+                name, output = script.pop('id'), script.pop('output')
+                if newest:
+                    insrt = postgresql.insert(self.tables.script)
+                    self.bulk.append(insrt
+                                     .values(
+                                         port=portid,
+                                         name=name,
+                                         output=output,
+                                         data=script
+                                     )
+                                     .on_conflict_do_update(
+                                         index_elements=['port', 'name'],
+                                         set_={
+                                             "output":
+                                             insrt.excluded.output,
+                                             "data": insrt.excluded.data,
+                                         },
+                                     ))
+                else:
+                    insrt = postgresql.insert(self.tables.script)
+                    self.bulk.append(insrt
+                                     .values(
+                                         port=portid,
+                                         name=name,
+                                         output=output,
+                                         data=script
+                                     )
+                                     .on_conflict_do_nothing())
+        for trace in host.get('traces', []):
+            traceid = self.db.execute(
+                postgresql.insert(self.tables.trace).values(
+                    scan=scanid,
+                    port=trace.get('port'),
+                    protocol=trace['protocol']
+                ).on_conflict_do_nothing()
+                 .returning(self.tables.trace.id)
+            ).fetchone()[0]
+            for hop in trace.get('hops'):
+                hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
+                self.bulk.append(postgresql.insert(self.tables.hop).values(
+                    trace=traceid,
+                    ipaddr=self.convert_ip(hop['ipaddr']),
+                    ttl=hop["ttl"],
+                    rtt=None if hop["rtt"] == '--' else hop["rtt"],
+                    host=hop.get("host"),
+                    domains=hop.get("domains"),
+                ))
+        for hostname in host.get('hostnames', []):
+            self.bulk.append(postgresql.insert(self.tables.hostname).values(
+                scan=scanid,
+                domains=hostname.get('domains'),
+                name=hostname.get('name'),
+                type=hostname.get('type'),
+            ).on_conflict_do_nothing())
+        utils.LOGGER.debug("VIEW STORED: %r", scanid)
+        return scanid
+
+    def store_host(self, host):
+        self._store_host(host)
 
 
 class PostgresDBPassive(PostgresDB, SQLDBPassive):

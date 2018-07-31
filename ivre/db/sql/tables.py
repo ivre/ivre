@@ -312,8 +312,6 @@ class _Association_Scan_Hostname(object):
 
 
 class _Trace(object):
-    # FIXME: unicity (scan, port, protocol) to handle merge. Special
-    # value for port when not present?
     id = Column(Integer, primary_key=True)
     scan = Column(Integer, nullable=False)
     port = Column(Integer)
@@ -340,7 +338,6 @@ class _Scan(object):
     state = Column(String(32))
     state_reason = Column(String(32))
     state_reason_ttl = Column(Integer)
-    merge = Column(Boolean, nullable=False)
     schema_version = Column(Integer, default=xmlnmap.SCHEMA_VERSION)
 
 
@@ -410,8 +407,6 @@ class N_Association_Scan_Hostname(Base, _Association_Scan_Hostname):
 
 
 class N_Trace(Base, _Trace):
-    # FIXME: unicity (scan, port, protocol) to handle merge. Special
-    # value for port when not present?
     __tablename__ = "n_trace"
     __table_args__ = (
         ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
@@ -431,7 +426,6 @@ class N_Scan(Base, _Scan):
     source = Column(String(32), nullable=False)
     __table_args__ = (
         Index('ix_n_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_n_scan_host', 'addr', 'source', unique=True),
         Index('ix_n_scan_time', 'time_start', 'time_stop'),
     )
 
@@ -494,6 +488,8 @@ class V_Trace(Base, _Trace):
     __tablename__ = "v_trace"
     __table_args__ = (
         ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
+        Index('ix_v_trace_scan_port_proto', 'scan', 'port', 'protocol',
+              unique=True),
     )
 
 
@@ -510,7 +506,7 @@ class V_Scan(Base, _Scan):
     source = Column(SQLARRAY(String(32)))
     __table_args__ = (
         Index('ix_v_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_v_scan_host', 'addr', 'source', unique=True),
+        Index('ix_v_scan_host', 'addr', unique=True),
         Index('ix_v_scan_time', 'time_start', 'time_stop'),
     )
 
