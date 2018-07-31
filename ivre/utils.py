@@ -632,13 +632,14 @@ class FakeArgparserParent(object):
 
 # Country aliases:
 #   - UK: GB
-#   - EU*: EU + 28 EU member states
+#   - EU: 28 EU member states, + EU itself, for historical reasons
 COUNTRY_ALIASES = {
     "UK": "GB",
-    "EU*": [
-        "EU", "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI",
-        "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT",
-        "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE", "GB",
+    "EU": [
+        "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR",
+        "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK",
+        "SI", "ES", "SE", "GB",
+        "EU",
     ],
 }
 
@@ -651,9 +652,10 @@ def country_unalias(country):
 
       - "UK": alias for "GB".
 
-      - "EU*": alias for a list containing "EU" (which is a code used
-        in Maxming GeoIP database) plus the list of the country codes
-        of the European Union member states.
+      - "EU": alias for a list containing the list of the country
+        codes of the European Union member states. It also includes
+        "EU" itself, because that was a valid "country" code in
+        previous Maxmind GeoIP databases.
 
     """
     if isinstance(country, basestring):
