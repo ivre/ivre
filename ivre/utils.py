@@ -321,6 +321,21 @@ def nmapspec2ports(string):
     return result
 
 
+def all2datetime(arg):
+    """Return a datetime object from an int (timestamp) or an iso
+    formated string '%Y-%m-%d %H:%M:%S'.
+
+    """
+    if isinstance(arg, datetime.datetime):
+        return arg
+    if isinstance(arg, basestring):
+        return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+    if isinstance(arg, int):
+        return datetime.datetime.fromtimestamp(arg)
+    else:
+        raise TypeError("%s is of unknown type." % repr(arg))
+
+
 def makedirs(dirname):
     """Makes directories like mkdir -p, raising no exception when
     dirname already exists.

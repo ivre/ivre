@@ -25,6 +25,8 @@ import ivre.db
 import ivre.utils
 import ivre.xmlnmap
 
+from ivre.view import nmap_record_to_view
+
 
 def recursive_filelisting(base_directories):
     "Iterator on filenames in base_directories"
@@ -87,7 +89,9 @@ def main():
     args = parser.parse_args()
     database = ivre.db.db.nmap
     categories = args.categories.split(',') if args.categories else []
-    callback = ivre.db.db.view.store_or_merge_host
+    callback = lambda x: ivre.db.db.view.store_or_merge_host(
+        nmap_record_to_view(x)
+    )
     if args.test:
         args.no_update_view = True
         database = ivre.db.DBNmap()
@@ -107,7 +111,7 @@ def main():
                     scan,
                     categories=categories, source=args.source,
                     needports=args.ports, needopenports=args.open_ports,
-                    force_info=args.force_info, merge=args.merge,
+                    force_info=args.force_info,
                     masscan_probes=args.masscan_probes, callback=callback,
             ):
                 count += 1

@@ -1067,10 +1067,8 @@ it is not expected)."""
         """
         self.db[self.colname_hosts].remove(spec_or_id=host['_id'])
 
-    def store_or_merge_host(self, host, merge=False):
-        if merge and self.merge_host(host):
-            return
-        self.store_host(host)
+    def store_or_merge_host(self, host):
+        raise NotImplementedError
 
     def get_mean_open_ports(self, flt):
         """This method returns for a specific query `flt` a list of
@@ -1270,10 +1268,8 @@ it is not expected)."""
 
         """
         if neg:
-            if isinstance(src, utils.REGEXP_T):
-                return {'source': {'$not': src}}
-            return {'source': {'$ne': src}}
-        return {'source': src}
+            return {'source': {'$not': {'$in': [src]}}}
+        return {'source': {'$in': [src]}}
 
     @staticmethod
     def searchport(port, protocol='tcp', state='open', neg=False):
@@ -2479,6 +2475,9 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         utils.LOGGER.debug("SCAN STORED: %r in %r", ident, self.colname_scans)
         return ident
 
+    def store_or_merge_host(self, host):
+        self.store_host(host)
+
     def init(self):
         self.db[self.colname_scans].drop()
         super(MongoDBNmap, self).init()
@@ -2521,6 +2520,10 @@ class MongoDBView(MongoDBActive, DBView):
         MongoDBActive.__init__(self, host, dbname, colname_hosts=colname_hosts,
                                **kwargs)
         DBView.__init__(self)
+
+    def store_or_merge_host(self, host):
+        if not self.merge_host(host):
+            self.store_host(host)
 
 
 class MongoDBPassive(MongoDB, DBPassive):
