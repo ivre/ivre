@@ -48,7 +48,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       docker.image = 'ivre/web'
       docker.name = 'ivreweb'
     end
-    web.vm.network "forwarded_port", guest: 80, host: 80
+    web.vm.network "forwarded_port", guest: 80, host: 80,
+	auto_correct: true
   end
 
   # The command line client
