@@ -29,7 +29,8 @@ import time
 
 from builtins import int
 from sqlalchemy import desc, func, text, column, delete, exists, insert, \
-    join, select, and_, Column, Table, ARRAY, LargeBinary, String, tuple_
+    join, select, update, and_, Column, Table, ARRAY, LargeBinary, String, \
+    tuple_
 from sqlalchemy.dialects import postgresql
 
 
@@ -42,6 +43,14 @@ class PostgresDB(SQLDB):
 
     def __init__(self, url):
         SQLDB.__init__(self, url)
+
+    @staticmethod
+    def ip2internal(addr):
+        return utils.force_int2ip(addr)
+
+    @staticmethod
+    def internal2ip(addr):
+        return addr
 
     def copy_from(self, *args, **kargs):
         cursor = self.db.raw_connection().cursor()
@@ -141,6 +150,21 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         PostgresDB.__init__(self, url)
         SQLDBActive.__init__(self, url)
 
+    def __migrate_schema_10_11(self):
+        """Converts a record from version 10 to version 11. Version 11 changes
+the way IP addresses are stored.
+
+In PostgreSQL, the type has not changed, so we just need to increment
+the schema_version.
+
+        """
+        self.db.execute(
+            update(self.tables.scan)
+            .where(self.tables.scan.schema_version == 10)
+            .values(schema_version=11)
+        )
+        return 0
+
     def start_store_hosts(self):
         """Backend-specific subclasses may use this method to create some bulk
 insert structures.
@@ -156,7 +180,7 @@ insert structures.
         self.bulk.close()
         self.bulk = None
 
-    def get_ips_ports(self, flt, limit=None, skip=None):
+    def _get_ips_ports(self, flt, limit=None, skip=None):
         req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
             req = req.offset(skip)
@@ -192,6 +216,10 @@ insert structures.
                             self.tables.scan.id.in_(base)))
             )
         )
+
+    def get_ips_ports(self, flt, limit=None, skip=None):
+        result = list(self._get_ips_ports(flt, limit=limit, skip=skip))
+        return result, sum(len(host.get('ports', [])) for host in result)
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False):
@@ -725,7 +753,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             self.db.execute(insrt)
 
     def _store_host(self, host):
-        addr = self.convert_ip(host['addr'])
+        addr = self.ip2internal(host['addr'])
         info = host.get('infos')
         if 'coordinates' in (info or {}).get('loc', {}):
             info['coordinates'] = info.pop('loc')['coordinates'][::-1]
@@ -775,7 +803,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             if 'state_state' in port:
                 port['state'] = port.pop('state_state')
             if 'state_reason_ip' in port:
-                port['state_reason_ip'] = self.convert_ip(
+                port['state_reason_ip'] = self.ip2internal(
                     port['state_reason_ip']
                 )
             portid = self.db.execute(
@@ -798,10 +826,10 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                 protocol=trace['protocol']
             ).returning(self.tables.trace.id)).fetchone()[0]
             for hop in trace.get('hops'):
-                hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
+                hop['ipaddr'] = self.ip2internal(hop['ipaddr'])
                 self.bulk.append(insert(self.tables.hop).values(
                     trace=traceid,
-                    ipaddr=self.convert_ip(hop['ipaddr']),
+                    ipaddr=self.ip2internal(hop['ipaddr']),
                     ttl=hop["ttl"],
                     rtt=None if hop["rtt"] == '--' else hop["rtt"],
                     host=hop.get("host"),
@@ -838,7 +866,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             Column("ports", postgresql.JSONB),
             # Column("traceroutes", postgresql.JSONB),
         ])
-        with ScanCSVFile(hosts, self.convert_ip, tmp) as fdesc:
+        with ScanCSVFile(hosts, self.ip2internal, tmp) as fdesc:
             self.copy_from(fdesc, tmp.name)
 
 
@@ -849,7 +877,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
         SQLDBView.__init__(self, url)
 
     def _store_host(self, host):
-        addr = self.convert_ip(host['addr'])
+        addr = self.ip2internal(host['addr'])
         info = host.get('infos')
         if 'coordinates' in (info or {}).get('loc', {}):
             info['coordinates'] = info.pop('loc')['coordinates'][::-1]
@@ -915,7 +943,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
             if 'state_state' in port:
                 port['state'] = port.pop('state_state')
             if 'state_reason_ip' in port:
-                port['state_reason_ip'] = self.convert_ip(
+                port['state_reason_ip'] = self.ip2internal(
                     port['state_reason_ip']
                 )
             insrt = postgresql.insert(self.tables.port)
@@ -970,10 +998,10 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                  .returning(self.tables.trace.id)
             ).fetchone()[0]
             for hop in trace.get('hops'):
-                hop['ipaddr'] = self.convert_ip(hop['ipaddr'])
+                hop['ipaddr'] = self.ip2internal(hop['ipaddr'])
                 self.bulk.append(postgresql.insert(self.tables.hop).values(
                     trace=traceid,
-                    ipaddr=self.convert_ip(hop['ipaddr']),
+                    ipaddr=self.ip2internal(hop['ipaddr']),
                     ttl=hop["ttl"],
                     rtt=None if hop["rtt"] == '--' else hop["rtt"],
                     host=hop.get("host"),
@@ -1041,7 +1069,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         while more_to_read:
             if config.DEBUG_DB:
                 start_time = time.time()
-            with PassiveCSVFile(specs, self.convert_ip, tmp,
+            with PassiveCSVFile(specs, self.ip2internal, tmp,
                                 getinfos=getinfos,
                                 separated_timestamps=separated_timestamps,
                                 limit=config.POSTGRES_BATCH_SIZE) as fdesc:

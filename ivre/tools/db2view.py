@@ -128,7 +128,7 @@ def main():
                 flt = db.passive.flt_or(flt, db.passive.searchnet(a))
             else:
                 if a.isdigit():
-                    a = db.passive.convert_ip(int(a))
+                    a = db.passive.ip2internal(int(a))
                 flt = db.passive.flt_or(flt, db.passive.searchhost(a))
         fltpass = db.passive.flt_and(fltpass, flt)
     # Output results

@@ -340,7 +340,9 @@ def main():
         else:
             print()
         flt = baseflt.copy()
-        if ':' in a:
+        if '/' in a:
+            flt = db.passive.flt_and(flt, db.passive.searchnet(a))
+        elif ':' in a:
             a = a.split(':', 1)
             if a[0].isdigit():
                 a[0] = int(a[0])
@@ -354,8 +356,6 @@ def main():
             if a[1].isdigit():
                 a[1] = int(a[1])
             flt = db.passive.flt_and(flt, db.passive.searchrange(a[0], a[1]))
-        elif '/' in a:
-            flt = db.passive.flt_and(flt, db.passive.searchnet(a))
         else:
             if a.isdigit():
                 a = utils.force_int2ip(int(a))

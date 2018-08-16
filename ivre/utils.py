@@ -91,8 +91,9 @@ logging.basicConfig()
 
 def ip2int(ipstr):
     """Converts the classical decimal, dot-separated, string
-    representation of an IP address to an integer, suitable for
-    database storage.
+    representation of an IPv4 address, or the hexadecimal,
+    colon-separated, string representation of an IPv6 address, to an
+    integer.
 
     """
     try:
@@ -118,7 +119,8 @@ def force_ip2int(ipstr):
 
 def int2ip(ipint):
     """Converts the integer representation of an IP address to its
-    classical decimal, dot-separated, string representation.
+    classical decimal, dot-separated (for IPv4) or hexadecimal,
+    colon-separated (for IPv6) string representation.
 
     """
     try:
@@ -140,15 +142,91 @@ def force_int2ip(ipint):
         return ipint
 
 
+def ip2bin(ipval):
+    """Attempts to convert any IP address representation (both IPv4 and
+IPv6) to a 16-bytes binary blob.
+
+IPv4 addresses are converted to IPv6 using the standard ::ffff:A.B.C.D
+mapping.
+
+    """
+    try:
+        return struct.pack('!QQ', ipval >> 64, ipval & 0xffffffffffffffff)
+    except TypeError:
+        pass
+    try:
+        ipval = ipval.decode()
+    except UnicodeDecodeError:
+        # Probably already a binary representation
+        if len(ipval) == 16:
+            return ipval
+        if len(ipval) == 4:
+            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + ipval
+        raise ValueError('Invalid IP address %r' % ipval)
+    except AttributeError:
+        pass
+    try:
+        return (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' +
+                socket.inet_aton(ipval))
+    except socket.error:
+        pass
+    try:
+        return socket.inet_pton(socket.AF_INET6, ipval)
+    except socket.error:
+        pass
+    # Probably already a binary representation
+    if len(ipval) == 16:
+        return ipval
+    if len(ipval) == 4:
+        return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + ipval
+    raise ValueError('Invalid IP address %r' % ipval)
+
+
+def bin2ip(ipval):
+    """Converts a 16-bytes binary blob to an IPv4 or IPv6 standard
+representation. See ip2bin().
+
+    """
+    try:
+        socket.inet_aton(ipval)
+        return ipval
+    except (TypeError, socket.error):
+        pass
+    try:
+        socket.inet_pton(socket.AF_INET6, ipval)
+        return ipval
+    except (TypeError, socket.error):
+        pass
+    try:
+        return int2ip(ipval)
+    except TypeError:
+        pass
+    if ipval[:12] == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff':
+        return socket.inet_ntoa(ipval[12:])
+    return socket.inet_ntop(socket.AF_INET6, ipval)
+
+
 def int2mask(mask):
     """Converts the number of bits set to 1 in a mask (the 24 in
-    10.0.0.0/24) to the integer corresponding to the IP address of the
-    mask (ip2int("255.255.255.0") for 24)
+    10.0.0.0/24) to the 32-bit integer corresponding to the IP address
+    of the mask (ip2int("255.255.255.0") for 24)
 
     From scapy:utils.py:itom(x).
 
     """
     return (0xffffffff00000000 >> mask) & 0xffffffff
+
+
+def int2mask6(mask):
+    """Converts the number of bits set to 1 in a mask (the 48 in
+    2001:db8:1234::/48) to the 128-bit integer corresponding to the IP address
+    of the mask (ip2int("ffff:ffff:ffff::") for 48)
+
+    """
+    return (
+        0xffffffffffffffffffffffffffffffff00000000000000000000000000000000 >>
+        mask
+    ) & 0xffffffffffffffffffffffffffffffff
 
 
 def net2range(network):
@@ -158,13 +236,19 @@ def net2range(network):
     except AttributeError:
         pass
     addr, mask = network.split('/')
+    ipv6 = ':' in addr
     addr = ip2int(addr)
-    if '.' in mask:
+    if (not ipv6 and '.' in mask) or (ipv6 and ':' in mask):
         mask = ip2int(mask)
+    elif ipv6:
+        mask = int2mask6(int(mask))
     else:
         mask = int2mask(int(mask))
     start = addr & mask
-    stop = int2ip(start + 0xffffffff - mask)
+    stop = int2ip(
+        start + (0xffffffffffffffffffffffffffffffff if ipv6 else 0xffffffff) -
+        mask
+    )
     start = int2ip(start)
     return start, stop
 
