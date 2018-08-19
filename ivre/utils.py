@@ -255,11 +255,7 @@ def net2range(network):
 
 def range2nets(rng):
     """Converts a (start, stop) tuple to a list of networks."""
-    start, stop = rng
-    if isinstance(start, basestring):
-        start = ip2int(start)
-    if isinstance(stop, basestring):
-        stop = ip2int(stop)
+    start, stop = (force_ip2int(addr) for addr in rng)
     if stop < start:
         raise ValueError()
     res = []
@@ -269,6 +265,8 @@ def range2nets(rng):
     while True:
         while cur & mask == cur and cur | (~mask & 0xffffffff) <= stop:
             maskint -= 1
+            if maskint < 0:
+                break
             mask = int2mask(maskint)
         res.append('%s/%d' % (int2ip(cur), maskint + 1))
         mask = int2mask(maskint + 1)

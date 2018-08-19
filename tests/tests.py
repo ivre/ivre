@@ -1803,6 +1803,12 @@ which `predicate()` is True, given `webflt`.
         with self.assertRaises(ValueError):
             ivre.utils.range2nets((2, 1))
 
+        # Special cases for range2nets & net2range
+        self.assertEqual(ivre.utils.range2nets(('0.0.0.0', '255.255.255.255')),
+                         ['0.0.0.0/0'])
+        self.assertEqual(ivre.utils.net2range('0.0.0.0/0'),
+                         ('0.0.0.0', '255.255.255.255'))
+
         # String utils
         teststr = b"TEST STRING -./*'"
         self.assertEqual(ivre.utils.regexp2pattern(teststr),
