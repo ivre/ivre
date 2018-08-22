@@ -642,11 +642,11 @@ the field names of the structured output for s7-info script.
     @staticmethod
     def __migrate_schema_hosts_10_11(doc):
         """Converts a record from version 10 to version 11. Version 11 changes
-the way IP addresses are stored.
+the way IP addresses are stored and the structured output of ssl-cert
+from Masscan results to make it more similar to Nmap.
 
-In version 10, they are stored as integers.
-
-In version 11, they are stored as canonical string representations.
+In version 10, IP addresses are stored as integers. In version 11,
+they are stored as canonical string representations.
 
         """
         assert doc["schema_version"] == 10
@@ -663,6 +663,33 @@ In version 11, they are stored as canonical string representations.
                     )
                 except ValueError:
                     pass
+            for script in port.get('scripts', []):
+                if script['id'] == 'ssl-cert':
+                    if 'pem' in script['ssl-cert']:
+                        data = ''.join(
+                            script['ssl-cert']['pem'].splitlines()[1:-1]
+                        ).encode()
+                        try:
+                            newout, newinfo = xmlnmap.create_ssl_cert(data)
+                        except Exception:
+                            utils.LOGGER.warning('Cannot parse certificate %r',
+                                                 data,
+                                                 exc_info=True)
+                        else:
+                            script['output'] = '\n'.join(newout)
+                            script['ssl-cert'] = newinfo
+                            continue
+                    try:
+                        pubkeytype = {
+                            'rsaEncryption': 'rsa',
+                            'id-ecPublicKey': 'ec',
+                            'id-dsa': 'dsa',
+                            'dhpublicnumber': 'dh',
+                        }[script['ssl-cert'].pop('pubkeyalgo')]
+                    except KeyError:
+                        pass
+                    else:
+                        script['pubkey'] = {'type': pubkeytype}
         for trace in doc.get('traces', []):
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:

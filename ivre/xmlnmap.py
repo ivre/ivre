@@ -1021,14 +1021,33 @@ X509 "service" tag.
         except KeyError:
             pass
     try:
-        newout.append('Public Key type: %s\n' % {
+        pubkeyalgo = info.pop('pubkeyalgo')
+    except KeyError:
+        pass
+    else:
+        pubkeytype = {
             'rsaEncryption': 'rsa',
             'id-ecPublicKey': 'ec',
             'id-dsa': 'dsa',
             'dhpublicnumber': 'dh',
-        }.get(info['pubkeyalgo'], info['pubkeyalgo']))
-    except KeyError:
-        pass
+        }.get(pubkeyalgo, pubkeyalgo)
+        newout.append('Public Key type: %s\n' % pubkeytype)
+        info['pubkey'] = {'type': pubkeytype}
+    for key in ['bits', 'modulus', 'exponent']:
+        try:
+            info.setdefault('pubkey', {})[key] = info.pop(key)
+        except KeyError:
+            pass
+        else:
+            try:
+                info['pubkey'][key] = int(info['pubkey'][key])
+            except ValueError:
+                try:
+                    info['pubkey'][key] = str(int(re.sub('[ :\n]+', '',
+                                                         info['pubkey'][key]),
+                                                  16))
+                except ValueError:
+                    pass
     b64cert = data.decode()
     pem = []
     pem.append('-----BEGIN CERTIFICATE-----')
@@ -1624,7 +1643,12 @@ class NmapHandler(ContentHandler):
             data = self._from_binary(script['masscan']['raw'])
         except KeyError:
             return
-        output_text, output_data = create_ssl_cert(data)
+        try:
+            output_text, output_data = create_ssl_cert(data)
+        except Exception:
+            utils.LOGGER.warning('Cannot parse certificate %r', data,
+                                 exc_info=True)
+            return
         if output_data:
             script["output"] = "\n".join(output_text)
             script[script["id"]] = output_data

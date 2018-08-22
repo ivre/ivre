@@ -271,6 +271,16 @@ class SSLRsaNmapKey(SSLNmapKey, RSAKey):
         SSLNmapKey.__init__(self, baseflt=baseflt)
         RSAKey.__init__(self)
 
+    def getkeys(self, host):
+        for script in self.getscripts(host):
+            key = script["script"][self.scriptid]['pubkey']
+            yield Key(utils.force_int2ip(host['addr']), script["port"], "ssl",
+                      key['type'],
+                      key['bits'],
+                      RSA.construct((long(key['modulus']),
+                                     long(key['exponent']),)),
+                      utils.decode_hex(script["script"][self.scriptid]['md5']))
+
 
 class SSHRsaNmapKey(SSHNmapKey, RSAKey):
     """Tool for the RSA Keys from SSH services within the active

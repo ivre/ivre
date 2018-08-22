@@ -967,6 +967,35 @@ database".
                     pass
                 else:
                     updated = True
+            for script in port.get('scripts', []):
+                if script['id'] == 'ssl-cert':
+                    if 'pem' in script['ssl-cert']:
+                        data = ''.join(
+                            script['ssl-cert']['pem'].splitlines()[1:-1]
+                        ).encode()
+                        try:
+                            newout, newinfo = xmlnmap.create_ssl_cert(data)
+                        except Exception:
+                            utils.LOGGER.warning('Cannot parse certificate %r',
+                                                 data,
+                                                 exc_info=True)
+                        else:
+                            script['output'] = '\n'.join(newout)
+                            script['ssl-cert'] = newinfo
+                            updated = True
+                            continue
+                    try:
+                        pubkeytype = {
+                            'rsaEncryption': 'rsa',
+                            'id-ecPublicKey': 'ec',
+                            'id-dsa': 'dsa',
+                            'dhpublicnumber': 'dh',
+                        }[script['ssl-cert'].pop('pubkeyalgo')]
+                    except KeyError:
+                        pass
+                    else:
+                        script['pubkey'] = {'type': pubkeytype}
+                        updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         updated = False

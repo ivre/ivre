@@ -1303,16 +1303,32 @@ None if it is a "normal", usable address.
     return _ADDR_TYPES[bisect_left(_ADDR_TYPES_LAST_IP, addr)]
 
 
-_CERTINFOS = re.compile(
-    b'\n *'
-    b'Issuer: (?P<issuer>.*)'
-    b'\n(?:.*\n)* *'
-    b'Subject: (?P<subject>.*)'
-    b'\n(?:.*\n)* *'
-    b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
-    b'(?:\n|$)'
-)
-
+_CERTINFOS = [
+    re.compile(
+        b'\n *'
+        b'Issuer: (?P<issuer>.*)'
+        b'\n(?:.*\n)* *'
+        b'Subject: (?P<subject>.*)'
+        b'\n(?:.*\n)* *'
+        b'Public Key Algorithm: (?P<pubkeyalgo>rsaEncryption)'
+        b'\n *'
+        b'Public-Key: \\((?P<bits>[0-9]+) bit\\)'
+        b'\n *'
+        b'Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+        b'\n *'
+        b'Exponent: (?P<exponent>[0-9]+) .*'
+        b'(?:\n|$)'
+    ),
+    re.compile(
+        b'\n *'
+        b'Issuer: (?P<issuer>.*)'
+        b'\n(?:.*\n)* *'
+        b'Subject: (?P<subject>.*)'
+        b'\n(?:.*\n)* *'
+        b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
+        b'(?:\n|$)'
+    ),
+]
 
 _CERTKEYS = {
     'C': 'countryName',
@@ -1398,10 +1414,17 @@ def get_cert_info(cert):
                             stdout=subprocess.PIPE)
     proc.stdin.write(cert)
     proc.stdin.close()
+    data = proc.stdout.read()
+    for expr in _CERTINFOS:
+        match = expr.search(data)
+        if match is not None:
+            break
+    else:
+        LOGGER.info("Cannot parse certificate %r - no matching expression",
+                    cert)
+        return result
     try:
-        for field, data in viewitems(
-                _CERTINFOS.search(proc.stdout.read()).groupdict()
-        ):
+        for field, data in viewitems(match.groupdict()):
             data = data.decode()
             if field in ['issuer', 'subject']:
                 data = [(_CERTKEYS.get(key, key), value)

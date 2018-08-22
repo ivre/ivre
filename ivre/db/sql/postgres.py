@@ -34,7 +34,7 @@ from sqlalchemy import desc, func, text, column, delete, exists, insert, \
 from sqlalchemy.dialects import postgresql
 
 
-from ivre import config, utils
+from ivre import config, utils, xmlnmap
 from ivre.db.sql import PassiveCSVFile, ScanCSVFile, SQLDB, SQLDBActive, \
     SQLDBFlow, SQLDBNmap, SQLDBPassive, SQLDBView
 
@@ -154,10 +154,59 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """Converts a record from version 10 to version 11. Version 11 changes
 the way IP addresses are stored.
 
-In PostgreSQL, the type has not changed, so we just need to increment
-the schema_version.
+In PostgreSQL, the type for IP addresses has not changed, so we just
+need to increment the schema_version.
 
         """
+        req = (select([self.tables.scan.id,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(
+                   self.tables.scan.schema_version == 10,
+                   self.tables.script.name == "ssl-cert",
+               )))
+        for rec in self.db.execute(req):
+            if 'ssl-cert' in rec.data:
+                if 'pem' in rec.data['ssl-cert']:
+                    data = ''.join(
+                        rec.data['ssl-cert']['pem'].splitlines()[1:-1]
+                    ).encode()
+                    try:
+                        newout, newinfo = xmlnmap.create_ssl_cert(data)
+                    except Exception:
+                        utils.LOGGER.warning('Cannot parse certificate %r',
+                                             data,
+                                             exc_info=True)
+                    else:
+                        self.db.execute(
+                            update(self.tables.script)
+                            .where(and_(self.tables.script.port == rec.port,
+                                        self.tables.script.name == "ssl-cert"))
+                            .values(data={"ssl-cert": newinfo},
+                                    output='\n'.join(newout))
+                        )
+                        continue
+                    try:
+                        pubkeytype = {
+                            'rsaEncryption': 'rsa',
+                            'id-ecPublicKey': 'ec',
+                            'id-dsa': 'dsa',
+                            'dhpublicnumber': 'dh',
+                        }[rec.data['ssl-cert'].pop('pubkeyalgo')]
+                    except KeyError:
+                        pass
+                    else:
+                        self.db.execute(
+                            update(self.tables.script)
+                            .where(and_(self.tables.script.port == rec.port,
+                                        self.tables.script.name == "ssl-cert"))
+                            .values(data={"ssl-cert":
+                                          dict(rec.data['ssl-cert'],
+                                               type=pubkeytype)})
+                        )
         self.db.execute(
             update(self.tables.scan)
             .where(self.tables.scan.schema_version == 10)
