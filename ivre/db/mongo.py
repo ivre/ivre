@@ -33,11 +33,12 @@ import json
 import os
 import re
 import socket
+import struct
 import time
 import uuid
 
 
-from builtins import bytes, range
+from future.builtins import bytes, int, range
 from future.utils import viewitems
 from past.builtins import basestring
 import bson
@@ -46,9 +47,6 @@ import pymongo
 
 from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
 from ivre import config, utils, xmlnmap
-
-_INTERNAL_IP = re.compile('^[0-9a-f]{32}$')
-_INTERNAL_IPV4 = re.compile('^00000000000000000000ffff')
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -190,17 +188,22 @@ class MongoDB(DB):
 
     @staticmethod
     def ip2internal(addr):
-        try:
-            match = _INTERNAL_IP.search(addr)
-        except Exception:
-            match = None
-        if match is not None:
+        if isinstance(addr, (int, list)):
             return addr
-        return utils.encode_hex(utils.ip2bin(addr)).decode()
+        addr = utils.ip2bin(addr)
+        if addr.startswith(
+                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'
+        ):
+            return struct.unpack("!I", addr[-4:])[0]
+        return [val - 0x8000000000000000 for val in struct.unpack("!QQ", addr)]
 
     @staticmethod
     def internal2ip(addr):
-        return utils.bin2ip(utils.decode_hex(addr))
+        if isinstance(addr, int):
+            return utils.int2ip(addr)
+        return utils.bin2ip(
+            struct.pack("!QQ", *(val + 0x8000000000000000 for val in addr))
+        )
 
     @staticmethod
     def serialize(obj):
@@ -438,8 +441,14 @@ class MongoDB(DB):
                 {"$exists": False} if version is None else version}
 
     @staticmethod
-    def searchipv4(neg=False):
-        return {'addr': {"$not": _INTERNAL_IPV4} if neg else _INTERNAL_IPV4}
+    def searchipv4():
+        # This also matches array of numbers (...)
+        # return {'addr': {'$type': 'number'}}
+        return {'addr': {'$exists': True, '$not': {'$type': 'array'}}}
+
+    @staticmethod
+    def searchipv6():
+            return {'addr': {'$type': 'array'}}
 
     @classmethod
     def searchhost(cls, addr, neg=False):
@@ -463,13 +472,40 @@ class MongoDB(DB):
         """
         start = cls.ip2internal(start)
         stop = cls.ip2internal(stop)
+        if isinstance(start, int):
+            if not isinstance(stop, int):
+                raise ValueError(
+                    'Cannot query mixed IPv4 & IPv6 address ranges'
+                )
+            # IPv4
+            if neg:
+                return {'$or': [
+                    {'addr': {'$lt': start}},
+                    {'addr': {'$gt': stop}},
+                ]}
+            return {'addr': {'$gte': start,
+                             '$lte': stop}}
+        if isinstance(stop, int):
+            raise ValueError(
+                'Cannot query mixed IPv4 & IPv6 address ranges'
+            )
+        # IPv6
         if neg:
             return {'$or': [
-                {'addr': {'$lt': start}},
-                {'addr': {'$gt': stop}}
+                {'addr.0': start[0], 'addr.1': {'$lt': start[1]}},
+                {'addr.0': {'$lt': start[0]}},
+                {'addr.0': stop[0], 'addr.1': {'$gt': stop[1]}},
+                {'addr.0': {'$gt': stop[0]}},
             ]}
-        return {'addr': {'$gte': start,
-                         '$lte': stop}}
+        if start[0] == stop[0]:
+            return {'addr.0': start[0], 'addr.1': {'$gte': start[1],
+                                                   '$lte': stop[1]}}
+        return {'$and': [
+            {'$or': [{'addr.0': start[0], 'addr.1': {'$gte': start[1]}},
+                     {'addr.0': {'$gt': start[0]}}]},
+            {'$or': [{'addr.0': stop[0], 'addr.1': {'$lte': stop[1]}},
+                     {'addr.0': {'$lt': stop[0]}}]},
+        ]}
 
     @classmethod
     def searchranges(cls, ranges, neg=False):
@@ -482,16 +518,12 @@ class MongoDB(DB):
         for start, stop in ranges.iter_ranges():
             start = cls.ip2internal(start)
             stop = cls.ip2internal(stop)
-            if neg:
-                flt.append({'$or': [{'addr': {'$lt': start}},
-                                    {'addr': {'$gt': stop}}]})
-            else:
-                flt.append({'addr': {'$gte': start,
-                                     '$lte': stop}})
+            flt.append(cls.searchrange(cls.ip2internal(start),
+                                       cls.ip2internal(stop), neg=neg))
         if flt:
             if neg:
-                return {'$and': flt}
-            return {'$or': flt}
+                return cls.flt_and(*flt)
+            return cls.flt_or(*flt)
         return cls.flt_empty if neg else cls.searchnonexistent()
 
     @staticmethod
@@ -933,19 +965,15 @@ the way IP addresses are stored.
 In version 10, they are stored as integers.
 
 In version 11, they are stored as canonical string representations in
-JSON format, and as a string corresponding to the hexadecimal
-representation of the 128-bit integer corresponding to the IPv6
-address. IPv4 addresses are represented as "IPv4-Mapped IPv6
-Addresses", as defined in RFC 4291 section 2.5.5.2 (see
-<https://tools.ietf.org/html/rfc4291#section-2.5.5.2>), i.e.,
-::ffff:10.0.0.1.
+JSON format, and as:
+
+  - The same integer as in version 10 for IPv4 addresses.
+
+  - A two-element array of 64-bit unsigned integers for IPv6
+    addresses.
 
 The reasons for this choice are the impossibility to store (and hence,
-index) unsigned 128-bit integers in MongoDB. Another approach, storing
-the 128-bit integer as a binary blob has been considered but the lack
-of operators to manipulate binary blobs in the aggregation framework
-would have made some analysis operations impossible to do "in
-database".
+index) unsigned 128-bit integers in MongoDB.
 
         """
         assert doc["schema_version"] == 10
@@ -955,7 +983,8 @@ database".
         except (KeyError, ValueError):
             pass
         else:
-            update["$set"]["addr"] = addr
+            if addr != doc['addr']:
+                update["$set"]["addr"] = addr
         updated = False
         for port in doc.get('ports', []):
             if 'state_reason_ip' in port:
@@ -1955,21 +1984,27 @@ it is not expected)."""
         elif field == "net" or field.startswith("net:"):
             field = "addr"
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
+            if self.server_info['versionArray'] >= [3, 2]:
+                specialproj = {
+                    "_id": 0,
+                    "addr": {"$floor": {"$divide": ["$addr",
+                                                    2 ** (32 - mask)]}},
+                }
+            else:
+                specialproj = {
+                    "_id": 0,
+                    "addr": {"$subtract": [{"$divide": ["$addr",
+                                                        2 ** (32 - mask)]},
+                                           {"$mod": [{"$divide": [
+                                               "$addr",
+                                               2 ** (32 - mask),
+                                           ]}, 1]}]},
+                }
             flt = self.flt_and(flt, self.searchipv4())
-            # This is IPv4 only
-            specialproj = {
-                "_id": 0,
-                "addr": {"$subst": ["$addr", 24, mask // 4]},
-            }
-            # TODO: handle when 24 % 4 != 0 by substituting the last
-            # nibble value
             outputproc = lambda x: {
                 'count': x['count'],
                 '_id': '%s/%d' % (
-                    self.internal2ip(
-                        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' +
-                        utils.decode_hex(x['_id'] + '0' * (8 - mask // 4))
-                    ),
+                    self.internal2ip(x['_id'] * 2 ** (32 - mask)),
                     mask,
                 ),
             }
