@@ -48,9 +48,8 @@ except ImportError:
     from urllib2 import HTTPError, Request, urlopen
 
 
-from builtins import int, range
 from future.utils import viewvalues
-from future.builtins import int
+from future.builtins import int, range
 from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
@@ -2453,7 +2452,7 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
         ## coordinates
-        result = next(ivre.db.db.nmap.get(
+        result = next(ivre.db.db.view.get(
             ivre.db.db.view.searchcity(re.compile('.'))
         ))
         addr = ivre.utils.force_int2ip(result['addr'])
