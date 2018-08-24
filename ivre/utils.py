@@ -134,6 +134,18 @@ def int2ip(ipint):
         )
 
 
+def int2ip6(ipint):
+    """Converts the integer representation of an IPv6 address to its
+    classical decimal, hexadecimal, colon-separated string
+    representation.
+
+    """
+    return socket.inet_ntop(
+        socket.AF_INET6,
+        struct.pack('!QQ', ipint >> 64, ipint & 0xffffffffffffffff),
+    )
+
+
 def force_int2ip(ipint):
     """Same as int2ip(), but works when ipint is already a atring"""
     try:
@@ -245,11 +257,14 @@ def net2range(network):
     else:
         mask = int2mask(int(mask))
     start = addr & mask
-    stop = int2ip(
-        start + (0xffffffffffffffffffffffffffffffff if ipv6 else 0xffffffff) -
-        mask
-    )
-    start = int2ip(start)
+    if ipv6:
+        stop = int2ip6(
+            start + 0xffffffffffffffffffffffffffffffff - mask
+        )
+        start = int2ip6(start)
+    else:
+        stop = int2ip(start + 0xffffffff - mask)
+        start = int2ip(start)
     return start, stop
 
 
