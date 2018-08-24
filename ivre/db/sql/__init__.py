@@ -882,7 +882,7 @@ the way IP addresses are stored.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return ({'_id': Point().result_processor(None, None)(rec[1])[::-1],
+        return ({'_id': Point().result_processor(None, None)(rec[1]),
                  'count': rec[0]}
                 for rec in
                 self.db.execute(req.group_by(
@@ -921,13 +921,7 @@ the way IP addresses are stored.
                 rec['addr'] = self.internal2ip(rec['addr'])
             except ValueError:
                 pass
-            if rec["infos"]:
-                if 'coordinates' in rec['infos']:
-                    rec['infos']['loc'] = {
-                        'type': 'Point',
-                        'coordinates': rec['infos'].pop('coordinates')[::-1],
-                    }
-            else:
+            if not rec["infos"]:
                 del rec["infos"]
             categories = (
                 select([self.tables.association_scan_category.category])

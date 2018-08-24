@@ -642,8 +642,9 @@ the field names of the structured output for s7-info script.
     @staticmethod
     def __migrate_schema_hosts_10_11(doc):
         """Converts a record from version 10 to version 11. Version 11 changes
-the way IP addresses are stored and the structured output of ssl-cert
-from Masscan results to make it more similar to Nmap.
+the way IP addresses are stored, the way coordinates are stored in
+JSON and the structured output of ssl-cert from Masscan results to
+make it more similar to Nmap.
 
 In version 10, IP addresses are stored as integers. In version 11,
 they are stored as canonical string representations.
@@ -655,6 +656,10 @@ they are stored as canonical string representations.
             doc['addr'] = utils.force_int2ip(doc['addr'])
         except KeyError:
             pass
+        if "infos" in doc and "loc" in doc["infos"]:
+            doc["infos"]["coordinates"] = doc["infos"].pop(
+                "loc"
+            )["coordinates"][::-1]
         for port in doc.get('ports', []):
             if 'state_reason_ip' in port:
                 try:

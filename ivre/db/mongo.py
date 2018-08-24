@@ -1153,7 +1153,7 @@ it is not expected)."""
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
         ]
-        return ({'_id': tuple(rec['_id']), 'count': rec['count']}
+        return ({'_id': tuple(rec['_id'][::-1]), 'count': rec['count']}
                 for rec in col.aggregate(pipeline, cursor={}))
 
     def get_ips_ports(self, flt, limit=None, skip=None):

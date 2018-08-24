@@ -151,11 +151,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         SQLDBActive.__init__(self, url)
 
     def __migrate_schema_10_11(self):
-        """Converts a record from version 10 to version 11. Version 11 changes
-the way IP addresses are stored.
+        """Converts a record from version 10 to version 11.
 
-In PostgreSQL, the type for IP addresses has not changed, so we just
-need to increment the schema_version.
+The PostgreSQL backend is only conerned by a limited subset of
+changes.
 
         """
         req = (select([self.tables.scan.id,
@@ -804,8 +803,6 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
     def _store_host(self, host):
         addr = self.ip2internal(host['addr'])
         info = host.get('infos')
-        if 'coordinates' in (info or {}).get('loc', {}):
-            info['coordinates'] = info.pop('loc')['coordinates'][::-1]
         source = host.get('source', '')
         host_tstart = utils.all2datetime(host['starttime'])
         host_tstop = utils.all2datetime(host['endtime'])
@@ -928,8 +925,6 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
     def _store_host(self, host):
         addr = self.ip2internal(host['addr'])
         info = host.get('infos')
-        if 'coordinates' in (info or {}).get('loc', {}):
-            info['coordinates'] = info.pop('loc')['coordinates'][::-1]
         source = host.get('source', [])
         host_tstart = utils.all2datetime(host['starttime'])
         host_tstop = utils.all2datetime(host['endtime'])

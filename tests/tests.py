@@ -2457,7 +2457,7 @@ which `predicate()` is True, given `webflt`.
         ))
         addr = ivre.utils.force_int2ip(result['addr'])
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
-        coords = result['infos']['loc']['coordinates']
+        coords = result['infos']['coordinates']
         req = Request('http://%s:%d/cgi/scans/coordinates?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
