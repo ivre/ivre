@@ -103,7 +103,7 @@ before_script:
   ## Masscan sample scans (XML format)
   - for file in test-probe-ike-ipsec-nat-t-probe-U4500.xml.bz2 test-probe-ike-probe-U500.xml.bz2 test-T22.xml.bz2 test-T443.xml.bz2 test-T102-s7comm.xml.bz2; do wget --no-check-certificate "https://ivre.rocks/data/tests/$file" -O "tests/samples/$file" ; done
   ## PCAP files from the Wireshark project
-  - wget -O - "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap.gz" | zcat > tests/samples/imap.pcap
+  - wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=imap.cap" -O tests/samples/imap.pcap
   - for file in http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap ; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file"; done
   - for file in SSHv2.cap; do wget "http://packetlife.net/captures/$file" -O "tests/samples/$file"; done
   - wget 'https://www.cloudshark.org/captures/616566f75f0c/download' -O tests/samples/gre-sample.pcap
