@@ -21,6 +21,8 @@
 @load base/protocols/dns
 @load base/protocols/ftp
 @load base/protocols/pop3
+@load base/protocols/conn
+@load base/protocols/modbus
 
 module PassiveRecon;
 
@@ -52,6 +54,8 @@ export {
         TCP_CLIENT_BANNER,
         TCP_SERVER_BANNER,
         P0F,
+        MODBUS_MASTER,
+		MODBUS_SLAVE
     };
 
     type Info: record {
@@ -124,11 +128,54 @@ export {
     # Ignore HTTP server responses (from scripts/base/protocols/http/dpd.sig)
     # Ignore thttpd UNKNOWN timeout answer
     const TCP_SERVER_BANNER_IGNORE: pattern = /^(HTTP\/[0-9]|UNKNOWN 408)/;
+
+    ## The Modbus nodes being tracked.
+	global modbus_nodes: set[addr, Type] &create_expire=1day &redef;
 }
 
 event bro_init() {
     Log::create_stream(LOG, [$columns=Info]);
 }
+
+event modbus_message(c: connection, headers: ModbusHeaders, is_orig: bool)
+	{
+		#print "MODBUS_message";
+		# print c;
+		#print headers;
+		# print is_orig;
+		local master = c$id$resp_h;
+		local slave  = c$id$orig_h;
+		local func_type = c$modbus$func;
+
+		if ( [master, MODBUS_MASTER] !in modbus_nodes )
+			{
+			add modbus_nodes[master, MODBUS_MASTER];
+			Log::write(LOG, [
+							   $ts=c$start_time,
+							   $uid=c$uid,
+						       $host=master,
+						       $srvport=c$id$resp_p,
+						       $recon_type=MODBUS_MASTER,
+						       $source="MODBUS_MASTER",
+						       $value=func_type
+								 ]);
+			}
+
+		if ( [slave, MODBUS_SLAVE] !in modbus_nodes )
+			{
+			add modbus_nodes[slave, MODBUS_SLAVE];
+			Log::write(LOG, [
+                               $ts=c$start_time,
+                               $uid=c$uid,
+						       $host=slave,
+							   $srvport=c$id$orig_p,
+						       $recon_type=MODBUS_SLAVE,
+						       $source="MODBUS_SLAVE",
+						       $value=func_type
+								 ]);
+			}
+
+	}
 
 event http_header(c: connection, is_orig: bool, name: string, value: string) {
     if (is_orig) {
