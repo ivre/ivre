@@ -25,22 +25,21 @@ It is used by the integrated web server (ivre httpd) and by the WSGI
 application.
 """
 
-
 from collections import namedtuple
 from functools import wraps
 import json
 import os
 import tempfile
 
-
 from bottle import abort, request, response, Bottle
 from future.utils import viewitems
-
 
 from ivre import config, utils, VERSION
 from ivre.db import db
 from ivre.web import utils as webutils
-
+from ivre.web.securitymiddleware import SecurityMiddleware
+from managementutils import COMMON_MSG, AGENT_MSG, SERVER_WORKING_DIR, create_dir, import_scans_from_b64zip
+from ivre.db.mongo import TASK_STS, TMPLT_STS
 
 application = Bottle()
 
@@ -80,6 +79,56 @@ based on the Referer: header.
         elif referer in config.WEB_ALLOWED_REFERERS:
             return func(*args, **kargs)
         return _die(referer)
+
+    return _newfunc
+
+
+def check_content_type(func):
+    def _die(content_type):
+        utils.LOGGER.critical("Invalid Content-Type header [%r]", content_type)
+        response.set_header('Content-Type', 'application/json')
+        response.status = '400 Bad Request'
+        return webutils.js_alert(
+            "Content-Type", "error",
+            "Invalid Content-Type header. Check your configuration."
+        )
+
+    @wraps(func)
+    def _newfunc(*args, **kargs):
+        content_type = request.headers.get('Content-Type')
+        if not content_type or (content_type and content_type != 'application/json'):
+            return _die(content_type)
+        else:
+            return func(*args, **kargs)
+
+    return _newfunc
+
+
+def security_middleware(func):
+    def _die(content_type):
+        utils.LOGGER.critical("Invalid request [%s]", str(request))
+        response.set_header('Content-Type', 'application/json')
+        response.status = '400 Bad Request'
+        return webutils.js_alert(
+            "Content-Type", "error",
+            "[Error] security_middleware. Invalid json/request"
+        )
+
+    @wraps(func)
+    def _newfunc(*args, **kargs):
+        content_type = request.headers.get('Content-Type')
+        if content_type != 'application/json':
+            return func(*args, **kargs)
+        else:
+            try:
+                is_valid = SecurityMiddleware(request.json).validate_message()
+                if isinstance(is_valid, dict) and 'error' in is_valid and is_valid['error'] is True:
+                    response.set_header('Content-Type', 'application/json')
+                    return json.dumps(is_valid)
+                else:
+                    return func(*args, **kargs)
+            except Exception as e:
+                _die(request)
 
     return _newfunc
 
@@ -529,3 +578,203 @@ def get_flow():
     yield json.dumps(res, default=utils.serialize)
     if callback is not None:
         yield ");\n"
+
+
+#
+# Management API
+#
+
+# delete tasks (on-demand or periodic)
+@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/delete/task/<task_id:re:[0-9a-fA-F]+>')
+@check_content_type
+# @security_middleware
+def management(agent_name, task_id):
+    op = db.management.set_specific_task_status(agent_name, task_id, TASK_STS.PENDING_CANC)
+    return json.dumps(op)
+
+
+# change periodic task status
+@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/<action:re:[a-z]+>/task/<task_id:re:[0-9a-fA-F]+>')
+@check_content_type
+# @security_middleware
+def management(agent_name, action, task_id):
+    if action == 'pause':
+        op = db.management.set_specific_task_status(agent_name, task_id, TASK_STS.PRD_PENDING_PAUSE)
+        return json.dumps(op)
+    elif action == 'resume':
+        op = db.management.set_specific_task_status(agent_name, task_id, TASK_STS.PRD_PENDING_RESUME)
+        return json.dumps(op)
+
+
+# get Agent tasks
+@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/tasks')
+@check_referer
+def management(agent_name):
+    # Task/s
+    if agent_name:
+        resp = {
+            'tasks': [],
+            'tasks_to_cancel': [],
+            'tasks_to_pause': [],
+            'tasks_to_resume': [],
+        }
+        for doc in db.management.get_agent_tasks(agent_name):
+            doc['_id'] = str(doc['_id'])
+            resp['tasks'].append(doc)
+
+        for doc in db.management.get_tasks_by_status(agent_name, TASK_STS.PENDING_CANC):
+            doc['_id'] = str(doc['_id'])
+            resp['tasks_to_cancel'].append(doc)
+
+        for doc in db.management.get_tasks_by_status(agent_name, TASK_STS.PRD_PENDING_PAUSE):
+            doc['_id'] = str(doc['_id'])
+            resp['tasks_to_pause'].append(doc)
+
+        for doc in db.management.get_tasks_by_status(agent_name, TASK_STS.PRD_PENDING_RESUME):
+            doc['_id'] = str(doc['_id'])
+            resp['tasks_to_resume'].append(doc)
+
+        return resp
+    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+
+
+# get all tasks
+@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/tasks_all')
+@check_referer
+def management(agent_name):
+    if agent_name:
+        tasks = []
+        for doc in db.management.get_tasks_all(agent_name):
+            doc['_id'] = str(doc['_id'])
+            tasks.append(doc)
+        return {'tasks': tasks}
+    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+
+
+# save configurations
+@application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/save_configs')
+@check_content_type
+# @security_middleware
+def management(agent_name):
+    response.set_header('Content-Type', 'application/json')
+    try:
+        # save configuration
+        if agent_name:
+            payload = request.json
+            message = payload['message']
+            if payload['type'] != COMMON_MSG.SAVE_IVRE_CONFIG:
+                return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+            doc = {
+                'agent': agent_name,
+                'templateName': message['templateName'],
+                'template': message['template'],
+                'status': TMPLT_STS.PENDING
+            }
+            return db.management.set_template(doc)
+        return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+    except Exception as e:
+        utils.LOGGER.warning('API Exception: ', str(e))
+        return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
+
+
+# get Agent templates
+@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/templates')
+@check_referer
+def management(agent_name):
+    # Templates
+    all_templates = False
+    if request.query.all and request.query.all == str(1):
+        all_templates = True
+
+    if agent_name:
+        templates = []
+        for doc in db.management.get_agent_templates(agent_name, all_templates):
+            doc['_id'] = str(doc['_id'])
+            templates.append(doc)
+        return {'templates': templates}
+    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+
+
+# Template PUT status
+@application.put('/management/template/<template_id:re:[0-9a-fA-F]+>/status')
+@check_content_type
+# @security_middleware
+def management(template_id):
+    response.set_header('Content-Type', 'application/json')
+    try:
+        payload = request.json
+        message = payload['message']
+        if payload['type'] == AGENT_MSG.ACK:
+            return db.management.set_template_status(template_id, message['status'])
+        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+
+    except Exception as e:
+        utils.LOGGER.warning('API Exception: {}'.format(e))
+        return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
+
+
+# create a task
+@application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/task')
+@check_content_type
+# @security_middleware
+def management(agent_name):
+    response.set_header('Content-Type', 'application/json')
+    try:
+        if agent_name:
+            payload = request.json
+            message = payload['message']
+            msg_type = payload['type']
+            utils.LOGGER.debug('GOT TASK : ', str(payload))
+            if int(msg_type) not in [COMMON_MSG.RUN_NOW, COMMON_MSG.RNT_JOB, COMMON_MSG.PRD_JOB]:
+                return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(msg_type)})
+            doc = {
+                'agent': agent_name,
+                'status': None,
+                'task': message['task'],
+                'type': msg_type
+            }
+            op_res = db.management.set_task(doc)
+            if op_res:
+                return json.dumps({'error': False, 'message': 'Task "{}" created.'.format(message['task']['name'])})
+            return json.dumps({'error': True, 'message': 'Task "{}" NOT created.'.format(message['task']['name'])})
+        return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+    except Exception as e:
+        utils.LOGGER.warning('API Exception: ', str(e))
+        return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
+
+
+# Task/s POST status
+@application.post('/management/task/<task_id:re:[0-9a-fA-F]+>/status')
+@check_content_type
+# @security_middleware
+def management(task_id):
+    try:
+        payload = request.json
+        message = payload['message']
+        if payload['type'] == AGENT_MSG.ACK:
+            utils.LOGGER.debug('GOT ACK : ', str(payload))
+            return db.management.set_task_status(task_id, message['status'])
+        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+
+    except Exception as e:
+        utils.LOGGER.warning('API Exception: {}'.format(e))
+        return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
+
+
+# Task/s POST  results
+@application.post('/management/task/<task_id:re:[0-9a-fA-F]+>/results')
+@check_content_type
+# @security_middleware
+def management(task_id):
+    try:
+        payload = request.json
+        message = payload['message']
+        if payload['type'] == AGENT_MSG.TASK_RESULT:
+            output = import_scans_from_b64zip(task_id, message['scan_params'], message['result'])
+            db.management.set_task_status(task_id, message['status'])
+            print 'output: ', output
+        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+
+    except Exception as e:
+        utils.LOGGER.warning('API Exception: {}'.format(e))
+        return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
