@@ -27,8 +27,8 @@ import re
 import sqlite3
 
 
-from sqlalchemy import event, func, Column, ForeignKey, Index, Boolean, \
-    DateTime, Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
+from sqlalchemy import event, func, Column, ForeignKey, Index, DateTime, \
+    Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType, TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base

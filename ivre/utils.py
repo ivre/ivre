@@ -851,6 +851,12 @@ def _read_nmap_probes():
         elif line.startswith(b'Probe '):
             _NMAP_CUR_PROBE = []
             proto, name, probe = line[6:].split(b' ', 2)
+            if not (len(probe) >= 3 and probe[:2] == b'q|' and
+                    probe[-1:] == b'|'):
+                LOGGER.warning('Invalid nmap probe %r', probe)
+            else:
+                probe = nmap_decode_data(probe[2:-1].decode(),
+                                         arbitrary_escapes=True)
             _NMAP_PROBES.setdefault(proto.lower().decode(),
                                     {})[name.decode()] = {
                 "probe": probe, "fp": _NMAP_CUR_PROBE
@@ -989,7 +995,7 @@ def find_ike_vendor_id(vendorid):
 
 
 _REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}
-_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\'}
+_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\', '0': b'\x00'}
 
 
 def nmap_encode_data(data):
@@ -1000,7 +1006,7 @@ def nmap_encode_data(data):
     )
 
 
-def _nmap_decode_data(data):
+def _nmap_decode_data(data, arbitrary_escapes=False):
     status = 0
     first_byte = None
     for char in data:
@@ -1020,8 +1026,13 @@ def _nmap_decode_data(data):
             if char == 'x':
                 status = 2
                 continue
-            LOGGER.warning('nmap_decode_data: cannot decode %r', '\\' + char)
-            yield b'\\'
+            if arbitrary_escapes:
+                LOGGER.debug('nmap_decode_data: unnecessary escape %r',
+                             '\\' + char)
+            else:
+                LOGGER.warning('nmap_decode_data: cannot decode %r',
+                               '\\' + char)
+                yield b'\\'
             yield char.encode()
             status = 0
             continue
@@ -1052,10 +1063,15 @@ def _nmap_decode_data(data):
             first_byte = None
             status = 0
             continue
+    if status:
+        LOGGER.warning(
+            'nmap_decode_data: invalid escape sequence at end of string'
+        )
 
 
-def nmap_decode_data(data):
-    return b''.join(_nmap_decode_data(data))
+def nmap_decode_data(data, arbitrary_escapes=False):
+    return b''.join(_nmap_decode_data(data,
+                                      arbitrary_escapes=arbitrary_escapes))
 
 
 def nmap_svc_fp_format_data(data, match):

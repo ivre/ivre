@@ -1858,6 +1858,16 @@ which `predicate()` is True, given `webflt`.
             ivre.utils.nmap_decode_data(encoded_data),
             raw_data,
         )
+        # Specific Nmap representation for null bytes & escape random
+        # chars (used in nmap-service-probes)
+        self.assertEqual(
+            ivre.utils.nmap_decode_data('\\0\\#', arbitrary_escapes=True),
+            b"\x00#",
+        )
+        self.assertEqual(
+            ivre.utils.nmap_decode_data('\\0\\#'),
+            b"\x00\\#",
+        )
 
         # get_addr_type()
         self.assertEqual(ivre.utils.get_addr_type('0.123.45.67'), 'Current-Net')
