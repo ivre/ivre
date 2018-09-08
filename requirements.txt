@@ -5,3 +5,5 @@ sqlalchemy
 psycopg2
 future
 bottle
+requests
+croniter
