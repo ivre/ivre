@@ -1107,6 +1107,12 @@ class DBNmap(DBActive):
         return True
 
 
+class DBManagement(DB):
+
+    def __init__(self, output_mode="json", output=sys.stdout):
+        super(DBManagement, self).__init__()
+
+
 class DBView(DBActive):
 
     def __init__(self):
@@ -1850,12 +1856,14 @@ class MetaDB(object):
         "agent": {},
         "flow": {},
         "view": {},
+        "management": {},
     }
     nmap = None
     passive = None
     data = None
     agent = None
     view = None
+    management = None
     extract_dbinfos = {
         "mongodb": _mongodb_url2dbinfos,
         "neo4j": _neo4j_url2dbinfos,
@@ -1873,7 +1881,7 @@ class MetaDB(object):
     def __init__(self, url=None, urls=None):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
-                                       MongoDBAgent, MongoDBView)
+                                       MongoDBAgent, MongoDBView, MongoDBManagement)
         except ImportError:
             pass
         else:
@@ -1881,6 +1889,7 @@ class MetaDB(object):
             self.db_types["passive"]["mongodb"] = MongoDBPassive
             self.db_types["agent"]["mongodb"] = MongoDBAgent
             self.db_types["view"]["mongodb"] = MongoDBView
+            self.db_types["management"]["mongodb"] = MongoDBManagement
         try:
             from ivre.db.neo4j import Neo4jDBFlow
         except ImportError:

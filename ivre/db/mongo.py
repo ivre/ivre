@@ -43,7 +43,7 @@ import bson
 import pymongo
 
 
-from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
+from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBManagement, LockError
 from ivre import config, geoiputils, utils, xmlnmap
 
 
@@ -2512,6 +2512,104 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         for scanid in self.getscanids(host):
             if self.find_one(self.colname_hosts, {'scanid': scanid}) is None:
                 self.db[self.colname_scans].remove(spec_or_id=scanid)
+
+
+class MongoDBManagement(MongoDB, DBManagement):
+
+    def __init__(self, host, dbname, collections={
+        'tasks': 'tasks',
+        'templates': 'templates',
+        'tasks': 'tasks'
+    }, colname_management="passive", **kargs):
+        MongoDB.__init__(self, host, dbname, **kargs)
+        DBManagement.__init__(self)
+        self.collections = collections
+        self.indexes = {
+            self.collections['templates']: [
+                ([("agent", pymongo.DESCENDING), ("templateName", pymongo.ASCENDING)],
+                 {'unique': True}),
+            ],
+            self.collections['tasks']: [
+                ([('agent', pymongo.ASCENDING)],
+                 {"sparse": True}),
+            ]
+        }
+
+    def set_specific_task_status(self, agent_name, task_id, status):
+        self.db[self.collections['tasks']].update({
+            '_id': self.str2id(task_id),
+            'agent': agent_name,
+            'status': {'$lt': 500}
+        }, {"$set": {'status': status}})
+
+    def store_task_doc(self, task):
+        collection = self.collections['tasks']
+        ident = self.db[collection].insert(task)
+        utils.LOGGER.debug("SCAN STORED: %r in %r", ident, collection)
+        return ident
+
+    def init(self):
+        for c in self.collections.values():
+            self.db[c].drop()
+        self.create_indexes()
+
+    def get_tasks(self):
+        return self.find(self.collections['tasks'], {'agent': None})
+
+    def get_templates(self):
+        return self.find(self.collections['templates'], {'agent': None},
+                         {'template': 1, 'templateName': 1})
+
+    def get_agent_templates(self, agent_name, all_templates):
+        if all_templates:
+            return self.find(self.collections['templates'], {'agent': agent_name})
+        return self.find(self.collections['templates'], {'agent': agent_name, 'status': TMPLT_STS.PENDING})
+
+    def set_template(self, doc):
+        try:
+            self.db[self.collections['templates']].insert_one(doc)
+        except pymongo.errors.DuplicateKeyError:
+            self.db[self.collections['templates']].update_one({
+                'agent': doc['agent'],
+                'templateName': doc['templateName']
+            }, {"$set": {'template': doc['template']}})
+
+    def set_task(self, doc):
+        op = self.db[self.collections['tasks']].insert_one(doc)
+        return isinstance(op.inserted_id, bson.objectid.ObjectId)
+
+    def set_task_status(self, task_id, status):
+        self.db[self.collections['tasks']].update_one({
+            '_id': self.str2id(task_id)
+        }, {"$max": {'status': status}})
+
+    def set_template_status(self, template_id, status):
+        self.db[self.collections['templates']].update({
+            '_id': self.str2id(template_id)
+        }, {"$max": {'status': status}})
+
+    def get_agent_tasks(self, agent_name):
+        return self.find(self.collections['tasks'], {'agent': agent_name, 'status': None})
+
+    def get_tasks_by_status(self, agent_name, status):
+        return self.find(self.collections['tasks'], {'agent': agent_name, 'status': status})
+
+    def get_tasks_all(self, agent_name):
+        return self.find(self.collections['tasks'], {
+            'agent': agent_name,
+            '$or': [
+                {'status': {'$lt': TASK_STS.COMPLETED}},
+                {'status': {'$in': [
+                    TASK_STS.PERIODIC, TASK_STS.PRD_PENDING_PAUSE, TASK_STS.PERIODIC_PAUSED, TASK_STS.PRD_PENDING_RESUME
+                ]}}
+            ]
+        })
+
+    def is_template_present(self, agent_name):
+        if self.find_one(self.collections['templates'], {'agent': agent_name},
+                         fields=[]) is not None:
+            return True
+        return False
 
 
 class MongoDBView(MongoDBActive, DBView):
