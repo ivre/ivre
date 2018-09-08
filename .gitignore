@@ -8,3 +8,4 @@ ivre/VERSION
 tests/samples*
 tests/htmlcov*
 tests/.coverage
+.idea/
