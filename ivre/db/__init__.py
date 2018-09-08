@@ -1863,7 +1863,7 @@ class MetaDB(object):
     data = None
     agent = None
     view = None
-    management = None
+    management = None  # type: MongoDBManagement
     extract_dbinfos = {
         "mongodb": _mongodb_url2dbinfos,
         "neo4j": _neo4j_url2dbinfos,

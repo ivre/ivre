@@ -54,7 +54,7 @@ class Scan(object):
                  traceroute=True, resolve=1, verbosity=2, ports=None,
                  host_timeout=None, script_timeout=None,
                  scripts_categories=None, scripts_exclude=None,
-                 scripts_force=None, extra_options=None):
+                 scripts_force=None, extra_options=None, exclude=None):
         self.nmap = nmap
         self.pings = set(pings)
         self.scans = set(scans)
@@ -65,6 +65,7 @@ class Scan(object):
         self.ports = ports
         self.host_timeout = host_timeout
         self.script_timeout = script_timeout
+        self.exclude = exclude
         if scripts_categories is None:
             self.scripts_categories = []
         else:
@@ -138,6 +139,8 @@ class Scan(object):
             options.extend(['--script', scripts])
         if self.extra_options:
             options.extend(self.extra_options)
+        if self.exclude is not None:
+            options.extend(['--exclude', ",".join(self.exclude)])
         return options
 
 
