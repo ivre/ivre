@@ -2514,6 +2514,24 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                 self.db[self.colname_scans].remove(spec_or_id=scanid)
 
 
+class TASK_STS:
+    RECEIVED = -1
+    PENDING = 0
+    COMPLETED = 1
+    PRD_PENDING_PAUSE = 17
+    PERIODIC_PAUSED = 18
+    PRD_PENDING_RESUME = 19
+    PERIODIC = 20
+    ERROR = 99
+    PENDING_CANC = 500
+    CANCELLED = 501
+
+
+class TMPLT_STS:
+    PENDING = 0
+    RECEIVED = 1
+
+
 class MongoDBManagement(MongoDB, DBManagement):
 
     def __init__(self, host, dbname, collections={
