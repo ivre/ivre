@@ -109,8 +109,8 @@ the original line.
 
 class ScanCSVFile(CSVFile):
 
-    def __init__(self, hostgen, convert_ip, table):
-        self.convert_ip = convert_ip
+    def __init__(self, hostgen, ip2internal, table):
+        self.ip2internal = ip2internal
         self.table = table
         self.inp = hostgen
         self.fdesc = None
@@ -118,7 +118,7 @@ class ScanCSVFile(CSVFile):
     def fixline(self, line):
         for field in ["cpes", "extraports", "openports", "os", "traces"]:
             line.pop(field, None)
-        line["addr"] = self.convert_ip(line['addr'])
+        line["addr"] = self.ip2internal(line['addr'])
         scanfileid = line.pop('scanid')
         if isinstance(scanfileid, basestring):
             scanfileid = [scanfileid]
@@ -150,9 +150,9 @@ class ScanCSVFile(CSVFile):
 class PassiveCSVFile(CSVFile):
     info_fields = set(["distance", "signature", "version"])
 
-    def __init__(self, siggen, convert_ip, table, limit=None, getinfos=None,
+    def __init__(self, siggen, ip2internal, table, limit=None, getinfos=None,
                  separated_timestamps=True):
-        self.convert_ip = convert_ip
+        self.ip2internal = ip2internal
         self.table = table
         self.inp = siggen
         self.fdesc = None
@@ -191,7 +191,7 @@ class PassiveCSVFile(CSVFile):
             except KeyError:
                 pass
         if "addr" in line:
-            line["addr"] = self.convert_ip(line["addr"])
+            line["addr"] = self.ip2internal(line["addr"])
         else:
             line["addr"] = None
         line.setdefault("count", 1)
@@ -258,8 +258,18 @@ class SQLDB(DB):
         self.create()
 
     @staticmethod
-    def convert_ip(addr):
-        return utils.force_int2ip(addr)
+    def ip2internal(addr):
+        # required for use with ivre.db.sql.tables.DefaultINET() (see
+        # .bind_processor()). Backends using variants must implement
+        # their own methods.
+        return b"" if addr is None else utils.ip2bin(addr)
+
+    @staticmethod
+    def internal2ip(addr):
+        # required for use with ivre.db.sql.tables.DefaultINET() (see
+        # .result_processor()). Backends using variants must implement
+        # their own methods.
+        return None if not addr else utils.bin2ip(addr)
 
     @staticmethod
     def to_binary(data):
@@ -443,6 +453,20 @@ field.
         if neg:
             return field != value
         return field == value
+
+    def searchranges(self, ranges, neg=False):
+        """Filters (if `neg` == True, filters out) some IP address ranges.
+
+`ranges` is an instance of ivre.geoiputils.IPRanges().
+
+        """
+        flt = self.flt_empty
+        for start, stop in ranges.iter_ranges():
+            flt = (self.flt_and if neg else self.flt_or)(
+                flt, self.searchrange(utils.int2ip(start), utils.int2ip(stop),
+                                      neg=neg)
+            )
+        return flt
 
 
 class SQLDBFlow(SQLDB, DBFlow):
@@ -714,6 +738,8 @@ class SQLDBActive(SQLDB, DBActive):
             failed += self.__migrate_schema_8_9()
         if (version or 0) < 10:
             failed += self.__migrate_schema_9_10()
+        if (version or 0) < 11:
+            failed += self.__migrate_schema_10_11()
         return failed
 
     def __migrate_schema_8_9(self):
@@ -760,7 +786,7 @@ structured output for http-headers script.
         return len(failed)
 
     def __migrate_schema_9_10(self):
-        """Converts a record from version 8 to version 9. Version 10 changes
+        """Converts a record from version 9 to version 10. Version 10 changes
 the field names of the structured output for s7-info script.
 
         """
@@ -797,6 +823,13 @@ the field names of the structured output for s7-info script.
         )
         return len(failed)
 
+    def __migrate_schema_10_11(self):
+        """Converts a record from version 10 to version 11. Version 11 changes
+the way IP addresses are stored.
+
+        """
+        raise NotImplementedError
+
     def count(self, flt, **_):
         return self.db.execute(
             flt.query(select([func.count()]))
@@ -812,7 +845,7 @@ the field names of the structured output for s7-info script.
             )
         )
 
-    def get_open_port_count(self, flt, limit=None, skip=None):
+    def _get_open_port_count(self, flt, limit=None, skip=None):
         req = flt.query(select([self.tables.scan.id]))
         if skip is not None:
             req = req.offset(skip)
@@ -834,6 +867,10 @@ the field names of the structured output for s7-info script.
             )
         )
 
+    def get_open_port_count(self, flt, limit=None, skip=None):
+        result = list(self._get_open_port_count(flt, limit=limit, skip=skip))
+        return result, len(result)
+
     def getlocations(self, flt, limit=None, skip=None):
         req = flt.query(
             select([func.count(self.tables.scan.id),
@@ -845,12 +882,16 @@ the field names of the structured output for s7-info script.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return ({'_id': Point().result_processor(None, None)(rec[1])[::-1],
+        return ({'_id': Point().result_processor(None, None)(rec[1]),
                  'count': rec[0]}
                 for rec in
                 self.db.execute(req.group_by(
                     self.tables.scan.info['coordinates'].astext
                 )))
+
+    def get_ips(self, flt, limit=None, skip=None):
+        return tuple(action(flt, limit=limit, skip=skip)
+                     for action in [self.get, self.count])
 
     def get(self, flt, limit=None, skip=None, sort=None,
             **kargs):
@@ -876,13 +917,11 @@ the field names of the structured output for s7-info script.
              rec["starttime"], rec["endtime"], rec["state"],
              rec["state_reason"], rec["state_reason_ttl"],
              rec["schema_version"]) = scanrec
-            if rec["infos"]:
-                if 'coordinates' in rec['infos']:
-                    rec['infos']['loc'] = {
-                        'type': 'Point',
-                        'coordinates': rec['infos'].pop('coordinates')[::-1],
-                    }
-            else:
+            try:
+                rec['addr'] = self.internal2ip(rec['addr'])
+            except ValueError:
+                pass
+            if not rec["infos"]:
                 del rec["infos"]
             categories = (
                 select([self.tables.association_scan_category.category])
@@ -910,6 +949,12 @@ the field names of the structured output for s7-info script.
                  recp["service_conf"], recp["service_devicetype"],
                  recp["service_extrainfo"], recp["service_hostname"],
                  recp["service_ostype"], recp["service_servicefp"]) = port
+                try:
+                    recp['state_reason_ip'] = self.internal2ip(
+                        recp['state_reason_ip']
+                    )
+                except ValueError:
+                    pass
                 for fld, value in list(viewitems(recp)):
                     if value is None:
                         del recp[fld]
@@ -936,10 +981,15 @@ the field names of the structured output for s7-info script.
                                            .where(self.tables.hop.trace ==
                                                   trace['id'])
                                            .order_by(self.tables.hop.ttl)):
-                    curtrace['hops'].append(dict(
+                    values = dict(
                         (key, hop[key]) for key in ['ipaddr', 'ttl', 'rtt',
                                                     'host', 'domains']
-                    ))
+                    )
+                    try:
+                        values['ipaddr'] = self.internal2ip(values['ipaddr'])
+                    except ValueError:
+                        pass
+                    curtrace['hops'].append(values)
             for hostname in self.db.execute(
                     select([self.tables.hostname])
                     .where(self.tables.hostname.scan == rec["_id"])
@@ -994,22 +1044,22 @@ the field names of the structured output for s7-info script.
         """
         if neg:
             return cls.base_filter(
-                main=cls.tables.scan.addr != cls.convert_ip(addr)
+                main=cls.tables.scan.addr != cls.ip2internal(addr)
             )
         return cls.base_filter(
-            main=cls.tables.scan.addr == cls.convert_ip(addr)
+            main=cls.tables.scan.addr == cls.ip2internal(addr)
         )
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
-        hosts = [cls.convert_ip(host) for host in hosts]
+        hosts = [cls.ip2internal(host) for host in hosts]
         if neg:
             return cls.base_filter(main=cls.tables.scan.addr.notin_(hosts))
         return cls.base_filter(main=cls.tables.scan.addr.in_(hosts))
 
     @classmethod
     def searchrange(cls, start, stop, neg=False):
-        start, stop = cls.convert_ip(start), cls.convert_ip(stop)
+        start, stop = cls.ip2internal(start), cls.ip2internal(stop)
         if neg:
             return cls.base_filter(main=or_(cls.tables.scan.addr < start,
                                             cls.tables.scan.addr > stop))
@@ -1389,7 +1439,7 @@ the field names of the structured output for s7-info script.
 
     @classmethod
     def searchhop(cls, hop, ttl=None, neg=False):
-        res = cls.tables.hop.ipaddr == cls.convert_ip(hop)
+        res = cls.tables.hop.ipaddr == cls.ip2internal(hop)
         if ttl is not None:
             res &= cls.tables.hop.ttl == ttl
         return cls.base_filter(trace=[not_(res) if neg else res])
@@ -1728,6 +1778,10 @@ returns a generator.
         for rec in self.db.execute(req):
             rec = dict((key, value) for key, value in viewitems(rec)
                        if value is not None)
+            try:
+                rec['addr'] = self.internal2ip(rec['addr'])
+            except (KeyError, ValueError):
+                pass
             rec["infos"] = dict(rec.pop("info"), **rec.pop("moreinfo"))
             yield rec
 
@@ -1742,6 +1796,10 @@ returns the first result, or None if no result exists."""
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         if spec is None:
             return
+        try:
+            spec['addr'] = self.ip2internal(spec['addr'])
+        except (KeyError, ValueError):
+            pass
         if getinfos is not None:
             additional_info = getinfos(spec)
             try:
@@ -1757,7 +1815,7 @@ returns the first result, or None if no result exists."""
         if lastseen is not None:
             lastseen = datetime.datetime.fromtimestamp(lastseen)
         if addr:
-            addr = self.convert_ip(addr)
+            addr = self.ip2internal(addr)
         otherfields = dict(
             (key, spec.pop(key, ""))
             for key in ["sensor", "source", "targetval", "value"]
@@ -1782,31 +1840,6 @@ returns the first result, or None if no result exists."""
         }
         vals.update(otherfields)
         self._insert_or_update(timestamp, vals, lastseen=lastseen)
-
-    def insert_or_update_bulk(self, specs, getinfos=None,
-                              separated_timestamps=True):
-        """Like `.insert_or_update()`, but `specs` parameter has to be an
-        iterable of `(timestamp, spec)` (if `separated_timestamps` is
-        True) or `spec` (if it is False) values. This will perform
-        PostgreSQL COPY FROM inserts with the major drawback that the
-        `getinfos` parameter will be called (if it is not `None`) for
-        each spec, even when the spec already exists in the database
-        and the call was hence unnecessary.
-
-        It's up to you to decide whether having bulk insert is worth
-        it or if you want to go with the regular `.insert_or_update()`
-        method.
-
-        """
-        if separated_timestamps:
-            for ts, spec in specs:
-                self.insert_or_update(ts, spec, getinfos=getinfos)
-        else:
-            for spec in specs:
-                timestamp = spec.pop("firstseen", None)
-                lastseen = spec.pop("lastseen", None)
-                self.insert_or_update(timestamp or lastseen, spec,
-                                      getinfos=getinfos, lastseen=lastseen)
 
     def migrate_from_db(self, db, flt=None, limit=None, skip=None, sort=None):
         if flt is None:
@@ -1897,7 +1930,7 @@ passive table."""
         (IP address).
 
         """
-        addr = cls.convert_ip(addr)
+        addr = cls.ip2internal(addr)
         return PassiveFilter(
             main=(cls.tables.passive.addr != addr) if neg else
             (cls.tables.passive.addr == addr),
@@ -1905,7 +1938,7 @@ passive table."""
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
-        hosts = [cls.convert_ip(host) for host in hosts]
+        hosts = [cls.ip2internal(host) for host in hosts]
         return PassiveFilter(
             main=(cls.tables.passive.addr.notin_(hosts) if neg else
                   cls.tables.passive.addr.in_(hosts)),
@@ -1913,7 +1946,7 @@ passive table."""
 
     @classmethod
     def searchrange(cls, start, stop, neg=False):
-        start, stop = cls.convert_ip(start), cls.convert_ip(stop)
+        start, stop = cls.ip2internal(start), cls.ip2internal(stop)
         if neg:
             return PassiveFilter(main=or_(cls.tables.passive.addr < start,
                                           cls.tables.passive.addr > stop))

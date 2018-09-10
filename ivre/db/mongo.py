@@ -32,6 +32,7 @@ import datetime
 import json
 import os
 import re
+import socket
 import time
 import uuid
 
@@ -44,7 +45,10 @@ import pymongo
 
 
 from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
-from ivre import config, geoiputils, utils, xmlnmap
+from ivre import config, utils, xmlnmap
+
+_INTERNAL_IP = re.compile('^[0-9a-f]{32}$')
+_INTERNAL_IPV4 = re.compile('^00000000000000000000ffff')
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -182,11 +186,21 @@ class MongoDB(DB):
             return self._find_one
 
     def count(self, *args, **kargs):
-        return self.get(*args, **kargs).count()
+        return self._get(*args, **kargs).count()
 
     @staticmethod
-    def convert_ip(addr):
-        return utils.force_ip2int(addr)
+    def ip2internal(addr):
+        try:
+            match = _INTERNAL_IP.search(addr)
+        except Exception:
+            match = None
+        if match is not None:
+            return addr
+        return utils.encode_hex(utils.ip2bin(addr)).decode()
+
+    @staticmethod
+    def internal2ip(addr):
+        return utils.bin2ip(utils.decode_hex(addr))
 
     @staticmethod
     def serialize(obj):
@@ -424,35 +438,31 @@ class MongoDB(DB):
                 {"$exists": False} if version is None else version}
 
     @staticmethod
-    def searchhost(addr, neg=False):
+    def searchipv4(neg=False):
+        return {'addr': {"$not": _INTERNAL_IPV4} if neg else _INTERNAL_IPV4}
+
+    @classmethod
+    def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
 
         """
-        try:
-            addr = utils.ip2int(addr)
-        except (TypeError, utils.socket.error):
-            pass
+        addr = cls.ip2internal(addr)
         return {'addr': {'$ne': addr} if neg else addr}
 
-    @staticmethod
-    def searchhosts(hosts, neg=False):
-        def convert(addr):
-            try:
-                return utils.ip2int(addr)
-            except (TypeError, utils.socket.error):
-                return addr
-        return {'addr': {'$nin' if neg else '$in': [convert(host)
+    @classmethod
+    def searchhosts(cls, hosts, neg=False):
+        return {'addr': {'$nin' if neg else '$in': [cls.ip2internal(host)
                                                     for host in hosts]}}
 
-    @staticmethod
-    def searchrange(start, stop, neg=False):
+    @classmethod
+    def searchrange(cls, start, stop, neg=False):
         """Filters (if `neg` == True, filters out) one particular IP
         address range.
 
         """
-        start = utils.force_ip2int(start)
-        stop = utils.force_ip2int(stop)
+        start = cls.ip2internal(start)
+        stop = cls.ip2internal(stop)
         if neg:
             return {'$or': [
                 {'addr': {'$lt': start}},
@@ -470,6 +480,8 @@ class MongoDB(DB):
         """
         flt = []
         for start, stop in ranges.iter_ranges():
+            start = cls.ip2internal(start)
+            stop = cls.ip2internal(stop)
             if neg:
                 flt.append({'$or': [{'addr': {'$lt': start}},
                                     {'addr': {'$gt': stop}}]})
@@ -481,13 +493,6 @@ class MongoDB(DB):
                 return {'$and': flt}
             return {'$or': flt}
         return cls.flt_empty if neg else cls.searchnonexistent()
-        if neg:
-            return {'$or': [
-                {'addr': {'$lt': start}},
-                {'addr': {'$gt': stop}}
-            ]}
-        return {'addr': {'$gte': start,
-                         '$lte': stop}}
 
     @staticmethod
     def searchval(key, val):
@@ -599,6 +604,7 @@ class MongoDBActive(MongoDB, DBActive):
                 7: (8, self.migrate_schema_hosts_7_8),
                 8: (9, self.migrate_schema_hosts_8_9),
                 9: (10, self.migrate_schema_hosts_9_10),
+                10: (11, self.migrate_schema_hosts_10_11),
             },
         }
         self.schema_migrations_indexes[colname_hosts] = {
@@ -902,7 +908,7 @@ creates the default indexes."""
 
     @staticmethod
     def migrate_schema_hosts_9_10(doc):
-        """Converts a record from version 8 to version 9. Version 10 changes
+        """Converts a record from version 9 to version 10. Version 10 changes
 the field names of the structured output for s7-info script.
 
         """
@@ -919,6 +925,100 @@ the field names of the structured output for s7-info script.
             update["$set"]["ports"] = doc['ports']
         return update
 
+    @classmethod
+    def migrate_schema_hosts_10_11(cls, doc):
+        """Converts a record from version 10 to version 11. Version 11 changes
+the way IP addresses are stored.
+
+In version 10, they are stored as integers.
+
+In version 11, they are stored as canonical string representations in
+JSON format, and as a string corresponding to the hexadecimal
+representation of the 128-bit integer corresponding to the IPv6
+address. IPv4 addresses are represented as "IPv4-Mapped IPv6
+Addresses", as defined in RFC 4291 section 2.5.5.2 (see
+<https://tools.ietf.org/html/rfc4291#section-2.5.5.2>), i.e.,
+::ffff:10.0.0.1.
+
+The reasons for this choice are the impossibility to store (and hence,
+index) unsigned 128-bit integers in MongoDB. Another approach, storing
+the 128-bit integer as a binary blob has been considered but the lack
+of operators to manipulate binary blobs in the aggregation framework
+would have made some analysis operations impossible to do "in
+database".
+
+        """
+        assert doc["schema_version"] == 10
+        update = {"$set": {"schema_version": 11}}
+        try:
+            addr = cls.ip2internal(doc['addr'])
+        except (KeyError, ValueError):
+            pass
+        else:
+            update["$set"]["addr"] = addr
+        updated = False
+        for port in doc.get('ports', []):
+            if 'state_reason_ip' in port:
+                try:
+                    port['state_reason_ip'] = cls.ip2internal(
+                        port['state_reason_ip']
+                    )
+                except ValueError:
+                    pass
+                else:
+                    updated = True
+            for script in port.get('scripts', []):
+                if script['id'] == 'ssl-cert':
+                    if 'pem' in script['ssl-cert']:
+                        data = ''.join(
+                            script['ssl-cert']['pem'].splitlines()[1:-1]
+                        ).encode()
+                        try:
+                            newout, newinfo = xmlnmap.create_ssl_cert(data)
+                        except Exception:
+                            utils.LOGGER.warning('Cannot parse certificate %r',
+                                                 data,
+                                                 exc_info=True)
+                        else:
+                            script['output'] = '\n'.join(newout)
+                            script['ssl-cert'] = newinfo
+                            updated = True
+                            continue
+                    try:
+                        pubkeytype = {
+                            'rsaEncryption': 'rsa',
+                            'id-ecPublicKey': 'ec',
+                            'id-dsa': 'dsa',
+                            'dhpublicnumber': 'dh',
+                        }[script['ssl-cert'].pop('pubkeyalgo')]
+                    except KeyError:
+                        pass
+                    else:
+                        script['pubkey'] = {'type': pubkeytype}
+                        updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        updated = False
+        for trace in doc.get('traces', []):
+            for hop in trace.get('hops', []):
+                if 'ipaddr' in hop:
+                    try:
+                        hop['ipaddr'] = cls.ip2internal(hop['ipaddr'])
+                    except ValueError:
+                        pass
+                    else:
+                        updated = True
+        if updated:
+            update["$set"]["traces"] = doc['traces']
+        return update
+
+    def _get(self, flt, **kargs):
+        """Like .get(), but returns a MongoDB cursor (suitable for use with
+e.g.  .explain().
+
+        """
+        return self.set_limits(self.find(self.colname_hosts, flt, **kargs))
+
     def get(self, flt, **kargs):
         """Queries the active column with the provided filter "flt",
 and returns a MongoDB cursor.
@@ -930,9 +1030,32 @@ take a long time, depending on both the operations and the filter.
 Any keyword argument is passed to the .find() method of the Mongodb
 column object, without any validation (and might have no effect if
 it is not expected)."""
-        return self.set_limits(self.find(
-            self.colname_hosts, flt, **kargs
-        ))
+        # Convert IP addresses to internal DB format
+        for host in self._get(flt, **kargs):
+            try:
+                host['addr'] = self.internal2ip(host['addr'])
+            except (KeyError, socket.error):
+                pass
+            for port in host.get('ports', []):
+                if 'state_reason_ip' in port:
+                    try:
+                        port['state_reason_ip'] = self.internal2ip(
+                            port['state_reason_ip']
+                        )
+                    except socket.error:
+                        pass
+            for trace in host.get('traces', []):
+                for hop in trace.get('hops', []):
+                    if 'ipaddr' in hop:
+                        try:
+                            hop['ipaddr'] = self.internal2ip(hop['ipaddr'])
+                        except socket.error:
+                            pass
+            if 'coordinates' in host.get('infos', {}).get('loc', {}):
+                host['infos']['coordinates'] = host['infos'].pop('loc')[
+                    'coordinates'
+                ][::-1]
+            yield host
 
     @staticmethod
     def getscanids(host):
@@ -1030,10 +1153,53 @@ it is not expected)."""
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
         ]
-        return ({'_id': tuple(rec['_id']), 'count': rec['count']}
+        return ({'_id': tuple(rec['_id'][::-1]), 'count': rec['count']}
                 for rec in col.aggregate(pipeline, cursor={}))
 
+    def get_ips_ports(self, flt, limit=None, skip=None):
+        cur = self._get(
+            flt, fields=['addr', 'ports.port', 'ports.state_state'],
+            limit=limit or 0, skip=skip or 0,
+        )
+        count = sum(len(host.get('ports', [])) for host in cur)
+        cur.rewind()
+        return ((dict(res, addr=self.internal2ip(res['addr'])) for res in cur),
+                count)
+
+    def get_ips(self, flt, limit=None, skip=None):
+        cur = self._get(flt, fields=['addr'], limit=limit or 0, skip=skip or 0)
+        return ((dict(res, addr=self.internal2ip(res['addr'])) for res in cur),
+                cur.count())
+
+    def get_open_port_count(self, flt, limit=None, skip=None):
+        cur = self._get(
+            flt, fields=['addr', 'starttime', 'openports.count'],
+            limit=limit or 0, skip=skip or 0,
+        )
+        return ((dict(res, addr=self.internal2ip(res['addr'])) for res in cur),
+                cur.count())
+
     def store_host(self, host):
+        # Convert IP addresses to internal DB format
+        try:
+            host['addr'] = self.ip2internal(host['addr'])
+        except (KeyError, ValueError):
+            pass
+        for port in host.get('ports', []):
+            if 'state_reason_ip' in port:
+                try:
+                    port['state_reason_ip'] = self.ip2internal(
+                        port['state_reason_ip']
+                    )
+                except ValueError:
+                    pass
+        for trace in host.get('traces', []):
+            for hop in trace.get('hops', []):
+                if 'ipaddr' in hop:
+                    try:
+                        hop['ipaddr'] = self.ip2internal(hop['ipaddr'])
+                    except ValueError:
+                        pass
         # keep location data in appropriate format for GEOSPHERE index
         if 'coordinates' in host.get('infos', {}):
             host['infos']['loc'] = {
@@ -1599,11 +1765,11 @@ it is not expected)."""
             )
         return {'endtime': {'$gte': start}, 'starttime': {'$lte': stop}}
 
-    @staticmethod
-    def searchhop(hop, ttl=None, neg=False):
+    @classmethod
+    def searchhop(cls, hop, ttl=None, neg=False):
         try:
-            hop = utils.ip2int(hop)
-        except (TypeError, utils.socket.error):
+            hop = cls.ip2internal(hop)
+        except ValueError:
             pass
         if ttl is None:
             return {'traces.hops.ipaddr': {'$ne': hop} if neg else hop}
@@ -1789,26 +1955,23 @@ it is not expected)."""
         elif field == "net" or field.startswith("net:"):
             field = "addr"
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
-            if self.server_info['versionArray'] >= [3, 2]:
-                specialproj = {
-                    "_id": 0,
-                    "addr": {"$floor": {"$divide": ["$addr",
-                                                    2 ** (32 - mask)]}},
-                }
-            else:
-                specialproj = {
-                    "_id": 0,
-                    "addr": {"$subtract": [{"$divide": ["$addr",
-                                                        2 ** (32 - mask)]},
-                                           {"$mod": [{"$divide": [
-                                               "$addr",
-                                               2 ** (32 - mask),
-                                           ]}, 1]}]},
-                }
+            flt = self.flt_and(flt, self.searchipv4())
+            # This is IPv4 only
+            specialproj = {
+                "_id": 0,
+                "addr": {"$subst": ["$addr", 24, mask // 4]},
+            }
+            # TODO: handle when 24 % 4 != 0 by substituting the last
+            # nibble value
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': '%s/%d' % (utils.int2ip(x['_id'] * 2 ** (32 - mask)),
-                                  mask),
+                '_id': '%s/%d' % (
+                    self.internal2ip(
+                        b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' +
+                        utils.decode_hex(x['_id'] + '0' * (8 - mask // 4))
+                    ),
+                    mask,
+                ),
             }
         elif field == "port" or field.startswith("port:"):
             if field == "port":
@@ -2367,7 +2530,7 @@ it is not expected)."""
         elif field == 'hop':
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': utils.int2ip(x['_id'])}
+                                    '_id': self.internal2ip(x['_id'])}
         elif field.startswith('hop') and field[3] in ':>':
             specialproj = {"_id": 0,
                            "traces.hops.ipaddr": 1,
@@ -2383,7 +2546,7 @@ it is not expected)."""
             ]
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
-                                    '_id': utils.int2ip(x['_id'])}
+                                    '_id': self.internal2ip(x['_id'])}
         pipeline = self._topvalues(
             field, flt=flt, topnbr=topnbr, sort=sort, limit=limit,
             skip=skip, least=least, aggrflt=aggrflt,
@@ -2584,7 +2747,14 @@ creates the default indexes."""
         self.db[self.colname_passive].drop()
         self.create_indexes()
 
-    def get(self, spec, **kargs):
+    def _get(self, spec, **kargs):
+        """Like .get(), but returns a MongoDB cursor (suitable for use with
+e.g.  .explain().
+
+        """
+        return self.set_limits(self.find(self.colname_passive, spec, **kargs))
+
+    def get(self, spec, hint=None, **kargs):
         """Queries the passive column with the provided filter "spec", and
 returns a MongoDB cursor.
 
@@ -2595,8 +2765,15 @@ take a long time, depending on both the operations and the filter.
 Any keyword argument is passed to the .find() method of the Mongodb
 column object, without any validation (and might have no effect if it
 is not expected)."""
-        return self.set_limits(
-            self.find(self.colname_passive, spec, **kargs))
+        cursor = self._get(spec, **kargs)
+        if hint is not None:
+            cursor.hint(hint)
+        for rec in cursor:
+            try:
+                rec['addr'] = self.internal2ip(rec['addr'])
+            except (KeyError, socket.error):
+                pass
+            yield rec
 
     def get_one(self, spec, **kargs):
         """Same function as get, except .find_one() method is called
@@ -2606,7 +2783,12 @@ returned.
 Unlike get(), this function might take a long time, depending
 on "spec" and the indexes set on colname_passive column."""
         # TODO: check limits
-        return self.find_one(self.colname_passive, spec, **kargs)
+        rec = self.find_one(self.colname_passive, spec, **kargs)
+        try:
+            rec['addr'] = self.internal2ip(rec['addr'])
+        except (TypeError, KeyError, socket.error):
+            pass
+        return rec
 
     def update(self, spec, **kargs):
         """Updates the first record matching "spec" in the "passive" column,
@@ -2618,15 +2800,21 @@ setting values according to the keyword arguments.
         """Inserts the record "spec" into the passive column."""
         if getinfos is not None:
             spec.update(getinfos(spec))
+        try:
+            spec['addr'] = self.ip2internal(spec['addr'])
+        except (KeyError, ValueError):
+            pass
         self.db[self.colname_passive].insert(spec)
 
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         if spec is None:
             return
+        try:
+            spec['addr'] = self.ip2internal(spec['addr'])
+        except (KeyError, ValueError):
+            pass
         hint = self.get_hint(spec)
-        current = self.get(spec, fields=[])
-        if hint is not None:
-            current.hint(hint)
+        current = self.get(spec, hint=hint, fields=[])
         try:
             current = next(current)
         except StopIteration:
@@ -2669,24 +2857,29 @@ setting values according to the keyword arguments.
         count = 0
         try:
             for timestamp, spec in specs:
-                if spec is not None:
-                    updatespec = {
-                        '$inc': {'count': 1},
-                        '$min': {'firstseen': timestamp},
-                        '$max': {'lastseen': timestamp},
-                    }
-                    if getinfos is not None:
-                        infos = getinfos(spec)
-                        if infos:
-                            updatespec['$setOnInsert'] = infos
-                    bulk.find(spec).upsert().update(updatespec)
-                    count += 1
-                    if count >= config.MONGODB_BATCH_SIZE:
-                        utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", count)
-                        bulk.execute()
-                        bulk = self.db[self.colname_passive]\
-                                   .initialize_unordered_bulk_op()
-                        count = 0
+                if spec is None:
+                    continue
+                try:
+                    spec['addr'] = self.ip2internal(spec['addr'])
+                except (KeyError, ValueError):
+                    pass
+                updatespec = {
+                    '$inc': {'count': 1},
+                    '$min': {'firstseen': timestamp},
+                    '$max': {'lastseen': timestamp},
+                }
+                if getinfos is not None:
+                    infos = getinfos(spec)
+                    if infos:
+                        updatespec['$setOnInsert'] = infos
+                bulk.find(spec).upsert().update(updatespec)
+                count += 1
+                if count >= config.MONGODB_BATCH_SIZE:
+                    utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", count)
+                    bulk.execute()
+                    bulk = self.db[self.colname_passive]\
+                               .initialize_unordered_bulk_op()
+                    count = 0
         except IOError:
             pass
         if count > 0:
@@ -2702,6 +2895,10 @@ setting values according to the keyword arguments.
 
         """
         updatespec = {}
+        try:
+            spec['addr'] = self.ip2internal(spec['addr'])
+        except (KeyError, ValueError):
+            pass
         if 'firstseen' in spec:
             updatespec['$min'] = {'firstseen': spec['firstseen']}
             del spec['firstseen']
@@ -2911,16 +3108,6 @@ setting values according to the keyword arguments.
     @staticmethod
     def searchtcpsrvbanner(banner):
         return {'recontype': 'TCP_SERVER_BANNER', 'value': banner}
-
-    def searchcountry(self, code, neg=False):
-        return self.searchranges(
-            geoiputils.get_ranges_by_country(code), neg=neg
-        )
-
-    def searchasnum(self, asnum, neg=False):
-        return self.searchranges(
-            geoiputils.get_ranges_by_asnum(asnum), neg=neg
-        )
 
     @staticmethod
     def searchtimeago(delta, neg=False, new=False):

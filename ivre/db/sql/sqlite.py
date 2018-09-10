@@ -35,10 +35,6 @@ class SqliteDB(SQLDB):
     def __init__(self, url):
         SQLDB.__init__(self, url)
 
-    @classmethod
-    def convert_ip(cls, addr):
-        return utils.force_ip2int(addr)
-
 
 class SqliteDBPassive(SqliteDB, SQLDBPassive):
 

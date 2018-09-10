@@ -27,6 +27,9 @@ import re
 import sqlite3
 
 
+from future.utils import PY3
+
+
 from sqlalchemy import event, func, Column, ForeignKey, Index, DateTime, \
     Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql
@@ -109,12 +112,10 @@ def extend_binary_expression(element, compiler, **kwargs):
 
 class DefaultJSONB(UserDefinedType):
 
+    python_type = dict
+
     def __init__(self):
         self.__visit_name__ = "DefaultJSONB"
-
-    @property
-    def python_type(self):
-        return dict
 
     def get_col_spec(self):
         return self.__visit_name__
@@ -163,32 +164,27 @@ def SQLARRAY(item_type):
 
 class DefaultINET(UserDefinedType):
 
+    # For some reasons, Python 2 considers the result type (str) as a
+    # unicode string instead of raw bytes. Using buffer instead seems
+    # to fix that.
+    python_type = bytes if PY3 else buffer  # noqa: F821 - exists in Python 2
+
     def __init__(self):
         self.__visit_name__ = "DefaultINET"
-
-    @property
-    def python_type(self):
-        return int
 
     def get_col_spec(self):
         return self.__visit_name__
 
     def bind_processor(self, dialect):
         def process(value):
-            if value is None:
-                return -1
-            if value is not None:
-                value = utils.ip2int(value)
-            return value
+            return self.python_type(
+                b"" if value is None else utils.ip2bin(value)
+            )
         return process
 
     def result_processor(self, dialect, coltype):
         def process(value):
-            if value == -1:
-                return None
-            if value is not None:
-                value = utils.int2ip(value)
-            return value
+            return None if not value else utils.bin2ip(value)
         return process
 
 

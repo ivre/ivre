@@ -144,25 +144,17 @@ def get_nmap_action(action):
     postamble = "]\n"
     r2res = lambda x: x
     if action == "timeline":
-        if hasattr(db.view, "get_open_port_count"):
-            result = list(db.view.get_open_port_count(flt_params.flt))
-            count = len(result)
-        else:
-            result = db.view.get(
-                flt_params.flt, fields=['addr', 'starttime', 'openports.count']
-            )
-            count = result.count()
+        result, count = db.view.get_open_port_count(flt_params.flt)
         if request.params.get("modulo") is None:
             r2time = lambda r: int(utils.datetime2timestamp(r['starttime']))
         else:
             r2time = lambda r: (int(utils.datetime2timestamp(r['starttime']))
                                 % int(request.params.get("modulo")))
         if flt_params.ipsasnumbers:
-            r2res = lambda r: [r2time(r), utils.force_ip2int(r['addr']),
+            r2res = lambda r: [r2time(r), utils.ip2int(r['addr']),
                                r['openports']['count']]
         else:
-            r2res = lambda r: [r2time(r), utils.force_int2ip(r['addr']),
-                               r['openports']['count']]
+            r2res = lambda r: [r2time(r), r['addr'], r['openports']['count']]
     elif action == "coordinates":
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
         postamble = ']}\n'
@@ -174,57 +166,34 @@ def get_nmap_action(action):
             "properties": {"count": r['count']},
         }
     elif action == "countopenports":
-        if hasattr(db.view, "get_open_port_count"):
-            result = db.view.get_open_port_count(flt_params.flt)
-        else:
-            result = db.view.get(flt_params.flt,
-                                 fields=['addr', 'openports.count'])
-        if hasattr(result, "count"):
-            count = result.count()
-        else:
-            count = db.view.count(flt_params.flt,
-                                  fields=['addr', 'openports.count'])
+        result, count = db.view.get_open_port_count(flt_params.flt)
         if flt_params.ipsasnumbers:
-            r2res = lambda r: [utils.force_ip2int(r['addr']),
+            r2res = lambda r: [utils.ip2int(r['addr']),
                                r['openports']['count']]
         else:
-            r2res = lambda r: [utils.force_int2ip(r['addr']),
-                               r['openports']['count']]
+            r2res = lambda r: [r['addr'], r['openports']['count']]
     elif action == "ipsports":
-        if hasattr(db.view, "get_ips_ports"):
-            result = list(db.view.get_ips_ports(flt_params.flt))
-            count = sum(len(host.get('ports', [])) for host in result)
-        else:
-            result = db.view.get(
-                flt_params.flt,
-                fields=['addr', 'ports.port', 'ports.state_state']
-            )
-            count = sum(len(host.get('ports', [])) for host in result)
-            result.rewind()
+        result, count = db.view.get_ips_ports(flt_params.flt)
         if flt_params.ipsasnumbers:
             r2res = lambda r: [
-                utils.force_ip2int(r['addr']),
+                utils.ip2int(r['addr']),
                 [[p['port'], p['state_state']]
                  for p in r.get('ports', [])
                  if 'state_state' in p]
             ]
         else:
             r2res = lambda r: [
-                utils.force_int2ip(r['addr']),
+                r['addr'],
                 [[p['port'], p['state_state']]
                  for p in r.get('ports', [])
                  if 'state_state' in p]
             ]
     elif action == "onlyips":
-        result = db.view.get(flt_params.flt, fields=['addr'])
-        if hasattr(result, "count"):
-            count = result.count()
-        else:
-            count = db.view.count(flt_params.flt, fields=['addr'])
+        result, count = db.view.get_ips(flt_params.flt)
         if flt_params.ipsasnumbers:
-            r2res = lambda r: utils.force_ip2int(r['addr'])
+            r2res = lambda r: utils.ip2int(r['addr'])
         else:
-            r2res = lambda r: utils.force_int2ip(r['addr'])
+            r2res = lambda r: r['addr']
     elif action == "diffcats":
         if request.params.get("onlydiff"):
             output = db.view.diff_categories(request.params.get("cat1"),

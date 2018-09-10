@@ -82,8 +82,7 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
     if sig[0][0] not in b'ST':
         sig[0] = b'*'
     spec = {
-        'addr': utils.ip2int(line[0][line[0].index(b'> ') + 2:
-                                     line[0].index(b':')]),
+        'addr': line[0][line[0].index(b'> ') + 2:line[0].index(b':')].decode(),
         'distance': dist,
         'value': osname.decode(),
         'version': version.decode(),
@@ -275,7 +274,7 @@ def handle_rec(sensor, ignorenets, neverignore,
         }
     else:
         spec = {
-            'addr': utils.force_ip2int(host),
+            'addr': host,
             'recontype': recon_type,
             'value': value
         }

@@ -58,7 +58,7 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, utils, xmlnmap, nmapout
+from ivre import config, geoiputils, nmapout, utils, xmlnmap
 
 
 class DB(object):
@@ -187,9 +187,17 @@ class DB(object):
         raise NotImplementedError
 
     @staticmethod
-    def convert_ip(addr):
+    def ip2internal(addr):
         """Converts an IP address (given as either an integer or a string) to
-        the internal value used by the backend
+        the internal value used by the backend.
+
+        """
+        raise NotImplementedError
+
+    @staticmethod
+    def internal2ip(addr):
+        """Converts an IP address (given as the internal value used by the backend) to
+        its classical form as a string.
 
         """
         raise NotImplementedError
@@ -341,6 +349,7 @@ class DBActive(DB):
                 7: (8, self.__migrate_schema_hosts_7_8),
                 8: (9, self.__migrate_schema_hosts_8_9),
                 9: (10, self.__migrate_schema_hosts_9_10),
+                10: (11, self.__migrate_schema_hosts_10_11),
             },
         }
         self.argparser.add_argument(
@@ -629,6 +638,71 @@ the field names of the structured output for s7-info script.
                 if script['id'] == "s7-info":
                     if 's7-info' in script:
                         xmlnmap.change_s7_info_keys(script['s7-info'])
+
+    @staticmethod
+    def __migrate_schema_hosts_10_11(doc):
+        """Converts a record from version 10 to version 11. Version 11 changes
+the way IP addresses are stored, the way coordinates are stored in
+JSON and the structured output of ssl-cert from Masscan results to
+make it more similar to Nmap.
+
+In version 10, IP addresses are stored as integers. In version 11,
+they are stored as canonical string representations.
+
+        """
+        assert doc["schema_version"] == 10
+        doc["schema_version"] = 11
+        try:
+            doc['addr'] = utils.force_int2ip(doc['addr'])
+        except KeyError:
+            pass
+        if "infos" in doc and "loc" in doc["infos"]:
+            doc["infos"]["coordinates"] = doc["infos"].pop(
+                "loc"
+            )["coordinates"][::-1]
+        for port in doc.get('ports', []):
+            if 'state_reason_ip' in port:
+                try:
+                    port['state_reason_ip'] = utils.force_int2ip(
+                        port['state_reason_ip']
+                    )
+                except ValueError:
+                    pass
+            for script in port.get('scripts', []):
+                if script['id'] == 'ssl-cert':
+                    if 'pem' in script['ssl-cert']:
+                        data = ''.join(
+                            script['ssl-cert']['pem'].splitlines()[1:-1]
+                        ).encode()
+                        try:
+                            newout, newinfo = xmlnmap.create_ssl_cert(data)
+                        except Exception:
+                            utils.LOGGER.warning('Cannot parse certificate %r',
+                                                 data,
+                                                 exc_info=True)
+                        else:
+                            script['output'] = '\n'.join(newout)
+                            script['ssl-cert'] = newinfo
+                            continue
+                    try:
+                        pubkeytype = {
+                            'rsaEncryption': 'rsa',
+                            'id-ecPublicKey': 'ec',
+                            'id-dsa': 'dsa',
+                            'dhpublicnumber': 'dh',
+                        }[script['ssl-cert'].pop('pubkeyalgo')]
+                    except KeyError:
+                        pass
+                    else:
+                        script['pubkey'] = {'type': pubkeytype}
+        for trace in doc.get('traces', []):
+            for hop in trace.get('hops', []):
+                if 'ipaddr' in hop:
+                    try:
+                        hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
+                    except ValueError:
+                        pass
+        return doc
 
     @staticmethod
     def json2dbrec(host):
@@ -1316,7 +1390,8 @@ class DBPassive(DB):
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         raise NotImplementedError
 
-    def insert_or_update_bulk(self, specs, getinfos=None):
+    def insert_or_update_bulk(self, specs, getinfos=None,
+                              separated_timestamps=True):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of (timestamp, spec) values. This generic
         implementation does not use the bulk capacity of the
@@ -1324,8 +1399,16 @@ class DBPassive(DB):
         `.insert_or_update()` method.
 
         """
-        for timestamp, spec in specs:
-            self.insert_or_update(timestamp, spec, getinfos=getinfos)
+        if separated_timestamps:
+            for tstamp, spec in specs:
+                self.insert_or_update(tstamp, spec, getinfos=getinfos)
+        else:
+            for spec in specs:
+                timestamp = spec.pop("firstseen", None)
+                lastseen = spec.pop("lastseen", None)
+                self.insert_or_update(timestamp or lastseen, spec,
+                                      getinfos=getinfos,
+                                      lastseen=lastseen or timestamp)
 
     def insert_or_update_local_bulk(self, specs, getinfos=None):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
@@ -1354,6 +1437,20 @@ class DBPassive(DB):
                 _bulk_execute(records)
                 records = {}
         _bulk_execute(records)
+
+    def searchcountry(self, code, neg=False):
+        return self.searchranges(
+            geoiputils.get_ranges_by_country(code), neg=neg
+        )
+
+    def searchasnum(self, asnum, neg=False):
+        return self.searchranges(
+            geoiputils.get_ranges_by_asnum(asnum), neg=neg
+        )
+
+    @classmethod
+    def searchranges(cls, ranges, neg=False):
+        raise NotImplementedError
 
     def searchtorcert(self):
         return self.searchcertsubject(
