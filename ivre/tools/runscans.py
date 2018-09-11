@@ -72,6 +72,15 @@ STATUS_DONE_UNKNOWN = 3
 NMAP_LIMITS = {}
 
 
+class RunscansArgs(object):
+    def __init__(self, *data, **kwargs):
+        for dictionary in data:
+            for key in dictionary:
+                setattr(self, key, dictionary[key])
+        for key in kwargs:
+            setattr(self, key, kwargs[key])
+
+
 def setnmaplimits():
     """Enforces limits from NMAP_LIMITS global variable."""
     for limit, value in viewitems(NMAP_LIMITS):
@@ -286,7 +295,7 @@ def _call_nmap_single(maincategory, options,
     shutil.move(outfile % 'current', outfile % outdir)
 
 
-def main():
+def main(injected_args=None):
     atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
     try:
@@ -334,7 +343,12 @@ def main():
         parser.add_argument('--again',
                             choices=['up', 'down', 'unknown', 'all'],
                             help='select status of targets to scan again')
-    args = parser.parse_args()
+
+    namespace = None
+    if injected_args is not None:
+        namespace = RunscansArgs(injected_args)
+    args = parser.parse_args(namespace=namespace)
+
     if args.output == 'CommandLine':
         print("Command line to run a scan with template "
               "%s" % args.nmap_template)
