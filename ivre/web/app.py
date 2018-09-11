@@ -38,7 +38,7 @@ from ivre import config, utils, VERSION
 from ivre.db import db
 from ivre.web import utils as webutils
 from ivre.web.securitymiddleware import SecurityMiddleware
-from managementutils import COMMON_MSG, AGENT_MSG, SERVER_WORKING_DIR, create_dir, import_scans_from_b64zip
+from ivre.web.managementutils import COMMON_MSG, AGENT_MSG, SERVER_WORKING_DIR, create_dir, import_scans_from_b64zip
 from ivre.db.mongo import TASK_STS, TMPLT_STS
 
 application = Bottle()
@@ -766,6 +766,7 @@ def management(task_id):
 @check_content_type
 # @security_middleware
 def management(task_id):
+    response.set_header('Content-Type', 'application/json')
     try:
         payload = request.json
         message = payload['message']
@@ -778,3 +779,42 @@ def management(task_id):
     except Exception as e:
         utils.LOGGER.warning('API Exception: {}'.format(e))
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
+
+
+# get Agent passive detections
+@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
+@check_referer
+def management(agent_name):
+    if agent_name:
+        exclude_list = []
+        for doc in db.management.get_fragile_devices(agent_name):
+            device_ip = doc['detection']['host'] if 'detection' in doc and 'host' in doc['detection'] else None
+            if device_ip and device_ip not in exclude_list:
+                exclude_list.append(device_ip)
+        return json.dumps({'exclude_list': exclude_list})
+    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+
+
+# Passive detection POST results
+@application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
+@check_content_type
+# @security_middleware
+def management(agent_name):
+    try:
+        payload = request.json
+        message = payload['message']
+        if payload['type'] == AGENT_MSG.PASSIVE_RESULT:
+            doc = {
+                'agent': agent_name,
+                'detection': message
+            }
+            res = db.management.set_passive_detection(doc)
+            utils.LOGGER.info('set_passive_detection : {}'.format(res))
+            if res:
+                return json.dumps({'error': False, 'message': 'Detection "{}" imported.'.format(message['uid'])})
+        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+
+    except Exception as e:
+        utils.LOGGER.warning('API Exception: {}'.format(e))
+        return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
+

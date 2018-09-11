@@ -41,6 +41,7 @@ class AGENT_MSG:
     OVERWRITE_CONF = 102
     SET_RESULTS_PATH = 103
     TASK_RESULT = 105
+    PASSIVE_RESULT = 106
     ACK = 200
 
 
@@ -545,14 +546,14 @@ def add_excluded_ip_to_template(detection, agent):
     log = logging.getLogger("dyne.wsagent")
     log.info('new detection: {}'.format(detection))
     if 'source' in detection and detection['source'] == 'MODBUS_MASTER':
-        ip = detection['host']
-        agent.add_excluded_ip(ip)
-        for key in config.NMAP_SCAN_TEMPLATES:
-            if "exclude" not in config.NMAP_SCAN_TEMPLATES[key]:
-                config.NMAP_SCAN_TEMPLATES[key]["exclude"] = [ip]
-            else:
-                if ip not in config.NMAP_SCAN_TEMPLATES[key]["exclude"]:
-                    config.NMAP_SCAN_TEMPLATES[key]["exclude"].append(ip)
+        agent.add_excluded_ip(detection['host'])
+        for ip in agent.get_excluded_ip():
+            for key in config.NMAP_SCAN_TEMPLATES:
+                if "exclude" not in config.NMAP_SCAN_TEMPLATES[key]:
+                    config.NMAP_SCAN_TEMPLATES[key]["exclude"] = [ip]
+                else:
+                    if ip not in config.NMAP_SCAN_TEMPLATES[key]["exclude"]:
+                        config.NMAP_SCAN_TEMPLATES[key]["exclude"].append(ip)
 
         current_templates = config.NMAP_SCAN_TEMPLATES
         current_templates = pprint.pformat(current_templates, width=200)
@@ -755,10 +756,12 @@ def run_passive_scan(params, agent):
     """
     logging.config.dictConfig(loggingConfig)
     log = logging.getLogger("dyne.wsagent")
+
     def handle_output(out):
         for stdout_line in iter(out.readline, ''):
             try:
                 detection = json.loads(stdout_line)
+                agent.post_passive_detection(detection)
                 add_excluded_ip_to_template(detection, agent)
             except Exception as e:
                 log.error('Exception while importing ip from passive detection: {}'.format(e))

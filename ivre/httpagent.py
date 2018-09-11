@@ -92,7 +92,8 @@ class AgentClient(object):
         self.api = {
             'templates': '/management/agent/' + str(self.name) + '/templates',
             'tasks': '/management/agent/' + str(self.name) + '/tasks',
-            'tasks_all': '/management/agent/' + str(self.name) + '/tasks_all'
+            'tasks_all': '/management/agent/' + str(self.name) + '/tasks_all',
+            'passive': '/management/agent/' + str(self.name) + '/passive'
         }
         self.etag = None
         self.data = {
@@ -106,6 +107,9 @@ class AgentClient(object):
 
     def add_excluded_ip(self, ip):
         self.excluded_ip.append(ip)
+
+    def get_excluded_ip(self):
+        return self.excluded_ip
 
     def req(self, path):
         try:
@@ -398,6 +402,30 @@ class AgentClient(object):
         else:
             log.info('STATUS CODE: {0} - POST Task {1} results'.format(r.status_code, task_id))
 
+    def post_passive_detection(self, detection):
+        payload = {
+            'message': detection,
+            'type': AGENT_MSG.PASSIVE_RESULT
+        }
+        r = requests.post(self.url + '/management/agent/{}/passive'.format(self.name), json=payload)
+        if r.status_code == 200:
+            log.info('POST Passive detection: {0}'.format(detection['uid']))
+        else:
+            log.info('STATUS CODE: {0} - Passive detection: {1}'.format(r.status_code, detection['uid']))
+
+    def get_ip_to_exclude(self):
+        response = self.req(self.api['passive'])
+        if not isinstance(response, dict):
+            # TODO error
+            return
+        if not response:
+            # TODO error
+            return
+        if 'exclude_list' in response:
+            for ip in response['exclude_list']:
+                if ip not in self.excluded_ip:
+                    self.excluded_ip.append(ip)
+
     def __get_task(self, task_id):
         # type: (self, str) -> Task
         return self.data['tasks'][task_id] if task_id in self.data['tasks'] else None
@@ -416,6 +444,8 @@ class AgentClient(object):
 
     def run(self):
         log.info('### Agent started! ###')
+        self.get_ip_to_exclude()
+        # TODO include ip into default template
         self.get_configs(all_templates=True)
         self.get_tasks_resume()
         run_passive_scan(agent_conf['bro'], self)

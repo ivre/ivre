@@ -2537,7 +2537,7 @@ class MongoDBManagement(MongoDB, DBManagement):
     def __init__(self, host, dbname, collections={
         'tasks': 'tasks',
         'templates': 'templates',
-        'tasks': 'tasks'
+        'passive_detections': 'passivedetections'
     }, colname_management="passive", **kargs):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBManagement.__init__(self)
@@ -2595,6 +2595,14 @@ class MongoDBManagement(MongoDB, DBManagement):
     def set_task(self, doc):
         op = self.db[self.collections['tasks']].insert_one(doc)
         return isinstance(op.inserted_id, bson.objectid.ObjectId)
+
+    def set_passive_detection(self, doc):
+        op = self.db[self.collections['passive_detections']].insert_one(doc)
+        return isinstance(op.inserted_id, bson.objectid.ObjectId)
+
+    def get_fragile_devices(self, agent_name):
+        return self.find(self.collections['passive_detections'],
+                         {'agent': agent_name, 'detection.source': 'MODBUS_MASTER'}, {'detection.host': 1})
 
     def set_task_status(self, task_id, status):
         self.db[self.collections['tasks']].update_one({
