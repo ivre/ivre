@@ -545,20 +545,21 @@ def add_excluded_ip_to_template(detection, agent):
     logging.config.dictConfig(loggingConfig)
     log = logging.getLogger("dyne.wsagent")
     log.info('new detection: {}'.format(detection))
-    if 'source' in detection and detection['source'] == 'MODBUS_MASTER':
+    if detection and 'source' in detection and detection['source'] == 'MODBUS_MASTER':
         agent.add_excluded_ip(detection['host'])
-        for ip in agent.get_excluded_ip():
-            for key in config.NMAP_SCAN_TEMPLATES:
-                if "exclude" not in config.NMAP_SCAN_TEMPLATES[key]:
-                    config.NMAP_SCAN_TEMPLATES[key]["exclude"] = [ip]
-                else:
-                    if ip not in config.NMAP_SCAN_TEMPLATES[key]["exclude"]:
-                        config.NMAP_SCAN_TEMPLATES[key]["exclude"].append(ip)
 
-        current_templates = config.NMAP_SCAN_TEMPLATES
-        current_templates = pprint.pformat(current_templates, width=200)
-        res = __write_templates_to_file(current_templates, ip=ip)
-        log.info(res['message'] if 'message' in res['message'] else res)
+    for ip in agent.get_excluded_ip():
+        for key in config.NMAP_SCAN_TEMPLATES:
+            if "exclude" not in config.NMAP_SCAN_TEMPLATES[key]:
+                config.NMAP_SCAN_TEMPLATES[key]["exclude"] = [ip]
+            else:
+                if ip not in config.NMAP_SCAN_TEMPLATES[key]["exclude"]:
+                    config.NMAP_SCAN_TEMPLATES[key]["exclude"].append(ip)
+
+    current_templates = config.NMAP_SCAN_TEMPLATES
+    current_templates = pprint.pformat(current_templates, width=200)
+    res = __write_templates_to_file(current_templates, ip=True)
+    log.info(res['message'] if 'message' in res['message'] else res)
 
 
 # TODO

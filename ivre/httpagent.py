@@ -13,7 +13,7 @@ import shutil
 import os
 from multiprocessing.dummy import Pool  # thread pool
 from ivre.web.managementutils import COMMON_MSG, AGENT_MSG, loggingConfig, AGENT_WORKING_DIR, create_dir, \
-    extract_occasional_scan_info, add_template, CONFIG_DIR, run_passive_scan
+    extract_occasional_scan_info, add_template, CONFIG_DIR, run_passive_scan, add_excluded_ip_to_template
 from ivre.db.mongo import TASK_STS, TMPLT_STS
 # from ivre import config
 import logging
@@ -425,6 +425,7 @@ class AgentClient(object):
             for ip in response['exclude_list']:
                 if ip not in self.excluded_ip:
                     self.excluded_ip.append(ip)
+            add_excluded_ip_to_template(None, self)
 
     def __get_task(self, task_id):
         # type: (self, str) -> Task
@@ -469,12 +470,14 @@ class AgentClient(object):
 
 
 if __name__ == "__main__":
-    import config
-
-    config.NMAP_SCAN_TEMPLATES = {'default': config.NMAP_SCAN_TEMPLATES['default'].copy()}
+    from ivre import config
     map(lambda p: create_dir(p.format(AGENT_WORKING_DIR)), ['{0}', '{0}/scheduled_scans', '{0}/remote_scans'])
     source = os.path.join(CONFIG_DIR, '.ivre.conf.default')
     destination = os.path.join(CONFIG_DIR, '.ivre.conf')
+    default = config.NMAP_SCAN_TEMPLATES['default'].copy()
+    config.NMAP_SCAN_TEMPLATES = {'default': default}
+    if 'exclude' in default:
+        del default['exclude']
     try:
         os.remove(destination)
         shutil.copy(source, destination)
