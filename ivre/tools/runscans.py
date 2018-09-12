@@ -295,6 +295,10 @@ def _call_nmap_single(maincategory, options,
     shutil.move(outfile % 'current', outfile % outdir)
 
 
+def run(injected_args=None):
+    main(injected_args)
+
+
 def main(injected_args=None):
     atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
@@ -480,7 +484,13 @@ def main(injected_args=None):
                     chunksize=1
             ):
                 pass
-        exit(0)
+
+        if injected_args is not None:
+            pool.terminate()
+            pool.close()
+            return 0
+        else:
+            exit(0)
     elif args.output == 'ListAllRand':
         targiter = targets.__iter__()
         try:

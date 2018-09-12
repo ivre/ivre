@@ -24,11 +24,11 @@ lock = Lock()
 
 # import ivre.config as config
 from ivre import utils
+from ivre.tools import runscans
 
 # from concurrent.futures import ProcessPoolExecutor
-
 SERVER_WORKING_DIR = "/tmp/ivre"
-AGENT_WORKING_DIR = '/home/vm/to_delete/ivre'
+AGENT_WORKING_DIR = os.path.join(os.getcwd(), 'ivre_httpagent/')
 CONFIG_FILE = '.ivre.conf'
 CONFIG_DIR = os.path.join(os.path.expanduser('~'))
 # NMAP_SCAN_TEMPLATES = config.NMAP_SCAN_TEMPLATES
@@ -150,7 +150,7 @@ ws_server = None
 # TODO solve log problem
 log = logging.getLogger("ivre")
 # logging.config.dictConfig(loggingConfig)
-# # log = logging.getLogger("dyne.wsagent")
+# log = logging.getLogger("dyne.wsagent")
 
 
 def agent_handler(response):
@@ -664,7 +664,7 @@ def import_scans_from_b64zip(name, scan_params, zip64):
         return import_scans(scan_params, unzipped_location)
 
     except Exception as e:
-        log.exception("Importing remote scan files failed")
+        utils.LOGGER.error("Importing remote scan files failed")
 
         return json.dumps({
             "error": True,
@@ -800,8 +800,8 @@ def run_ivre_scan(params):
     :type from_agent: bool
     :rtype: dict
     """
-    print 'run_ivre_scan!!!'
-    print 'run_ivre_scan params : ', params
+    logging.config.dictConfig(loggingConfig)
+    log = logging.getLogger("dyne.wsagent")
 
     try:
         startAddress = params['ip']['start']
@@ -809,14 +809,6 @@ def run_ivre_scan(params):
         template = params['nmap_template']
         campaign = params['campaign']
         source = params['source']
-        zmap_port = "--zmap-prescan-port {0}".format(params['prescan']['zmap_port']) if 'zmap_port' in params[
-            'prescan'] else ''
-        zmap_opts = "--zmap-prescan-opts '{0}'".format(params['prescan']['zmap_opts']) if 'zmap_opts' in params[
-            'prescan'] else ''
-        nmap_ports = "--nmap-prescan-ports {0}".format(params['prescan']['nmap_ports']) if 'nmap_ports' in params[
-            'prescan'] else ''
-        nmap_opts = "--nmap-prescan-opts '{0}'".format(params['prescan']['nmap_opts']) if 'nmap_opts' in params[
-            'prescan'] else ''
 
         # This regular expression is just to ensure there isn't any
         # invalid characters for an IP address. Its purpose isn't to
@@ -857,79 +849,59 @@ def run_ivre_scan(params):
                 "message": "Supplied source name is invalid."
             }
 
-        prescan = "{0}{1}{2}{3}".format(
-            zmap_port if zmap_port not in (None, '') else '',
-            ' {}'.format(zmap_opts) if zmap_opts else '',
-            ' {}'.format(nmap_ports) if nmap_ports else '',
-            ' {}'.format(nmap_opts) if nmap_opts else ''
-        )
+        args = {'routable': True, 'range': [startAddress, endAddress], 'nmap-template': template,
+                'output': 'XMLFork', 'again': ['all']}
 
-        # Invoke ivre runscans.
-        cmd = "ivre runscans --routable --range {0} {1} --nmap-template {2} {3} --output=XMLFork --again all".format(
-            startAddress,
-            endAddress,
-            template,
-            prescan
-        )
-        cmd = shlex.split(cmd)
+        if 'zmap_port' in params['prescan'] and params['prescan']['zmap_port']:
+            args['zmap-prescan-port'] = params['prescan']['zmap_port']
+        if 'zmap_opts' in params['prescan'] and params['prescan']['zmap_opts']:
+            args['zmap-prescan-opts'] = params['prescan']['zmap_opts']
+        if 'nmap_ports' in params['prescan'] and params['prescan']['nmap_ports']:
+            args['nmap-prescan-ports'] = params['prescan']['nmap_ports']
+        if 'nmap_opts' in params['prescan'] and params['prescan']['nmap_opts']:
+            args['nmap-prescan-opts'] = params['prescan']['nmap_opts']
 
-        # # TODO remove this
-        working_dir = AGENT_WORKING_DIR
-        # startAddress = '172.17.0.2'
-        # endAddress = startAddress
-        # cmd = ['ivre', 'runscans', '--routable', '--range', startAddress, endAddress, '--output=XMLFork', '--again', 'all']
+        log.debug('run_ivre_scan: About to execute the with following args %s', args)
+        runscans.run(args)
 
-        # current_working_dir = working_dir if params['cwd'] is None else params['cwd']
-        # if not is_valid_path(current_working_dir):
-        #     return {
-        #         "error": True,
-        #         "message": "{} does not exists or it's not a directory ".format(current_working_dir)
-        #     }
-        # utils.LOGGER.debug('About to execute the following command %s; cwd: %s', cmd, current_working_dir)
-        print cmd
-        # t0 = time.time()
-        process = Popen(cmd, cwd=r'/home/vm/to_delete/ivre', stdout=PIPE, stderr=STDOUT)
-        output = process.communicate()[0].splitlines()
-        print 'output : ', output
-        # utils.LOGGER.debug('Execution time %s', time.time()-t0)
-
+        current_time = str(int(round(time.time() * 1000)))
         zip_file_path, destination_path = [p.format(startAddress, endAddress) for p in
-                                           ['/scan_{0}-{1}', '/scans/RANGE-{0}-{1}/up']]
-
+                                           ['/scan_{0}-{1}__' + current_time,
+                                            './scans/RANGE-{0}-{1}/up']]
         zip_file_path = zip_file_path.replace(".", "_")
-        shutil.make_archive(working_dir + zip_file_path, 'zip', working_dir + destination_path)
+        shutil.make_archive(AGENT_WORKING_DIR + zip_file_path, 'zip', destination_path)
 
         try:
-            with open(working_dir + zip_file_path + '.zip', 'rb') as f:
-
+            with open(AGENT_WORKING_DIR + zip_file_path + '.zip', 'rb') as f:
                 data = base64.b64encode(f.read())
-                scan_zip = {
-                    "scan_params": params,
-                    "name": zip_file_path.replace('/', ''),
-                    'output': output,
-                    "contents": data
-                }
 
-                utils.LOGGER.info(
-                    "Scan %s has terminated with success: results has been packed and are ready to be sent",
-                    params['name'])
+            f.close()
+            scan_zip = {
+                "scan_params": params,
+                "name": zip_file_path.replace('/', ''),
+                "contents": data
+            }
 
-                return {
-                    "error": False,
-                    "message": scan_zip,
-                    "type": COMMON_MSG.RUN_NOW
-                }
+            log.info(
+                "run_ivre_scan: Scan %s has terminated with success: results has been packed and are ready to be sent",
+                params['name'])
+
+            return {
+                "error": False,
+                "message": scan_zip,
+                "type": COMMON_MSG.RUN_NOW
+            }
 
         except Exception as e:
-            utils.LOGGER.exception("Send scan files failed")
+            log.exception("run_ivre_scan: Scan results packing failed with: {}".format(e))
 
             return {
                 "error": True,
-                "message": "Importing remote scan files failed with: {0}".format(e)
+                "message": "Agent scan failed with: {0}".format(e)
             }
 
     except Exception as e:
-        utils.LOGGER.exception("Scan execution failed")
+        log.exception("run_ivre_scan: Scan execution failed with: {}".format(e))
 
         return {
             "error": True,

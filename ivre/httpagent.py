@@ -184,19 +184,22 @@ class AgentClient(object):
         log.info('RUN Task {}'.format(task_id))
         log.debug('RUN Task params {}'.format(params))
         result = run_ivre_scan(params)
-        if result['error']:
-            message = 'RUN Task {0} - error: {1}'.format(task_id, result)
-            log.error(message)
-            return {'error': True, 'message': message, 'task_id': task_id}
-        else:
-            return {
-                'error': False,
-                'message': {
+        log.info('RUN Task result ==> {}'.format(result.keys()))
+        try:
+            if result['error']:
+                message = 'RUN Task {0} - error: {1}'.format(task_id, result)
+                log.error(message)
+                return {'error': True, 'message': message, 'task_id': task_id}
+            else:
+                return {
+                    'error': False,
                     'task_id': task_id,
-                    'task_result': result['message']['contents'],
-                    'output': result['message']['output']
+                    'message': {
+                        'task_result': result['message']['contents']
+                    }
                 }
-            }
+        except Exception as e:
+            log.error('task Exception {} '.format(e))
 
     def callback(self, task_result):
         log.debug('CALLBACK - Task {0} completed.'.format(task_result['task_id']))
@@ -264,7 +267,6 @@ class AgentClient(object):
             for task in response['tasks_to_cancel']:
                 task_id = task['_id']
                 __task = self.__get_task(task_id)
-                print task_id, __task
                 if __task and task_id in self.periodicals:
                     del self.periodicals[__task.get_id()]
                     __task.set_status(TASK_STS.CANCELLED)
