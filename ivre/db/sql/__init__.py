@@ -32,7 +32,7 @@ import re
 
 
 from builtins import int, range
-from future.utils import viewitems, viewvalues
+from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 from sqlalchemy import create_engine, desc, func, column, delete, \
     exists, join, select, update, and_, not_, or_
@@ -44,7 +44,8 @@ from ivre.db.sql.tables import N_Association_Scan_Category, \
     N_Association_Scan_Hostname, N_Association_Scan_ScanFile, N_Category, \
     N_Hop, N_Hostname, N_Port, N_Scan, N_ScanFile, N_Script, N_Trace, \
     V_Association_Scan_Category, V_Association_Scan_Hostname, V_Category, \
-    V_Hop, V_Hostname, V_Port, V_Scan, V_Script, V_Trace, Flow, Passive, Point
+    V_Hop, V_Hostname, V_Port, V_Scan, V_Script, V_Trace, Flow, Passive, \
+    Point, INTERNAL_IP_PY2
 
 
 # Data
@@ -262,14 +263,26 @@ class SQLDB(DB):
         # required for use with ivre.db.sql.tables.DefaultINET() (see
         # .bind_processor()). Backends using variants must implement
         # their own methods.
-        return b"" if addr is None else utils.ip2bin(addr)
+        if not addr:
+            return b""
+        if PY3:
+            return utils.ip2bin(addr)
+        if isinstance(addr, str) and INTERNAL_IP_PY2.search(addr):
+            return addr
+        return utils.encode_hex(utils.ip2bin(addr))
 
     @staticmethod
     def internal2ip(addr):
         # required for use with ivre.db.sql.tables.DefaultINET() (see
         # .result_processor()). Backends using variants must implement
         # their own methods.
-        return None if not addr else utils.bin2ip(addr)
+        if not addr:
+            return None
+        if PY3:
+            return utils.bin2ip(addr)
+        if ':' in addr or '.' in addr:
+            return addr
+        return utils.bin2ip(utils.decode_hex(addr))
 
     @staticmethod
     def to_binary(data):

@@ -44,6 +44,9 @@ from sqlalchemy.engine import Engine
 from ivre import xmlnmap, utils
 
 
+INTERNAL_IP_PY2 = re.compile('^[0-9a-fA-F]{32}$')
+
+
 # sqlite
 
 @event.listens_for(Engine, 'connect')
@@ -164,10 +167,7 @@ def SQLARRAY(item_type):
 
 class DefaultINET(UserDefinedType):
 
-    # For some reasons, Python 2 considers the result type (str) as a
-    # unicode string instead of raw bytes. Using buffer instead seems
-    # to fix that.
-    python_type = bytes if PY3 else buffer  # noqa: F821 - exists in Python 2
+    python_type = bytes
 
     def __init__(self):
         self.__visit_name__ = "DefaultINET"
@@ -176,15 +176,29 @@ class DefaultINET(UserDefinedType):
         return self.__visit_name__
 
     def bind_processor(self, dialect):
-        def process(value):
-            return self.python_type(
-                b"" if value is None else utils.ip2bin(value)
-            )
+        if PY3:
+            def process(value):
+                return self.python_type(
+                    b"" if not value else utils.ip2bin(value)
+                )
+        else:
+            def process(value):
+                if not value:
+                    return self.python_type(b"")
+                if isinstance(value, str) and INTERNAL_IP_PY2.search(value):
+                    return self.python_type(value)
+                return self.python_type(utils.encode_hex(utils.ip2bin(value)))
         return process
 
     def result_processor(self, dialect, coltype):
-        def process(value):
-            return None if not value else utils.bin2ip(value)
+        if PY3:
+            def process(value):
+                return None if not value else utils.bin2ip(value)
+        else:
+            def process(value):
+                return None if not value else utils.bin2ip(
+                    utils.decode_hex(value)
+                )
         return process
 
 
