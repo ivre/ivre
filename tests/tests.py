@@ -772,33 +772,6 @@ which `predicate()` is True, given `webflt`.
             "range:%s-%s" % tuple(addrrange),
         )
         self.assertGreaterEqual(addr_range_count, 2)
-        self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
-            ivre.db.db.nmap.searchcmp(
-                "addr",
-                ivre.db.db.nmap.ip2internal(addrrange[0]),
-                '>='),
-            ivre.db.db.nmap.searchcmp(
-                "addr",
-                ivre.db.db.nmap.ip2internal(addrrange[1]),
-                '<=',
-            ),
-        ), database=ivre.db.db.nmap)
-        addrrange2 = [
-            ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1),
-            ivre.utils.int2ip(ivre.utils.ip2int(addrrange[1]) + 1),
-        ]
-        self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
-            ivre.db.db.nmap.searchcmp(
-                "addr",
-                ivre.db.db.nmap.ip2internal(addrrange2[0]),
-                '>',
-            ),
-            ivre.db.db.nmap.searchcmp(
-                "addr",
-                ivre.db.db.nmap.ip2internal(addrrange2[1]),
-                '<',
-            ),
-        ), database=ivre.db.db.nmap)
         self.check_count_value_api(
             hosts_count - addr_range_count,
             ivre.db.db.nmap.searchrange(*addrrange, neg=True),
@@ -811,11 +784,8 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(count, addr_range_count)
 
         addrs = set(
-            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr)
-            for net in ivre.utils.range2nets(
-                [x if isinstance(x, basestring) else ivre.utils.int2ip(x)
-                 for x in addrrange]
-            )
+            ivre.db.db.nmap.internal2ip(addr)
+            for net in ivre.utils.range2nets(addrrange)
             for addr in ivre.db.db.nmap.distinct(
                 "addr", flt=ivre.db.db.nmap.searchnet(net),
             )
@@ -1296,7 +1266,10 @@ which `predicate()` is True, given `webflt`.
 
         addrrange = sorted(
             (ivre.db.db.passive.internal2ip(x)
-             for x in ivre.db.db.passive.distinct('addr') if x),
+             for x in ivre.db.db.passive.distinct(
+                     'addr',
+                     flt=ivre.db.db.passive.searchipv4(),
+             ) if x),
             key=ivre.utils.ip2int,
         )
         self.assertGreaterEqual(len(addrrange), 2)
@@ -1315,48 +1288,6 @@ which `predicate()` is True, given `webflt`.
                     flt=ivre.db.db.passive.searchrange(*addrrange),
             )
         ]
-        addresses_2 = [
-            ivre.db.db.passive.internal2ip(x)
-            for x in ivre.db.db.passive.distinct(
-                    'addr',
-                    flt=ivre.db.db.passive.flt_and(
-                        ivre.db.db.passive.searchcmp(
-                            "addr",
-                            ivre.db.db.passive.ip2internal(addrrange[0]),
-                            '>=',
-                        ),
-                        ivre.db.db.passive.searchcmp(
-                            "addr",
-                            ivre.db.db.passive.ip2internal(addrrange[1]),
-                            '<=',
-                        ),
-                    ),
-            )
-        ]
-        self.assertItemsEqual(addresses_1, addresses_2)
-        addresses_2 = [
-            ivre.db.db.passive.internal2ip(x)
-            for x in ivre.db.db.passive.distinct(
-                    'addr',
-                    flt=ivre.db.db.passive.flt_and(
-                        ivre.db.db.passive.searchcmp(
-                            "addr",
-                            ivre.db.db.passive.ip2internal(ivre.utils.int2ip(
-                                ivre.utils.force_ip2int(addrrange[0]) - 1
-                            )),
-                            '>',
-                        ),
-                        ivre.db.db.passive.searchcmp(
-                            "addr",
-                            ivre.db.db.passive.ip2internal(ivre.utils.int2ip(
-                                ivre.utils.force_ip2int(addrrange[1]) + 1
-                            )),
-                            '<'
-                        ),
-                    ),
-            )
-        ]
-        self.assertItemsEqual(addresses_1, addresses_2)
         addresses_2 = set()
         nets = ivre.utils.range2nets(addrrange)
         for net in nets:
@@ -1532,9 +1463,7 @@ which `predicate()` is True, given `webflt`.
                                                        topnbr=1))
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
-                ivre.utils.ip2int(ivre.db.db.passive.internal2ip(
-                    values["_id"]
-                )),
+                ivre.utils.ip2int(values["_id"]),
             )
             self.check_value(
                 "passive_top_addr_%sdistinct_count" % ("" if distinct
@@ -1545,11 +1474,7 @@ which `predicate()` is True, given `webflt`.
         res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
         self.assertEqual(res, 0)
         addr, count = out.decode().split('\n', 1)[0].split(': ')
-        try:
-            addr = int(addr)
-        except ValueError:
-            pass
-        addr = ivre.utils.ip2int(ivre.db.db.passive.internal2ip(addr))
+        addr = ivre.utils.ip2int(addr)
         count = int(count)
         self.check_value("passive_top_addr_distinct", addr)
         self.check_value("passive_top_addr_distinct_count", count)
