@@ -12,16 +12,15 @@ import json
 import shutil
 import os
 from multiprocessing.dummy import Pool  # thread pool
-from ivre.web.managementutils import COMMON_MSG, AGENT_MSG, loggingConfig, AGENT_WORKING_DIR, create_dir, \
-    extract_occasional_scan_info, add_template, CONFIG_DIR, run_passive_scan, add_excluded_ip_to_template
-from ivre.db.mongo import TASK_STS, TMPLT_STS
-# from ivre import config
+import ivre.web.managementutils as mgmtutils
 import logging
 from ivre.web.managementutils import run_ivre_scan
 from croniter import croniter
 from datetime import datetime
+import ivre.web.utils as webutils
+import ivre.web.commonutils as commonutils
 
-logging.config.dictConfig(loggingConfig)
+logging.config.dictConfig(mgmtutils.AgentLoggingConfig)
 log = logging.getLogger("dyne.wsagent")
 
 agent_conf = {
@@ -38,7 +37,7 @@ class Task:
         self.__id = _id
         self.params = params
         self.task_type = task_type
-        self.status = TASK_STS.RECEIVED
+        self.status = commonutils.TASK_STS.RECEIVED
         self.result = None
 
     def get_id(self):
@@ -57,7 +56,7 @@ class Task:
         return self.result
 
     def set_status(self, status):
-        if self.status != TASK_STS.PERIODIC or status in [TASK_STS.CANCELLED, TASK_STS.PERIODIC_PAUSED]:
+        if self.status != commonutils.TASK_STS.PERIODIC or status in [commonutils.TASK_STS.CANCELLED, commonutils.TASK_STS.PERIODIC_PAUSED]:
             self.status = status
 
     def set_result(self, result):
@@ -78,8 +77,8 @@ class Task:
         return None
 
     def is_periodic(self):
-        return self.status in [TASK_STS.PERIODIC, TASK_STS.PRD_PENDING_PAUSE, TASK_STS.PRD_PENDING_RESUME,
-                               TASK_STS.PERIODIC_PAUSED]
+        return self.status in [commonutils.TASK_STS.PERIODIC, commonutils.TASK_STS.PRD_PENDING_PAUSE, commonutils.TASK_STS.PRD_PENDING_RESUME,
+                               commonutils.TASK_STS.PERIODIC_PAUSED]
 
 
 class AgentClient(object):
@@ -129,19 +128,19 @@ class AgentClient(object):
     def set_delayed_scan(self, task_id):
         task = self.__get_task(task_id)
         params = task.get_params()
-        data = extract_occasional_scan_info(params)
+        data = mgmtutils.extract_occasional_scan_info(params)
         if isinstance(data, dict) and not data['error']:
             delay = data['delay']
             if delay >= 1:
                 log.debug('RUN AT Task {} set with delay: {} s'.format(task_id, delay))
                 self.__delayed_task(task_id, delay)
             else:
-                task.set_status(TASK_STS.ERROR)
+                task.set_status(commonutils.TASK_STS.ERROR)
                 self.post_ack_tasks(task_id)
                 log.error('RUN AT Task {} had negative delay: {}'.format(task_id, delay))
                 return False
         else:
-            task.set_status(TASK_STS.ERROR)
+            task.set_status(commonutils.TASK_STS.ERROR)
             self.post_ack_tasks(task_id)
             log.error('ERROR occurred while setting delayed task : {}'.format(data['message']))
 
@@ -154,7 +153,7 @@ class AgentClient(object):
 
     def create_periodic_scan(self, task_id):
         task = self.__get_task(task_id)
-        task.set_status(TASK_STS.PERIODIC)
+        task.set_status(commonutils.TASK_STS.PERIODIC)
         params = task.get_params()
         if 'schedule' in params:
             cron_str = params['schedule']
@@ -175,7 +174,7 @@ class AgentClient(object):
 
     def run_scan(self, task_id):
         task = self.__get_task(task_id)
-        task.set_status(TASK_STS.PENDING)
+        task.set_status(commonutils.TASK_STS.PENDING)
         self.post_ack_tasks(task_id)
         self.pool.apply_async(self.task, (task.get_params(), task_id,), callback=self.callback)
 
@@ -204,7 +203,7 @@ class AgentClient(object):
     def callback(self, task_result):
         log.debug('CALLBACK - Task {0} completed.'.format(task_result['task_id']))
         task = self.__get_task(task_result['task_id'])
-        task.set_status(TASK_STS.COMPLETED)
+        task.set_status(commonutils.TASK_STS.COMPLETED)
         if not task_result['error']:
             task.set_result(task_result['message']['task_result'])
             self.post_task_result(task.get_id())
@@ -226,10 +225,10 @@ class AgentClient(object):
             return
         if 'templates' in response:
             for template in response['templates']:
-                res = add_template(template['templateName'], template['template'], self.excluded_ip)
+                res = mgmtutils.add_template(template['templateName'], template['template'], self.excluded_ip)
                 if res and 'error' in res and res['error']:
                     log.error(res)
-                self.put_template_status(template['_id'], TMPLT_STS.RECEIVED)
+                self.put_template_status(template['_id'], commonutils.TMPLT_STS.RECEIVED)
                 log.debug(res['message'])
 
     def get_tasks(self):
@@ -244,23 +243,23 @@ class AgentClient(object):
         if 'tasks' in response:
             for task in response['tasks']:
                 stored_task = self.__get_task(task['_id'])
-                if stored_task and stored_task.get_status() == TASK_STS.COMPLETED:
+                if stored_task and stored_task.get_status() == commonutils.TASK_STS.COMPLETED:
                     self.post_task_result(task['_id'])
-                elif stored_task and stored_task.get_status() in [TASK_STS.PENDING, TASK_STS.RECEIVED,
-                                                                  TASK_STS.PERIODIC, TASK_STS.CANCELLED]:
+                elif stored_task and stored_task.get_status() in [commonutils.TASK_STS.PENDING, commonutils.TASK_STS.RECEIVED,
+                                                                  commonutils.TASK_STS.PERIODIC, commonutils.TASK_STS.CANCELLED]:
                     self.post_ack_tasks(task['_id'])
                 else:
                     self.data['tasks'][task['_id']] = Task(task['_id'], task['task'], task['type'])
                     __task = self.__get_task(task['_id'])
                     self.post_ack_tasks(task['_id'])
-                    if task['type'] == COMMON_MSG.RUN_NOW:
+                    if task['type'] == commonutils.COMMON_MSG.RUN_NOW:
                         self.run_scan(task['_id'])
 
-                    elif task['type'] == COMMON_MSG.RNT_JOB:
+                    elif task['type'] == commonutils.COMMON_MSG.RNT_JOB:
                         self.set_delayed_scan(task['_id'])
 
-                    elif task['type'] == COMMON_MSG.PRD_JOB:
-                        __task.set_status(TASK_STS.PERIODIC)
+                    elif task['type'] == commonutils.COMMON_MSG.PRD_JOB:
+                        __task.set_status(commonutils.TASK_STS.PERIODIC)
                         self.create_periodic_scan(task['_id'])
 
         if 'tasks_to_cancel' in response:
@@ -269,7 +268,7 @@ class AgentClient(object):
                 __task = self.__get_task(task_id)
                 if __task and task_id in self.periodicals:
                     del self.periodicals[__task.get_id()]
-                    __task.set_status(TASK_STS.CANCELLED)
+                    __task.set_status(commonutils.TASK_STS.CANCELLED)
                     self.post_ack_tasks(__task.get_id())
                     log.info('PRD TASK {} ({}) CANCELLED.'.format(
                         __task.get_id(), self.__get_task(task_id).get_params()['name']))
@@ -278,13 +277,13 @@ class AgentClient(object):
                     if self.timers[__task.get_id()].is_alive():
                         self.timers[__task.get_id()].cancel()
                         del self.timers[__task.get_id()]
-                        __task.set_status(TASK_STS.CANCELLED)
+                        __task.set_status(commonutils.TASK_STS.CANCELLED)
                         self.post_ack_tasks(__task.get_id())
                         log.info('TASK {} ({}) CANCELLED.'.format(
                             __task.get_id(), self.__get_task(task_id).get_params()['name']))
 
                 if not __task and task_id not in self.periodicals and task_id not in self.timers:
-                    self.post_task_status(task_id, TASK_STS.CANCELLED)
+                    self.post_task_status(task_id, commonutils.TASK_STS.CANCELLED)
 
         if 'tasks_to_pause' in response:
             for task in response['tasks_to_pause']:
@@ -293,14 +292,14 @@ class AgentClient(object):
                 if __task and task_id in self.timers and task_id in self.periodicals:
                     if self.timers[__task.get_id()].is_alive():
                         self.timers[__task.get_id()].cancel()
-                        __task.set_status(TASK_STS.PERIODIC_PAUSED)
+                        __task.set_status(commonutils.TASK_STS.PERIODIC_PAUSED)
                         self.post_ack_tasks(__task.get_id())
                         log.info('TASK {} ({}) PAUSED.'.format(
                             task_id, self.__get_task(task_id).get_params()['name']))
                 else:
                     self.data['tasks'][task_id] = Task(task_id, task['task'], task['type'])
                     __task = self.__get_task(task_id)
-                    __task.set_status(TASK_STS.PERIODIC_PAUSED)
+                    __task.set_status(commonutils.TASK_STS.PERIODIC_PAUSED)
                     self.post_ack_tasks(__task.get_id())
 
         if 'tasks_to_resume' in response:
@@ -309,7 +308,7 @@ class AgentClient(object):
                 __task = self.__get_task(task_id)
                 if __task and task_id in self.timers and task_id in self.periodicals:
                     if not self.timers[__task.get_id()].is_alive():
-                        __task.set_status(TASK_STS.PERIODIC)
+                        __task.set_status(commonutils.TASK_STS.PERIODIC)
                         self.__set_periodical(__task)
                         log.info('TASK {} ({}) RESUMED.'.format(
                             task_id, self.__get_task(task_id).get_params()['name']))
@@ -327,17 +326,17 @@ class AgentClient(object):
                     __task = self.__get_task(task['_id'])
                     __task.set_status(task['status'])
 
-                    if task['type'] == COMMON_MSG.RUN_NOW:
+                    if task['type'] == commonutils.COMMON_MSG.RUN_NOW:
                         self.run_scan(__task.get_id())
 
-                    elif task['type'] == COMMON_MSG.RNT_JOB:
+                    elif task['type'] == commonutils.COMMON_MSG.RNT_JOB:
                         scheduled = self.set_delayed_scan(__task.get_id())
                         if not scheduled:  # if task was missed
                             self.run_scan(__task.get_id())
 
-                    elif task['type'] == COMMON_MSG.PRD_JOB:
-                        if __task.get_status() in [TASK_STS.PRD_PENDING_PAUSE, TASK_STS.PERIODIC_PAUSED]:
-                            __task.set_status(TASK_STS.PERIODIC_PAUSED)
+                    elif task['type'] == commonutils.COMMON_MSG.PRD_JOB:
+                        if __task.get_status() in [commonutils.TASK_STS.PRD_PENDING_PAUSE, commonutils.TASK_STS.PERIODIC_PAUSED]:
+                            __task.set_status(commonutils.TASK_STS.PERIODIC_PAUSED)
                             self.post_ack_tasks(__task.get_id())
                             log.info('TASK {} ({}) PAUSED.'.format(
                                 __task.get_id(), self.__get_task(__task.get_id()).get_params()['name']))
@@ -350,7 +349,7 @@ class AgentClient(object):
                 'task_id': task_id,
                 'status': status
             },
-            'type': AGENT_MSG.ACK
+            'type': commonutils.AGENT_MSG.ACK
         }
         r = requests.post(self.url + '/management/task/{}/status'.format(task_id), json=payload)
         if r.status_code == 200:
@@ -363,7 +362,7 @@ class AgentClient(object):
             'message': {
                 'status': status
             },
-            'type': AGENT_MSG.ACK
+            'type': commonutils.AGENT_MSG.ACK
         }
         r = requests.put(self.url + '/management/template/{}/status'.format(template_id), json=payload)
         if r.status_code == 200:
@@ -379,7 +378,7 @@ class AgentClient(object):
                 'task_id': task_id,
                 'status': status
             },
-            'type': AGENT_MSG.ACK
+            'type': commonutils.AGENT_MSG.ACK
         }
         r = requests.post(self.url + '/management/task/{}/status'.format(task_id), json=payload)
         if r.status_code == 200:
@@ -396,7 +395,7 @@ class AgentClient(object):
                 'result': task.get_result(),
                 'status': task.get_status()
             },
-            'type': AGENT_MSG.TASK_RESULT
+            'type': commonutils.AGENT_MSG.TASK_RESULT
         }
         r = requests.post(self.url + '/management/task/{}/results'.format(task_id), json=payload)
         if r.status_code == 200:
@@ -407,7 +406,7 @@ class AgentClient(object):
     def post_passive_detection(self, detection):
         payload = {
             'message': detection,
-            'type': AGENT_MSG.PASSIVE_RESULT
+            'type': commonutils.AGENT_MSG.PASSIVE_RESULT
         }
         r = requests.post(self.url + '/management/agent/{}/passive'.format(self.name), json=payload)
         if r.status_code == 200:
@@ -427,7 +426,7 @@ class AgentClient(object):
             for ip in response['exclude_list']:
                 if ip not in self.excluded_ip:
                     self.excluded_ip.append(ip)
-            add_excluded_ip_to_template(None, self)
+            mgmtutils.add_excluded_ip_to_template(None, self)
 
     def __get_task(self, task_id):
         # type: (self, str) -> Task
@@ -451,7 +450,7 @@ class AgentClient(object):
         # TODO include ip into default template
         self.get_configs(all_templates=True)
         self.get_tasks_resume()
-        run_passive_scan(agent_conf['bro'], self)
+        mgmtutils.run_passive_scan(agent_conf['bro'], self)
         try:
             while True:
                 self.get_configs()
@@ -473,9 +472,11 @@ class AgentClient(object):
 
 if __name__ == "__main__":
     from ivre import config
-    map(lambda p: create_dir(p.format(AGENT_WORKING_DIR)), ['{0}', '{0}/scheduled_scans', '{0}/remote_scans'])
-    source = os.path.join(CONFIG_DIR, '.ivre.conf.default')
-    destination = os.path.join(CONFIG_DIR, '.ivre.conf')
+
+    map(lambda p: mgmtutils.create_dir(os.path.normpath(p.format(mgmtutils.AGENT_WORKING_DIR))),
+        ['{0}', '{0}/scheduled_scans', '{0}/remote_scans'])
+    source = os.path.join(mgmtutils.CONFIG_DIR, '.ivre.conf.default')
+    destination = os.path.join(mgmtutils.CONFIG_DIR, '.ivre.conf')
     default = config.NMAP_SCAN_TEMPLATES['default'].copy()
     config.NMAP_SCAN_TEMPLATES = {'default': default}
     if 'exclude' in default:

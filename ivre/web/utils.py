@@ -29,6 +29,12 @@ import os
 import re
 import shlex
 import sys
+import time
+import zipfile
+import base64
+from subprocess import check_output, STDOUT
+import ivre.web.managementutils as mgmtutils
+import ivre.web.commonutils as commonutils
 try:
     import MySQLdb
     HAVE_MYSQL = True
@@ -649,3 +655,64 @@ def flt_from_query(query, base_flt=None):
         else:
             add_unused(neg, param, value)
     return flt, sortby, unused, skip, limit
+
+
+def import_scans_from_b64zip(name, scan_params, zip64):
+    try:
+        map(lambda p: mgmtutils.create_dir(p.format(mgmtutils.SERVER_WORKING_DIR)),
+            ['{0}', '{0}/remote_scans', '{0}/unzipped'])
+        bin_file = base64.b64decode(zip64)
+        scan_name = name
+        zip_name = scan_name + "__" + str(int(round(time.time() * 1000)))
+        zip_location = mgmtutils.SERVER_WORKING_DIR + '/remote_scans/' + zip_name + '.zip'
+
+        with open(zip_location, "wb") as zip_file:
+            zip_file.write(bin_file)
+
+        safe_unzip(zip_location, mgmtutils.SERVER_WORKING_DIR + '/unzipped/' + zip_name)
+
+        unzipped_location = {
+            "working_dir": mgmtutils.SERVER_WORKING_DIR,
+            "sub_dir": '/unzipped/' + zip_name
+        }
+        return import_scans(scan_params, unzipped_location)
+
+    except Exception as e:
+        utils.LOGGER.exception('Importing remote scan files failed - scan name: {}'.format(name))
+
+        return {
+            "error": True,
+            "message": 'Importing remote scan files failed with: {0}'.format(e)
+        }
+
+
+def safe_unzip(zip_file, extractpath='.'):
+    with zipfile.ZipFile(zip_file, 'r') as zf:
+        for member in zf.infolist():
+            abspath = os.path.abspath(os.path.join(extractpath, member.filename))
+            if abspath.startswith(os.path.abspath(extractpath)):
+                zf.extract(member, extractpath)
+
+
+def import_scans(params, location):
+    campaign = params['campaign']
+    source = params['source']
+
+    # Invoke ivre scan2db.
+    cmd = "ivre scan2db -c {0} -s {1} -r {2}{3}".format(
+        campaign,
+        source,
+        location["working_dir"],
+        location["sub_dir"]
+    )
+
+    utils.LOGGER.info('[RESULT-IMPORT] About to execute the following command: %s', cmd)
+
+    out = check_output(cmd, shell=True, stderr=STDOUT, cwd=location["working_dir"])
+
+    return {
+        "error": False,
+        "message": "Scan '%s' has terminated: %s" % (params['name'], out),
+        "scan_params": params,
+        "type": commonutils.BROWSER_MSG.SCAN_IMPORT
+    }

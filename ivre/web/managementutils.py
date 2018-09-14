@@ -3,88 +3,30 @@
 
 import re
 import os
-import ast
 import time
 import json
 import pprint
 import base64
-import pickle
 import shutil
-import zipfile
-import datetime
 import logging.config
 import shlex
-from random import randint
 from string import Template
-from subprocess import Popen, check_output, STDOUT, PIPE
-
-from crontab import CronTab
+from subprocess import Popen, STDOUT, PIPE
 from threading import Lock, Thread
+from ivre.tools import runscans
+import ivre.utils as utils
+import ivre.web.commonutils as commonutils
 lock = Lock()
 
-# import ivre.config as config
-from ivre import utils
-from ivre.tools import runscans
 
-# from concurrent.futures import ProcessPoolExecutor
 SERVER_WORKING_DIR = "/tmp/ivre"
 AGENT_WORKING_DIR = os.path.join(os.getcwd(), 'ivre_httpagent/')
 CONFIG_FILE = '.ivre.conf'
 CONFIG_DIR = os.path.join(os.path.expanduser('~'))
 # NMAP_SCAN_TEMPLATES = config.NMAP_SCAN_TEMPLATES
 
-
-class AGENT_MSG:
-    GET_IPs = 100
-    SET_TEMPLATES = 101
-    # SCA only
-    OVERWRITE_CONF = 102
-    SET_RESULTS_PATH = 103
-    TASK_RESULT = 105
-    PASSIVE_RESULT = 106
-    ACK = 200
-
-
-class BROWSER_MSG:
-    GET_TEMPLATES = 1
-    SCAN_IMPORT = 2
-
-
-# class TASK_STS:
-#     RECEIVED = -1
-#     PENDING = 0
-#     COMPLETED = 1
-#     PERIODIC = 10
-#     PRD_PENDING_PAUSE = 11
-#     PERIODIC_PAUSED = 12
-#     PRD_PENDING_RESUME = 13
-#     ERROR = 99
-#     PENDING_CANC = 500
-#     CANCELLED = 501
-
-
-class COMMON_MSG:
-    SAVE_IVRE_CONFIG = 0
-    INFO = 29
-    RM_SCHED_SCAN = 30
-    GET_SCHED_SCANS = 31
-    GET_PERIODIC_SCAN_STS = 32
-    PRD_JOB = 33
-    RNT_JOB = 34
-    RUN_NOW = 35
-
-
-class Timer(object):
-    def __init__(self, timeout):
-        self.timeout = timeout
-        self.start = time.time()
-
-    def has_expired(self):
-        return True if int(time.time() - self.start) > self.timeout else False
-
-
 # Logging configuration and setup.
-loggingConfig = dict(
+AgentLoggingConfig = dict(
     version=1,
     formatters={
         'consoleFormat': {
@@ -128,182 +70,19 @@ loggingConfig = dict(
     }
 )
 
-anti_brute = {
-    'set_results_path': {},
-    'MIN_WAIT': 2,
-    'MAX_WAIT': 10
-}
 
-timeouts = []
-# executor = ProcessPoolExecutor(max_workers=1)
-# agent_executor = ProcessPoolExecutor(max_workers=1)
-
-working_dir = None
-results_path = None
-wsBrowser = []
-wsAgents = []
-
-# used for async scans
-ws_server = None
-
-# logging.config.dictConfig(loggingConfig)
 # TODO solve log problem
-log = logging.getLogger("ivre")
 # logging.config.dictConfig(loggingConfig)
-# log = logging.getLogger("dyne.wsagent")
+# log = logging.getLogger("ivre")
+def running_as_root():
+    return os.getuid() == 0
 
 
-def agent_handler(response):
-    log.info("Agent %s", response.result())
-
-
-# def start_agent_client(use_tls):
-#     import wsagent
-#     tornado.ioloop.IOLoop.instance().add_future(agent_executor.submit(wsagent.start_agent, use_tls), agent_handler)
-
-
-def random_with_n_digits(n):
-    range_start = 10 ** (n - 1)
-    range_end = (10 ** n) - 1
-    return randint(range_start, range_end)
-
-
-def is_brute(func):
-    if 'start' not in anti_brute[func] or anti_brute[func]['start'] is None:
-        anti_brute[func]['start'] = time.time()
-        return False
-    else:
-        elapsed = time.time() - anti_brute[func]['start']
-        if elapsed < randint(anti_brute['MIN_WAIT'], anti_brute['MAX_WAIT']):
-            return True
-        else:
-            anti_brute[func]['start'] = time.time()
-            return False
-
-
-def normalize_msg(message):
-    return json.dumps(message) if isinstance(message, dict) else message
-
-
-def getConnetedAgentIPs(web_response):
-    IPs = []
-    for ws in wsAgents:
-        ip = ws.get_request_ip()
-        if ip not in IPs:
-            IPs.append(ip)
-
-    if not web_response:
-        return IPs
-
-    return json.dumps({
-        "error": False,
-        "message": IPs,
-        "type": AGENT_MSG.GET_IPs
-    })
-
-
-def schedule_periodical_scan(scan, scan_type):
-    try:
-        cron_string = scan['schedule']
-        comment = scan_type + "[" + str(random_with_n_digits(3)) + "]-" + scan['ip']['start'] + "-" + scan['ip'][
-            'end'] + "-" + scan['campaign'] + "-" + scan['nmap_template']
-        ivre_runscans = "ivre runscans --routable --range {0} {1} --nmap-template {2} --output=XMLFork --again all".format(
-            scan['ip']['start'],
-            scan['ip']['end'],
-            scan['nmap_template']
-        )
-        ivre_scan2db = "ivre scan2db -c {0} -s {1} --archive -r {2}".format(
-            scan['campaign'],
-            scan['source'],
-            working_dir + "/scans/RANGE-{0}-{1}/up".format(scan['ip']['start'], scan['ip']['end'])
-        )
-        command = "cd {0} && {1}; {2} >> {3}/CRON_LOG".format(
-            working_dir,
-            ivre_runscans,
-            ivre_scan2db,
-            working_dir
-        )
-
-        write_cron_job(cron_string, command, comment)
-        return json.dumps({
-            "error": False,
-            "message": "Nmap scan %s has been scheduled!" % (scan['name']),
-            "type": COMMON_MSG.SCHEDULE_JOB
-        })
-    except Exception as e:
-        return json.dumps({
-            "error": True,
-            "message": "Runscans exception: '{}'".format(e)
-        })
-
-
-def change_job_status(comment):
-    cron = CronTab(user=True)
-    job_iter = cron.find_comment(comment)
-    for j in job_iter:
-        j.enable(not j.is_enabled())
-    cron.write()
-
-
-def get_scheduled_scans():
-    cron = CronTab(user=True)
-    periodical_scans, occasional_scans = [], []
-    map(lambda job: periodical_scans.append(str(job)), cron)
-    map(lambda timeout: occasional_scans.append(timeout["scan"]), timeouts)
-
-    return json.dumps({
-        "error": False,
-        "message": {
-            "periodical_scans": periodical_scans,
-            "occasional_scans": occasional_scans
-        },
-        "type": COMMON_MSG.GET_SCHED_SCANS
-    })
-
-
-def remove_job(comment):
-    cron = CronTab(user=True)
-    cron.remove_all(comment=comment)
-    cron.write()
-    return json.dumps({
-        "error": False,
-        "name": comment,
-        "message": "ack",
-        "type": COMMON_MSG.RM_SCHED_SCAN
-    })
-
-
-def get_job_status(comment):
-    cron = CronTab(user=True)
-    job_iter = cron.find_comment(comment)
-    for j in job_iter:
-        return json.dumps({
-            "error": False,
-            "message": "job '%s' status: %s" % (comment, "Enabled" if j.is_enabled() else "Disabled"),
-            "name": comment,
-            "status": True if j.is_enabled() else False,
-            "type": COMMON_MSG.GET_PERIODIC_SCAN_STS
-        })
-    return json.dumps({
-        "error": True,
-        "message": "Scan not found!",
-        "type": COMMON_MSG.INFO
-    })
-
-
-# TODO
-# Needs to be checked if it is vulnerable to path transversals which may lead to random file overwrites.
-# Need to check if scan["name"] has been sanitized before reaching this function. Also pickle as been known for
-# code execution vulnerabilities when (un)serializing files (content sanitization?).
-def save_scheduled_at_scan(scan):
-    scan_name = scan["name"]
-    with open(working_dir + '/scheduled_scans/' + scan_name + '.dyne', 'wb') as handle:
-        pickle.dump(scan, handle)
-
-
-def read_serialized_at_scan(file_name):
-    with open(working_dir + '/scheduled_scans/' + file_name, 'rb') as handle:
-        return pickle.loads(handle.read())
+if running_as_root():
+    logging.config.dictConfig(AgentLoggingConfig)
+    log = logging.getLogger("dyne.wsagent")
+else:
+    log = utils.LOGGER
 
 
 def extract_occasional_scan_info(scan):
@@ -322,85 +101,6 @@ def extract_occasional_scan_info(scan):
     return {"delay": delay, "error": False}
 
 
-def set_timeout(data):
-    global timeouts
-    timeout = tornado.ioloop.IOLoop.instance() \
-        .add_timeout(datetime.timedelta(milliseconds=data['delay']),
-                     run_parallel_scan, data['scan'], COMMON_MSG.RNT_JOB, data['from_agent'])
-    timeouts.append({"at_t": data['at_t'], "timeout": timeout, "scan": data['scan']})
-
-
-def schedule_scan_at(scan, from_agent):
-    try:
-        # save it just in case of crash
-        save_scheduled_at_scan(scan)
-
-        # schedule the scan
-        data = extract_occasional_scan_info(scan)
-        data['from_agent'] = from_agent
-        set_timeout(data)
-
-        return json.dumps({
-            "error": False,
-            "message": "Scan scheduled at: " + data['at_t'],
-            "type": COMMON_MSG.RNT_JOB
-        })
-
-    except Exception as e:
-        return json.dumps({
-            "error": True,
-            "message": "Schedule scan at exception: '{}'".format(e)
-        })
-
-
-def cancel_scheduled_scan(message):
-    try:
-        if message["scan_group"] == "occasional":
-            return cancel_occasional_scan(message["scan_id"])
-        else:
-            return remove_job(message["scan_id"])
-    except Exception as e:
-        log.exception("Cancel scheduled scan failed")
-        return json.dumps({
-            "error": True,
-            "message": "cancel_scheduled_scan: '{}'".format(e)
-        })
-
-
-def cancel_occasional_scan(at_t):
-    try:
-        for t in timeouts:
-            if t["at_t"] == at_t:
-                tornado.ioloop.IOLoop.instance().remove_timeout(t["timeout"])
-                remove_completed_scan(at_t)
-
-                return json.dumps({
-                    "error": False,
-                    "name": at_t,
-                    "message": "ack",
-                    "type": COMMON_MSG.RM_SCHED_SCAN
-                })
-
-        return json.dumps({
-            "error": True,
-            "message": "Scan not found!",
-            "type": COMMON_MSG.INFO
-        })
-
-    except Exception as e:
-        log.debug("Cancel occasional scan failed")
-
-
-def remove_completed_scan(at_t):
-    global timeouts
-    try:
-        map(lambda timeout: os.remove(working_dir + '/scheduled_scans/' + timeout['scan']['name'] + '.dyne'),
-            filter(lambda timeout: timeout['at_t'] == at_t, timeouts))
-        timeouts = filter(lambda timeout: timeout['at_t'] != at_t, timeouts)
-    except Exception as e:
-        log.exception("Removed complete scan failed")
-
-
 def parse_performance_params(raw_performance_params):
     performance_params = []
     pparams = raw_performance_params.split(' ')
@@ -415,8 +115,6 @@ def parse_performance_params(raw_performance_params):
 
 def add_template(name, conf_json, exclude=None):
     from ivre import config
-    logging.config.dictConfig(loggingConfig)
-    log = logging.getLogger("dyne.wsagent")
     try:
         pings = conf_json['pings'] if 'pings' in conf_json else None
         scans = conf_json['scans'] if 'scans' in conf_json else None
@@ -497,6 +195,10 @@ def add_template(name, conf_json, exclude=None):
 
 
 def __write_templates_to_file(current_templates, name=None, ip=None):
+    """
+    :type name: basestring
+    :type ip: list of str
+    """
     # creates a new configuration file
     config_template_file = os.path.join(CONFIG_DIR, '.ivre.conf.template')
     config_file = os.path.join(CONFIG_DIR, '.ivre.conf')
@@ -507,7 +209,6 @@ def __write_templates_to_file(current_templates, name=None, ip=None):
         'templates': current_templates
     }
     result = src.substitute(d)
-
     lock.acquire()
     try:
         fileout = open(config_file, 'w')
@@ -521,9 +222,8 @@ def __write_templates_to_file(current_templates, name=None, ip=None):
             "message": "writing error : '{}'".format(e)
         }
     lock.release()
-
     # TODO front-end needs saved templates?
-    # return create_template_response(COMMON_MSG.SAVE_IVRE_CONFIG)
+    # return create_template_response(commonutils.COMMON_MSG.SAVE_IVRE_CONFIG)
     if name:
         return {
             "error": False,
@@ -532,7 +232,7 @@ def __write_templates_to_file(current_templates, name=None, ip=None):
     elif ip:
         return {
             "error": False,
-            "message": 'IP {} was correctly excluded by all templates.'.format(name)
+            "message": 'IP {} was correctly excluded by all templates.'.format(', '.join(ip))
         }
 
 
@@ -542,8 +242,6 @@ def add_excluded_ip_to_template(detection, agent):
     :type agent: AgentClient
     """
     from ivre import config
-    logging.config.dictConfig(loggingConfig)
-    log = logging.getLogger("dyne.wsagent")
     log.info('new detection: {}'.format(detection))
     if detection and 'source' in detection and detection['source'] == 'MODBUS_MASTER':
         agent.add_excluded_ip(detection['host'])
@@ -556,31 +254,11 @@ def add_excluded_ip_to_template(detection, agent):
                 if ip not in config.NMAP_SCAN_TEMPLATES[key]["exclude"]:
                     config.NMAP_SCAN_TEMPLATES[key]["exclude"].append(ip)
 
-    current_templates = config.NMAP_SCAN_TEMPLATES
-    current_templates = pprint.pformat(current_templates, width=200)
-    res = __write_templates_to_file(current_templates, ip=True)
-    log.info(res['message'] if 'message' in res['message'] else res)
-
-
-# TODO
-# check file path
-def overwrite_ivre_configs(conf_file):
-    try:
-        fileout = open('/var/www/html/.ivre.conf', 'w')
-        try:
-            fileout.write(conf_file)
-        finally:
-            fileout.close()
-    except IOError as e:
-        log.exception("Configuration writing error")
-
-        return json.dumps({
-            "error": True,
-            "message": "Configuration writing error: {0}".format(e)
-        })
-
-    reload(config)
-    return create_template_response(COMMON_MSG.SAVE_IVRE_CONFIG)
+    if agent.get_excluded_ip():
+        current_templates = config.NMAP_SCAN_TEMPLATES
+        current_templates = pprint.pformat(current_templates, width=200)
+        res = __write_templates_to_file(current_templates, ip=agent.get_excluded_ip())
+        log.info(res['message'] if 'message' in res else res)
 
 
 def is_valid_path(path):
@@ -596,33 +274,6 @@ def is_root(file_path):
     return True if file_stat.st_uid == 0 and file_stat.st_gid == 0 and bits == '0600' else False
 
 
-# TODO
-# what if path is set as root dir?
-def set_results_path(path):
-    global results_path
-
-    if is_brute('set_results_path'):
-        return {
-            "error": True,
-            "message": "Please slow down!"
-        }
-
-    if not is_valid_path(path):
-        return {
-            "error": True,
-            "message": "{} does not exists or it's not a directory ".format(path)
-        }
-
-    results_path = path
-    log.info("Results path changed to %s", results_path)
-
-    return json.dumps({
-        "error": False,
-        "message": 'All future scan\'s results will be saved at {}'.format(results_path),
-        "type": AGENT_MSG.SET_RESULTS_PATH
-    })
-
-
 def create_dir(dir_path):
     if os.path.exists(dir_path):
         if not os.path.isdir(dir_path):
@@ -634,129 +285,11 @@ def create_dir(dir_path):
         os.makedirs(dir_path)
 
 
-def safe_unzip(zip_file, extractpath='.'):
-    with zipfile.ZipFile(zip_file, 'r') as zf:
-        for member in zf.infolist():
-            abspath = os.path.abspath(os.path.join(extractpath, member.filename))
-            if abspath.startswith(os.path.abspath(extractpath)):
-                zf.extract(member, extractpath)
-
-
-# TODO
-# This code will need to be checked against malicious ZIP files
-def import_scans_from_b64zip(name, scan_params, zip64):
-    try:
-        map(lambda p: create_dir(p.format(SERVER_WORKING_DIR)), ['{0}', '{0}/remote_scans', '{0}/unzipped'])
-        bin_file = base64.b64decode(zip64)
-        scan_name = name
-        zip_name = scan_name + "__" + str(int(round(time.time() * 1000)))
-        zip_location = SERVER_WORKING_DIR + '/remote_scans/' + zip_name + '.zip'
-
-        with open(zip_location, "wb") as zip_file:
-            zip_file.write(bin_file)
-
-        safe_unzip(zip_location, SERVER_WORKING_DIR + '/unzipped/' + zip_name)
-
-        unzipped_location = {
-            "working_dir": SERVER_WORKING_DIR,
-            "sub_dir": '/unzipped/' + zip_name
-        }
-        return import_scans(scan_params, unzipped_location)
-
-    except Exception as e:
-        utils.LOGGER.error("Importing remote scan files failed")
-
-        return json.dumps({
-            "error": True,
-            "message": "Importing remote scan files failed with: {0}".format(e)
-        })
-
-
-# TODO
-# Elements from both the params and location dictionary need to be validated against
-# command execution as most of them can be (malicious) user provided.
-def import_scans(params, location):
-    campaign = params['campaign']
-    source = params['source']
-
-    # Invoke ivre scan2db.
-    cmd = "ivre scan2db -c {0} -s {1} -r {2}{3}".format(
-        campaign,
-        source,
-        location["working_dir"],
-        location["sub_dir"]
-    )
-
-    utils.LOGGER.info('[RESULT-IMPORT] About to execute the following command: %s', cmd)
-
-    out = check_output(cmd, shell=True, stderr=STDOUT, cwd=location["working_dir"])
-
-    return {
-        "error": False,
-        "message": "Scan '%s' has terminated: %s" % (params['name'], out),
-        "scan_params": params,
-        "type": BROWSER_MSG.SCAN_IMPORT
-    }
-
-
-def local_scan_result_handler(response):
-    try:
-        message = response.result()
-        log.debug('Result handler message: %s', message)
-
-        if isinstance(message, dict) and 'scan_params' in message and 'at_t' in message['scan_params']['run_at']:
-            remove_completed_scan(message['scan_params']['run_at']['at_t'])
-
-        wsSendAllBrowsers(message)
-
-    except Exception as e:
-        log.exception('Local scan result handler failed')
-
-
-def remote_scan_result_handler(response):
-    try:
-        message = response.result()
-        if isinstance(message, dict) and not message['error'] and 'at_t' in message['message']['scan_params']["run_at"]:
-            remove_completed_scan(message['message']['scan_params']['run_at']['at_t'])
-            log.info('Scan %s results sent with success', message['message']['scan_params']['name'])
-        ws_send_remote_scan(normalize_msg(message))
-    except Exception as e:
-        log.exception('Remote scan result handler failed')
-
-
-# def run_parallel_scan(params, scan_type, from_agent):
-#     global results_path
-#     try:
-#
-#         if scan_type == COMMON_MSG.RNT_JOB:
-#             params["status"] = "running"
-#
-#         params['cwd'] = working_dir if results_path is None else results_path
-#
-#         if from_agent:
-#             tornado.ioloop.IOLoop.current() \
-#                 .add_future(executor.submit(run_ivre_scan, params, from_agent), remote_scan_result_handler)
-#         else:
-#             tornado.ioloop.IOLoop.current() \
-#                 .add_future(executor.submit(run_ivre_scan, params, from_agent), local_scan_result_handler)
-#
-#         return json.dumps({
-#             "error": False,
-#             "message": 'An IVRE scan has been started: you don\'t have to wait for the results, '
-#                        'they will be automatically imported (you will see a notification)',
-#             "type": COMMON_MSG.INFO,
-#             "info_type": COMMON_MSG.INFO if from_agent else None
-#         })
-#     except Exception as e:
-#         log.exception('Run parallel scan failed')
-
 def run_passive_scan(params, agent):
     """
     :param params: agent_conf
     :type agent: AgentClient ref
     """
-    logging.config.dictConfig(loggingConfig)
-    log = logging.getLogger("dyne.wsagent")
 
     def handle_output(out):
         for stdout_line in iter(out.readline, ''):
@@ -779,12 +312,6 @@ def run_passive_scan(params, agent):
     t = Thread(target=handle_output, args=(process.stdout,))
     t.daemon = True  # thread dies with the program
     t.start()
-    # for stdout_line in iter(process.stdout.readline, ""):
-    #     try:
-    #         detection = json.loads(stdout_line)
-    #         add_excluded_ip_to_template(detection)
-    #     except Exception as e:
-    #         log.info('Exception while importing ip from passive scan: {}'.format(e))
 
 
 def run_ivre_scan(params):
@@ -800,9 +327,6 @@ def run_ivre_scan(params):
     :type from_agent: bool
     :rtype: dict
     """
-    logging.config.dictConfig(loggingConfig)
-    log = logging.getLogger("dyne.wsagent")
-
     try:
         startAddress = params['ip']['start']
         endAddress = params['ip']['end']
@@ -889,7 +413,7 @@ def run_ivre_scan(params):
             return {
                 "error": False,
                 "message": scan_zip,
-                "type": COMMON_MSG.RUN_NOW
+                "type": commonutils.COMMON_MSG.RUN_NOW
             }
 
         except Exception as e:
@@ -909,12 +433,7 @@ def run_ivre_scan(params):
         }
 
 
-# def parallel_scada_import():
-#     log.debug("Starting passive auto-import procedure...")
-#     tornado.ioloop.IOLoop.current() \
-#         .add_future(executor.submit(import_scada_devices), scada_results_handler)
-
-
+# TODO this functionality needs to be ported
 def import_scada_devices():
     from ivre.utils import int2ip
     from ivre.db import db
@@ -955,7 +474,7 @@ def import_scada_devices():
         return {
             'error': False,
             'message': "{} <b>SCADA devices</b> imported.".format(count),
-            "type": BROWSER_MSG.SCAN_IMPORT
+            "type": commonutils.BROWSER_MSG.SCAN_IMPORT
         }
     except Exception as e:
         return {

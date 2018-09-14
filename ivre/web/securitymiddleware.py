@@ -1,7 +1,8 @@
 import re
 import os
-# import ipaddress
-from managementutils import COMMON_MSG, BROWSER_MSG, AGENT_MSG, is_valid_path, is_root, parse_performance_params
+import ipaddress
+import ivre.web.managementutils as mgmtutils
+import ivre.web.commonutils as commonutils
 from ivre import utils
 
 
@@ -38,7 +39,7 @@ class SecurityMiddleware(object):
     def validate_certificates(cert_path):
         cert_chain = {'key': None, 'crt': None, 'pem': None}
 
-        if cert_path and not is_valid_path(cert_path):
+        if cert_path and not mgmtutils.is_valid_path(cert_path):
             return {
                 "error": True,
                 "message": 'Chosen certificates directory does not exists: {0}'.format(cert_path),
@@ -59,7 +60,7 @@ class SecurityMiddleware(object):
             for f in certs_in_dir:
                 cert_file_path = os.path.join(cert_path, f)
                 cert_ext = os.path.splitext(f)[1]
-                if not is_root(cert_file_path):
+                if not mgmtutils.is_root(cert_file_path):
                     return {
                         "error": True,
                         "message": 'File with wrong permissions or owned not by root only: {0}'.format(cert_file_path),
@@ -87,7 +88,8 @@ class SecurityMiddleware(object):
 
         # basic tests
         if not self.message and isinstance(self.type, int) \
-                and self.type in [AGENT_MSG.GET_IPs, BROWSER_MSG.GET_TEMPLATES, COMMON_MSG.GET_SCHED_SCANS]:
+                and self.type in [commonutils.AGENT_MSG.GET_IPs, commonutils.BROWSER_MSG.GET_TEMPLATES,
+                                  commonutils.COMMON_MSG.GET_SCHED_SCANS]:
             return {
                 "error": False,
                 "message": "Empty message with type: '{}'".format(self.type),
@@ -130,9 +132,9 @@ class SecurityMiddleware(object):
                     "message": "Error message from agent with type: '{}'".format(self.type),
                     "type": -1
                 }
-            elif self.type == COMMON_MSG.RUN_NOW:
+            elif self.type == commonutils.COMMON_MSG.RUN_NOW:
                 return self.__test_run_now_remote()
-            elif 'info_type' in self.message and self.message['info_type'] == COMMON_MSG.INFO:
+            elif 'info_type' in self.message and self.message['info_type'] == commonutils.COMMON_MSG.INFO:
                 return self.__test_text()
 
             return {
@@ -142,21 +144,21 @@ class SecurityMiddleware(object):
             }
 
         # From Browser
-        if self.type in (COMMON_MSG.RUN_NOW, COMMON_MSG.RNT_JOB, COMMON_MSG.SCHEDULE_JOB):
+        if self.type in (commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB):
             run_now_resp, prescan_resp = self.__test_run_now(), self.__test_prescan()
             if self.__is_error(run_now_resp) is True:
                 return run_now_resp
-            elif self.__is_error(prescan_resp) is True or self.type == COMMON_MSG.RUN_NOW:
+            elif self.__is_error(prescan_resp) is True or self.type == commonutils.COMMON_MSG.RUN_NOW:
                 return prescan_resp
-            elif self.type == COMMON_MSG.RNT_JOB:
+            elif self.type == commonutils.COMMON_MSG.RNT_JOB:
                 return self.__test_run_at()
-            elif self.type == COMMON_MSG.SCHEDULE_JOB:
-                return self.__test_cron_job()
+            # elif self.type == commonutils.COMMON_MSG.SCHEDULE_JOB:
+            #     return self.__test_cron_job()
 
-        elif self.type == COMMON_MSG.SAVE_IVRE_CONFIG:
+        elif self.type == commonutils.COMMON_MSG.SAVE_IVRE_CONFIG:
             return self.__test_save_ivre_configs()
 
-        elif self.type in (COMMON_MSG.GET_PERIODIC_SCAN_STS, COMMON_MSG.RM_SCHED_SCAN):
+        elif self.type in (commonutils.COMMON_MSG.GET_PERIODIC_SCAN_STS, commonutils.COMMON_MSG.RM_SCHED_SCAN):
             return self.__test_sched_scan_ops()
 
     def __test_ip(self, ip_address, comment):
@@ -235,7 +237,7 @@ class SecurityMiddleware(object):
                          "name": zip_file_path,
                          "contents": data
              },
-            "type": COMMON_MSG.RUN_NOW
+            "type": commonutils.COMMON_MSG.RUN_NOW
         }'''
         msg = self.message
         for param in ['scan_params', 'name', 'contents']:
@@ -260,7 +262,7 @@ class SecurityMiddleware(object):
         }
 
     def __test_run_now(self):
-        '''
+        """
         {
         'body':{
             'message':{
@@ -288,7 +290,7 @@ class SecurityMiddleware(object):
             'type':34
         }
         :return: boolean
-        '''
+        """
         msg = self.message
 
         # STRING test
@@ -574,7 +576,7 @@ class SecurityMiddleware(object):
                         'type': -1
                     }
             elif param in template and param == 'performance':
-                pparams = parse_performance_params(template[param])
+                pparams = mgmtutils.parse_performance_params(template[param])
                 if isinstance(pparams, list) and template[param]:
                     for pparam in pparams:
                         if self.patterns['alphanumeric'].match(pparam) is None:

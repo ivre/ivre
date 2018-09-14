@@ -36,10 +36,10 @@ from future.utils import viewitems
 
 from ivre import config, utils, VERSION
 from ivre.db import db
-from ivre.web import utils as webutils
+import ivre.web.utils as webutils
+import ivre.web.commonutils as commonutils
 from ivre.web.securitymiddleware import SecurityMiddleware
-from ivre.web.managementutils import COMMON_MSG, AGENT_MSG, SERVER_WORKING_DIR, create_dir, import_scans_from_b64zip
-from ivre.db.mongo import TASK_STS, TMPLT_STS
+
 
 application = Bottle()
 
@@ -128,6 +128,7 @@ def security_middleware(func):
                 else:
                     return func(*args, **kargs)
             except Exception as e:
+                utils.LOGGER.exception('[security_middleware] exception: {}'.format(e))
                 _die(request)
 
     return _newfunc
@@ -589,7 +590,7 @@ def get_flow():
 @check_content_type
 # @security_middleware
 def management(agent_name, task_id):
-    op = db.management.set_specific_task_status(agent_name, task_id, TASK_STS.PENDING_CANC)
+    op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PENDING_CANC)
     return json.dumps(op)
 
 
@@ -599,10 +600,10 @@ def management(agent_name, task_id):
 # @security_middleware
 def management(agent_name, action, task_id):
     if action == 'pause':
-        op = db.management.set_specific_task_status(agent_name, task_id, TASK_STS.PRD_PENDING_PAUSE)
+        op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_PAUSE)
         return json.dumps(op)
     elif action == 'resume':
-        op = db.management.set_specific_task_status(agent_name, task_id, TASK_STS.PRD_PENDING_RESUME)
+        op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_RESUME)
         return json.dumps(op)
 
 
@@ -622,15 +623,15 @@ def management(agent_name):
             doc['_id'] = str(doc['_id'])
             resp['tasks'].append(doc)
 
-        for doc in db.management.get_tasks_by_status(agent_name, TASK_STS.PENDING_CANC):
+        for doc in db.management.get_tasks_by_status(agent_name, commonutils.TASK_STS.PENDING_CANC):
             doc['_id'] = str(doc['_id'])
             resp['tasks_to_cancel'].append(doc)
 
-        for doc in db.management.get_tasks_by_status(agent_name, TASK_STS.PRD_PENDING_PAUSE):
+        for doc in db.management.get_tasks_by_status(agent_name, commonutils.TASK_STS.PRD_PENDING_PAUSE):
             doc['_id'] = str(doc['_id'])
             resp['tasks_to_pause'].append(doc)
 
-        for doc in db.management.get_tasks_by_status(agent_name, TASK_STS.PRD_PENDING_RESUME):
+        for doc in db.management.get_tasks_by_status(agent_name, commonutils.TASK_STS.PRD_PENDING_RESUME):
             doc['_id'] = str(doc['_id'])
             resp['tasks_to_resume'].append(doc)
 
@@ -662,13 +663,13 @@ def management(agent_name):
         if agent_name:
             payload = request.json
             message = payload['message']
-            if payload['type'] != COMMON_MSG.SAVE_IVRE_CONFIG:
+            if payload['type'] != commonutils.COMMON_MSG.SAVE_IVRE_CONFIG:
                 return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
             doc = {
                 'agent': agent_name,
                 'templateName': message['templateName'],
                 'template': message['template'],
-                'status': TMPLT_STS.PENDING
+                'status': commonutils.TMPLT_STS.PENDING
             }
             return db.management.set_template(doc)
         return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
@@ -704,7 +705,7 @@ def management(template_id):
     try:
         payload = request.json
         message = payload['message']
-        if payload['type'] == AGENT_MSG.ACK:
+        if payload['type'] == commonutils.AGENT_MSG.ACK:
             return db.management.set_template_status(template_id, message['status'])
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
 
@@ -725,7 +726,7 @@ def management(agent_name):
             message = payload['message']
             msg_type = payload['type']
             utils.LOGGER.debug('GOT TASK : ', str(payload))
-            if int(msg_type) not in [COMMON_MSG.RUN_NOW, COMMON_MSG.RNT_JOB, COMMON_MSG.PRD_JOB]:
+            if int(msg_type) not in [commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB, commonutils.COMMON_MSG.PRD_JOB]:
                 return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(msg_type)})
             doc = {
                 'agent': agent_name,
@@ -751,7 +752,7 @@ def management(task_id):
     try:
         payload = request.json
         message = payload['message']
-        if payload['type'] == AGENT_MSG.ACK:
+        if payload['type'] == commonutils.AGENT_MSG.ACK:
             utils.LOGGER.debug('GOT ACK : ', str(payload))
             return db.management.set_task_status(task_id, message['status'])
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
@@ -770,8 +771,8 @@ def management(task_id):
     try:
         payload = request.json
         message = payload['message']
-        if payload['type'] == AGENT_MSG.TASK_RESULT:
-            output = import_scans_from_b64zip(task_id, message['scan_params'], message['result'])
+        if payload['type'] == commonutils.AGENT_MSG.TASK_RESULT:
+            output = webutils.import_scans_from_b64zip(task_id, message['scan_params'], message['result'])
             db.management.set_task_status(task_id, message['status'])
             print 'output: ', output
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
@@ -784,6 +785,7 @@ def management(task_id):
 # get Agent passive detections
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
 @check_referer
+# @security_middleware
 def management(agent_name):
     if agent_name:
         exclude_list = []
@@ -803,7 +805,7 @@ def management(agent_name):
     try:
         payload = request.json
         message = payload['message']
-        if payload['type'] == AGENT_MSG.PASSIVE_RESULT:
+        if payload['type'] == commonutils.AGENT_MSG.PASSIVE_RESULT:
             doc = {
                 'agent': agent_name,
                 'detection': message
@@ -815,6 +817,6 @@ def management(agent_name):
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
 
     except Exception as e:
-        utils.LOGGER.warning('API Exception: {}'.format(e))
+        utils.LOGGER.exception('API Exception: {}'.format(e))
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
 
