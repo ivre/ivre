@@ -342,13 +342,6 @@ def main():
         flt = baseflt.copy()
         if '/' in a:
             flt = db.passive.flt_and(flt, db.passive.searchnet(a))
-        elif ':' in a:
-            a = a.split(':', 1)
-            if a[0].isdigit():
-                a[0] = int(a[0])
-            if a[1].isdigit():
-                a[1] = int(a[1])
-            flt = db.passive.flt_and(flt, db.passive.searchrange(a[0], a[1]))
         elif '-' in a:
             a = a.split('-', 1)
             if a[0].isdigit():
