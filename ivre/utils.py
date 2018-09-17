@@ -1365,12 +1365,37 @@ def printable(string):
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
 
 
-def parse_ssh_key(data):
+def _parse_ssh_key(data):
     """Generates SSH key elements"""
     while data:
         length = struct.unpack('>I', data[:4])[0]
         yield data[4:4 + length]
         data = data[4 + length:]
+
+
+def parse_ssh_key(data):
+    info = dict((hashtype, hashlib.new(hashtype, data).hexdigest())
+                for hashtype in ['md5', 'sha1', 'sha256'])
+    parsed = _parse_ssh_key(data)
+    keytype = info["algo"] = next(parsed).decode()
+    if keytype == "ssh-rsa":
+        try:
+            info["exponent"], info["modulus"] = (int(encode_hex(elt), 16)
+                                                 for elt in parsed)
+        except Exception:
+            LOGGER.info("Cannot parse SSH host key from data %r", data,
+                        exc_info=True)
+        else:
+            info["bits"] = math.ceil(math.log(info["modulus"], 2))
+            # convert integer to strings to prevent overflow errors
+            # (e.g., "MongoDB can only handle up to 8-byte ints")
+            for val in ["exponent", "modulus"]:
+                info[val] = str(info[val])
+    elif keytype == 'ecdsa-sha2-nistp256':
+        info['bits'] = 256
+    elif keytype == 'ssh-ed25519':
+        info['bits'] = len(next(data)) * 8
+    return info
 
 
 # https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml

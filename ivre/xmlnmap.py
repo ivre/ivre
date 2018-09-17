@@ -837,7 +837,7 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "title": "http-title",
     "ftp": "banner",
     "unknown": "banner",
-    "ssh": "banner",
+    "ssh": "ssh-banner",
     "vnc": "banner",
     "imap": "banner",
     "pop": "banner",
@@ -848,6 +848,7 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
 MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
     "tcp": {
         "banner": ["NULL"],
+        "ssh-banner": ["NULL"],
         "http-headers": ["GetRequest"],
     },
 }
@@ -1517,8 +1518,11 @@ class NmapHandler(ContentHandler):
                             ] = masscan_data
                         return
                     if self._curport.get('service_name') in ['ftp', 'imap',
-                                                             'pop3', 'smtp']:
-                        raw_output = raw_output.split(b'\n', 1)[0]
+                                                             'pop3', 'smtp',
+                                                             'ssh']:
+                        raw_output = raw_output.split(
+                            b'\n', 1
+                        )[0].rstrip(b'\r')
                     match = utils.match_nmap_svc_fp(
                         output=raw_output,
                         proto=self._curport['protocol'],
@@ -1794,6 +1798,7 @@ class NmapHandler(ContentHandler):
                 "http-headers": self.masscan_post_http,
                 "s7-info": self.masscan_post_s7info,
                 "ssl-cert": self.masscan_post_x509,
+                "ssh-banner": self.masscan_post_ssh,
             }[script['id']]
         except KeyError:
             pass
@@ -1814,6 +1819,158 @@ class NmapHandler(ContentHandler):
         if output_data:
             script["output"] = "\n".join(output_text)
             script[script["id"]] = output_data
+
+    @staticmethod
+    def _read_ssh_msgs(data):
+        while data:
+            if len(data) < 4:
+                utils.LOGGER.warning('Incomplete SSH message [%r]', data)
+                return
+            length = struct.unpack('>I', data[:4])[0]
+            data = data[4:]
+            if len(data) < length:
+                utils.LOGGER.warning('Incomplete SSH message [%r] expected '
+                                     'length %d', data, length)
+                return
+            curdata, data = data[:length], data[length:]
+            if length < 2:
+                utils.LOGGER.warning('SSH message too short (%d < 2)',
+                                     length)
+                continue
+            padlen = struct.unpack('B', curdata[:1])[0]
+            if len(curdata) < padlen + 1:
+                utils.LOGGER.warning('Incomplete SSH message [%r] padding '
+                                     'length %d', curdata, padlen)
+                continue
+            curdata = curdata[1:-padlen]
+            if not curdata:
+                utils.LOGGER.warning('Empty SSH message')
+                continue
+            msgtype, curdata = struct.unpack('B', curdata[:1])[0], curdata[1:]
+            if msgtype == 21:
+                # new keys, messages after this will be encrypted
+                if curdata:
+                    utils.LOGGER.warning('Non-empty SSH message [%r]', curdata)
+                return
+            yield msgtype, curdata
+
+    _ssh_key_exchange_data = [
+        'kex_algorithms', 'server_host_key_algorithms',
+        'encryption_algorithms_client_to_server',
+        'encryption_algorithms_server_to_client',
+        'mac_algorithms_client_to_server', 'mac_algorithms_server_to_client',
+        'compression_algorithms_client_to_server',
+        'compression_algorithms_server_to_client',
+        'languages_client_to_server', 'languages_server_to_client'
+    ]
+
+    _ssh_key_exchange_data_pairs = [
+        'encryption_algorithms', 'mac_algorithms', 'compression_algorithms',
+        'languages',
+    ]
+
+    @classmethod
+    def _read_ssh_key_exchange_init(cls, data):
+        # cookie
+        if len(data) < 16:
+            utils.LOGGER.warning('SSH key exchange init message too '
+                                 'short [%r] (len == %d < 16)',
+                                 data, len(data))
+            return
+        data = data[16:]
+        keys = cls._ssh_key_exchange_data[::-1]
+        while data and keys:
+            if len(data) < 4:
+                utils.LOGGER.warning('Incomplete SSH key exchange init message'
+                                     ' part [%r]', data)
+                return
+            length = struct.unpack('>I', data[:4])[0]
+            data = data[4:]
+            curdata, data = data[:length], data[length:]
+            if curdata:
+                yield keys.pop(), curdata.decode().split(',')
+            else:
+                yield keys.pop(), []
+
+    def masscan_post_ssh(self, script):
+        script["id"] = "banner"
+        try:
+            data = self._from_binary(script['masscan']['raw'])
+        except KeyError:
+            return
+        try:
+            idx = data.index(b"\n")
+        except ValueError:
+            return
+        script['output'] = utils.nmap_encode_data(data[:idx].rstrip(b'\r'))
+        # this requires a patched version of masscan
+        for msgtype, msg in self._read_ssh_msgs(data[idx + 1:]):
+            if msgtype == 20:  # key exchange init
+                ssh2_enum_out = ['']
+                ssh2_enum = dict(self._read_ssh_key_exchange_init(msg))
+                for key in self._ssh_key_exchange_data_pairs:
+                    keyc2s, keys2c = ('%s_client_to_server' % key,
+                                      '%s_server_to_client' % key)
+                    if keyc2s in ssh2_enum and \
+                       ssh2_enum[keyc2s] == ssh2_enum[keys2c]:
+                        ssh2_enum[key] = ssh2_enum.pop(keyc2s)
+                        del ssh2_enum[keys2c]
+                # preserve output order
+                for key in [
+                        'kex_algorithms', 'server_host_key_algorithms',
+                        'encryption_algorithms',
+                        'encryption_algorithms_client_to_server',
+                        'encryption_algorithms_server_to_client',
+                        'mac_algorithms', 'mac_algorithms_client_to_server',
+                        'mac_algorithms_server_to_client',
+                        'compression_algorithms',
+                        'compression_algorithms_client_to_server',
+                        'compression_algorithms_server_to_client',
+                        'languages', 'languages_client_to_server',
+                        'languages_server_to_client'
+                ]:
+                    if key in ssh2_enum:
+                        value = ssh2_enum[key]
+                        ssh2_enum_out.append('  %s (%d)' % (key, len(value)))
+                        ssh2_enum_out.extend('      %s' % v for v in value)
+                self._curport.setdefault('scripts', []).append({
+                    'id': 'ssh2-enum-algos',
+                    'output': '\n'.join(ssh2_enum_out),
+                    'ssh2-enum-algos': ssh2_enum,
+                })
+                continue
+            if msgtype == 31:
+                host_key_length = struct.unpack('>I', msg[:4])[0]
+                host_key_length_data = msg[4:4 + host_key_length]
+                info = utils.parse_ssh_key(host_key_length_data)
+                # TODO this might be somehow factorized with
+                # view.py:_extract_passive_SSH_SERVER_HOSTKEY()
+                value = utils.encode_b64(host_key_length_data).decode()
+                ssh_hostkey = {'type': info['algo'],
+                               'key': value}
+                if 'bits' in info:
+                    ssh_hostkey['bits'] = info['bits']
+                ssh_hostkey['fingerprint'] = info['md5']
+                fingerprint = utils.decode_hex(info['md5'])
+                self._curport.setdefault('scripts', []).append({
+                    'id': 'ssh-hostkey',
+                    'ssh-hostkey': [ssh_hostkey],
+                    'output': '\n  %s %s (%s)\n%s %s' % (
+                        ssh_hostkey.get('bits', '-'),
+                        ':'.join('%02x' % (
+                            ord(i) if isinstance(i, (bytes, str)) else i
+                        ) for i in fingerprint),
+                        {'ecdsa-sha2-nistp256': 'ECDSA'}.get(
+                            ssh_hostkey['type'],
+                            (ssh_hostkey['type'][4:]
+                             if ssh_hostkey['type'][:4] == 'ssh-'
+                             else ssh_hostkey['type']).upper()
+                        ),
+                        ssh_hostkey['type'],
+                        value
+                    ),
+                })
+                continue
 
     def masscan_post_x509(self, script):
         try:

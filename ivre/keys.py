@@ -267,7 +267,7 @@ class RSAKey(object):
 
     @staticmethod
     def data2key(data):
-        data = utils.parse_ssh_key(data)
+        data = utils._parse_ssh_key(data)
         _, exp, mod = (next(data),  # noqa: F841 (_)
                        long(utils.encode_hex(next(data)), 16),
                        long(utils.encode_hex(next(data)), 16))
