@@ -1,9 +1,15 @@
 import re
 import os
-import ipaddress
 import ivre.web.managementutils as mgmtutils
 import ivre.web.commonutils as commonutils
 from ivre import utils
+from croniter import croniter
+try:
+    import ipaddress
+except ImportError:
+    # fallback to dict for Python 2.6
+    from IPy import IP
+from sys import modules as imported_modules
 
 
 # TODO
@@ -29,11 +35,14 @@ class SecurityMiddleware(object):
             'prescan_zmap_port': re.compile(
                 '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])$'),
             'prescan_nmap_ports': re.compile(
-                '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])(?:\s(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9]))*$')
+                '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])(?:\s(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9]))*$'),
+            'mongo_allowed': re.compile(r'^[^$\'\"\\;{}]+$', re.M),
+            'base64': re.compile(r'^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$')
         }
 
-    def __is_error(self, response):
-        return response['error']
+    @staticmethod
+    def __is_error(response):
+        return response['error'] if isinstance(response, dict) and 'error' in response else response
 
     @staticmethod
     def validate_certificates(cert_path):
@@ -87,15 +96,7 @@ class SecurityMiddleware(object):
     def validate_message(self):
 
         # basic tests
-        if not self.message and isinstance(self.type, int) \
-                and self.type in [commonutils.AGENT_MSG.GET_IPs, commonutils.BROWSER_MSG.GET_TEMPLATES,
-                                  commonutils.COMMON_MSG.GET_SCHED_SCANS]:
-            return {
-                "error": False,
-                "message": "Empty message with type: '{}'".format(self.type),
-                "type": -1
-            }
-        elif self.type is None and self.error:
+        if self.type is None and self.error:
             return {
                 "error": False,
                 "message": "Exception message!",
@@ -115,51 +116,30 @@ class SecurityMiddleware(object):
             else:
                 self.agent_ip = agent_ip
 
+        banned_root_keys = [p for p in self.message if '$' in p]
+        if banned_root_keys:
+            return self.__basic_error('"$" is not allowed in {}'.format(banned_root_keys))
+
         # Tests by message type
 
-        # From Agent
-        if self.is_from_agent:
+        if self.type in [commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB,
+                         commonutils.COMMON_MSG.PRD_JOB]:
+            return self.__test_ivre_task()
 
-            if not self.message:
-                return {
-                    "error": False,
-                    "message": "Empty message from agent with type: '{}'".format(self.type),
-                    "type": -1
-                }
-            elif self.type == -1 and self.patterns['information'].match(self.message) is None:
-                return {
-                    "error": True,
-                    "message": "Error message from agent with type: '{}'".format(self.type),
-                    "type": -1
-                }
-            elif self.type == commonutils.COMMON_MSG.RUN_NOW:
-                return self.__test_run_now_remote()
-            elif 'info_type' in self.message and self.message['info_type'] == commonutils.COMMON_MSG.INFO:
-                return self.__test_text()
+        elif self.type == commonutils.AGENT_MSG.TASK_RESULT:
+            return self.__test_post_results()
 
-            return {
-                "error": False,
-                "message": "Message from agent with type: '{}'".format(self.type),
-                "type": -1
-            }
+        elif self.type == commonutils.AGENT_MSG.ACK:
+            return self.__test_post_status()
 
-        # From Browser
-        if self.type in (commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB):
-            run_now_resp, prescan_resp = self.__test_run_now(), self.__test_prescan()
-            if self.__is_error(run_now_resp) is True:
-                return run_now_resp
-            elif self.__is_error(prescan_resp) is True or self.type == commonutils.COMMON_MSG.RUN_NOW:
-                return prescan_resp
-            elif self.type == commonutils.COMMON_MSG.RNT_JOB:
-                return self.__test_run_at()
-            # elif self.type == commonutils.COMMON_MSG.SCHEDULE_JOB:
-            #     return self.__test_cron_job()
+        elif self.type == commonutils.AGENT_MSG.PASSIVE_RESULT:
+            try:
+                return self.__test_passive_detection()
+            except Exception as e:
+                utils.LOGGER.exception('[SecurityMiddleware - test_passive_detection] Exception: {}'.format(e))
 
         elif self.type == commonutils.COMMON_MSG.SAVE_IVRE_CONFIG:
             return self.__test_save_ivre_configs()
-
-        elif self.type in (commonutils.COMMON_MSG.GET_PERIODIC_SCAN_STS, commonutils.COMMON_MSG.RM_SCHED_SCAN):
-            return self.__test_sched_scan_ops()
 
     def __test_ip(self, ip_address, comment):
         if self.patterns['ip_address'].match(ip_address) is None:
@@ -170,8 +150,11 @@ class SecurityMiddleware(object):
             }
         else:
             try:
-                ip_address_valid = ipaddress.ip_address(ip_address.decode("utf-8"))
-                ip_address_valid = str(ip_address_valid)
+                ip_address_valid = ip_address.decode("utf-8")
+                if 'ipaddress' in imported_modules:
+                    ip_address_valid = ipaddress.ip_address(ip_address_valid)
+                elif 'IPy' in imported_modules:
+                    ip_address_valid = IP(ip_address_valid)
             except ValueError:
                 return {
                     "error": True,
@@ -181,7 +164,7 @@ class SecurityMiddleware(object):
 
             return {
                 "error": False,
-                "ip": ip_address_valid,
+                "ip": str(ip_address_valid),
                 "type": -1
             }
 
@@ -199,65 +182,150 @@ class SecurityMiddleware(object):
             "type": -1
         }
 
-    def __test_sched_scan_ops(self):
-        msg = self.message
-        for param in ['scan_id', 'scan_group']:
-
-            if param not in msg or msg[param] is None or not msg[param]:
-                return {
-                    'error': True,
-                    'message': "Parameter '{}' is missing".format(param),
-                    "type": -1
-                }
-            elif param is 'scan_id':
-                if self.patterns['scan_id'].match(msg[param]) is None:
-                    return {
-                        "error": True,
-                        "message": "Supplied scan_id is invalid.",
-                        "type": -1
-                    }
-            elif param is 'scan_group' and str(msg[param]) not in ('periodical', 'occasional'):
-                return {
-                    "error": True,
-                    "message": "Supplied scan_group is invalid.",
-                    "type": -1
-                }
-
-        return {
-            "error": False,
-            "message": "SCHED_OP remote message is valid!",
-            "type": -1
+    def __test_post_status(self):
+        """
+        {
+            'message':{
+                'task_id': <IGNORED>,
+                'status': /commonutils.TASK_STS.*|commonutils.TMPLT_STS.*/
+            },
+            'type': commonutils.AGENT_MSG.ACK
         }
-
-    def __test_run_now_remote(self):
-        '''{
-            "error": False,
-            "message": {
-                         "scan_params": params,
-                         "name": zip_file_path,
-                         "contents": data
-             },
-            "type": commonutils.COMMON_MSG.RUN_NOW
-        }'''
+        """
         msg = self.message
-        for param in ['scan_params', 'name', 'contents']:
+        tasks_dict = commonutils.TASK_STS.__dict__
+        templates_dict = commonutils.TMPLT_STS.__dict__
+        allowed_tasks_sts = [tasks_dict[i] for i in tasks_dict.keys() if not i.startswith('__')]
+        allowed_tmplt_sts = [templates_dict[i] for i in templates_dict.keys() if not i.startswith('__')]
+        allowed_statuses = allowed_tasks_sts + allowed_tmplt_sts
+        if 'status' not in msg:
+            return self.__basic_error('status is missing!')
+        elif not isinstance(msg['status'], int):
+            return self.__basic_error('status must be an Integer.')
+        elif not msg['status'] in allowed_statuses:
+            return self.__basic_error('Status {} not allowed.'.format(msg['status']))
 
-            if param not in msg or not msg[param]:
-                return {
-                    "error": True,
-                    "message": "'{}' is missing".format(param),
-                    "type": -1
-                }
-            elif param is 'name':
-                if self.patterns['alphanumeric'].match(msg[param]) is None:
-                    return {
-                        "error": True,
-                        "message": "Ops! something is wrong with the file path",
-                        "type": -1
+        return True
+
+    def __test_ivre_task(self):
+        msg = self.message
+
+        if 'task' not in msg:
+            return self.__basic_error('task is missing.')
+
+        test_res = self.__test_scan_params(msg['task'])
+        if self.__is_error(test_res):
+            return test_res
+
+        if self.type == commonutils.COMMON_MSG.RNT_JOB or ('run_at' in msg['task'] and msg['task']['run_at']):
+            test_res = self.__test_run_at(msg['task'])
+            if self.__is_error(test_res):
+                return test_res
+
+        if self.type == commonutils.COMMON_MSG.PRD_JOB or ('schedule' in msg['task'] and msg['task']['schedule']):
+            test_res = self.__test_cron_job(msg['task'])
+            if self.__is_error(test_res):
+                return test_res
+
+        return True
+
+    def __test_post_results(self):
+        """
+        {
+            "message": {
+                "status": <INT>
+                "scan_params": {
+                    "nmap_template": <STRING>,
+                    "name":"<STRING>",
+                    "campaign":"<STRING>",
+                    "schedule": <STRING>,
+                    "ip":{
+                    "start": <IP>,
+                    "end": <IP>
+                    },
+                    "run_at":{
+                        "hour": <INT>,
+                        "month": <INT>,
+                        "minute": <INT>,
+                        "year": <INT>,
+                        "day": <INT>,
+                        "at_t": <DATETIME YYYY/MM/DD HH:mm>
+                    },
+                    "source":"source1",
+                    "prescan":{
+                        "notReally":"sure"
                     }
+                "result": <BASE_64>
+                }
+            }
+            "type": 105 / AGENT_MSG.TASK_RESULT
+        }
+        :return: dict
+        """
+        msg = self.message
+        if self.type != commonutils.AGENT_MSG.TASK_RESULT:
+            return self.__basic_error('Wrong message type: {}'.format(None))
+
+        if 'status' not in msg:
+            return self.__basic_error('Task\'s status is missing!')
+        elif not isinstance(msg['status'], int):
+            return self.__basic_error('Task\'s status must be an integer!')
+
+        if 'scan_params' not in msg:
+            return self.__basic_error('scan_params parameter is missing!')
+        else:
+            test_res = self.__test_scan_params(msg['scan_params'])
+            if self.__is_error(test_res):
+                return test_res
+
+        if 'result' not in msg:
+            return self.__basic_error('result parameter is missing!')
+        elif self.patterns['base64'].match(msg['result']) is None:
+            return self.__basic_error('result must be Base64 encoded.')
+
+        if 'task_id' not in msg:
+            return self.__basic_error('task_id parameter is missing!')
+        elif self.patterns['alphanumeric'].match(msg['task_id']) is None:
+            return self.__basic_error('Supplied parameter \'{0}\' contains invalid character/s: \'{1}\''.format(
+                            re.sub(r'[^a-zA-Z0-9_-]', '*', msg['task_id']),
+                            "".join(re.findall(r'[^a-zA-Z0-9_-]', msg['task_id']))
+                        )
+            )
+
+        return True
+
+    def __test_passive_detection(self):
+        """
+        {
+            "uid" : "<STRING>",
+            "recon_type" : "<STRING>",
+            "ts" : <FLOAT/INT>,
+            "value" : "<STRING>",
+            "source" : "<STRING>",
+            "host" : "<IP>",
+            "srvport" : <INT>
+        }
+        :return: dict
+        """
+        msg = self.message
+
+        for p in msg:
+            if p in ['uid', 'recon_type', 'ts', 'value', 'source', 'host', 'srvport']:
+                if p in ['uid', 'recon_type', 'value', 'source']:
+                    res = self.__mongo_string(p, msg[p])
+                    if self.__is_error(res):
+                        return res
+                elif p == 'host':
+                    res = self.__test_ip(msg[p], '')
+                    if self.__is_error(res):
+                        return res
+                elif p == 'srvport' and not isinstance(msg[p], int):
+                    return self.__basic_error('"srvport" must be an Integer')
+                elif p == 'ts' and not (isinstance(msg[p], float) or isinstance(msg[p], int)):
+                    return self.__basic_error('"ts" must be a Number')
         return {
             "error": False,
-            "message": "RUN_NOW remote message is valid!",
+            "message": "PASSIVE message is valid!",
             "type": -1
         }
 
@@ -342,20 +410,22 @@ class SecurityMiddleware(object):
             "type": -1
         }
 
-    def __test_run_at(self):
-        msg = self.message
-        if 'run_at' not in msg or 'at_t' not in msg['run_at'] or not msg['run_at']['at_t']:
+    def __test_run_at(self, task):
+        if 'run_at' not in task or not task['run_at'] or 'at_t' not in task['run_at'] or not task['run_at']['at_t']:
             return {
                 "error": True,
                 "message": "Date parameter is missing",
                 "type": -1
             }
 
-        if self.patterns['date'].match(msg['run_at']['at_t']) is None:
+        if not isinstance(task['run_at']['at_t'], str):
+            return self.__basic_error('at_t parameter must be a string')
+
+        if self.patterns['date'].match(task['run_at']['at_t']) is None:
             return {
                 "error": True,
                 "message": "Supplied date '{}' is invalid.".format(
-                    re.sub(r'[^0-9/: ]', '&lt!&gt;', msg['run_at']['at_t'])),
+                    re.sub(r'[^0-9/: ]', '*', task['run_at']['at_t'])),
                 "type": -1
             }
 
@@ -365,23 +435,26 @@ class SecurityMiddleware(object):
             "type": -1
         }
 
-    def __test_cron_job(self):
-        msg = self.message
-
-        if 'schedule' not in msg or not msg['schedule']:
+    def __test_cron_job(self, task):
+        if 'schedule' not in task or not task['schedule']:
             return {
                 "error": True,
                 "message": "Cron parameter is missing",
                 "type": -1
             }
 
-        if self.patterns['cron'].match(msg['schedule']) is None:
+        if self.patterns['cron'].match(task['schedule']) is None:
             return {
                 "error": True,
                 "message": "Supplied Cron string '{}' is invalid.".format(
-                    re.sub(r'[^0-9 *,-/]', '&lt!&gt;', msg['schedule'])),
+                    re.sub(r'[^0-9 *,-/]', '[*]', task['schedule'])),
                 "type": -1
             }
+        try:
+            if not croniter.is_valid(task['schedule']):
+                return self.__basic_error('Cron string is NOT valid')
+        except Exception as e:
+            return self.__basic_error('Cron string validation exception: {}'.format(e))
 
         return {
             "error": False,
@@ -389,49 +462,42 @@ class SecurityMiddleware(object):
             "type": -1
         }
 
-    def __test_prescan(self):
-        msg = self.message
-        if 'prescan' not in msg or not msg['prescan']:
-            return {
-                "error": True,
-                "message": "Prescan parameters are missing",
-                "type": -1
-            }
-        else:
-            for p in ['zmap_opts', 'zmap_port', 'nmap_opts', 'nmap_ports']:
-                if p not in msg['prescan'] or msg['prescan'][p] is None:
+    def __test_prescan(self, prescan_params):
+        for p in ['zmap_opts', 'zmap_port', 'nmap_opts', 'nmap_ports']:
+            param = prescan_params[p] if p in prescan_params else None
+            if param is None:
+                return {
+                    "error": True,
+                    "message": "Prescan parameter '{}' is missing".format(p),
+                    "type": -1
+                }
+            elif p in ('zmap_opts', 'nmap_opts'):
+                if param and self.patterns['prescan_opts'].match(param) is None:
                     return {
                         "error": True,
-                        "message": "Prescan parameter '{}' is missing".format(p),
+                        "message": "Prescan parameter '{}' is invalid".format(p),
                         "type": -1
                     }
-                elif p in ('zmap_opts', 'nmap_opts'):
-                    if msg['prescan'][p] and self.patterns['prescan_opts'].match(msg['prescan'][p]) is None:
-                        return {
-                            "error": True,
-                            "message": "Prescan parameter '{}' is invalid".format(p),
-                            "type": -1
-                        }
-                elif p is 'zmap_port':
-                    if msg['prescan'][p] and self.patterns['prescan_zmap_port'].match(msg['prescan'][p]) is None:
-                        return {
-                            "error": True,
-                            "message": "Prescan parameter '{}' is invalid".format(p),
-                            "type": -1
-                        }
-                elif p is 'nmap_ports':
-                    if msg['prescan'][p] and self.patterns['prescan_nmap_ports'].match(msg['prescan'][p]) is None:
-                        return {
-                            "error": True,
-                            "message": "Prescan parameter '{}' is invalid".format(p),
-                            "type": -1
-                        }
+            elif p is 'zmap_port':
+                if param and self.patterns['prescan_zmap_port'].match(param) is None:
+                    return {
+                        "error": True,
+                        "message": "Prescan parameter '{}' is invalid".format(p),
+                        "type": -1
+                    }
+            elif p is 'nmap_ports':
+                if param and self.patterns['prescan_nmap_ports'].match(param) is None:
+                    return {
+                        "error": True,
+                        "message": "Prescan parameter '{}' is invalid".format(p),
+                        "type": -1
+                    }
 
-            return {
-                "error": False,
-                "message": "PRESCAN params are valid!",
-                "type": -1
-            }
+        return {
+            "error": False,
+            "message": "PRESCAN params are valid!",
+            "type": -1
+        }
 
     def __test_save_ivre_configs(self):
         '''
@@ -452,7 +518,7 @@ class SecurityMiddleware(object):
         :return:
         '''
         msg = self.message
-        # mayabe it shuld be better to make this a constant in config.py
+        # maybe it should be better to make this a constant in config.py
         default_conf = {
             'nmap': 'nmap',
             'pings': 'SE',
@@ -487,7 +553,7 @@ class SecurityMiddleware(object):
             }
 
         template = msg['template']
-        if not isinstance(msg, dict):
+        if not isinstance(template, dict):
             return {
                 'error': True,
                 'message': "Template is not valid",
@@ -596,3 +662,100 @@ class SecurityMiddleware(object):
             "message": "SAVE_CONF message is valid!",
             "type": -1
         }
+
+    def __test_scan_params(self, params):
+        """
+        :param params: {
+                            "nmap_template": <STRING>,
+                            "name":"<STRING>",
+                            "campaign":"<STRING>",
+                            "schedule": <CRON_STRING>,
+                            "ip":{
+                                "start": <IP>,
+                                "end": <IP>
+                            },
+                            "run_at":{
+                                "hour": <INT>,
+                                "month": <INT>,
+                                "minute": <INT>,
+                                "year": <INT>,
+                                "day": <INT>,
+                                "at_t": <DATETIME YYYY/MM/DD HH:mm>
+                            },
+                            "source":"source1",
+                            "prescan":{
+                                "notReally":"sure"
+                            }
+                        }
+        :return:
+        """
+
+        # STRING test
+        for param in ['nmap_template', 'name', 'campaign', 'source', 'ip']:
+
+            if param not in params or not params[param]:
+                return {
+                    "error": True,
+                    "message": "'{}' is missing".format(param),
+                    "type": -1
+                }
+            if param is 'ip':
+                for key in ['start', 'end']:
+                    if key not in params['ip'] or not params['ip'][key]:
+                        return {
+                            "error": True,
+                            "message": "'{}' is missing".format(param),
+                            "type": -1
+                        }
+            else:
+                if self.patterns['alphanumeric'].match(params[param]) is None:
+                    return {
+                        "error": True,
+                        "message": "Supplied parameter '{0}' contains invalid character/s: '{1}'".format(
+                            re.sub(r'[^a-zA-Z0-9_-]', '*', params[param]),
+                            "".join(re.findall(r'[^a-zA-Z0-9_-]', params[param]))
+                        ),
+                        "type": -1
+                    }
+        if 'prescan' in params and params['prescan']:
+            test_res = self.__test_prescan(params['prescan'])
+            if self.__is_error(test_res):
+                return test_res
+
+        # IP test
+        ip_start, ip_end = self.__test_ip(params['ip']['start'], 'start'), self.__test_ip(params['ip']['end'], 'end')
+        if self.__is_error(ip_start) is True:
+            return ip_start
+        elif self.__is_error(ip_end) is True:
+            return ip_end
+        elif ip_end['ip'] < ip_start['ip']:
+            return {
+                "error": True,
+                "message": "Supplied IP address range is invalid.",
+                "type": -1
+            }
+
+        params['ip']['start'], params['ip']['end'] = ip_start['ip'], ip_end['ip']
+
+        return {
+            "error": False,
+            "message": "Scan params are valid!",
+            "type": -1
+        }
+
+    @staticmethod
+    def __basic_error(message):
+        return {
+            "error": True,
+            "message": message,
+            "type": -1
+        }
+
+    def __mongo_string(self, param_name, param):
+        if type(param) is not str:
+            return self.__basic_error('{} must be a String.'.format(param_name))
+        elif self.patterns['mongo_allowed'].match(param) is None:
+            return self.__basic_error("Supplied parameter '{0}' contains invalid character/s: '{1}'".format(
+                re.sub(r'[$\'\"\\;{}]', '*', param),
+                "".join(re.findall(r'[$\'\"\\;{}]', param))))
+        return False

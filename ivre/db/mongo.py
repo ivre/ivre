@@ -2568,11 +2568,11 @@ class MongoDBManagement(MongoDB, DBManagement):
 
     def set_template(self, doc):
         try:
-            self.db[self.collections['templates']].insert_one(doc)
+            return self.db[self.collections['templates']].insert_one(doc)
         except pymongo.errors.DuplicateKeyError:
-            self.db[self.collections['templates']].update_one({
-                'agent': doc['agent'],
-                'templateName': doc['templateName']
+            return self.db[self.collections['templates']].update_one({
+                'agent': str(doc['agent']),
+                'templateName': str(doc['templateName'])
             }, {"$set": {'template': doc['template']}})
 
     def set_task(self, doc):
@@ -2588,12 +2588,12 @@ class MongoDBManagement(MongoDB, DBManagement):
                          {'agent': agent_name, 'detection.source': 'MODBUS_MASTER'}, {'detection.host': 1})
 
     def set_task_status(self, task_id, status):
-        self.db[self.collections['tasks']].update_one({
+        return self.db[self.collections['tasks']].update_one({
             '_id': self.str2id(task_id)
         }, {"$max": {'status': status}})
 
     def set_template_status(self, template_id, status):
-        self.db[self.collections['templates']].update({
+        return self.db[self.collections['templates']].update_one({
             '_id': self.str2id(template_id)
         }, {"$max": {'status': status}})
 

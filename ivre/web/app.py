@@ -31,6 +31,7 @@ import json
 import os
 import tempfile
 
+from pymongo.results import UpdateResult
 from bottle import abort, request, response, Bottle
 from future.utils import viewitems
 
@@ -105,8 +106,8 @@ def check_content_type(func):
 
 
 def security_middleware(func):
-    def _die(content_type):
-        utils.LOGGER.critical("Invalid request [%s]", str(request))
+    def _die(req):
+        utils.LOGGER.critical("Invalid request [%s]", str(req))
         response.set_header('Content-Type', 'application/json')
         response.status = '400 Bad Request'
         return webutils.js_alert(
@@ -124,12 +125,14 @@ def security_middleware(func):
                 is_valid = SecurityMiddleware(request.json).validate_message()
                 if isinstance(is_valid, dict) and 'error' in is_valid and is_valid['error'] is True:
                     response.set_header('Content-Type', 'application/json')
+                    response.status = '400 Bad Request'
+                    utils.LOGGER.error('[security_middleware] rejected 400: {}'.format(is_valid))
                     return json.dumps(is_valid)
                 else:
                     return func(*args, **kargs)
             except Exception as e:
                 utils.LOGGER.exception('[security_middleware] exception: {}'.format(e))
-                _die(request)
+                return _die(request)
 
     return _newfunc
 
@@ -588,7 +591,6 @@ def get_flow():
 # delete tasks (on-demand or periodic)
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/delete/task/<task_id:re:[0-9a-fA-F]+>')
 @check_content_type
-# @security_middleware
 def management(agent_name, task_id):
     op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PENDING_CANC)
     return json.dumps(op)
@@ -597,7 +599,6 @@ def management(agent_name, task_id):
 # change periodic task status
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/<action:re:[a-z]+>/task/<task_id:re:[0-9a-fA-F]+>')
 @check_content_type
-# @security_middleware
 def management(agent_name, action, task_id):
     if action == 'pause':
         op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_PAUSE)
@@ -655,7 +656,7 @@ def management(agent_name):
 # save configurations
 @application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/save_configs')
 @check_content_type
-# @security_middleware
+@security_middleware
 def management(agent_name):
     response.set_header('Content-Type', 'application/json')
     try:
@@ -671,10 +672,13 @@ def management(agent_name):
                 'template': message['template'],
                 'status': commonutils.TMPLT_STS.PENDING
             }
-            return db.management.set_template(doc)
+            res = db.management.set_template(doc)
+            return json.dumps(
+                {'error': False,
+                 'message': 'Template saved: {}'.format('updated' if isinstance(res, UpdateResult) else 'inserted')})
         return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
     except Exception as e:
-        utils.LOGGER.warning('API Exception: ', str(e))
+        utils.LOGGER.exception('API Exception: {}'.format(e))
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
 
 
@@ -683,9 +687,7 @@ def management(agent_name):
 @check_referer
 def management(agent_name):
     # Templates
-    all_templates = False
-    if request.query.all and request.query.all == str(1):
-        all_templates = True
+    all_templates = True if request.query.all and request.query.all == str(1) else False
 
     if agent_name:
         templates = []
@@ -699,14 +701,17 @@ def management(agent_name):
 # Template PUT status
 @application.put('/management/template/<template_id:re:[0-9a-fA-F]+>/status')
 @check_content_type
-# @security_middleware
+@security_middleware
 def management(template_id):
     response.set_header('Content-Type', 'application/json')
     try:
         payload = request.json
         message = payload['message']
         if payload['type'] == commonutils.AGENT_MSG.ACK:
-            return db.management.set_template_status(template_id, message['status'])
+            res = db.management.set_template_status(template_id, message['status'])
+            return json.dumps(
+                {'error': False, 'message': 'Status updated: {}'.format('YES' if res.modified_count else 'NO')})
+
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
 
     except Exception as e:
@@ -717,7 +722,7 @@ def management(template_id):
 # create a task
 @application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/task')
 @check_content_type
-# @security_middleware
+@security_middleware
 def management(agent_name):
     response.set_header('Content-Type', 'application/json')
     try:
@@ -726,7 +731,8 @@ def management(agent_name):
             message = payload['message']
             msg_type = payload['type']
             utils.LOGGER.debug('GOT TASK : ', str(payload))
-            if int(msg_type) not in [commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB, commonutils.COMMON_MSG.PRD_JOB]:
+            if int(msg_type) not in [commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB,
+                                     commonutils.COMMON_MSG.PRD_JOB]:
                 return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(msg_type)})
             doc = {
                 'agent': agent_name,
@@ -744,17 +750,19 @@ def management(agent_name):
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
 
 
-# Task/s POST status
-@application.post('/management/task/<task_id:re:[0-9a-fA-F]+>/status')
+# Task/s PUT status
+@application.put('/management/task/<task_id:re:[0-9a-fA-F]+>/status')
 @check_content_type
-# @security_middleware
+@security_middleware
 def management(task_id):
     try:
         payload = request.json
         message = payload['message']
         if payload['type'] == commonutils.AGENT_MSG.ACK:
             utils.LOGGER.debug('GOT ACK : ', str(payload))
-            return db.management.set_task_status(task_id, message['status'])
+            res = db.management.set_task_status(task_id, message['status'])
+            return json.dumps(
+                {'error': False, 'message': 'Status updated: {}'.format('YES' if res.modified_count else 'NO')})
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
 
     except Exception as e:
@@ -765,7 +773,7 @@ def management(task_id):
 # Task/s POST  results
 @application.post('/management/task/<task_id:re:[0-9a-fA-F]+>/results')
 @check_content_type
-# @security_middleware
+@security_middleware
 def management(task_id):
     response.set_header('Content-Type', 'application/json')
     try:
@@ -773,8 +781,11 @@ def management(task_id):
         message = payload['message']
         if payload['type'] == commonutils.AGENT_MSG.TASK_RESULT:
             output = webutils.import_scans_from_b64zip(task_id, message['scan_params'], message['result'])
-            db.management.set_task_status(task_id, message['status'])
-            print 'output: ', output
+            res = db.management.set_task_status(task_id, message['status'])
+            output['status_updated'] = True if res.modified_count else False
+            utils.LOGGER.info(
+                "Import message {} status_updated: {}".format(output['message'], output['status_updated']))
+            return output
         return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
 
     except Exception as e:
@@ -785,7 +796,6 @@ def management(task_id):
 # get Agent passive detections
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
 @check_referer
-# @security_middleware
 def management(agent_name):
     if agent_name:
         exclude_list = []
@@ -800,7 +810,7 @@ def management(agent_name):
 # Passive detection POST results
 @application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
 @check_content_type
-# @security_middleware
+@security_middleware
 def management(agent_name):
     try:
         payload = request.json

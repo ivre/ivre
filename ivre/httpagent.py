@@ -17,7 +17,6 @@ import logging
 from ivre.web.managementutils import run_ivre_scan
 from croniter import croniter
 from datetime import datetime
-import ivre.web.utils as webutils
 import ivre.web.commonutils as commonutils
 
 logging.config.dictConfig(mgmtutils.AgentLoggingConfig)
@@ -67,13 +66,17 @@ class Task:
             return None
         elif 'schedule' in self.params:
             cron_str = self.params['schedule']
-            if croniter.is_valid(cron_str):
-                next_execution = croniter(cron_str, datetime.now()).get_next(datetime)
-                delta = (next_execution - datetime.now()).seconds
-                return {
-                    'next_execution': next_execution,
-                    'delta': delta
-                }
+            try:
+                if croniter.is_valid(cron_str):
+                    next_execution = croniter(cron_str, datetime.now()).get_next(datetime)
+                    delta = (next_execution - datetime.now()).seconds
+                    return {
+                        'next_execution': next_execution,
+                        'delta': delta
+                    }
+            except Exception as e:
+                log.exception('Cron string validation exception: {}'.format(e))
+                return None
         return None
 
     def is_periodic(self):
@@ -165,9 +168,10 @@ class AgentClient(object):
     def __set_periodical(self, task):
         # type: (Task) -> None
         exec_data = task.get_next_execution()
-        log.info('PERIODIC TASK "{0}" ({1}) will execute in {2} s'.format(task.get_params()['name'], task.get_id(),
-                                                                          exec_data['delta']))
+
         if exec_data:
+            log.info('PERIODIC TASK "{0}" ({1}) will execute in {2} s'.format(task.get_params()['name'], task.get_id(),
+                                                                              exec_data['delta']))
             self.periodicals[task.get_id()] = exec_data
             self.__delayed_task(task.get_id(), exec_data['delta'])
             self.post_ack_tasks(task.get_id())
@@ -356,6 +360,7 @@ class AgentClient(object):
             log.info('POST Task {0} ACK with STS: {1}'.format(task_id, status))
         else:
             log.info('STATUS CODE: {0} - POST Task {1} ACK with STS: {2}'.format(r.status_code, task_id, status))
+            log.info('BODY: {0}'.format(r.json()))
 
     def put_template_status(self, template_id, status):
         payload = {
@@ -369,6 +374,7 @@ class AgentClient(object):
             log.info('PUT TEMPLATE {0} ACK with STS: {1}'.format(template_id, status))
         else:
             log.info('STATUS CODE: {0} - PUT TEMPLATE {1} ACK with STS: {2}'.format(r.status_code, template_id, status))
+            log.info('BODY: {0}'.format(r.json()))
 
     def post_ack_tasks(self, task_id):
         task = self.__get_task(task_id)
@@ -380,11 +386,12 @@ class AgentClient(object):
             },
             'type': commonutils.AGENT_MSG.ACK
         }
-        r = requests.post(self.url + '/management/task/{}/status'.format(task_id), json=payload)
+        r = requests.put(self.url + '/management/task/{}/status'.format(task_id), json=payload)
         if r.status_code == 200:
             log.info('POST Task {0} ACK with STS: {1}'.format(task_id, status))
         else:
             log.info('STATUS CODE: {0} - POST Task {1} ACK with STS: {2}'.format(r.status_code, task_id, status))
+            log.info('BODY: {0}'.format(r.json()))
 
     def post_task_result(self, task_id):
         task = self.__get_task(task_id)
@@ -402,6 +409,7 @@ class AgentClient(object):
             log.info('POST Task {0} results'.format(task_id))
         else:
             log.info('STATUS CODE: {0} - POST Task {1} results'.format(r.status_code, task_id))
+            log.info('BODY: {0}'.format(r.json()))
 
     def post_passive_detection(self, detection):
         payload = {
@@ -437,21 +445,14 @@ class AgentClient(object):
             if self.timers[k].is_alive():
                 self.timers[k].cancel()
 
-        # self.pool.terminate()
-        # self.pool.close()
-        # process = Popen('pkill -e -f runscans', shell=True, stdout=PIPE, stderr=STDOUT)
-        # return_code = process.wait()
-        # print('ping returned {0}'.format(return_code))
-        # print(process.stdout.read())
-
     def run(self):
-        log.info('### Agent started! ###')
-        self.get_ip_to_exclude()
-        # TODO include ip into default template
-        self.get_configs(all_templates=True)
-        self.get_tasks_resume()
-        mgmtutils.run_passive_scan(agent_conf['bro'], self)
         try:
+            log.info('### Agent started! ###')
+            self.get_ip_to_exclude()
+            self.get_configs(all_templates=True)
+            self.get_tasks_resume()
+            mgmtutils.run_passive_scan(agent_conf['bro'], self)
+
             while True:
                 self.get_configs()
                 self.get_tasks()
@@ -460,14 +461,8 @@ class AgentClient(object):
         except KeyboardInterrupt:
             self.__kill_everything()
             print('Exiting..')
-        # except Exception as e:
-        #     self.__kill_everything()
-        #     import os
-        #     import sys
-        #     exc_type, exc_obj, exc_tb = sys.exc_info()
-        #     fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        #     print(exc_type, fname, exc_tb.tb_lineno)
-        #     log.error('Something went wrong... stopping. Exception: {}'.format(e))
+        except Exception as e:
+            log.exception('exception: {}'.format(e))
 
 
 if __name__ == "__main__":

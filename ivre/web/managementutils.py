@@ -375,15 +375,15 @@ def run_ivre_scan(params):
 
         args = {'routable': True, 'range': [startAddress, endAddress], 'nmap-template': template,
                 'output': 'XMLFork', 'again': ['all']}
-
-        if 'zmap_port' in params['prescan'] and params['prescan']['zmap_port']:
-            args['zmap-prescan-port'] = params['prescan']['zmap_port']
-        if 'zmap_opts' in params['prescan'] and params['prescan']['zmap_opts']:
-            args['zmap-prescan-opts'] = params['prescan']['zmap_opts']
-        if 'nmap_ports' in params['prescan'] and params['prescan']['nmap_ports']:
-            args['nmap-prescan-ports'] = params['prescan']['nmap_ports']
-        if 'nmap_opts' in params['prescan'] and params['prescan']['nmap_opts']:
-            args['nmap-prescan-opts'] = params['prescan']['nmap_opts']
+        if 'prescan' in params and params['prescan'] is not None:
+            if 'zmap_port' in params['prescan'] and params['prescan']['zmap_port']:
+                args['zmap-prescan-port'] = params['prescan']['zmap_port']
+            if 'zmap_opts' in params['prescan'] and params['prescan']['zmap_opts']:
+                args['zmap-prescan-opts'] = params['prescan']['zmap_opts']
+            if 'nmap_ports' in params['prescan'] and params['prescan']['nmap_ports']:
+                args['nmap-prescan-ports'] = params['prescan']['nmap_ports']
+            if 'nmap_opts' in params['prescan'] and params['prescan']['nmap_opts']:
+                args['nmap-prescan-opts'] = params['prescan']['nmap_opts']
 
         log.debug('run_ivre_scan: About to execute the with following args %s', args)
         runscans.run(args)

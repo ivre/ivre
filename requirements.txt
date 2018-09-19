@@ -7,3 +7,4 @@ future
 bottle
 requests
 croniter
+IPy
