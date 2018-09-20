@@ -8,7 +8,6 @@
 import time
 import threading
 import requests
-import shutil
 import os
 from multiprocessing.dummy import Pool  # thread pool
 import ivre.web.managementutils as mgmtutils
@@ -16,19 +15,11 @@ import logging
 from ivre.web.managementutils import run_ivre_scan
 from croniter import croniter
 from datetime import datetime
-from ivre import config
+from ivre.config import AGENT_CONF
 import ivre.web.commonutils as commonutils
 
 logging.config.dictConfig(mgmtutils.AgentLoggingConfig)
 log = logging.getLogger("dyne.wsagent")
-
-agent_conf = {
-    'bro': {
-        'bro_path': '/nsm/bro/bin/bro',
-        'bro_script': '/usr/local/share/ivre/bro/ivre/passiverecon/bare.bro',
-        'bro_interface': 'vboxnet0'
-    }
-}
 
 
 class Task:
@@ -87,9 +78,9 @@ class Task:
 class AgentClient(object):
     def __init__(self, name):
         self.name = name
-        self.url = 'http://127.0.0.1/cgi'
+        self.url = 'http://{}/cgi'.format(AGENT_CONF['server_ip'])
         self.headers = {
-            'Referer': 'http://127.0.0.1/'
+            'Referer': 'http://{}/'.format(AGENT_CONF['server_ip'])
         }
         self.api = {
             'templates': '/management/agent/{}/templates'.format(self.name),
@@ -449,7 +440,7 @@ class AgentClient(object):
             self.get_ip_to_exclude()
             self.get_configs(all_templates=True)
             self.get_tasks_resume()
-            mgmtutils.run_passive_scan(agent_conf['bro'], self)
+            mgmtutils.run_passive_scan(AGENT_CONF['bro'], self)
 
             while True:
                 self.get_configs()

@@ -56,6 +56,16 @@ SHA1_CMD = "sha1sum"
 SHA256_CMD = "sha256sum"
 # specific: if no value is specified, tries /usr/local/share/<soft>,
 # /opt/<soft>/share/<soft>, then /usr/share/<soft>.
+
+AGENT_CONF = {
+    'bro': {
+        'bro_path': '/nsm/bro/bin/bro',
+        'bro_script': '/usr/local/share/ivre/bro/ivre/passiverecon/bare.bro',
+        'bro_interface': 'vboxnet0'
+    },
+    'server_ip': '127.0.0.1'
+}
+
 NMAP_SHARE_PATH = None
 
 # Default Nmap scan template, see below how to add templates:
