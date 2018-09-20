@@ -659,17 +659,20 @@ def flt_from_query(query, base_flt=None):
 
 def import_scans_from_b64zip(name, scan_params, zip64):
     try:
-        map(lambda p: mgmtutils.create_dir(p.format(mgmtutils.SERVER_WORKING_DIR)),
+        map(lambda p: mgmtutils.create_dir(
+            p.format(mgmtutils.SERVER_WORKING_DIR)),
             ['{0}', '{0}/remote_scans', '{0}/unzipped'])
         bin_file = base64.b64decode(zip64)
         scan_name = name
         zip_name = scan_name + "__" + str(int(round(time.time() * 1000)))
-        zip_location = mgmtutils.SERVER_WORKING_DIR + '/remote_scans/' + zip_name + '.zip'
+        zip_location = '{}/remote_scans/{}.zip'.format(
+            mgmtutils.SERVER_WORKING_DIR, zip_name)
 
         with open(zip_location, "wb") as zip_file:
             zip_file.write(bin_file)
 
-        safe_unzip(zip_location, mgmtutils.SERVER_WORKING_DIR + '/unzipped/' + zip_name)
+        safe_unzip(zip_location,
+                   mgmtutils.SERVER_WORKING_DIR + '/unzipped/' + zip_name)
 
         unzipped_location = {
             "working_dir": mgmtutils.SERVER_WORKING_DIR,
@@ -678,7 +681,8 @@ def import_scans_from_b64zip(name, scan_params, zip64):
         return import_scans(scan_params, unzipped_location)
 
     except Exception as e:
-        utils.LOGGER.exception('Importing remote scan files failed - scan name: {}'.format(name))
+        utils.LOGGER.exception(
+            'Importing remote scan files failed - scan name: {}'.format(name))
 
         return {
             "error": True,
@@ -689,7 +693,8 @@ def import_scans_from_b64zip(name, scan_params, zip64):
 def safe_unzip(zip_file, extractpath='.'):
     with zipfile.ZipFile(zip_file, 'r') as zf:
         for member in zf.infolist():
-            abspath = os.path.abspath(os.path.join(extractpath, member.filename))
+            abspath = os.path.abspath(
+                os.path.join(extractpath, member.filename))
             if abspath.startswith(os.path.abspath(extractpath)):
                 zf.extract(member, extractpath)
 
@@ -706,9 +711,11 @@ def import_scans(params, location):
         location["sub_dir"]
     )
 
-    utils.LOGGER.info('[RESULT-IMPORT] About to execute the following command: %s', cmd)
+    utils.LOGGER.info(
+        '[RESULT-IMPORT] About to execute the following command: %s', cmd)
 
-    out = check_output(cmd, shell=True, stderr=STDOUT, cwd=location["working_dir"])
+    out = check_output(cmd, shell=True, stderr=STDOUT,
+                       cwd=location["working_dir"])
 
     return {
         "error": False,

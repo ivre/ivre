@@ -5,7 +5,6 @@ import re
 import os
 import time
 import json
-import pprint
 import base64
 import shutil
 import logging.config
@@ -13,12 +12,11 @@ import shlex
 from string import Template
 from subprocess import Popen, STDOUT, PIPE
 from threading import Lock, Thread
-from ivre import config
 from ivre.tools import runscans
 import ivre.utils as utils
 import ivre.web.commonutils as commonutils
-lock = Lock()
 
+lock = Lock()
 
 SERVER_WORKING_DIR = "/tmp/ivre"
 AGENT_WORKING_DIR = os.path.join(os.getcwd(), 'ivre_httpagent/')
@@ -116,13 +114,20 @@ def add_template(name, conf_json, exclude=None):
         pings = conf_json['pings'] if 'pings' in conf_json else None
         scans = conf_json['scans'] if 'scans' in conf_json else None
         osdetect = conf_json['osdetect'] if 'osdetect' in conf_json else None
-        traceroute = conf_json['traceroute'] if 'traceroute' in conf_json else None
-        scripts_categories = conf_json['scripts_categories'] if 'scripts_categories' in conf_json else None
-        scripts_exclude = conf_json['scripts_exclude'] if 'scripts_exclude' in conf_json else None
-        raw_performance = conf_json['performance'] if 'performance' in conf_json else None
-        performance_params = parse_performance_params(raw_performance) if raw_performance is not None else None
+        traceroute = conf_json[
+            'traceroute'] if 'traceroute' in conf_json else None
+        scripts_categories = conf_json[
+            'scripts_categories'] if 'scripts_categories' \
+                                     in conf_json else None
+        scripts_exclude = conf_json[
+            'scripts_exclude'] if 'scripts_exclude' in conf_json else None
+        raw_performance = conf_json[
+            'performance'] if 'performance' in conf_json else None
+        performance_params = parse_performance_params(
+            raw_performance) if raw_performance is not None else None
 
-        addr_exclude = [addr.strip() for addr in exclude] if exclude is not None else None
+        addr_exclude = [addr.strip() for addr in
+                        exclude] if exclude is not None else None
         extra_options = performance_params
 
         d = {
@@ -132,7 +137,8 @@ def add_template(name, conf_json, exclude=None):
             'scans': str(scans) if scans else None,
             'osdetect': osdetect if osdetect else None,
             'traceroute': traceroute if traceroute else None,
-            'scripts_categories': scripts_categories if scripts_categories else None,
+            'scripts_categories': scripts_categories if scripts_categories
+            else None,
             'scripts_exclude': scripts_exclude if scripts_exclude else None,
             'exclude': addr_exclude if addr_exclude else None,
             'extra_options': extra_options if extra_options else None
@@ -168,7 +174,8 @@ def add_excluded_ip_to_template(detection, agent):
     """
     from ivre import config
     log.info('new detection: {}'.format(detection))
-    if detection and 'source' in detection and detection['source'] == 'MODBUS_MASTER':
+    if detection and 'source' in detection \
+            and detection['source'] == 'MODBUS_MASTER':
         agent.add_excluded_ip(detection['host'])
 
     for ip in agent.get_excluded_ip():
@@ -182,7 +189,8 @@ def add_excluded_ip_to_template(detection, agent):
     if agent.get_excluded_ip():
         return {
             "error": False,
-            "message": 'IP/s {} correctly excluded by all templates.'.format(', '.join(agent.get_excluded_ip()))
+            "message": 'IP/s {} correctly excluded by all templates.'.format(
+                ', '.join(agent.get_excluded_ip()))
         }
 
 
@@ -196,7 +204,8 @@ def is_root(file_path):
     import stat
     file_stat = os.stat(file_path)
     bits = oct(stat.S_IMODE(file_stat[stat.ST_MODE]))
-    return True if file_stat.st_uid == 0 and file_stat.st_gid == 0 and bits == '0600' else False
+    return True if file_stat.st_uid == 0 and file_stat.st_gid == 0 \
+                   and bits == '0600' else False
 
 
 def create_dir(dir_path):
@@ -223,8 +232,11 @@ def run_passive_scan(params, agent):
                 agent.post_passive_detection(detection)
                 add_excluded_ip_to_template(detection, agent)
             except Exception as e:
-                log.error('Exception while importing ip from passive detection: {}'.format(e))
-                log.error('Exception caused by detection: {}'.format(stdout_line))
+                log.error(
+                    'Exception while importing ip '
+                    'from passive detection: {}'.format(e))
+                log.error(
+                    'Exception caused by detection: {}'.format(stdout_line))
         out.close()
 
     cmd = "{} -b {} -i {} -e 'redef LogAscii::use_json=T;'".format(
@@ -298,27 +310,35 @@ def run_ivre_scan(params):
                 "message": "Supplied source name is invalid."
             }
 
-        args = {'routable': True, 'range': [startAddress, endAddress], 'nmap_template': template,
+        args = {'routable': True, 'range': [startAddress, endAddress],
+                'nmap_template': template,
                 'output': 'XMLFork', 'again': ['all']}
         if 'prescan' in params and params['prescan'] is not None:
-            if 'zmap_port' in params['prescan'] and params['prescan']['zmap_port']:
+            if 'zmap_port' in params['prescan'] \
+                    and params['prescan']['zmap_port']:
                 args['zmap_prescan_port'] = params['prescan']['zmap_port']
-            if 'zmap_opts' in params['prescan'] and params['prescan']['zmap_opts']:
+            if 'zmap_opts' in params['prescan'] \
+                    and params['prescan']['zmap_opts']:
                 args['zmap_prescan_opts'] = params['prescan']['zmap_opts']
-            if 'nmap_ports' in params['prescan'] and params['prescan']['nmap_ports']:
+            if 'nmap_ports' in params['prescan'] \
+                    and params['prescan']['nmap_ports']:
                 args['nmap_prescan_ports'] = params['prescan']['nmap_ports']
-            if 'nmap_opts' in params['prescan'] and params['prescan']['nmap_opts']:
+            if 'nmap_opts' in params['prescan']\
+                    and params['prescan']['nmap_opts']:
                 args['nmap_prescan_opts'] = params['prescan']['nmap_opts']
 
-        log.debug('run_ivre_scan: About to execute the with following args %s', args)
+        log.debug('run_ivre_scan: About to execute the with following args %s',
+                  args)
         runscans.run(args)
 
         current_time = str(int(round(time.time() * 1000)))
-        zip_file_path, destination_path = [p.format(startAddress, endAddress) for p in
+        zip_file_path, destination_path = [p.format(startAddress, endAddress)
+                                           for p in
                                            ['/scan_{0}-{1}__' + current_time,
                                             './scans/RANGE-{0}-{1}/up']]
         zip_file_path = zip_file_path.replace(".", "_")
-        shutil.make_archive(AGENT_WORKING_DIR + zip_file_path, 'zip', destination_path)
+        shutil.make_archive(AGENT_WORKING_DIR + zip_file_path, 'zip',
+                            destination_path)
 
         try:
             with open(AGENT_WORKING_DIR + zip_file_path + '.zip', 'rb') as f:
@@ -332,7 +352,8 @@ def run_ivre_scan(params):
             }
 
             log.info(
-                "run_ivre_scan: Scan %s has terminated with success: results has been packed and are ready to be sent",
+                "run_ivre_scan: Scan %s has terminated with success: "
+                "results has been packed and are ready to be sent",
                 params['name'])
 
             return {
@@ -342,7 +363,9 @@ def run_ivre_scan(params):
             }
 
         except Exception as e:
-            log.exception("run_ivre_scan: Scan results packing failed with: {}".format(e))
+            log.exception(
+                "run_ivre_scan: Scan results packing failed with: {}".format(
+                    e))
 
             return {
                 "error": True,
@@ -350,7 +373,8 @@ def run_ivre_scan(params):
             }
 
     except Exception as e:
-        log.exception("run_ivre_scan: Scan execution failed with: {}".format(e))
+        log.exception(
+            "run_ivre_scan: Scan execution failed with: {}".format(e))
 
         return {
             "error": True,
@@ -377,8 +401,12 @@ def import_scada_devices():
 
         for i, p in enumerate(db.passive.get(db.passive.flt_empty)):
             if "MODBUS_SLAVE" in p["recontype"]:
-                tmp_file_name = '{0}/tmp_{1}.xml'.format(tmp_dir, int2ip(p["addr"]))
-                write_file_safely(tmp_file_name, fake_nmap_result(p["firstseen"], p["firstseen"], int2ip(p["addr"])))
+                tmp_file_name = '{0}/tmp_{1}.xml'.format(tmp_dir,
+                                                         int2ip(p["addr"]))
+                write_file_safely(tmp_file_name,
+                                  fake_nmap_result(p["firstseen"],
+                                                   p["firstseen"],
+                                                   int2ip(p["addr"])))
 
         count = 0
         for filename in glob.glob(os.path.join(tmp_dir, '*.xml')):
@@ -394,7 +422,8 @@ def import_scada_devices():
             except Exception as e:
                 return {
                     'error': True,
-                    'message': "Something went wrong while importing results from passive db: {}".format(e)
+                    'message': "Something went wrong while importing results "
+                               "from passive db: {}".format(e)
                 }
         return {
             'error': False,
@@ -404,7 +433,8 @@ def import_scada_devices():
     except Exception as e:
         return {
             'error': True,
-            'message': "Something went wrong while importing scada devices: {}".format(e)
+            'message': "Something went wrong while "
+                       "importing scada devices: {}".format(e)
         }
 
 
@@ -417,17 +447,18 @@ def write_file_safely(fname, data):
 
 
 def fake_nmap_result(firstseen, lastseen, addr):
-    nmap_result = Template("""<nmaprun scanner="nmap">
-                        <host starttime="$firstseen" endtime="$lastseen">
-                            <status state="up" reason="syn-ack" reason_ttl="61"/>
-                            <address addr="$addr" addrtype="ipv4"/>
-                            <ports>
-                                <port protocol="tcp" portid="502">
-                                    <state state="open" reason="syn-ack" reason_ttl="61"/>
-                                </port>
-                            </ports>
-                        </host>
-                    </nmaprun>""")
+    nmap_result = Template(
+        """<nmaprun scanner="nmap">
+            <host starttime="$firstseen" endtime="$lastseen">
+                <status state="up" reason="syn-ack" reason_ttl="61"/>
+                <address addr="$addr" addrtype="ipv4"/>
+                <ports>
+                    <port protocol="tcp" portid="502">
+                        <state state="open" reason="syn-ack" reason_ttl="61"/>
+                    </port>
+                </ports>
+            </host>
+        </nmaprun>""")
     return nmap_result.substitute({
         'firstseen': int(time.mktime(time.localtime(firstseen))),
         'lastseen': int(time.mktime(time.localtime(lastseen))),

@@ -97,7 +97,8 @@ def check_content_type(func):
     @wraps(func)
     def _newfunc(*args, **kargs):
         content_type = request.headers.get('Content-Type')
-        if not content_type or (content_type and content_type != 'application/json'):
+        if not content_type or (content_type and content_type !=
+                                'application/json'):
             return _die(content_type)
         else:
             return func(*args, **kargs)
@@ -123,15 +124,18 @@ def security_middleware(func):
         else:
             try:
                 is_valid = SecurityMiddleware(request.json).validate_message()
-                if isinstance(is_valid, dict) and 'error' in is_valid and is_valid['error'] is True:
+                if isinstance(is_valid, dict) and 'error' in is_valid \
+                        and is_valid['error'] is True:
                     response.set_header('Content-Type', 'application/json')
                     response.status = '400 Bad Request'
-                    utils.LOGGER.error('[security_middleware] rejected 400: {}'.format(is_valid))
+                    utils.LOGGER.error('[security_middleware] '
+                                       'rejected 400: {}'.format(is_valid))
                     return json.dumps(is_valid)
                 else:
                     return func(*args, **kargs)
             except Exception as e:
-                utils.LOGGER.exception('[security_middleware] exception: {}'.format(e))
+                utils.LOGGER.exception('[security_middleware] '
+                                       'exception: {}'.format(e))
                 return _die(request)
 
     return _newfunc
@@ -589,29 +593,37 @@ def get_flow():
 #
 
 # delete tasks (on-demand or periodic)
-@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/delete/task/<task_id:re:[0-9a-fA-F]+>')
+@application.get(
+    '/management/agent/<agent_name:re:[a-zA-Z0-9]+>/delete/task/'
+    '<task_id:re:[0-9a-fA-F]+>')
 @check_content_type
-def management(agent_name, task_id):
-    op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PENDING_CANC)
+def cancel_task(agent_name, task_id):
+    op = db.management.set_specific_task_status(
+        agent_name, task_id, commonutils.TASK_STS.PENDING_CANC)
     return json.dumps(op)
 
 
 # change periodic task status
-@application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/<action:re:[a-z]+>/task/<task_id:re:[0-9a-fA-F]+>')
+@application.get(
+    '/management/agent/<agent_name:re:[a-zA-Z0-9]+>/<action:re:[a-z]+>/task/'
+    '<task_id:re:[0-9a-fA-F]+>')
 @check_content_type
-def management(agent_name, action, task_id):
+def update_status_prdtasks(agent_name, action, task_id):
     if action == 'pause':
-        op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_PAUSE)
+        op = db.management.set_specific_task_status(
+            agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_PAUSE)
         return json.dumps(op)
     elif action == 'resume':
-        op = db.management.set_specific_task_status(agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_RESUME)
+        op = db.management.set_specific_task_status(
+            agent_name, task_id,
+            commonutils.TASK_STS.PRD_PENDING_RESUME)
         return json.dumps(op)
 
 
 # get Agent tasks
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/tasks')
 @check_referer
-def management(agent_name):
+def get_tasks(agent_name):
     # Task/s
     if agent_name:
         resp = {
@@ -624,40 +636,49 @@ def management(agent_name):
             doc['_id'] = str(doc['_id'])
             resp['tasks'].append(doc)
 
-        for doc in db.management.get_tasks_by_status(agent_name, commonutils.TASK_STS.PENDING_CANC):
+        for doc in db.management.get_tasks_by_status(
+                agent_name,
+                commonutils.TASK_STS.PENDING_CANC):
             doc['_id'] = str(doc['_id'])
             resp['tasks_to_cancel'].append(doc)
 
-        for doc in db.management.get_tasks_by_status(agent_name, commonutils.TASK_STS.PRD_PENDING_PAUSE):
+        for doc in db.management.get_tasks_by_status(
+                agent_name,
+                commonutils.TASK_STS.PRD_PENDING_PAUSE):
             doc['_id'] = str(doc['_id'])
             resp['tasks_to_pause'].append(doc)
 
-        for doc in db.management.get_tasks_by_status(agent_name, commonutils.TASK_STS.PRD_PENDING_RESUME):
+        for doc in db.management.get_tasks_by_status(
+                agent_name,
+                commonutils.TASK_STS.PRD_PENDING_RESUME):
             doc['_id'] = str(doc['_id'])
             resp['tasks_to_resume'].append(doc)
 
         return resp
-    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+    return json.dumps(
+        {'error': True, 'message': 'Unknown agent_name: ' + agent_name})
 
 
 # get all tasks
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/tasks_all')
 @check_referer
-def management(agent_name):
+def get_all_tasks(agent_name):
     if agent_name:
         tasks = []
         for doc in db.management.get_tasks_all(agent_name):
             doc['_id'] = str(doc['_id'])
             tasks.append(doc)
         return {'tasks': tasks}
-    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+    return json.dumps(
+        {'error': True, 'message': 'Unknown agent_name: ' + agent_name})
 
 
 # save configurations
-@application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/save_configs')
+@application.post(
+    '/management/agent/<agent_name:re:[a-zA-Z0-9]+>/template')
 @check_content_type
 @security_middleware
-def management(agent_name):
+def create_template(agent_name):
     response.set_header('Content-Type', 'application/json')
     try:
         # save configuration
@@ -665,7 +686,9 @@ def management(agent_name):
             payload = request.json
             message = payload['message']
             if payload['type'] != commonutils.COMMON_MSG.SAVE_IVRE_CONFIG:
-                return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+                return json.dumps({'error': True,
+                                   'message': 'Wrong message type: ' + str(
+                                       payload['type'])})
             doc = {
                 'agent': agent_name,
                 'templateName': message['templateName'],
@@ -675,8 +698,11 @@ def management(agent_name):
             res = db.management.set_template(doc)
             return json.dumps(
                 {'error': False,
-                 'message': 'Template saved: {}'.format('updated' if isinstance(res, UpdateResult) else 'inserted')})
-        return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+                 'message': 'Template saved: {}'.format(
+                     'updated' if isinstance(res,
+                                             UpdateResult) else 'inserted')})
+        return json.dumps(
+            {'error': True, 'message': 'Unknown agent_name: ' + agent_name})
     except Exception as e:
         utils.LOGGER.exception('API Exception: {}'.format(e))
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
@@ -685,34 +711,41 @@ def management(agent_name):
 # get Agent templates
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/templates')
 @check_referer
-def management(agent_name):
+def get_templates(agent_name):
     # Templates
-    all_templates = True if request.query.all and request.query.all == str(1) else False
+    all_templates = True if request.query.all and request.query.all == str(
+        1) else False
 
     if agent_name:
         templates = []
-        for doc in db.management.get_agent_templates(agent_name, all_templates):
+        for doc in db.management.get_agent_templates(agent_name,
+                                                     all_templates):
             doc['_id'] = str(doc['_id'])
             templates.append(doc)
         return {'templates': templates}
-    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+    return json.dumps(
+        {'error': True, 'message': 'Unknown agent_name: ' + agent_name})
 
 
 # Template PUT status
 @application.put('/management/template/<template_id:re:[0-9a-fA-F]+>/status')
 @check_content_type
 @security_middleware
-def management(template_id):
+def set_template_sts(template_id):
     response.set_header('Content-Type', 'application/json')
     try:
         payload = request.json
         message = payload['message']
         if payload['type'] == commonutils.AGENT_MSG.ACK:
-            res = db.management.set_template_status(template_id, message['status'])
+            res = db.management.set_template_status(template_id,
+                                                    message['status'])
             return json.dumps(
-                {'error': False, 'message': 'Status updated: {}'.format('YES' if res.modified_count else 'NO')})
+                {'error': False, 'message': 'Status updated: {}'.format(
+                    'YES' if res.modified_count else 'NO')})
 
-        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+        return json.dumps({'error': True,
+                           'message': 'Wrong message type: ' + str(
+                               payload['type'])})
 
     except Exception as e:
         utils.LOGGER.warning('API Exception: {}'.format(e))
@@ -723,7 +756,7 @@ def management(template_id):
 @application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/task')
 @check_content_type
 @security_middleware
-def management(agent_name):
+def create_task(agent_name):
     response.set_header('Content-Type', 'application/json')
     try:
         if agent_name:
@@ -731,9 +764,12 @@ def management(agent_name):
             message = payload['message']
             msg_type = payload['type']
             utils.LOGGER.debug('GOT TASK : ', str(payload))
-            if int(msg_type) not in [commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB,
+            if int(msg_type) not in [commonutils.COMMON_MSG.RUN_NOW,
+                                     commonutils.COMMON_MSG.RNT_JOB,
                                      commonutils.COMMON_MSG.PRD_JOB]:
-                return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(msg_type)})
+                return json.dumps({'error': True,
+                                   'message': 'Wrong message type: ' + str(
+                                       msg_type)})
             doc = {
                 'agent': agent_name,
                 'status': None,
@@ -742,9 +778,14 @@ def management(agent_name):
             }
             op_res = db.management.set_task(doc)
             if op_res:
-                return json.dumps({'error': False, 'message': 'Task "{}" created.'.format(message['task']['name'])})
-            return json.dumps({'error': True, 'message': 'Task "{}" NOT created.'.format(message['task']['name'])})
-        return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+                return json.dumps({'error': False,
+                                   'message': 'Task "{}" created.'.format(
+                                       message['task']['name'])})
+            return json.dumps({'error': True,
+                               'message': 'Task "{}" NOT created.'.format(
+                                   message['task']['name'])})
+        return json.dumps(
+            {'error': True, 'message': 'Unknown agent_name: ' + agent_name})
     except Exception as e:
         utils.LOGGER.warning('API Exception: ', str(e))
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
@@ -754,7 +795,7 @@ def management(agent_name):
 @application.put('/management/task/<task_id:re:[0-9a-fA-F]+>/status')
 @check_content_type
 @security_middleware
-def management(task_id):
+def set_task_sts(task_id):
     try:
         payload = request.json
         message = payload['message']
@@ -762,8 +803,11 @@ def management(task_id):
             utils.LOGGER.debug('GOT ACK : ', str(payload))
             res = db.management.set_task_status(task_id, message['status'])
             return json.dumps(
-                {'error': False, 'message': 'Status updated: {}'.format('YES' if res.modified_count else 'NO')})
-        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+                {'error': False, 'message': 'Status updated: {}'.format(
+                    'YES' if res.modified_count else 'NO')})
+        return json.dumps({'error': True,
+                           'message': 'Wrong message type: ' + str(
+                               payload['type'])})
 
     except Exception as e:
         utils.LOGGER.warning('API Exception: {}'.format(e))
@@ -774,19 +818,24 @@ def management(task_id):
 @application.post('/management/task/<task_id:re:[0-9a-fA-F]+>/results')
 @check_content_type
 @security_middleware
-def management(task_id):
+def import_task_results(task_id):
     response.set_header('Content-Type', 'application/json')
     try:
         payload = request.json
         message = payload['message']
         if payload['type'] == commonutils.AGENT_MSG.TASK_RESULT:
-            output = webutils.import_scans_from_b64zip(task_id, message['scan_params'], message['result'])
+            output = webutils.import_scans_from_b64zip(task_id,
+                                                       message['scan_params'],
+                                                       message['result'])
             res = db.management.set_task_status(task_id, message['status'])
             output['status_updated'] = True if res.modified_count else False
             utils.LOGGER.info(
-                "Import message {} status_updated: {}".format(output['message'], output['status_updated']))
+                "Import message {} status_updated: {}".format(
+                    output['message'], output['status_updated']))
             return output
-        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+        return json.dumps({'error': True,
+                           'message': 'Wrong message type: ' + str(
+                               payload['type'])})
 
     except Exception as e:
         utils.LOGGER.warning('API Exception: {}'.format(e))
@@ -796,22 +845,25 @@ def management(task_id):
 # get Agent passive detections
 @application.get('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
 @check_referer
-def management(agent_name):
+def get_passive_detection(agent_name):
     if agent_name:
         exclude_list = []
         for doc in db.management.get_fragile_devices(agent_name):
-            device_ip = doc['detection']['host'] if 'detection' in doc and 'host' in doc['detection'] else None
+            device_ip = doc['detection'][
+                'host'] if 'detection' in doc and 'host' in doc[
+                'detection'] else None
             if device_ip and device_ip not in exclude_list:
                 exclude_list.append(device_ip)
         return json.dumps({'exclude_list': exclude_list})
-    return json.dumps({'error': True, 'message': 'Unknown agent_name: ' + agent_name})
+    return json.dumps(
+        {'error': True, 'message': 'Unknown agent_name: ' + agent_name})
 
 
 # Passive detection POST results
 @application.post('/management/agent/<agent_name:re:[a-zA-Z0-9]+>/passive')
 @check_content_type
 @security_middleware
-def management(agent_name):
+def create_passive_detection(agent_name):
     try:
         payload = request.json
         message = payload['message']
@@ -823,10 +875,13 @@ def management(agent_name):
             res = db.management.set_passive_detection(doc)
             utils.LOGGER.info('set_passive_detection : {}'.format(res))
             if res:
-                return json.dumps({'error': False, 'message': 'Detection "{}" imported.'.format(message['uid'])})
-        return json.dumps({'error': True, 'message': 'Wrong message type: ' + str(payload['type'])})
+                msg = 'Detection "{}" imported.'.format(message['uid'])
+                return json.dumps({'error': False,
+                                   'message': msg})
+        return json.dumps({'error': True,
+                           'message': 'Wrong message type: ' + str(
+                               payload['type'])})
 
     except Exception as e:
         utils.LOGGER.exception('API Exception: {}'.format(e))
         return json.dumps({'error': True, 'message': 'API error: ' + str(e)})
-

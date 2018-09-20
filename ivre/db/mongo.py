@@ -43,7 +43,8 @@ import bson
 import pymongo
 
 
-from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBManagement, LockError
+from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, \
+    DBManagement, LockError
 from ivre import config, geoiputils, utils, xmlnmap
 import ivre.web.commonutils as commonutils
 
@@ -2527,7 +2528,8 @@ class MongoDBManagement(MongoDB, DBManagement):
         self.collections = collections
         self.indexes = {
             self.collections['templates']: [
-                ([("agent", pymongo.DESCENDING), ("templateName", pymongo.ASCENDING)],
+                ([("agent", pymongo.DESCENDING),
+                  ("templateName", pymongo.ASCENDING)],
                  {'unique': True}),
             ],
             self.collections['tasks']: [
@@ -2563,8 +2565,11 @@ class MongoDBManagement(MongoDB, DBManagement):
 
     def get_agent_templates(self, agent_name, all_templates):
         if all_templates:
-            return self.find(self.collections['templates'], {'agent': agent_name})
-        return self.find(self.collections['templates'], {'agent': agent_name, 'status': commonutils.TMPLT_STS.PENDING})
+            return self.find(self.collections['templates'],
+                             {'agent': agent_name})
+        return self.find(
+            self.collections['templates'],
+            {'agent': agent_name, 'status': commonutils.TMPLT_STS.PENDING})
 
     def set_template(self, doc):
         try:
@@ -2585,7 +2590,9 @@ class MongoDBManagement(MongoDB, DBManagement):
 
     def get_fragile_devices(self, agent_name):
         return self.find(self.collections['passive_detections'],
-                         {'agent': agent_name, 'detection.source': 'MODBUS_MASTER'}, {'detection.host': 1})
+                         {'agent': agent_name,
+                          'detection.source': 'MODBUS_MASTER'},
+                         {'detection.host': 1})
 
     def set_task_status(self, task_id, status):
         return self.db[self.collections['tasks']].update_one({
@@ -2598,10 +2605,12 @@ class MongoDBManagement(MongoDB, DBManagement):
         }, {"$max": {'status': status}})
 
     def get_agent_tasks(self, agent_name):
-        return self.find(self.collections['tasks'], {'agent': agent_name, 'status': None})
+        return self.find(self.collections['tasks'],
+                         {'agent': agent_name, 'status': None})
 
     def get_tasks_by_status(self, agent_name, status):
-        return self.find(self.collections['tasks'], {'agent': agent_name, 'status': status})
+        return self.find(self.collections['tasks'],
+                         {'agent': agent_name, 'status': status})
 
     def get_tasks_all(self, agent_name):
         return self.find(self.collections['tasks'], {
@@ -2609,8 +2618,10 @@ class MongoDBManagement(MongoDB, DBManagement):
             '$or': [
                 {'status': {'$lt': commonutils.TASK_STS.COMPLETED}},
                 {'status': {'$in': [
-                    commonutils.TASK_STS.PERIODIC, commonutils.TASK_STS.PRD_PENDING_PAUSE,
-                    commonutils.TASK_STS.PERIODIC_PAUSED, commonutils.TASK_STS.PRD_PENDING_RESUME
+                    commonutils.TASK_STS.PERIODIC,
+                    commonutils.TASK_STS.PRD_PENDING_PAUSE,
+                    commonutils.TASK_STS.PERIODIC_PAUSED,
+                    commonutils.TASK_STS.PRD_PENDING_RESUME
                 ]}}
             ]
         })

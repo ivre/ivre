@@ -1881,7 +1881,8 @@ class MetaDB(object):
     def __init__(self, url=None, urls=None):
         try:
             from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
-                                       MongoDBAgent, MongoDBView, MongoDBManagement)
+                                       MongoDBAgent, MongoDBView,
+                                       MongoDBManagement)
         except ImportError:
             pass
         else:

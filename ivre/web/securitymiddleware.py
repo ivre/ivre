@@ -4,6 +4,7 @@ import ivre.web.managementutils as mgmtutils
 import ivre.web.commonutils as commonutils
 from ivre import utils
 from croniter import croniter
+
 try:
     import ipaddress
 except ImportError:
@@ -17,32 +18,72 @@ from sys import modules as imported_modules
 class SecurityMiddleware(object):
     def __init__(self, body):
         self.message = body['message']
-        self.agent_ip = body['agent_ip'] if 'agent_ip' in body and body['agent_ip'] else None
+        self.agent_ip = body['agent_ip'] if 'agent_ip' in body and body[
+            'agent_ip'] else None
         self.type = body['type'] if 'type' in body else None
-        self.is_from_agent = body['is_from_agent'] if 'is_from_agent' in body else None
+        self.is_from_agent = body[
+            'is_from_agent'] if 'is_from_agent' in body else None
         self.error = body['error'] if 'error' in body else None
         self.patterns = {
             'alphanumeric': re.compile('^([0-9]|[a-zA-Z]|_|-)+$'),
             'information': re.compile('^([-A-Za-z0-9+&@#/%?=~_|!:,.;\(\)])+$'),
             'ip_address': re.compile('^([A-F0-9a-f]|\.|:)+$'),
             'date': re.compile(
-                '^((((19|[2-9]\d)\d{2})[/.-](0[13578]|1[02])[/.-](0[1-9]|[12]\d|3[01])\s(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9]))|(((19|[2-9]\d)\d{2})[/.-](0[13456789]|1[012])[/.-](0[1-9]|[12]\d|30)\s(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9]))|(((19|[2-9]\d)\d{2})[/.-](02)[/.-](0[1-9]|1\d|2[0-9])\s(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9]))|(((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00))[/.-](02)[/.-](29)\s(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9])))$'),
+                '^((((19|[2-9]\d)\d{2})[/.-](0[13578]|1[02])[/.-](0[1-9]|[12]'
+                '\d|3[01])\s(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9]))|(((19|[2-9]'
+                '\d)\d{2})[/.-](0[13456789]|1[012])[/.-](0[1-9]|[12]\d|30)\s'
+                '(0[0-9]|1[0-9]|2[0-3]):([0-5][0-9]))|(((19|[2-9]\d)\d{2})'
+                '[/.-](02)[/.-](0[1-9]|1\d|2[0-9])\s(0[0-9]|1[0-9]|2[0-3]):([0'
+                '-5][0-9]))|(((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|'
+                '((16|[2468][048]|[3579][26])00))[/.-](02)[/.-](29)\s(0[0-9]|1'
+                '[0-9]|2[0-3]):([0-5][0-9])))$'),
             'cron': re.compile(
-                '^(((\*|([0-9]|[1-5][0-9]?))|\*(/([0-9]|[1-5][0-9]))?)|(([0-9]|[1-5][0-8]?)-([0-5]|[1-5][0-9])))(,(((\*|([0-9]|[1-5][0-9]?))|\*(/([0-9]|[1-5][0-9]))?)|(([0-9]|[1-5][0-8]?)-([0-5]|[1-5][0-9]))))*\s(((\*|([0-1]?[0-9]|2[0-3]?))|\*(/([0-1]?[0-9]|2[0-3]))?)|(([0-1]?[0-9]|2[0-3]?)-([0-1]?[0-9]|2[0-3])))(,(((\*|([0-1]?[0-9]|2[0-3]?))|\*(/([0-1]?[0-9]|2[0-3]))?)|(([0-1]?[0-9]|2[0-3]?)\-([0-1]?[0-9]|2[0-3]))))*\s(\?|(((\*|([0-9]|[0-2][0-9]|3[0-1]?))|\*(/([0-9]|[0-2][0-9]|3[0-1]))?)|(([0-9]|[0-2][0-9]|3[0-1]?)\-([0-9]|[0-2][0-9]|3[0-1]))|([0-9]|[0-2][0-9]|3[0-1]?))(,(((\*|([0-9]|[0-2][0-9]|3[0-1]?))|\*(/([0-9]|[0-2][0-9]|3[0-1]))?)|(([0-9]|[0-2][0-9]|3[0-1]?)\-([0-9]|[0-2][0-9]|3[0-1]))|(\d\d?W)))*)\s(((\*|(\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))(/\d\d?)?)|((\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-(\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)))(,(((\*|(\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))(/\d\d?)?)|((\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-(\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))))*\s(((\*|([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?)(/\d\d?)?)|(([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?-([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?)|([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?#([1-5]))(,(((\*|([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?)(/\d\d?)?)|(([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?-([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?)|([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?#([1-5])))*$'),
+                '^(((\*|([0-9]|[1-5][0-9]?))|\*(/([0-9]|[1-5][0-9]))?)|(([0-9]'
+                '|[1-5][0-8]?)-([0-5]|[1-5][0-9])))(,(((\*|([0-9]|[1-5][0-9]?)'
+                ')|\*(/([0-9]|[1-5][0-9]))?)|(([0-9]|[1-5][0-8]?)-([0-5]|[1-5]'
+                '[0-9]))))*\s(((\*|([0-1]?[0-9]|2[0-3]?))|\*(/([0-1]?[0-9]|2'
+                '[0-3]))?)|(([0-1]?[0-9]|2[0-3]?)-([0-1]?[0-9]|2[0-3])))(,((('
+                '\*|([0-1]?[0-9]|2[0-3]?))|\*(/([0-1]?[0-9]|2[0-3]))?)|(([0-1]'
+                '?[0-9]|2[0-3]?)\-([0-1]?[0-9]|2[0-3]))))*\s(\?|(((\*|([0-9]|['
+                '0-2][0-9]|3[0-1]?))|\*(/([0-9]|[0-2][0-9]|3[0-1]))?)|(([0-9]|'
+                '[0-2][0-9]|3[0-1]?)\-([0-9]|[0-2][0-9]|3[0-1]))|([0-9]|[0-2]['
+                '0-9]|3[0-1]?))(,(((\*|([0-9]|[0-2][0-9]|3[0-1]?))|\*(/([0-9]|'
+                '[0-2][0-9]|3[0-1]))?)|(([0-9]|[0-2][0-9]|3[0-1]?)\-([0-9]|[0-'
+                '2][0-9]|3[0-1]))|(\d\d?W)))*)\s(((\*|(\d|10|11|12|JAN|FEB|MAR'
+                '|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))(/\d\d?)?)|((\d|10|11|'
+                '12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)-(\d|10|11'
+                '|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)))(,(((\*'
+                '|(\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC'
+                '))(/\d\d?)?)|((\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|'
+                'SEP|OCT|NOV|DEC)-(\d|10|11|12|JAN|FEB|MAR|APR|MAY|JUN|JUL|'
+                'AUG|SEP|OCT|NOV|DEC))))*\s(((\*|([0-7]|MON|TUE|WED|THU|FRI|'
+                'SAT|SUN)L?)(/\d\d?)?)|(([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?-'
+                '([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?)|([0-7]|MON|TUE|WED|THU'
+                '|FRI|SAT|SUN)L?#([1-5]))(,(((\*|([0-7]|MON|TUE|WED|THU|FRI|'
+                'SAT|SUN)L?)(/\d\d?)?)|(([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?'
+                '-([0-7]|MON|TUE|WED|THU|FRI|SAT|SUN)L?)|([0-7]|MON|TUE|WED|'
+                'THU|FRI|SAT|SUN)L?#([1-5])))*$'),
             'scan_id': re.compile('^([0-9]|[a-zA-Z]|_|-|\.|\[|\]|\s|/|:)+$'),
             'ip_exclude_list': re.compile('^([A-F0-9a-f]|\.|:|-|/|,)+$'),
-            'prescan_opts': re.compile('^([0-9]|[a-zA-Z]|:|,|\s|-)+([0-9a-zA-Z]+|:|,|\s|-)$'),
+            'prescan_opts': re.compile('^([0-9]|[a-zA-Z]|:|,|\s|-)+([0-9a-zA-'
+                                       'Z]+|:|,|\s|-)$'),
             'prescan_zmap_port': re.compile(
-                '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])$'),
+                '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+                '[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])$'),
             'prescan_nmap_ports': re.compile(
-                '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])(?:\s(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9]))*$'),
+                '^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|'
+                '[1-5][0-9]{4}|[1-9][0-9]{1,3}|[0-9])(?:\s(6553[0-5]|655[0-2]'
+                '[0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|[1-5][0-9]{4}|[1-9][0-9]'
+                '{1,3}|[0-9]))*$'),
             'mongo_allowed': re.compile(r'^[^$\'\"\\;{}]+$', re.M),
-            'base64': re.compile(r'^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$')
+            'base64': re.compile(r'^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}=='
+                                 r'|[A-Za-z0-9+/]{3}=)?$')
         }
 
     @staticmethod
     def __is_error(response):
-        return response['error'] if isinstance(response, dict) and 'error' in response else response
+        return response['error'] if isinstance(
+            response, dict) and 'error' in response else response
 
     @staticmethod
     def validate_certificates(cert_path):
@@ -51,7 +92,8 @@ class SecurityMiddleware(object):
         if cert_path and not mgmtutils.is_valid_path(cert_path):
             return {
                 "error": True,
-                "message": 'Chosen certificates directory does not exists: {0}'.format(cert_path),
+                "message": 'Chosen certificates directory '
+                           'does not exists: {0}'.format(cert_path),
                 "type": -1
             }
         else:
@@ -62,7 +104,8 @@ class SecurityMiddleware(object):
             if len(certs_in_dir) != 3:
                 return {
                     "error": True,
-                    "message": 'Chosen certificates directory must contain a: .key, .crt and CA\'s .pem files only.',
+                    "message": 'Chosen certificates directory must contain a: '
+                               '.key, .crt and CA\'s .pem files only.',
                     "type": -1
                 }
 
@@ -72,18 +115,20 @@ class SecurityMiddleware(object):
                 if not mgmtutils.is_root(cert_file_path):
                     return {
                         "error": True,
-                        "message": 'File with wrong permissions or owned not by root only: {0}'.format(cert_file_path),
-                        "type": -1
-                    }
-                elif os.path.isfile(cert_file_path) and cert_ext in cert_extensions:
+                        "message": 'File with wrong permissions or owned not'
+                                   'by root only: {0}'.format(cert_file_path),
+                        "type": -1}
+                elif os.path.isfile(
+                        cert_file_path) and cert_ext in cert_extensions:
                     cert_extensions.remove(cert_ext)
                     cert_chain[cert_ext.replace('.', '')] = cert_file_path
 
             if cert_extensions:
                 return {
                     "error": True,
-                    "message": 'Chosen certificates directory does not contain these files: {0}'.format(
-                        cert_extensions),
+                    "message": 'Chosen certificates directory does not '
+                               'contain these'
+                               ' files: {0}'.format(cert_extensions),
                     "type": -1
                 }
 
@@ -96,7 +141,16 @@ class SecurityMiddleware(object):
     def validate_message(self):
 
         # basic tests
-        if self.type is None and self.error:
+        if not self.message and isinstance(self.type, int) \
+                and self.type in [commonutils.AGENT_MSG.GET_IPs,
+                                  commonutils.BROWSER_MSG.GET_TEMPLATES,
+                                  commonutils.COMMON_MSG.GET_SCHED_SCANS]:
+            return {
+                "error": False,
+                "message": "Empty message with type: '{}'".format(self.type),
+                "type": -1
+            }
+        elif self.type is None and self.error:
             return {
                 "error": False,
                 "message": "Exception message!",
@@ -118,11 +172,13 @@ class SecurityMiddleware(object):
 
         banned_root_keys = [p for p in self.message if '$' in p]
         if banned_root_keys:
-            return self.__basic_error('"$" is not allowed in {}'.format(banned_root_keys))
+            return self.__basic_error(
+                '"$" is not allowed in {}'.format(banned_root_keys))
 
         # Tests by message type
 
-        if self.type in [commonutils.COMMON_MSG.RUN_NOW, commonutils.COMMON_MSG.RNT_JOB,
+        if self.type in [commonutils.COMMON_MSG.RUN_NOW,
+                         commonutils.COMMON_MSG.RNT_JOB,
                          commonutils.COMMON_MSG.PRD_JOB]:
             return self.__test_ivre_task()
 
@@ -136,7 +192,9 @@ class SecurityMiddleware(object):
             try:
                 return self.__test_passive_detection()
             except Exception as e:
-                utils.LOGGER.exception('[SecurityMiddleware - test_passive_detection] Exception: {}'.format(e))
+                utils.LOGGER.exception(
+                    '[SecurityMiddleware - test_passive_detection]'
+                    ' Exception: {}'.format(e))
 
         elif self.type == commonutils.COMMON_MSG.SAVE_IVRE_CONFIG:
             return self.__test_save_ivre_configs()
@@ -145,9 +203,9 @@ class SecurityMiddleware(object):
         if self.patterns['ip_address'].match(ip_address) is None:
             return {
                 "error": True,
-                "message": "Supplied {} IP address is invalid.".format(comment),
-                "type": -1
-            }
+                "message": "Supplied {} IP address is invalid.".format(
+                    comment),
+                "type": -1}
         else:
             try:
                 ip_address_valid = ip_address.decode("utf-8")
@@ -158,7 +216,8 @@ class SecurityMiddleware(object):
             except ValueError:
                 return {
                     "error": True,
-                    "message": "Supplied {} IP address is invalid.".format(comment),
+                    "message": "Supplied {} IP address is invalid.".format(
+                        comment),
                     "type": -1
                 }
 
@@ -169,7 +228,8 @@ class SecurityMiddleware(object):
             }
 
     def __test_text(self):
-        if not self.message or self.patterns['information'].match(self.message) is None:
+        if not self.message or self.patterns['information'].match(
+                self.message) is None:
             return {
                 "error": True,
                 "message": "Supplied informative message is invalid",
@@ -195,15 +255,19 @@ class SecurityMiddleware(object):
         msg = self.message
         tasks_dict = commonutils.TASK_STS.__dict__
         templates_dict = commonutils.TMPLT_STS.__dict__
-        allowed_tasks_sts = [tasks_dict[i] for i in tasks_dict.keys() if not i.startswith('__')]
-        allowed_tmplt_sts = [templates_dict[i] for i in templates_dict.keys() if not i.startswith('__')]
+        allowed_tasks_sts = [tasks_dict[i] for i in tasks_dict.keys() if
+                             not i.startswith('__')]
+        allowed_tmplt_sts = [
+            templates_dict[i] for i in templates_dict.keys() if not
+            i.startswith('__')]
         allowed_statuses = allowed_tasks_sts + allowed_tmplt_sts
         if 'status' not in msg:
             return self.__basic_error('status is missing!')
         elif not isinstance(msg['status'], int):
             return self.__basic_error('status must be an Integer.')
         elif not msg['status'] in allowed_statuses:
-            return self.__basic_error('Status {} not allowed.'.format(msg['status']))
+            return self.__basic_error(
+                'Status {} not allowed.'.format(msg['status']))
 
         return True
 
@@ -217,12 +281,14 @@ class SecurityMiddleware(object):
         if self.__is_error(test_res):
             return test_res
 
-        if self.type == commonutils.COMMON_MSG.RNT_JOB or ('run_at' in msg['task'] and msg['task']['run_at']):
+        if self.type == commonutils.COMMON_MSG.RNT_JOB or (
+                'run_at' in msg['task'] and msg['task']['run_at']):
             test_res = self.__test_run_at(msg['task'])
             if self.__is_error(test_res):
                 return test_res
 
-        if self.type == commonutils.COMMON_MSG.PRD_JOB or ('schedule' in msg['task'] and msg['task']['schedule']):
+        if self.type == commonutils.COMMON_MSG.PRD_JOB or (
+                'schedule' in msg['task'] and msg['task']['schedule']):
             test_res = self.__test_cron_job(msg['task'])
             if self.__is_error(test_res):
                 return test_res
@@ -286,10 +352,12 @@ class SecurityMiddleware(object):
         if 'task_id' not in msg:
             return self.__basic_error('task_id parameter is missing!')
         elif self.patterns['alphanumeric'].match(msg['task_id']) is None:
-            return self.__basic_error('Supplied parameter \'{0}\' contains invalid character/s: \'{1}\''.format(
-                            re.sub(r'[^a-zA-Z0-9_-]', '*', msg['task_id']),
-                            "".join(re.findall(r'[^a-zA-Z0-9_-]', msg['task_id']))
-                        )
+            return self.__basic_error(
+                'Supplied parameter \'{0}\' contains '
+                'invalid character/s: \'{1}\''.format(
+                    re.sub(r'[^a-zA-Z0-9_-]', '*', msg['task_id']),
+                    "".join(re.findall(r'[^a-zA-Z0-9_-]', msg['task_id']))
+                )
             )
 
         return True
@@ -310,7 +378,8 @@ class SecurityMiddleware(object):
         msg = self.message
 
         for p in msg:
-            if p in ['uid', 'recon_type', 'ts', 'value', 'source', 'host', 'srvport']:
+            if p in ['uid', 'recon_type', 'ts', 'value', 'source', 'host',
+                     'srvport']:
                 if p in ['uid', 'recon_type', 'value', 'source']:
                     res = self.__mongo_string(p, msg[p])
                     if self.__is_error(res):
@@ -321,7 +390,8 @@ class SecurityMiddleware(object):
                         return res
                 elif p == 'srvport' and not isinstance(msg[p], int):
                     return self.__basic_error('"srvport" must be an Integer')
-                elif p == 'ts' and not (isinstance(msg[p], float) or isinstance(msg[p], int)):
+                elif p == 'ts' and not (
+                        isinstance(msg[p], float) or isinstance(msg[p], int)):
                     return self.__basic_error('"ts" must be a Number')
         return {
             "error": False,
@@ -380,17 +450,26 @@ class SecurityMiddleware(object):
                         }
             else:
                 if self.patterns['alphanumeric'].match(msg[param]) is None:
+                    e_msg = 'Supplied parameter \'{0}\' contains invalid ' \
+                            'character/s: ' \
+                            '\'{1}\''.format(
+                                re.sub(
+                                    r'[^a-zA-Z0-9_-]', '&lt!&gt;', msg[param]),
+                                ''.join(
+                                    re.findall(
+                                        r'[^a-zA-Z0-9_-]',
+                                        msg[param]))
+                            )
                     return {
                         "error": True,
-                        "message": "Supplied parameter '{0}' contains invalid character/s: '{1}'".format(
-                            re.sub(r'[^a-zA-Z0-9_-]', '&lt!&gt;', msg[param]),
-                            "".join(re.findall(r'[^a-zA-Z0-9_-]', msg[param]))
-                        ),
+                        "message": e_msg,
                         "type": -1
                     }
 
         # IP test
-        ip_start, ip_end = self.__test_ip(msg['ip']['start'], 'start'), self.__test_ip(msg['ip']['end'], 'end')
+        ip_start, ip_end = self.__test_ip(msg['ip']['start'],
+                                          'start'), self.__test_ip(
+            msg['ip']['end'], 'end')
         if self.__is_error(ip_start) is True:
             return ip_start
         elif self.__is_error(ip_end) is True:
@@ -411,7 +490,8 @@ class SecurityMiddleware(object):
         }
 
     def __test_run_at(self, task):
-        if 'run_at' not in task or not task['run_at'] or 'at_t' not in task['run_at'] or not task['run_at']['at_t']:
+        if 'run_at' not in task or not task['run_at'] or 'at_t' not in task[
+                'run_at'] or not task['run_at']['at_t']:
             return {
                 "error": True,
                 "message": "Date parameter is missing",
@@ -454,7 +534,8 @@ class SecurityMiddleware(object):
             if not croniter.is_valid(task['schedule']):
                 return self.__basic_error('Cron string is NOT valid')
         except Exception as e:
-            return self.__basic_error('Cron string validation exception: {}'.format(e))
+            return self.__basic_error(
+                'Cron string validation exception: {}'.format(e))
 
         return {
             "error": False,
@@ -472,24 +553,30 @@ class SecurityMiddleware(object):
                     "type": -1
                 }
             elif p in ('zmap_opts', 'nmap_opts'):
-                if param and self.patterns['prescan_opts'].match(param) is None:
+                if param and self.patterns['prescan_opts'].match(
+                        param) is None:
                     return {
                         "error": True,
-                        "message": "Prescan parameter '{}' is invalid".format(p),
+                        "message": "Prescan parameter '{}' is invalid".format(
+                            p),
                         "type": -1
                     }
             elif p is 'zmap_port':
-                if param and self.patterns['prescan_zmap_port'].match(param) is None:
+                if param and self.patterns['prescan_zmap_port'].match(
+                        param) is None:
                     return {
                         "error": True,
-                        "message": "Prescan parameter '{}' is invalid".format(p),
+                        "message": "Prescan parameter '{}' is invalid".format(
+                            p),
                         "type": -1
                     }
             elif p is 'nmap_ports':
-                if param and self.patterns['prescan_nmap_ports'].match(param) is None:
+                if param and self.patterns['prescan_nmap_ports'].match(
+                        param) is None:
                     return {
                         "error": True,
-                        "message": "Prescan parameter '{}' is invalid".format(p),
+                        "message": "Prescan parameter '{}' is invalid".format(
+                            p),
                         "type": -1
                     }
 
@@ -500,7 +587,7 @@ class SecurityMiddleware(object):
         }
 
     def __test_save_ivre_configs(self):
-        '''
+        """
         {
         'body': {
             u 'message': {
@@ -516,7 +603,7 @@ class SecurityMiddleware(object):
         'type': 0
         }
         :return:
-        '''
+        """
         msg = self.message
         # maybe it should be better to make this a constant in config.py
         default_conf = {
@@ -562,10 +649,16 @@ class SecurityMiddleware(object):
         if self.patterns['alphanumeric'].match(msg['templateName']) is None:
             return {
                 "error": True,
-                "message": "Supplied parameter '{0}' contains invalid character/s: '{1}'".format(
-                    re.sub(r'[^a-zA-Z0-9_-]', '*', msg['templateName']),
-                    "".join(re.findall(r'[^a-zA-Z0-9_-]', msg['templateName']))
-                ),
+                "message": "Supplied parameter '{0}' contains"
+                           " invalid character/s: '{1}'".format(
+                               re.sub(
+                                   r'[^a-zA-Z0-9_-]',
+                                   '*',
+                                   msg['templateName']),
+                               "".join(
+                                   re.findall(
+                                       r'[^a-zA-Z0-9_-]',
+                                       msg['templateName']))),
                 "type": -1
             }
 
@@ -582,59 +675,85 @@ class SecurityMiddleware(object):
                 if param in template and not isinstance(template[param], bool):
                     return {
                         'error': True,
-                        'message': "Parameter template {} must be a boolean".format(param),
+                        'message': "Parameter template {} must be "
+                                   "a boolean".format(param),
                         'type': -1
                     }
 
             elif param in template and param == 'name' and (
-                    not template[param] or self.patterns['alphanumeric'].match(template[param]) is None):
+                    not template[param] or self.patterns['alphanumeric'].match(
+                        template[param]) is None):
                 return {
                     'error': True,
                     'message': "Supplied template name is invalid.",
                     'type': -1
                 }
 
-            elif param in template and param == 'pings' and [p for p in template[param] if
-                                                        p not in ['S', 'E', 'n', 'A', 'U', 'Y', 'P', 'M']]:
+            elif param in template and param == 'pings' and [p for p in
+                                                             template[param] if
+                                                             p not in ['S',
+                                                                       'E',
+                                                                       'n',
+                                                                       'A',
+                                                                       'U',
+                                                                       'Y',
+                                                                       'P',
+                                                                       'M']]:
                 utils.LOGGER.info(
                     "__test_save_ivre_configs: %s",
                     str(template[param]),
                 )
                 return {
                     'error': True,
-                    'message': "Supplied host discovery option/s is/are invalid.",
-                    'type': -1
-                }
+                    'message': 'Supplied host discovery option/s '
+                               'is/are invalid.',
+                    'type': -1}
 
-            elif param in template and param == 'scans' and [s for s in template[param] if
-                                                        s not in ['S', 'V', 'T', 'A', 'W', 'M', 'N', 'F', 'X', 'Y',
-                                                                  'Z']]:
+            elif param in template and param == 'scans' and [s for s in
+                                                             template[param] if
+                                                             s not in ['S',
+                                                                       'V',
+                                                                       'T',
+                                                                       'A',
+                                                                       'W',
+                                                                       'M',
+                                                                       'N',
+                                                                       'F',
+                                                                       'X',
+                                                                       'Y',
+                                                                       'Z']]:
                 return {
                     'error': True,
-                    'message': "Supplied scan techniques option/s is/are invalid.",
-                    'type': -1
-                }
+                    'message': 'Supplied scan techniques option/s '
+                               'is/are invalid.',
+                    'type': -1}
 
             elif param in template and param == 'scripts_categories':
-                all_categories = ['auth', 'broadcast', 'brute', 'default', 'discovery', 'dos', 'exploit', 'external',
-                                  'fuzzer', 'intrusive', 'malware', 'safe', 'version', 'vuln']
-                categories = [c for c in template['scripts_categories'] if c not in all_categories]
+                all_categories = ['auth', 'broadcast', 'brute', 'default',
+                                  'discovery', 'dos', 'exploit', 'external',
+                                  'fuzzer', 'intrusive', 'malware', 'safe',
+                                  'version', 'vuln']
+                categories = [c for c in template['scripts_categories'] if
+                              c not in all_categories]
                 if categories:
                     return {
                         'error': True,
-                        'message': "Supplied categorie/s {0} is/are invalid".format(categories),
-                        'type': -1
-                    }
+                        'message': "Supplied category/es {0} "
+                                   "is/are invalid".format(categories),
+                        'type': -1}
 
             elif param in template and param == 'exclude':
                 if isinstance(template[param], list) and template[param]:
                     for ip in template[param]:
-                        if ip and re.match(self.patterns['ip_exclude_list'], ip) is None:
+                        if ip and re.match(self.patterns['ip_exclude_list'],
+                                           ip) is None:
                             return {
                                 'error': True,
-                                'message': "Supplied <b>exclude list</b> is invalid. Check this out: https://nmap.org/book/man-target-specification.html",
-                                'type': -1
-                            }
+                                'message': "Supplied <b>exclude list</b> "
+                                           "is invalid. Check this out: "
+                                           "https://nmap.org/book/"
+                                           "man-target-specification.html",
+                                'type': -1}
                 else:
                     return {
                         'error': True,
@@ -648,15 +767,15 @@ class SecurityMiddleware(object):
                         if self.patterns['alphanumeric'].match(pparam) is None:
                             return {
                                 'error': True,
-                                'message': "Supplied <b>{}</b> is invalid.".format(pparam),
-                                'type': -1
-                            }
+                                'message': "Supplied <b>{}</b> "
+                                           "is invalid.".format(pparam),
+                                'type': -1}
                 else:
                     return {
                         'error': True,
-                        'message': "Supplied performance params list format is invalid.",
-                        'type': -1
-                    }
+                        'message': "Supplied performance params list format "
+                                   "is invalid.",
+                        'type': -1}
         return {
             "error": False,
             "message": "SAVE_CONF message is valid!",
@@ -711,11 +830,17 @@ class SecurityMiddleware(object):
                 if self.patterns['alphanumeric'].match(params[param]) is None:
                     return {
                         "error": True,
-                        "message": "Supplied parameter '{0}' contains invalid character/s: '{1}'".format(
-                            re.sub(r'[^a-zA-Z0-9_-]', '*', params[param]),
-                            "".join(re.findall(r'[^a-zA-Z0-9_-]', params[param]))
-                        ),
-                        "type": -1
+                        "message": "Supplied parameter '{0}' contains "
+                                   "invalid character/s: '{1}'".format(
+                                       re.sub(
+                                           r'[^a-zA-Z0-9_-]',
+                                           '*',
+                                           params[param]),
+                                       "".join(
+                                           re.findall(
+                                               r'[^a-zA-Z0-9_-]',
+                                               params[param]))),
+                        "type": - 1
                     }
         if 'prescan' in params and params['prescan']:
             test_res = self.__test_prescan(params['prescan'])
@@ -723,7 +848,9 @@ class SecurityMiddleware(object):
                 return test_res
 
         # IP test
-        ip_start, ip_end = self.__test_ip(params['ip']['start'], 'start'), self.__test_ip(params['ip']['end'], 'end')
+        ip_start, ip_end = self.__test_ip(params['ip']['start'],
+                                          'start'), self.__test_ip(
+            params['ip']['end'], 'end')
         if self.__is_error(ip_start) is True:
             return ip_start
         elif self.__is_error(ip_end) is True:
@@ -735,7 +862,8 @@ class SecurityMiddleware(object):
                 "type": -1
             }
 
-        params['ip']['start'], params['ip']['end'] = ip_start['ip'], ip_end['ip']
+        params['ip']['start'], params['ip']['end'] = ip_start['ip'], ip_end[
+            'ip']
 
         return {
             "error": False,
@@ -752,10 +880,13 @@ class SecurityMiddleware(object):
         }
 
     def __mongo_string(self, param_name, param):
-        if type(param) is not str:
-            return self.__basic_error('{} must be a String.'.format(param_name))
+        if not isinstance(param, str):
+            return self.__basic_error(
+                '{} must be a String.'.format(param_name))
         elif self.patterns['mongo_allowed'].match(param) is None:
-            return self.__basic_error("Supplied parameter '{0}' contains invalid character/s: '{1}'".format(
-                re.sub(r'[$\'\"\\;{}]', '*', param),
-                "".join(re.findall(r'[$\'\"\\;{}]', param))))
+            return self.__basic_error(
+                "Supplied parameter '{0}' contains invalid "
+                "character/s: '{1}'".format(
+                    re.sub(r'[$\'\"\\;{}]', '*', param),
+                    "".join(re.findall(r'[$\'\"\\;{}]', param))))
         return False
