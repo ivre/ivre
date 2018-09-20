@@ -154,6 +154,7 @@ def main():
             ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
+        db.db.management.init()
         db.db.nmap.init()
         sys.exit(0)
     if args.ensure_indexes:
