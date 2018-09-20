@@ -13,6 +13,7 @@ import shlex
 from string import Template
 from subprocess import Popen, STDOUT, PIPE
 from threading import Lock, Thread
+from ivre import config
 from ivre.tools import runscans
 import ivre.utils as utils
 import ivre.web.commonutils as commonutils
@@ -23,7 +24,6 @@ SERVER_WORKING_DIR = "/tmp/ivre"
 AGENT_WORKING_DIR = os.path.join(os.getcwd(), 'ivre_httpagent/')
 CONFIG_FILE = '.ivre.conf'
 CONFIG_DIR = os.path.join(os.path.expanduser('~'))
-# NMAP_SCAN_TEMPLATES = config.NMAP_SCAN_TEMPLATES
 
 # Logging configuration and setup.
 AgentLoggingConfig = dict(
@@ -71,9 +71,6 @@ AgentLoggingConfig = dict(
 )
 
 
-# TODO solve log problem
-# logging.config.dictConfig(loggingConfig)
-# log = logging.getLogger("ivre")
 def running_as_root():
     return os.getuid() == 0
 
@@ -126,30 +123,6 @@ def add_template(name, conf_json, exclude=None):
         performance_params = parse_performance_params(raw_performance) if raw_performance is not None else None
 
         addr_exclude = [addr.strip() for addr in exclude] if exclude is not None else None
-        # config_dir = str(working_dir).replace('ivrescans', '')
-        # if working_dir == SERVER_WORKING_DIR:
-        #     config_dir = "{0}{1}".format(config_dir, 'html/')
-
-        config_template_file = os.path.join(CONFIG_DIR, '.ivre.conf.template')
-        config_file = os.path.join(CONFIG_DIR, '.ivre.conf')
-        # log.debug('config_template_file = ' + config_template_file)
-        # log.debug('config_file = ' + config_file)
-        if not os.path.exists(config_template_file):
-            error = 'Error occurred while trying to save IVRE configs. {} do not exists.'.format(config_template_file)
-            log.error(error)
-            return {
-                "error": True,
-                "message": error
-            }
-        if not os.path.exists(config_file):
-            error = 'Error occurred while trying to save IVRE configs. {} do not exists.'.format(config_file)
-            log.error(error)
-            return {
-                "error": True,
-                "message": error
-            }
-
-        # log.debug(performance_params)
         extra_options = performance_params
 
         d = {
@@ -164,22 +137,16 @@ def add_template(name, conf_json, exclude=None):
             'exclude': addr_exclude if addr_exclude else None,
             'extra_options': extra_options if extra_options else None
         }
-        # log.debug('d = {}'.format(d))
+
         for k in d.keys():
             if d[k] is None:
                 del d[k]
-        # template = src.substitute(d)
 
-        # log.debug('d = {}'.format(d))
-        # print template
-
-        # inserts template into Nmap templates
-        current_templates = config.NMAP_SCAN_TEMPLATES
-        current_templates[name] = d
-        current_templates = pprint.pformat(current_templates, width=200)
-
-        res = __write_templates_to_file(current_templates, name=name)
-        return res
+        config.NMAP_SCAN_TEMPLATES[name] = d
+        return {
+            "error": False,
+            "message": "Imported template {} : {}".format(name, d)
+        }
 
     except Exception as e:
         import sys
@@ -191,48 +158,6 @@ def add_template(name, conf_json, exclude=None):
         return {
             "error": True,
             "message": "Error while saving configs: '{}'".format(e.args)
-        }
-
-
-def __write_templates_to_file(current_templates, name=None, ip=None):
-    """
-    :type name: basestring
-    :type ip: list of str
-    """
-    # creates a new configuration file
-    config_template_file = os.path.join(CONFIG_DIR, '.ivre.conf.template')
-    config_file = os.path.join(CONFIG_DIR, '.ivre.conf')
-    filein = open(config_template_file)
-    src = Template(filein.read())
-    filein.close()
-    d = {
-        'templates': current_templates
-    }
-    result = src.substitute(d)
-    lock.acquire()
-    try:
-        fileout = open(config_file, 'w')
-        try:
-            fileout.write(result)
-        finally:
-            fileout.close()
-    except IOError as e:
-        return {
-            "error": True,
-            "message": "writing error : '{}'".format(e)
-        }
-    lock.release()
-    # TODO front-end needs saved templates?
-    # return create_template_response(commonutils.COMMON_MSG.SAVE_IVRE_CONFIG)
-    if name:
-        return {
-            "error": False,
-            "message": 'Template {} was correctly imported.'.format(name)
-        }
-    elif ip:
-        return {
-            "error": False,
-            "message": 'IP {} was correctly excluded by all templates.'.format(', '.join(ip))
         }
 
 
@@ -255,10 +180,10 @@ def add_excluded_ip_to_template(detection, agent):
                     config.NMAP_SCAN_TEMPLATES[key]["exclude"].append(ip)
 
     if agent.get_excluded_ip():
-        current_templates = config.NMAP_SCAN_TEMPLATES
-        current_templates = pprint.pformat(current_templates, width=200)
-        res = __write_templates_to_file(current_templates, ip=agent.get_excluded_ip())
-        log.info(res['message'] if 'message' in res else res)
+        return {
+            "error": False,
+            "message": 'IP/s {} correctly excluded by all templates.'.format(', '.join(agent.get_excluded_ip()))
+        }
 
 
 def is_valid_path(path):
@@ -373,17 +298,17 @@ def run_ivre_scan(params):
                 "message": "Supplied source name is invalid."
             }
 
-        args = {'routable': True, 'range': [startAddress, endAddress], 'nmap-template': template,
+        args = {'routable': True, 'range': [startAddress, endAddress], 'nmap_template': template,
                 'output': 'XMLFork', 'again': ['all']}
         if 'prescan' in params and params['prescan'] is not None:
             if 'zmap_port' in params['prescan'] and params['prescan']['zmap_port']:
-                args['zmap-prescan-port'] = params['prescan']['zmap_port']
+                args['zmap_prescan_port'] = params['prescan']['zmap_port']
             if 'zmap_opts' in params['prescan'] and params['prescan']['zmap_opts']:
-                args['zmap-prescan-opts'] = params['prescan']['zmap_opts']
+                args['zmap_prescan_opts'] = params['prescan']['zmap_opts']
             if 'nmap_ports' in params['prescan'] and params['prescan']['nmap_ports']:
-                args['nmap-prescan-ports'] = params['prescan']['nmap_ports']
+                args['nmap_prescan_ports'] = params['prescan']['nmap_ports']
             if 'nmap_opts' in params['prescan'] and params['prescan']['nmap_opts']:
-                args['nmap-prescan-opts'] = params['prescan']['nmap_opts']
+                args['nmap_prescan_opts'] = params['prescan']['nmap_opts']
 
         log.debug('run_ivre_scan: About to execute the with following args %s', args)
         runscans.run(args)

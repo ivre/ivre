@@ -8,7 +8,6 @@
 import time
 import threading
 import requests
-import json
 import shutil
 import os
 from multiprocessing.dummy import Pool  # thread pool
@@ -17,6 +16,7 @@ import logging
 from ivre.web.managementutils import run_ivre_scan
 from croniter import croniter
 from datetime import datetime
+from ivre import config
 import ivre.web.commonutils as commonutils
 
 logging.config.dictConfig(mgmtutils.AgentLoggingConfig)
@@ -92,10 +92,10 @@ class AgentClient(object):
             'Referer': 'http://127.0.0.1/'
         }
         self.api = {
-            'templates': '/management/agent/' + str(self.name) + '/templates',
-            'tasks': '/management/agent/' + str(self.name) + '/tasks',
-            'tasks_all': '/management/agent/' + str(self.name) + '/tasks_all',
-            'passive': '/management/agent/' + str(self.name) + '/passive'
+            'templates': '/management/agent/{}/templates'.format(self.name),
+            'tasks': '/management/agent/{}/tasks'.format(self.name),
+            'tasks_all': '/management/agent/{}/tasks_all'.format(self.name),
+            'passive': '/management/agent/{}/passive'.format(self.name)
         }
         self.etag = None
         self.data = {
@@ -115,12 +115,10 @@ class AgentClient(object):
 
     def req(self, path):
         try:
-            # if self.etag:
-            #     self.headers['If-None-Match'] = self.etag
-            resp = requests.get(self.url + path, headers=self.headers)
-            log.debug('GET {0} - {1}'.format(self.url + path, resp))
+            uri = self.url + path
+            resp = requests.get(uri, headers=self.headers)
+            log.debug('GET {0} - {1}'.format(uri, resp))
             if resp.status_code == 200:
-                # self.etag = resp.headers.get('ETag')
                 return resp.json()
 
             elif resp.status_code != 304:
@@ -355,7 +353,7 @@ class AgentClient(object):
             },
             'type': commonutils.AGENT_MSG.ACK
         }
-        r = requests.post(self.url + '/management/task/{}/status'.format(task_id), json=payload)
+        r = requests.post('{0}/management/task/{1}/status'.format(self.url, task_id), json=payload)
         if r.status_code == 200:
             log.info('POST Task {0} ACK with STS: {1}'.format(task_id, status))
         else:
@@ -369,7 +367,7 @@ class AgentClient(object):
             },
             'type': commonutils.AGENT_MSG.ACK
         }
-        r = requests.put(self.url + '/management/template/{}/status'.format(template_id), json=payload)
+        r = requests.put('{0}/management/template/{1}/status'.format(self.url, template_id), json=payload)
         if r.status_code == 200:
             log.info('PUT TEMPLATE {0} ACK with STS: {1}'.format(template_id, status))
         else:
@@ -386,7 +384,7 @@ class AgentClient(object):
             },
             'type': commonutils.AGENT_MSG.ACK
         }
-        r = requests.put(self.url + '/management/task/{}/status'.format(task_id), json=payload)
+        r = requests.put('{0}/management/task/{1}/status'.format(self.url, task_id), json=payload)
         if r.status_code == 200:
             log.info('POST Task {0} ACK with STS: {1}'.format(task_id, status))
         else:
@@ -404,7 +402,7 @@ class AgentClient(object):
             },
             'type': commonutils.AGENT_MSG.TASK_RESULT
         }
-        r = requests.post(self.url + '/management/task/{}/results'.format(task_id), json=payload)
+        r = requests.post('{0}/management/task/{1}/results'.format(self.url, task_id), json=payload)
         if r.status_code == 200:
             log.info('POST Task {0} results'.format(task_id))
         else:
@@ -416,11 +414,11 @@ class AgentClient(object):
             'message': detection,
             'type': commonutils.AGENT_MSG.PASSIVE_RESULT
         }
-        r = requests.post(self.url + '/management/agent/{}/passive'.format(self.name), json=payload)
+        r = requests.post('{0}/management/agent/{1}/passive'.format(self.url, self.name), json=payload)
         if r.status_code == 200:
             log.info('POST Passive detection: {0}'.format(detection['uid']))
         else:
-            log.info('STATUS CODE: {0} - Passive detection: {1}'.format(r.status_code, detection['uid']))
+            log.info('STATUS CODE: {0} - Passive detection: {1}'.format(r.status_code, detection))
 
     def get_ip_to_exclude(self):
         response = self.req(self.api['passive'])
@@ -466,8 +464,6 @@ class AgentClient(object):
 
 
 if __name__ == "__main__":
-    from ivre import config
-
     map(lambda p: mgmtutils.create_dir(os.path.normpath(p.format(mgmtutils.AGENT_WORKING_DIR))),
         ['{0}', '{0}/scheduled_scans', '{0}/remote_scans'])
     source = os.path.join(mgmtutils.CONFIG_DIR, '.ivre.conf.default')

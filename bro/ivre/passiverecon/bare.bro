@@ -15,11 +15,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 # Use "bro -b [options] /path/to/thisfile.bro"
-# Use "bro -b [options] /path/to/thisfile.bro -e 'redef LogAscii::use_json=T;" for json format
+# Use "bro -b [options] /path/to/thisfile.bro -e 'redef LogAscii::use_json=T;'" for json format
 
 @load ./
-#redef LogAscii::json_timestamps = JSON::TS_ISO8601;
-#redef LogAscii::use_json = T;
 
 event bro_init() {
     # Let's disable standards outputs

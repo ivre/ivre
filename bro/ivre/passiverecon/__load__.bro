@@ -139,10 +139,6 @@ event bro_init() {
 
 event modbus_message(c: connection, headers: ModbusHeaders, is_orig: bool)
 	{
-		#print "MODBUS_message";
-		# print c;
-		#print headers;
-		# print is_orig;
 		local master = c$id$resp_h;
 		local slave  = c$id$orig_h;
 		local func_type = c$modbus$func;
