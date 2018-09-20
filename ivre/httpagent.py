@@ -466,15 +466,4 @@ class AgentClient(object):
 if __name__ == "__main__":
     map(lambda p: mgmtutils.create_dir(os.path.normpath(p.format(mgmtutils.AGENT_WORKING_DIR))),
         ['{0}', '{0}/scheduled_scans', '{0}/remote_scans'])
-    source = os.path.join(mgmtutils.CONFIG_DIR, '.ivre.conf.default')
-    destination = os.path.join(mgmtutils.CONFIG_DIR, '.ivre.conf')
-    default = config.NMAP_SCAN_TEMPLATES['default'].copy()
-    config.NMAP_SCAN_TEMPLATES = {'default': default}
-    if 'exclude' in default:
-        del default['exclude']
-    try:
-        os.remove(destination)
-        shutil.copy(source, destination)
-    except OSError:
-        pass
     agent = AgentClient('agent888')
