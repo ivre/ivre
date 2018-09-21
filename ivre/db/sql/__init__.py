@@ -1901,7 +1901,9 @@ passive table."""
         """
         if isinstance(field, basestring):
             field = self.fields[field]
-        outputproc = None
+        outputproc = lambda val: val
+        if field == "addr":
+            outputproc = self.internal2ip
         if flt is None:
             flt = PassiveFilter()
         order = "count" if least else desc("count")
@@ -1912,8 +1914,6 @@ passive table."""
             .select_from(flt.select_from)
             .group_by(field)
         )
-        if outputproc is None:
-            outputproc = lambda val: val
         return (
             {"count": result[0],
              "_id": outputproc(result[1:] if len(result) > 2 else result[1])}

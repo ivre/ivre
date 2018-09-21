@@ -188,19 +188,13 @@ class MongoDB(DB):
 
     @staticmethod
     def ip2internal(addr):
-        if isinstance(addr, (int, list)):
+        if isinstance(addr, list):
             return addr
-        addr = utils.ip2bin(addr)
-        if addr.startswith(
-                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff'
-        ):
-            return struct.unpack("!I", addr[-4:])[0]
-        return [val - 0x8000000000000000 for val in struct.unpack("!QQ", addr)]
+        return [val - 0x8000000000000000 for val in
+                struct.unpack("!QQ", utils.ip2bin(addr))]
 
     @staticmethod
     def internal2ip(addr):
-        if isinstance(addr, int):
-            return utils.int2ip(addr)
         return utils.bin2ip(
             struct.pack("!QQ", *(val + 0x8000000000000000 for val in addr))
         )
@@ -440,16 +434,6 @@ class MongoDB(DB):
         return {"schema_version":
                 {"$exists": False} if version is None else version}
 
-    @staticmethod
-    def searchipv4():
-        # This also matches array of numbers (...)
-        # return {'addr': {'$type': 'number'}}
-        return {'addr': {'$exists': True, '$not': {'$type': 'array'}}}
-
-    @staticmethod
-    def searchipv6():
-            return {'addr': {'$type': 'array'}}
-
     @classmethod
     def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
@@ -472,24 +456,6 @@ class MongoDB(DB):
         """
         start = cls.ip2internal(start)
         stop = cls.ip2internal(stop)
-        if isinstance(start, int):
-            if not isinstance(stop, int):
-                raise ValueError(
-                    'Cannot query mixed IPv4 & IPv6 address ranges'
-                )
-            # IPv4
-            if neg:
-                return {'$or': [
-                    {'addr': {'$lt': start}},
-                    {'addr': {'$gt': stop}},
-                ]}
-            return {'addr': {'$gte': start,
-                             '$lte': stop}}
-        if isinstance(stop, int):
-            raise ValueError(
-                'Cannot query mixed IPv4 & IPv6 address ranges'
-            )
-        # IPv6
         if neg:
             return {'$or': [
                 {'addr.0': start[0], 'addr.1': {'$lt': start[1]}},
@@ -1981,6 +1947,11 @@ it is not expected)."""
                     enumerate(x['_id'].split('###'))
                 ),
             }
+        elif field == "addr":
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': self.internal2ip(x['_id']),
+            }
         elif field == "net" or field.startswith("net:"):
             field = "addr"
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
@@ -2987,10 +2958,19 @@ setting values according to the keyword arguments.
         """
         if not distinct:
             kargs['countfield'] = 'count'
+        outputproc = None
+        if field == "addr":
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': self.internal2ip(x['_id']),
+            }
         pipeline = self._topvalues(field, **kargs)
-        return self.set_limits(
+        cursor = self.set_limits(
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
         )
+        if outputproc is not None:
+            return (outputproc(res) for res in cursor)
+        return cursor
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         """This method makes use of the aggregation framework to

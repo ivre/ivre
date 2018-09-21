@@ -207,12 +207,13 @@ class DB(object):
         """Filters documents based on their schema's version."""
         raise NotImplementedError
 
-    def searchnet(self, net, neg=False):
+    @classmethod
+    def searchnet(cls, net, neg=False):
         """Filters (if `neg` == True, filters out) one particular IP
         network (CIDR notation).
 
         """
-        return self.searchrange(*utils.net2range(net), neg=neg)
+        return cls.searchrange(*utils.net2range(net), neg=neg)
 
     @staticmethod
     def searchrange(start, stop, neg=False):
@@ -221,6 +222,14 @@ class DB(object):
 
         """
         raise NotImplementedError
+
+    @classmethod
+    def searchipv4(cls):
+        return cls.searchnet('0.0.0.0/0')
+
+    @classmethod
+    def searchipv6(cls):
+        return cls.searchnet('0.0.0.0/0', neg=True)
 
     def searchphpmyadmin(self):
         """Finds phpMyAdmin instances based on its cookies."""
