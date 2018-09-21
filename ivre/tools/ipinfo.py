@@ -137,7 +137,7 @@ def disp_recs_std(flt):
 
 def disp_recs_short(flt):
     for addr in db.passive.distinct('addr', flt=flt):
-        print(utils.force_int2ip(addr))
+        print(db.passive.internal2ip(addr) if addr else None)
 
 
 def disp_recs_distinct(field, flt):
