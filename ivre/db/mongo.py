@@ -28,6 +28,7 @@ try:
 except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
+from copy import deepcopy
 import datetime
 import json
 import os
@@ -61,6 +62,7 @@ class MongoDB(DB):
     schema_migrations_indexes = {}
     schema_latest_versions = {}
     needunwind = []
+    ipaddr_fields = []
 
     def __init__(self, host, dbname,
                  username=None, password=None, mechanism=None,
@@ -182,6 +184,31 @@ class MongoDB(DB):
                     return self.db[colname].find_one(*args, **kargs)
                 self._find_one = _find_one
             return self._find_one
+
+    def _get_cursor(self, column, flt, **kargs):
+        """Like .get(), but returns a MongoDB cursor (suitable for use with
+e.g.  .explain()) based on the column and a filter.
+
+        """
+        if "fields" in kargs and any(fld in kargs["fields"]
+                                     for fld in self.ipaddr_fields):
+            fields = []
+            for fld in kargs["fields"]:
+                if fld in self.ipaddr_fields:
+                    fields.extend(['%s_0' % fld, '%s_1' % fld])
+                else:
+                    fields.append(fld)
+            kargs["fields"] = fields
+        if "sort" in kargs and any(fld in (field for field, _ in kargs["sort"])
+                                   for fld in self.ipaddr_fields):
+            sort = []
+            for fld, way in kargs["sort"]:
+                if fld in self.ipaddr_fields:
+                    sort.extend([('%s_0' % fld, way), ('%s_1' % fld, way)])
+                else:
+                    sort.append((fld, way))
+            kargs["sort"] = sort
+        return self.set_limits(self.find(column, flt, **kargs))
 
     def count(self, *args, **kargs):
         return self._get(*args, **kargs).count()
@@ -335,7 +362,8 @@ class MongoDB(DB):
             pipeline += [{"$limit": topnbr}]
         return pipeline
 
-    def _distinct(self, field, flt=None, sort=None, limit=None, skip=None):
+    def _distinct_pipeline(self, field, flt=None, sort=None, limit=None,
+                           skip=None, is_ipfield=False):
         """This method makes use of the aggregation framework to
         produce distinct values for a given field.
 
@@ -356,8 +384,31 @@ class MongoDB(DB):
             subfield = field.rsplit('.', i)[0]
             if subfield in self.needunwind:
                 pipeline += [{"$unwind": "$" + subfield}]
+        if is_ipfield:
+            pipeline.append(
+                {'$project': {field: ['$%s_0' % field, '$%s_1' % field]}}
+            )
         pipeline.append({'$group': {'_id': '$%s' % field}})
         return pipeline
+
+    def _distinct(self, column, field, flt=None, sort=None, limit=None,
+                  skip=None):
+        """This method makes use of the aggregation framework to
+        produce distinct values for a given field in a given column.
+
+        """
+        is_ipfield = field in self.ipaddr_fields
+        cursor = self.set_limits(
+            self.db[column].aggregate(
+                self._distinct_pipeline(field, flt=flt, sort=sort, limit=limit,
+                                        skip=skip, is_ipfield=is_ipfield),
+                cursor={}
+            )
+        )
+        if is_ipfield:
+            return (None if res['_id'][0] is None else res['_id']
+                    for res in cursor)
+        return (res['_id'] for res in cursor)
 
     # filters
     flt_empty = {}
@@ -441,12 +492,15 @@ class MongoDB(DB):
 
         """
         addr = cls.ip2internal(addr)
-        return {'addr': {'$ne': addr} if neg else addr}
+        if neg:
+            return {'$or': [{'addr_0': {'$ne': addr[0]}},
+                            {'addr_1': {'$ne': addr[1]}}]}
+        return {'addr_0': addr[0], 'addr_1': addr[1]}
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
-        return {'addr': {'$nin' if neg else '$in': [cls.ip2internal(host)
-                                                    for host in hosts]}}
+        return {'$and' if neg else '$or':
+                [cls.searchhost(host, neg=neg) for host in hosts]}
 
     @classmethod
     def searchrange(cls, start, stop, neg=False):
@@ -458,19 +512,19 @@ class MongoDB(DB):
         stop = cls.ip2internal(stop)
         if neg:
             return {'$or': [
-                {'addr.0': start[0], 'addr.1': {'$lt': start[1]}},
-                {'addr.0': {'$lt': start[0]}},
-                {'addr.0': stop[0], 'addr.1': {'$gt': stop[1]}},
-                {'addr.0': {'$gt': stop[0]}},
+                {'addr_0': start[0], 'addr_1': {'$lt': start[1]}},
+                {'addr_0': {'$lt': start[0]}},
+                {'addr_0': stop[0], 'addr_1': {'$gt': stop[1]}},
+                {'addr_0': {'$gt': stop[0]}},
             ]}
         if start[0] == stop[0]:
-            return {'addr.0': start[0], 'addr.1': {'$gte': start[1],
+            return {'addr_0': start[0], 'addr_1': {'$gte': start[1],
                                                    '$lte': stop[1]}}
         return {'$and': [
-            {'$or': [{'addr.0': start[0], 'addr.1': {'$gte': start[1]}},
-                     {'addr.0': {'$gt': start[0]}}]},
-            {'$or': [{'addr.0': stop[0], 'addr.1': {'$lte': stop[1]}},
-                     {'addr.0': {'$lt': stop[0]}}]},
+            {'$or': [{'addr_0': start[0], 'addr_1': {'$gte': start[1]}},
+                     {'addr_0': {'$gt': start[0]}}]},
+            {'$or': [{'addr_0': stop[0], 'addr_1': {'$lte': stop[1]}},
+                     {'addr_0': {'$lt': stop[0]}}]},
         ]}
 
     @classmethod
@@ -510,6 +564,7 @@ class MongoDB(DB):
 
 class MongoDBActive(MongoDB, DBActive):
 
+    ipaddr_fields = ["addr", "traces.hops.ipaddr", "state_reason_ip"]
     needunwind = ["categories", "ports", "ports.scripts",
                   "ports.scripts.ssh-hostkey",
                   "ports.scripts.smb-enum-shares.shares",
@@ -539,7 +594,10 @@ class MongoDBActive(MongoDB, DBActive):
             self.colname_hosts: [
                 ([('scanid', pymongo.ASCENDING)], {}),
                 ([('schema_version', pymongo.ASCENDING)], {}),
-                ([('addr', pymongo.ASCENDING)], {}),
+                ([
+                    ('addr_0', pymongo.ASCENDING),
+                    ('addr_1', pymongo.ASCENDING),
+                ], {}),
                 ([('starttime', pymongo.ASCENDING)], {}),
                 ([('endtime', pymongo.ASCENDING)], {}),
                 ([('source', pymongo.ASCENDING)], {}),
@@ -574,7 +632,8 @@ class MongoDBActive(MongoDB, DBActive):
                 ], {"sparse": True}),
                 ([('infos.as_num', pymongo.ASCENDING)], {}),
                 ([
-                    ('traces.hops.ipaddr', pymongo.ASCENDING),
+                    ('traces.hops.ipaddr_0', pymongo.ASCENDING),
+                    ('traces.hops.ipaddr_1', pymongo.ASCENDING),
                     ('traces.hops.ttl', pymongo.ASCENDING),
                 ], {}),
                 ([
@@ -931,12 +990,7 @@ the way IP addresses are stored.
 In version 10, they are stored as integers.
 
 In version 11, they are stored as canonical string representations in
-JSON format, and as:
-
-  - The same integer as in version 10 for IPv4 addresses.
-
-  - A two-element array of 64-bit unsigned integers for IPv6
-    addresses.
+JSON format, and as two 64-bit unsigned integers.
 
 The reasons for this choice are the impossibility to store (and hence,
 index) unsigned 128-bit integers in MongoDB.
@@ -950,7 +1004,9 @@ index) unsigned 128-bit integers in MongoDB.
             pass
         else:
             if addr != doc['addr']:
-                update["$set"]["addr"] = addr
+                update["$unset"]['addr'] = ""
+                update["$set"]["addr_0"] = addr[0]
+                update["$set"]["addr_1"] = addr[1]
         updated = False
         for port in doc.get('ports', []):
             if 'state_reason_ip' in port:
@@ -998,10 +1054,13 @@ index) unsigned 128-bit integers in MongoDB.
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:
                     try:
-                        hop['ipaddr'] = cls.ip2internal(hop['ipaddr'])
+                        ipaddr = cls.ip2internal(hop['ipaddr'])
                     except ValueError:
                         pass
                     else:
+                        del hop['ipaddr']
+                        hop['ipaddr_0'] = ipaddr[0]
+                        hop['ipaddr_1'] = ipaddr[1]
                         updated = True
         if updated:
             update["$set"]["traces"] = doc['traces']
@@ -1009,10 +1068,10 @@ index) unsigned 128-bit integers in MongoDB.
 
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
-e.g.  .explain().
+e.g.  .explain()).
 
         """
-        return self.set_limits(self.find(self.colname_hosts, flt, **kargs))
+        return self._get_cursor(self.colname_hosts, flt, **kargs)
 
     def get(self, flt, **kargs):
         """Queries the active column with the provided filter "flt",
@@ -1028,24 +1087,25 @@ it is not expected)."""
         # Convert IP addresses to internal DB format
         for host in self._get(flt, **kargs):
             try:
-                host['addr'] = self.internal2ip(host['addr'])
+                host['addr'] = self.internal2ip([host.pop('addr_0'),
+                                                 host.pop('addr_1')])
             except (KeyError, socket.error):
                 pass
             for port in host.get('ports', []):
-                if 'state_reason_ip' in port:
-                    try:
-                        port['state_reason_ip'] = self.internal2ip(
-                            port['state_reason_ip']
-                        )
-                    except socket.error:
-                        pass
+                try:
+                    port['state_reason_ip'], = self.internal2ip([
+                        port.pop('state_reason_ip_0'),
+                        port.pop('state_reason_ip_1'),
+                    ])
+                except (KeyError, socket.error):
+                    pass
             for trace in host.get('traces', []):
                 for hop in trace.get('hops', []):
-                    if 'ipaddr' in hop:
-                        try:
-                            hop['ipaddr'] = self.internal2ip(hop['ipaddr'])
-                        except socket.error:
-                            pass
+                    try:
+                        hop['ipaddr'] = self.internal2ip([hop.pop('ipaddr_0'),
+                                                          hop.pop('ipaddr_1')])
+                    except (KeyError, socket.error):
+                        pass
             if 'coordinates' in host.get('infos', {}).get('loc', {}):
                 host['infos']['coordinates'] = host['infos'].pop('loc')[
                     'coordinates'
@@ -1153,37 +1213,49 @@ it is not expected)."""
 
     def get_ips_ports(self, flt, limit=None, skip=None):
         cur = self._get(
-            flt, fields=['addr', 'ports.port', 'ports.state_state'],
+            flt, fields=['addr_0', 'addr_1', 'ports.port',
+                         'ports.state_state'],
             limit=limit or 0, skip=skip or 0,
         )
         count = sum(len(host.get('ports', [])) for host in cur)
         cur.rewind()
-        return ((dict(res, addr=self.internal2ip(res['addr'])) for res in cur),
+        return ((dict(res, addr=self.internal2ip([res['addr_0'],
+                                                  res['addr_1']]))
+                 for res in cur),
                 count)
 
     def get_ips(self, flt, limit=None, skip=None):
-        cur = self._get(flt, fields=['addr'], limit=limit or 0, skip=skip or 0)
-        return ((dict(res, addr=self.internal2ip(res['addr'])) for res in cur),
+        cur = self._get(flt, fields=['addr_0', 'addr_1'], limit=limit or 0,
+                        skip=skip or 0)
+        return ((dict(res, addr=self.internal2ip([res['addr_0'],
+                                                  res['addr_1']]))
+                 for res in cur),
                 cur.count())
 
     def get_open_port_count(self, flt, limit=None, skip=None):
         cur = self._get(
-            flt, fields=['addr', 'starttime', 'openports.count'],
+            flt, fields=['addr_0', 'addr_1', 'starttime', 'openports.count'],
             limit=limit or 0, skip=skip or 0,
         )
-        return ((dict(res, addr=self.internal2ip(res['addr'])) for res in cur),
+        return ((dict(res, addr=self.internal2ip([res['addr_0'],
+                                                  res['addr_1']]))
+                 for res in cur),
                 cur.count())
 
     def store_host(self, host):
+        host = deepcopy(host)
         # Convert IP addresses to internal DB format
         try:
-            host['addr'] = self.ip2internal(host['addr'])
+            host['addr_0'], host['addr_1'] = self.ip2internal(host.pop('addr'))
         except (KeyError, ValueError):
             pass
         for port in host.get('ports', []):
             if 'state_reason_ip' in port:
                 try:
-                    port['state_reason_ip'] = self.ip2internal(
+                    (
+                        port['state_reason_ip_0'],
+                        port['state_reason_ip_1'],
+                    ) = self.ip2internal(
                         port['state_reason_ip']
                     )
                 except ValueError:
@@ -1192,7 +1264,9 @@ it is not expected)."""
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:
                     try:
-                        hop['ipaddr'] = self.ip2internal(hop['ipaddr'])
+                        hop['ipaddr_0'], hop['ipaddr_1'] = self.ip2internal(
+                            hop.pop('ipaddr')
+                        )
                     except ValueError:
                         pass
         # keep location data in appropriate format for GEOSPHERE index
@@ -1767,18 +1841,25 @@ it is not expected)."""
         except ValueError:
             pass
         if ttl is None:
-            return {'traces.hops.ipaddr': {'$ne': hop} if neg else hop}
+            flt = {'traces.hops': {'$elemMatch': {'ipaddr_0': hop[0],
+                                                  'ipaddr_1': hop[1]}}}
+            return {'$not': flt} if neg else flt
         if neg:
             return {
                 '$or': [
                     {'traces.hops': {'$elemMatch': {
                         'ttl': ttl,
-                        'ipaddr': {'$ne': hop},
+                        '$or': [
+                            {'ipaddr_0': {'$ne': hop[0]}},
+                            {'ipaddr_1': {'$ne': hop[1]}},
+                        ],
                     }}},
                     {'traces.hops.ttl': {'$ne': ttl}},
                 ]
             }
-        return {'traces.hops': {'$elemMatch': {'ipaddr': hop, 'ttl': ttl}}}
+        return {'traces.hops': {'$elemMatch': {'ipaddr_0': hop[0],
+                                               'ipaddr_1': hop[1],
+                                               'ttl': ttl}}}
 
     @staticmethod
     def searchhopdomain(hop, neg=False):
@@ -1948,12 +2029,18 @@ it is not expected)."""
                 ),
             }
         elif field == "addr":
+            specialproj = {
+                "_id": 0,
+                '$addr_0': 1,
+                '$addr_1': 1,
+            }
+            specialflt = [{"$project": {field: ['$addr_0', '$addr_1']}}]
             outputproc = lambda x: {
                 'count': x['count'],
                 '_id': self.internal2ip(x['_id']),
             }
         elif field == "net" or field.startswith("net:"):
-            field = "addr"
+            field = "addr"  # XXX TODO
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
             if self.server_info['versionArray'] >= [3, 2]:
                 specialproj = {
@@ -2535,11 +2622,19 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchscreenshot(words=True))
         elif field == 'hop':
             field = 'traces.hops.ipaddr'
+            specialproj = {"_id": 0,
+                           "traces.hops.ipaddr_0": 1,
+                           "traces.hops.ipaddr_1": 1}
+            specialflt = [
+                {"$project": {field: ['$traces.hops.ipaddr_0',
+                                      '$traces.hops.ipaddr_1']}},
+            ]
             outputproc = lambda x: {'count': x['count'],
                                     '_id': self.internal2ip(x['_id'])}
         elif field.startswith('hop') and field[3] in ':>':
             specialproj = {"_id": 0,
-                           "traces.hops.ipaddr": 1,
+                           "traces.hops.ipaddr_0": 1,
+                           "traces.hops.ipaddr_1": 1,
                            "traces.hops.ttl": 1}
             specialflt = [
                 {"$match": {
@@ -2548,7 +2643,10 @@ it is not expected)."""
                         if field[3] == ':' else
                         {"$gt": int(field[4:])}
                     )}},
-                {"$project": {"traces.hops.ipaddr": 1}}
+                {"$project": {'traces.hops.ipaddr': [
+                    '$traces.hops.ipaddr_0',
+                    '$traces.hops.ipaddr_1',
+                ]}},
             ]
             field = 'traces.hops.ipaddr'
             outputproc = lambda x: {'count': x['count'],
@@ -2570,14 +2668,8 @@ it is not expected)."""
         produce distinct values for a given field.
 
         """
-        cursor = self.set_limits(
-            self.db[self.colname_hosts].aggregate(
-                self._distinct(field, flt=flt, sort=sort,
-                               limit=limit, skip=skip),
-                cursor={}
-            )
-        )
-        return (res['_id'] for res in cursor)
+        return self._distinct(self.colname_hosts, field, flt=flt, sort=sort,
+                              limit=limit, skip=skip)
 
     def diff_categories(self, category1, category2, flt=None,
                         include_both_open=True):
@@ -2608,8 +2700,9 @@ it is not expected)."""
             {"$match": category_filter},
             {"$unwind": "$ports"},
             {"$match": {"ports.state_state": "open"}},
-            {"$project": {"_id": 0, "addr": 1, "ports.protocol": 1,
-                          "ports.port": 1, "categories": 1}},
+            {"$project": {"_id": 0, "addr": ['$addr_0', '$addr_1'],
+                          "ports.protocol": 1, "ports.port": 1,
+                          "categories": 1}},
             {"$group": {"_id": {"addr": "$addr", "proto": "$ports.protocol",
                                 "port": "$ports.port"},
                         "categories": {"$push": "$categories"}}},
@@ -2697,6 +2790,8 @@ class MongoDBView(MongoDBActive, DBView):
 
 class MongoDBPassive(MongoDB, DBPassive):
 
+    ipaddr_fields = ["addr"]
+
     def __init__(self, host, dbname,
                  colname_passive="passive",
                  **kargs):
@@ -2713,7 +2808,8 @@ class MongoDBPassive(MongoDB, DBPassive):
                 ([('lastseen', pymongo.ASCENDING)], {}),
                 ([('sensor', pymongo.ASCENDING)], {}),
                 ([
-                    ('addr', pymongo.ASCENDING),
+                    ('addr_0', pymongo.ASCENDING),
+                    ('addr_1', pymongo.ASCENDING),
                     ('recontype', pymongo.ASCENDING),
                     ('port', pymongo.ASCENDING),
                 ], {}),
@@ -2743,7 +2839,8 @@ class MongoDBPassive(MongoDB, DBPassive):
             ],
         }
         self.hint_indexes = OrderedDict([
-            ["addr", [("addr", 1), ("recontype", 1), ("port", 1)]],
+            ["addr_0", [("addr_0", 1), ("addr_1", 1), ("recontype", 1),
+                        ("port", 1)]],
             ["targetval", [("targetval", 1)]],
         ])
 
@@ -2753,12 +2850,12 @@ creates the default indexes."""
         self.db[self.colname_passive].drop()
         self.create_indexes()
 
-    def _get(self, spec, **kargs):
+    def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
-e.g.  .explain().
+e.g.  .explain()).
 
         """
-        return self.set_limits(self.find(self.colname_passive, spec, **kargs))
+        return self._get_cursor(self.colname_passive, flt, **kargs)
 
     def get(self, spec, hint=None, **kargs):
         """Queries the passive column with the provided filter "spec", and
@@ -2776,7 +2873,8 @@ is not expected)."""
             cursor.hint(hint)
         for rec in cursor:
             try:
-                rec['addr'] = self.internal2ip(rec['addr'])
+                rec['addr'] = self.internal2ip([rec.pop('addr_0'),
+                                                rec.pop('addr_1')])
             except (KeyError, socket.error):
                 pass
             yield rec
@@ -2791,9 +2889,11 @@ on "spec" and the indexes set on colname_passive column."""
         # TODO: check limits
         rec = self.find_one(self.colname_passive, spec, **kargs)
         try:
-            rec['addr'] = self.internal2ip(rec['addr'])
+            rec['addr'] = self.internal2ip([rec['addr_0'], rec['addr_1']])
         except (TypeError, KeyError, socket.error):
             pass
+        else:
+            del rec['addr_0'], rec['addr_1']
         return rec
 
     def update(self, spec, **kargs):
@@ -2807,7 +2907,7 @@ setting values according to the keyword arguments.
         if getinfos is not None:
             spec.update(getinfos(spec))
         try:
-            spec['addr'] = self.ip2internal(spec['addr'])
+            spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
             pass
         self.db[self.colname_passive].insert(spec)
@@ -2816,7 +2916,7 @@ setting values according to the keyword arguments.
         if spec is None:
             return
         try:
-            spec['addr'] = self.ip2internal(spec['addr'])
+            spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
             pass
         hint = self.get_hint(spec)
@@ -2866,7 +2966,9 @@ setting values according to the keyword arguments.
                 if spec is None:
                     continue
                 try:
-                    spec['addr'] = self.ip2internal(spec['addr'])
+                    spec['addr_0'], spec['addr_1'] = self.ip2internal(
+                        spec.pop('addr')
+                    )
                 except (KeyError, ValueError):
                     pass
                 updatespec = {
@@ -2902,7 +3004,7 @@ setting values according to the keyword arguments.
         """
         updatespec = {}
         try:
-            spec['addr'] = self.ip2internal(spec['addr'])
+            spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
             pass
         if 'firstseen' in spec:
@@ -2959,12 +3061,18 @@ setting values according to the keyword arguments.
         if not distinct:
             kargs['countfield'] = 'count'
         outputproc = None
+        specialproj = None
         if field == "addr":
+            specialproj = {
+                "_id": 0,
+                "addr": ['$addr_0', '$addr_1'],
+            }
             outputproc = lambda x: {
                 'count': x['count'],
-                '_id': self.internal2ip(x['_id']),
+                '_id': (None if x['_id'][0] is None else
+                        self.internal2ip(x['_id'])),
             }
-        pipeline = self._topvalues(field, **kargs)
+        pipeline = self._topvalues(field, specialproj=specialproj, **kargs)
         cursor = self.set_limits(
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
         )
@@ -2977,14 +3085,8 @@ setting values according to the keyword arguments.
         produce distinct values for a given field.
 
         """
-        cursor = self.set_limits(
-            self.db[self.colname_passive].aggregate(
-                self._distinct(field, flt=flt, sort=sort,
-                               limit=limit, skip=skip),
-                cursor={},
-            )
-        )
-        return (res['_id'] for res in cursor)
+        return self._distinct(self.colname_passive, field, flt=flt, sort=sort,
+                              limit=limit, skip=skip)
 
     @staticmethod
     def searchrecontype(rectype):
