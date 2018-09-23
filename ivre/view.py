@@ -327,7 +327,7 @@ def to_view(itrs):
     next_recs = [next(itr) for itr in itrs]
     next_addrs = [rec['addr'] for rec in next_recs]
     cur_rec = None
-    cur_addr = min(next_addrs)
+    cur_addr = min(next_addrs, key=utils.ip2int)
     while next_recs:
         for i in range(len(itrs)):
             if next_addrs[i] == cur_addr:
