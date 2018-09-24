@@ -73,11 +73,10 @@ MongoDB < 3.2.
         elt = next(values)
     except StopIteration:
         return ""
+    # $toLower is used as a hack to convert a value to a string and
+    # prevent the exception "$concat only supports strings, not ..."
     result.append({'$toLower': elt} if convert_to_string else elt)
     for elt in values:
-        # '$toLower' is a hack to convert a value to a string and
-        # prevent the exception "$concat only supports strings, not
-        # NumberInt32" for example.
         result.extend([sep, {'$toLower': elt} if convert_to_string else elt])
     if len(result) == 1:
         return result
@@ -2088,39 +2087,53 @@ it is not expected)."""
                 {"infos.country_code": {"$exists": True}},
                 {"infos.city": {"$exists": True}}
             )
-            specialproj = {"_id": 0,
-                           "city": {"$concat": [
-                               "$infos.country_code",
-                               "###",
-                               "$infos.city",
-                           ]}}
-            field = "city"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(x['_id'].split('###', 1))}
+            if self.mongodb_32_more:
+                specialproj = {"_id": 0,
+                               "city": [
+                                   "$infos.country_code",
+                                   "$infos.city",
+                               ]}
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'])}
+            else:
+                specialproj = {"_id": 0,
+                               "city": _old_array(
+                                   "$infos.country_code",
+                                   "$infos.city",
+                               )}
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'].split('###', 1))}
         elif field == "asnum":
             flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             field = "infos.as_num"
         elif field == "as":
             flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
-            specialproj = {
-                "_id": 0,
-                "as": {"$concat": [
-                    # hack to convert the integer to a string and
-                    # prevent the exception "$concat only supports
-                    # strings, not NumberInt32"
-                    {"$toLower": "$infos.as_num"},
-                    "###",
-                    {"$ifNull": ['$infos.as_name', ""]},
-                    # "$infos.as_name",
-                ]}}
-            field = "as"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': (None, None) if x['_id'] is None else tuple(
-                    int(y) if i == 0 else y for i, y in
-                    enumerate(x['_id'].split('###'))
-                ),
-            }
+            if self.mongodb_32_more:
+                specialproj = {
+                    "_id": 0,
+                    "as": ["$infos.as_num", '$infos.as_name'],
+                }
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(
+                        int(y) if i == 0 else y for i, y in enumerate(x['_id'])
+                    ),
+                }
+            else:
+                specialproj = {
+                    "_id": 0,
+                    "as": _old_array(
+                        {"$toLower": "$infos.as_num"},
+                        {"$ifNull": ['$infos.as_name', '']},
+                    )
+                }
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(
+                        int(y) if i == 0 else y for i, y in
+                        enumerate(x['_id'].split('###'))
+                    ),
+                }
         elif field == "addr":
             specialproj = {
                 "_id": 0,
@@ -2187,23 +2200,29 @@ it is not expected)."""
             flt = self.flt_and(flt, {flt_field: info})
             specialproj = {"_id": 0, flt_field: 1, field: 1,
                            "ports.protocol": 1}
-            specialflt = [
-                {"$match": {flt_field: info}},
-                {"$project": {field: {"$concat": [
-                    # hack to convert the integer to a
-                    # string and prevent the exception
-                    # "$concat only supports strings, not
-                    # NumberInt32"
-                    "$ports.protocol",
-                    "###",
-                    {"$toLower": "$ports.port"},
-                ]}}},
-            ]
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': tuple(int(y) if i == 1 else y for i, y in
-                             enumerate(x['_id'].split('###'))),
-            }
+            if self.mongodb_32_more:
+                specialflt = [
+                    {"$match": {flt_field: info}},
+                    {"$project": {field: ["$ports.protocol", "$ports.port"]}},
+                ]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(int(y) if i == 1 else y for i, y in
+                                 enumerate(x['_id'])),
+                }
+            else:
+                specialflt = [
+                    {"$match": {flt_field: info}},
+                    {"$project": {field: _old_array(
+                        "$ports.protocol",
+                        {"$toLower": "$ports.port"},
+                    )}},
+                ]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(int(y) if i == 1 else y for i, y in
+                                 enumerate(x['_id'].split('###'))),
+                }
         elif field.startswith("portlist:"):
             specialproj = {"ports.port": 1, "ports.protocol": 1,
                            "ports.state_state": 1}
@@ -2298,22 +2317,33 @@ it is not expected)."""
                 "ports.service_name": 1,
                 "ports.service_product": 1,
             }
-            specialflt = [
-                {"$match": {"ports.state_state": "open"}},
-                {"$project":
-                 {"ports.service_product":
-                  {"$concat": [
-                      {"$ifNull": ["$ports.service_name", ""]},
-                      "###",
-                      {"$ifNull": ["$ports.service_product", ""]},
-                  ]}}}
-            ]
+            if self.mongodb_32_more:
+                specialflt = [
+                    {"$match": {"ports.state_state": "open"}},
+                    {"$project":
+                     {"ports.service_product":
+                      ["$ports.service_name",
+                       "$ports.service_product"]}},
+                ]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(x['_id']),
+                }
+            else:
+                specialflt = [
+                    {"$match": {"ports.state_state": "open"}},
+                    {"$project":
+                     {"ports.service_product": _old_array(
+                         {"$ifNull": ["$ports.service_name", ""]},
+                         {"$ifNull": ["$ports.service_product", ""]},
+                     )}},
+                ]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(elt if elt else None for elt in
+                                 x['_id'].split('###')),
+                }
             field = "ports.service_product"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': tuple(elt if elt else None for elt in
-                             x['_id'].split('###')),
-            }
         elif field.startswith('product:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
@@ -2333,21 +2363,30 @@ it is not expected)."""
                 "ports.service_name": 1,
                 "ports.service_product": 1,
             }
-            specialflt.append(
-                {"$project":
-                 {"ports.service_product":
-                  {"$concat": [
-                      {"$ifNull": ["$ports.service_name", ""]},
-                      "###",
-                      {"$ifNull": ["$ports.service_product", ""]},
-                  ]}}}
-            )
+            if self.mongodb_32_more:
+                specialflt.append(
+                    {"$project":
+                     {"ports.service_product":
+                      ["$ports.service_name", "$ports.service_product"]}},
+                )
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(x['_id']),
+                }
+            else:
+                specialflt.append(
+                    {"$project":
+                     {"ports.service_product": _old_array(
+                         {"$ifNull": ["$ports.service_name", ""]},
+                         {"$ifNull": ["$ports.service_product", ""]},
+                     )}},
+                )
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(elt if elt else None for elt in
+                                 x['_id'].split('###')),
+                }
             field = "ports.service_product"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': tuple(elt if elt else None for elt in
-                             x['_id'].split('###')),
-            }
         elif field == 'version':
             flt = self.flt_and(flt, self.searchopenport())
             specialproj = {
@@ -2357,24 +2396,36 @@ it is not expected)."""
                 "ports.service_product": 1,
                 "ports.service_version": 1,
             }
-            specialflt = [
-                {"$match": {"ports.state_state": "open"}},
-                {"$project":
-                 {"ports.service_product":
-                  {"$concat": [
-                      {"$ifNull": ["$ports.service_name", ""]},
-                      "###",
-                      {"$ifNull": ["$ports.service_product", ""]},
-                      "###",
-                      {"$ifNull": ["$ports.service_version", ""]},
-                  ]}}}
-            ]
+            if self.mongodb_32_more:
+                specialflt = [
+                    {"$match": {"ports.state_state": "open"}},
+                    {"$project":
+                     {"ports.service_product": [
+                         "$ports.service_name",
+                         "$ports.service_product",
+                         "$ports.service_version",
+                     ]}},
+                ]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(x['_id']),
+                }
+            else:
+                specialflt = [
+                    {"$match": {"ports.state_state": "open"}},
+                    {"$project":
+                     {"ports.service_product": _old_array(
+                         {"$ifNull": ["$ports.service_name", ""]},
+                         {"$ifNull": ["$ports.service_product", ""]},
+                         {"$ifNull": ["$ports.service_version", ""]},
+                     )}},
+                ]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(elt if elt else None for elt in
+                                 x['_id'].split('###')),
+                }
             field = "ports.service_product"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': tuple(elt if elt else None for elt in
-                             x['_id'].split('###')),
-            }
         elif field.startswith('version:'):
             service = field.split(':', 1)[1]
             if service.isdigit():
@@ -2405,23 +2456,34 @@ it is not expected)."""
                 "ports.service_product": 1,
                 "ports.service_version": 1,
             }
-            specialflt.append(
-                {"$project":
-                 {"ports.service_product":
-                  {"$concat": [
-                      {"$ifNull": ["$ports.service_name", ""]},
-                      "###",
-                      {"$ifNull": ["$ports.service_product", ""]},
-                      "###",
-                      {"$ifNull": ["$ports.service_version", ""]},
-                  ]}}}
-            )
+            if self.mongodb_32_more:
+                specialflt.append(
+                    {"$project":
+                     {"ports.service_product": [
+                         "$ports.service_name",
+                         "$ports.service_product",
+                         "$ports.service_version",
+                     ]}},
+                )
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(x['_id']),
+                }
+            else:
+                specialflt.append(
+                    {"$project":
+                     {"ports.service_product": _old_array(
+                         {"$ifNull": ["$ports.service_name", ""]},
+                         {"$ifNull": ["$ports.service_product", ""]},
+                         {"$ifNull": ["$ports.service_version", ""]},
+                     )}},
+                )
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': tuple(elt if elt else None for elt in
+                                 x['_id'].split('###')),
+                }
             field = "ports.service_product"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': tuple(elt if elt else None for elt in
-                             x['_id'].split('###')),
-            }
         elif field.startswith("cpe"):
             try:
                 field, cpeflt = field.split(":", 1)
@@ -2533,17 +2595,27 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchsshkey())
             specialproj = {"ports.scripts.ssh-hostkey.type": 1,
                            "ports.scripts.ssh-hostkey.bits": 1}
-            specialflt = [{"$project": {
-                "_id": 0,
-                "ports.scripts.ssh-hostkey.bits": {
-                    "$concat": [
+            if self.mongodb_32_more:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.ssh-hostkey.bits": [
                         "$ports.scripts.ssh-hostkey.type",
-                        "###",
                         "$ports.scripts.ssh-hostkey.bits",
-                    ]}}}]
+                    ],
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'])}
+            else:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.ssh-hostkey.bits": _old_array(
+                        "$ports.scripts.ssh-hostkey.type",
+                        "$ports.scripts.ssh-hostkey.bits",
+                    ),
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'].split('###'))}
             field = "ports.scripts.ssh-hostkey.bits"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(x['_id'].split('###'))}
         elif field.startswith('sshkey.'):
             flt = self.flt_and(flt, self.searchsshkey())
             subfield = field[7:]
@@ -2552,19 +2624,29 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             specialproj = {"ports.scripts.ike-info.vendor_ids.value": 1,
                            "ports.scripts.ike-info.vendor_ids.name": 1}
-            specialflt = [{"$project": {
-                "_id": 0,
-                "ports.scripts.ike-info.vendor_ids": {
-                    "$concat": [
+            if self.mongodb_32_more:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.ike-info.vendor_ids": [
                         "$ports.scripts.ike-info.vendor_ids.value",
-                        "###",
+                        "$ports.scripts.ike-info.vendor_ids.name",
+                    ],
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'])}
+            else:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.ike-info.vendor_ids": _old_array(
+                        "$ports.scripts.ike-info.vendor_ids.value",
                         {"$ifNull": ["$ports.scripts.ike-info.vendor_ids.name",
                                      ""]},
-                    ]}}}]
+                    ),
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(null_if_empty(val) for val
+                                                     in x['_id'].split('###'))}
             field = "ports.scripts.ike-info.vendor_ids"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(null_if_empty(val) for val in
-                                                 x['_id'].split('###'))}
         elif field == 'ike.transforms':
             flt = self.flt_and(flt, self.searchscript(
                 name="ike-info",
@@ -2578,37 +2660,47 @@ it is not expected)."""
                 "ports.scripts.ike-info.transforms.LifeDuration": 1,
                 "ports.scripts.ike-info.transforms.LifeType": 1,
             }
-            specialflt = [{"$project": {
-                "_id": 0,
-                "ports.scripts.ike-info.transforms": {
-                    "$concat": [
+            if self.mongodb_32_more:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.ike-info.transforms": [
+                        "$ports.scripts.ike-info.transforms.Authentication",
+                        "$ports.scripts.ike-info.transforms.Encryption",
+                        "$ports.scripts.ike-info.transforms.GroupDesc",
+                        "$ports.scripts.ike-info.transforms.Hash",
+                        "$ports.scripts.ike-info.transforms.LifeDuration",
+                        "$ports.scripts.ike-info.transforms.LifeType",
+                    ],
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'])}
+            else:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.ike-info.transforms": _old_array(
                         {"$ifNull": [
                             "$ports.scripts.ike-info.transforms."
                             "Authentication",
                             "",
                         ]},
-                        "###",
                         {"$ifNull": [
                             "$ports.scripts.ike-info.transforms.Encryption",
                             "",
                         ]},
-                        "###",
                         {"$ifNull":
                          ["$ports.scripts.ike-info.transforms.GroupDesc", ""]},
-                        "###",
                         {"$ifNull":
                          ["$ports.scripts.ike-info.transforms.Hash", ""]},
-                        "###",
                         {"$toLower":
                          "$ports.scripts.ike-info.transforms.LifeDuration"},
-                        "###",
                         {"$ifNull":
                          ["$ports.scripts.ike-info.transforms.LifeType", ""]},
-                    ]}}}]
+                    ),
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(null_if_empty(val) for val
+                                                     in x['_id'].split('###'))}
             field = "ports.scripts.ike-info.transforms"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(null_if_empty(val) for val in
-                                                 x['_id'].split('###'))}
         elif field == 'ike.notification':
             flt = self.flt_and(flt, self.searchscript(
                 name="ike-info",
@@ -2622,20 +2714,28 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
-            specialflt = [{"$project": {
-                "_id": 0,
-                "ports.scripts.http-headers": {
-                    "$concat": [
+            if self.mongodb_32_more:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.http-headers": [
                         "$ports.scripts.http-headers.name",
-                        "###",
                         "$ports.scripts.http-headers.value",
-                    ]
-                }
-            }}]
+                    ],
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'])}
+            else:
+                specialflt = [{"$project": {
+                    "_id": 0,
+                    "ports.scripts.http-headers": _old_array(
+                        "$ports.scripts.http-headers.name",
+                        "$ports.scripts.http-headers.value",
+                    ),
+                }}]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(null_if_empty(val) for val
+                                                     in x['_id'].split('###'))}
             field = "ports.scripts.http-headers"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(null_if_empty(val) for val in
-                                                 x['_id'].split('###'))}
         elif field.startswith('httphdr.'):
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             field = "ports.scripts.http-headers.%s" % field[8:]
@@ -2685,14 +2785,32 @@ it is not expected)."""
                     "ports.scripts.vulns.id": 1,
                     field: 1,
                 }
-                specialflt = [{"$project": {"_id": 0,
-                                            field: {"$concat": [
-                                                "$ports.scripts.vulns.id",
-                                                "###",
-                                                "$" + field,
-                                            ]}}}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'].split('###', 1))}
+                if self.mongodb_32_more:
+                    specialflt = [{
+                        "$project": {
+                            "_id": 0,
+                            field: [
+                                "$ports.scripts.vulns.id",
+                                "$" + field,
+                            ],
+                        },
+                    }]
+                    outputproc = lambda x: {'count': x['count'],
+                                            '_id': tuple(x['_id'])}
+                else:
+                    specialflt = [{
+                        "$project": {
+                            "_id": 0,
+                            field: _old_array(
+                                "$ports.scripts.vulns.id",
+                                "$" + field,
+                            ),
+                        },
+                    }]
+                    outputproc = lambda x: {
+                        'count': x['count'],
+                        '_id': tuple(x['_id'].split('###', 1)),
+                    }
         elif field == 'file' or (field.startswith('file') and
                                  field[4] in '.:'):
             if field.startswith('file:'):
