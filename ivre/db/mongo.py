@@ -56,6 +56,34 @@ class Nmap2Mongo(xmlnmap.Nmap2DB):
         return bson.Binary(data)
 
 
+def _old_array(*values, **kargs):
+    """Returns a string construction using '$concat' to replace arrays for
+MongoDB < 3.2.
+
+    Uses kargs because Python 2.7 would not accept this:
+
+    def _old_array(*values, sep="###", convert_to_string=False):
+
+    """
+    sep = kargs.get("sep", "###")
+    convert_to_string = kargs.get("convert_to_string", False)
+    result = []
+    values = iter(values)
+    try:
+        elt = next(values)
+    except StopIteration:
+        return ""
+    result.append({'$toLower': elt} if convert_to_string else elt)
+    for elt in values:
+        # '$toLower' is a hack to convert a value to a string and
+        # prevent the exception "$concat only supports strings, not
+        # NumberInt32" for example.
+        result.extend([sep, {'$toLower': elt} if convert_to_string else elt])
+    if len(result) == 1:
+        return result
+    return {'$concat': result}
+
+
 class MongoDB(DB):
 
     schema_migrations = {}
@@ -138,6 +166,15 @@ class MongoDB(DB):
         except AttributeError:
             self._server_info = self.db_client.server_info()
             return self._server_info
+
+    @property
+    def mongodb_32_more(self):
+        """True iff MongoDB server version is 3.2 or more."""
+        try:
+            return self._mongodb_32_more
+        except AttributeError:
+            self._mongodb_32_more = self.server_info['versionArray'] >= [3, 2]
+            return self._mongodb_32_more
 
     @property
     def find(self):
@@ -385,9 +422,17 @@ e.g.  .explain()) based on the column and a filter.
             if subfield in self.needunwind:
                 pipeline += [{"$unwind": "$" + subfield}]
         if is_ipfield:
-            pipeline.append(
-                {'$project': {field: ['$%s_0' % field, '$%s_1' % field]}}
-            )
+            if self.mongodb_32_more:
+                pipeline.append(
+                    {'$project': {field: ['$%s_0' % field, '$%s_1' % field]}}
+                )
+            else:
+                pipeline.append(
+                    {'$project': {field: _old_array(
+                        '$%s_0' % field, '$%s_1' % field,
+                        convert_to_string=True,
+                    )}}
+                )
         pipeline.append({'$group': {'_id': '$%s' % field}})
         return pipeline
 
@@ -406,8 +451,11 @@ e.g.  .explain()) based on the column and a filter.
             )
         )
         if is_ipfield:
-            return (None if res['_id'][0] is None else res['_id']
-                    for res in cursor)
+            if self.mongodb_32_more:
+                return (None if res['_id'][0] is None else res['_id']
+                        for res in cursor)
+            return ([int(val) for val in res] if res[0] else None
+                    for res in (res['_id'].split('###') for res in cursor))
         return (res['_id'] for res in cursor)
 
     # filters
@@ -2034,15 +2082,26 @@ it is not expected)."""
                 '$addr_0': 1,
                 '$addr_1': 1,
             }
-            specialflt = [{"$project": {field: ['$addr_0', '$addr_1']}}]
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': self.internal2ip(x['_id']),
-            }
+            if self.mongodb_32_more:
+                specialflt = [{"$project": {field: ['$addr_0', '$addr_1']}}]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': self.internal2ip(x['_id']),
+                }
+            else:
+                specialflt = [{"$project": {field: _old_array(
+                    "$addr_0", "$addr_1",
+                    convert_to_string=True,
+                )}}]
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': self.internal2ip([int(val) for val in
+                                             x['_id'].split('###')]),
+                }
         elif field == "net" or field.startswith("net:"):
             field = "addr"  # XXX TODO
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
-            if self.server_info['versionArray'] >= [3, 2]:
+            if self.mongodb_32_more:
                 specialproj = {
                     "_id": 0,
                     "addr": {"$floor": {"$divide": ["$addr",
@@ -2625,12 +2684,24 @@ it is not expected)."""
             specialproj = {"_id": 0,
                            "traces.hops.ipaddr_0": 1,
                            "traces.hops.ipaddr_1": 1}
-            specialflt = [
-                {"$project": {field: ['$traces.hops.ipaddr_0',
-                                      '$traces.hops.ipaddr_1']}},
-            ]
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': self.internal2ip(x['_id'])}
+            if self.mongodb_32_more:
+                specialflt = [
+                    {"$project": {field: ['$traces.hops.ipaddr_0',
+                                          '$traces.hops.ipaddr_1']}},
+                ]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': self.internal2ip(x['_id'])}
+            else:
+                specialflt = [
+                    {"$project": {field: _old_array('$traces.hops.ipaddr_0',
+                                                    '$traces.hops.ipaddr_1',
+                                                    convert_to_string=True)}},
+                ]
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': self.internal2ip([
+                                            int(val) for val in
+                                            x['_id'].split('###')
+                                        ])}
         elif field.startswith('hop') and field[3] in ':>':
             specialproj = {"_id": 0,
                            "traces.hops.ipaddr_0": 1,
@@ -2642,15 +2713,30 @@ it is not expected)."""
                         int(field[4:])
                         if field[3] == ':' else
                         {"$gt": int(field[4:])}
+                    )}}]
+            if self.mongodb_32_more:
+                specialflt.append(
+                    {"$project": {'traces.hops.ipaddr': [
+                        '$traces.hops.ipaddr_0',
+                        '$traces.hops.ipaddr_1',
+                    ]}},
+                )
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': self.internal2ip(x['_id'])}
+            else:
+                specialflt.append(
+                    {"$project": {'traces.hops.ipaddr': _old_array(
+                        '$traces.hops.ipaddr_0',
+                        '$traces.hops.ipaddr_1',
+                        convert_to_string=True,
                     )}},
-                {"$project": {'traces.hops.ipaddr': [
-                    '$traces.hops.ipaddr_0',
-                    '$traces.hops.ipaddr_1',
-                ]}},
-            ]
+                )
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': self.internal2ip([
+                                            int(val) for val in
+                                            x['_id'].split('###')
+                                        ])}
             field = 'traces.hops.ipaddr'
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': self.internal2ip(x['_id'])}
         pipeline = self._topvalues(
             field, flt=flt, topnbr=topnbr, sort=sort, limit=limit,
             skip=skip, least=least, aggrflt=aggrflt,
@@ -2693,6 +2779,10 @@ it is not expected)."""
 
         """
         category_filter = self.searchcategory([category1, category2])
+        if self.mongodb_32_more:
+            addr = ['$addr_0', '$addr_1']
+        else:
+            addr = _old_array('$addr_0', '$addr_1', convert_to_string=True)
         pipeline = [
             {"$match": (category_filter if flt is None else
                         self.flt_and(flt, category_filter))},
@@ -2700,8 +2790,8 @@ it is not expected)."""
             {"$match": category_filter},
             {"$unwind": "$ports"},
             {"$match": {"ports.state_state": "open"}},
-            {"$project": {"_id": 0, "addr": ['$addr_0', '$addr_1'],
-                          "ports.protocol": 1, "ports.port": 1,
+            {"$project": {"_id": 0, "addr": addr, "ports.protocol": 1,
+                          "ports.port": 1,
                           "categories": 1}},
             {"$group": {"_id": {"addr": "$addr", "proto": "$ports.protocol",
                                 "port": "$ports.port"},
@@ -2715,6 +2805,11 @@ it is not expected)."""
             return (state2 > state1) - (state2 < state1)
         cursor = (dict(x['_id'], value=categories_to_val(x['categories']))
                   for x in cursor)
+        if not self.mongodb_32_more:
+            cursor = (
+                dict(x, addr=[int(val) for val in x['addr'].split('###')])
+                for x in cursor
+            )
         if include_both_open:
             return cursor
         else:
@@ -3063,15 +3158,30 @@ setting values according to the keyword arguments.
         outputproc = None
         specialproj = None
         if field == "addr":
-            specialproj = {
-                "_id": 0,
-                "addr": ['$addr_0', '$addr_1'],
-            }
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': (None if x['_id'][0] is None else
-                        self.internal2ip(x['_id'])),
-            }
+            if self.mongodb_32_more:
+                specialproj = {
+                    "_id": 0,
+                    "addr": ['$addr_0', '$addr_1'],
+                }
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': (None if x['_id'][0] is None else
+                            self.internal2ip(x['_id'])),
+                }
+            else:
+                specialproj = {
+                    "_id": 0,
+                    "addr": _old_array(
+                        '$addr_0', '$addr_1',
+                        convert_to_string=True,
+                    ),
+                }
+                outputproc = lambda x: {
+                    'count': x['count'],
+                    '_id': (None if x['_id'] == '###' else
+                            self.internal2ip([int(val) for val in
+                                              x['_id'].split('###')])),
+                }
         pipeline = self._topvalues(field, specialproj=specialproj, **kargs)
         cursor = self.set_limits(
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
