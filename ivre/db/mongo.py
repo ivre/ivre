@@ -2099,21 +2099,23 @@ it is not expected)."""
                                              x['_id'].split('###')]),
                 }
         elif field == "net" or field.startswith("net:"):
-            field = "addr"  # XXX TODO
+            flt = self.flt_and(flt, self.searchipv4())
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
+            field = "addr"
+            # This should not overflow thanks to .searchipv4() filter
+            addr = {"$add": ["$addr_1", 0x7fff000100000000]}
             if self.mongodb_32_more:
                 specialproj = {
                     "_id": 0,
-                    "addr": {"$floor": {"$divide": ["$addr",
-                                                    2 ** (32 - mask)]}},
+                    "addr": {"$floor": {"$divide": [addr, 2 ** (32 - mask)]}},
                 }
             else:
                 specialproj = {
                     "_id": 0,
-                    "addr": {"$subtract": [{"$divide": ["$addr",
+                    "addr": {"$subtract": [{"$divide": [addr,
                                                         2 ** (32 - mask)]},
                                            {"$mod": [{"$divide": [
-                                               "$addr",
+                                               addr,
                                                2 ** (32 - mask),
                                            ]}, 1]}]},
                 }
@@ -2121,7 +2123,7 @@ it is not expected)."""
             outputproc = lambda x: {
                 'count': x['count'],
                 '_id': '%s/%d' % (
-                    self.internal2ip(x['_id'] * 2 ** (32 - mask)),
+                    utils.int2ip(int(x['_id']) * 2 ** (32 - mask)),
                     mask,
                 ),
             }
