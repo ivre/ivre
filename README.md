@@ -133,4 +133,4 @@ On twitter, you can follow and/or mention
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2017 [Pierre LALET](mailto:pierre.lalet@cea.fr).
+This file is part of IVRE. Copyright 2011 - 2018 [Pierre LALET](mailto:pierre.lalet@cea.fr).
