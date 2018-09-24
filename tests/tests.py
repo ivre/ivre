@@ -1605,6 +1605,11 @@ which `predicate()` is True, given `webflt`.
         res = RUN(["ivre", "ipdata", "--download"])[0]
         self.assertEqual(res, 0)
 
+        if DATABASE != "maxmind":
+            print(u"Database files have been downloaded -- "
+                  u"other data tests won't run")
+            return
+
         # CSV creation -- disabled on Travis CI: this is way too slow.
         # Files are downloaded from ivre.rocks in .travis.yml instead,
         # and "touched" here to make sure they are newer than the
@@ -2434,9 +2439,10 @@ TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "90_cleanup",
 
 DATABASES = {
     # **excluded** tests
-    #"mongo": ["flow"],
-    "postgres": ["scans"],
-    "sqlite": ["30_nmap", "scans", "50_view"],
+    "mongo": ["utils"],
+    "postgres": ["scans", "utils"],
+    "sqlite": ["30_nmap", "50_view", "scans", "utils"],
+    "maxmind": ["30_nmap", "40_passive", "50_view", "90_cleanup", "scans"],
 }
 
 

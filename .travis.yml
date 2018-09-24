@@ -35,6 +35,8 @@ env:
   - DB=mongo MONGODB_VERSION=4.1.3
   # Sqlite
   - DB=sqlite
+  # MaxMind (& utils)
+  - DB=maxmind
 
 language: python
 
