@@ -41,7 +41,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.engine import Engine
 
 
-from ivre import xmlnmap, utils
+from ivre import passive, utils, xmlnmap
 
 
 INTERNAL_IP_PY2 = re.compile('^[0-9a-fA-F]{32}$')
@@ -541,6 +541,7 @@ class Passive(Base):
     # moreinfo and fullvalue contain data that are not tested for
     # unicity on insertion (the unicity is guaranteed by the value)
     # for performance reasons
+    schema_version = Column(Integer, default=passive.SCHEMA_VERSION)
     __table_args__ = (
         Index('ix_passive_record', 'addr', 'sensor', 'recontype', 'port',
               'source', 'value', 'targetval', 'info', unique=True),

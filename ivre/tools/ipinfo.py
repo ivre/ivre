@@ -279,6 +279,8 @@ def main():
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
+    parser.add_argument('--update-schema', action='store_true',
+                        help='update (passive) schema.')
     if USING_ARGPARSE:
         parser.add_argument('ips', nargs='*',
                             help='Display results for specified IP addresses'
@@ -305,6 +307,9 @@ def main():
             if ans.lower() != 'y':
                 exit(0)
         db.passive.ensure_indexes()
+        exit(0)
+    if args.update_schema:
+        db.passive.migrate_schema(None)
         exit(0)
     if args.short:
         disp_recs = disp_recs_short

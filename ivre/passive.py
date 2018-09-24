@@ -25,6 +25,7 @@ This sub-module contains functions used for passive recon.
 """
 
 
+from datetime import datetime
 import hashlib
 import math
 import re
@@ -37,6 +38,8 @@ from past.builtins import long
 
 from ivre import utils
 
+
+SCHEMA_VERSION = 1
 
 # p0f specific
 
@@ -82,6 +85,7 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
     if sig[0][0] not in b'ST':
         sig[0] = b'*'
     spec = {
+        'schema_version': SCHEMA_VERSION,
         'addr': line[0][line[0].index(b'> ') + 2:line[0].index(b':')].decode(),
         'distance': dist,
         'value': osname.decode(),
@@ -94,7 +98,7 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
         spec['sensor'] = sensor
     if recontype is not None:
         spec['recontype'] = recontype
-    return float(line[0][1:line[0].index(b'>')]), spec
+    return datetime.fromtimestamp(float(line[0][1:line[0].index(b'>')])), spec
 
 
 # Bro specific
@@ -266,18 +270,15 @@ def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by **bro_line
                timestamp=None, uid=None, host=None, srvport=None,
                recon_type=None, source=None, value=None, targetval=None):
+    spec = {
+        'schema_version': SCHEMA_VERSION,
+        'recontype': recon_type,
+        'value': value,
+    }
     if host is None:
-        spec = {
-            'targetval': targetval,
-            'recontype': recon_type,
-            'value': value
-        }
+        spec['targetval'] = targetval
     else:
-        spec = {
-            'addr': host,
-            'recontype': recon_type,
-            'value': value
-        }
+        spec['addr'] = host
     if sensor is not None:
         spec.update({'sensor': sensor})
     if srvport is not None:
@@ -285,8 +286,7 @@ def handle_rec(sensor, ignorenets, neverignore,
     if source is not None:
         spec.update({'source': source})
     spec = _prepare_rec(spec, ignorenets, neverignore)
-    float_ts = utils.datetime2timestamp(timestamp)
-    return float_ts, spec
+    return timestamp, spec
 
 
 def _getinfos_http_client_authorization(spec):

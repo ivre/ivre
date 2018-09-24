@@ -47,7 +47,7 @@ import pymongo
 
 
 from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
-from ivre import config, utils, xmlnmap
+from ivre import config, passive, utils, xmlnmap
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -283,6 +283,13 @@ e.g.  .explain()) based on the column and a filter.
             for index in indexes:
                 self.db[colname].ensure_index(index[0], **index[1])
 
+    def _migrate_update_record(self, colname, recid, update):
+        """Define how an update is handled. Purpose-specific subclasses may
+want to do something special here, e.g., mix with other records.
+
+        """
+        return self.db[colname].update({"_id": recid}, update)
+
     def migrate_schema(self, colname, version):
         """Process to schema migrations in column `colname` starting
         from `version`.
@@ -290,41 +297,56 @@ e.g.  .explain()) based on the column and a filter.
         """
         failed = 0
         while version in self.schema_migrations[colname]:
-            updated = False
             new_version, migration_function = self.schema_migrations[
                 colname][version]
             utils.LOGGER.info(
                 "Migrating column %s from version %r to %r",
                 colname, version, new_version,
             )
+            # Ensuring new indexes
+            for idx in self.schema_migrations_indexes[colname].get(
+                    new_version, {}
+            ).get("ensure", []):
+                function = self.db[colname].ensure_index
+                try:
+                    function(idx[0], **idx[1])
+                except pymongo.errors.OperationFailure:
+                    utils.LOGGER.debug("Cannot ensure index %s", idx,
+                                       exc_info=True)
+            updated = False
             # unlimited find()!
             for record in self.find(colname, self.searchversion(version)):
                 try:
                     update = migration_function(record)
                 except Exception:
                     utils.LOGGER.warning(
-                        "Cannot migrate host %s", record['_id'], exc_info=True,
+                        "Cannot migrate result %s", record['_id'],
+                        exc_info=True,
                     )
                     failed += 1
                 else:
                     if update is not None:
                         updated = True
-                        self.db[colname].update({"_id": record["_id"]}, update)
-            if updated:
-                for action, indexes in viewitems(
-                        self.schema_migrations_indexes[colname].get(
-                            new_version, {}
+                        self._migrate_update_record(colname, record["_id"],
+                                                    update)
+            # Checking for required actions on indexes
+            for action, indexes in viewitems(
+                    self.schema_migrations_indexes[colname].get(
+                        new_version, {}
+                    )
+            ):
+                if action == "ensure":
+                    continue
+                function = getattr(self.db[colname], "%s_index" % action)
+                for idx in indexes:
+                    try:
+                        function(idx[0], **idx[1])
+                    except pymongo.errors.OperationFailure:
+                        (utils.LOGGER.warning if updated
+                         else utils.LOGGER.debug)(
+                            "Cannot %s index %s", action, idx,
+                            exc_info=True
                         )
-                ):
-                    function = getattr(self.db[colname], "%s_index" % action)
-                    for idx in indexes:
-                        try:
-                            function(idx[0], **idx[1])
-                        except pymongo.errors.OperationFailure as exc:
-                            utils.LOGGER.warning(
-                                "Cannot %s index %s [%s: %s]", action, idx,
-                                exc.__class__.__name__, exc.message,
-                            )
             utils.LOGGER.info(
                 "Migration of column %s from version %r to %r DONE",
                 colname, version, new_version,
@@ -750,6 +772,26 @@ class MongoDBActive(MongoDB, DBActive):
                 ([('ports.scripts.vulns.state', pymongo.ASCENDING)],
                  {"sparse": True}),
             ]},
+            11: {
+                "drop": [
+                    ([('addr', pymongo.ASCENDING)], {}),
+                    ([
+                        ('traces.hops.ipaddr', pymongo.ASCENDING),
+                        ('traces.hops.ttl', pymongo.ASCENDING),
+                    ], {}),
+                ],
+                "ensure": [
+                    ([
+                        ('addr_0', pymongo.ASCENDING),
+                        ('addr_1', pymongo.ASCENDING),
+                    ], {}),
+                    ([
+                        ('traces.hops.ipaddr_0', pymongo.ASCENDING),
+                        ('traces.hops.ipaddr_1', pymongo.ASCENDING),
+                        ('traces.hops.ttl', pymongo.ASCENDING),
+                    ], {}),
+                ],
+            },
         }
         self.schema_latest_versions = {
             self.colname_hosts: xmlnmap.SCHEMA_VERSION,
@@ -776,7 +818,8 @@ creates the default indexes."""
         """
         MongoDB.migrate_schema(self, self.colname_hosts, version)
 
-    def migrate_schema_hosts_0_1(self, doc):
+    @classmethod
+    def migrate_schema_hosts_0_1(cls, doc):
         """Converts a record from version 0 (no "schema_version" key
         in the document) to version 1 (`doc["schema_version"] ==
         1`). Version 1 adds an "openports" nested document to ease
@@ -795,7 +838,7 @@ creates the default indexes."""
                     "ports", []).append(port["port"])
             # create the screenwords attribute
             if 'screenshot' in port and 'screenwords' not in port:
-                screenwords = utils.screenwords(self.getscreenshot(port))
+                screenwords = utils.screenwords(cls.getscreenshot(port))
                 if screenwords is not None:
                     port['screenwords'] = screenwords
                     updated_ports = True
@@ -1038,7 +1081,9 @@ the way IP addresses are stored.
 In version 10, they are stored as integers.
 
 In version 11, they are stored as canonical string representations in
-JSON format, and as two 64-bit unsigned integers.
+JSON format, and as two 64-bit unsigned integers (the `addr` field
+becomes `addr_0` and `addr_1`, and the same applies to other fields
+representing IP addresses).
 
 The reasons for this choice are the impossibility to store (and hence,
 index) unsigned 128-bit integers in MongoDB.
@@ -1046,20 +1091,20 @@ index) unsigned 128-bit integers in MongoDB.
         """
         assert doc["schema_version"] == 10
         update = {"$set": {"schema_version": 11}}
+        convert = lambda val: cls.ip2internal(utils.force_int2ip(val))
         try:
-            addr = cls.ip2internal(doc['addr'])
+            addr = convert(doc['addr'])
         except (KeyError, ValueError):
             pass
         else:
-            if addr != doc['addr']:
-                update["$unset"]['addr'] = ""
-                update["$set"]["addr_0"] = addr[0]
-                update["$set"]["addr_1"] = addr[1]
+            update["$unset"]['addr'] = ""
+            update["$set"]["addr_0"] = addr[0]
+            update["$set"]["addr_1"] = addr[1]
         updated = False
         for port in doc.get('ports', []):
             if 'state_reason_ip' in port:
                 try:
-                    port['state_reason_ip'] = cls.ip2internal(
+                    port['state_reason_ip'] = convert(
                         port['state_reason_ip']
                     )
                 except ValueError:
@@ -1102,7 +1147,7 @@ index) unsigned 128-bit integers in MongoDB.
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:
                     try:
-                        ipaddr = cls.ip2internal(hop['ipaddr'])
+                        ipaddr = convert(hop['ipaddr'])
                     except ValueError:
                         pass
                     else:
@@ -2897,6 +2942,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         self.colname_passive = colname_passive
         self.indexes = {
             self.colname_passive: [
+                ([('schema_version', pymongo.ASCENDING)], {}),
                 ([('port', pymongo.ASCENDING)], {}),
                 ([('value', pymongo.ASCENDING)], {}),
                 ([('targetval', pymongo.ASCENDING)], {}),
@@ -2935,6 +2981,31 @@ class MongoDBPassive(MongoDB, DBPassive):
                  {"sparse": True}),
             ],
         }
+        self.schema_migrations = {
+            self.colname_passive: {
+                None: (1, self.migrate_schema_passive_0_1),
+            },
+        }
+        self.schema_migrations_indexes[colname_passive] = {
+            1: {
+                "drop": [
+                    ([
+                        ('addr', pymongo.ASCENDING),
+                        ('recontype', pymongo.ASCENDING),
+                        ('port', pymongo.ASCENDING),
+                    ], {}),
+                ],
+                "ensure": [
+                    ([
+                        ('addr_0', pymongo.ASCENDING),
+                        ('addr_1', pymongo.ASCENDING),
+                        ('recontype', pymongo.ASCENDING),
+                        ('port', pymongo.ASCENDING),
+                    ], {}),
+                    ([('schema_version', pymongo.ASCENDING)], {}),
+                ],
+            },
+        }
         self.hint_indexes = OrderedDict([
             ["addr_0", [("addr_0", 1), ("addr_1", 1), ("recontype", 1),
                         ("port", 1)]],
@@ -2946,6 +3017,60 @@ class MongoDBPassive(MongoDB, DBPassive):
 creates the default indexes."""
         self.db[self.colname_passive].drop()
         self.create_indexes()
+
+    def cmp_schema_version_passive(self, rec):
+        """Returns 0 if the `rec`'s schema version matches the code's
+        current version, -1 if it is higher (you need to update IVRE),
+        and 1 if it is lower (you need to call .migrate_schema()).
+
+        """
+        return self.cmp_schema_version(self.colname_passive, rec)
+
+    def migrate_schema(self, version):
+        """Process to schema migrations in column `colname_passive`
+        starting from `version`.
+
+        """
+        MongoDB.migrate_schema(self, self.colname_passive, version)
+
+    def _migrate_update_record(self, colname, recid, update):
+        """Define how an update is handled. Purpose-specific subclasses may
+want to do something special here, e.g., mix with other records.
+
+        """
+        if colname == self.colname_passive:  # just in case
+            del update['_id']
+            self.insert_or_update_mix(update, getinfos=passive.getinfos)
+            self.remove(recid)
+        else:
+            return super(MongoDBPassive,
+                         self)._migrate_update_record(colname, recid, update)
+
+    @classmethod
+    def migrate_schema_passive_0_1(cls, doc):
+        """Converts a record from version 0 (no "schema_version" key in the
+document) to version 1 (`doc["schema_version"] == 1`). Version 1
+changes the way IP addresses and timestamps are stored.
+
+In version 0, IP addresses are stored as integers and timestamps
+(firstseen & lastseen) as floats.
+
+In version 1, IP addresses are stored as two 64-bit unsigned integers
+(the `addr` field becomes `addr_0` and `addr_1`) and timestamps are
+stored as Timestamps (a BSON type, represented as datetime.datetime
+objects by the Python driver; this format is already used in the
+active databases for starttime and )
+
+        """
+        assert "schema_version" not in doc
+        doc["schema_version"] = 1
+        for key in ["firstseen", "lastseen"]:
+            doc[key] = datetime.datetime.fromtimestamp(doc[key])
+        if "addr" in doc:
+            doc['addr_0'], doc['addr_1'] = cls.ip2internal(utils.force_int2ip(
+                doc.pop('addr')
+            ))
+        return doc
 
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
@@ -3105,27 +3230,24 @@ setting values according to the keyword arguments.
         except (KeyError, ValueError):
             pass
         if 'firstseen' in spec:
-            updatespec['$min'] = {'firstseen': spec['firstseen']}
-            del spec['firstseen']
+            updatespec['$min'] = {'firstseen': spec.pop('firstseen')}
         if 'lastseen' in spec:
-            updatespec['$max'] = {'lastseen': spec['lastseen']}
-            del spec['lastseen']
+            updatespec['$max'] = {'lastseen': spec.pop('lastseen')}
         if 'count' in spec:
-            updatespec['$inc'] = {'count': spec['count']}
-            del spec['count']
+            updatespec['$inc'] = {'count': spec.pop('count')}
         else:
-            updatespec['$inc'] = {'count': spec['count']}
+            updatespec['$inc'] = {'count': 1}
         if 'infos' in spec:
-            updatespec['$setOnInsert'] = {'infos': spec['infos']}
-            del spec['infos']
+            updatespec['$setOnInsert'] = {'infos': spec.pop('infos')}
         if 'fullinfos' in spec:
             if '$setOnInsert' in updatespec:
                 updatespec['$setOnInsert'].update(
-                    {'fullinfos': spec['fullinfos']}
+                    {'fullinfos': spec.pop('fullinfos')}
                 )
             else:
-                updatespec['$setOnInsert'] = {'fullinfos': spec['fullinfos']}
-            del spec['fullinfos']
+                updatespec['$setOnInsert'] = {
+                    'fullinfos': spec.pop('fullinfos'),
+                }
         current = self.get_one(spec, fields=[])
         if current:
             self.db[self.colname_passive].update(
@@ -3143,10 +3265,10 @@ setting values according to the keyword arguments.
                 upsert=True,
             )
 
-    def remove(self, spec):
-        self.db[self.colname_passive].remove(spec)
+    def remove(self, spec_or_id):
+        self.db[self.colname_passive].remove(spec_or_id=spec_or_id)
 
-    def topvalues(self, field, distinct=True, **kargs):
+    def topvalues(self, field, flt=None, distinct=True, **kargs):
         """This method makes use of the aggregation framework to
         produce top values for a given field.
 
@@ -3155,6 +3277,8 @@ setting values according to the keyword arguments.
         the "count" field.
 
         """
+        if flt is None:
+            flt = self.flt_empty
         if not distinct:
             kargs['countfield'] = 'count'
         outputproc = None
@@ -3184,7 +3308,37 @@ setting values according to the keyword arguments.
                             self.internal2ip([int(val) for val in
                                               x['_id'].split('###')])),
                 }
-        pipeline = self._topvalues(field, specialproj=specialproj, **kargs)
+        elif field == "net" or field.startswith("net:"):
+            flt = self.flt_and(flt, self.searchipv4())
+            mask = int(field.split(':', 1)[1]) if ':' in field else 24
+            field = "addr"
+            # This should not overflow thanks to .searchipv4() filter
+            addr = {"$add": ["$addr_1", 0x7fff000100000000]}
+            if self.mongodb_32_more:
+                specialproj = {
+                    "_id": 0,
+                    "addr": {"$floor": {"$divide": [addr, 2 ** (32 - mask)]}},
+                }
+            else:
+                specialproj = {
+                    "_id": 0,
+                    "addr": {"$subtract": [{"$divide": [addr,
+                                                        2 ** (32 - mask)]},
+                                           {"$mod": [{"$divide": [
+                                               addr,
+                                               2 ** (32 - mask),
+                                           ]}, 1]}]},
+                }
+            flt = self.flt_and(flt, self.searchipv4())
+            outputproc = lambda x: {
+                'count': x['count'],
+                '_id': '%s/%d' % (
+                    utils.int2ip(int(x['_id']) * 2 ** (32 - mask)),
+                    mask,
+                ),
+            }
+        pipeline = self._topvalues(field, flt=flt, specialproj=specialproj,
+                                   **kargs)
         cursor = self.set_limits(
             self.db[self.colname_passive].aggregate(pipeline, cursor={})
         )
@@ -3347,8 +3501,6 @@ setting values according to the keyword arguments.
 
     @staticmethod
     def searchnewer(timestamp, neg=False, new=False):
-        if isinstance(timestamp, datetime.datetime):
-            timestamp = utils.datetime2timestamp(timestamp)
         return {'lastseen' if new else 'firstseen':
                 {'$lte' if neg else '$gt': timestamp}}
 

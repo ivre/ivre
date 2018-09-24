@@ -1545,6 +1545,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         "state": N_Scan.state_reason_ttl,
         "state_reason": N_Scan.state_reason_ttl,
         "state_reason_ttl": N_Scan.state_reason_ttl,
+        "schema_version": N_Scan.schema_version,
         "categories": N_Category.name,
         "hostnames.name": N_Hostname.name,
         "hostnames.domains": N_Hostname.domains,
@@ -1632,6 +1633,7 @@ class SQLDBView(SQLDBActive, DBView):
         "state": V_Scan.state_reason_ttl,
         "state_reason": V_Scan.state_reason_ttl,
         "state_reason_ttl": V_Scan.state_reason_ttl,
+        "schema_version": V_Scan.schema_version,
         "categories": V_Category.name,
         "hostnames.name": V_Hostname.name,
         "hostnames.domains": V_Hostname.domains,
@@ -1743,6 +1745,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         "source": Passive.source,
         "targetval": Passive.targetval,
         "value": Passive.value,
+        "schema_version": Passive.schema_version,
     }
 
     base_filter = PassiveFilter
@@ -1824,8 +1827,10 @@ returns the first result, or None if no result exists."""
             except KeyError:
                 pass
         addr = spec.pop("addr", None)
-        timestamp = datetime.datetime.fromtimestamp(timestamp)
-        if lastseen is not None:
+        if not isinstance(timestamp, datetime.datetime):
+            timestamp = datetime.datetime.fromtimestamp(timestamp)
+        if lastseen is not None and not isinstance(lastseen,
+                                                   datetime.datetime):
             lastseen = datetime.datetime.fromtimestamp(lastseen)
         if addr:
             addr = self.ip2internal(addr)
@@ -1850,6 +1855,7 @@ returns the first result, or None if no result exists."""
             'fullvalue': spec.pop("fullvalue", None),
             'info': info,
             'moreinfo': spec,
+            'schema_version': spec.pop('schema_version', None),
         }
         vals.update(otherfields)
         self._insert_or_update(timestamp, vals, lastseen=lastseen)
