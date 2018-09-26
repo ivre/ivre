@@ -4,6 +4,7 @@ import ivre.web.managementutils as mgmtutils
 import ivre.web.commonutils as commonutils
 from ivre import utils
 from croniter import croniter
+from past.builtins import basestring
 
 try:
     import ipaddress
@@ -17,7 +18,8 @@ from sys import modules as imported_modules
 # Deny access by default
 class SecurityMiddleware(object):
     def __init__(self, body):
-        self.message = body['message']
+        self.message = body['message'] if 'message' in body and body[
+            'message'] else None
         self.agent_ip = body['agent_ip'] if 'agent_ip' in body and body[
             'agent_ip'] else None
         self.type = body['type'] if 'type' in body else None
@@ -141,6 +143,8 @@ class SecurityMiddleware(object):
     def validate_message(self):
 
         # basic tests
+        if self.message is None:
+            return self.__basic_error('message is missing.')
         if not self.message and isinstance(self.type, int) \
                 and self.type in [commonutils.AGENT_MSG.GET_IPs,
                                   commonutils.BROWSER_MSG.GET_TEMPLATES,
@@ -498,8 +502,11 @@ class SecurityMiddleware(object):
                 "type": -1
             }
 
-        if not isinstance(task['run_at']['at_t'], str):
-            return self.__basic_error('at_t parameter must be a string')
+        if not isinstance(task['run_at']['at_t'], basestring):
+            return self.__basic_error(
+                'at_t parameter must be a string : {}'.format(
+                    type(task['run_at']['at_t'])
+                ))
 
         if self.patterns['date'].match(task['run_at']['at_t']) is None:
             return {
@@ -880,7 +887,7 @@ class SecurityMiddleware(object):
         }
 
     def __mongo_string(self, param_name, param):
-        if not isinstance(param, str):
+        if not isinstance(param, basestring):
             return self.__basic_error(
                 '{} must be a String.'.format(param_name))
         elif self.patterns['mongo_allowed'].match(param) is None:

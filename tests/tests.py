@@ -47,6 +47,8 @@ try:
 except ImportError:
     from urllib2 import HTTPError, Request, urlopen
 
+import requests
+import copy
 
 from builtins import int, range
 from future.utils import viewvalues
@@ -67,6 +69,7 @@ import ivre.parser.iptables
 import ivre.passive
 import ivre.utils
 import ivre.web.utils
+import ivre.web.commonutils as commonutils
 
 
 HTTPD_PORT = 18080
@@ -1654,7 +1657,6 @@ which `predicate()` is True, given `webflt`.
                 if 'source' in rec
             ))
 
-
     # This test have to be done first.
     def test_10_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
@@ -1940,6 +1942,578 @@ which `predicate()` is True, given `webflt`.
         # Web utils
         with self.assertRaises(ValueError):
             ivre.web.utils.query_from_params({'q': '"'})
+
+    def test_mgmt_api(self):
+
+        def dirtify(d):
+            for _k in d:
+                _target = d[_k]
+                if isinstance(_target, list):
+                    d[_k] = ["$while", "function(){}"]
+                elif isinstance(_target, str):
+                    d[_k] = "$while"
+                elif isinstance(_target, int):
+                    d[_k] = str(_target)
+                elif isinstance(_target, dict):
+                    dirtify(d[_k])
+                elif d[_k] is None:
+                    d[_k] = "$while"
+
+        self.start_web_server()
+        base_uri = 'http://{}:{}/cgi/management'.format(HTTPD_HOSTNAME,
+                                                        HTTPD_PORT)
+        headers = {
+            'Referer': 'http://{}:{}/'.format(HTTPD_HOSTNAME, HTTPD_PORT),
+            'Content-Type': 'application/json'
+        }
+        agent_name = 'agent1'
+
+        """
+            ### Templates tests ###
+        """
+
+        # TEST there should be no templates
+        resp = requests.get('{}/agent/{}/templates'
+                            .format(base_uri, agent_name), headers=headers)
+        self.assertEquals(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEquals(payload['templates'], [])
+
+        # TEST a template should be correctly created
+        data = {'message': {
+            'template': {'host_timeout': '15m', 'script_timeout': '2m',
+                         'scripts_categories': ['default', 'discovery',
+                                                'auth'],
+                         'scripts_exclude': ['broadcast', 'brute', 'dos',
+                                             'exploit', 'external', 'fuzzer',
+                                             'intrusive'], 'pings': 'SE'},
+            'templateName': 'AAA'
+        }, 'type': 0}
+        resp = requests.post('{}/agent/{}/template'
+                             .format(base_uri, agent_name),
+                             json=data, headers=headers)
+        self.assertEquals(resp.status_code, 200)
+        payload = resp.json()
+        self.assertTrue('message' in payload and 'error' in payload and
+                        payload['error'] is False)
+        results = ivre.db.db.management.get_agent_templates(agent_name, False)
+        self.assertTrue(results.count() == 1)
+        for t in results:
+            self.assertTrue(t['template'] == data['message']['template'])
+            self.assertTrue(t['templateName'] == data['message'][
+                'templateName'])
+            self.assertTrue(t['status'] == commonutils.TMPLT_STS.PENDING)
+
+        # TEST template should be updated
+        data_copy = data.copy()
+        data_copy['message']['template']['scripts_categories'] = ['default',
+                                                                  'auth']
+        resp = requests.post('{}/agent/{}/template'
+                             .format(base_uri, agent_name),
+                             json=data_copy, headers=headers)
+        self.assertEquals(resp.status_code, 200)
+        resp = requests.get('{}/agent/{}/templates'
+                            .format(base_uri, agent_name), headers=headers)
+        self.assertEquals(resp.status_code, 200)
+        payload = resp.json()
+        tmplt_to_check = None
+        for t in payload['templates']:
+            if t['templateName'] == data_copy['message'][
+                    'templateName']:
+                tmplt_to_check = t
+        self.assertTrue(tmplt_to_check is not None)
+        self.assertEquals(tmplt_to_check['template']['scripts_categories'],
+                          ['default', 'auth'])
+
+        # TEST update of template's status
+        tmplt_id = tmplt_to_check['_id']
+        status = commonutils.TMPLT_STS.RECEIVED
+        payload = {
+            'message': {
+                'status': status
+            },
+            'type': commonutils.AGENT_MSG.ACK
+        }
+        r_tupdate = requests.put(
+            '{}/template/{}/status'.format(base_uri, tmplt_id),
+            headers=headers, json=payload)
+        self.assertEquals(r_tupdate.status_code, 200)
+        self.assertTrue(r_tupdate.json()['error'] is False)
+        payload['message']['status'] = commonutils.TMPLT_STS.PENDING
+        r_tupdate = requests.put(
+            '{}/template/{}/status'.format(base_uri, tmplt_id),
+            headers=headers, json=payload)
+        self.assertEquals(r_tupdate.status_code, 200)
+        self.assertTrue(r_tupdate.json()['error'])
+
+        # TEST security middleware for malformed template creation
+        malformed_data = []
+        data_copy = data.copy()
+        del data_copy['message']
+        malformed_data.append(data_copy)
+        data_copy = data.copy()
+        del data_copy['message']['templateName']
+        malformed_data.append(data_copy)
+        data_copy = data.copy()
+        data_copy['message']['templateName'] = ''
+        malformed_data.append(data_copy)
+        data_copy = data.copy()
+        data_copy['message']['template']['scripts_categories'][0] = \
+            "not_a_category"
+        malformed_data.append(data_copy)
+        for k in data['message']['template']:
+            data_copy = data.copy()
+            target = data_copy['message']['template'][k]
+            if isinstance(target, list):
+                data_copy['message']['template'][k] = ["$while", "function("
+                                                                 "){}"]
+            elif isinstance(target, str):
+                data_copy['message']['template'][k] = "$while"
+            elif isinstance(target, int):
+                data_copy['message']['template'][k] = str(target)
+            malformed_data.append(data_copy)
+
+        for md in malformed_data:
+            resp = requests.post('{}/agent/{}/template'
+                                 .format(base_uri, agent_name),
+                                 json=md, headers=headers)
+            self.assertEquals(resp.status_code, 400)
+
+        """
+            ### Tasks tests ###
+        """
+
+        # TEST there should be NO tasks
+        resp = requests.get('{}/agent/{}/tasks'
+                            .format(base_uri, agent_name), headers=headers)
+        self.assertEquals(resp.status_code, 200)
+        payload = resp.json()
+        self.assertEquals(payload, {
+            "tasks_to_pause": [],
+            "tasks": [],
+            "tasks_to_cancel": [],
+            "tasks_to_resume": []
+        })
+
+        task_runnow = {
+            "message": {
+                "task": {
+                    "name": "task_runnow", "campaign": "campaign1",
+                    "source": "source1",
+                    "ip": {"start": "172.17.0.2", "end": "172.17.0.2"},
+                    "run_at": None, "schedule": None, "nmap_template": "AAA",
+                    "prescan": None
+                }
+            }, "type": 35
+        }
+        task_runat = {
+            "message": {
+                "task": {
+                    "name": "task_runat", "campaign": "campaign1",
+                    "source": "source1",
+                    "ip": {"start": "172.17.0.2",
+                           "end": "172.17.0.2"},
+                    "run_at": {"day": 1, "month": 1,
+                               "year": 2017,
+                               "hour": 1, "minute": 1,
+                               "at_t": "2018/09/12 18:17"},
+                    "schedule": "* * * * *",
+                    "nmap_template": "default",
+                    "prescan": None}
+            },
+            "type": 34
+        }
+        task_prd = {
+            "message": {
+                "task": {
+                    "name": "task_prd", "campaign": "campaign1",
+                    "source": "source1",
+                    "ip": {"start": "172.17.0.2", "end": "172.17.0.2"},
+                    "run_at": {"day": 1, "month": 1, "year": 2017, "hour": 1,
+                               "minute": 1, "at_t": "2018/08/30 10:47"},
+                    "schedule": "55 */5 3 * *", "nmap_template": "default",
+                    "prescan": None}
+            }, "type": 33
+        }
+
+        for task_data in [task_runnow, task_runat, task_prd]:
+            resp = requests.post('{}/agent/{}/task'
+                                 .format(base_uri, agent_name),
+                                 json=task_data, headers=headers)
+            try:
+                self.assertEquals(resp.status_code, 200)
+            except AssertionError as e:
+                e.args += (resp.text, task_data['type'])
+                raise
+
+        # TEST all 3 tasks should have been created correctly
+        resp = requests.get('{}/agent/{}/tasks'
+                            .format(base_uri, agent_name), headers=headers)
+        self.assertEquals(resp.status_code, 200)
+
+        tasks_resp = resp.json()
+        self.assertTrue(len(tasks_resp['tasks']) == 3)
+        tasks = {
+            'task_runnow': {
+                    "status": None,
+                    "type": 35,
+                    "agent": "agent1",
+                    "task": {
+                        "nmap_template": "AAA",
+                        "name": "task_runnow",
+                        "campaign": "campaign1",
+                        "schedule": None,
+                        "ip": {
+                            "start": "172.17.0.2",
+                            "end": "172.17.0.2"
+                        },
+                        "run_at": None,
+                        "source": "source1",
+                        "prescan": None
+                    }
+                },
+            'task_runat': {
+                    "status": None,
+                    "type": 34,
+                    "agent": "agent1",
+                    "task": {
+                        "nmap_template": "default",
+                        "name": "task_runat",
+                        "campaign": "campaign1",
+                        "schedule": "* * * * *",
+                        "ip": {
+                            "start": "172.17.0.2",
+                            "end": "172.17.0.2"
+                        },
+                        "run_at": {
+                            "hour": 1,
+                            "month": 1,
+                            "minute": 1,
+                            "year": 2017,
+                            "day": 1,
+                            "at_t": "2018/09/12 18:17"
+                        },
+                        "source": "source1",
+                        "prescan": None
+                    }
+                },
+            'task_prd': {
+                    "status": None,
+                    "type": 33,
+                    "agent": "agent1",
+                    "task": {
+                        "nmap_template": "default",
+                        "name": "task_prd",
+                        "campaign": "campaign1",
+                        "schedule": "55 */5 3 * *",
+                        "ip": {
+                            "start": "172.17.0.2",
+                            "end": "172.17.0.2"
+                        },
+                        "run_at": {
+                            "hour": 1,
+                            "month": 1,
+                            "minute": 1,
+                            "year": 2017,
+                            "day": 1,
+                            "at_t": "2018/08/30 10:47"
+                        },
+                        "source": "source1",
+                        "prescan": None
+                    }
+                },
+        }
+        for t in tasks_resp['tasks']:
+            t_copy = copy.deepcopy(t)
+            del t_copy['_id']
+            self.assertEqual(t_copy, tasks[t_copy['task']['name']])
+
+        # TEST update of task's status
+        task_id = tasks_resp['tasks'][0]['_id']
+        status = commonutils.TASK_STS.RECEIVED
+        payload = {
+            'message': {
+                'task_id': task_id,
+                'status': status
+            },
+            'type': commonutils.AGENT_MSG.ACK
+        }
+        r_tupdate = requests.put(
+            '{}/task/{}/status'.format(base_uri, task_id),
+            headers=headers, json=payload)
+        self.assertEquals(r_tupdate.status_code, 200)
+        payload['message']['status'] = commonutils.TASK_STS.PENDING
+        r_tupdate = requests.put(
+            '{}/task/{}/status'.format(base_uri, task_id),
+            headers=headers, json=payload)
+        self.assertEquals(r_tupdate.status_code, 200)
+        payload['message']['status'] = commonutils.TASK_STS.RECEIVED
+        r_tupdate = requests.put(
+            '{}/task/{}/status'.format(base_uri, task_id),
+            headers=headers, json=payload)
+        self.assertEquals(r_tupdate.status_code, 200)
+        self.assertTrue(r_tupdate.json()['error'])
+
+        # TEST get ALL tasks
+        resp_tall = requests.get('{}/agent/{}/tasks_all'
+                                 .format(base_uri, agent_name),
+                                 headers=headers)
+        self.assertEquals(resp_tall.status_code, 200)
+        tasks_all = resp_tall.json()
+        self.assertTrue(len(tasks_all['tasks']) == 1)
+        self.assertTrue(tasks_all['tasks'][0]['_id'] == task_id)
+
+        # TEST security middleware for malformed task creation
+        malformed_data = []
+        task_runnow_copy = copy.deepcopy(task_runnow)
+        del task_runnow_copy['message']
+        malformed_data.append(task_runnow_copy)
+        task_runnow_copy = copy.deepcopy(task_runnow)
+        del task_runnow_copy['message']['task']
+        malformed_data.append(task_runnow_copy)
+        task_runnow_copy = copy.deepcopy(task_runnow)
+        task_runnow_copy['message']['task']['name'] = ''
+        malformed_data.append(task_runnow_copy)
+        task_runnow_copy = copy.deepcopy(task_runnow)
+        task_runnow_copy['message']['task']['ip'] = {
+            "start": "172.17.0.2", "end": "172.17.0.256"
+        }
+        malformed_data.append(task_runnow_copy)
+        task_runnow_copy = copy.deepcopy(task_runnow)
+        task_runnow_copy['message']['task']['ip'] = {
+            "start": "172.17.1.2", "end": "172.17.0.3"
+        }
+        malformed_data.append(task_runnow_copy)
+        task_runat_copy = copy.deepcopy(task_runat)
+        task_runat_copy['message']['task']['run_at']['at_t'] = \
+            "2018/08/32 10:47"
+        malformed_data.append(task_runat_copy)
+        task_runat_copy = copy.deepcopy(task_runat)
+        task_runat_copy['message']['task']['run_at']['at_t'] = ""
+        malformed_data.append(task_runat_copy)
+        task_prd_copy = copy.deepcopy(task_prd)
+        task_prd_copy['message']['task']['schedule'] = ''
+        malformed_data.append(task_prd_copy)
+        task_prd_copy = copy.deepcopy(task_prd)
+        task_prd_copy['message']['task']['schedule'] = '* * * * * *'
+        malformed_data.append(task_prd_copy)
+        task_prd_copy = copy.deepcopy(task_prd)
+        task_prd_copy['message']['task']['schedule'] = '* * * + *'
+        malformed_data.append(task_prd_copy)
+        task_prd_copy = copy.deepcopy(task_prd)
+        task_prd_copy['message']['task']['schedule'] = '*/61 * * * *'
+        malformed_data.append(task_prd_copy)
+
+        for k in task_prd['message']['task']:
+            data_copy = copy.deepcopy(task_prd)
+            target = data_copy['message']['task'][k]
+            if isinstance(target, list):
+                data_copy['message']['task'][k] = ["$while", "function(){}"]
+            elif isinstance(target, basestring):
+                data_copy['message']['task'][k] = "$while"
+            elif isinstance(target, int):
+                data_copy['message']['task'][k] = str(target)
+            elif isinstance(target, dict):
+                dirtify(data_copy['message']['task'][k])
+            elif target is None:
+                data_copy['message']['task'][k] = "$while"
+            malformed_data.append(data_copy)
+
+        for md in malformed_data:
+            resp = requests.post('{}/agent/{}/task'
+                                 .format(base_uri, agent_name),
+                                 json=md, headers=headers)
+            try:
+                self.assertEquals(resp.status_code, 400)
+            except AssertionError as e:
+                e.args += (resp.text, resp.request.body,)
+                raise
+
+        # TEST task's results import
+        task = copy.deepcopy(tasks_resp['tasks'][0])
+        payload_import = {
+            "message": {
+                "status": commonutils.TASK_STS.COMPLETED,
+                "scan_params": task['task'],
+                "result": "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",
+                "task_id": task['_id']
+            },
+            "type": 105
+        }
+        r_tres = requests.post(
+            '{}/task/{}/results'.format(base_uri, task_id),
+            headers=headers, json=payload_import)
+        self.assertEquals(r_tres.status_code, 200)
+        self.assertTrue(r_tres.json()['error'] is False)
+
+        rc = requests.get(
+            'http://{}:{}/cgi/scans/count?q=172.17.0.2'.format(
+                HTTPD_HOSTNAME, HTTPD_PORT), headers=headers)
+        self.assertEquals(rc.status_code, 200)
+        self.assertTrue(int(rc.text) == 1)
+
+        rs = requests.get(
+            'http://{}:{}/cgi/scans?q=172.17.0.2'.format(
+                HTTPD_HOSTNAME, HTTPD_PORT), headers=headers)
+        self.assertEquals(rs.status_code, 200)
+        rs_data = rs.json()
+        self.assertTrue(len(rs_data) == 1)
+        self.assertEqual(rs_data[0]['addr'], '172.17.0.2')
+        self.assertEqual(int(rs_data[0]['endtime']), 1537165273)
+
+        r_tprd = requests.post('{}/agent/{}/task'
+                               .format(base_uri, agent_name),
+                               json=task_prd, headers=headers)
+        self.assertEquals(r_tprd.status_code, 200)
+        task_prd_id = r_tprd.json()['_id']
+        prd_payload = {
+            'message': {
+                'status': commonutils.TASK_STS.RECEIVED
+            },
+            'type': commonutils.AGENT_MSG.ACK
+        }
+        # order is important
+        statuses = [commonutils.TASK_STS.RECEIVED,
+                    commonutils.TASK_STS.PERIODIC,
+                    commonutils.TASK_STS.PRD_PENDING_PAUSE,
+                    commonutils.TASK_STS.PERIODIC_PAUSED,
+                    commonutils.TASK_STS.PRD_PENDING_RESUME,
+                    commonutils.TASK_STS.PERIODIC]
+        for sts in statuses:
+            prd_payload['message']['status'] = sts
+            if sts in [commonutils.TASK_STS.PRD_PENDING_PAUSE,
+                       commonutils.TASK_STS.PRD_PENDING_RESUME]:
+                action = 'pause' if sts == \
+                                    commonutils.TASK_STS.PRD_PENDING_PAUSE else 'resume'
+                r_tprd_upd = requests.put(
+                    '{}/agent/{}/{}/task/{}'.format(base_uri, agent_name,
+                                                    action, task_prd_id),
+                    headers=headers, json=prd_payload)
+            else:
+                r_tprd_upd = requests.put(
+                    '{}/task/{}/status'.format(base_uri, task_prd_id),
+                    headers=headers, json=prd_payload)
+
+            try:
+                self.assertEquals(r_tprd_upd.status_code, 200)
+                self.assertTrue(r_tprd_upd.json()['error'] is False)
+            except AssertionError as e:
+                e.args += (r_tprd_upd.text, sts)
+                raise
+
+        # TEST security middleware for malformed task imports
+        malformed_data = []
+        data_copy = copy.deepcopy(payload_import)
+        del data_copy['message']
+        malformed_data.append(data_copy)
+        data_copy = copy.deepcopy(payload_import)
+        del data_copy['message']['scan_params']
+        malformed_data.append(data_copy)
+        data_copy = copy.deepcopy(payload_import)
+        data_copy['message']['scan_params'] = ''
+        malformed_data.append(data_copy)
+        data_copy = copy.deepcopy(payload_import)
+        data_copy['message']['task_id'] = "$while"
+        malformed_data.append(data_copy)
+        for k in payload_import['message']:
+            data_copy = copy.deepcopy(payload_import)
+            target = data_copy['message'][k]
+            if isinstance(target, list):
+                data_copy['message'][k] = ["$while", "function(){}"]
+            elif isinstance(target, basestring):
+                data_copy['message'][k] = "$while"
+            elif isinstance(target, int) or isinstance(target, float):
+                data_copy['message'][k] = str(target)
+            elif isinstance(target, dict):
+                dirtify(data_copy['message'][k])
+            elif target is None:
+                data_copy['message'][k] = "$while"
+            malformed_data.append(data_copy)
+
+        for md in malformed_data:
+            resp = requests.post(
+                '{}/task/{}/results'.format(base_uri, task_id),
+                headers=headers, json=md)
+            try:
+                self.assertEquals(resp.status_code, 400)
+            except AssertionError as e:
+                e.args += (md, resp.text,)
+                raise
+
+        """
+            ### Passive detections tests ###
+        """
+
+        # Test there should be NO excluded IP
+        r_pssv = requests.get('{}/agent/{}/passive'
+                              .format(base_uri, agent_name), headers=headers)
+        self.assertEquals(r_pssv.status_code, 200)
+        self.assertEquals(r_pssv.json()['exclude_list'], [])
+        payload = {
+            "message": {"ts": 1537434380.271709, "uid": "C1I0Kg4qDpxnXSCAz3",
+                        "host": "192.168.56.1", "srvport": 502,
+                        "recon_type": "PassiveRecon::HTTP_CLIENT_HEADER",
+                        "source": "MODBUS_SLAVE",
+                        "value": "branch=foo"},
+            "type": commonutils.AGENT_MSG.PASSIVE_RESULT
+        }
+        r_pssv = requests.post('{}/agent/{}/passive'
+                               .format(base_uri, agent_name),
+                               json=payload, headers=headers)
+        self.assertEquals(r_pssv.status_code, 200)
+        r_pssv = requests.get('{}/agent/{}/passive'
+                              .format(base_uri, agent_name), headers=headers)
+        self.assertEquals(r_pssv.status_code, 200)
+        self.assertEquals(r_pssv.json()['exclude_list'], [])
+        payload = {
+            "message": {"uid": "CPOgDr4K78Bd4CVy33",
+                        "recon_type": "PassiveRecon::MODBUS_MASTER",
+                        "ts": 1537440814.344711,
+                        "value": "WRITE_SINGLE_REGISTER",
+                        "source": "MODBUS_MASTER", "host": "192.168.56.101",
+                        "srvport": 502},
+            "type": commonutils.AGENT_MSG.PASSIVE_RESULT
+        }
+        r_pssv = requests.post('{}/agent/{}/passive'
+                               .format(base_uri, agent_name),
+                               json=payload, headers=headers)
+        self.assertEquals(r_pssv.status_code, 200)
+        r_pssv = requests.get('{}/agent/{}/passive'
+                              .format(base_uri, agent_name), headers=headers)
+        res_pssv = r_pssv.json()['exclude_list']
+        self.assertTrue(len(res_pssv) == 1)
+        self.assertEqual(res_pssv[0], "192.168.56.101")
+
+        # TEST security middleware for malformed passive detection creation
+        malformed_data = []
+        data_copy = payload.copy()
+        del data_copy['message']
+        malformed_data.append(data_copy)
+        data_copy = payload.copy()
+        del data_copy['message']['host']
+        malformed_data.append(data_copy)
+        data_copy = payload.copy()
+        data_copy['message']['host'] = ''
+        malformed_data.append(data_copy)
+        data_copy = payload.copy()
+        data_copy['message']['source'] = "$while"
+        malformed_data.append(data_copy)
+        for k in payload['message']:
+            data_copy = payload.copy()
+            target = data_copy['message'][k]
+            if isinstance(target, list):
+                data_copy['message'][k] = ["$while", "function(){}"]
+            elif isinstance(target, str):
+                data_copy['message'][k] = "$while"
+            elif isinstance(target, int) or isinstance(target, float):
+                data_copy['message'][k] = str(target)
+            malformed_data.append(data_copy)
+
+        for md in malformed_data:
+            resp = requests.post('{}/agent/{}/passive'
+                                 .format(base_uri, agent_name),
+                                 json=md, headers=headers)
+            self.assertEquals(resp.status_code, 400)
 
     def test_scans(self):
         "Run scans, with and without agents"
@@ -2470,8 +3044,8 @@ which `predicate()` is True, given `webflt`.
         RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
 
 
-TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "90_cleanup",
-             "conf", "scans", "utils"])
+TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "mgmt_api",
+             "90_cleanup", "conf", "scans", "utils"])
 
 
 DATABASES = {

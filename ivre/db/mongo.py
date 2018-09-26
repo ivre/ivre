@@ -2539,17 +2539,11 @@ class MongoDBManagement(MongoDB, DBManagement):
         }
 
     def set_specific_task_status(self, agent_name, task_id, status):
-        self.db[self.collections['tasks']].update({
+        return self.db[self.collections['tasks']].update_one({
             '_id': self.str2id(task_id),
             'agent': agent_name,
             'status': {'$lt': 500}
         }, {"$set": {'status': status}})
-
-    def store_task_doc(self, task):
-        collection = self.collections['tasks']
-        ident = self.db[collection].insert(task)
-        utils.LOGGER.debug("SCAN STORED: %r in %r", ident, collection)
-        return ident
 
     def init(self):
         for c in self.collections.values():
@@ -2582,7 +2576,10 @@ class MongoDBManagement(MongoDB, DBManagement):
 
     def set_task(self, doc):
         op = self.db[self.collections['tasks']].insert_one(doc)
-        return isinstance(op.inserted_id, bson.objectid.ObjectId)
+        if not isinstance(op.inserted_id, bson.objectid.ObjectId):
+            return False
+        return op.inserted_id
+
 
     def set_passive_detection(self, doc):
         op = self.db[self.collections['passive_detections']].insert_one(doc)

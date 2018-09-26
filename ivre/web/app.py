@@ -593,31 +593,38 @@ def get_flow():
 #
 
 # delete tasks (on-demand or periodic)
-@application.get(
+@application.put(
     '/management/agent/<agent_name:re:[a-zA-Z0-9]+>/delete/task/'
     '<task_id:re:[0-9a-fA-F]+>')
 @check_content_type
 def cancel_task(agent_name, task_id):
     op = db.management.set_specific_task_status(
         agent_name, task_id, commonutils.TASK_STS.PENDING_CANC)
-    return json.dumps(op)
+
+    return json.dumps({'error': not bool(op.modified_count),
+                       'message': 'Status updated: {}'.format(
+                           'YES' if op.modified_count else 'NO')})
 
 
 # change periodic task status
-@application.get(
+@application.put(
     '/management/agent/<agent_name:re:[a-zA-Z0-9]+>/<action:re:[a-z]+>/task/'
     '<task_id:re:[0-9a-fA-F]+>')
 @check_content_type
 def update_status_prdtasks(agent_name, action, task_id):
+    if action not in ['pause', 'resume']:
+        return json.dumps({'error': True,
+                           'message': 'Invalid action.'})
     if action == 'pause':
         op = db.management.set_specific_task_status(
             agent_name, task_id, commonutils.TASK_STS.PRD_PENDING_PAUSE)
-        return json.dumps(op)
-    elif action == 'resume':
+    else:
         op = db.management.set_specific_task_status(
             agent_name, task_id,
             commonutils.TASK_STS.PRD_PENDING_RESUME)
-        return json.dumps(op)
+    return json.dumps({'error': not bool(op.modified_count),
+                       'message': 'Status updated: {}'.format(
+                           'YES' if op.modified_count else 'NO')})
 
 
 # get Agent tasks
@@ -740,7 +747,8 @@ def set_template_sts(template_id):
             res = db.management.set_template_status(template_id,
                                                     message['status'])
             return json.dumps(
-                {'error': False, 'message': 'Status updated: {}'.format(
+                {'error': not bool(res.modified_count),
+                 'message': 'Status updated: {}'.format(
                     'YES' if res.modified_count else 'NO')})
 
         return json.dumps({'error': True,
@@ -763,7 +771,7 @@ def create_task(agent_name):
             payload = request.json
             message = payload['message']
             msg_type = payload['type']
-            utils.LOGGER.debug('GOT TASK : ', str(payload))
+            utils.LOGGER.debug('GOT TASK : {}'.format(payload))
             if int(msg_type) not in [commonutils.COMMON_MSG.RUN_NOW,
                                      commonutils.COMMON_MSG.RNT_JOB,
                                      commonutils.COMMON_MSG.PRD_JOB]:
@@ -780,7 +788,9 @@ def create_task(agent_name):
             if op_res:
                 return json.dumps({'error': False,
                                    'message': 'Task "{}" created.'.format(
-                                       message['task']['name'])})
+                                       message['task']['name']),
+                                   '_id': str(op_res)
+                                   })
             return json.dumps({'error': True,
                                'message': 'Task "{}" NOT created.'.format(
                                    message['task']['name'])})
@@ -800,11 +810,13 @@ def set_task_sts(task_id):
         payload = request.json
         message = payload['message']
         if payload['type'] == commonutils.AGENT_MSG.ACK:
-            utils.LOGGER.debug('GOT ACK : ', str(payload))
+            utils.LOGGER.debug('GOT ACK : {}'.format(payload))
             res = db.management.set_task_status(task_id, message['status'])
             return json.dumps(
-                {'error': False, 'message': 'Status updated: {}'.format(
-                    'YES' if res.modified_count else 'NO')})
+                {
+                    'error': not bool(res.modified_count),
+                    'message': 'Status updated: {}'.format(
+                        'YES' if res.modified_count else 'NO')})
         return json.dumps({'error': True,
                            'message': 'Wrong message type: ' + str(
                                payload['type'])})
