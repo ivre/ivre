@@ -72,6 +72,7 @@ import ivre.web.utils
 import ivre.web.commonutils as commonutils
 
 
+
 HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
 
@@ -144,6 +145,29 @@ def run_passiverecon_worker(bulk_mode=None):
         os.execlp("ivre", "ivre", "passivereconworker", "--directory",
                   "logs", "--progname",
                   "ivre passiverecon2db %s" % bulk_mode)
+
+
+class HTTPAgent(object):
+
+    def __init__(self):
+        self.pid_agent = None
+        self.cwd = '/tmp'
+        self.__path = os.path.join(os.path.dirname(os.getcwd()),
+                                   'ivre/httpagent.py')
+
+    def start_httpagent(self):
+        self.pid_agent = subprocess.Popen(['python', self.__path],
+                                          preexec_fn=os.setsid,
+                                          cwd=self.cwd).pid
+
+    def get_pid(self):
+        return self.pid_agent
+
+    def stop(self):
+        if self.pid_agent is not None:
+            os.kill(self.pid_agent, signal.SIGINT)
+            os.waitpid(self.pid_agent, 0)
+            self.pid_agent = None
 
 
 class AgentScanner(object):
@@ -1943,7 +1967,7 @@ which `predicate()` is True, given `webflt`.
         with self.assertRaises(ValueError):
             ivre.web.utils.query_from_params({'q': '"'})
 
-    def test_mgmt_api(self):
+    def test_60_mgmt_api(self):
 
         def dirtify(d):
             for _k in d:
@@ -1959,6 +1983,7 @@ which `predicate()` is True, given `webflt`.
                 elif d[_k] is None:
                     d[_k] = "$while"
 
+        IvreTests.stop_children()
         self.start_web_server()
         base_uri = 'http://{}:{}/cgi/management'.format(HTTPD_HOSTNAME,
                                                         HTTPD_PORT)
@@ -1997,7 +2022,7 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue('message' in payload and 'error' in payload and
                         payload['error'] is False)
         results = ivre.db.db.management.get_agent_templates(agent_name, False)
-        self.assertTrue(results.count() == 1)
+        self.assertEqual(results.count(), 1)
         for t in results:
             self.assertTrue(t['template'] == data['message']['template'])
             self.assertTrue(t['templateName'] == data['message'][
@@ -2349,8 +2374,8 @@ which `predicate()` is True, given `webflt`.
         rc = requests.get(
             'http://{}:{}/cgi/scans/count?q=172.17.0.2'.format(
                 HTTPD_HOSTNAME, HTTPD_PORT), headers=headers)
-        self.assertEquals(rc.status_code, 200)
-        self.assertTrue(int(rc.text) == 1)
+        self.assertEqual(rc.status_code, 200)
+        self.assertEqual(int(rc.text), 1)
 
         rs = requests.get(
             'http://{}:{}/cgi/scans?q=172.17.0.2'.format(
@@ -2514,6 +2539,61 @@ which `predicate()` is True, given `webflt`.
                                  .format(base_uri, agent_name),
                                  json=md, headers=headers)
             self.assertEquals(resp.status_code, 400)
+
+    def test_70_httpagent(self):
+
+        IvreTests.stop_children()
+        self.start_web_server()
+        httpagent = HTTPAgent()
+
+        base_uri = 'http://{}:{}/cgi/management'.format(HTTPD_HOSTNAME,
+                                                        HTTPD_PORT)
+        headers = {
+            'Referer': 'http://{}:{}/'.format(HTTPD_HOSTNAME, HTTPD_PORT),
+            'Content-Type': 'application/json'
+        }
+        agent_name = 'agent888'
+        self.assertEqual(ivre.config.AGENT_CONF['agent_name'], agent_name)
+        httpagent.start_httpagent()
+        # self.children.append(httpagent.get_pid())
+
+        """
+            ### Templates retrieval ###
+        """
+
+        # TEST there should be no templates
+        data = {'message': {
+            'template': {'host_timeout': '15m', 'script_timeout': '2m',
+                         'scripts_categories': ['default', 'discovery',
+                                                'auth'],
+                         'scripts_exclude': ['broadcast', 'brute', 'dos',
+                                             'exploit', 'external', 'fuzzer',
+                                             'intrusive'], 'pings': 'SE'},
+            'templateName': 'template_1'
+        }, 'type': 0}
+
+        try:
+            resp = requests.post('{}/agent/{}/template'
+                                 .format(base_uri, agent_name),
+                                 json=data, headers=headers)
+            self.assertEquals(resp.status_code, 200)
+            time.sleep(ivre.config.AGENT_CONF['polling_time'] + 1)
+
+            results = ivre.db.db.management.get_agent_templates(agent_name,
+                                                                True)
+            self.assertEqual(results.count(), 1)
+
+            for t in results:
+                self.assertTrue(t['templateName'] == data['message'][
+                    'templateName'])
+                self.assertEqual(t['status'], commonutils.TMPLT_STS.RECEIVED)
+        except AssertionError as e:
+            httpagent.stop()
+            raise e
+        except Exception as err:
+            httpagent.stop()
+            raise err
+        httpagent.stop()
 
     def test_scans(self):
         "Run scans, with and without agents"
@@ -3018,8 +3098,6 @@ which `predicate()` is True, given `webflt`.
         self.find_record_cgi(lambda rec: addr == rec['addr'],
                              webflt='net:%s' % addr_net)
 
-
-
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
         has_env_conf = "IVRE_CONF" in os.environ
@@ -3044,8 +3122,8 @@ which `predicate()` is True, given `webflt`.
         RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
 
 
-TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "mgmt_api",
-             "90_cleanup", "conf", "scans", "utils"])
+TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "60_mgmt_api",
+             "70_httpagent", "90_cleanup", "conf", "scans", "utils"])
 
 
 DATABASES = {

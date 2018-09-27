@@ -63,7 +63,9 @@ AGENT_CONF = {
         'bro_script': '/usr/local/share/ivre/bro/ivre/passiverecon/bare.bro',
         'bro_interface': 'vboxnet0'
     },
-    'server_ip': '127.0.0.1'
+    'server_ip': '127.0.0.1',
+    'agent_name': 'agent888',
+    'polling_time': 2  # seconds
 }
 
 NMAP_SHARE_PATH = None

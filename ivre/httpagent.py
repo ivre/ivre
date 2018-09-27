@@ -502,7 +502,10 @@ class AgentClient(object):
 
     def run(self):
         try:
+            log.info('\n\n')
+            log.info('######################')
             log.info('### Agent started! ###')
+            log.info('######################')
             self.get_ip_to_exclude()
             self.get_configs(all_templates=True)
             self.get_tasks_resume()
@@ -511,7 +514,7 @@ class AgentClient(object):
             while True:
                 self.get_configs()
                 self.get_tasks()
-                time.sleep(2)
+                time.sleep(AGENT_CONF['polling_time'])
 
         except KeyboardInterrupt:
             self.__kill_everything()
@@ -524,4 +527,4 @@ if __name__ == "__main__":
     map(lambda p: mgmtutils.create_dir(
         os.path.normpath(p.format(mgmtutils.AGENT_WORKING_DIR))),
         ['{0}', '{0}/scheduled_scans', '{0}/remote_scans'])
-    agent = AgentClient('agent888')
+    agent = AgentClient(AGENT_CONF['agent_name'])
