@@ -3091,9 +3091,9 @@ class MongoDBPassive(MongoDB, DBPassive):
                  {"sparse": True}),
                 ([('infos.sha256', pymongo.ASCENDING)],
                  {"sparse": True}),
-                ([('infos.issuer', pymongo.ASCENDING)],
+                ([('infos.issuer_text', pymongo.ASCENDING)],
                  {"sparse": True}),
-                ([('infos.subject', pymongo.ASCENDING)],
+                ([('infos.subject_text', pymongo.ASCENDING)],
                  {"sparse": True}),
                 ([('infos.pubkeyalgo', pymongo.ASCENDING)],
                  {"sparse": True}),
@@ -3112,6 +3112,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                         ('recontype', pymongo.ASCENDING),
                         ('port', pymongo.ASCENDING),
                     ], {}),
+                    ([('infos.issuer', pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('infos.subject', pymongo.ASCENDING)],
+                     {"sparse": True}),
                 ],
                 "ensure": [
                     ([
@@ -3121,6 +3125,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                         ('port', pymongo.ASCENDING),
                     ], {}),
                     ([('schema_version', pymongo.ASCENDING)], {}),
+                    ([('infos.issuer_text', pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('infos.subject_text', pymongo.ASCENDING)],
+                     {"sparse": True}),
                 ],
             },
         }
@@ -3177,7 +3185,9 @@ In version 1, IP addresses are stored as two 64-bit unsigned integers
 (the `addr` field becomes `addr_0` and `addr_1`) and timestamps are
 stored as Timestamps (a BSON type, represented as datetime.datetime
 objects by the Python driver; this format is already used in the
-active databases for starttime and )
+active databases)
+
+Also, the structured data for SSL certificates has been updated.
 
         """
         assert "schema_version" not in doc
@@ -3188,6 +3198,12 @@ active databases for starttime and )
             doc['addr_0'], doc['addr_1'] = cls.ip2internal(utils.force_int2ip(
                 doc.pop('addr')
             ))
+        if (
+                doc["recontype"] == "SSL_SERVER" and
+                doc["source"] == "cert" and
+                "subject_text" not in doc.get('infos', {})
+        ):
+            doc["infos"].update(passive._getinfos_cert(doc))
         return doc
 
     def _get(self, flt, **kargs):
@@ -3571,13 +3587,13 @@ setting values according to the keyword arguments.
     def searchcertsubject(expr):
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert',
-                'infos.subject': expr}
+                'infos.subject_text': expr}
 
     @staticmethod
     def searchcertissuer(expr):
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert',
-                'infos.issuer': expr}
+                'infos.issuer_text': expr}
 
     @staticmethod
     def searchbasicauth():

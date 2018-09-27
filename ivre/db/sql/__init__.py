@@ -2054,7 +2054,7 @@ passive table."""
             (cls.tables.passive.recontype == 'SSL_SERVER') &
             (cls.tables.passive.source == 'cert') &
             (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('subject'), expr
+                cls.tables.passive.moreinfo.op('->>')('subject_text'), expr
             ))
         ))
 
@@ -2064,7 +2064,7 @@ passive table."""
             (cls.tables.passive.recontype == 'SSL_SERVER') &
             (cls.tables.passive.source == 'cert') &
             (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('issuer'), expr
+                cls.tables.passive.moreinfo.op('->>')('issuer_text'), expr
             ))
         ))
 
