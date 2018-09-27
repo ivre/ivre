@@ -216,7 +216,7 @@ class IPRanges(object):
 
     def iter_ranges(self):
         for start, length in sorted(viewvalues(self.ranges)):
-            yield start, start + length - 1
+            yield utils.int2ip(start), utils.int2ip(start + length - 1)
 
     def __len__(self):
         return self.length
