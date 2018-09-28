@@ -304,15 +304,27 @@ want to do something special here, e.g., mix with other records.
                 colname, version, new_version,
             )
             # Ensuring new indexes
-            for idx in self.schema_migrations_indexes[colname].get(
-                    new_version, {}
-            ).get("ensure", []):
-                function = self.db[colname].ensure_index
+            new_indexes = self.schema_migrations_indexes[colname].get(
+                new_version, {}
+            ).get("ensure", [])
+            if self.mongodb_32_more:
                 try:
-                    function(idx[0], **idx[1])
+                    self.db[colname].create_indexes(
+                        [
+                            pymongo.IndexModel(idx[0], **idx[1])
+                            for idx in new_indexes
+                        ]
+                    )
                 except pymongo.errors.OperationFailure:
-                    utils.LOGGER.debug("Cannot ensure index %s", idx,
-                                       exc_info=True)
+                    utils.LOGGER.debug("Cannot create indexes %r",
+                                       new_indexes, exc_info=True)
+            else:
+                for idx in new_indexes:
+                    try:
+                        self.db[colname].create_index(idx[0], **idx[1])
+                    except pymongo.errors.OperationFailure:
+                        utils.LOGGER.debug("Cannot create index %s", idx,
+                                           exc_info=True)
             updated = False
             # unlimited find()!
             for record in self.find(colname, self.searchversion(version)):
