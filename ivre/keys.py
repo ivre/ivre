@@ -121,6 +121,19 @@ class SSLKey(object):
         certtext = cls.keyincert.search(pem)
         return None if certtext is None else certtext.groupdict()
 
+    def read_der(self, der):
+        proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+                                 '-inform', 'DER'], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
+        proc.stdin.write(self.dbc.from_binary(der))
+        proc.stdin.close()
+        return proc.stdout.read()
+
+    def _der2key(self, der):
+        der = self.read_der(der)
+        certtext = self.keyincert.search(der)
+        return None if certtext is None else certtext.groupdict()
+
 
 class SSLNmapKey(NmapKey, SSLKey):
     """Base class for the keys from SSL certificates within the active
@@ -154,7 +167,7 @@ class SSLPassiveKey(PassiveKey, SSLKey):
         SSLKey.__init__(self)
 
     def getkeys(self, record):
-        certtext = self._pem2key(record['fullvalue']
+        certtext = self._der2key(record['fullvalue']
                                  if 'fullvalue' in record
                                  else record['value'])
         if certtext is None:

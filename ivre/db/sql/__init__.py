@@ -152,7 +152,7 @@ class PassiveCSVFile(CSVFile):
     info_fields = set(["distance", "signature", "version"])
 
     def __init__(self, siggen, ip2internal, table, limit=None, getinfos=None,
-                 separated_timestamps=True):
+                 to_binary=lambda val: val, separated_timestamps=True):
         self.ip2internal = ip2internal
         self.table = table
         self.inp = siggen
@@ -161,6 +161,7 @@ class PassiveCSVFile(CSVFile):
         if limit is not None:
             self.count = 0
         self.getinfos = getinfos
+        self.to_binary = to_binary
         self.timestamps = separated_timestamps
 
     def fixline(self, line):
@@ -182,7 +183,7 @@ class PassiveCSVFile(CSVFile):
                     line["lastseen"]
                 )
         if self.getinfos is not None:
-            additional_info = self.getinfos(line)
+            additional_info = self.getinfos(line, self.to_binary)
             try:
                 line.update(additional_info['infos'])
             except KeyError:
@@ -1725,11 +1726,14 @@ class SQLDBPassive(SQLDB, DBPassive):
         "infos": Passive.moreinfo,
         "infos.domain": Passive.moreinfo.op('->>')('domain'),
         "infos.issuer": Passive.moreinfo.op('->>')('issuer'),
+        "infos.issuer_text": Passive.moreinfo.op('->>')('issuer_text'),
         "infos.md5": Passive.moreinfo.op('->>')('md5'),
         "infos.pubkeyalgo": Passive.moreinfo.op('->>')('pubkeyalgo'),
+        "infos.san": Passive.moreinfo.op('->>')('san'),
         "infos.sha1": Passive.moreinfo.op('->>')('sha1'),
         "infos.sha256": Passive.moreinfo.op('->>')('sha256'),
         "infos.subject": Passive.moreinfo.op('->>')('subject'),
+        "infos.subject_text": Passive.moreinfo.op('->>')('subject_text'),
         "infos.domaintarget": Passive.moreinfo.op('->>')('domaintarget'),
         "infos.username": Passive.moreinfo.op('->>')('username'),
         "infos.password": Passive.moreinfo.op('->>')('password'),
@@ -1817,7 +1821,7 @@ returns the first result, or None if no result exists."""
         except (KeyError, ValueError):
             pass
         if getinfos is not None:
-            additional_info = getinfos(spec)
+            additional_info = getinfos(spec, self.to_binary)
             try:
                 spec.update(additional_info['infos'])
             except KeyError:

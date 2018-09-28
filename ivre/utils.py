@@ -53,7 +53,7 @@ except ImportError:
 
 
 from builtins import bytes, int, object, range, str
-from future.utils import viewitems
+from future.utils import PY3, viewitems
 from past.builtins import basestring
 
 
@@ -1247,6 +1247,8 @@ def encode_b64(value):
 
 
 def printable(string):
+    if PY3 and isinstance(string, bytes):
+        return bytes(c if 32 <= c <= 126 else 46 for c in string)
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
 
 
@@ -1329,7 +1331,7 @@ _CERTINFOS = [
         b'\n *'
         b'Public-Key: \\((?P<bits>[0-9]+) bit\\)'
         b'\n *'
-        b'Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+        b'Modulus: *\n(?P<modulus>[\\ 0-9a-f:\n]+)'
         b'\n *'
         b'Exponent: (?P<exponent>[0-9]+) .*'
         b'(?:\n|$)'
@@ -1344,6 +1346,12 @@ _CERTINFOS = [
         b'(?:\n|$)'
     ),
 ]
+
+_CERTINFOS_SAN = re.compile(
+    b'\n *'
+    b'X509v3 Subject Alternative Name: *\n *(?P<san>.*)'
+    b'(?:\n|$)'
+)
 
 _CERTKEYS = {
     'C': 'countryName',
@@ -1439,20 +1447,27 @@ def get_cert_info(cert):
                     cert)
         return result
     try:
-        for field, data in viewitems(match.groupdict()):
-            data = data.decode()
+        for field, fdata in viewitems(match.groupdict()):
+            fdata = fdata.decode()
             if field in ['issuer', 'subject']:
-                data = [(_CERTKEYS.get(key, key), value)
-                        for key, value in _parse_cert_subject(data)]
+                fdata = [(_CERTKEYS.get(key, key), value)
+                         for key, value in _parse_cert_subject(fdata)]
                 # replace '.' by '_' in keys to produce valid JSON
                 result[field] = dict((key.replace('.', '_'), value)
-                                     for key, value in data)
+                                     for key, value in fdata)
                 result['%s_text' % field] = '/'.join('%s=%s' % item
-                                                     for item in data)
+                                                     for item in fdata)
             else:
-                result[field] = data
+                result[field] = fdata
     except Exception:
         LOGGER.info("Cannot parse certificate %r", cert, exc_info=True)
+    san = _CERTINFOS_SAN.search(data)
+    if san is not None:
+        try:
+            result['san'] = san.groups()[0].decode().split(', ')
+        except Exception:
+            LOGGER.info("Cannot parse subjectAltName in certificate %r", cert,
+                        exc_info=True)
     return result
 
 

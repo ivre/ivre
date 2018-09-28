@@ -31,6 +31,7 @@ except ImportError:
 from copy import deepcopy
 import datetime
 import json
+import hashlib
 import os
 import re
 import socket
@@ -3050,6 +3051,7 @@ class MongoDBView(MongoDBActive, DBView):
 
 class MongoDBPassive(MongoDB, DBPassive):
 
+    needunwind = ["infos.san"]
     ipaddr_fields = ["addr"]
 
     def __init__(self, host, dbname,
@@ -3129,6 +3131,8 @@ class MongoDBPassive(MongoDB, DBPassive):
                      {"sparse": True}),
                     ([('infos.subject_text', pymongo.ASCENDING)],
                      {"sparse": True}),
+                    ([('infos.san', pymongo.ASCENDING)],
+                     {"sparse": True}),
                 ],
             },
         }
@@ -3200,10 +3204,9 @@ Also, the structured data for SSL certificates has been updated.
             ))
         if (
                 doc["recontype"] == "SSL_SERVER" and
-                doc["source"] == "cert" and
-                "subject_text" not in doc.get('infos', {})
+                doc["source"] == "cert"
         ):
-            doc["infos"].update(passive._getinfos_cert(doc))
+            doc.update(passive._getinfos_cert(doc, cls.to_binary))
         return doc
 
     def _get(self, flt, **kargs):
@@ -3261,7 +3264,7 @@ setting values according to the keyword arguments.
     def insert(self, spec, getinfos=None):
         """Inserts the record "spec" into the passive column."""
         if getinfos is not None:
-            spec.update(getinfos(spec))
+            spec.update(getinfos(spec, self.to_binary))
         try:
             spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
@@ -3293,7 +3296,7 @@ setting values according to the keyword arguments.
             )
         else:
             if getinfos is not None:
-                infos = getinfos(spec)
+                infos = getinfos(spec, self.to_binary)
                 if infos:
                     updatespec['$setOnInsert'] = infos
             self.db[self.colname_passive].update(
@@ -3333,7 +3336,7 @@ setting values according to the keyword arguments.
                     '$max': {'lastseen': timestamp},
                 }
                 if getinfos is not None:
-                    infos = getinfos(spec)
+                    infos = getinfos(spec, self.to_binary)
                     if infos:
                         updatespec['$setOnInsert'] = infos
                 bulk.find(spec).upsert().update(updatespec)
@@ -3390,7 +3393,7 @@ setting values according to the keyword arguments.
             )
         else:
             if getinfos is not None and "$setOnInsert" not in updatespec:
-                infos = getinfos(spec)
+                infos = getinfos(spec, self.to_binary)
                 if infos:
                     updatespec['$setOnInsert'] = infos
             self.db[self.colname_passive].update(

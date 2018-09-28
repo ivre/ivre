@@ -56,9 +56,10 @@ def disp_rec(rec):
     if 'source' in rec:
         print(rec['source'], end=' ')
     if 'value' in rec:
-        if 'fullvalue' in rec:
-            rec['value'] = rec['fullvalue']
-        print(utils.printable(rec['value']), end=' ')
+        value = utils.printable(rec.get('fullvalue', rec['value']))
+        if isinstance(value, bytes):
+            value = value.decode()
+        print(value, end=' ')
     if 'version' in rec:
         print(rec['version'], end=' ')
     if 'signature' in rec:

@@ -289,7 +289,7 @@ def handle_rec(sensor, ignorenets, neverignore,
     return timestamp, spec
 
 
-def _getinfos_http_client_authorization(spec):
+def _getinfos_http_client_authorization(spec, _):
     """Extract (for now) the usernames and passwords from Basic
     authorization headers
     """
@@ -327,14 +327,14 @@ def _getinfos_http_client_authorization(spec):
     return res
 
 
-def _getinfos_http_server(spec):
+def _getinfos_http_server(spec, _):
     header = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
     banner = b"HTTP/1.1 200 OK\r\nServer: " + header + b"\r\n\r\n"
     res = _getinfos_from_banner(banner, probe="GetRequest")
     return res
 
 
-def _getinfos_dns(spec):
+def _getinfos_dns(spec, _):
     """Extract domain names in an handy-to-index-and-query form."""
     infos = {}
     fullinfos = {}
@@ -365,17 +365,22 @@ def _getinfos_dns(spec):
     return res
 
 
-def _getinfos_cert(spec):
+def _getinfos_cert(spec, to_binary):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
 
     """
     try:
-        cert = utils.decode_b64(spec.get('fullvalue', spec['value']).encode())
+        cert = utils.decode_b64(spec.pop('fullvalue', spec['value']).encode())
     except Exception:
         utils.LOGGER.info("Cannot parse certificate for record %r", spec,
                           exc_info=True)
         return {}
+    if len(cert) > utils.MAXVALLEN:
+        spec['fullvalue'] = to_binary(cert)
+        spec['value'] = hashlib.sha1(cert).hexdigest()
+    else:
+        spec['value'] = to_binary(cert)
     info = utils.get_cert_info(cert)
     fullinfo = {}
     for key, value in list(viewitems(info)):
@@ -412,7 +417,7 @@ def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
     return res
 
 
-def _getinfos_tcp_srv_banner(spec):
+def _getinfos_tcp_srv_banner(spec, _):
     """Extract info from a TCP server banner using Nmap database.
 
     """
@@ -421,7 +426,7 @@ def _getinfos_tcp_srv_banner(spec):
     ))
 
 
-def _getinfos_ssh_server(spec):
+def _getinfos_ssh_server(spec, _):
     """Convert an SSH server banner to a TCP banner and use
 _getinfos_tcp_srv_banner()"""
     return _getinfos_from_banner(utils.nmap_decode_data(
@@ -429,7 +434,7 @@ _getinfos_tcp_srv_banner()"""
     ) + b'\r\n')
 
 
-def _getinfos_ssh_hostkey(spec):
+def _getinfos_ssh_hostkey(spec, _):
     """Parse SSH host keys."""
     infos = {}
     data = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
@@ -477,7 +482,7 @@ _GETINFOS_FUNCTIONS = {
 }
 
 
-def getinfos(spec):
+def getinfos(spec, to_binary):
     """This functions takes a document from a passive sensor, and
     prepares its 'infos' and 'fullinfos' fields (which are not added
     but returned).
@@ -489,4 +494,4 @@ def getinfos(spec):
     if function is None:
         return {}
     if hasattr(function, '__call__'):
-        return function(spec)
+        return function(spec, to_binary)
