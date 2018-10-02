@@ -81,6 +81,20 @@ class MaxMindFileIter(object):
             node_no = next_node_no
 
 
+class EmptyMaxMindFile(object):
+
+    """Stub to replace MaxMind databases parsers. Used when a file is
+missing to emit a warning message and return empty results.
+
+    """
+
+    def __init__(self):
+        utils.LOGGER.warning("Cannot find Maxmind database files")
+
+    def lookup(self, _):
+        return {}
+
+
 class MaxMindFile(object):
 
     """Parser for MaxMind databases.
@@ -297,6 +311,30 @@ class MaxMindDBData(DBData):
         "autonomous_system_organization": "as_name",
     }
 
+    @property
+    def db_asn(self):
+        try:
+            return self._db_asn
+        except AttributeError:
+            self._db_asn = EmptyMaxMindFile("ASN")
+            return self._db_asn
+
+    @property
+    def db_city(self):
+        try:
+            return self._db_city
+        except AttributeError:
+            self._db_city = EmptyMaxMindFile("City")
+            return self._db_city
+
+    @property
+    def db_country(self):
+        try:
+            return self._db_country
+        except AttributeError:
+            self._db_country = EmptyMaxMindFile("Country")
+            return self._db_country
+
     def __init__(self, basepath):
         for fname in os.listdir(basepath):
             if fname.endswith('.mmdb'):
@@ -304,7 +342,7 @@ class MaxMindDBData(DBData):
                 name = subdb.metadata['database_type'].lower()
                 if name.startswith('geolite2-'):
                     name = name[9:]
-                setattr(self, "db_%s" % name, subdb)
+                setattr(self, "_db_%s" % name, subdb)
 
     def as_byip(self, addr):
         return dict(
