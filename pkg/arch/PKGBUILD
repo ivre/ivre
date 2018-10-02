@@ -19,7 +19,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 pkgname=ivre
-pkgver=0.9.8
+pkgver=0.9.11
 pkgrel=1
 pkgdesc="Network recon framework"
 url="https://ivre.rocks/"
@@ -49,12 +49,13 @@ optdepends=('python-py2neo: flow analysis support'
             'tesseract: Screenshots analysis')
 makedepends=('git' 'python-setuptools')
 backup=('etc/httpd/conf/extra/ivre.conf')
-source=('git+https://github.com/cea-sec/ivre.git')
+branch="`git branch | awk '/^*/ {print $2}'`"
+source=("git+file://`readlink -f ../../`#branch=$branch")
 sha256sums=('SKIP')
 
 pkgver() {
   cd "$srcdir/$pkgname"
-  python setup.py --version
+  python setup.py --version | sed "s/\.dev/.dev_${branch//-/_}_/"
 }
 
 build() {
@@ -67,4 +68,6 @@ package() {
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/LICENSE*
   install -Dm0644 "pkg/apache/ivre.conf" "$pkgdir/etc/httpd/conf/extra/ivre.conf"
   python setup.py install --root="$pkgdir" --optimize=1
+  sed -i "s/\.dev/.dev_${branch//-/_}_/" \
+      "${pkgdir}"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
 }
