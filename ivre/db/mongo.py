@@ -307,6 +307,10 @@ want to do something special here, e.g., mix with other records.
             new_indexes = self.schema_migrations_indexes[colname].get(
                 new_version, {}
             ).get("ensure", [])
+            if new_indexes:
+                utils.LOGGER.info(
+                    "Creating new indexes...",
+                )
             if self.mongodb_32_more:
                 try:
                     self.db[colname].create_indexes(
@@ -325,9 +329,17 @@ want to do something special here, e.g., mix with other records.
                     except pymongo.errors.OperationFailure:
                         utils.LOGGER.debug("Cannot create index %s", idx,
                                            exc_info=True)
+            if new_indexes:
+                utils.LOGGER.info(
+                    "  ... Done.",
+                )
+            utils.LOGGER.info(
+                "Migrating records...",
+            )
             updated = False
             # unlimited find()!
-            for record in self.find(colname, self.searchversion(version)):
+            for i, record in enumerate(self.find(colname,
+                                                 self.searchversion(version))):
                 try:
                     update = migration_function(record)
                 except Exception:
@@ -341,7 +353,17 @@ want to do something special here, e.g., mix with other records.
                         updated = True
                         self._migrate_update_record(colname, record["_id"],
                                                     update)
+                if (i + 1) % 100000 == 0:
+                    utils.LOGGER.info(
+                        "  %d records migrated", i + 1
+                    )
+            utils.LOGGER.info(
+                "  ... Done.",
+            )
             # Checking for required actions on indexes
+            utils.LOGGER.info(
+                "  Performing other actions on indexes...",
+            )
             for action, indexes in viewitems(
                     self.schema_migrations_indexes[colname].get(
                         new_version, {}
@@ -359,6 +381,9 @@ want to do something special here, e.g., mix with other records.
                             "Cannot %s index %s", action, idx,
                             exc_info=True
                         )
+            utils.LOGGER.info(
+                "  ... Done.",
+            )
             utils.LOGGER.info(
                 "Migration of column %s from version %r to %r DONE",
                 colname, version, new_version,
