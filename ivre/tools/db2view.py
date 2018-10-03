@@ -106,16 +106,7 @@ def main():
     if args.view_source == 'passive' and args.ips:
         flt = db.passive.flt_empty
         for a in args.ips:
-            if ':' in a:
-                a = a.split(':', 1)
-                if a[0].isdigit():
-                    a[0] = int(a[0])
-                if a[1].isdigit():
-                    a[1] = int(a[1])
-                flt = db.passive.flt_or(
-                    flt, db.passive.searchrange(a[0], a[1])
-                )
-            elif '-' in a:
+            if '-' in a:
                 a = a.split('-', 1)
                 if a[0].isdigit():
                     a[0] = int(a[0])
@@ -128,7 +119,7 @@ def main():
                 flt = db.passive.flt_or(flt, db.passive.searchnet(a))
             else:
                 if a.isdigit():
-                    a = db.passive.convert_ip(int(a))
+                    a = db.passive.ip2internal(int(a))
                 flt = db.passive.flt_or(flt, db.passive.searchhost(a))
         fltpass = db.passive.flt_and(fltpass, flt)
     # Output results

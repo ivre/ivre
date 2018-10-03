@@ -27,6 +27,9 @@ import re
 import sqlite3
 
 
+from future.utils import PY3
+
+
 from sqlalchemy import event, func, Column, ForeignKey, Index, DateTime, \
     Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql
@@ -38,7 +41,10 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.engine import Engine
 
 
-from ivre import xmlnmap, utils
+from ivre import passive, utils, xmlnmap
+
+
+INTERNAL_IP_PY2 = re.compile('^[0-9a-fA-F]{32}$')
 
 
 # sqlite
@@ -109,12 +115,10 @@ def extend_binary_expression(element, compiler, **kwargs):
 
 class DefaultJSONB(UserDefinedType):
 
+    python_type = dict
+
     def __init__(self):
         self.__visit_name__ = "DefaultJSONB"
-
-    @property
-    def python_type(self):
-        return dict
 
     def get_col_spec(self):
         return self.__visit_name__
@@ -163,32 +167,38 @@ def SQLARRAY(item_type):
 
 class DefaultINET(UserDefinedType):
 
+    python_type = bytes
+
     def __init__(self):
         self.__visit_name__ = "DefaultINET"
-
-    @property
-    def python_type(self):
-        return int
 
     def get_col_spec(self):
         return self.__visit_name__
 
     def bind_processor(self, dialect):
-        def process(value):
-            if value is None:
-                return -1
-            if value is not None:
-                value = utils.ip2int(value)
-            return value
+        if PY3:
+            def process(value):
+                return self.python_type(
+                    b"" if not value else utils.ip2bin(value)
+                )
+        else:
+            def process(value):
+                if not value:
+                    return self.python_type(b"")
+                if isinstance(value, str) and INTERNAL_IP_PY2.search(value):
+                    return self.python_type(value)
+                return self.python_type(utils.encode_hex(utils.ip2bin(value)))
         return process
 
     def result_processor(self, dialect, coltype):
-        def process(value):
-            if value == -1:
-                return None
-            if value is not None:
-                value = utils.int2ip(value)
-            return value
+        if PY3:
+            def process(value):
+                return None if not value else utils.bin2ip(value)
+        else:
+            def process(value):
+                return None if not value else utils.bin2ip(
+                    utils.decode_hex(value)
+                )
         return process
 
 
@@ -531,6 +541,7 @@ class Passive(Base):
     # moreinfo and fullvalue contain data that are not tested for
     # unicity on insertion (the unicity is guaranteed by the value)
     # for performance reasons
+    schema_version = Column(Integer, default=passive.SCHEMA_VERSION)
     __table_args__ = (
         Index('ix_passive_record', 'addr', 'sensor', 'recontype', 'port',
               'source', 'value', 'targetval', 'info', unique=True),

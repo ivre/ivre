@@ -25,6 +25,7 @@ This sub-module contains functions used for passive recon.
 """
 
 
+from datetime import datetime
 import hashlib
 import math
 import re
@@ -37,6 +38,8 @@ from past.builtins import long
 
 from ivre import utils
 
+
+SCHEMA_VERSION = 1
 
 # p0f specific
 
@@ -82,8 +85,8 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
     if sig[0][0] not in b'ST':
         sig[0] = b'*'
     spec = {
-        'addr': utils.ip2int(line[0][line[0].index(b'> ') + 2:
-                                     line[0].index(b':')]),
+        'schema_version': SCHEMA_VERSION,
+        'addr': line[0][line[0].index(b'> ') + 2:line[0].index(b':')].decode(),
         'distance': dist,
         'value': osname.decode(),
         'version': version.decode(),
@@ -95,7 +98,7 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
         spec['sensor'] = sensor
     if recontype is not None:
         spec['recontype'] = recontype
-    return float(line[0][1:line[0].index(b'>')]), spec
+    return datetime.fromtimestamp(float(line[0][1:line[0].index(b'>')])), spec
 
 
 # Bro specific
@@ -267,18 +270,15 @@ def handle_rec(sensor, ignorenets, neverignore,
                # these argmuments are provided by **bro_line
                timestamp=None, uid=None, host=None, srvport=None,
                recon_type=None, source=None, value=None, targetval=None):
+    spec = {
+        'schema_version': SCHEMA_VERSION,
+        'recontype': recon_type,
+        'value': value,
+    }
     if host is None:
-        spec = {
-            'targetval': targetval,
-            'recontype': recon_type,
-            'value': value
-        }
+        spec['targetval'] = targetval
     else:
-        spec = {
-            'addr': utils.force_ip2int(host),
-            'recontype': recon_type,
-            'value': value
-        }
+        spec['addr'] = host
     if sensor is not None:
         spec.update({'sensor': sensor})
     if srvport is not None:
@@ -286,11 +286,10 @@ def handle_rec(sensor, ignorenets, neverignore,
     if source is not None:
         spec.update({'source': source})
     spec = _prepare_rec(spec, ignorenets, neverignore)
-    float_ts = utils.datetime2timestamp(timestamp)
-    return float_ts, spec
+    return timestamp, spec
 
 
-def _getinfos_http_client_authorization(spec):
+def _getinfos_http_client_authorization(spec, _):
     """Extract (for now) the usernames and passwords from Basic
     authorization headers
     """
@@ -328,14 +327,14 @@ def _getinfos_http_client_authorization(spec):
     return res
 
 
-def _getinfos_http_server(spec):
+def _getinfos_http_server(spec, _):
     header = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
     banner = b"HTTP/1.1 200 OK\r\nServer: " + header + b"\r\n\r\n"
     res = _getinfos_from_banner(banner, probe="GetRequest")
     return res
 
 
-def _getinfos_dns(spec):
+def _getinfos_dns(spec, _):
     """Extract domain names in an handy-to-index-and-query form."""
     infos = {}
     fullinfos = {}
@@ -366,17 +365,22 @@ def _getinfos_dns(spec):
     return res
 
 
-def _getinfos_cert(spec):
+def _getinfos_cert(spec, to_binary):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
 
     """
     try:
-        cert = utils.decode_b64(spec.get('fullvalue', spec['value']).encode())
+        cert = utils.decode_b64(spec.pop('fullvalue', spec['value']).encode())
     except Exception:
         utils.LOGGER.info("Cannot parse certificate for record %r", spec,
                           exc_info=True)
         return {}
+    if len(cert) > utils.MAXVALLEN:
+        spec['fullvalue'] = to_binary(cert)
+        spec['value'] = hashlib.sha1(cert).hexdigest()
+    else:
+        spec['value'] = to_binary(cert)
     info = utils.get_cert_info(cert)
     fullinfo = {}
     for key, value in list(viewitems(info)):
@@ -413,7 +417,7 @@ def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
     return res
 
 
-def _getinfos_tcp_srv_banner(spec):
+def _getinfos_tcp_srv_banner(spec, _):
     """Extract info from a TCP server banner using Nmap database.
 
     """
@@ -422,7 +426,7 @@ def _getinfos_tcp_srv_banner(spec):
     ))
 
 
-def _getinfos_ssh_server(spec):
+def _getinfos_ssh_server(spec, _):
     """Convert an SSH server banner to a TCP banner and use
 _getinfos_tcp_srv_banner()"""
     return _getinfos_from_banner(utils.nmap_decode_data(
@@ -430,7 +434,7 @@ _getinfos_tcp_srv_banner()"""
     ) + b'\r\n')
 
 
-def _getinfos_ssh_hostkey(spec):
+def _getinfos_ssh_hostkey(spec, _):
     """Parse SSH host keys."""
     infos = {}
     data = utils.nmap_decode_data(spec.get('fullvalue', spec['value']))
@@ -478,7 +482,7 @@ _GETINFOS_FUNCTIONS = {
 }
 
 
-def getinfos(spec):
+def getinfos(spec, to_binary):
     """This functions takes a document from a passive sensor, and
     prepares its 'infos' and 'fullinfos' fields (which are not added
     but returned).
@@ -490,4 +494,4 @@ def getinfos(spec):
     if function is None:
         return {}
     if hasattr(function, '__call__'):
-        return function(spec)
+        return function(spec, to_binary)

@@ -53,7 +53,7 @@ except ImportError:
 
 
 from builtins import bytes, int, object, range, str
-from future.utils import viewitems
+from future.utils import PY3, viewitems
 from past.builtins import basestring
 
 
@@ -91,8 +91,9 @@ logging.basicConfig()
 
 def ip2int(ipstr):
     """Converts the classical decimal, dot-separated, string
-    representation of an IP address to an integer, suitable for
-    database storage.
+    representation of an IPv4 address, or the hexadecimal,
+    colon-separated, string representation of an IPv6 address, to an
+    integer.
 
     """
     try:
@@ -118,7 +119,8 @@ def force_ip2int(ipstr):
 
 def int2ip(ipint):
     """Converts the integer representation of an IP address to its
-    classical decimal, dot-separated, string representation.
+    classical decimal, dot-separated (for IPv4) or hexadecimal,
+    colon-separated (for IPv6) string representation.
 
     """
     try:
@@ -132,6 +134,18 @@ def int2ip(ipint):
         )
 
 
+def int2ip6(ipint):
+    """Converts the integer representation of an IPv6 address to its
+    classical decimal, hexadecimal, colon-separated string
+    representation.
+
+    """
+    return socket.inet_ntop(
+        socket.AF_INET6,
+        struct.pack('!QQ', ipint >> 64, ipint & 0xffffffffffffffff),
+    )
+
+
 def force_int2ip(ipint):
     """Same as int2ip(), but works when ipint is already a atring"""
     try:
@@ -140,15 +154,91 @@ def force_int2ip(ipint):
         return ipint
 
 
+def ip2bin(ipval):
+    """Attempts to convert any IP address representation (both IPv4 and
+IPv6) to a 16-bytes binary blob.
+
+IPv4 addresses are converted to IPv6 using the standard ::ffff:A.B.C.D
+mapping.
+
+    """
+    try:
+        return struct.pack('!QQ', ipval >> 64, ipval & 0xffffffffffffffff)
+    except TypeError:
+        pass
+    try:
+        ipval = ipval.decode()
+    except UnicodeDecodeError:
+        # Probably already a binary representation
+        if len(ipval) == 16:
+            return ipval
+        if len(ipval) == 4:
+            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + ipval
+        raise ValueError('Invalid IP address %r' % ipval)
+    except AttributeError:
+        pass
+    try:
+        return (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' +
+                socket.inet_aton(ipval))
+    except socket.error:
+        pass
+    try:
+        return socket.inet_pton(socket.AF_INET6, ipval)
+    except socket.error:
+        pass
+    # Probably already a binary representation
+    if len(ipval) == 16:
+        return ipval
+    if len(ipval) == 4:
+        return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + ipval
+    raise ValueError('Invalid IP address %r' % ipval)
+
+
+def bin2ip(ipval):
+    """Converts a 16-bytes binary blob to an IPv4 or IPv6 standard
+representation. See ip2bin().
+
+    """
+    try:
+        socket.inet_aton(ipval)
+        return ipval
+    except (TypeError, socket.error):
+        pass
+    try:
+        socket.inet_pton(socket.AF_INET6, ipval)
+        return ipval
+    except (TypeError, socket.error):
+        pass
+    try:
+        return int2ip(ipval)
+    except TypeError:
+        pass
+    if ipval[:12] == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff':
+        return socket.inet_ntoa(ipval[12:])
+    return socket.inet_ntop(socket.AF_INET6, ipval)
+
+
 def int2mask(mask):
     """Converts the number of bits set to 1 in a mask (the 24 in
-    10.0.0.0/24) to the integer corresponding to the IP address of the
-    mask (ip2int("255.255.255.0") for 24)
+    10.0.0.0/24) to the 32-bit integer corresponding to the IP address
+    of the mask (ip2int("255.255.255.0") for 24)
 
     From scapy:utils.py:itom(x).
 
     """
     return (0xffffffff00000000 >> mask) & 0xffffffff
+
+
+def int2mask6(mask):
+    """Converts the number of bits set to 1 in a mask (the 48 in
+    2001:db8:1234::/48) to the 128-bit integer corresponding to the IP address
+    of the mask (ip2int("ffff:ffff:ffff::") for 48)
+
+    """
+    return (
+        0xffffffffffffffffffffffffffffffff00000000000000000000000000000000 >>
+        mask
+    ) & 0xffffffffffffffffffffffffffffffff
 
 
 def net2range(network):
@@ -158,24 +248,29 @@ def net2range(network):
     except AttributeError:
         pass
     addr, mask = network.split('/')
+    ipv6 = ':' in addr
     addr = ip2int(addr)
-    if '.' in mask:
+    if (not ipv6 and '.' in mask) or (ipv6 and ':' in mask):
         mask = ip2int(mask)
+    elif ipv6:
+        mask = int2mask6(int(mask))
     else:
         mask = int2mask(int(mask))
     start = addr & mask
-    stop = int2ip(start + 0xffffffff - mask)
-    start = int2ip(start)
+    if ipv6:
+        stop = int2ip6(
+            start + 0xffffffffffffffffffffffffffffffff - mask
+        )
+        start = int2ip6(start)
+    else:
+        stop = int2ip(start + 0xffffffff - mask)
+        start = int2ip(start)
     return start, stop
 
 
 def range2nets(rng):
     """Converts a (start, stop) tuple to a list of networks."""
-    start, stop = rng
-    if isinstance(start, basestring):
-        start = ip2int(start)
-    if isinstance(stop, basestring):
-        stop = ip2int(stop)
+    start, stop = (force_ip2int(addr) for addr in rng)
     if stop < start:
         raise ValueError()
     res = []
@@ -185,6 +280,8 @@ def range2nets(rng):
     while True:
         while cur & mask == cur and cur | (~mask & 0xffffffff) <= stop:
             maskint -= 1
+            if maskint < 0:
+                break
             mask = int2mask(maskint)
         res.append('%s/%d' % (int2ip(cur), maskint + 1))
         mask = int2mask(maskint + 1)
@@ -1150,6 +1247,8 @@ def encode_b64(value):
 
 
 def printable(string):
+    if PY3 and isinstance(string, bytes):
+        return bytes(c if 32 <= c <= 126 else 46 for c in string)
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
 
 
@@ -1221,16 +1320,38 @@ None if it is a "normal", usable address.
     return _ADDR_TYPES[bisect_left(_ADDR_TYPES_LAST_IP, addr)]
 
 
-_CERTINFOS = re.compile(
+_CERTINFOS = [
+    re.compile(
+        b'\n *'
+        b'Issuer: (?P<issuer>.*)'
+        b'\n(?:.*\n)* *'
+        b'Subject: (?P<subject>.*)'
+        b'\n(?:.*\n)* *'
+        b'Public Key Algorithm: (?P<pubkeyalgo>rsaEncryption)'
+        b'\n *'
+        b'Public-Key: \\((?P<bits>[0-9]+) bit\\)'
+        b'\n *'
+        b'Modulus: *\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+        b'\n *'
+        b'Exponent: (?P<exponent>[0-9]+) .*'
+        b'(?:\n|$)'
+    ),
+    re.compile(
+        b'\n *'
+        b'Issuer: (?P<issuer>.*)'
+        b'\n(?:.*\n)* *'
+        b'Subject: (?P<subject>.*)'
+        b'\n(?:.*\n)* *'
+        b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
+        b'(?:\n|$)'
+    ),
+]
+
+_CERTINFOS_SAN = re.compile(
     b'\n *'
-    b'Issuer: (?P<issuer>.*)'
-    b'\n(?:.*\n)* *'
-    b'Subject: (?P<subject>.*)'
-    b'\n(?:.*\n)* *'
-    b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
+    b'X509v3 Subject Alternative Name: *\n *(?P<san>.*)'
     b'(?:\n|$)'
 )
-
 
 _CERTKEYS = {
     'C': 'countryName',
@@ -1316,23 +1437,37 @@ def get_cert_info(cert):
                             stdout=subprocess.PIPE)
     proc.stdin.write(cert)
     proc.stdin.close()
+    data = proc.stdout.read()
+    for expr in _CERTINFOS:
+        match = expr.search(data)
+        if match is not None:
+            break
+    else:
+        LOGGER.info("Cannot parse certificate %r - no matching expression",
+                    cert)
+        return result
     try:
-        for field, data in viewitems(
-                _CERTINFOS.search(proc.stdout.read()).groupdict()
-        ):
-            data = data.decode()
+        for field, fdata in viewitems(match.groupdict()):
+            fdata = fdata.decode()
             if field in ['issuer', 'subject']:
-                data = [(_CERTKEYS.get(key, key), value)
-                        for key, value in _parse_cert_subject(data)]
+                fdata = [(_CERTKEYS.get(key, key), value)
+                         for key, value in _parse_cert_subject(fdata)]
                 # replace '.' by '_' in keys to produce valid JSON
                 result[field] = dict((key.replace('.', '_'), value)
-                                     for key, value in data)
+                                     for key, value in fdata)
                 result['%s_text' % field] = '/'.join('%s=%s' % item
-                                                     for item in data)
+                                                     for item in fdata)
             else:
-                result[field] = data
+                result[field] = fdata
     except Exception:
         LOGGER.info("Cannot parse certificate %r", cert, exc_info=True)
+    san = _CERTINFOS_SAN.search(data)
+    if san is not None:
+        try:
+            result['san'] = san.groups()[0].decode().split(', ')
+        except Exception:
+            LOGGER.info("Cannot parse subjectAltName in certificate %r", cert,
+                        exc_info=True)
     return result
 
 

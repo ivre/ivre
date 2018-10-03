@@ -48,9 +48,8 @@ except ImportError:
     from urllib2 import HTTPError, Request, urlopen
 
 
-from builtins import int, range
 from future.utils import viewvalues
-from future.builtins import int
+from future.builtins import int, range
 from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
@@ -764,30 +763,15 @@ which `predicate()` is True, given `webflt`.
                                     ["--host", "127.12.34.56"], "127.12.34.56")
 
         generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
-        addrrange = sorted((x['addr'] for x in
-                            [next(generator), next(generator)]),
+        addrrange = sorted((x['addr'] for x in [next(generator),
+                                                next(generator)]),
                            key=ivre.utils.force_ip2int)
         addr_range_count = self.check_nmap_count_value(
             None, ivre.db.db.nmap.searchrange(*addrrange),
-            ["--range"] + [ivre.utils.force_int2ip(x) for x in addrrange],
-            "range:%s-%s" % tuple(ivre.utils.force_int2ip(x)
-                                  for x in addrrange),
+            ["--range"] + addrrange,
+            "range:%s-%s" % tuple(addrrange),
         )
         self.assertGreaterEqual(addr_range_count, 2)
-        self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
-            ivre.db.db.nmap.searchcmp("addr", addrrange[0], '>='),
-            ivre.db.db.nmap.searchcmp("addr", addrrange[1], '<='),
-        ), database=ivre.db.db.nmap)
-        addrrange2 = [
-            ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1)
-            if isinstance(addrrange[0], basestring) else addrrange[0] - 1,
-            ivre.utils.int2ip(ivre.utils.ip2int(addrrange[1]) + 1)
-            if isinstance(addrrange[1], basestring) else addrrange[1] + 1,
-        ]
-        self.check_count_value_api(addr_range_count, ivre.db.db.nmap.flt_and(
-            ivre.db.db.nmap.searchcmp("addr", addrrange2[0], '>'),
-            ivre.db.db.nmap.searchcmp("addr", addrrange2[1], '<'),
-        ), database=ivre.db.db.nmap)
         self.check_count_value_api(
             hosts_count - addr_range_count,
             ivre.db.db.nmap.searchrange(*addrrange, neg=True),
@@ -795,19 +779,13 @@ which `predicate()` is True, given `webflt`.
         )
         count = sum(
             ivre.db.db.nmap.count(ivre.db.db.nmap.searchnet(net))
-            for net in ivre.utils.range2nets(
-                [x if isinstance(x, basestring) else ivre.utils.int2ip(x)
-                 for x in addrrange]
-            )
+            for net in ivre.utils.range2nets(addrrange)
         )
         self.assertEqual(count, addr_range_count)
 
         addrs = set(
-            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr)
-            for net in ivre.utils.range2nets(
-                [x if isinstance(x, basestring) else ivre.utils.int2ip(x)
-                 for x in addrrange]
-            )
+            ivre.db.db.nmap.internal2ip(addr)
+            for net in ivre.utils.range2nets(addrrange)
             for addr in ivre.db.db.nmap.distinct(
                 "addr", flt=ivre.db.db.nmap.searchnet(net),
             )
@@ -846,21 +824,16 @@ which `predicate()` is True, given `webflt`.
                     "addr",
                     flt=ivre.db.db.nmap.searchnet(net),
             ):
-                self.assertTrue(
-                    (ivre.utils.ip2int(start) if isinstance(start, basestring)
-                     else start)
-                    <= (ivre.utils.ip2int(addr) if isinstance(addr, basestring)
-                        else addr)
-                    <= (ivre.utils.ip2int(stop) if isinstance(stop, basestring)
-                        else stop)
-                )
+                addr = ivre.utils.ip2int(ivre.db.db.nmap.internal2ip(addr))
+                self.assertTrue(start <= addr <= stop)
         self.assertEqual(count, addr_range_count)
         # Networks in `nets` are separated sets
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.flt_and(
                 *(ivre.db.db.nmap.searchnet(net) for net in nets)
-            ))
-        self.assertEqual(count, 0)
+            )
+        )
+        self.assertEqual(count, 0 if len(nets) > 1 else addr_range_count)
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.flt_or(
                 *(ivre.db.db.nmap.searchnet(net) for net in nets)
@@ -940,7 +913,9 @@ which `predicate()` is True, given `webflt`.
             result = ivre.db.db.nmap.get(query)
             count = ivre.db.db.nmap.count(query)
             if DATABASE == "mongo":
-                nscanned = json.loads(ivre.db.db.nmap.explain(result))
+                nscanned = json.loads(ivre.db.db.nmap.explain(
+                    ivre.db.db.nmap._get(query)
+                ))
                 try:
                     nscanned = nscanned['nscanned']
                 except KeyError:
@@ -1290,62 +1265,35 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(result, 0)
 
         addrrange = sorted(
-            (x for x in ivre.db.db.passive.distinct('addr')
-             if isinstance(x, (int, basestring)) and x),
-            key=lambda x: (ivre.utils.ip2int(x)
-                           if isinstance(x, basestring) else x),
+            (ivre.db.db.passive.internal2ip(x)
+             for x in ivre.db.db.passive.distinct(
+                     'addr',
+                     flt=ivre.db.db.passive.searchipv4(),
+             ) if x),
+            key=ivre.utils.ip2int,
         )
         self.assertGreaterEqual(len(addrrange), 2)
         if len(addrrange) < 4:
-            addrrange = [
-                ivre.db.db.passive.convert_ip(addrrange[0]),
-                ivre.db.db.passive.convert_ip(addrrange[-1])
-            ]
+            addrrange = [addrrange[0], addrrange[-1]]
         else:
-            addrrange = [
-                ivre.db.db.passive.convert_ip(addrrange[1]),
-                ivre.db.db.passive.convert_ip(addrrange[-2])
-            ]
+            addrrange = [addrrange[1], addrrange[-2]]
         result = ivre.db.db.passive.count(
             ivre.db.db.passive.searchrange(*addrrange)
         )
         self.assertGreaterEqual(result, 2)
-        addresses_1 = list(ivre.db.db.passive.distinct(
-            'addr',
-            flt=ivre.db.db.passive.searchrange(*addrrange),
-        ))
-        addresses_2 = list(ivre.db.db.passive.distinct(
-            'addr',
-            flt=ivre.db.db.passive.flt_and(
-                ivre.db.db.passive.searchcmp("addr", addrrange[0], '>='),
-                ivre.db.db.passive.searchcmp("addr", addrrange[1], '<='),
-            ),
-        ))
-        self.assertItemsEqual(addresses_1, addresses_2)
-        addresses_2 = list(ivre.db.db.passive.distinct(
-            'addr',
-            flt=ivre.db.db.passive.flt_and(
-                ivre.db.db.passive.searchcmp(
-                    "addr",
-                    ivre.utils.int2ip(ivre.utils.ip2int(addrrange[0]) - 1)
-                    if isinstance(addrrange[0], basestring) else
-                    addrrange[0] - 1,
-                    '>',
-                ),
-                ivre.db.db.passive.searchcmp(
-                    "addr",
-                    ivre.utils.int2ip(ivre.utils.ip2int(addrrange[1]) + 1)
-                    if isinstance(addrrange[1], basestring) else
-                    addrrange[1] + 1,
-                    '<'),
-            ),
-        ))
-        self.assertItemsEqual(addresses_1, addresses_2)
+        addresses_1 = [
+            ivre.db.db.passive.internal2ip(x)
+            for x in ivre.db.db.passive.distinct(
+                    'addr',
+                    flt=ivre.db.db.passive.searchrange(*addrrange),
+            )
+        ]
         addresses_2 = set()
         nets = ivre.utils.range2nets(addrrange)
         for net in nets:
             addresses_2 = addresses_2.union(
-                ivre.db.db.passive.distinct(
+                ivre.db.db.passive.internal2ip(x)
+                for x in ivre.db.db.passive.distinct(
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
                 )
@@ -1357,16 +1305,15 @@ which `predicate()` is True, given `webflt`.
                 ivre.db.db.passive.searchnet(net)
             )
             count += result
-            start, stop = (ivre.utils.ip2int(addr) for addr in
-                           ivre.utils.net2range(net))
+            start, stop = (ivre.utils.ip2int(addr)
+                           for addr in ivre.utils.net2range(net))
             for addr in ivre.db.db.passive.distinct(
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
             ):
+                addr = ivre.utils.ip2int(ivre.db.db.passive.internal2ip(addr))
                 self.assertTrue(
-                    start <= (ivre.utils.ip2int(addr)
-                              if isinstance(addr, basestring)
-                              else addr) <= stop
+                    start <= addr <= stop
                 )
         result = ivre.db.db.passive.count(
             ivre.db.db.passive.flt_and(
@@ -1516,9 +1463,7 @@ which `predicate()` is True, given `webflt`.
                                                        topnbr=1))
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
-                ivre.utils.ip2int(values["_id"])
-                if isinstance(values["_id"], basestring) else
-                values["_id"],
+                ivre.utils.ip2int(values["_id"]),
             )
             self.check_value(
                 "passive_top_addr_%sdistinct_count" % ("" if distinct
@@ -1529,10 +1474,7 @@ which `predicate()` is True, given `webflt`.
         res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
         self.assertEqual(res, 0)
         addr, count = out.decode().split('\n', 1)[0].split(': ')
-        try:
-            addr = int(addr)
-        except ValueError:
-            addr = ivre.utils.ip2int(addr)
+        addr = ivre.utils.ip2int(addr)
         count = int(count)
         self.check_value("passive_top_addr_distinct", addr)
         self.check_value("passive_top_addr_distinct_count", count)
@@ -1663,6 +1605,11 @@ which `predicate()` is True, given `webflt`.
         res = RUN(["ivre", "ipdata", "--download"])[0]
         self.assertEqual(res, 0)
 
+        if DATABASE != "maxmind":
+            print(u"Database files have been downloaded -- "
+                  u"other data tests won't run")
+            return
+
         # CSV creation -- disabled on Travis CI: this is way too slow.
         # Files are downloaded from ivre.rocks in .travis.yml instead,
         # and "touched" here to make sure they are newer than the
@@ -1784,6 +1731,12 @@ which `predicate()` is True, given `webflt`.
         # IP addresses manipulation utils
         with self.assertRaises(ValueError):
             ivre.utils.range2nets((2, 1))
+
+        # Special cases for range2nets & net2range
+        self.assertEqual(ivre.utils.range2nets(('0.0.0.0', '255.255.255.255')),
+                         ['0.0.0.0/0'])
+        self.assertEqual(ivre.utils.net2range('0.0.0.0/0'),
+                         ('0.0.0.0', '255.255.255.255'))
 
         # String utils
         teststr = b"TEST STRING -./*'"
@@ -2429,12 +2382,12 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
         ## coordinates
-        result = next(ivre.db.db.nmap.get(
+        result = next(ivre.db.db.view.get(
             ivre.db.db.view.searchcity(re.compile('.'))
         ))
         addr = ivre.utils.force_int2ip(result['addr'])
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
-        coords = result['infos']['loc']['coordinates']
+        coords = result['infos']['coordinates']
         req = Request('http://%s:%d/cgi/scans/coordinates?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
@@ -2486,9 +2439,10 @@ TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "90_cleanup",
 
 DATABASES = {
     # **excluded** tests
-    #"mongo": ["flow"],
-    "postgres": ["scans"],
-    "sqlite": ["30_nmap", "scans", "50_view"],
+    "mongo": ["utils"],
+    "postgres": ["scans", "utils"],
+    "sqlite": ["30_nmap", "50_view", "scans", "utils"],
+    "maxmind": ["30_nmap", "40_passive", "50_view", "90_cleanup", "scans"],
 }
 
 

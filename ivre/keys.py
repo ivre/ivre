@@ -94,20 +94,20 @@ class SSLKey(object):
 
     """
 
-    def __init__(self):
-        self.pem_borders = re.compile(b'^-*(BEGIN|END) CERTIFICATE-*$', re.M)
-        self.modulus_badchars = re.compile(b'[ :\n]+')
+    pem_borders = re.compile(b'^-*(BEGIN|END) CERTIFICATE-*$', re.M)
+    modulus_badchars = re.compile(b'[ :\n]+')
 
     @property
     def fltkey(self):
         return self.dbc.searchcert(keytype=self.keytype)
 
-    def read_pem(self, pem):
+    @classmethod
+    def read_pem(cls, pem):
         try:
             pem = pem.encode()
         except AttributeError:
             pass
-        pem = utils.decode_b64(self.pem_borders.sub(b"", pem))
+        pem = utils.decode_b64(cls.pem_borders.sub(b"", pem))
         proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
@@ -115,9 +115,23 @@ class SSLKey(object):
         proc.stdin.close()
         return proc.stdout.read()
 
-    def _pem2key(self, pem):
-        pem = self.read_pem(pem)
-        certtext = self.keyincert.search(pem)
+    @classmethod
+    def _pem2key(cls, pem):
+        pem = cls.read_pem(pem)
+        certtext = cls.keyincert.search(pem)
+        return None if certtext is None else certtext.groupdict()
+
+    def read_der(self, der):
+        proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+                                 '-inform', 'DER'], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE)
+        proc.stdin.write(self.dbc.from_binary(der))
+        proc.stdin.close()
+        return proc.stdout.read()
+
+    def _der2key(self, der):
+        der = self.read_der(der)
+        certtext = self.keyincert.search(der)
         return None if certtext is None else certtext.groupdict()
 
 
@@ -127,14 +141,15 @@ class SSLNmapKey(NmapKey, SSLKey):
 
     """
 
+    scriptid = "ssl-cert"
+
     def __init__(self, baseflt=None):
         NmapKey.__init__(self, baseflt=baseflt)
         SSLKey.__init__(self)
-        self.scriptid = "ssl-cert"
 
     def getkeys(self, host):
         for script in self.getscripts(host):
-            yield Key(utils.force_int2ip(host['addr']), script["port"], "ssl",
+            yield Key(host['addr'], script["port"], "ssl",
                       script["script"][self.scriptid]['pubkey']['type'],
                       script["script"][self.scriptid]['pubkey']['bits'],
                       self.pem2key(script["script"][self.scriptid]['pem']),
@@ -152,14 +167,14 @@ class SSLPassiveKey(PassiveKey, SSLKey):
         SSLKey.__init__(self)
 
     def getkeys(self, record):
-        certtext = self._pem2key(record['fullvalue']
+        certtext = self._der2key(record['fullvalue']
                                  if 'fullvalue' in record
                                  else record['value'])
         if certtext is None:
             return
 
-        yield Key(utils.force_int2ip(record['addr']), record["port"], "ssl",
-                  certtext['type'], int(certtext['len']),
+        yield Key(record['addr'], record["port"], "ssl", certtext['type'],
+                  int(certtext['len']),
                   RSA.construct((
                       long(self.modulus_badchars.sub(
                           b"", certtext['modulus']), 16),
@@ -167,13 +182,11 @@ class SSLPassiveKey(PassiveKey, SSLKey):
                   utils.decode_hex(record['infos']['md5']))
 
 
-class SSHKey(DBKey):
+class SSHKey(object):
     """Base class for a key lookup tool specialized for the Keys from
     SSH hosts.
 
     """
-    def __init__(self):
-        pass
 
     @property
     def fltkey(self):
@@ -183,10 +196,11 @@ class SSHKey(DBKey):
 class SSHNmapKey(NmapKey, SSHKey):
     """Base class for the SSH keys within the active (Nmap) DB."""
 
+    scriptid = "ssh-hostkey"
+
     def __init__(self, baseflt=None):
         NmapKey.__init__(self, baseflt=baseflt)
         SSHKey.__init__(self)
-        self.scriptid = "ssh-hostkey"
 
     def getkeys(self, host):
         for script in self.getscripts(host):
@@ -198,8 +212,7 @@ class SSHNmapKey(NmapKey, SSHKey):
                     if data[:1] != b'\x00':
                         data = utils.decode_b64(data)
                     yield Key(
-                        utils.force_int2ip(host['addr']), script["port"],
-                        "ssh", key['type'][4:],
+                        host['addr'], script["port"], "ssh", key['type'][4:],
                         int(float(key['bits'])),  # for some reason,
                                                   # Nmap sometimes
                                                   # outputs 1024.0
@@ -219,7 +232,7 @@ class SSHPassiveKey(PassiveKey, SSHKey):
         SSHKey.__init__(self)
 
     def getkeys(self, record):
-        yield Key(utils.force_int2ip(record['addr']), record["port"], "ssh",
+        yield Key(record['addr'], record["port"], "ssh",
                   record['infos']['algo'][4:], record['infos']['bits'],
                   RSA.construct((long(record['infos']['modulus']),
                                  long(record['infos']['exponent']))),
@@ -231,29 +244,31 @@ class RSAKey(object):
 
     """
 
-    def __init__(self):
-        self.keyincert = re.compile(
-            b'\n *Issuer: (?P<issuer>.*)'
-            b'\n(?:.*\n)* *Subject: (?P<subject>.*)'
-            b'\n(?:.*\n)* *Public Key Algorithm:'
-            b' (?P<type>.*)Encryption'
-            b'\n *Public-Key: \\((?P<len>[0-9]+) bit\\)'
-            b'\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
-            b'\n\\ *Exponent: (?P<exponent>[0-9]+) '
-        )
-        self.keytype = 'rsa'
+    keyincert = re.compile(
+        b'\n *Issuer: (?P<issuer>.*)'
+        b'\n(?:.*\n)* *Subject: (?P<subject>.*)'
+        b'\n(?:.*\n)* *Public Key Algorithm:'
+        b' (?P<type>.*)Encryption'
+        b'\n *(?:.*)Public-Key: \\((?P<len>[0-9]+) bit\\)'
+        b'\n *Modulus:\n(?P<modulus>[\\ 0-9a-f:\n]+)'
+        b'\n\\ *Exponent: (?P<exponent>[0-9]+) '
+    )
+    keytype = 'rsa'
 
-    def _pem2key(self, pem):
+    @classmethod
+    def _pem2key(cls, pem):
         raise NotImplementedError
 
-    def pem2key(self, pem):
-        certtext = self._pem2key(pem)
+    @classmethod
+    def pem2key(cls, pem):
+        certtext = cls._pem2key(pem)
         return None if certtext is None else RSA.construct((
-            long(self.modulus_badchars.sub(b"", certtext['modulus']), 16),
+            long(cls.modulus_badchars.sub(b"", certtext['modulus']), 16),
             long(certtext['exponent']),
         ))
 
-    def data2key(self, data):
+    @staticmethod
+    def data2key(data):
         data = utils.parse_ssh_key(data)
         _, exp, mod = (next(data),  # noqa: F841 (_)
                        long(utils.encode_hex(next(data)), 16),
@@ -270,6 +285,15 @@ class SSLRsaNmapKey(SSLNmapKey, RSAKey):
     def __init__(self, baseflt=None):
         SSLNmapKey.__init__(self, baseflt=baseflt)
         RSAKey.__init__(self)
+
+    def getkeys(self, host):
+        for script in self.getscripts(host):
+            key = script["script"][self.scriptid]['pubkey']
+            yield Key(host['addr'], script["port"], "ssl", key['type'],
+                      key['bits'],
+                      RSA.construct((long(key['modulus']),
+                                     long(key['exponent']),)),
+                      utils.decode_hex(script["script"][self.scriptid]['md5']))
 
 
 class SSHRsaNmapKey(SSHNmapKey, RSAKey):

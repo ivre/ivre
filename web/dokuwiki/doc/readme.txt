@@ -27,7 +27,7 @@ IVRE relies on:
   * [[http://nmap.org/|Nmap]] version 7.25BETA2 minimum (actually, earlier versions can be used by setting ''%%script_timeout%%'' to ''%%None%%'' in each scan template).
   * optionnaly [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
   * [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://qosient.com/argus/|Argus]], [[http://nfdump.sourceforge.net/|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
-  * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.12, 3.0.15, 3.2.18, 3.4.10, 3.6.2 and 3.7.1).
+  * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.12, 3.0.15, 3.2.21, 3.4.17, 3.6.8, 4.0.2 and 4.1.3).
   * optionnaly [[http://neo4j.com/|Neo4j]] for the flow module.
   * optionnaly [[https://www.postgresql.org/|PostgreSQL]], version 9.5 minimum (tests are run with versions 9.5.10, 9.6.6 and 10.1), for the **experimental** PostgreSQL backend.
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is distributed with IVRE (''%%ivre httpd%%'').
@@ -145,7 +145,7 @@ When it's over, to import the results in the database, run:
 $ ivre scan2db -c ROUTABLE-CAMPAIGN-001 -s MySource -r scans/ROUTABLE/up
 
 </code>
-Here, ''%%ROUTABLE-CAMPAIGN-001%%'' is a category (just an arbitrary name that you will use later to filter scan results) and ''%%MySource%%'' is a friendly name for your scanning machine (same here, an arbitrary name usable to filter scan results; by default, when you insert a scan result, if you already have a scan result for the same host address with the same source, the new result is not inserted in the database).
+Here, ''%%ROUTABLE-CAMPAIGN-001%%'' is a category (just an arbitrary name that you will use later to filter scan results) and ''%%MySource%%'' is a friendly name for your scanning machine (same here, an arbitrary name usable to filter scan results; by default, when you insert a scan result, if you already have a scan result for the same host address with the same source, the previous result is moved to an "archive" collection (fewer indexes) and the new result is inserted in the database).
 
 There is an alternative to installing IVRE on the scanning machine that allows to use several agents from one master. See the [[doc:agent|AGENT]] file, and the commands ''%%ivre {runscansagent|runscansagentdb}%%'' for the master.
 

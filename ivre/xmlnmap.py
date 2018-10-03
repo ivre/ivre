@@ -43,7 +43,7 @@ from ivre import utils
 from ivre.analyzer import ike
 
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -1021,14 +1021,33 @@ X509 "service" tag.
         except KeyError:
             pass
     try:
-        newout.append('Public Key type: %s\n' % {
+        pubkeyalgo = info.pop('pubkeyalgo')
+    except KeyError:
+        pass
+    else:
+        pubkeytype = {
             'rsaEncryption': 'rsa',
             'id-ecPublicKey': 'ec',
             'id-dsa': 'dsa',
             'dhpublicnumber': 'dh',
-        }.get(info['pubkeyalgo'], info['pubkeyalgo']))
-    except KeyError:
-        pass
+        }.get(pubkeyalgo, pubkeyalgo)
+        newout.append('Public Key type: %s\n' % pubkeytype)
+        info['pubkey'] = {'type': pubkeytype}
+    for key in ['bits', 'modulus', 'exponent']:
+        try:
+            info.setdefault('pubkey', {})[key] = info.pop(key)
+        except KeyError:
+            pass
+        else:
+            try:
+                info['pubkey'][key] = int(info['pubkey'][key])
+            except ValueError:
+                try:
+                    info['pubkey'][key] = str(int(re.sub('[ :\n]+', '',
+                                                         info['pubkey'][key]),
+                                                  16))
+                except ValueError:
+                    pass
     b64cert = data.decode()
     pem = []
     pem.append('-----BEGIN CERTIFICATE-----')
@@ -1199,15 +1218,13 @@ class NmapHandler(ContentHandler):
                 # Masscan
                 self._curhost['starttime'] = self._curhost['endtime']
         elif name == 'address' and self._curhost is not None:
-            if attrs['addrtype'] != 'ipv4':
+            if attrs['addrtype'] in ['ipv4', 'ipv6'] \
+               and 'addr' not in self._curhost:
+                self._curhost['addr'] = attrs['addr']
+            else:
                 self._curhost.setdefault(
                     'addresses', {}).setdefault(
                         attrs['addrtype'], []).append(attrs['addr'])
-            else:
-                try:
-                    self._curhost['addr'] = utils.ip2int(attrs['addr'])
-                except utils.socket.error:
-                    self._curhost['addr'] = attrs['addr']
         elif name == 'hostnames':
             if self._curhostnames is not None:
                 utils.LOGGER.warning("self._curhostnames should be None at "
@@ -1251,13 +1268,6 @@ class NmapHandler(ContentHandler):
             for field in ['state_reason_ttl']:
                 if field in self._curport:
                     self._curport[field] = int(self._curport[field])
-            for field in ['state_reason_ip']:
-                if field in self._curport:
-                    try:
-                        self._curport[field] = utils.ip2int(
-                            self._curport[field])
-                    except utils.socket.error:
-                        pass
         elif name == 'service' and self._curport is not None:
             if attrs.get("method") == "table":
                 # discard information from nmap-services
@@ -1428,10 +1438,6 @@ class NmapHandler(ContentHandler):
         elif name == 'hop' and self._curtrace is not None:
             attrsdict = dict(attrs)
             try:
-                attrsdict['ipaddr'] = utils.ip2int(attrs['ipaddr'])
-            except utils.socket.error:
-                pass
-            try:
                 attrsdict['rtt'] = float(attrs['rtt'])
             except ValueError:
                 pass
@@ -1441,7 +1447,8 @@ class NmapHandler(ContentHandler):
                 pass
             if 'host' in attrsdict:
                 attrsdict['domains'] = list(
-                    utils.get_domains(attrsdict['host']))
+                    utils.get_domains(attrsdict['host'])
+                )
             self._curtrace['hops'].append(attrsdict)
         elif name == 'cpe':
             # start recording
@@ -1636,7 +1643,12 @@ class NmapHandler(ContentHandler):
             data = self._from_binary(script['masscan']['raw'])
         except KeyError:
             return
-        output_text, output_data = create_ssl_cert(data)
+        try:
+            output_text, output_data = create_ssl_cert(data)
+        except Exception:
+            utils.LOGGER.warning('Cannot parse certificate %r', data,
+                                 exc_info=True)
+            return
         if output_data:
             script["output"] = "\n".join(output_text)
             script[script["id"]] = output_data
