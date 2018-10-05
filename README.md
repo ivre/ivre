@@ -26,7 +26,7 @@ Taullier".
 
 You can have a look at the [project homepage](https://ivre.rocks/),
 the **[screenshot gallery](doc/SCREENSHOTS.md)**, and the
-[quick video introducion](https://www.youtube.com/watch?v=GBu5QMq6ewY)
+[quick video introduction](https://www.youtube.com/watch?v=GBu5QMq6ewY)
 for an overview of the Web interface.
 
 We have a **demonstration instance**, just [contact us](#contact) to
