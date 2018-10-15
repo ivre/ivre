@@ -27,7 +27,6 @@ import errno
 from functools import reduce
 from glob import glob
 from io import BytesIO
-from itertools import chain
 import json
 import os
 import pipes
@@ -48,7 +47,6 @@ except ImportError:
     from urllib2 import HTTPError, Request, urlopen
 
 
-from future.utils import viewvalues
 from future.builtins import int, range
 from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
@@ -899,7 +897,6 @@ which `predicate()` is True, given `webflt`.
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
         ))['addr']
-        addr_i = ivre.utils.force_ip2int(addr)
         addr = ivre.utils.force_int2ip(addr)
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         queries = [

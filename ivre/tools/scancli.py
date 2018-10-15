@@ -26,11 +26,6 @@ except ImportError:
 else:
     USING_ARGPARSE = True
 import os
-try:
-    from collections import OrderedDict
-except ImportError:
-    # fallback to dict for Python 2.6
-    OrderedDict = dict
 import sys
 try:
     reload(sys)
