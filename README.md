@@ -1,3 +1,4 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/0116170aaaa54915a72aad286029250b)](https://app.codacy.com/app/p-l-/ivre?utm_source=github.com&utm_medium=referral&utm_content=cea-sec/ivre&utm_campaign=Badge_Grade_Dashboard)
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
 
 # What is it? #
