@@ -122,7 +122,7 @@ ivreWebUi.factory("graphService", function () {
             a=((a<<5)-a)+b.charCodeAt(0);
             return a&a
         },0);
-    };
+    }
 
     function hex_color_to_rgba(hex, opacity){
         if (opacity === undefined) {

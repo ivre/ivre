@@ -31,7 +31,6 @@ except ImportError:
 from copy import deepcopy
 import datetime
 import json
-import hashlib
 import os
 import re
 import socket
