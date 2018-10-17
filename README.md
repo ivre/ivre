@@ -1,7 +1,7 @@
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/0116170aaaa54915a72aad286029250b)](https://app.codacy.com/app/p-l-/ivre?utm_source=github.com&utm_medium=referral&utm_content=cea-sec/ivre&utm_campaign=Badge_Grade_Dashboard)
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/0116170aaaa54915a72aad286029250b)](https://app.codacy.com/app/p-l-/ivre)
 
-# What is it? #
+# IVRE #
 
 <img align="right" src="web/static/logo.png" alt="Logo"/> IVRE
 (Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic
@@ -17,13 +17,13 @@ output from Nmap and
 
 The advertising slogans are:
 
-  - (in French): IVRE, il scanne Internet.
-  - (in English): Know the networks, get DRUNK!
+-   (in French): IVRE, il scanne Internet.
+-   (in English): Know the networks, get DRUNK!
 
 The names IVRE and DRUNK have been chosen as a tribute to "Le
 Taullier".
 
-# Overview #
+## Overview ##
 
 You can have a look at the [project homepage](https://ivre.rocks/),
 the **[screenshot gallery](doc/SCREENSHOTS.md)**, and the
@@ -37,7 +37,7 @@ A few
 **[blog posts](http://pierre.droids-corp.org/blog/html/tags/ivre.html)**
 have been written to show some features of IVRE.
 
-# Documentation #
+## Documentation ##
 
 See [doc/README](doc/README.md) (and `doc/*` files) for more
 information.
@@ -51,7 +51,7 @@ On a client with IVRE installed, you can use a `--help` option with
 most IVRE CLI tools, and use `help(ivre.module)` with most IVRE Python
 sub-modules.
 
-# License #
+## License ##
 
 IVRE is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ You should have received a copy of the GNU General Public License
 [along with IVRE](doc/LICENSE.md). If not, see [the gnu.org web
 site](http://www.gnu.org/licenses/).
 
-# Support #
+## Support ##
 
 Try `--help` for the CLI tools, `help()` under Python and the "HELP"
 button in the web interface.
@@ -80,7 +80,7 @@ If you don't like beer, a good scotch or any other good alcoholic
 beverage will do (it is the author's unalienable right to decide
 whether a beverage is good or not).
 
-# Contributing #
+## Contributing ##
 
 Code contributions (pull-requests) are of course welcome!
 
@@ -89,7 +89,7 @@ as examples. If you can contribute some samples, or if you want to
 contribute some samples and would need some help to do so, or if you
 can provide a server to run scans, please contact the author.
 
-# Contact #
+## Contact ##
 
 For both support and contribution, the
 [repository](https://github.com/cea-sec/ivre) on Github should be
@@ -99,9 +99,9 @@ You can also try to use the e-mail `dev` on the domain `ivre.rocks`,
 or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
-# Talking about IVRE #
+## Talking about IVRE ##
 
-## Research ##
+### Research ###
 
 If you are using IVRE in you research, please cite it as follows:
 
@@ -121,7 +121,7 @@ Here is the appropriate bibtex entry:
         year = {2011--2017},
     }
 
-## Technical documents, blog posts, etc. ##
+### Technical documents & blog posts ###
 
 You can mention "IVRE, a network recon framework", together with the
 project homepage, [https://ivre.rocks/](https://ivre.rocks/) and/or
@@ -130,7 +130,6 @@ the repository,
 
 On twitter, you can follow and/or mention
 [@IvreRocks](https://twitter.com/IvreRocks).
-
 
 ---
 
