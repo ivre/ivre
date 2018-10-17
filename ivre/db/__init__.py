@@ -150,12 +150,13 @@ class DB(object):
 
     # filters
 
-    def flt_and(self, *args):
+    @classmethod
+    def flt_and(cls, *args):
         """Returns a condition that is true iff all of the given
         conditions is true.
 
         """
-        return reduce(self._flt_and, args)
+        return reduce(cls._flt_and, args)
 
     @staticmethod
     def _flt_and(cond1, cond2):
@@ -895,7 +896,8 @@ they are stored as canonical string representations.
         raise NotImplementedError
 
     @staticmethod
-    def searchproduct(product, version=None, service=None, port=None):
+    def searchproduct(product, version=None, service=None, port=None,
+                      protocol=None):
         raise NotImplementedError
 
     @staticmethod
@@ -1047,11 +1049,11 @@ they are stored as canonical string representations.
         return flt
 
     @staticmethod
-    def cmp_schema_version_host(*_):
+    def cmp_schema_version_host(_):
         return 0
 
     @staticmethod
-    def cmp_schema_version_scan(*_):
+    def cmp_schema_version_scan(_):
         return 0
 
 
@@ -1822,7 +1824,7 @@ LockError on failure.
     def _lock_scan(self, scanid, oldlockid, newlockid):
         raise NotImplementedError
 
-    def get_scan(self):
+    def get_scan(self, scanid):
         raise NotImplementedError
 
     def get_scans(self):

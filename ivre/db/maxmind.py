@@ -88,7 +88,7 @@ missing to emit a warning message and return empty results.
 
     """
 
-    def __init__(self):
+    def __init__(self, _):
         utils.LOGGER.warning("Cannot find Maxmind database files")
 
     def lookup(self, _):

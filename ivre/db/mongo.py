@@ -1202,8 +1202,8 @@ e.g.  .explain()).
         """
         return self._get_cursor(self.colname_hosts, flt, **kargs)
 
-    def get(self, flt, **kargs):
-        """Queries the active column with the provided filter "flt",
+    def get(self, spec, **kargs):
+        """Queries the active column with the provided filter "spec",
 and returns a MongoDB cursor.
 
 This should be very fast, as no operation is done (the cursor is only
@@ -1214,7 +1214,7 @@ Any keyword argument is passed to the .find() method of the Mongodb
 column object, without any validation (and might have no effect if
 it is not expected)."""
         # Convert IP addresses to internal DB format
-        for host in self._get(flt, **kargs):
+        for host in self._get(spec, **kargs):
             try:
                 host['addr'] = self.internal2ip([host.pop('addr_0'),
                                                  host.pop('addr_1')])
