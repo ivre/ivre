@@ -15,7 +15,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM ivre/base
-MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
+LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
 
 # Install Apache2 & Dokuwiki
 ## Dokuwiki does not exist in stable, but does in testing
@@ -57,7 +57,7 @@ RUN ln -s /etc/apache2/mods-available/rewrite.load etc/apache2/mods-enabled
 # Configure Dokuwiki (access to everyone)
 RUN mv etc/dokuwiki/acl.auth.php.dist etc/dokuwiki/acl.auth.php
 RUN sed -i 's/Allow from localhost.*/Allow from all/' etc/dokuwiki/apache.conf
-ADD doku-conf-local.php etc/dokuwiki/local.php
+COPY doku-conf-local.php etc/dokuwiki/local.php
 
 ENV APACHE_RUN_USER www-data
 ENV APACHE_RUN_GROUP www-data
