@@ -123,14 +123,16 @@ class DefaultJSONB(UserDefinedType):
     def get_col_spec(self):
         return self.__visit_name__
 
-    def bind_processor(self, dialect):
+    @staticmethod
+    def bind_processor(dialect):
         def process(value):
             if value is not None:
                 value = json.dumps(value, sort_keys=True)
             return value
         return process
 
-    def result_processor(self, dialect, coltype):
+    @staticmethod
+    def result_processor(dialect, coltype):
         def process(value):
             if value is not None:
                 value = json.loads(value)
@@ -149,12 +151,14 @@ class DefaultARRAY(TypeDecorator):
         TypeDecorator.__init__(self, *args, **kwargs)
         self.item_type = item_type
 
-    def process_bind_param(self, value, dialect):
+    @staticmethod
+    def process_bind_param(value, dialect):
         if value is not None:
             value = json.dumps(value, sort_keys=True)
         return value
 
-    def process_result_value(self, value, dialect):
+    @staticmethod
+    def process_result_value(value, dialect):
         if value is not None:
             value = json.loads(value)
         return value
@@ -190,7 +194,8 @@ class DefaultINET(UserDefinedType):
                 return self.python_type(utils.encode_hex(utils.ip2bin(value)))
         return process
 
-    def result_processor(self, dialect, coltype):
+    @staticmethod
+    def result_processor(dialect, coltype):
         if PY3:
             def process(value):
                 return None if not value else utils.bin2ip(value)
@@ -214,14 +219,16 @@ class Point(UserDefinedType):
     def bind_expression(self, bindvalue):
         return func.Point_In(bindvalue, type_=self)
 
-    def bind_processor(self, dialect):
+    @staticmethod
+    def bind_processor(dialect):
         def process(value):
             if value is None:
                 return None
             return "%f,%f" % value
         return process
 
-    def result_processor(self, dialect, coltype):
+    @staticmethod
+    def result_processor(dialect, coltype):
         def process(value):
             if value is None:
                 return None

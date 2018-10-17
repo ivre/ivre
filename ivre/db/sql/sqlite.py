@@ -42,21 +42,21 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
         SqliteDB.__init__(self, url)
         SQLDBPassive.__init__(self, url)
 
-    def _insert_or_update(self, timestamp, vals, lastseen=None):
+    def _insert_or_update(self, timestamp, values, lastseen=None):
         stmt = insert(self.tables.passive)\
-            .values(dict(vals, addr=utils.force_int2ip(vals['addr'])))
+            .values(dict(values, addr=utils.force_int2ip(values['addr'])))
         try:
             self.db.execute(stmt)
         except IntegrityError:
             whereclause = and_(
-                self.tables.passive.addr == vals['addr'],
-                self.tables.passive.sensor == vals['sensor'],
-                self.tables.passive.recontype == vals['recontype'],
-                self.tables.passive.source == vals['source'],
-                self.tables.passive.value == vals['value'],
-                self.tables.passive.targetval == vals['targetval'],
-                self.tables.passive.info == vals['info'],
-                self.tables.passive.port == vals['port']
+                self.tables.passive.addr == values['addr'],
+                self.tables.passive.sensor == values['sensor'],
+                self.tables.passive.recontype == values['recontype'],
+                self.tables.passive.source == values['source'],
+                self.tables.passive.value == values['value'],
+                self.tables.passive.targetval == values['targetval'],
+                self.tables.passive.info == values['info'],
+                self.tables.passive.port == values['port']
             )
             upsert = {
                 'firstseen': func.least(
@@ -67,7 +67,7 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
                     self.tables.passive.lastseen,
                     lastseen or timestamp,
                 ),
-                'count': self.tables.passive.count + vals['count'],
+                'count': self.tables.passive.count + values['count'],
             }
             updt = update(
                 self.tables.passive

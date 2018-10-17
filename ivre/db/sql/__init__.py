@@ -401,12 +401,12 @@ field.
         return (next(iter(viewvalues(res))) for res in self.db.execute(req))
 
     @staticmethod
-    def _flt_and(flt1, flt2):
-        return flt1 & flt2
+    def _flt_and(cond1, cond2):
+        return cond1 & cond2
 
     @staticmethod
-    def _flt_or(flt1, flt2):
-        return flt1 | flt2
+    def _flt_or(cond1, cond2):
+        return cond1 | cond2
 
     @classmethod
     def flt_and(cls, *args):
