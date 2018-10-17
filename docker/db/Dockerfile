@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM debian:jessie
-MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
+LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
@@ -54,5 +54,5 @@ EXPOSE 7474
 ## v3
 #EXPOSE 7687
 
-ADD run.sh /
+COPY run.sh /
 CMD /run.sh

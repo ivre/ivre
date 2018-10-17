@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,11 +15,11 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM ivre/base
-MAINTAINER Pierre LALET <pierre.lalet@cea.fr>
+LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
 
 # Install & configure Nginx
 RUN apt-get -qy install nginx spawn-fcgi php-fpm php-gd fcgiwrap uwsgi-plugin-python
-ADD nginx-default-site /etc/nginx/sites-available/default
+COPY nginx-default-site /etc/nginx/sites-available/default
 RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
 RUN mkdir /var/run/uwsgi
 
@@ -40,10 +40,10 @@ RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc && 
 
 # Configure Dokuwiki
 RUN rm var/www/dokuwiki/install.php
-ADD doku-conf-local.php var/www/dokuwiki/conf/local.php
-ADD doku-conf-plugins.local.php var/www/dokuwiki/conf/plugins.local.php
-ADD doku-conf-acl.auth.php var/www/dokuwiki/conf/acl.auth.php
-ADD doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
+COPY doku-conf-local.php var/www/dokuwiki/conf/local.php
+COPY doku-conf-plugins.local.php var/www/dokuwiki/conf/plugins.local.php
+COPY doku-conf-acl.auth.php var/www/dokuwiki/conf/acl.auth.php
+COPY doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
 RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/www/dokuwiki/lib/plugins
 
 # Needed by Neo4j
