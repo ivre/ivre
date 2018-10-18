@@ -420,7 +420,8 @@ class DBActive(DB):
         self.argparser.add_argument('--torcert', action='store_true')
         self.argparser.add_argument('--sshkey', metavar="FINGERPRINT")
 
-    def is_scan_present(self, _):
+    @staticmethod
+    def is_scan_present(_):
         return False
 
     def start_store_hosts(self):

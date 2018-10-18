@@ -1071,8 +1071,8 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         PostgresDB.__init__(self, url)
         SQLDBPassive.__init__(self, url)
 
-    def _insert_or_update(self, timestamp, vals, lastseen=None):
-        stmt = postgresql.insert(self.tables.passive).values(vals)
+    def _insert_or_update(self, timestamp, values, lastseen=None):
+        stmt = postgresql.insert(self.tables.passive).values(values)
         index = ['addr', 'sensor', 'recontype', 'port',
                  'source', 'value', 'targetval', 'info']
         upsert = {
