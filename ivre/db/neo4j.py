@@ -253,7 +253,7 @@ class Query(object):
                 utils.LOGGER.warning(
                     'Parameter%s overwritten:%s',
                     "s" if len(keys) > 1 else "",
-                    ("\n%" % "\n".join(
+                    ("\n%s" % "\n".join(
                         '  - %r [%r -> %r]' % (key, self._params[key],
                                                params[key])
                         for key in keys
