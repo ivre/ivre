@@ -157,7 +157,7 @@ def _extract_passive_SSL_SERVER(rec):
     """Handle ssl server headers."""
     if rec.get('source') != 'cert':
         return {}
-    value = utils.nmap_decode_data(rec.get('fullvalue', rec['value']))
+    value = db.passive.from_binary(rec.get('fullvalue', rec['value']))
     script = {"id": "ssl-cert"}
     port = {
         'state_state': 'open',
@@ -165,7 +165,7 @@ def _extract_passive_SSL_SERVER(rec):
         'port': rec['port'],
         'protocol': rec.get('protocol', 'tcp'),
     }
-    output, info = create_ssl_cert(value)
+    output, info = create_ssl_cert(value, b64encoded=False)
     if info:
         script['output'] = "\n".join(output)
         script['ssl-cert'] = info

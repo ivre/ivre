@@ -1001,12 +1001,16 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
-def create_ssl_cert(data):
+def create_ssl_cert(data, b64encoded=True):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
 
     """
-    cert = utils.decode_b64(data)
+    if b64encoded:
+        cert = utils.decode_b64(data)
+    else:
+        cert = data
+        data = utils.encode_b64(cert)
     info = utils.get_cert_info(cert)
     newout = []
     for key, name in [('subject_text', 'Subject'),
