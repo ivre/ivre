@@ -324,7 +324,20 @@ def to_view(itrs):
         if rec is None:
             return updt
         return db.view.merge_host_docs(rec, updt)
-    next_recs = [next(itr) for itr in itrs]
+    next_recs = []
+    # We cannot use a `for itr in itrs` loop here because itrs is
+    # modified in the loop.
+    i = 0
+    while i < len(itrs):
+        try:
+            next_recs.append(next(itrs[i]))
+        except StopIteration:
+            # We need to remove the corresponding iterator from itrs,
+            # which happens to be the n-th where n is the current
+            # length of next_recs.
+            del itrs[len(next_recs)]  # Do not increment i here
+        else:
+            i += 1
     next_addrs = [rec['addr'] for rec in next_recs]
     cur_rec = None
     cur_addr = min(next_addrs, key=utils.ip2int)
