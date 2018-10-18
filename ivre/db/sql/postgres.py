@@ -27,7 +27,6 @@ import datetime
 import time
 
 
-from builtins import int
 from sqlalchemy import desc, func, text, column, delete, exists, insert, \
     join, select, update, and_, Column, Table, ARRAY, LargeBinary, String, \
     tuple_
