@@ -262,7 +262,8 @@ class TargetFile(Target):
 
     """
 
-    def __getaddr__(self, line):
+    @staticmethod
+    def _getaddr(line):
         try:
             return utils.ip2int(line.split('#', 1)[0].strip())
         except utils.socket.error:
@@ -277,7 +278,7 @@ class TargetFile(Target):
             i = 0
             for line in fdesc:
                 try:
-                    self.__getaddr__(line)
+                    self._getaddr(line)
                     i += 1
                 except utils.socket.error:
                     pass
@@ -322,7 +323,7 @@ class IterTargetFile(object):
             self.fdesc.close()
             self.target.close()
             raise StopIteration
-        return self.target.__getaddr__(line)
+        return self.target._getaddr(line)
 
     def __next__(self):
         while True:
@@ -372,8 +373,9 @@ class TargetNmapPreScan(TargetZMapPreScan):
 
     match_addr = re.compile('^Host: ([^ ]+) \\(.*\\)\tStatus: Up$')
 
-    def __getaddr__(self, line):
-        addr = self.match_addr.match(line)
+    @classmethod
+    def _getaddr(cls, line):
+        addr = cls.match_addr.match(line)
         if addr is not None:
             try:
                 return utils.ip2int(addr.groups()[0])
