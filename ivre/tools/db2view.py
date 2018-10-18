@@ -22,7 +22,7 @@ from __future__ import print_function
 import sys
 
 from ivre.view import from_passive, from_nmap, to_view
-from ivre.db import db
+from ivre.db import db, DB
 
 try:
     import argparse
@@ -35,7 +35,8 @@ except ImportError:
 def main():
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
-            description='Create views from nmap and passive databases.')
+            description='Create views from nmap and passive databases.',
+            parents=[DB().argparser])
     else:
         parser = optparse.OptionParser(
             description='Create views from nmap and passive databases.')
@@ -87,8 +88,8 @@ def main():
     if not args.view_source:
         args.view_source = 'all'
     if args.view_source == 'all':
-        fltnmap = db.nmap.parse_args(args)
-        fltpass = db.passive.parse_args(args)
+        fltnmap = DB().parse_args(args, flt=fltnmap)
+        fltpass = DB().parse_args(args, flt=fltpass)
         _from = [from_nmap(fltnmap), from_passive(fltpass)]
     elif args.view_source == 'nmap':
         fltnmap = db.nmap.parse_args(args, fltnmap)
