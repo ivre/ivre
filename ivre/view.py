@@ -342,17 +342,21 @@ def to_view(itrs):
     cur_rec = None
     cur_addr = min(next_addrs, key=utils.ip2int)
     while next_recs:
-        for i in range(len(itrs)):
+        # We cannot use a `for i in range(len(itrs))` loop because
+        # itrs is modified in the loop.
+        i = 0
+        while i < len(itrs):
             if next_addrs[i] == cur_addr:
                 cur_rec = next_record(cur_rec, next_recs[i])
                 try:
                     next_recs[i] = next(itrs[i])
                 except StopIteration:
-                    next_addrs.pop(i)
-                    next_recs.pop(i)
-                    itrs.pop(i)
-                    continue
+                    del next_addrs[i]
+                    del next_recs[i]
+                    del itrs[i]
+                    continue  # Do not increment i here
                 next_addrs[i] = next_recs[i]['addr']
+            i += 1
         if next_addrs and cur_addr not in next_addrs:
             yield cur_rec
             cur_rec = None
