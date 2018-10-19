@@ -404,6 +404,7 @@ class DBActive(DB):
                                     'open ports NOT within the provided range',
                                     nargs=2)
         self.argparser.add_argument('--script', metavar='ID[:OUTPUT]')
+        self.argparser.add_argument('--no-script', metavar='ID[:OUTPUT]')
         self.argparser.add_argument('--os')
         self.argparser.add_argument('--anonftp', action='store_true')
         self.argparser.add_argument('--anonldap', action='store_true')
@@ -1004,6 +1005,15 @@ they are stored as canonical string representations.
                 name, output = utils.str2regexp(args.script), None
             flt = self.flt_and(flt, self.searchscript(name=name,
                                                       output=output))
+        if args.no_script is not None:
+            if ':' in args.no_script:
+                name, output = (utils.str2regexp(string) for
+                                string in args.no_script.split(':', 1))
+            else:
+                name, output = utils.str2regexp(args.no_script), None
+            flt = self.flt_and(flt, self.searchscript(name=name,
+                                                      output=output,
+                                                      neg=True))
         if args.os is not None:
             flt = self.flt_and(
                 flt,

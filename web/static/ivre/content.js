@@ -145,7 +145,7 @@ var HELP_FILTERS = {
 	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
 	},
 	"script:": {
-	    "title": "script:<b>[script id](:[script output])</b>",
+	    "title": "<b>(!)</b>script:<b>[script id](:[script output])</b>",
 	    "content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
 	},
 	/* results of scripts or version scans */
