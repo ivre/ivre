@@ -2110,14 +2110,23 @@ it is not expected)."""
             field = "categories"
         elif field == "country":
             flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
-            field = "infos.country_code"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': (
-                    x['_id'],
-                    self.globaldb.data.country_name_by_code(x['_id']),
-                ),
-            }
+            field = "country"
+            if self.mongodb_32_more:
+                specialproj = {"_id": 0,
+                               "country": [
+                                   "$infos.country_code",
+                                   {"$ifNull": ["$infos.country_name", "?"]},
+                               ]}
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'])}
+            else:
+                specialproj = {"_id": 0,
+                               "country": _old_array(
+                                   "$infos.country_code",
+                                   {"$ifNull": ["$infos.country_name", "?"]},
+                               )}
+                outputproc = lambda x: {'count': x['count'],
+                                        '_id': tuple(x['_id'].split('###', 1))}
         elif field == "city":
             flt = self.flt_and(
                 flt,
@@ -2271,7 +2280,7 @@ it is not expected)."""
                 # We use $redact instead of $match to keep an empty
                 # list when no port matches.
                 #
-                # The firts "$cond" help us make the difference
+                # The first "$cond" help us make the difference
                 # between main document ($ports exists in that case)
                 # and a nested document ($ports does not exist in that
                 # case). The second only keeps ports we are interested in.
