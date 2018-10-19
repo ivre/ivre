@@ -1268,7 +1268,9 @@ class DBView(DBActive):
                             curport[key] = port[key]
             else:
                 ports[(port.get('protocol'), port['port'])] = port
-        rec["ports"] = list(viewvalues(ports))
+        rec["ports"] = sorted(viewvalues(ports), key=lambda port: (
+            port.get('protocol') or '~', port.get('port'),
+        ))
         rec["openports"] = {}
         for record in [rec1, rec2]:
             for proto in record.get('openports', {}):
