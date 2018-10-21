@@ -157,7 +157,7 @@ def _extract_passive_SSL_SERVER(rec):
     """Handle ssl server headers."""
     if rec.get('source') != 'cert':
         return {}
-    value = utils.nmap_decode_data(rec.get('fullvalue', rec['value']))
+    value = db.passive.from_binary(rec.get('fullvalue', rec['value']))
     script = {"id": "ssl-cert"}
     port = {
         'state_state': 'open',
@@ -165,7 +165,7 @@ def _extract_passive_SSL_SERVER(rec):
         'port': rec['port'],
         'protocol': rec.get('protocol', 'tcp'),
     }
-    output, info = create_ssl_cert(value)
+    output, info = create_ssl_cert(value, b64encoded=False)
     if info:
         script['output'] = "\n".join(output)
         script['ssl-cert'] = info
@@ -324,22 +324,39 @@ def to_view(itrs):
         if rec is None:
             return updt
         return db.view.merge_host_docs(rec, updt)
-    next_recs = [next(itr) for itr in itrs]
+    next_recs = []
+    # We cannot use a `for itr in itrs` loop here because itrs is
+    # modified in the loop.
+    i = 0
+    while i < len(itrs):
+        try:
+            next_recs.append(next(itrs[i]))
+        except StopIteration:
+            # We need to remove the corresponding iterator from itrs,
+            # which happens to be the n-th where n is the current
+            # length of next_recs.
+            del itrs[len(next_recs)]  # Do not increment i here
+        else:
+            i += 1
     next_addrs = [rec['addr'] for rec in next_recs]
     cur_rec = None
     cur_addr = min(next_addrs, key=utils.ip2int)
     while next_recs:
-        for i in range(len(itrs)):
+        # We cannot use a `for i in range(len(itrs))` loop because
+        # itrs is modified in the loop.
+        i = 0
+        while i < len(itrs):
             if next_addrs[i] == cur_addr:
                 cur_rec = next_record(cur_rec, next_recs[i])
                 try:
                     next_recs[i] = next(itrs[i])
                 except StopIteration:
-                    next_addrs.pop(i)
-                    next_recs.pop(i)
-                    itrs.pop(i)
-                    continue
+                    del next_addrs[i]
+                    del next_recs[i]
+                    del itrs[i]
+                    continue  # Do not increment i here
                 next_addrs[i] = next_recs[i]['addr']
+            i += 1
         if next_addrs and cur_addr not in next_addrs:
             yield cur_rec
             cur_rec = None
