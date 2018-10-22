@@ -54,6 +54,7 @@ BZ2_CMD = "bzcat"
 MD5_CMD = "md5sum"
 SHA1_CMD = "sha1sum"
 SHA256_CMD = "sha256sum"
+OPENSSL_CMD = "openssl"
 # specific: if no value is specified, tries /usr/local/share/<soft>,
 # /opt/<soft>/share/<soft>, then /usr/share/<soft>.
 NMAP_SHARE_PATH = None

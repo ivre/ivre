@@ -36,7 +36,7 @@ from past.builtins import long
 
 
 from ivre.db import db
-from ivre import utils
+from ivre import config, utils
 
 
 Key = namedtuple("key", ["ip", "port", "service", "type", "size",
@@ -108,7 +108,7 @@ class SSLKey(object):
         except AttributeError:
             pass
         pem = utils.decode_b64(cls.pem_borders.sub(b"", pem))
-        proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+        proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
         proc.stdin.write(pem)
@@ -122,7 +122,7 @@ class SSLKey(object):
         return None if certtext is None else certtext.groupdict()
 
     def read_der(self, der):
-        proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+        proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
         proc.stdin.write(self.dbc.from_binary(der))
