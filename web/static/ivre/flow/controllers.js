@@ -136,11 +136,11 @@ ivreWebUi.factory("graphService", function () {
 
         result = 'rgba('+r+','+g+','+b+','+opacity+')';
         return result;
-    };
+    }
 
     function _hex_color_to_rgba_wrapper(value) {
         return hex_color_to_rgba(value, 1);
-    };
+    }
 
     var NC = 8;
     var EDGE_PALETTE = {
@@ -151,7 +151,7 @@ ivreWebUi.factory("graphService", function () {
 
     function str_to_color(str) {
         return EDGE_PALETTE.other[hashCode(str) % 8];
-    };
+    }
 
     function edge_color(s, edge) {
         // s is unused here
@@ -173,7 +173,7 @@ ivreWebUi.factory("graphService", function () {
         } else {
             edge.color = str_to_color(edge.labels[0]);
         }
-    };
+    }
 
     function node_color(s, node, hidden) {
         in_degree = s.graph.degree(node.id, "in");
@@ -183,7 +183,7 @@ ivreWebUi.factory("graphService", function () {
         } else {
             node.color = hidden ? "#111" : str_to_color(node.labels[0] || "");
         }
-    };
+    }
 
     // formatters is an object:
     // { edges: { attr: function }, nodes: { attr: function }}
@@ -221,7 +221,7 @@ ivreWebUi.factory("graphService", function () {
         });
         sigma.canvas.edges.autoCurve(s);
         s.refresh();
-    };
+    }
 
     function update_layout(s) {
         // Possible layouts and config
@@ -268,7 +268,7 @@ ivreWebUi.factory("graphService", function () {
       s.renderers[0].halo({
         nodes: s.graph.nodes()
       });
-    };
+    }
 
     function expand_to_neighbors(s, nodes, edges) {
         var adjacentNodes = nodes,
@@ -299,18 +299,18 @@ ivreWebUi.factory("graphService", function () {
 
         // Render halo
         s.renderers[0].halo(to_halo);
-    };
+    }
 
     function enable_halo(s) {
         s.bind('hovers', function(e) {
             set_halo(s, e.data.enter.nodes, e.data.enter.edges);
         });
-    };
+    }
 
     function set_opacity(elt, alpha) {
         // Change alpha component of rgba(r,g,b,a)
         elt.color = elt.color.replace(/, *[\d.]+\)/, "," + alpha + ")");
-    };
+    }
 
     function set_visible(s, nodes, edges, min, max) {
         var min = min === undefined ? 0 : min;
@@ -331,11 +331,11 @@ ivreWebUi.factory("graphService", function () {
             set_opacity(edge, max);
         });
         s.refresh();
-    };
+    }
 
     function has_details(s, elt) {
         return elt === undefined || elt.has_details === true;
-    };
+    }
 
     function add_details(s, elt, data) {
         elt.has_details = true;
@@ -348,7 +348,7 @@ ivreWebUi.factory("graphService", function () {
         } else {
             console.log("Unsupported details format for " + elt.labels);
         }
-    };
+    }
 
     return {
         update_display: update_display,
