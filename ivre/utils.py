@@ -1432,7 +1432,7 @@ def get_cert_info(cert):
     result = {}
     for hashtype in ['md5', 'sha1', 'sha256']:
         result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
-    proc = subprocess.Popen(['openssl', 'x509', '-noout', '-text',
+    proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
                              '-inform', 'DER'], stdin=subprocess.PIPE,
                             stdout=subprocess.PIPE)
     proc.stdin.write(cert)

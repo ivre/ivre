@@ -3350,7 +3350,8 @@ setting values according to the keyword arguments.
                 upsert=True,
             )
 
-    def insert_or_update_bulk(self, specs, getinfos=None):
+    def insert_or_update_bulk(self, specs, getinfos=None,
+                              separated_timestamps=True):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of (timestamp, spec) values. This will perform bulk
         MongoDB inserts with the major drawback that the `getinfos`
@@ -3365,8 +3366,19 @@ setting values according to the keyword arguments.
         """
         bulk = self.db[self.colname_passive].initialize_unordered_bulk_op()
         count = 0
+
+        if separated_timestamps:
+            def generator(specs):
+                for timestamp, spec in specs:
+                    yield timestamp, timestamp, spec
+        else:
+            def generator(specs):
+                for spec in specs:
+                    firstseen = spec.pop("firstseen", None)
+                    lastseen = spec.pop("lastseen", None)
+                    yield firstseen or lastseen, lastseen or firstseen, spec
         try:
-            for timestamp, spec in specs:
+            for firstseen, lastseen, spec in generator(specs):
                 if spec is None:
                     continue
                 try:
@@ -3377,8 +3389,8 @@ setting values according to the keyword arguments.
                     pass
                 updatespec = {
                     '$inc': {'count': 1},
-                    '$min': {'firstseen': timestamp},
-                    '$max': {'lastseen': timestamp},
+                    '$min': {'firstseen': firstseen},
+                    '$max': {'lastseen': lastseen},
                 }
                 if getinfos is not None:
                     infos = getinfos(spec, self.to_binary)
