@@ -1114,6 +1114,20 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(all(isinstance(elt['count'], int) for elt in locations))
         self.check_value('nmap_location_count', len(locations))
 
+        # Check that all coordinates for IPs in "FR" are in a
+        # rectangle given by 43 < lat < 51 and -5 < lon < 8 (for some
+        # reasons, overseas territories have they own country code,
+        # e.g., "RE").
+        self.assertTrue(all(
+            43 < lat < 51 and -5 < lon < 8
+            for lat, lon in (
+                    elt['_id'] for elt in
+                    ivre.db.db.nmap.getlocations(
+                        ivre.db.db.nmap.searchcountry('FR')
+                    )
+            )
+        ))
+
         # moduli
         proc = RUN_ITER(["ivre", "getmoduli", "--active-ssl", "--active-ssh"],
                         stderr=None)
@@ -2403,8 +2417,24 @@ which `predicate()` is True, given `webflt`.
         ## In the /24 network
         self.find_record_cgi(lambda rec: addr == rec['addr'],
                              webflt='net:%s' % addr_net)
-
-
+        # Check that all coordinates for IPs in "FR" are in a
+        # rectangle given by 43 < lat < 51 and -5 < lon < 8 (for some
+        # reasons, overseas territories have they own country code,
+        # e.g., "RE").
+        req = Request('http://%s:%d/cgi/scans/coordinates?q=country:FR' % (
+            HTTPD_HOSTNAME, HTTPD_PORT,
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEquals(udesc.getcode(), 200)
+        self.assertTrue(all(
+            43 < lat < 51 and -5 < lon < 8
+            for lat, lon in (
+                    x['coordinates'][::-1]
+                    for x in json.loads(udesc.read().decode())['geometries']
+            )
+        ))
 
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
