@@ -2393,7 +2393,7 @@ which `predicate()` is True, given `webflt`.
         udesc = urlopen(req)
         self.assertEquals(udesc.getcode(), 200)
         self.assertTrue(
-            coords in
+            coords[::-1] in
             (x['coordinates']
              for x in json.loads(udesc.read().decode())['geometries'])
         )
