@@ -162,7 +162,7 @@ def get_nmap_action(action):
         count = len(result)
         r2res = lambda r: {
             "type": "Point",
-            "coordinates": r['_id'],
+            "coordinates": r['_id'][::-1],
             "properties": {"count": r['count']},
         }
     elif action == "countopenports":
