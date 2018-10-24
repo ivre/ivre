@@ -61,9 +61,11 @@ addons:
     - tesseract-ocr-eng
 
 install:
+  # flake8 would upgrade by setuptools to a version >= 40.0.0, which does not support Python 3.3
+  - test "$TRAVIS_PYTHON_VERSION" = 3.3 && pip install -U 'setuptools<40.0.0' || true
   - source ./.travis/install_${DB}.sh
   - pip install -U $PIP_INSTALL_OPTIONS .
-  - pip install -U flake8
+  - test "$TRAVIS_PYTHON_VERSION" = 3.3 && pip install flake8 || pip install -U flake8
   - PYVERS=`python -c 'import sys;print("%d%d" % sys.version_info[:2])'`; if [ -f "requirements-$DB-$PYVERS.txt" ]; then  pip install -U $PIP_INSTALL_OPTIONS -r "requirements-$DB-$PYVERS.txt"; else pip install -U $PIP_INSTALL_OPTIONS -r "requirements-$DB.txt"; fi
   - test "$TRAVIS_PYTHON_VERSION" = 2.6 && pip install -U unittest2 || true
   - pip install -U $PIP_INSTALL_OPTIONS coverage codecov
