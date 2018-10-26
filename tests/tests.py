@@ -2274,14 +2274,14 @@ which `predicate()` is True, given `webflt`.
                 "view_sslcert_count",
                 ivre.db.db.view.searchscript(name="ssl-cert"),
                 ["--script", "ssl-cert"],
-                "script=ssl-cert")
+                "script:ssl-cert")
 
         #and no script filter
         self.check_view_count_value(
                 view_count - count,
                 ivre.db.db.view.searchscript(name="ssl-cert", neg=True),
                 ["--no-script", "ssl-cert"],
-                "!script=ssl-cert")
+                "!script:ssl-cert")
 
         # Check Web /scans
         addr = next(ivre.db.db.view.get(
