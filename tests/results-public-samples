@@ -526,6 +526,7 @@ view_ssh_top_port_cgi = [['tcp', 22]]
 view_ssh_top_port_cli = ['tcp / 22']
 view_test_active = 913
 view_test_passive = 82
+view_sslcert_count = 242
 view_top_anonftp_filename_api = ['Automata', 'BLDR', 'BOOT.INI', 'NKMSCQ7.BIN', 'ProfileMSCQ7', 'SPLASH.BMX', 'StartUp']
 view_top_anonftp_filename_cgi = ['Automata', 'BLDR', 'BOOT.INI', 'NKMSCQ7.BIN', 'ProfileMSCQ7', 'SPLASH.BMX', 'StartUp']
 view_top_anonftp_filename_cli = ['Automata', 'BLDR', 'BOOT.INI', 'NKMSCQ7.BIN', 'ProfileMSCQ7', 'SPLASH.BMX', 'StartUp']

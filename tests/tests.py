@@ -846,6 +846,12 @@ which `predicate()` is True, given `webflt`.
         self.assertGreater(count, 0)
         self.check_value("nmap_robots.txt_count", count)
 
+        #Test for script negate filter
+        ncount = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchscript(name="http-robots.txt", neg=True)
+        )
+        self.assertEqual(ncount, hosts_count - count)
+
         result = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchscript(name="http-robots.txt")
         )
@@ -862,6 +868,15 @@ which `predicate()` is True, given `webflt`.
             ))
         self.assertGreater(count, 0)
         self.check_value("nmap_robots.txt_cgi_count", count)
+
+        #Check the opposite condition
+        ncount = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchscript(
+                name="http-robots.txt",
+                output=ivre.utils.str2regexp("/cgi-bin"),
+                neg=True,
+            ))
+        self.assertEqual(ncount, hosts_count - count)
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchftpanon())
         # Test case OK?
@@ -2253,6 +2268,20 @@ which `predicate()` is True, given `webflt`.
         self.check_view_top_value("view_topdomains_1", "domains:1")
         self.check_view_top_value("view_tophop", "hop")
         self.check_view_top_value("view_tophop_10+", "hop>10")
+
+        #Check script search filter
+        count = self.check_view_count_value(
+                "view_sslcert_count",
+                ivre.db.db.view.searchscript(name="ssl-cert"),
+                ["--script", "ssl-cert"],
+                "script=ssl-cert")
+
+        #and no script filter
+        self.check_view_count_value(
+                view_count - count,
+                ivre.db.db.view.searchscript(name="ssl-cert", neg=True),
+                ["--no-script", "ssl-cert"],
+                "!script=ssl-cert")
 
         # Check Web /scans
         addr = next(ivre.db.db.view.get(
