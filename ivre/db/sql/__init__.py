@@ -1250,9 +1250,11 @@ the way IP addresses are stored.
         return cls.base_filter(port=[(True, req)])
 
     @classmethod
-    def searchscript(cls, name=None, output=None, values=None):
+    def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results.
 
+            If neg is True, filter out scan results which have at
+            least one script matching the name/output/value
         """
         req = True
         if name is not None:
@@ -1331,12 +1333,32 @@ the way IP addresses are stored.
                             value, neg=False,
                         )
                     )
+            if neg:
+                req = cls.tables.scan.id.notin_(
+                    select([cls.tables.scan.id]).select_from(
+                        join(
+                            cls.tables.scan,
+                            join(cls.tables.script,
+                                 cls.tables.port)
+                        )
+                    )
+                    .where(req))
             return cls.base_filter(script=[(
                 req,
-                [func.jsonb_array_elements(cls.tables.script.data[subkey])
-                 .alias(subkey.replace('.', '_').replace('-', '_'))
-                 for subkey in needunwind],
+                [func.jsonb_array_elements(cls.tables.script.data[subkey2])
+                 .alias(subkey2.replace('.', '_').replace('-', '_'))
+                 for subkey2 in needunwind],
             )])
+        if neg:
+            req = cls.tables.scan.id.notin_(
+                select([cls.tables.scan.id]).select_from(
+                    join(
+                        cls.tables.scan,
+                        join(cls.tables.script,
+                             cls.tables.port)
+                    )
+                )
+                .where(req))
         return cls.base_filter(script=[req])
 
     @classmethod

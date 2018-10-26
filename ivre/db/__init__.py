@@ -890,7 +890,7 @@ they are stored as canonical string representations.
         raise NotImplementedError
 
     @staticmethod
-    def searchscript(name=None, output=None, values=None):
+    def searchscript(name=None, output=None, values=None, neg=False):
         raise NotImplementedError
 
     @staticmethod
