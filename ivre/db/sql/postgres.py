@@ -1072,8 +1072,6 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
 
     def _insert_or_update(self, timestamp, values, lastseen=None):
         stmt = postgresql.insert(self.tables.passive).values(values)
-        index = ['addr', 'sensor', 'recontype', 'port',
-                 'source', 'value', 'targetval', 'info']
         upsert = {
             'firstseen': func.least(
                 self.tables.passive.firstseen,
@@ -1085,9 +1083,23 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             ),
             'count': self.tables.passive.count + stmt.excluded.count,
         }
-        self.db.execute(
-            stmt.on_conflict_do_update(index_elements=index, set_=upsert,)
-        )
+        if values.get('addr'):
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['addr', 'sensor', 'recontype', 'port',
+                                'source', 'value', 'targetval', 'info'],
+                index_where=self.tables.passive.addr != None,
+                # noqa: E711 (BinaryExpression)
+                set_=upsert,
+            )
+        else:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['sensor', 'recontype', 'port',
+                                'source', 'value', 'targetval', 'info'],
+                index_where=self.tables.passive.addr == None,
+                # noqa: E711 (BinaryExpression)
+                set_=upsert,
+            )
+        self.db.execute(stmt)
 
     def insert_or_update_bulk(self, specs, getinfos=None,
                               separated_timestamps=True):
@@ -1139,6 +1151,10 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                     'sensor', 'port', 'recontype', 'source',
                                     'targetval', 'value', 'fullvalue', 'info',
                                     'moreinfo']])\
+                    .where(
+                        tmp.columns['addr'] != None
+                        # noqa: E711 (BinaryExpression)
+                    )\
                     .group_by(*(tmp.columns[col] for col in [
                         'addr', 'sensor', 'port', 'recontype', 'source',
                         'targetval', 'value', 'fullvalue', 'info', 'moreinfo'
@@ -1147,6 +1163,54 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 .on_conflict_do_update(
                     index_elements=['addr', 'sensor', 'recontype', 'port',
                                     'source', 'value', 'targetval', 'info'],
+                    index_where=self.tables.passive.addr != None,
+                    # noqa: E711 (BinaryExpression)
+                    set_={
+                        'firstseen': func.least(
+                            self.tables.passive.firstseen,
+                            insrt.excluded.firstseen,
+                        ),
+                        'lastseen': func.greatest(
+                            self.tables.passive.lastseen,
+                            insrt.excluded.lastseen,
+                        ),
+                        'count':
+                        self.tables.passive.count + insrt.excluded.count,
+                    },
+                )
+            )
+            self.db.execute(
+                insrt.from_select(
+                    [column(col) for col in [
+                        'addr',
+                        # sum / min / max
+                        'count', 'firstseen', 'lastseen',
+                        # grouped
+                        'sensor', 'port', 'recontype', 'source', 'targetval',
+                        'value', 'fullvalue', 'info', 'moreinfo'
+                    ]],
+                    select([tmp.columns['addr'],
+                            func.sum_(tmp.columns['count']),
+                            func.min_(tmp.columns['firstseen']),
+                            func.max_(tmp.columns['lastseen'])] + [
+                                tmp.columns[col] for col in [
+                                    'sensor', 'port', 'recontype', 'source',
+                                    'targetval', 'value', 'fullvalue', 'info',
+                                    'moreinfo']])\
+                    .where(
+                        tmp.columns['addr'] == None
+                        # noqa: E711 (BinaryExpression)
+                    )\
+                    .group_by(*(tmp.columns[col] for col in [
+                        'addr', 'sensor', 'port', 'recontype', 'source',
+                        'targetval', 'value', 'fullvalue', 'info', 'moreinfo'
+                    ]))
+                )\
+                .on_conflict_do_update(
+                    index_elements=['sensor', 'recontype', 'port', 'source',
+                                    'value', 'targetval', 'info'],
+                    index_where=self.tables.passive.addr == None,
+                    # noqa: E711 (BinaryExpression)
                     set_={
                         'firstseen': func.least(
                             self.tables.passive.firstseen,
