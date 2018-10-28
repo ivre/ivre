@@ -748,8 +748,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     def add_flow_metadata(self, labels, linktype, keys, flow_keys,
                           counters=None, accumulators=None, time=True,
-                          flow_labels=["Flow"]):
-        counters = {} if counters is None else counters
+                          flow_labels=None):
+        if flow_labels is None:
+            flow_labels = ["Flow"]
+        if counters is None:
+            counters = {}
         query = [self._add_flow(flow_labels, flow_keys)]
         keys = utils.normalize_props(keys)
         key = self._key_from_attrs(keys, src=None, dst=None)
