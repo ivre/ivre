@@ -1484,9 +1484,12 @@ which `predicate()` is True, given `webflt`.
 
         # Top values
         for distinct in [True, False]:
-            values = next(ivre.db.db.passive.topvalues(field="addr",
-                                                       distinct=distinct,
-                                                       topnbr=1))
+            cur = ivre.db.db.passive.topvalues(field="addr",
+                                               distinct=distinct,
+                                               topnbr=2)
+            values = next(cur)
+            while values.get('_id') is None:
+                values = next(cur)
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
                 ivre.utils.ip2int(values["_id"]),
@@ -1499,7 +1502,8 @@ which `predicate()` is True, given `webflt`.
 
         res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
         self.assertEqual(res, 0)
-        addr, count = out.decode().split('\n', 1)[0].split(': ')
+        addr, count = next(elt for elt in out.decode().split('\n')
+                           if not elt.startswith('None: ')).split(': ')
         addr = ivre.utils.ip2int(addr)
         count = int(count)
         self.check_value("passive_top_addr_distinct", addr)
