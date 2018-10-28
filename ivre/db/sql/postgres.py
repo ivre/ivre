@@ -27,9 +27,9 @@ import datetime
 import time
 
 
-from sqlalchemy import desc, func, text, column, delete, exists, insert, \
-    join, select, update, and_, Column, Table, ARRAY, LargeBinary, String, \
-    tuple_
+from sqlalchemy import ARRAY, Column, Index, LargeBinary, String, Table, \
+    and_, column, delete, desc, exists, func, insert, join, select, text, \
+    tuple_, update
 from sqlalchemy.dialects import postgresql
 
 
@@ -1069,6 +1069,23 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
     def __init__(self, url):
         PostgresDB.__init__(self, url)
         SQLDBPassive.__init__(self, url)
+        Index(
+            'ix_passive_record', self.tables.passive.addr,
+            self.tables.passive.sensor, self.tables.passive.recontype,
+            self.tables.passive.port, self.tables.passive.source,
+            self.tables.passive.value, self.tables.passive.targetval,
+            self.tables.passive.info, unique=True,
+            postgresql_where=self.tables.passive.addr != None,
+            # noqa: E711 (BinaryExpression)
+        )
+        Index(
+            'ix_passive_record_noaddr', self.tables.passive.sensor,
+            self.tables.passive.recontype, self.tables.passive.port,
+            self.tables.passive.source, self.tables.passive.value,
+            self.tables.passive.targetval, self.tables.passive.info,
+            unique=True, postgresql_where=self.tables.passive.addr == None,
+            # noqa: E711 (BinaryExpression)
+        )
 
     def _insert_or_update(self, timestamp, values, lastseen=None):
         stmt = postgresql.insert(self.tables.passive).values(values)

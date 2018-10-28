@@ -23,7 +23,7 @@ databases.
 """
 
 
-from sqlalchemy import func, insert, update, and_
+from sqlalchemy import Index, and_, func, insert, update
 from sqlalchemy.exc import IntegrityError
 
 from ivre import utils
@@ -41,6 +41,23 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
     def __init__(self, url):
         SqliteDB.__init__(self, url)
         SQLDBPassive.__init__(self, url)
+        Index(
+            'ix_passive_record', self.tables.passive.addr,
+            self.tables.passive.sensor, self.tables.passive.recontype,
+            self.tables.passive.port, self.tables.passive.source,
+            self.tables.passive.value, self.tables.passive.targetval,
+            self.tables.passive.info, unique=True,
+            sqlite_where=self.tables.passive.addr != None,
+            # noqa: E711 (BinaryExpression)
+        )
+        Index(
+            'ix_passive_record_noaddr', self.tables.passive.sensor,
+            self.tables.passive.recontype, self.tables.passive.port,
+            self.tables.passive.source, self.tables.passive.value,
+            self.tables.passive.targetval, self.tables.passive.info,
+            unique=True, sqlite_where=self.tables.passive.addr == None,
+            # noqa: E711 (BinaryExpression)
+        )
 
     def _insert_or_update(self, timestamp, values, lastseen=None):
         stmt = insert(self.tables.passive)\
