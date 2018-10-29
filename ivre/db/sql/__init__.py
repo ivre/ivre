@@ -505,7 +505,7 @@ class SQLDBFlow(SQLDB, DBFlow):
 
     def add_flow_metadata(self, labels, linktype, keys, flow_keys,
                           counters=None, accumulators=None, time=True,
-                          flow_labels=["Flow"]):
+                          flow_labels=None):
         raise NotImplementedError()
 
     def add_host_metadata(self, labels, linktype, keys, host_keys=None,
