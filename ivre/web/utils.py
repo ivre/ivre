@@ -348,12 +348,15 @@ def flt_from_query(query, base_flt=None):
                         port=int(product[3])
                     )
                 )
-        elif not neg and param == "script":
+        elif param == "script":
             value = value.split(':', 1)
             if len(value) == 1:
                 flt = db.view.flt_and(
                     flt,
-                    db.view.searchscript(name=utils.str2regexp(value[0])),
+                    db.view.searchscript(
+                        name=utils.str2regexp(value[0]),
+                        neg=neg
+                    ),
                 )
             else:
                 flt = db.view.flt_and(
@@ -361,6 +364,7 @@ def flt_from_query(query, base_flt=None):
                     db.view.searchscript(
                         name=utils.str2regexp(value[0]),
                         output=utils.str2regexp(value[1]),
+                        neg=neg
                     ),
                 )
         # results of scripts or version scans

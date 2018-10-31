@@ -1750,12 +1750,12 @@ it is not expected)."""
         return {'ports': {'$elemMatch': flt}}
 
     @staticmethod
-    def searchscript(name=None, output=None, values=None):
+    def searchscript(name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results.
 
         """
         req = {}
-        if name is not None:
+        if name:
             req['id'] = name
         if output is not None:
             req['output'] = output
@@ -1767,11 +1767,17 @@ it is not expected)."""
                 req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
                                field)] = value
         if not req:
-            return {"ports.scripts": {"$exists": True}}
+            return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
             field, value = next(iter(viewitems(req)))
-            return {"ports.scripts.%s" % field: value}
-        return {"ports.scripts": {"$elemMatch": req}}
+            if neg:
+                return {"ports.scripts.%s" % field: {"$ne": value}}
+            else:
+                return {"ports.scripts.%s" % field: value}
+        if neg:
+            return {"ports.scripts": {"$not": {"$elemMatch": req}}}
+        else:
+            return {"ports.scripts": {"$elemMatch": req}}
 
     @classmethod
     def searchcert(cls, keytype=None):

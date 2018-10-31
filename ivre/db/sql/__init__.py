@@ -677,7 +677,7 @@ class ActiveFilter(Filter):
                     [self.tables.port.scan]
                 ).where(subflt).cte("base")
                 req = req.where(self.tables.scan.id.notin_(base))
-        for subflt in self.script:
+        for incl, subflt in self.script:
             subreq = select([1]).select_from(join(self.tables.script,
                                                   self.tables.port))
             if isinstance(subflt, tuple):
@@ -687,7 +687,10 @@ class ActiveFilter(Filter):
             else:
                 subreq = subreq.where(subflt)
             subreq = subreq.where(self.tables.port.scan == self.tables.scan.id)
-            req = req.where(exists(subreq))
+            if incl:
+                req = req.where(exists(subreq))
+            else:
+                req = req.where(not_(exists(subreq)))
         for subflt in self.trace:
             req = req.where(exists(
                 select([1])
@@ -1250,9 +1253,11 @@ the way IP addresses are stored.
         return cls.base_filter(port=[(True, req)])
 
     @classmethod
-    def searchscript(cls, name=None, output=None, values=None):
+    def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results.
 
+            If neg is True, filter out scan results which have at
+            least one script matching the name/output/value
         """
         req = True
         if name is not None:
@@ -1332,12 +1337,13 @@ the way IP addresses are stored.
                         )
                     )
             return cls.base_filter(script=[(
-                req,
-                [func.jsonb_array_elements(cls.tables.script.data[subkey])
-                 .alias(subkey.replace('.', '_').replace('-', '_'))
-                 for subkey in needunwind],
+                not neg, (
+                    req,
+                    [func.jsonb_array_elements(cls.tables.script.data[subkey2])
+                        .alias(subkey2.replace('.', '_').replace('-', '_'))
+                        for subkey2 in needunwind])
             )])
-        return cls.base_filter(script=[req])
+        return cls.base_filter(script=[(not neg, req)])
 
     @classmethod
     def searchcert(cls, keytype=None):
@@ -1433,22 +1439,22 @@ the way IP addresses are stored.
                     {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
                 ))
         if scripts is None:
-            return cls.base_filter(script=[req])
+            return cls.base_filter(script=[(True, req)])
         if isinstance(scripts, basestring):
             scripts = [scripts]
         if len(scripts) == 1:
-            return cls.base_filter(script=[and_(
+            return cls.base_filter(script=[(True, and_(
                 cls.tables.script.name == scripts.pop(), req
-            )])
-        return cls.base_filter(script=[and_(
+            ))])
+        return cls.base_filter(script=[(True, and_(
             cls.tables.script.name.in_(scripts), req
-        )])
+        ))])
 
     @classmethod
     def searchhttptitle(cls, title):
         return cls.base_filter(script=[
-            cls.tables.script.name.in_(['http-title', 'html-title']),
-            cls._searchstring_re(cls.tables.script.output, title),
+            (True, cls.tables.script.name.in_(['http-title', 'html-title'])),
+            (True, cls._searchstring_re(cls.tables.script.output, title)),
         ])
 
     @classmethod
