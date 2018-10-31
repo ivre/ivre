@@ -342,17 +342,15 @@ want to do something special here, e.g., mix with other records.
                                                  no_cursor_timeout=True)):
                 try:
                     update = migration_function(record)
-                except Exception:
-                    utils.LOGGER.warning(
-                        "Cannot migrate result %s", record['_id'],
-                        exc_info=True,
-                    )
-                    failed += 1
-                else:
                     if update is not None:
                         updated = True
                         self._migrate_update_record(colname, record["_id"],
                                                     update)
+                except Exception:
+                    utils.LOGGER.warning(
+                        "Cannot migrate result %r", record, exc_info=True,
+                    )
+                    failed += 1
                 if (i + 1) % 100000 == 0:
                     utils.LOGGER.info(
                         "  %d records migrated", i + 1
