@@ -1499,6 +1499,9 @@ which `predicate()` is True, given `webflt`.
                                                        else "not_"),
                 values["count"],
             )
+        # Delete the reference on the cursor to close the connection
+        # to the database (required for SQLite)
+        del cur
 
         res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
         self.assertEqual(res, 0)
