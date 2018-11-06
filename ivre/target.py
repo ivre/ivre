@@ -55,7 +55,8 @@ class Target(object):
     def __init__(self, targets, rand=True, maxnbr=None, state=None):
         self.targets = targets
         self.rand = rand
-        self.targetscount = len(targets)
+        # len() result needs to be lower than sys.maxsize
+        self.targetscount = targets.__len__()
         if maxnbr is None:
             self.maxnbr = self.targetscount
         else:
