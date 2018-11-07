@@ -549,7 +549,3 @@ class Passive(Base):
     # unicity on insertion (the unicity is guaranteed by the value)
     # for performance reasons
     schema_version = Column(Integer, default=passive.SCHEMA_VERSION)
-    __table_args__ = (
-        Index('ix_passive_record', 'addr', 'sensor', 'recontype', 'port',
-              'source', 'value', 'targetval', 'info', unique=True),
-    )
