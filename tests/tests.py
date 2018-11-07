@@ -1740,6 +1740,22 @@ which `predicate()` is True, given `webflt`.
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
         self.assertItemsEqual(out1, out2)
+        # Start a Web server to test CGI
+        self.start_web_server()
+        # Web API (JSON) vs Python API
+        for addr in ['8.8.8.8', '2003::1']:
+            req = Request('http://%s:%d/cgi/ipdata/%s' % (HTTPD_HOSTNAME,
+                                                          HTTPD_PORT, addr))
+            req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
+            udesc = urlopen(req)
+            self.assertEquals(udesc.getcode(), 200)
+            result = ivre.db.db.data.infos_byip(addr)
+            if result and 'coordinates' in result:
+                result['coordinates'] = list(result['coordinates'])
+            self.assertEqual(
+                result,
+                json.loads(udesc.read().decode()),
+            )
 
     def test_utils(self):
         """Functions that have not yet been tested"""
