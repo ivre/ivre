@@ -21,7 +21,7 @@
      ng-repeat="link in ::host.addr_links"
      ng-click="setparam(link.net)"
      >{{::link.addrpart}}<span ng-if="!$last">.</span></a>
-  <span ng-if="::host.hostnames_links">
+  <span ng-if="::(host.hostnames_links && host.hostnames_links.length)">
     (<span ng-repeat="hostnames in ::host.hostnames_links"><!--
     --><a class="clickable"
 	  ng-repeat="link in ::hostnames"
