@@ -75,6 +75,7 @@ def main():
     args = parser.parse_args()
     if args.download:
         ivre.geoiputils.download_all(verbose=not args.quiet)
+        ivre.db.db.data.reload_files()
     if args.import_all:
         torun.append((ivre.db.db.data.build_dumps, [], {}))
     for function, fargs, fkargs in torun:

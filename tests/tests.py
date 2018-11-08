@@ -1638,6 +1638,9 @@ which `predicate()` is True, given `webflt`.
         res = RUN(["ivre", "ipdata", "--download"])[0]
         self.assertEqual(res, 0)
 
+        # Reinit passive DB since we have downloaded the files
+        ivre.db.db.data.reload_files()
+
         if DATABASE != "maxmind":
             print(u"Database files have been downloaded -- "
                   u"other data tests won't run")
