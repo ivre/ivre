@@ -80,9 +80,9 @@ before_script:
   # display version
   - ivre version
   # init DB
-  - ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
-  - ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
-  - ivre view --init < /dev/null || echo "ERROR failed to init view database."
+  - test "$DB" = "maxmind" || ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
+  - test "$DB" = "maxmind" || ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
+  - test "$DB" = "maxmind" || ivre view --init < /dev/null || echo "ERROR failed to init view database."
   - cat .travis/ivre.conf >> ~/.ivre.conf
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)

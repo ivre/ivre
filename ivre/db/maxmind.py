@@ -336,9 +336,13 @@ class MaxMindDBData(DBData):
             return self._db_country
 
     def __init__(self, basepath):
-        for fname in os.listdir(basepath):
+        self.basepath = basepath
+        self.reload_files()
+
+    def reload_files(self):
+        for fname in os.listdir(self.basepath):
             if fname.endswith('.mmdb'):
-                subdb = MaxMindFile(os.path.join(basepath, fname))
+                subdb = MaxMindFile(os.path.join(self.basepath, fname))
                 name = subdb.metadata['database_type'].lower()
                 if name.startswith('geolite2-'):
                     name = name[9:]

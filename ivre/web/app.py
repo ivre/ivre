@@ -498,3 +498,16 @@ def get_flow():
     yield json.dumps(res, default=utils.serialize)
     if callback is not None:
         yield ");\n"
+
+
+#
+# /ipdata/
+#
+
+@application.get('/ipdata/<addr>')
+def get_ipdata(addr):
+    callback = request.params.get("callback")
+    result = json.dumps(db.data.infos_byip(addr))
+    if callback is None:
+        return result + '\n'
+    return "%s(%s);\n" % (callback, result)
