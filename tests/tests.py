@@ -1956,6 +1956,18 @@ which `predicate()` is True, given `webflt`.
         with self.assertRaises(ValueError):
             ivre.web.utils.query_from_params({'q': '"'})
 
+        # Country aliases
+        europe = ivre.utils.country_unalias('EU')
+        self.assertTrue('FR' in europe)
+        self.assertTrue('DE' in europe)
+        self.assertFalse('US' in europe)
+        self.assertEqual(ivre.utils.country_unalias('UK'),
+                         ivre.utils.country_unalias('GB'))
+        ukfr = ivre.utils.country_unalias(['FR', 'UK'])
+        self.assertTrue('FR' in ukfr)
+        self.assertTrue('GB' in ukfr)
+        self.assertEqual(ivre.utils.country_unalias('FR'), 'FR')
+
     def test_scans(self):
         "Run scans, with and without agents"
 
