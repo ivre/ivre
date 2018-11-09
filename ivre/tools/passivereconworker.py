@@ -146,16 +146,7 @@ def main():
     for s in [signal.SIGINT, signal.SIGTERM]:
         signal.signal(s, shutdown)
         signal.siginterrupt(s, False)
-    try:
-        import argparse
-        parser = argparse.ArgumentParser(description=__doc__)
-    except ImportError:
-        # Python 2.6 compatibility
-        import optparse
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
-        parser.add_argument = parser.add_option
+    parser, _ = utils.create_argparser(__doc__)
     parser.add_argument(
         '--sensor', metavar='SENSOR[:SENSOR]',
         help='sensor to check, optionally with a long name, defaults to all.',

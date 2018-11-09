@@ -22,12 +22,6 @@ database backends.
 """
 
 
-try:
-    import argparse
-except ImportError:
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
 from functools import reduce
 import json
 import os
@@ -85,10 +79,7 @@ class DB(object):
     globaldb = None
 
     def __init__(self):
-        if USING_ARGPARSE:
-            self.argparser = argparse.ArgumentParser(add_help=False)
-        else:
-            self.argparser = utils.FakeArgparserParent()
+        self.argparser = utils.ArgparserParent()
         self.argparser.add_argument(
             '--country', metavar='CODE',
             help='show only results from this country'
@@ -374,7 +365,7 @@ class DBActive(DB):
                                     help='show only results from this source')
         self.argparser.add_argument('--version', metavar="VERSION", type=int)
         self.argparser.add_argument('--timeago', metavar='SECONDS', type=int)
-        if USING_ARGPARSE:
+        if utils.USE_ARGPARSE:
             self.argparser.add_argument('--id', metavar='ID', help='show only '
                                         'results with this(those) ID(s)',
                                         nargs='+')

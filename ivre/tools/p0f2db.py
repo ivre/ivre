@@ -23,12 +23,6 @@ import signal
 import functools
 import subprocess
 import os
-try:
-    import argparse
-    USING_ARGPARSE = True
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
 
 
 import ivre.db
@@ -80,18 +74,8 @@ def process_file(fname, sensor, bulk_db, bulk_local, mode):
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(description=__doc__)
-    else:
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            res[0].ensure_value('filenames', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
+    parser, use_argparse = ivre.utils.create_argparser(__doc__,
+                                                       extraargs='filenames')
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--mode', '-m', help='p0f mode',
                         choices=list(ivre.passive.P0F_MODES),
@@ -102,7 +86,7 @@ def main():
                         help='Use local (memory) bulk inserts')
     parser.add_argument('--no-bulk', action='store_true',
                         help='Do not use bulk inserts')
-    if USING_ARGPARSE:
+    if use_argparse:
         parser.add_argument(
             'filenames', nargs="+", metavar='filename',
             help="PCAP file to read or iface:[interface name]",

@@ -63,15 +63,7 @@ def rec_iter(bro_parser, sensor, ignore_rules):
 
 def main():
     import sys
-    try:
-        import argparse
-        parser = argparse.ArgumentParser(description=__doc__)
-    except ImportError:
-        import optparse
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
-        parser.add_argument = parser.add_option
+    parser, _ = ivre.utils.create_argparser(__doc__)
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--ignore-spec', '-i',
                         help='Filename containing ignore rules')

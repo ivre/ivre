@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -43,14 +43,14 @@ def main():
         import argparse
         parser = argparse.ArgumentParser(
             description='Sends targets to a remote agent.',
-            parents=[ivre.target.argparser])
+            parents=[ivre.target.ARGPARSER])
         USING_ARGPARSE = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(
             description='Sends targets to a remote agent.',
             usage='Usage: ivre runscansagent [options] AGENT [AGENT ...]')
-        for args, kargs in ivre.target.argparser.args:
+        for args, kargs in ivre.target.ARGPARSER.args:
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
 

@@ -25,6 +25,12 @@ sub-module or script.
 
 
 import ast
+try:
+    import argparse
+    USE_ARGPARSE = True
+except ImportError:
+    import optparse
+    USE_ARGPARSE = False
 from bisect import bisect_left
 import bz2
 import codecs
@@ -722,24 +728,59 @@ LOGGER.addFilter(LogFilter())
 LOGGER.setLevel(1 if config.DEBUG or config.DEBUG_DB else 20)
 
 
-class FakeArgparserParent(object):
-    """This is a stub to implement a parent-like behavior when
-    optparse has to be used.
-
-    """
-
-    def __init__(self, parents=None):
-        self.args = []
-        if parents is not None:
-            for parent in parents:
-                self.args.extend(parent.args)
-
-    def add_argument(self, *args, **kargs):
-        """Stores parent's arguments for latter (manual)
-        processing.
+if USE_ARGPARSE:
+    def ArgparserParent():
+        return argparse.ArgumentParser(add_help=False)
+else:
+    class ArgparserParent(object):
+        """This is a stub to implement a parent-like behavior when
+        optparse has to be used.
 
         """
-        self.args.append((args, kargs))
+
+        def __init__(self):
+            self.args = []
+
+        def add_argument(self, *args, **kargs):
+            """Stores parent's arguments for latter (manual)
+            processing.
+
+            """
+            self.args.append((args, kargs))
+
+
+def create_argparser(description, extraargs=None):
+    """This function helps create a parser with either argparse (if it is
+    available) or optparse. This pattern exists because argparse does
+    not exist by default in Python 2.6.
+
+    `description` is used as the description argument of
+    argparse.ArgumentParser() or optparse.OptionParser().
+
+    This function returns a tuple corresponding to the parser and a
+    boolean (True iff argparse is used).
+
+    """
+    if USE_ARGPARSE:
+        return argparse.ArgumentParser(description=__doc__), True
+    parser = optparse.OptionParser(description=__doc__)
+    parser.parse_args_orig = parser.parse_args
+
+    def my_parse_args():
+        res = parser.parse_args_orig()
+        if extraargs is None:
+            if res[1]:
+                raise optparse.OptionError(
+                    'unrecognized arguments', res[1]
+                )
+        else:
+            res = parser.parse_args_orig()
+            res[0].ensure_value(extraargs, res[1])
+            return res[0]
+
+    parser.parse_args = my_parse_args
+    parser.add_argument = parser.add_option
+    return parser, False
 
 
 # Country aliases:

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -45,15 +45,7 @@ from ivre import utils
 
 
 def main():
-    try:
-        import argparse
-        parser = argparse.ArgumentParser(description=__doc__)
-    except ImportError:
-        import optparse
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
-        parser.add_argument = parser.add_option
+    parser, _ = utils.create_argparser(__doc__)
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',

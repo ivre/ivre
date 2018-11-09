@@ -24,12 +24,6 @@ AS number and country information.
 
 
 from __future__ import print_function
-try:
-    import argparse
-    USING_ARGPARSE = True
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
 import sys
 try:
     reload(sys)
@@ -42,26 +36,12 @@ else:
 from future.utils import viewitems
 
 
-import ivre.config
-import ivre.db
-import ivre.geoiputils
-import ivre.utils
+from ivre.db import db
+from ivre import geoiputils, utils
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(description=__doc__)
-    else:
-        parser = optparse.OptionParser(
-            description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            res[0].ensure_value('ip', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
+    parser, use_argparse = utils.create_argparser(__doc__, extraargs='ip')
     torun = []
     parser.add_argument('--download', action='store_true',
                         help='Fetch all data files.')
@@ -69,23 +49,22 @@ def main():
                         help='Create all CSV files for reverse lookups.')
     parser.add_argument('--quiet', "-q", action='store_true',
                         help='Quiet mode.')
-    if USING_ARGPARSE:
+    if use_argparse:
         parser.add_argument('ip', nargs='*', metavar='IP',
                             help='Display results for specified IP addresses.')
     args = parser.parse_args()
     if args.download:
-        ivre.geoiputils.download_all(verbose=not args.quiet)
-        ivre.db.db.data.reload_files()
+        geoiputils.download_all(verbose=not args.quiet)
+        db.data.reload_files()
     if args.import_all:
-        torun.append((ivre.db.db.data.build_dumps, [], {}))
+        torun.append((db.data.build_dumps, [], {}))
     for function, fargs, fkargs in torun:
         function(*fargs, **fkargs)
     for addr in args.ip:
         if addr.isdigit():
             addr = int(addr)
         print(addr)
-        for info in [ivre.db.db.data.as_byip(addr),
-                     ivre.db.db.data.location_byip(addr)]:
+        for info in [db.data.as_byip(addr), db.data.location_byip(addr)]:
             if info:
                 for key, value in viewitems(info):
                     print('    %s %s' % (key, value))
