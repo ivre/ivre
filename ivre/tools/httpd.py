@@ -34,6 +34,7 @@ from bottle import default_app, get, redirect, run, static_file
 
 
 from ivre.config import DEBUG, WEB_DOKU_PATH, WEB_STATIC_PATH
+from ivre.utils import create_argparser
 from ivre.web import app as webapp
 
 
@@ -74,14 +75,7 @@ def parse_args():
     the parsed arguments.
 
     """
-    try:
-        import argparse
-        parser = argparse.ArgumentParser(description=__doc__)
-    except ImportError:
-        import optparse
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
+    parser, _ = create_argparser(__doc__)
     parser.add_argument('--bind-address', '-b',
                         help='(IP) Address to bind the server to (defaults '
                         'to 127.0.0.1).',

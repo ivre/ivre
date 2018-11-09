@@ -18,13 +18,6 @@
 
 
 from __future__ import print_function
-# try:
-#     import argparse
-# except ImportError:
-#     import optparse
-#     USING_ARGPARSE = False
-# else:
-#     USING_ARGPARSE = True
 import json
 import os
 from xml.sax import saxutils

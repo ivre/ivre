@@ -16,13 +16,13 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""Put selected results in views."""
+"""Create views from nmap and passive databases."""
 
 from __future__ import print_function
 import sys
 
-from ivre.view import from_passive, from_nmap, to_view
 from ivre.db import db, DB
+from ivre.view import from_passive, from_nmap, to_view
 
 try:
     import argparse
@@ -34,12 +34,10 @@ except ImportError:
 
 def main():
     if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description='Create views from nmap and passive databases.',
-            parents=[DB().argparser])
+        parser = argparse.ArgumentParser(description=__doc__,
+                                         parents=[DB().argparser])
     else:
-        parser = optparse.OptionParser(
-            description='Create views from nmap and passive databases.')
+        parser = optparse.OptionParser(description=__doc__)
         parser.parse_args_orig = parser.parse_args
 
         def my_parse_args():

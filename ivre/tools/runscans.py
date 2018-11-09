@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -293,14 +293,14 @@ def main():
         import argparse
         parser = argparse.ArgumentParser(
             description='Run massive nmap scans.',
-            parents=[ivre.target.argparser,
-                     ivre.nmapopt.argparser])
+            parents=[ivre.target.ARGPARSER,
+                     ivre.nmapopt.ARGPARSER])
         using_argparse = True
     except ImportError:
         import optparse
         parser = optparse.OptionParser(
             description='Run massive nmap scans.')
-        for parent in [ivre.target.argparser, ivre.nmapopt.argparser]:
+        for parent in [ivre.target.ARGPARSER, ivre.nmapopt.ARGPARSER]:
             for args, kargs in parent.args:
                 parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args

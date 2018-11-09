@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains objects and functions to manipulate target
 lists.
@@ -405,40 +405,35 @@ class TargetNmapPreScan(TargetZMapPreScan):
         self.targetsfd = self.proc.stdout
 
 
-try:
-    import argparse
-    argparser = argparse.ArgumentParser(add_help=False)
-except ImportError:
-    argparser = utils.FakeArgparserParent()
-
-argparser.add_argument('--categories', metavar='CAT', nargs='+',
+ARGPARSER = utils.ArgparserParent()
+ARGPARSER.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
-argparser.add_argument('--country', '-c', metavar='CODE',
+ARGPARSER.add_argument('--country', '-c', metavar='CODE',
                        help='select a country')
-argparser.add_argument('--city', nargs=2,
+ARGPARSER.add_argument('--city', nargs=2,
                        metavar=('COUNTRY_CODE', 'CITY'),
                        help='select a region')
-argparser.add_argument('--region', nargs=2,
+ARGPARSER.add_argument('--region', nargs=2,
                        metavar=('COUNTRY_CODE', 'REGION_CODE'),
                        help='select a region')
-argparser.add_argument('--asnum', '-a', metavar='AS', type=int,
+ARGPARSER.add_argument('--asnum', '-a', metavar='AS', type=int,
                        help='select an autonomous system')
-argparser.add_argument('--range', '-r', nargs=2, metavar=('START', 'STOP'),
+ARGPARSER.add_argument('--range', '-r', nargs=2, metavar=('START', 'STOP'),
                        help='select an address range')
-argparser.add_argument('--network', '-n', metavar='NET/MASK',
+ARGPARSER.add_argument('--network', '-n', metavar='NET/MASK',
                        help='select a network')
-argparser.add_argument('--routable', action="store_true")
-argparser.add_argument('--file', '-f', metavar='FILENAME',
+ARGPARSER.add_argument('--routable', action="store_true")
+ARGPARSER.add_argument('--file', '-f', metavar='FILENAME',
                        help='read targets from a file')
-argparser.add_argument('--test', '-t', metavar='COUNT', type=int,
+ARGPARSER.add_argument('--test', '-t', metavar='COUNT', type=int,
                        help='select COUNT addresses on local loop')
-argparser.add_argument('--zmap-prescan-port', type=int)
-argparser.add_argument('--zmap-prescan-opts')
-argparser.add_argument('--nmap-prescan-ports', type=int, nargs="+")
-argparser.add_argument('--nmap-prescan-opts')
-argparser.add_argument('--limit', '-l', type=int,
+ARGPARSER.add_argument('--zmap-prescan-port', type=int)
+ARGPARSER.add_argument('--zmap-prescan-opts')
+ARGPARSER.add_argument('--nmap-prescan-ports', type=int, nargs="+")
+ARGPARSER.add_argument('--nmap-prescan-opts')
+ARGPARSER.add_argument('--limit', '-l', type=int,
                        help='number of addresses to output')
-argparser.add_argument('--state', type=int, nargs=4,
+ARGPARSER.add_argument('--state', type=int, nargs=4,
                        help='internal LCG state')
 
 
