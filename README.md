@@ -1,6 +1,7 @@
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/0116170aaaa54915a72aad286029250b)](https://app.codacy.com/app/p-l-/ivre)
 [![Join the chat at Gitter](https://badges.gitter.im/cea-sec/ivre.svg)](https://gitter.im/cea-sec/ivre)
+[![Follow on Twitter](https://img.shields.io/twitter/follow/IvreRocks.svg?logo=twitter)](https://twitter.com/IvreRocks)
 
 
 # IVRE #
@@ -97,8 +98,13 @@ For both support and contribution, the
 [repository](https://github.com/cea-sec/ivre) on Github should be
 used: feel free to create a new issue or a pull request!
 
-You can also try to use the e-mail `dev` on the domain `ivre.rocks`,
-or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
+You can also join the
+[Gitter conversation](https://gitter.im/cea-sec/ivre) (that is the
+preferred way to get in touch for questions), or use the e-mail `dev`
+on the domain `ivre.rocks`.
+
+You can try to join the IRC chan
+[#ivre](irc://irc.freenode.net/%23ivre) on
 [Freenode](https://freenode.net/).
 
 ## Talking about IVRE ##
@@ -107,20 +113,20 @@ or to join the IRC chan [#ivre](irc://irc.freenode.net/%23ivre) on
 
 If you are using IVRE in you research, please cite it as follows:
 
-Pierre Lalet, Florent Monjalet, and Camille Mougey. *IVRE, a network
-recon framework*.
+Pierre Lalet, Florent Monjalet, Camille Mougey and Vivien
+Venuti. *IVRE, a network recon framework*.
 [https://github.com/cea-sec/ivre](https://github.com/cea-sec/ivre),
-2011-2017.
+2011-2018.
 
 Here is the appropriate bibtex entry:
 
     @MISC{ivre,
         title = {{IVRE}, a network recon framework},
-        author={Lalet, Pierre and Monjalet, Florent and Mougey, Camille},
+        author={Lalet, Pierre and Monjalet, Florent and Mougey, Camille and Venuti, Viven},
         url = {https://ivre.rocks/},
         howpublished = {\url{https://github.com/cea-sec/ivre/}},
         institution = {{CEA}: the French Alternative Energies and Atomic Energy Commission},
-        year = {2011--2017},
+        year = {2011--2018},
     }
 
 ### Technical documents & blog posts ###
