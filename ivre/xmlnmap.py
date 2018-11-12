@@ -51,15 +51,15 @@ IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2'])
 
 ALIASES_TABLE_ELEMS = {
     # ls unified output (ls NSE module + ftp-anon)
-    ## grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
+    #   grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
     "afp-ls": "ls",
     "http-ls": "ls",
     "nfs-ls": "ls",
     "smb-ls": "ls",
-    ## + ftp-anon
+    #   + ftp-anon
     "ftp-anon": "ls",
     # vulns unified output (vulns NSE module)
-    ## grep -l -F vulns.Report * | sed 's#^#    "#;s#.nse$#": "vulns",#'
+    #   grep -l -F vulns.Report * | sed 's#^#    "#;s#.nse$#": "vulns",#'
     "afp-path-vuln": "vulns",
     "clamav-exec": "vulns",
     "distcc-cve2004-2687": "vulns",

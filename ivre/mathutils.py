@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -62,5 +62,5 @@ def factors(n):
 
 
 if __name__ == '__main__':
-    ## Use gcd() here to avoid "unused import / variable" warnings
+    # Use gcd() here to avoid "unused import / variable" warnings
     gcd(1, 2)

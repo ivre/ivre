@@ -301,9 +301,9 @@ def get_nmap_top(field):
 @check_referer
 def get_nmap():
     flt_params = get_nmap_base()
-    ## PostgreSQL: the query plan if affected by the limit and gives
-    ## really poor results. This is a temporary workaround (look for
-    ## XXX-WORKAROUND-PGSQL)
+    # PostgreSQL: the query plan if affected by the limit and gives
+    # really poor results. This is a temporary workaround (look for
+    # XXX-WORKAROUND-PGSQL).
     # result = db.view.get(flt_params.flt, limit=flt_params.limit,
     #                      skip=flt_params.skip, sort=flt_params.sortby)
     result = db.view.get(flt_params.flt, skip=flt_params.skip,
@@ -334,7 +334,7 @@ def get_nmap():
         yield "[\n"
     else:
         yield "%s([\n" % flt_params.callback
-    ## XXX-WORKAROUND-PGSQL
+    # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
         for fld in ['_id', 'scanid']:
