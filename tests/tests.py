@@ -1550,6 +1550,18 @@ which `predicate()` is True, given `webflt`.
         self.check_value("passive_distinct_ssh_moduli", distinct)
         self.check_value("passive_max_moduli_ssh_reuse", maxcount)
 
+        # ASNs / Countries / .searchranges()
+        for asnum in [15169, 15557, 3215, 2200, 123456789]:
+            res, out, err = RUN(["ivre", "ipinfo", "--count", "--asnum", str(asnum)])
+            self.assertEqual(ret, 0)
+            self.assertTrue(not err)
+            self.check_value("passive_count_as%d" % asnum, int(out))
+        for cname in ['US', 'FR', 'DE', 'XX']:
+            res, out, err = RUN(["ivre", "ipinfo", "--count", "--country", cname])
+            self.assertEqual(ret, 0)
+            self.assertTrue(not err)
+            self.check_value("passive_count_country_%s" % cname, int(out))
+
         # Delete
         flt = ivre.db.db.passive.searchcert()
         count = ivre.db.db.passive.count(flt)
