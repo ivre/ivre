@@ -1667,6 +1667,10 @@ which `predicate()` is True, given `webflt`.
                                  'GeoLite2-%s.dump-IPv4.csv' % sub)
             if os.path.isfile(fname):
                 os.utime(fname, None)
+        fname = os.path.join(ivre.config.GEOIP_PATH,
+                             'GeoLite2-Country.dump-IPv4.csv')
+        if os.path.isfile(fname):
+            os.unlink(fname)
         proc = RUN_ITER(["ivre", "ipdata", "--import-all"],
                         stdout=sys.stdout, stderr=sys.stderr)
         self.assertEqual(proc.wait(), 0)
