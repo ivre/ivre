@@ -77,9 +77,6 @@ def main():
     args = parser.parse_args()
     database = ivre.db.db.nmap
     categories = args.categories.split(',') if args.categories else []
-    callback = lambda x: ivre.db.db.view.store_or_merge_host(
-        nmap_record_to_view(x)
-    )
     if args.test:
         args.no_update_view = True
         database = ivre.db.DBNmap()
@@ -92,6 +89,11 @@ def main():
         scans = args.scan
     if args.no_update_view:
         callback = None
+    else:
+        def callback(x):
+            return ivre.db.db.view.store_or_merge_host(
+                nmap_record_to_view(x)
+            )
     count = 0
     for scan in scans:
         try:
