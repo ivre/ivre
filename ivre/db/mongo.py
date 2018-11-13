@@ -790,8 +790,8 @@ class MongoDBActive(MongoDB, DBActive):
                 ([('ports.scripts.ls.volumes.files.filename',
                    pymongo.ASCENDING)],
                  {"sparse": True}),
-                ## let's skip these ones since we are going to drop
-                ## them right after that
+                # Let's skip these ones since we are going to drop
+                # them right after that.
                 # ([('scripts.ls.volumes.volume', pymongo.ASCENDING)],
                 #  {"sparse": True}),
                 # ([('scripts.ls.volumes.files.filename', pymongo.ASCENDING)],

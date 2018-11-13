@@ -62,8 +62,8 @@ NMAP_SHARE_PATH = None
 # Default Nmap scan template, see below how to add templates:
 NMAP_SCAN_TEMPLATES = {
     "default": {
-        ## Commented values are default values and to not need to be
-        ## specified
+        # Commented values are default values and to not need to be
+        # specified:
         # "nmap": "nmap",
         # "pings": "SE",
         # "scans": "SV",
@@ -84,10 +84,10 @@ NMAP_SCAN_TEMPLATES = {
     }
 }
 
-## Example: to define an "aggressive" template that "inherits" from
-## the default template and runs more scripts with a more important
-## host timeout value, add the following lines to your ivre.conf,
-## uncommented of course.
+# Example: to define an "aggressive" template that "inherits" from
+# the default template and runs more scripts with a more important
+# host timeout value, add the following lines to your ivre.conf,
+# uncommented of course.
 # NMAP_SCAN_TEMPLATES["aggressive"] = NMAP_SCAN_TEMPLATES["default"].copy()
 # NMAP_SCAN_TEMPLATES["aggressive"].update({
 #     "host_timeout": "30m",
@@ -97,13 +97,13 @@ NMAP_SCAN_TEMPLATES = {
 #     "scripts_exclude": ['broadcast', 'external']
 # })
 
-## Dictionary that helps determine server ports of communications. Each entry
-## is {proto: {port: proba}}. The when two ports are known, the port with the
-## highest probability is used.
-## When /usr/share/nmap/nmap-services is available, these probas are taken,
-## otherwise /etc/services is used with proba=0.5 for each entry.
-## KNOWN_PORTS entries have the highest priority.
-## Example:
+# Dictionary that helps determine server ports of communications. Each entry
+# is {proto: {port: proba}}. The when two ports are known, the port with the
+# highest probability is used.
+# When /usr/share/nmap/nmap-services is available, these probas are taken,
+# otherwise /etc/services is used with proba=0.5 for each entry.
+# KNOWN_PORTS entries have the highest priority.
+# Example:
 #  KNOWN_PORTS = {
 #      "udp": {
 #          9999: 1.0,
@@ -160,17 +160,17 @@ WEB_DEFAULT_INIT_QUERY = None
 # upload disabled by default
 WEB_UPLOAD_OK = False
 # Is this a public server? This setting affects result uploading and
-# access control
-## When this is set to True:
-### 1. The user will, by default, only access to results that are either
-###    in the "Shared" category or that he has uploaded.
-### 2. The upload page, if enabled, is modified to explain that
+# access control.
+# When this is set to True:
+#   1. The user will, by default, only access to results that are either
+#      in the "Shared" category or that he has uploaded.
+#   2. The upload page, if enabled, is modified to explain that
 WEB_PUBLIC_SRV = False
 # Feed with a random value, like `openssl rand -base64 42`.
 # *Mandatory* when WEB_PUBLIC_SRV == True
 WEB_SECRET = None
 
-## Basic ACL example
+# Basic ACL example
 # WEB_INIT_QUERIES = {
 #     'admin': 'full',
 #     'admin-site-a': 'category:site-a',
@@ -178,7 +178,7 @@ WEB_SECRET = None
 # }
 # WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
-## More complex ACL example with realm handling
+# More complex ACL example with realm handling
 # WEB_INIT_QUERIES = {
 #     "admin": 'full',
 #     "@admin.sitea": 'category:sitea',

@@ -357,21 +357,21 @@ insert structures.
                 )
             )
         elif field.startswith('portlist:'):
-            ### Deux options pour filtrer:
-            ###   -1- self.tables.port.scan.in_(base),
-            ###   -2- exists(select([1])\
-            ###       .select_from(base)\
-            ###       .where(
-            ###         self.tables.port.scan == base.c.id
-            ###       )),
-            ###
-            ### D'après quelques tests, l'option -1- est plus beaucoup
-            ### rapide quand (base) est pas ou peu sélectif, l'option
-            ### -2- un peu plus rapide quand (base) est très sélectif
-            ###
-            ### TODO: vérifier si c'est pareil pour:
-            ###  - countports:open
-            ###  - tous les autres
+            # Deux options pour filtrer:
+            #   -1- self.tables.port.scan.in_(base),
+            #   -2- exists(select([1])\
+            #       .select_from(base)\
+            #       .where(
+            #         self.tables.port.scan == base.c.id
+            #       )),
+            #
+            # D'après quelques tests, l'option -1- est plus beaucoup
+            # rapide quand (base) est pas ou peu sélectif, l'option
+            # -2- un peu plus rapide quand (base) est très sélectif
+            #
+            # TODO: vérifier si c'est pareil pour:
+            #  - countports:open
+            #  - tous les autres
             info = field[9:]
             return (
                 {"count": result[0], "_id": [
