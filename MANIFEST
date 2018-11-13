@@ -430,6 +430,8 @@ web/static/templates/subview-service-summary.html
 web/static/templates/topvalues.html
 web/static/templates/view-cpes-only.html
 web/static/templates/view-hosts.html
+web/static/templates/view-ports-only.html
 web/static/templates/view-screenshots-only.html
 web/static/templates/view-scripts-only.html
+web/static/templates/view-services-only.html
 web/wsgi/app.wsgi
