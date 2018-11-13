@@ -632,25 +632,6 @@ want to do something special here, e.g., mix with other records.
                      {'addr_0': {'$lt': stop[0]}}]},
         ]}
 
-    @classmethod
-    def searchranges(cls, ranges, neg=False):
-        """Filters (if `neg` == True, filters out) some IP address ranges.
-
-`ranges` is an instance of ivre.geoiputils.IPRanges().
-
-        """
-        flt = []
-        for start, stop in ranges.iter_ranges():
-            start = cls.ip2internal(start)
-            stop = cls.ip2internal(stop)
-            flt.append(cls.searchrange(cls.ip2internal(start),
-                                       cls.ip2internal(stop), neg=neg))
-        if flt:
-            if neg:
-                return cls.flt_and(*flt)
-            return cls.flt_or(*flt)
-        return cls.flt_empty if neg else cls.searchnonexistent()
-
     @staticmethod
     def searchval(key, val):
         return {key: val}

@@ -160,12 +160,13 @@ class DB(object):
         """
         raise NotImplementedError
 
-    def flt_or(self, *args):
+    @classmethod
+    def flt_or(cls, *args):
         """Returns a condition that is true iff any of the given
         conditions is true.
 
         """
-        return reduce(self._flt_or, args)
+        return reduce(cls._flt_or, args)
 
     @staticmethod
     def _flt_or(cond1, cond2):
@@ -1465,7 +1466,18 @@ class DBPassive(DB):
 
     @classmethod
     def searchranges(cls, ranges, neg=False):
-        raise NotImplementedError
+        """Filters (if `neg` == True, filters out) some IP address ranges.
+
+`ranges` is an instance of ivre.geoiputils.IPRanges().
+
+        """
+        flt = []
+        for start, stop in ranges.iter_ranges():
+            flt.append(cls.searchrange(cls.ip2internal(start),
+                                       cls.ip2internal(stop), neg=neg))
+        if flt:
+            return (cls.flt_and if neg else cls.flt_or)(*flt)
+        return cls.flt_empty if neg else cls.searchnonexistent()
 
     def searchtorcert(self):
         return self.searchcertsubject(
