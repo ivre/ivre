@@ -78,10 +78,10 @@ def bgp_raw_to_csv(fname, out):
         out.write('%d,%d\n' % cur)
 
 
-def unzip_all(fname, cond=lambda _: True, clean=True):
+def unzip_all(fname, cond=None, clean=True):
     zdesc = zipfile.ZipFile(os.path.join(config.GEOIP_PATH, fname))
     for filedesc in zdesc.infolist():
-        if not cond(filedesc):
+        if cond and not cond(filedesc):
             continue
         with open(os.path.join(config.GEOIP_PATH,
                                os.path.basename(filedesc.filename)),
@@ -100,10 +100,10 @@ def gunzip(fname):
             outp.write(inp.read())
 
 
-def untar_all(fname, cond=lambda _: True, clean=True):
+def untar_all(fname, cond=None, clean=True):
     tdesc = tarfile.TarFile(os.path.join(config.GEOIP_PATH, fname))
     for filedesc in tdesc:
-        if not cond(filedesc):
+        if cond and not cond(filedesc):
             continue
         with open(os.path.join(config.GEOIP_PATH,
                                os.path.basename(filedesc.name)),
@@ -245,33 +245,46 @@ def get_ranges_by_data(datafile, condition):
     return rnge
 
 
-get_ranges_by_country = lambda code: get_ranges_by_data(
-    "GeoLite2-Country.dump-IPv4.csv",
-    lambda line: line[2] == code,
-)
+def get_ranges_by_country(code):
+    return get_ranges_by_data(
+        "GeoLite2-Country.dump-IPv4.csv",
+        lambda line: line[2] == code,
+    )
 
-get_ranges_by_location = lambda locid: get_ranges_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[5] == str(locid)
-)
 
-get_ranges_by_city = lambda country_code, city: get_ranges_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and
-    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
-)
+def get_ranges_by_location(locid):
+    return get_ranges_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[5] == str(locid)
+    )
 
-get_ranges_by_region = lambda country_code, reg_code: get_ranges_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[3] == reg_code,
-)
 
-get_ranges_by_asnum = lambda asnum: get_ranges_by_data(
-    "GeoLite2-ASN.dump-IPv4.csv",
-    lambda line: line[2] == str(asnum),
-)
+def get_ranges_by_city(country_code, city):
+    return get_ranges_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and
+        line[4] == utils.encode_b64(
+            (city or "").encode('utf-8')
+        ).decode('utf-8'),
+    )
 
-get_routable_ranges = lambda: get_ranges_by_data('BGP.csv', lambda _: True)
+
+def get_ranges_by_region(country_code, reg_code):
+    return get_ranges_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and line[3] == reg_code,
+    )
+
+
+def get_ranges_by_asnum(asnum):
+    return get_ranges_by_data(
+        "GeoLite2-ASN.dump-IPv4.csv",
+        lambda line: line[2] == str(asnum),
+    )
+
+
+def get_routable_ranges():
+    return get_ranges_by_data('BGP.csv', lambda _: True)
 
 
 def get_ips_by_data(datafile, condition, skip=0, maxnbr=None):
@@ -294,40 +307,53 @@ def get_ips_by_data(datafile, condition, skip=0, maxnbr=None):
     return res
 
 
-get_ips_by_country = lambda code, **kargs: get_ips_by_data(
-    "GeoLite2-Country.dump-IPv4.csv",
-    lambda line: line[2] == code,
-    **kargs
-)
+def get_ips_by_country(code, **kargs):
+    return get_ips_by_data(
+        "GeoLite2-Country.dump-IPv4.csv",
+        lambda line: line[2] == code,
+        **kargs
+    )
 
-get_ips_by_location = lambda locid, **kargs: get_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[5] == str(locid),
-    **kargs
-)
 
-get_ips_by_city = lambda country_code, city, **kargs: get_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and
-    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
-    **kargs
-)
+def get_ips_by_location(locid, **kargs):
+    return get_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[5] == str(locid),
+        **kargs
+    )
 
-get_ips_by_region = lambda country_code, reg_code, **kargs: get_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[3] == reg_code,
-    **kargs
-)
 
-get_ips_by_asnum = lambda asnum, **kargs: get_ips_by_data(
-    "GeoLite2-ASN.dump-IPv4.csv",
-    lambda line: line[2] == str(asnum),
-    **kargs
-)
+def get_ips_by_city(country_code, city, **kargs):
+    return get_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and
+        line[4] == utils.encode_b64(
+            (city or "").encode('utf-8')
+        ).decode('utf-8'),
+        **kargs
+    )
 
-get_routable_ips = lambda **kargs: get_ips_by_data(
-    'BGP.csv', lambda _: True, **kargs
-)
+
+def get_ips_by_region(country_code, reg_code, **kargs):
+    return get_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and line[3] == reg_code,
+        **kargs
+    )
+
+
+def get_ips_by_asnum(asnum, **kargs):
+    return get_ips_by_data(
+        "GeoLite2-ASN.dump-IPv4.csv",
+        lambda line: line[2] == str(asnum),
+        **kargs
+    )
+
+
+def get_routable_ips(**kargs):
+    return get_ips_by_data(
+        'BGP.csv', lambda _: True, **kargs
+    )
 
 
 def count_ips_by_data(datafile, condition):
@@ -337,36 +363,49 @@ def count_ips_by_data(datafile, condition):
     return res
 
 
-count_ips_by_country = lambda code: count_ips_by_data(
-    "GeoLite2-Country.dump-IPv4.csv",
-    lambda line: line[2] == code,
-)
+def count_ips_by_country(code):
+    return count_ips_by_data(
+        "GeoLite2-Country.dump-IPv4.csv",
+        lambda line: line[2] == code,
+    )
 
-count_ips_by_location = lambda locid: count_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[5] == str(locid),
-)
 
-count_ips_by_city = lambda country_code, city: count_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and
-    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
-)
+def count_ips_by_location(locid):
+    return count_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[5] == str(locid),
+    )
 
-count_ips_by_region = lambda country_code, reg_code: count_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[3] == reg_code,
-)
 
-count_ips_by_asnum = lambda asnum: count_ips_by_data(
-    "GeoLite2-ASN.dump-IPv4.csv",
-    lambda line: line[2] == str(asnum),
-)
+def count_ips_by_city(country_code, city):
+    return count_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and
+        line[4] == utils.encode_b64(
+            (city or "").encode('utf-8')
+        ).decode('utf-8'),
+    )
 
-count_routable_ips = lambda: count_ips_by_data(
-    'BGP.csv',
-    lambda _: True,
-)
+
+def count_ips_by_region(country_code, reg_code):
+    return count_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and line[3] == reg_code,
+    )
+
+
+def count_ips_by_asnum(asnum):
+    return count_ips_by_data(
+        "GeoLite2-ASN.dump-IPv4.csv",
+        lambda line: line[2] == str(asnum),
+    )
+
+
+def count_routable_ips():
+    return count_ips_by_data(
+        'BGP.csv',
+        lambda _: True,
+    )
 
 
 def list_ips_by_data(datafile, condition,
@@ -403,37 +442,50 @@ def list_ips_by_data(datafile, condition,
                                utils.int2ip(stop)))
 
 
-list_ips_by_country = lambda code, **kargs: list_ips_by_data(
-    "GeoLite2-Country.dump-IPv4.csv",
-    lambda line: line[2] == code,
-    **kargs
-)
+def list_ips_by_country(code, **kargs):
+    return list_ips_by_data(
+        "GeoLite2-Country.dump-IPv4.csv",
+        lambda line: line[2] == code,
+        **kargs
+    )
 
-list_ips_by_location = lambda locid, **kargs: list_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[5] == str(locid),
-    **kargs
-)
 
-list_ips_by_city = lambda country_code, city, **kargs: list_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and
-    line[4] == utils.encode_b64((city or "").encode('utf-8')).decode('utf-8'),
-    **kargs
-)
+def list_ips_by_location(locid, **kargs):
+    return list_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[5] == str(locid),
+        **kargs
+    )
 
-list_ips_by_region = lambda country_code, reg_code, **kargs: list_ips_by_data(
-    'GeoLite2-City.dump-IPv4.csv',
-    lambda line: line[2] == country_code and line[3] == reg_code,
-    **kargs
-)
 
-list_ips_by_asnum = lambda asnum, **kargs: list_ips_by_data(
-    "GeoLite2-ASN.dump-IPv4.csv",
-    lambda line: line[2] == str(asnum),
-    **kargs
-)
+def list_ips_by_city(country_code, city, **kargs):
+    return list_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and
+        line[4] == utils.encode_b64(
+            (city or "").encode('utf-8')
+        ).decode('utf-8'),
+        **kargs
+    )
 
-list_routable_ips = lambda **kargs: list_ips_by_data(
-    'BGP.csv', lambda _: True, **kargs
-)
+
+def list_ips_by_region(country_code, reg_code, **kargs):
+    return list_ips_by_data(
+        'GeoLite2-City.dump-IPv4.csv',
+        lambda line: line[2] == country_code and line[3] == reg_code,
+        **kargs
+    )
+
+
+def list_ips_by_asnum(asnum, **kargs):
+    return list_ips_by_data(
+        "GeoLite2-ASN.dump-IPv4.csv",
+        lambda line: line[2] == str(asnum),
+        **kargs
+    )
+
+
+def list_routable_ips(**kargs):
+    return list_ips_by_data(
+        'BGP.csv', lambda _: True, **kargs
+    )

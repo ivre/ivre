@@ -142,59 +142,70 @@ def get_nmap_action(action):
     flt_params = get_nmap_base()
     preamble = "[\n"
     postamble = "]\n"
-    r2res = lambda x: x
     if action == "timeline":
         result, count = db.view.get_open_port_count(flt_params.flt)
         if request.params.get("modulo") is None:
-            r2time = lambda r: int(utils.datetime2timestamp(r['starttime']))
+            def r2time(r):
+                return int(utils.datetime2timestamp(r['starttime']))
         else:
-            r2time = lambda r: (int(utils.datetime2timestamp(r['starttime']))
-                                % int(request.params.get("modulo")))
+            def r2time(r):
+                return (int(utils.datetime2timestamp(r['starttime']))
+                        % int(request.params.get("modulo")))
         if flt_params.ipsasnumbers:
-            r2res = lambda r: [r2time(r), utils.ip2int(r['addr']),
-                               r['openports']['count']]
+            def r2res(r):
+                return [r2time(r), utils.ip2int(r['addr']),
+                        r['openports']['count']]
         else:
-            r2res = lambda r: [r2time(r), r['addr'], r['openports']['count']]
+            def r2res(r):
+                return [r2time(r), r['addr'], r['openports']['count']]
     elif action == "coordinates":
+        def r2res(r):
+            return {
+                "type": "Point",
+                "coordinates": r['_id'][::-1],
+                "properties": {"count": r['count']},
+            }
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
         postamble = ']}\n'
         result = list(db.view.getlocations(flt_params.flt))
         count = len(result)
-        r2res = lambda r: {
-            "type": "Point",
-            "coordinates": r['_id'][::-1],
-            "properties": {"count": r['count']},
-        }
     elif action == "countopenports":
         result, count = db.view.get_open_port_count(flt_params.flt)
         if flt_params.ipsasnumbers:
-            r2res = lambda r: [utils.ip2int(r['addr']),
-                               r['openports']['count']]
+            def r2res(r):
+                return [utils.ip2int(r['addr']), r['openports']['count']]
         else:
-            r2res = lambda r: [r['addr'], r['openports']['count']]
+            def r2res(r):
+                return [r['addr'], r['openports']['count']]
     elif action == "ipsports":
         result, count = db.view.get_ips_ports(flt_params.flt)
         if flt_params.ipsasnumbers:
-            r2res = lambda r: [
-                utils.ip2int(r['addr']),
-                [[p['port'], p['state_state']]
-                 for p in r.get('ports', [])
-                 if 'state_state' in p]
-            ]
+            def r2res(r):
+                return [
+                    utils.ip2int(r['addr']),
+                    [[p['port'], p['state_state']]
+                     for p in r.get('ports', [])
+                     if 'state_state' in p]
+                ]
         else:
-            r2res = lambda r: [
-                r['addr'],
-                [[p['port'], p['state_state']]
-                 for p in r.get('ports', [])
-                 if 'state_state' in p]
-            ]
+            def r2res(r):
+                return [
+                    r['addr'],
+                    [[p['port'], p['state_state']]
+                     for p in r.get('ports', [])
+                     if 'state_state' in p]
+                ]
     elif action == "onlyips":
         result, count = db.view.get_ips(flt_params.flt)
         if flt_params.ipsasnumbers:
-            r2res = lambda r: utils.ip2int(r['addr'])
+            def r2res(r):
+                return utils.ip2int(r['addr'])
         else:
-            r2res = lambda r: r['addr']
+            def r2res(r):
+                return r['addr']
     elif action == "diffcats":
+        def r2res(r):
+            return r
         if request.params.get("onlydiff"):
             output = db.view.diff_categories(request.params.get("cat1"),
                                              request.params.get("cat2"),

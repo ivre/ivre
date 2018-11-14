@@ -126,7 +126,7 @@ specialized scripts.
         'bottle',
     ],
     extras_require={
-        'Flow':  ["py2neo>=3"],
+        'Flow': ["py2neo>=3"],
         'PostgreSQL': ["sqlalchemy", "psycopg2"],
         'GSSAPI authentication': ["python-krbV"],
         'Screenshots': ["PIL"],

@@ -1126,7 +1126,9 @@ index) unsigned 128-bit integers in MongoDB.
         """
         assert doc["schema_version"] == 10
         update = {"$set": {"schema_version": 11}}
-        convert = lambda val: cls.ip2internal(utils.force_int2ip(val))
+
+        def convert(val):
+            return cls.ip2internal(utils.force_int2ip(val))
         try:
             addr = convert(doc['addr'])
         except (KeyError, ValueError):
@@ -1283,20 +1285,23 @@ it is not expected)."""
         """
         if port is None:
             if overwrite:
-                flt_cond = lambda p: 'screenshot' in p
+                def flt_cond(p):
+                    return 'screenshot' in p
             else:
-                flt_cond = lambda p: ('screenshot' in p and
-                                      'screenwords' not in p)
+                def flt_cond(p):
+                    return 'screenshot' in p and 'screenwords' not in p
         else:
             if overwrite:
-                flt_cond = lambda p: ('screenshot' in p and
-                                      p.get('port') == port and
-                                      p.get('protocol') == protocol)
+                def flt_cond(p):
+                    return ('screenshot' in p and
+                            p.get('port') == port and
+                            p.get('protocol') == protocol)
             else:
-                flt_cond = lambda p: ('screenshot' in p and
-                                      'screenwords' not in p and
-                                      p.get('port') == port and
-                                      p.get('protocol') == protocol)
+                def flt_cond(p):
+                    return ('screenshot' in p and
+                            'screenwords' not in p and
+                            p.get('port') == port and
+                            p.get('protocol') == protocol)
         updated = False
         for port in host.get('ports', []):
             if not flt_cond(port):
@@ -2102,7 +2107,8 @@ it is not expected)."""
           - file.* / file.*:scriptid
           - hop
         """
-        null_if_empty = lambda val: val if val else None
+        def null_if_empty(val):
+            return val if val else None
         outputproc = None
         if flt is None:
             flt = self.flt_empty
@@ -2122,16 +2128,20 @@ it is not expected)."""
                                    "$infos.country_code",
                                    {"$ifNull": ["$infos.country_name", "?"]},
                                ]}
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
             else:
                 specialproj = {"_id": 0,
                                "country": _old_array(
                                    "$infos.country_code",
                                    {"$ifNull": ["$infos.country_name", "?"]},
                                )}
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'].split('###', 1))}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'].split('###', 1))}
         elif field == "city":
             flt = self.flt_and(
                 flt,
@@ -2144,16 +2154,20 @@ it is not expected)."""
                                    "$infos.country_code",
                                    "$infos.city",
                                ]}
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
             else:
                 specialproj = {"_id": 0,
                                "city": _old_array(
                                    "$infos.country_code",
                                    "$infos.city",
                                )}
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'].split('###', 1))}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'].split('###', 1))}
         elif field == "asnum":
             flt = self.flt_and(flt, {"infos.as_num": {"$exists": True}})
             field = "infos.as_num"
@@ -2164,12 +2178,15 @@ it is not expected)."""
                     "_id": 0,
                     "as": ["$infos.as_num", '$infos.as_name'],
                 }
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(
-                        int(y) if i == 0 else y for i, y in enumerate(x['_id'])
-                    ),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(
+                            int(y) if i == 0 else y
+                            for i, y in enumerate(x['_id'])
+                        ),
+                    }
             else:
                 specialproj = {
                     "_id": 0,
@@ -2178,13 +2195,15 @@ it is not expected)."""
                         {"$ifNull": ['$infos.as_name', '']},
                     )
                 }
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(
-                        int(y) if i == 0 else y for i, y in
-                        enumerate(x['_id'].split('###'))
-                    ),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(
+                            int(y) if i == 0 else y for i, y in
+                            enumerate(x['_id'].split('###'))
+                        ),
+                    }
         elif field == "addr":
             specialproj = {
                 "_id": 0,
@@ -2193,20 +2212,24 @@ it is not expected)."""
             }
             if self.mongodb_32_more:
                 specialflt = [{"$project": {field: ['$addr_0', '$addr_1']}}]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': self.internal2ip(x['_id']),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': self.internal2ip(x['_id']),
+                    }
             else:
                 specialflt = [{"$project": {field: _old_array(
                     "$addr_0", "$addr_1",
                     convert_to_string=True,
                 )}}]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': self.internal2ip([int(val) for val in
-                                             x['_id'].split('###')]),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': self.internal2ip([int(val) for val in
+                                                 x['_id'].split('###')]),
+                    }
         elif field == "net" or field.startswith("net:"):
             flt = self.flt_and(flt, self.searchipv4())
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
@@ -2229,13 +2252,15 @@ it is not expected)."""
                                            ]}, 1]}]},
                 }
             flt = self.flt_and(flt, self.searchipv4())
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': '%s/%d' % (
-                    utils.int2ip(int(x['_id']) * 2 ** (32 - mask)),
-                    mask,
-                ),
-            }
+
+            def outputproc(x):
+                return {
+                    'count': x['count'],
+                    '_id': '%s/%d' % (
+                        utils.int2ip(int(x['_id']) * 2 ** (32 - mask)),
+                        mask,
+                    ),
+                }
         elif field == "port" or field.startswith("port:"):
             if field == "port":
                 info = {"$exists": True}
@@ -2256,11 +2281,13 @@ it is not expected)."""
                     {"$match": {flt_field: info}},
                     {"$project": {field: ["$ports.protocol", "$ports.port"]}},
                 ]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(int(y) if i == 1 else y for i, y in
-                                 enumerate(x['_id'])),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(int(y) if i == 1 else y for i, y in
+                                     enumerate(x['_id'])),
+                    }
             else:
                 specialflt = [
                     {"$match": {flt_field: info}},
@@ -2269,11 +2296,13 @@ it is not expected)."""
                         {"$toLower": "$ports.port"},
                     )}},
                 ]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(int(y) if i == 1 else y for i, y in
-                                 enumerate(x['_id'].split('###'))),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(int(y) if i == 1 else y for i, y in
+                                     enumerate(x['_id'].split('###'))),
+                    }
         elif field.startswith("portlist:"):
             specialproj = {"ports.port": 1, "ports.protocol": 1,
                            "ports.state_state": 1}
@@ -2304,10 +2333,12 @@ it is not expected)."""
                 {"$project": {"portlist": "$ports"}},
             ]
             field = "portlist"
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': [(y['protocol'], y['port']) for y in x['_id']],
-            }
+
+            def outputproc(x):
+                return {
+                    'count': x['count'],
+                    '_id': [(y['protocol'], y['port']) for y in x['_id']],
+                }
 
         elif field.startswith('countports:'):
             state = field.split(':', 1)[1]
@@ -2347,8 +2378,10 @@ it is not expected)."""
                   {"$ifNull": ["$ports.service_name", ""]}}},
             ]
             field = "ports.service_name"
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'] if x['_id'] else None}
+
+            def outputproc(x):
+                return {'count': x['count'],
+                        '_id': x['_id'] if x['_id'] else None}
         elif field.startswith("service:"):
             port = int(field.split(':', 1)[1])
             flt = self.flt_and(flt, self.searchport(port))
@@ -2376,10 +2409,12 @@ it is not expected)."""
                       ["$ports.service_name",
                        "$ports.service_product"]}},
                 ]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(x['_id']),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(x['_id']),
+                    }
             else:
                 specialflt = [
                     {"$match": {"ports.state_state": "open"}},
@@ -2389,11 +2424,13 @@ it is not expected)."""
                          {"$ifNull": ["$ports.service_product", ""]},
                      )}},
                 ]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(elt if elt else None for elt in
-                                 x['_id'].split('###')),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(elt if elt else None for elt in
+                                     x['_id'].split('###')),
+                    }
             field = "ports.service_product"
         elif field.startswith('product:'):
             service = field.split(':', 1)[1]
@@ -2420,10 +2457,12 @@ it is not expected)."""
                      {"ports.service_product":
                       ["$ports.service_name", "$ports.service_product"]}},
                 )
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(x['_id']),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(x['_id']),
+                    }
             else:
                 specialflt.append(
                     {"$project":
@@ -2432,11 +2471,13 @@ it is not expected)."""
                          {"$ifNull": ["$ports.service_product", ""]},
                      )}},
                 )
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(elt if elt else None for elt in
-                                 x['_id'].split('###')),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(elt if elt else None for elt in
+                                     x['_id'].split('###')),
+                    }
             field = "ports.service_product"
         elif field == 'version':
             flt = self.flt_and(flt, self.searchopenport())
@@ -2457,10 +2498,12 @@ it is not expected)."""
                          "$ports.service_version",
                      ]}},
                 ]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(x['_id']),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(x['_id']),
+                    }
             else:
                 specialflt = [
                     {"$match": {"ports.state_state": "open"}},
@@ -2471,11 +2514,13 @@ it is not expected)."""
                          {"$ifNull": ["$ports.service_version", ""]},
                      )}},
                 ]
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(elt if elt else None for elt in
-                                 x['_id'].split('###')),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(elt if elt else None for elt in
+                                     x['_id'].split('###')),
+                    }
             field = "ports.service_product"
         elif field.startswith('version:'):
             service = field.split(':', 1)[1]
@@ -2516,10 +2561,12 @@ it is not expected)."""
                          "$ports.service_version",
                      ]}},
                 )
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(x['_id']),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(x['_id']),
+                    }
             else:
                 specialflt.append(
                     {"$project":
@@ -2529,11 +2576,13 @@ it is not expected)."""
                          {"$ifNull": ["$ports.service_version", ""]},
                      )}},
                 )
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': tuple(elt if elt else None for elt in
-                                 x['_id'].split('###')),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': tuple(elt if elt else None for elt in
+                                     x['_id'].split('###')),
+                    }
             field = "ports.service_product"
         elif field.startswith("cpe"):
             try:
@@ -2579,8 +2628,10 @@ it is not expected)."""
             specialflt.append(
                 {"$project": {"cpes.%s" % field: {"$concat": concat}}})
             field = "cpes.%s" % field
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': tuple(x['_id'].split(':', 3))}
+
+            def outputproc(x):
+                return {'count': x['count'],
+                        '_id': tuple(x['_id'].split(':', 3))}
         elif field == 'devicetype':
             field = "ports.service_devicetype"
         elif field.startswith('devicetype:'):
@@ -2654,8 +2705,10 @@ it is not expected)."""
                         "$ports.scripts.ssh-hostkey.bits",
                     ],
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
             else:
                 specialflt = [{"$project": {
                     "_id": 0,
@@ -2664,8 +2717,10 @@ it is not expected)."""
                         "$ports.scripts.ssh-hostkey.bits",
                     ),
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'].split('###'))}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'].split('###'))}
             field = "ports.scripts.ssh-hostkey.bits"
         elif field.startswith('sshkey.'):
             flt = self.flt_and(flt, self.searchsshkey())
@@ -2683,8 +2738,10 @@ it is not expected)."""
                         "$ports.scripts.ike-info.vendor_ids.name",
                     ],
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
             else:
                 specialflt = [{"$project": {
                     "_id": 0,
@@ -2694,9 +2751,11 @@ it is not expected)."""
                                      ""]},
                     ),
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(null_if_empty(val) for val
-                                                     in x['_id'].split('###'))}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(null_if_empty(val) for val
+                                         in x['_id'].split('###'))}
             field = "ports.scripts.ike-info.vendor_ids"
         elif field == 'ike.transforms':
             flt = self.flt_and(flt, self.searchscript(
@@ -2723,8 +2782,10 @@ it is not expected)."""
                         "$ports.scripts.ike-info.transforms.LifeType",
                     ],
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
             else:
                 specialflt = [{"$project": {
                     "_id": 0,
@@ -2748,9 +2809,11 @@ it is not expected)."""
                          ["$ports.scripts.ike-info.transforms.LifeType", ""]},
                     ),
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(null_if_empty(val) for val
-                                                     in x['_id'].split('###'))}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(null_if_empty(val) for val
+                                         in x['_id'].split('###'))}
             field = "ports.scripts.ike-info.transforms"
         elif field == 'ike.notification':
             flt = self.flt_and(flt, self.searchscript(
@@ -2773,8 +2836,10 @@ it is not expected)."""
                         "$ports.scripts.http-headers.value",
                     ],
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
             else:
                 specialflt = [{"$project": {
                     "_id": 0,
@@ -2783,9 +2848,11 @@ it is not expected)."""
                         "$ports.scripts.http-headers.value",
                     ),
                 }}]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': tuple(null_if_empty(val) for val
-                                                     in x['_id'].split('###'))}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(null_if_empty(val) for val
+                                         in x['_id'].split('###'))}
             field = "ports.scripts.http-headers"
         elif field.startswith('httphdr.'):
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
@@ -2846,8 +2913,10 @@ it is not expected)."""
                             ],
                         },
                     }]
-                    outputproc = lambda x: {'count': x['count'],
-                                            '_id': tuple(x['_id'])}
+
+                    def outputproc(x):
+                        return {'count': x['count'],
+                                '_id': tuple(x['_id'])}
                 else:
                     specialflt = [{
                         "$project": {
@@ -2858,10 +2927,12 @@ it is not expected)."""
                             ),
                         },
                     }]
-                    outputproc = lambda x: {
-                        'count': x['count'],
-                        '_id': tuple(x['_id'].split('###', 1)),
-                    }
+
+                    def outputproc(x):
+                        return {
+                            'count': x['count'],
+                            '_id': tuple(x['_id'].split('###', 1)),
+                        }
         elif field == 'file' or (field.startswith('file') and
                                  field[4] in '.:'):
             if field.startswith('file:'):
@@ -2890,8 +2961,10 @@ it is not expected)."""
                 specialflt = [
                     {"$project": {field: {"$ifNull": ["$" + field, ""]}}},
                 ]
-            outputproc = lambda x: {'count': x['count'],
-                                    '_id': x['_id'] if x['_id'] else None}
+
+            def outputproc(x):
+                return {'count': x['count'],
+                        '_id': x['_id'] if x['_id'] else None}
         elif field == 'screenwords':
             field = 'ports.screenwords'
             flt = self.flt_and(flt, self.searchscreenshot(words=True))
@@ -2905,19 +2978,25 @@ it is not expected)."""
                     {"$project": {field: ['$traces.hops.ipaddr_0',
                                           '$traces.hops.ipaddr_1']}},
                 ]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': self.internal2ip(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': self.internal2ip(x['_id'])}
             else:
                 specialflt = [
                     {"$project": {field: _old_array('$traces.hops.ipaddr_0',
                                                     '$traces.hops.ipaddr_1',
                                                     convert_to_string=True)}},
                 ]
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': self.internal2ip([
-                                            int(val) for val in
-                                            x['_id'].split('###')
-                                        ])}
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': self.internal2ip([
+                            int(val) for val in
+                            x['_id'].split('###')
+                        ]),
+                    }
         elif field.startswith('hop') and field[3] in ':>':
             specialproj = {"_id": 0,
                            "traces.hops.ipaddr_0": 1,
@@ -2937,8 +3016,10 @@ it is not expected)."""
                         '$traces.hops.ipaddr_1',
                     ]}},
                 )
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': self.internal2ip(x['_id'])}
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': self.internal2ip(x['_id'])}
             else:
                 specialflt.append(
                     {"$project": {'traces.hops.ipaddr': _old_array(
@@ -2947,11 +3028,15 @@ it is not expected)."""
                         convert_to_string=True,
                     )}},
                 )
-                outputproc = lambda x: {'count': x['count'],
-                                        '_id': self.internal2ip([
-                                            int(val) for val in
-                                            x['_id'].split('###')
-                                        ])}
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': self.internal2ip([
+                            int(val) for val in
+                            x['_id'].split('###')
+                        ]),
+                    }
             field = 'traces.hops.ipaddr'
         pipeline = self._topvalues(
             field, flt=flt, topnbr=topnbr, sort=sort, limit=limit,
@@ -3488,11 +3573,13 @@ setting values according to the keyword arguments.
                     "_id": 0,
                     "addr": ['$addr_0', '$addr_1'],
                 }
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': (None if x['_id'][0] is None else
-                            self.internal2ip(x['_id'])),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': (None if x['_id'][0] is None else
+                                self.internal2ip(x['_id'])),
+                    }
             else:
                 specialproj = {
                     "_id": 0,
@@ -3501,12 +3588,14 @@ setting values according to the keyword arguments.
                         convert_to_string=True,
                     ),
                 }
-                outputproc = lambda x: {
-                    'count': x['count'],
-                    '_id': (None if x['_id'] == '###' else
-                            self.internal2ip([int(val) for val in
-                                              x['_id'].split('###')])),
-                }
+
+                def outputproc(x):
+                    return {
+                        'count': x['count'],
+                        '_id': (None if x['_id'] == '###' else
+                                self.internal2ip([int(val) for val in
+                                                  x['_id'].split('###')])),
+                    }
         elif field == "net" or field.startswith("net:"):
             flt = self.flt_and(flt, self.searchipv4())
             mask = int(field.split(':', 1)[1]) if ':' in field else 24
@@ -3529,13 +3618,15 @@ setting values according to the keyword arguments.
                                            ]}, 1]}]},
                 }
             flt = self.flt_and(flt, self.searchipv4())
-            outputproc = lambda x: {
-                'count': x['count'],
-                '_id': '%s/%d' % (
-                    utils.int2ip(int(x['_id']) * 2 ** (32 - mask)),
-                    mask,
-                ),
-            }
+
+            def outputproc(x):
+                return {
+                    'count': x['count'],
+                    '_id': '%s/%d' % (
+                        utils.int2ip(int(x['_id']) * 2 ** (32 - mask)),
+                        mask,
+                    ),
+                }
         pipeline = self._topvalues(field, flt=flt, specialproj=specialproj,
                                    **kargs)
         cursor = self.set_limits(

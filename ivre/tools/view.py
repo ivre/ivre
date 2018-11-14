@@ -162,27 +162,32 @@ def main():
                          args.limit, args.skip)
         sys.exit(0)
     if args.json:
-        displayfunction = lambda x: displayfunction_json(
-            x, db.view, args.no_screenshot
-        )
+        def displayfunction(x):
+            return displayfunction_json(
+                x, db.view, args.no_screenshot
+            )
     elif args.honeyd:
         displayfunction = displayfunction_honeyd
     elif args.nmap_xml:
         displayfunction = displayfunction_nmapxml
     elif args.graphroute is not None:
-        displayfunction = lambda x: displayfunction_graphroute(
-            x, args.graphroute, args.graphroute_include,
-            args.graphroute_dont_reset
-        )
+        def displayfunction(x):
+            return displayfunction_graphroute(
+                x, args.graphroute, args.graphroute_include,
+                args.graphroute_dont_reset
+            )
     elif args.explain:
-        displayfunction = lambda x: displayfunction_explain(x, db.view)
+        def displayfunction(x):
+            return displayfunction_explain(x, db.view)
     elif args.delete:
-        displayfunction = lambda x: displayfunction_remove(x, db.view)
+        def displayfunction(x):
+            return displayfunction_remove(x, db.view)
     elif args.csv is not None:
-        displayfunction = lambda x: displayfunction_csv(
-            x, args.csv, args.csv_separator, args.csv_na_str,
-            args.csv_add_infos
-        )
+        def displayfunction(x):
+            return displayfunction_csv(
+                x, args.csv, args.csv_separator, args.csv_na_str,
+                args.csv_add_infos
+            )
     else:
 
         def displayfunction(cursor):

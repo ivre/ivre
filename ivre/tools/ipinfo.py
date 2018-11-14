@@ -317,8 +317,8 @@ def main():
     elif args.distinct is not None:
         disp_recs = functools.partial(disp_recs_distinct, args.distinct)
     elif args.top is not None:
-        disp_recs = lambda flt: utils.display_top(db.passive, args.top, flt,
-                                                  None)
+        def disp_recs(flt):
+            return utils.display_top(db.passive, args.top, flt, None)
     elif args.tail is not None:
         disp_recs = disp_recs_tail(args.tail)
     elif args.tailnew is not None:

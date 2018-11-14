@@ -1917,9 +1917,12 @@ passive table."""
         """
         if isinstance(field, basestring):
             field = self.fields[field]
-        outputproc = lambda val: val
+
         if field == "addr":
             outputproc = self.internal2ip
+        else:
+            def outputproc(val):
+                return val
         if flt is None:
             flt = PassiveFilter()
         order = "count" if least else desc("count")
