@@ -151,6 +151,7 @@ passive_count_as123456789 = 0
 passive_count_country_US = 97
 passive_count_country_FR = 56
 passive_count_country_DE = 13
+passive_count_country_KP = 0
 passive_count_country_XX = 0
 utils_bro_btest_Baseline_core_tunnels_teredo_http_count = 4
 utils_bro_btest_Baseline_scripts_policy_protocols_conn_mac_logging_conn1_count = 34

@@ -1556,7 +1556,14 @@ which `predicate()` is True, given `webflt`.
             self.assertEqual(ret, 0)
             self.assertTrue(not err)
             self.check_value("passive_count_as%d" % asnum, int(out))
-        for cname in ['US', 'FR', 'DE', 'XX']:
+        for cname in ['US', 'FR', 'DE', 'KP', 'XX']:
+            if DATABASE == "sqlite" and cname in ['US', 'FR', 'DE']:
+                # With sqlite, the filter generates a huge expression
+                # which leads to the following error:
+                #
+                # sqlite3.OperationalError: Expression tree is too
+                # large (maximum depth 10000)
+                continue
             res, out, err = RUN(["ivre", "ipinfo", "--count", "--country", cname])
             self.assertEqual(ret, 0)
             self.assertTrue(not err)
