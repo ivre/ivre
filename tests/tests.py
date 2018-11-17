@@ -1550,6 +1550,25 @@ which `predicate()` is True, given `webflt`.
         self.check_value("passive_distinct_ssh_moduli", distinct)
         self.check_value("passive_max_moduli_ssh_reuse", maxcount)
 
+        # ASNs / Countries / .searchranges()
+        for asnum in [15169, 15557, 3215, 2200, 123456789]:
+            res, out, err = RUN(["ivre", "ipinfo", "--count", "--asnum", str(asnum)])
+            self.assertEqual(ret, 0)
+            self.assertTrue(not err)
+            self.check_value("passive_count_as%d" % asnum, int(out))
+        for cname in ['US', 'FR', 'DE', 'KP', 'XX']:
+            if DATABASE == "sqlite" and cname in ['US', 'FR', 'DE']:
+                # With sqlite, the filter generates a huge expression
+                # which leads to the following error:
+                #
+                # sqlite3.OperationalError: Expression tree is too
+                # large (maximum depth 10000)
+                continue
+            res, out, err = RUN(["ivre", "ipinfo", "--count", "--country", cname])
+            self.assertEqual(ret, 0)
+            self.assertTrue(not err)
+            self.check_value("passive_count_country_%s" % cname, int(out))
+
         # Delete
         flt = ivre.db.db.passive.searchcert()
         count = ivre.db.db.passive.count(flt)
@@ -1655,6 +1674,10 @@ which `predicate()` is True, given `webflt`.
                                  'GeoLite2-%s.dump-IPv4.csv' % sub)
             if os.path.isfile(fname):
                 os.utime(fname, None)
+        fname = os.path.join(ivre.config.GEOIP_PATH,
+                             'GeoLite2-Country.dump-IPv4.csv')
+        if os.path.isfile(fname):
+            os.unlink(fname)
         proc = RUN_ITER(["ivre", "ipdata", "--import-all"],
                         stdout=sys.stdout, stderr=sys.stderr)
         self.assertEqual(proc.wait(), 0)

@@ -408,22 +408,6 @@ field.
     def _flt_or(cond1, cond2):
         return cond1 | cond2
 
-    @classmethod
-    def flt_and(cls, *args):
-        """Returns a condition that is true iff all of the given
-        conditions is true.
-
-        """
-        return reduce(cls._flt_and, args)
-
-    @classmethod
-    def flt_or(cls, *args):
-        """Returns a condition that is true iff any of the given
-        conditions is true.
-
-        """
-        return reduce(cls._flt_or, args)
-
     @staticmethod
     def _searchstring_re_inarray(idfield, field, value, neg=False):
         if isinstance(value, utils.REGEXP_T):
@@ -467,20 +451,6 @@ field.
         if neg:
             return field != value
         return field == value
-
-    def searchranges(self, ranges, neg=False):
-        """Filters (if `neg` == True, filters out) some IP address ranges.
-
-`ranges` is an instance of ivre.geoiputils.IPRanges().
-
-        """
-        flt = self.flt_empty
-        for start, stop in ranges.iter_ranges():
-            flt = (self.flt_and if neg else self.flt_or)(
-                flt, self.searchrange(utils.int2ip(start), utils.int2ip(stop),
-                                      neg=neg)
-            )
-        return flt
 
 
 class SQLDBFlow(SQLDB, DBFlow):
@@ -1939,6 +1909,10 @@ passive table."""
             for result in self.db.execute(req.order_by(order).limit(topnbr))
         )
 
+    @classmethod
+    def searchnonexistent(cls):
+        return PassiveFilter(main=False)
+
     def _searchobjectid(self, oid, neg=False):
         if len(oid) == 1:
             return PassiveFilter(
@@ -1984,6 +1958,24 @@ passive table."""
                                           cls.tables.passive.addr > stop))
         return PassiveFilter(main=and_(cls.tables.passive.addr >= start,
                                        cls.tables.passive.addr <= stop))
+
+    @classmethod
+    def searchranges(cls, ranges, neg=False):
+        """Filters (if `neg` == True, filters out) some IP address ranges.
+
+`ranges` is an instance of ivre.geoiputils.IPRanges().
+
+        """
+        flt = []
+        for start, stop in ranges.iter_ranges():
+            start, stop = cls.ip2internal(start), cls.ip2internal(stop)
+            flt.append((or_ if neg else and_)(
+                cls.tables.passive.addr >= start,
+                cls.tables.passive.addr <= stop)
+            )
+        if flt:
+            return PassiveFilter(main=(and_ if neg else or_)(*flt))
+        return cls.flt_empty if neg else cls.searchnonexistent()
 
     @classmethod
     def searchrecontype(cls, rectype):
