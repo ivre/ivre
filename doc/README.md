@@ -52,12 +52,12 @@ IVRE relies on:
     earlier versions can be used by setting `script_timeout` to `None`
     in each scan template).
 
-  * optionnaly [ZMap](https://zmap.io/) and/or
+  * optionally [ZMap](https://zmap.io/) and/or
     [Masscan](https://github.com/robertdavidgraham/masscan)
 
   * [Bro](http://www.bro.org/) (version 2.3 minimum),
     [Argus](http://qosient.com/argus/),
-    [Nfdump](http://nfdump.sourceforge.net/)&
+    [Nfdump](https://github.com/phaag/nfdump)&
     [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
     with version 3) for the passive fingerprint and flow modules.
 
@@ -65,9 +65,9 @@ IVRE relies on:
     run with versions 2.6.12, 3.0.15, 3.2.21, 3.4.17, 3.6.8, 4.0.2 and
     4.1.3).
 
-  * optionnaly [Neo4j](http://neo4j.com/) for the flow module.
+  * optionally [Neo4j](http://neo4j.com/) for the flow module.
 
-  * optionnaly [PostgreSQL](https://www.postgresql.org/), version 9.5
+  * optionally [PostgreSQL](https://www.postgresql.org/), version 9.5
     minimum (tests are run with versions 9.5.10, 9.6.6 and 10.1), for
     the **experimental** PostgreSQL backend.
 
