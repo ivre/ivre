@@ -224,7 +224,7 @@ def disp_recs_tailf():
 
 
 def disp_recs_explain(flt):
-    print(db.passive.explain(db.passive.get(flt), indent=4))
+    print(db.passive.explain(db.passive._get(flt), indent=4))
 
 
 def main():
