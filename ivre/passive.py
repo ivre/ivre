@@ -201,8 +201,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # and if so, do so.
     if 'addr' in spec and \
        spec.get('source') not in neverignore.get(spec['recontype'], []):
-        for n in ignorenets.get(spec['recontype'], ()):
-            if n[0] <= spec['addr'] <= n[1]:
+        for start, stop in ignorenets.get(spec['recontype'], ()):
+            if start <= utils.force_ip2int(spec['addr']) <= stop:
                 return None
     # Then, let's clean up the records.
     # Change Symantec's random user agents (matching SYMANTEC_UA) to
