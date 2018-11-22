@@ -128,5 +128,5 @@ When all the targets have been sent to an agent, the agents get disassociated fr
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2017 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2018 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 

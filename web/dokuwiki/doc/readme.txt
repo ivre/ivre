@@ -25,11 +25,11 @@ IVRE relies on:
     * optionally [[http://py2neo.org/v3/|py2neo]] to use the flow module, version 3 minimum.
     * optionally [[http://www.sqlalchemy.org/|sqlalchemy]] and [[http://initd.org/psycopg/|psycopg2]] to use the **experimental** PostgreSQL backend.
   * [[http://nmap.org/|Nmap]] version 7.25BETA2 minimum (actually, earlier versions can be used by setting ''%%script_timeout%%'' to ''%%None%%'' in each scan template).
-  * optionnaly [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
-  * [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://qosient.com/argus/|Argus]], [[http://nfdump.sourceforge.net/|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
+  * optionally [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
+  * [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://qosient.com/argus/|Argus]], [[https://github.com/phaag/nfdump|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.12, 3.0.15, 3.2.21, 3.4.17, 3.6.8, 4.0.2 and 4.1.3).
-  * optionnaly [[http://neo4j.com/|Neo4j]] for the flow module.
-  * optionnaly [[https://www.postgresql.org/|PostgreSQL]], version 9.5 minimum (tests are run with versions 9.5.10, 9.6.6 and 10.1), for the **experimental** PostgreSQL backend.
+  * optionally [[http://neo4j.com/|Neo4j]] for the flow module.
+  * optionally [[https://www.postgresql.org/|PostgreSQL]], version 9.5 minimum (tests are run with versions 9.5.10, 9.6.6 and 10.1), for the **experimental** PostgreSQL backend.
   * a web server (successfully tested with [[https://httpd.apache.org/|Apache]] and [[http://nginx.org/|Nginx]], should work with anything capable of serving static files and run a Python-based CGI), although a test web server is distributed with IVRE (''%%ivre httpd%%'').
   * [[https://www.dokuwiki.org/|Dokuwiki]] or another Wiki to use as a notepad. Dokuwiki can also be used to display the documentation.
   * a web browser (successfully tested with recent versions of [[https://www.mozilla.org/firefox/|Firefox]] and [[http://www.chromium.org/|Chromium]]).

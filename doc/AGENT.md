@@ -41,7 +41,7 @@ chmod +x agent` , adapt if needed the variables at the beginning of
 the script, particularly `THREADS`.
 
 By default, the `default` template is used. You can generate agents
-using other scan templates using `--nmap-template [template name] `.
+using other scan templates using `--nmap-template [template name]`.
 
 Then just run the `agent` script.
 
@@ -158,5 +158,5 @@ check the scan evolution by issuing `ivre runscansagentdb
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2017
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
