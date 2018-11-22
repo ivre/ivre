@@ -11,7 +11,7 @@
 Recon of UNKnown networks) is a network recon framework, including
 tools for passive recon (flow analytics relying on
 [Bro](https://www.bro.org/), [Argus](http://qosient.com/argus/),
-[Nfdump](http://nfdump.sourceforge.net/), fingerprint analytics based
+[Nfdump](https://github.com/phaag/nfdump), fingerprint analytics based
 on Bro and [p0f](http://lcamtuf.coredump.cx/p0f/) and active recon
 (IVRE uses [Nmap](http://nmap.org/) to run scans, can use
 [ZMap](https://zmap.io/) as a pre-scanner; IVRE can also import XML
