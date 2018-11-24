@@ -96,43 +96,44 @@ def disp_rec(rec):
 
 
 def disp_recs_std(flt):
-    oa = None
-    c = db.passive.get(flt, sort=[('addr', 1), ('recontype', 1), ('source', 1),
-                                  ('port', 1)])
-    for rec in c:
+    old_addr = None
+    for rec in db.passive.get(
+            flt,
+            sort=[('addr', 1), ('port', 1), ('recontype', 1), ('source', 1)],
+    ):
         if 'addr' not in rec or not rec['addr']:
             continue
-        if oa != rec['addr']:
-            if oa is not None:
+        if old_addr != rec['addr']:
+            if old_addr is not None:
                 print()
-            oa = rec['addr']
-            print(utils.force_int2ip(oa))
-            c = db.data.infos_byip(oa)
-            if c:
-                if 'country_code' in c:
+            old_addr = rec['addr']
+            print(utils.force_int2ip(old_addr))
+            ipinfo = db.data.infos_byip(old_addr)
+            if ipinfo:
+                if 'country_code' in ipinfo:
                     print('\t', end=' ')
-                    print(c['country_code'], end=' ')
-                    if 'country_name' in c:
-                        cname = c['country_name']
+                    print(ipinfo['country_code'], end=' ')
+                    if 'country_name' in ipinfo:
+                        cname = ipinfo['country_name']
                     else:
                         try:
                             cname = db.data.country_name_by_code(
-                                c['country_code']
+                                ipinfo['country_code']
                             )
                         except AttributeError:
                             cname = None
                     if cname:
                         print('[%s]' % cname, end=' ')
                     print()
-                if 'as_num' in c:
+                if 'as_num' in ipinfo:
                     print('\t', end=' ')
-                    print('AS%d' % c['as_num'], end=' ')
-                    if 'as_name' in c:
-                        print('[%s]' % c['as_name'], end=' ')
+                    print('AS%d' % ipinfo['as_num'], end=' ')
+                    if 'as_name' in ipinfo:
+                        print('[%s]' % ipinfo['as_name'], end=' ')
                     print()
-                elif 'as_name' in c:
+                elif 'as_name' in ipinfo:
                     print('\t', end=' ')
-                    print('AS???? [%s]' % c['as_name'], end=' ')
+                    print('AS???? [%s]' % ipinfo['as_name'], end=' ')
         disp_rec(rec)
 
 
@@ -224,7 +225,7 @@ def disp_recs_tailf():
 
 
 def disp_recs_explain(flt):
-    print(db.passive.explain(db.passive.get(flt), indent=4))
+    print(db.passive.explain(db.passive._get(flt), indent=4))
 
 
 def main():

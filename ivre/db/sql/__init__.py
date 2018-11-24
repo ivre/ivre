@@ -26,7 +26,6 @@ import codecs
 from collections import namedtuple
 import csv
 import datetime
-from functools import reduce
 import json
 import re
 
