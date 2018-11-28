@@ -90,6 +90,7 @@ class MongoDB(DB):
     schema_latest_versions = {}
     needunwind = []
     ipaddr_fields = []
+    no_limit = 0
 
     def __init__(self, host, dbname,
                  username=None, password=None, mechanism=None,

@@ -95,12 +95,10 @@ def disp_rec(rec):
                 print(rec['infos'][i])
 
 
-def disp_recs_std(flt):
+def disp_recs_std(flt, sort, limit, skip):
     old_addr = None
-    for rec in db.passive.get(
-            flt,
-            sort=[('addr', 1), ('port', 1), ('recontype', 1), ('source', 1)],
-    ):
+    sort = sort or [('addr', 1), ('port', 1), ('recontype', 1), ('source', 1)]
+    for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
         if 'addr' not in rec or not rec['addr']:
             continue
         if old_addr != rec['addr']:
@@ -137,23 +135,28 @@ def disp_recs_std(flt):
         disp_rec(rec)
 
 
-def disp_recs_short(flt):
+def disp_recs_short(flt, *_):
     for addr in db.passive.distinct('addr', flt=flt):
         print(db.passive.internal2ip(addr) if addr else None)
 
 
-def disp_recs_distinct(field, flt):
+def disp_recs_distinct(field, flt, *_):
     for value in db.passive.distinct(field, flt=flt):
         print(value)
 
 
-def disp_recs_count(flt):
+def disp_recs_top(top):
+    return lambda flt, sort, limit, _: utils.display_top(db.passive, top, flt,
+                                                         limit)
+
+
+def disp_recs_count(flt, sort, limit, skip):
     print(db.passive.count(flt))
 
 
-def _disp_recs_tail(flt, field, n):
+def _disp_recs_tail(flt, field, nbr):
     recs = list(db.passive.get(
-        flt, sort=[(field, -1)], limit=n))
+        flt, sort=[(field, -1)], limit=nbr))
     recs.reverse()
     for r in recs:
         if 'addr' in r:
@@ -166,12 +169,12 @@ def _disp_recs_tail(flt, field, n):
         disp_rec(r)
 
 
-def disp_recs_tail(n):
-    return lambda flt: _disp_recs_tail(flt, 'firstseen', n)
+def disp_recs_tail(nbr):
+    return lambda flt, *_: _disp_recs_tail(flt, 'firstseen', nbr)
 
 
-def disp_recs_tailnew(n):
-    return lambda flt: _disp_recs_tail(flt, 'lastseen', n)
+def disp_recs_tailnew(nbr):
+    return lambda flt, *_: _disp_recs_tail(flt, 'lastseen', nbr)
 
 
 def _disp_recs_tailf(flt, field):
@@ -217,15 +220,16 @@ def _disp_recs_tailf(flt, field):
 
 
 def disp_recs_tailfnew():
-    return lambda flt: _disp_recs_tailf(flt, 'firstseen')
+    return lambda flt, *_: _disp_recs_tailf(flt, 'firstseen')
 
 
 def disp_recs_tailf():
-    return lambda flt: _disp_recs_tailf(flt, 'lastseen')
+    return lambda flt, *_: _disp_recs_tailf(flt, 'lastseen')
 
 
-def disp_recs_explain(flt):
-    print(db.passive.explain(db.passive._get(flt), indent=4))
+def disp_recs_explain(flt, sort, limit, skip):
+    print(db.passive.explain(db.passive._get(flt, sort=sort, limit=limit,
+                                             skip=skip), indent=4))
 
 
 def main():
@@ -276,13 +280,25 @@ def main():
                         help='Output only unique FIELD part of the '
                         'results, one per line.')
     parser.add_argument('--top', metavar='FIELD / ~FIELD',
-                        help='Output 10 most common (least common: ~) values '
-                        'for FIELD.')
+                        help='Output most common (least common: ~) values for '
+                        'FIELD, by default 10, use --limit to change that, '
+                        '--limit 0 means unlimited.')
     parser.add_argument('--delete', action='store_true',
                         help='DELETE the matched results instead of '
                         'displaying them.')
     parser.add_argument('--update-schema', action='store_true',
                         help='update (passive) schema.')
+    if USING_ARGPARSE:
+        parser.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
+                            help='Sort results according to FIELD; use ~FIELD '
+                            'to reverse sort order.')
+    else:
+        parser.add_argument('--sort', metavar='FIELD / ~FIELD',
+                            help='Sort results according to FIELD; use ~FIELD '
+                            'to reverse sort order.')
+    parser.add_argument('--limit', type=int,
+                        help='Ouput at most LIMIT results.')
+    parser.add_argument('--skip', type=int, help='Skip first SKIP results.')
     if USING_ARGPARSE:
         parser.add_argument('ips', nargs='*',
                             help='Display results for specified IP addresses'
@@ -318,8 +334,7 @@ def main():
     elif args.distinct is not None:
         disp_recs = functools.partial(disp_recs_distinct, args.distinct)
     elif args.top is not None:
-        def disp_recs(flt):
-            return utils.display_top(db.passive, args.top, flt, None)
+        disp_recs = disp_recs_top(args.top)
     elif args.tail is not None:
         disp_recs = disp_recs_tail(args.tail)
     elif args.tailnew is not None:
@@ -334,11 +349,17 @@ def main():
         disp_recs = db.passive.remove
     elif args.explain:
         disp_recs = disp_recs_explain
+    if args.sort is None:
+        sort = []
+    else:
+        sort = [(field[1:], -1) if field.startswith('~') else (field, 1)
+                for field in args.sort]
     if not args.ips:
-        if not baseflt and disp_recs == disp_recs_std:
+        if not baseflt and not args.limit and disp_recs == disp_recs_std:
             # default to tail -f mode
             disp_recs = disp_recs_tailfnew()
-        disp_recs(baseflt)
+        disp_recs(baseflt, sort, args.limit or db.passive.no_limit,
+                  args.skip or 0)
         exit(0)
     first = True
     for a in args.ips:
@@ -360,4 +381,4 @@ def main():
             if a.isdigit():
                 a = utils.force_int2ip(int(a))
             flt = db.passive.flt_and(flt, db.passive.searchhost(a))
-        disp_recs(flt)
+        disp_recs(flt, sort, args.limit or db.passive.no_limit, args.skip or 0)
