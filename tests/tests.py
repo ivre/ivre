@@ -1492,7 +1492,7 @@ which `predicate()` is True, given `webflt`.
                 values = next(cur)
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
-                ivre.utils.ip2int(values["_id"]),
+                values["_id"],
             )
             self.check_value(
                 "passive_top_addr_%sdistinct_count" % ("" if distinct
@@ -1503,14 +1503,24 @@ which `predicate()` is True, given `webflt`.
         # to the database (required for SQLite)
         del cur
 
-        res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
+        # Top values (CLI)
+        res, out, err = RUN(["ivre", "ipinfo", "--limit", "2", "--top",
+                             "addr"])
+        self.assertTrue(not err)
         self.assertEqual(res, 0)
-        addr, count = next(elt for elt in out.decode().split('\n')
+        out = out.decode().splitlines()
+        self.assertEqual(len(out), 2)
+        addr, count = next(elt for elt in out
                            if not elt.startswith('None: ')).split(': ')
-        addr = ivre.utils.ip2int(addr)
-        count = int(count)
         self.check_value("passive_top_addr_distinct", addr)
-        self.check_value("passive_top_addr_distinct_count", count)
+        self.check_value("passive_top_addr_distinct_count", int(count))
+        res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        addr, count = next(elt for elt in out.decode().splitlines()
+                           if not elt.startswith('None: ')).split(': ')
+        self.check_value("passive_top_addr_distinct", addr)
+        self.check_value("passive_top_addr_distinct_count", int(count))
 
         # moduli
         proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl", "--passive-ssh"],
