@@ -20,6 +20,7 @@
 from __future__ import print_function
 import datetime
 import functools
+import json
 import os
 import time
 try:
@@ -133,6 +134,28 @@ def disp_recs_std(flt, sort, limit, skip):
                     print('\t', end=' ')
                     print('AS???? [%s]' % ipinfo['as_name'], end=' ')
         disp_rec(rec)
+
+
+def disp_recs_json(flt, sort, limit, skip):
+    if os.isatty(sys.stdout.fileno()):
+        indent = 4
+    else:
+        indent = None
+    for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
+        for fld in ['_id', 'scanid']:
+            try:
+                del rec[fld]
+            except KeyError:
+                pass
+        if 'fullvalue' in rec:
+            rec['value'] = rec.pop('fullvalue')
+        if 'fullinfos' in rec:
+            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
+        if (rec.get('recontype') == 'SSL_SERVER' and
+            rec.get('source') == 'cert' and
+            isinstance(rec.get('value'), bytes)):
+            rec['value'] = utils.encode_b64(rec['value']).decode()
+        print(json.dumps(rec, indent=indent, default=db.passive.serialize))
 
 
 def disp_recs_short(flt, *_):
@@ -333,6 +356,8 @@ def main():
         disp_recs = disp_recs_short
     elif args.distinct is not None:
         disp_recs = functools.partial(disp_recs_distinct, args.distinct)
+    elif args.json:
+        disp_recs = disp_recs_json
     elif args.top is not None:
         disp_recs = disp_recs_top(args.top)
     elif args.tail is not None:
