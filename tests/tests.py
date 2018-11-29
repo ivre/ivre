@@ -47,7 +47,7 @@ except ImportError:
     from urllib2 import HTTPError, Request, urlopen
 
 
-from future.builtins import int, range
+from future.builtins import int as int_types, range
 from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
@@ -1126,7 +1126,8 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(all(len(elt['_id']) == 2 for elt in locations))
         self.assertTrue(all(all(isinstance(sub, float) for sub in elt['_id'])
                             for elt in locations))
-        self.assertTrue(all(isinstance(elt['count'], int) for elt in locations))
+        self.assertTrue(all(isinstance(elt['count'], int_types)
+                            for elt in locations))
         self.check_value('nmap_location_count', len(locations))
 
         # Check that all coordinates for IPs in "FR" are in a

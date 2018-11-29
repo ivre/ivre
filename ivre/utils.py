@@ -58,7 +58,7 @@ except ImportError:
     USE_PIL = False
 
 
-from builtins import bytes, int, object, range, str
+from builtins import bytes, int as int_types, object, range, str
 from future.utils import PY3, viewitems
 from past.builtins import basestring
 
@@ -433,7 +433,7 @@ def all2datetime(arg):
         return arg
     if isinstance(arg, basestring):
         return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
-    if isinstance(arg, int):
+    if isinstance(arg, int_types):
         return datetime.datetime.fromtimestamp(arg)
     else:
         raise TypeError("%s is of unknown type." % repr(arg))
@@ -468,7 +468,7 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return isinstance(elt, (basestring, int, float, datetime.datetime,
+    return isinstance(elt, (basestring, int_types, float, datetime.datetime,
                             REGEXP_T))
 
 

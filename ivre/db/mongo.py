@@ -39,7 +39,7 @@ import time
 import uuid
 
 
-from future.builtins import bytes, int, range
+from future.builtins import bytes, range
 from future.utils import viewitems
 from past.builtins import basestring
 import bson
@@ -192,11 +192,10 @@ class MongoDB(DB):
                     if 'fields' in kargs:
                         kargs['projection'] = kargs.pop('fields')
                     return self.db[colname].find(*args, **kargs)
-                self._find = _find
             else:
                 def _find(colname, *args, **kargs):
                     return self.db[colname].find(*args, **kargs)
-                self._find = _find
+            self._find = _find
             return self._find
 
     @property
