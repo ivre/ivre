@@ -783,6 +783,44 @@ def create_argparser(description, extraargs=None):
     return parser, False
 
 
+CLI_ARGPARSER = ArgparserParent()
+# DB
+CLI_ARGPARSER.add_argument('--init', '--purgedb', action='store_true',
+                           help='Purge or create and initialize the database.')
+CLI_ARGPARSER.add_argument('--ensure-indexes', action='store_true',
+                           help='Create missing indexes (will lock the '
+                           'database).')
+CLI_ARGPARSER.add_argument('--update-schema', action='store_true',
+                           help='update (host) schema. Use with --version to '
+                           'specify your current version')
+# Actions / display modes
+CLI_ARGPARSER.add_argument('--delete', action='store_true',
+                           help='DELETE the matched results instead of '
+                           'displaying them.')
+CLI_ARGPARSER.add_argument('--short', action='store_true',
+                           help='Output only IP addresses, one per line.')
+CLI_ARGPARSER.add_argument('--count', action='store_true',
+                           help='Count matched results.')
+CLI_ARGPARSER.add_argument('--explain', action='store_true',
+                           help='MongoDB specific: .explain() the query.')
+CLI_ARGPARSER.add_argument('--distinct', metavar='FIELD',
+                           help='Output only unique FIELD part of the '
+                           'results, one per line.')
+CLI_ARGPARSER.add_argument('--json', action='store_true',
+                           help='Output results as JSON documents.')
+if USE_ARGPARSE:
+    CLI_ARGPARSER.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
+                               help='Sort results according to FIELD; use '
+                               '~FIELD to reverse sort order.')
+else:
+    CLI_ARGPARSER.add_argument('--sort', metavar='FIELD / ~FIELD',
+                               help='Sort results according to FIELD; use '
+                               '~FIELD to reverse sort order.')
+CLI_ARGPARSER.add_argument('--limit', type=int,
+                           help='Ouput at most LIMIT results.')
+CLI_ARGPARSER.add_argument('--skip', type=int, help='Skip first SKIP results.')
+
+
 # Country aliases:
 #   - UK: GB
 #   - EU: 28 EU member states, + EU itself, for historical reasons

@@ -19,6 +19,14 @@
 """Put selected results in views."""
 
 from __future__ import print_function
+try:
+    import argparse
+except ImportError:
+    from itertools import chain
+    import optparse
+    USING_ARGPARSE = False
+else:
+    USING_ARGPARSE = True
 import os
 import sys
 
@@ -30,25 +38,18 @@ from ivre.activecli import display_short, display_distinct, \
     displayfunction_json, displayfunction_honeyd, displayfunction_nmapxml, \
     displayfunction_graphroute, displayfunction_explain, \
     displayfunction_remove, displayfunction_csv
-from ivre.utils import display_top
-
-try:
-    import argparse
-    USING_ARGPARSE = True
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
+from ivre.utils import display_top, CLI_ARGPARSER
 
 
 def main():
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
             description='Print out views.',
-            parents=[db.view.argparser])
+            parents=[db.view.argparser, CLI_ARGPARSER])
     else:
         parser = optparse.OptionParser(
             description='Print out views.')
-        for args, kargs in db.view.argparser.args:
+        for args, kargs in chain(db.view.argparser.args, CLI_ARGPARSER):
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
 
@@ -61,20 +62,8 @@ def main():
 
     flt = db.view.flt_empty
 
-    parser.add_argument('--delete', action='store_true',
-                        help='Remove results instead of displaying them.')
-    parser.add_argument('--init', '--purgedb', action='store_true',
-                        help='Purge or create and initialize view.')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Print out formated results.')
-    parser.add_argument('--count', action='store_true',
-                        help='Output number of results.')
-    parser.add_argument('--short', action='store_true',
-                        help='Print only addresses of filtered results.')
-    parser.add_argument('--distinct', metavar='FIELD',
-                        help='Output only unique FIELD part of the results.')
-    parser.add_argument('--json', action='store_true',
-                        help='Output results as JSON documents.')
     parser.add_argument('--no-screenshots', action='store_true',
                         help='When used with --json, do not output '
                         'screenshots data.')
@@ -100,8 +89,6 @@ def main():
     parser.add_argument('--graphroute-include', choices=['last-hop', 'target'],
                         help='How far should graphroute go? Default if to '
                         'exclude the last hop and the target for each result.')
-    parser.add_argument('--explain', action='store_true',
-                        help='MongoDB specific: .explain() the query.')
     parser.add_argument('--top', metavar='FIELD / ~FIELD',
                         help='Output most common (least common: ~) values for '
                         'FIELD, by default 10, use --limit to change that, '
@@ -118,18 +105,6 @@ def main():
     parser.add_argument('--csv-na-str', default="NA",
                         help='String to use for "Not Applicable" value '
                         '(defaults to "NA")')
-    if USING_ARGPARSE:
-        parser.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
-                            help='Sort results according to FIELD; use ~FIELD '
-                            'to reverse sort order.')
-    else:
-        parser.add_argument('--sort', metavar='FIELD / ~FIELD',
-                            help='Sort results according to FIELD; use ~FIELD '
-                            'to reverse sort order.')
-    parser.add_argument('--limit', type=int,
-                        help='Ouput at most LIMIT results.')
-    parser.add_argument('--skip', type=int,
-                        help='Skip first SKIP results.')
 
     args = parser.parse_args()
 
@@ -194,7 +169,9 @@ def main():
             for rec in cursor:
                 sys.stdout.write(str(rec) + '\n')
 
-    if args.count:
+    if args.update_schema:
+        db.db.nmap.migrate_schema(args.version)
+    elif args.count:
         sys.stdout.write(
             str(db.view.count(flt)) + '\n'
         )

@@ -25,10 +25,12 @@ import os
 import time
 try:
     import argparse
-    USING_ARGPARSE = True
 except ImportError:
+    from itertools import chain
     import optparse
     USING_ARGPARSE = False
+else:
+    USING_ARGPARSE = True
 import sys
 try:
     reload(sys)
@@ -260,13 +262,14 @@ def main():
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
             description='Access and query the passive database.',
-            parents=[db.passive.argparser],
+            parents=[db.passive.argparser, utils.CLI_ARGPARSER],
         )
     else:
         parser = optparse.OptionParser(
             description='Access and query the passive database.',
         )
-        for args, kargs in db.passive.argparser.args:
+        for args, kargs in chain(db.passive.argparser.args,
+                                 utils.CLI_ARGPARSER):
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
 
@@ -278,15 +281,7 @@ def main():
         parser.add_argument = parser.add_option
     baseflt = db.passive.flt_empty
     disp_recs = disp_recs_std
-    # DB
-    parser.add_argument('--init', '--purgedb', action='store_true',
-                        help='Purge or create and initialize the database.')
-    parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the '
-                        'database).')
     # display modes
-    parser.add_argument('--short', action='store_true',
-                        help='Output only IP addresses, one per line.')
     parser.add_argument('--tail', metavar='COUNT', type=int,
                         help='Output latest COUNT results.')
     parser.add_argument('--tailnew', metavar='COUNT', type=int,
@@ -295,33 +290,10 @@ def main():
                         help='Output continuously latest results.')
     parser.add_argument('--tailfnew', action='store_true',
                         help='Output continuously latest results.')
-    parser.add_argument('--count', action='store_true',
-                        help='Count matched results.')
-    parser.add_argument('--explain', action='store_true',
-                        help='MongoDB specific: .explain() the query.')
-    parser.add_argument('--distinct', metavar='FIELD',
-                        help='Output only unique FIELD part of the '
-                        'results, one per line.')
     parser.add_argument('--top', metavar='FIELD / ~FIELD',
                         help='Output most common (least common: ~) values for '
                         'FIELD, by default 10, use --limit to change that, '
                         '--limit 0 means unlimited.')
-    parser.add_argument('--delete', action='store_true',
-                        help='DELETE the matched results instead of '
-                        'displaying them.')
-    parser.add_argument('--update-schema', action='store_true',
-                        help='update (passive) schema.')
-    if USING_ARGPARSE:
-        parser.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
-                            help='Sort results according to FIELD; use ~FIELD '
-                            'to reverse sort order.')
-    else:
-        parser.add_argument('--sort', metavar='FIELD / ~FIELD',
-                            help='Sort results according to FIELD; use ~FIELD '
-                            'to reverse sort order.')
-    parser.add_argument('--limit', type=int,
-                        help='Ouput at most LIMIT results.')
-    parser.add_argument('--skip', type=int, help='Skip first SKIP results.')
     if USING_ARGPARSE:
         parser.add_argument('ips', nargs='*',
                             help='Display results for specified IP addresses'
