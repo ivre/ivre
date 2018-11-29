@@ -1522,6 +1522,59 @@ which `predicate()` is True, given `webflt`.
         self.check_value("passive_top_addr_distinct", addr)
         self.check_value("passive_top_addr_distinct_count", int(count))
 
+        # CLI: --limit / --skip / --sort
+        # Using --limit should prevent ipinfo from selecting tailfnew mode
+        res, _, err = RUN(["ivre", "ipinfo", "--limit", "1"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        # Using --limit n with --json should produce at most n JSON
+        # lines
+        for count in 5, 10:
+            res, out, err = RUN(["ivre", "ipinfo", "--limit", str(count),
+                                 "--json"])
+            self.assertTrue(not err)
+            self.assertEqual(res, 0)
+            out = out.decode().splitlines()
+            self.assertEqual(len(out), count)
+            for line in out:
+                json.loads(line)
+        # Test --skip
+        for skip in 5, 10:
+            for count in 5, 10:
+                res, out, err = RUN(["ivre", "ipinfo", "--limit", str(count),
+                                     "--skip", str(skip), "--json"])
+                self.assertTrue(not err)
+                self.assertEqual(res, 0)
+                out = out.decode().splitlines()
+                self.assertEqual(len(out), count)
+                for line in out:
+                    json.loads(line)
+        res, out1, err = RUN(["ivre", "ipinfo", "--limit", "1", "--json"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        res, out2, err = RUN(["ivre", "ipinfo", "--limit", "1", "--skip", "1",
+                              "--json"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        self.assertFalse(out1 == out2)
+        # Test --sort
+        res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "port"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        port = 0
+        for line in out.decode().splitlines():
+            nport = json.loads(line).get('port', 0)
+            self.assertTrue(port <= nport)
+            port = nport
+        res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "~port"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        port = 65536
+        for line in out.decode().splitlines():
+            nport = json.loads(line).get('port', 0)
+            self.assertTrue(port >= nport)
+            port = nport
+
         # moduli
         proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl", "--passive-ssh"],
                         stderr=None)
