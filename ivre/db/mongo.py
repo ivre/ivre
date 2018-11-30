@@ -1204,7 +1204,7 @@ it is not expected)."""
                 pass
             for port in host.get('ports', []):
                 try:
-                    port['state_reason_ip'], = self.internal2ip([
+                    port['state_reason_ip'] = self.internal2ip([
                         port.pop('state_reason_ip_0'),
                         port.pop('state_reason_ip_1'),
                     ])
@@ -1370,7 +1370,7 @@ it is not expected)."""
                         port['state_reason_ip_0'],
                         port['state_reason_ip_1'],
                     ) = self.ip2internal(
-                        port['state_reason_ip']
+                        port.pop('state_reason_ip')
                     )
                 except ValueError:
                     pass
