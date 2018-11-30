@@ -139,7 +139,7 @@ def main():
     if args.json:
         def displayfunction(x):
             return displayfunction_json(
-                x, db.view, args.no_screenshot
+                x, db.view, args.no_screenshots
             )
     elif args.honeyd:
         displayfunction = displayfunction_honeyd

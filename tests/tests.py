@@ -2367,8 +2367,15 @@ which `predicate()` is True, given `webflt`.
         view_count = self.check_view_count_value("view_get_count",
                                                  ivre.db.db.view.flt_empty,
                                                  [], None)
-        ret, out, _ = RUN(["ivre", "view"])
+        ret, out, err = RUN(["ivre", "view"])
         self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), view_count)
+
+        # --json
+        ret, out, err = RUN(["ivre", "view", "--json"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
         # Filters
