@@ -1505,6 +1505,11 @@ which `predicate()` is True, given `webflt`.
         del cur
 
         # Top values (CLI)
+        res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        out = out.decode().splitlines()
+        self.assertEqual(len(out), 10)
         res, out, err = RUN(["ivre", "ipinfo", "--limit", "2", "--top",
                              "addr"])
         self.assertTrue(not err)
