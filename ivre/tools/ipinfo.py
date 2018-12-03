@@ -20,14 +20,17 @@
 from __future__ import print_function
 import datetime
 import functools
+import json
 import os
 import time
 try:
     import argparse
-    USING_ARGPARSE = True
 except ImportError:
+    from itertools import chain
     import optparse
     USING_ARGPARSE = False
+else:
+    USING_ARGPARSE = True
 import sys
 try:
     reload(sys)
@@ -95,12 +98,10 @@ def disp_rec(rec):
                 print(rec['infos'][i])
 
 
-def disp_recs_std(flt):
+def disp_recs_std(flt, sort, limit, skip):
     old_addr = None
-    for rec in db.passive.get(
-            flt,
-            sort=[('addr', 1), ('port', 1), ('recontype', 1), ('source', 1)],
-    ):
+    sort = sort or [('addr', 1), ('port', 1), ('recontype', 1), ('source', 1)]
+    for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
         if 'addr' not in rec or not rec['addr']:
             continue
         if old_addr != rec['addr']:
@@ -137,23 +138,50 @@ def disp_recs_std(flt):
         disp_rec(rec)
 
 
-def disp_recs_short(flt):
+def disp_recs_json(flt, sort, limit, skip):
+    if os.isatty(sys.stdout.fileno()):
+        indent = 4
+    else:
+        indent = None
+    for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
+        for fld in ['_id', 'scanid']:
+            try:
+                del rec[fld]
+            except KeyError:
+                pass
+        if 'fullvalue' in rec:
+            rec['value'] = rec.pop('fullvalue')
+        if 'fullinfos' in rec:
+            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
+        if (rec.get('recontype') == 'SSL_SERVER' and
+            rec.get('source') == 'cert' and
+            isinstance(rec.get('value'), bytes)):
+            rec['value'] = utils.encode_b64(rec['value']).decode()
+        print(json.dumps(rec, indent=indent, default=db.passive.serialize))
+
+
+def disp_recs_short(flt, *_):
     for addr in db.passive.distinct('addr', flt=flt):
         print(db.passive.internal2ip(addr) if addr else None)
 
 
-def disp_recs_distinct(field, flt):
+def disp_recs_distinct(field, flt, *_):
     for value in db.passive.distinct(field, flt=flt):
         print(value)
 
 
-def disp_recs_count(flt):
+def disp_recs_top(top):
+    return lambda flt, sort, limit, _: utils.display_top(db.passive, top, flt,
+                                                         limit)
+
+
+def disp_recs_count(flt, sort, limit, skip):
     print(db.passive.count(flt))
 
 
-def _disp_recs_tail(flt, field, n):
+def _disp_recs_tail(flt, field, nbr):
     recs = list(db.passive.get(
-        flt, sort=[(field, -1)], limit=n))
+        flt, sort=[(field, -1)], limit=nbr))
     recs.reverse()
     for r in recs:
         if 'addr' in r:
@@ -166,12 +194,12 @@ def _disp_recs_tail(flt, field, n):
         disp_rec(r)
 
 
-def disp_recs_tail(n):
-    return lambda flt: _disp_recs_tail(flt, 'firstseen', n)
+def disp_recs_tail(nbr):
+    return lambda flt, *_: _disp_recs_tail(flt, 'firstseen', nbr)
 
 
-def disp_recs_tailnew(n):
-    return lambda flt: _disp_recs_tail(flt, 'lastseen', n)
+def disp_recs_tailnew(nbr):
+    return lambda flt, *_: _disp_recs_tail(flt, 'lastseen', nbr)
 
 
 def _disp_recs_tailf(flt, field):
@@ -217,15 +245,16 @@ def _disp_recs_tailf(flt, field):
 
 
 def disp_recs_tailfnew():
-    return lambda flt: _disp_recs_tailf(flt, 'firstseen')
+    return lambda flt, *_: _disp_recs_tailf(flt, 'firstseen')
 
 
 def disp_recs_tailf():
-    return lambda flt: _disp_recs_tailf(flt, 'lastseen')
+    return lambda flt, *_: _disp_recs_tailf(flt, 'lastseen')
 
 
-def disp_recs_explain(flt):
-    print(db.passive.explain(db.passive._get(flt), indent=4))
+def disp_recs_explain(flt, sort, limit, skip):
+    print(db.passive.explain(db.passive._get(flt, sort=sort, limit=limit,
+                                             skip=skip), indent=4))
 
 
 def main():
@@ -233,13 +262,14 @@ def main():
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
             description='Access and query the passive database.',
-            parents=[db.passive.argparser],
+            parents=[db.passive.argparser, utils.CLI_ARGPARSER],
         )
     else:
         parser = optparse.OptionParser(
             description='Access and query the passive database.',
         )
-        for args, kargs in db.passive.argparser.args:
+        for args, kargs in chain(db.passive.argparser.args,
+                                 utils.CLI_ARGPARSER):
             parser.add_option(*args, **kargs)
         parser.parse_args_orig = parser.parse_args
 
@@ -251,15 +281,7 @@ def main():
         parser.add_argument = parser.add_option
     baseflt = db.passive.flt_empty
     disp_recs = disp_recs_std
-    # DB
-    parser.add_argument('--init', '--purgedb', action='store_true',
-                        help='Purge or create and initialize the database.')
-    parser.add_argument('--ensure-indexes', action='store_true',
-                        help='Create missing indexes (will lock the '
-                        'database).')
     # display modes
-    parser.add_argument('--short', action='store_true',
-                        help='Output only IP addresses, one per line.')
     parser.add_argument('--tail', metavar='COUNT', type=int,
                         help='Output latest COUNT results.')
     parser.add_argument('--tailnew', metavar='COUNT', type=int,
@@ -268,21 +290,10 @@ def main():
                         help='Output continuously latest results.')
     parser.add_argument('--tailfnew', action='store_true',
                         help='Output continuously latest results.')
-    parser.add_argument('--count', action='store_true',
-                        help='Count matched results.')
-    parser.add_argument('--explain', action='store_true',
-                        help='MongoDB specific: .explain() the query.')
-    parser.add_argument('--distinct', metavar='FIELD',
-                        help='Output only unique FIELD part of the '
-                        'results, one per line.')
     parser.add_argument('--top', metavar='FIELD / ~FIELD',
-                        help='Output 10 most common (least common: ~) values '
-                        'for FIELD.')
-    parser.add_argument('--delete', action='store_true',
-                        help='DELETE the matched results instead of '
-                        'displaying them.')
-    parser.add_argument('--update-schema', action='store_true',
-                        help='update (passive) schema.')
+                        help='Output most common (least common: ~) values for '
+                        'FIELD, by default 10, use --limit to change that, '
+                        '--limit 0 means unlimited.')
     if USING_ARGPARSE:
         parser.add_argument('ips', nargs='*',
                             help='Display results for specified IP addresses'
@@ -317,9 +328,10 @@ def main():
         disp_recs = disp_recs_short
     elif args.distinct is not None:
         disp_recs = functools.partial(disp_recs_distinct, args.distinct)
+    elif args.json:
+        disp_recs = disp_recs_json
     elif args.top is not None:
-        def disp_recs(flt):
-            return utils.display_top(db.passive, args.top, flt, None)
+        disp_recs = disp_recs_top(args.top)
     elif args.tail is not None:
         disp_recs = disp_recs_tail(args.tail)
     elif args.tailnew is not None:
@@ -334,11 +346,17 @@ def main():
         disp_recs = db.passive.remove
     elif args.explain:
         disp_recs = disp_recs_explain
+    if args.sort is None:
+        sort = []
+    else:
+        sort = [(field[1:], -1) if field.startswith('~') else (field, 1)
+                for field in args.sort]
     if not args.ips:
-        if not baseflt and disp_recs == disp_recs_std:
+        if not baseflt and not args.limit and disp_recs == disp_recs_std:
             # default to tail -f mode
             disp_recs = disp_recs_tailfnew()
-        disp_recs(baseflt)
+        disp_recs(baseflt, sort, args.limit or db.passive.no_limit,
+                  args.skip or 0)
         exit(0)
     first = True
     for a in args.ips:
@@ -360,4 +378,4 @@ def main():
             if a.isdigit():
                 a = utils.force_int2ip(int(a))
             flt = db.passive.flt_and(flt, db.passive.searchhost(a))
-        disp_recs(flt)
+        disp_recs(flt, sort, args.limit or db.passive.no_limit, args.skip or 0)

@@ -225,9 +225,11 @@ class PassiveCSVFile(CSVFile):
 
 
 class SQLDB(DB):
+
     table_layout = namedtuple("empty_layout", [])
     tables = table_layout()
     fields = {}
+    no_limit = None
 
     def __init__(self, url):
         self.dburl = url

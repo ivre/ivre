@@ -39,7 +39,7 @@ import time
 import uuid
 
 
-from future.builtins import bytes, int, range
+from future.builtins import bytes, range
 from future.utils import viewitems
 from past.builtins import basestring
 import bson
@@ -90,6 +90,7 @@ class MongoDB(DB):
     schema_latest_versions = {}
     needunwind = []
     ipaddr_fields = []
+    no_limit = 0
 
     def __init__(self, host, dbname,
                  username=None, password=None, mechanism=None,
@@ -191,11 +192,10 @@ class MongoDB(DB):
                     if 'fields' in kargs:
                         kargs['projection'] = kargs.pop('fields')
                     return self.db[colname].find(*args, **kargs)
-                self._find = _find
             else:
                 def _find(colname, *args, **kargs):
                     return self.db[colname].find(*args, **kargs)
-                self._find = _find
+            self._find = _find
             return self._find
 
     @property
@@ -1204,7 +1204,7 @@ it is not expected)."""
                 pass
             for port in host.get('ports', []):
                 try:
-                    port['state_reason_ip'], = self.internal2ip([
+                    port['state_reason_ip'] = self.internal2ip([
                         port.pop('state_reason_ip_0'),
                         port.pop('state_reason_ip_1'),
                     ])
@@ -1370,7 +1370,7 @@ it is not expected)."""
                         port['state_reason_ip_0'],
                         port['state_reason_ip_1'],
                     ) = self.ip2internal(
-                        port['state_reason_ip']
+                        port.pop('state_reason_ip')
                     )
                 except ValueError:
                     pass

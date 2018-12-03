@@ -47,7 +47,7 @@ except ImportError:
     from urllib2 import HTTPError, Request, urlopen
 
 
-from future.builtins import int, range
+from future.builtins import int as int_types, range
 from past.builtins import basestring
 if sys.version_info[:2] < (2, 7):
     import unittest2 as unittest
@@ -1126,7 +1126,8 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(all(len(elt['_id']) == 2 for elt in locations))
         self.assertTrue(all(all(isinstance(sub, float) for sub in elt['_id'])
                             for elt in locations))
-        self.assertTrue(all(isinstance(elt['count'], int) for elt in locations))
+        self.assertTrue(all(isinstance(elt['count'], int_types)
+                            for elt in locations))
         self.check_value('nmap_location_count', len(locations))
 
         # Check that all coordinates for IPs in "FR" are in a
@@ -1492,7 +1493,7 @@ which `predicate()` is True, given `webflt`.
                 values = next(cur)
             self.check_value(
                 "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
-                ivre.utils.ip2int(values["_id"]),
+                values["_id"],
             )
             self.check_value(
                 "passive_top_addr_%sdistinct_count" % ("" if distinct
@@ -1503,14 +1504,77 @@ which `predicate()` is True, given `webflt`.
         # to the database (required for SQLite)
         del cur
 
-        res, out, _ = RUN(["ivre", "ipinfo", "--top", "addr"])
+        # Top values (CLI)
+        res, out, err = RUN(["ivre", "ipinfo", "--limit", "2", "--top",
+                             "addr"])
+        self.assertTrue(not err)
         self.assertEqual(res, 0)
-        addr, count = next(elt for elt in out.decode().split('\n')
+        out = out.decode().splitlines()
+        self.assertEqual(len(out), 2)
+        addr, count = next(elt for elt in out
                            if not elt.startswith('None: ')).split(': ')
-        addr = ivre.utils.ip2int(addr)
-        count = int(count)
         self.check_value("passive_top_addr_distinct", addr)
-        self.check_value("passive_top_addr_distinct_count", count)
+        self.check_value("passive_top_addr_distinct_count", int(count))
+        res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        addr, count = next(elt for elt in out.decode().splitlines()
+                           if not elt.startswith('None: ')).split(': ')
+        self.check_value("passive_top_addr_distinct", addr)
+        self.check_value("passive_top_addr_distinct_count", int(count))
+
+        # CLI: --limit / --skip / --sort
+        # Using --limit should prevent ipinfo from selecting tailfnew mode
+        res, _, err = RUN(["ivre", "ipinfo", "--limit", "1"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        # Using --limit n with --json should produce at most n JSON
+        # lines
+        for count in 5, 10:
+            res, out, err = RUN(["ivre", "ipinfo", "--limit", str(count),
+                                 "--json"])
+            self.assertTrue(not err)
+            self.assertEqual(res, 0)
+            out = out.decode().splitlines()
+            self.assertEqual(len(out), count)
+            for line in out:
+                json.loads(line)
+        # Test --skip
+        for skip in 5, 10:
+            for count in 5, 10:
+                res, out, err = RUN(["ivre", "ipinfo", "--limit", str(count),
+                                     "--skip", str(skip), "--json"])
+                self.assertTrue(not err)
+                self.assertEqual(res, 0)
+                out = out.decode().splitlines()
+                self.assertEqual(len(out), count)
+                for line in out:
+                    json.loads(line)
+        res, out1, err = RUN(["ivre", "ipinfo", "--limit", "1", "--json"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        res, out2, err = RUN(["ivre", "ipinfo", "--limit", "1", "--skip", "1",
+                              "--json"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        self.assertFalse(out1 == out2)
+        # Test --sort
+        res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "port"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        port = 0
+        for line in out.decode().splitlines():
+            nport = json.loads(line).get('port', 0)
+            self.assertTrue(port <= nport)
+            port = nport
+        res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "~port"])
+        self.assertTrue(not err)
+        self.assertEqual(res, 0)
+        port = 65536
+        for line in out.decode().splitlines():
+            nport = json.loads(line).get('port', 0)
+            self.assertTrue(port >= nport)
+            port = nport
 
         # moduli
         proc = RUN_ITER(["ivre", "getmoduli", "--passive-ssl", "--passive-ssh"],
@@ -2303,8 +2367,15 @@ which `predicate()` is True, given `webflt`.
         view_count = self.check_view_count_value("view_get_count",
                                                  ivre.db.db.view.flt_empty,
                                                  [], None)
-        ret, out, _ = RUN(["ivre", "view"])
+        ret, out, err = RUN(["ivre", "view"])
         self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), view_count)
+
+        # --json
+        ret, out, err = RUN(["ivre", "view", "--json"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
         # Filters
