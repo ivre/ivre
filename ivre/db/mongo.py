@@ -30,6 +30,7 @@ except ImportError:
     OrderedDict = dict
 from copy import deepcopy
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -3351,6 +3352,11 @@ is not expected)."""
                                                 rec.pop('addr_1')])
             except (KeyError, socket.error):
                 pass
+            for key in ['value', 'targetval']:
+                if 'full' + key in rec:
+                    rec[key] = rec.pop('full' + key)
+            if 'fullinfos' in rec:
+                rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
             yield rec
 
     def get_one(self, spec, **kargs):
@@ -3368,6 +3374,11 @@ on "spec" and the indexes set on colname_passive column."""
             pass
         else:
             del rec['addr_0'], rec['addr_1']
+        for key in ['value', 'targetval']:
+            if 'full' + key in rec:
+                rec[key] = rec.pop('full' + key)
+        if 'fullinfos' in rec:
+            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
         return rec
 
     def update(self, spec, **kargs):
@@ -3375,6 +3386,25 @@ on "spec" and the indexes set on colname_passive column."""
 setting values according to the keyword arguments.
 """
         self.db[self.colname_passive].update(spec, {'$set': kargs})
+
+    @staticmethod
+    def _fix_sizes(spec):
+        # Finally we prepare the record to be stored. For that, we make
+        # sure that no indexed value has a size greater than MAXVALLEN. If
+        # so, we replace the value with its SHA1 hash and store the
+        # original value in full[original column name].
+        for key in ['value', 'targetval']:
+            if len(spec.get(key, "")) >  utils.MAXVALLEN:
+                spec['full' + key] = spec[key]
+                spec[key] = hashlib.sha1(spec[key].encode()).hexdigest()
+        # We enforce a utils.MAXVALLEN // 10 size limits for subkey values in
+        # infos; this is because MongoDB cannot index values longer than 1024
+        # bytes.
+        for field in list(spec.get("infos", {})):
+            value = spec["infos"]
+            if len(value) > utils.MAXVALLEN // 10:
+                spec.setdefault("fullinfos", {})[field] = value
+                spec["infos"][field] = value[:utils.MAXVALLEN // 10]
 
     def insert(self, spec, getinfos=None):
         """Inserts the record "spec" into the passive column."""
@@ -3384,6 +3414,7 @@ setting values according to the keyword arguments.
             spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
             pass
+        self._fix_sizes(spec)
         self.db[self.colname_passive].insert(spec)
 
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
@@ -3393,6 +3424,7 @@ setting values according to the keyword arguments.
             spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
             pass
+        self._fix_sizes(spec)
         hint = self.get_hint(spec)
         current = self.get(spec, hint=hint, fields=[])
         try:
@@ -3457,6 +3489,7 @@ setting values according to the keyword arguments.
                     )
                 except (KeyError, ValueError):
                     pass
+                self._fix_sizes(spec)
                 updatespec = {
                     '$inc': {'count': 1},
                     '$min': {'firstseen': firstseen},
@@ -3493,6 +3526,7 @@ setting values according to the keyword arguments.
             spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
         except (KeyError, ValueError):
             pass
+        self._fix_sizes(spec)
         if 'firstseen' in spec:
             updatespec['$min'] = {'firstseen': spec.pop('firstseen')}
         if 'lastseen' in spec:

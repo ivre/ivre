@@ -1158,7 +1158,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         'count', 'firstseen', 'lastseen',
                         # grouped
                         'sensor', 'port', 'recontype', 'source', 'targetval',
-                        'value', 'fullvalue', 'info', 'moreinfo'
+                        'value', 'info', 'moreinfo'
                     ]],
                     select([tmp.columns['addr'],
                             func.sum_(tmp.columns['count']),
@@ -1166,15 +1166,15 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                             func.max_(tmp.columns['lastseen'])] + [
                                 tmp.columns[col] for col in [
                                     'sensor', 'port', 'recontype', 'source',
-                                    'targetval', 'value', 'fullvalue', 'info',
-                                    'moreinfo']])\
+                                    'targetval', 'value', 'info', 'moreinfo'
+                                    ]])\
                     .where(
                         tmp.columns['addr'] != None
                         # noqa: E711 (BinaryExpression)
                     )\
                     .group_by(*(tmp.columns[col] for col in [
                         'addr', 'sensor', 'port', 'recontype', 'source',
-                        'targetval', 'value', 'fullvalue', 'info', 'moreinfo'
+                        'targetval', 'value', 'info', 'moreinfo'
                     ]))
                 )\
                 .on_conflict_do_update(
@@ -1204,7 +1204,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                         'count', 'firstseen', 'lastseen',
                         # grouped
                         'sensor', 'port', 'recontype', 'source', 'targetval',
-                        'value', 'fullvalue', 'info', 'moreinfo'
+                        'value', 'info', 'moreinfo'
                     ]],
                     select([tmp.columns['addr'],
                             func.sum_(tmp.columns['count']),
@@ -1212,15 +1212,15 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                             func.max_(tmp.columns['lastseen'])] + [
                                 tmp.columns[col] for col in [
                                     'sensor', 'port', 'recontype', 'source',
-                                    'targetval', 'value', 'fullvalue', 'info',
-                                    'moreinfo']])\
+                                    'targetval', 'value', 'info', 'moreinfo'
+                                    ]])\
                     .where(
                         tmp.columns['addr'] == None
                         # noqa: E711 (BinaryExpression)
                     )\
                     .group_by(*(tmp.columns[col] for col in [
                         'addr', 'sensor', 'port', 'recontype', 'source',
-                        'targetval', 'value', 'fullvalue', 'info', 'moreinfo'
+                        'targetval', 'value', 'info', 'moreinfo'
                     ]))
                 )\
                 .on_conflict_do_update(

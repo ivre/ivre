@@ -59,7 +59,7 @@ def disp_rec(rec):
     if 'source' in rec:
         print(rec['source'], end=' ')
     if 'value' in rec:
-        value = utils.printable(rec.get('fullvalue', rec['value']))
+        value = utils.printable(rec['value'])
         if isinstance(value, bytes):
             value = value.decode()
         print(value, end=' ')
@@ -149,10 +149,6 @@ def disp_recs_json(flt, sort, limit, skip):
                 del rec[fld]
             except KeyError:
                 pass
-        if 'fullvalue' in rec:
-            rec['value'] = rec.pop('fullvalue')
-        if 'fullinfos' in rec:
-            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
         if (rec.get('recontype') == 'SSL_SERVER' and
             rec.get('source') == 'cert' and
             isinstance(rec.get('value'), bytes)):
