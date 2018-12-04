@@ -1115,7 +1115,7 @@ index) unsigned 128-bit integers in MongoDB.
         except (KeyError, ValueError):
             pass
         else:
-            update["$unset"]['addr'] = ""
+            update["$unset"] = { "addr": "" }
             update["$set"]["addr_0"] = addr[0]
             update["$set"]["addr_1"] = addr[1]
         updated = False
