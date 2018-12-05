@@ -1115,19 +1115,19 @@ index) unsigned 128-bit integers in MongoDB.
         except (KeyError, ValueError):
             pass
         else:
-            update["$unset"]['addr'] = ""
-            update["$set"]["addr_0"] = addr[0]
-            update["$set"]["addr_1"] = addr[1]
+            update["$unset"] = {"addr": ""}
+            update["$set"]["addr_0"], update["$set"]["addr_1"] = addr
         updated = False
         for port in doc.get('ports', []):
             if 'state_reason_ip' in port:
                 try:
-                    port['state_reason_ip'] = convert(
-                        port['state_reason_ip']
-                    )
+                    ipaddr = convert(port['state_reason_ip'])
                 except ValueError:
                     pass
                 else:
+                    del port['state_reason_ip']
+                    (port['state_reason_ip_0'],
+                     port['state_reason_ip_1']) = ipaddr
                     updated = True
             for script in port.get('scripts', []):
                 if script['id'] == 'ssl-cert':
@@ -1170,8 +1170,7 @@ index) unsigned 128-bit integers in MongoDB.
                         pass
                     else:
                         del hop['ipaddr']
-                        hop['ipaddr_0'] = ipaddr[0]
-                        hop['ipaddr_1'] = ipaddr[1]
+                        hop['ipaddr_0'], hop['ipaddr_1'] = ipaddr
                         updated = True
         if updated:
             update["$set"]["traces"] = doc['traces']
