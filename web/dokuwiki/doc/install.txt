@@ -10,7 +10,7 @@ If you want to use the "flow" module, you also need to install [[http://neo4j.co
 
 If you plan to run scans from a machine, install [[http://nmap.org/|Nmap]] and optionally [[https://zmap.io/|ZMap]] and [[https://github.com/robertdavidgraham/masscan|Masscan]]. If you want to integrate screenshots, install [[https://github.com/tesseract-ocr/tesseract|Tesseract]], [[https://www.imagemagick.org/|ImageMagick]], [[http://ffmpeg.org/|FFmpeg]] and [[http://phantomjs.org/|PhantomJS]].
 
-If you plan to analyze PCAP file on a machine, install, depending on your needs, [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3), [[http://qosient.com/argus/|Argus]] and/or [[http://nfdump.sourceforge.net/|Nfdump]].
+If you plan to analyze PCAP file on a machine, install, depending on your needs, [[http://www.bro.org/|Bro]] (version 2.6 minimum), [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3), [[http://qosient.com/argus/|Argus]] and/or [[http://nfdump.sourceforge.net/|Nfdump]].
 
 To install IVRE, you'll need [[http://www.python.org/|Python]] 2 (version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum), with the following modules:
 
