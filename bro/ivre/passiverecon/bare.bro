@@ -18,6 +18,10 @@
 
 @load ./
 
+export {
+    redef enable_syslog = F;
+}
+
 event bro_init() {
     # Let's disable standards outputs
     Log::disable_stream(HTTP::LOG);

@@ -7,6 +7,7 @@ bro/passiverecon2db-ignore.example
 bro/ivre/__load__.bro
 bro/ivre/passiverecon/__load__.bro
 bro/ivre/passiverecon/bare.bro
+bro/ivre/passiverecon/ja3.bro
 data/.empty
 data/ike-vendor-ids
 data/honeyd/sshd

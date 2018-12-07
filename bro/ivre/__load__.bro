@@ -49,8 +49,6 @@
 @load policy/protocols/smb
 
 export {
-    redef FTP::default_capture_password = T;
-    redef HTTP::default_capture_password = T;
     redef Software::asset_tracking = ALL_HOSTS;
 }
 
