@@ -338,6 +338,19 @@ def _getinfos_dns(spec, _):
     return res
 
 
+def _getinfos_sslsrv(spec, to_binary):
+    """Calls a source specific function for SSL_SERVER recontype
+records.
+
+    """
+    source = spec.get('source')
+    if source == 'cert':
+        return _getinfos_cert(spec, to_binary)
+    if source.startswith('ja3-'):
+        return _getinfos_ja3(spec, to_binary)
+    return {}
+
+
 def _getinfos_cert(spec, to_binary):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
@@ -357,6 +370,32 @@ def _getinfos_cert(spec, to_binary):
     if info:
         res['infos'] = info
     return res
+
+
+def _getinfos_ja3(spec, to_binary):
+    """Extract hashes from JA3 fingerprint strings.
+
+    """
+    value = spec['value']
+    data = value.encode()
+
+    info = dict((hashtype, hashlib.new(hashtype, data).hexdigest())
+                for hashtype in ['md5', 'sha1', 'sha256'])
+    info['value'] = value
+    spec['value'] = info['md5']
+
+    if spec.get('recontype') == 'SSL_SERVER' and \
+       spec.get('source', '').startswith('ja3-'):
+        clientvalue = spec['source'][4:]
+        clientdata = clientvalue.encode()
+        info['client'] = dict(
+            (hashtype, hashlib.new(hashtype, clientdata).hexdigest())
+            for hashtype in ['md5', 'sha1', 'sha256']
+        )
+        info['client']['value'] = clientvalue
+        spec['source'] = 'ja3-%s' % info['client']['md5']
+
+    return {'infos': info}
 
 
 def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
@@ -422,7 +461,8 @@ _GETINFOS_FUNCTIONS = {
     'HTTP_SERVER_HEADER':
     {'SERVER': _getinfos_http_server},
     'DNS_ANSWER': _getinfos_dns,
-    'SSL_SERVER': _getinfos_cert,
+    'SSL_SERVER': _getinfos_sslsrv,
+    'SSL_CLIENT': {'ja3': _getinfos_ja3},
     'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,
     'SSH_SERVER': _getinfos_ssh_server,
     'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
