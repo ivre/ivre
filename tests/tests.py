@@ -912,7 +912,6 @@ which `predicate()` is True, given `webflt`.
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
         ))['addr']
-        addr = ivre.utils.force_int2ip(addr)
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         queries = [
             ivre.db.db.nmap.searchhost(addr),
