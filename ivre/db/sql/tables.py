@@ -542,10 +542,9 @@ class Passive(Base):
     source = Column(String(64))
     targetval = Column(Text)
     value = Column(Text)
-    fullvalue = Column(Text)
     info = Column(SQLJSONB)
     moreinfo = Column(SQLJSONB)
-    # moreinfo and fullvalue contain data that are not tested for
+    # moreinfo contain data that are not tested for
     # unicity on insertion (the unicity is guaranteed by the value)
     # for performance reasons
     schema_version = Column(Integer, default=passive.SCHEMA_VERSION)

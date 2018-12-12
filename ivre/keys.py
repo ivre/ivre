@@ -167,9 +167,7 @@ class SSLPassiveKey(PassiveKey, SSLKey):
         SSLKey.__init__(self)
 
     def getkeys(self, record):
-        certtext = self._der2key(record['fullvalue']
-                                 if 'fullvalue' in record
-                                 else record['value'])
+        certtext = self._der2key(record['value'])
         if certtext is None:
             return
 

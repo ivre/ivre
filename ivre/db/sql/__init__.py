@@ -187,10 +187,6 @@ class PassiveCSVFile(CSVFile):
                 line.update(additional_info['infos'])
             except KeyError:
                 pass
-            try:
-                line.update(additional_info['fullinfos'])
-            except KeyError:
-                pass
         if "addr" in line:
             line["addr"] = self.ip2internal(line["addr"])
         else:
@@ -1762,8 +1758,7 @@ returns a generator.
                 self.tables.passive.lastseen, self.tables.passive.port,
                 self.tables.passive.recontype, self.tables.passive.source,
                 self.tables.passive.targetval, self.tables.passive.value,
-                self.tables.passive.fullvalue, self.tables.passive.info,
-                self.tables.passive.moreinfo
+                self.tables.passive.info, self.tables.passive.moreinfo
             ]).select_from(flt.select_from)
         )
         for key, way in sort or []:
@@ -1803,10 +1798,6 @@ returns the first result, or None if no result exists."""
                 spec.update(additional_info['infos'])
             except KeyError:
                 pass
-            try:
-                spec.update(additional_info['fullinfos'])
-            except KeyError:
-                pass
         addr = spec.pop("addr", None)
         if not isinstance(timestamp, datetime.datetime):
             timestamp = datetime.datetime.fromtimestamp(timestamp)
@@ -1833,7 +1824,6 @@ returns the first result, or None if no result exists."""
             'port': spec.pop("port", 0),
             'recontype': spec.pop("recontype"),
             # source, targetval, value: otherfields
-            'fullvalue': spec.pop("fullvalue", None),
             'info': info,
             'moreinfo': spec,
             'schema_version': spec.pop('schema_version', None),
@@ -1867,7 +1857,6 @@ passive table."""
                 except KeyError:
                     pass
                 line.update(line.pop('infos', {}))
-                line.update(line.pop('fullinfos', {}))
                 for key, value in viewitems(line):
                     if isinstance(value, dict) and len(value) == 1 \
                        and "$numberLong" in value:

@@ -37,7 +37,7 @@ def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
     # TODO: (?) handle Host: header for DNS
     # FIXME: catches ip addresses as domain name.
     if 'source' in rec and rec['source'] == 'HOST':
-        values = rec.get('fullvalue', rec['value']).split(".")
+        values = rec['value'].split(".")
         domains = [values.pop()]
         while values:
             domains.insert(0, values.pop() + "." + domains[0])
@@ -58,7 +58,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
     # TODO: handle other header values and merge them
     if rec.get('source') != 'SERVER':
         return {'ports': [port]}
-    value = rec.get('fullvalue', rec['value'])
+    value = rec['value']
     script = {'id': 'http-server-header', 'output': value}
     port['scripts'] = [script]
     banner = (b"HTTP/1.1 200 OK\r\nServer: " + utils.nmap_decode_data(value) +
@@ -79,13 +79,13 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
     return {'ports': [{
         'port': -1,
         'scripts': [{'id': 'passive-http-user-agent',
-                     'output': rec.get('fullvalue', rec['value'])}],
+                     'output': rec['value']}],
     }]}
 
 
 def _extract_passive_TCP_SERVER_BANNER(rec):
     """Handle banners from tcp servers."""
-    value = rec.get('fullvalue', rec['value'])
+    value = rec['value']
     if rec['recontype'] == 'SSH_SERVER':
         value += "\r\n"
     port = {
@@ -117,7 +117,7 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
     #
     # (MAYBE) we should add a "lastseen" tag to every intel in view.
     value = utils.encode_b64(
-        utils.nmap_decode_data(rec.get('fullvalue', rec['value']))
+        utils.nmap_decode_data(rec['value'])
     ).decode()
     fingerprint = rec['infos']['md5']
     key = {'type': rec['infos']['algo'],
@@ -157,7 +157,7 @@ def _extract_passive_SSL_SERVER(rec):
     """Handle ssl server headers."""
     if rec.get('source') != 'cert':
         return {}
-    value = db.passive.from_binary(rec.get('fullvalue', rec['value']))
+    value = db.passive.from_binary(rec['value'])
     script = {"id": "ssl-cert"}
     port = {
         'state_state': 'open',
@@ -175,7 +175,7 @@ def _extract_passive_SSL_SERVER(rec):
 
 def _extract_passive_DNS_ANSWER(rec):
     """Handle dns server headers."""
-    name = rec.get('fullvalue', rec['value'])
+    name = rec['value']
     domains = rec['infos']['domain']
     return {'hostnames': [{'domains': domains,
                            'type': rec['source'].split('-', 1)[0],
