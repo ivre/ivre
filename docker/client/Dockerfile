@@ -45,7 +45,6 @@ RUN apt-get -qy install build-essential libssl-dev && \
     apt-get -qy --purge autoremove build-essential libssl-dev
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
-# wget https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.8-linux-x86_64.tar.bz2 -O ./phantomjs-1.9.8-linux-x86_64.tar.bz2
 ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.8-linux-x86_64.tar.bz2 ./phantomjs-1.9.8-linux-x86_64.tar.bz2
 RUN tar jxf phantomjs-1.9.8-linux-x86_64.tar.bz2 phantomjs-1.9.8-linux-x86_64/bin/phantomjs && \
     mv phantomjs-1.9.8-linux-x86_64/bin/phantomjs /usr/local/bin/ && \

@@ -17,7 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 # https://gist.github.com/roidrage/14e45c24b5a134e1f165
-wget "http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
+wget -q "http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
 tar xfz "mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
 rm "mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
 export PATH="`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH"
