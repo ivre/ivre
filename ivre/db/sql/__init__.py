@@ -151,7 +151,7 @@ class PassiveCSVFile(CSVFile):
     info_fields = set(["distance", "signature", "version"])
 
     def __init__(self, siggen, ip2internal, table, limit=None, getinfos=None,
-                 to_binary=lambda val: val, separated_timestamps=True):
+                 separated_timestamps=True):
         self.ip2internal = ip2internal
         self.table = table
         self.inp = siggen
@@ -160,7 +160,6 @@ class PassiveCSVFile(CSVFile):
         if limit is not None:
             self.count = 0
         self.getinfos = getinfos
-        self.to_binary = to_binary
         self.timestamps = separated_timestamps
 
     def fixline(self, line):
@@ -182,7 +181,7 @@ class PassiveCSVFile(CSVFile):
                     line["lastseen"]
                 )
         if self.getinfos is not None:
-            additional_info = self.getinfos(line, self.to_binary)
+            additional_info = self.getinfos(line)
             try:
                 line.update(additional_info['infos'])
             except KeyError:
@@ -1775,6 +1774,9 @@ returns a generator.
             except (KeyError, ValueError):
                 pass
             rec["infos"] = dict(rec.pop("info"), **rec.pop("moreinfo"))
+            if rec.get('recontype') == 'SSL_SERVER' and \
+               rec.get('source') == 'cert':
+                rec['value'] = self.from_binary(rec['value'])
             yield rec
 
     def get_one(self, flt, skip=None):
@@ -1793,7 +1795,7 @@ returns the first result, or None if no result exists."""
         except (KeyError, ValueError):
             pass
         if getinfos is not None:
-            additional_info = getinfos(spec, self.to_binary)
+            additional_info = getinfos(spec)
             try:
                 spec.update(additional_info['infos'])
             except KeyError:
@@ -1808,7 +1810,7 @@ returns the first result, or None if no result exists."""
             addr = self.ip2internal(addr)
         otherfields = dict(
             (key, spec.pop(key, ""))
-            for key in ["sensor", "source", "targetval", "value"]
+            for key in ["sensor", "source", "targetval", "recontype", "value"]
         )
         info = dict(
             (key, spec.pop(key))
@@ -1822,8 +1824,7 @@ returns the first result, or None if no result exists."""
             'firstseen': timestamp,
             'lastseen': lastseen or timestamp,
             'port': spec.pop("port", 0),
-            'recontype': spec.pop("recontype"),
-            # source, targetval, value: otherfields
+            # source, targetval, recontype, value: otherfields
             'info': info,
             'moreinfo': spec,
             'schema_version': spec.pop('schema_version', None),

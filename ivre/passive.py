@@ -277,7 +277,7 @@ def handle_rec(sensor, ignorenets, neverignore,
     return timestamp, spec
 
 
-def _getinfos_http_client_authorization(spec, _):
+def _getinfos_http_client_authorization(spec):
     """Extract (for now) the usernames and passwords from Basic
     authorization headers
     """
@@ -308,14 +308,14 @@ def _getinfos_http_client_authorization(spec, _):
     return res
 
 
-def _getinfos_http_server(spec, _):
+def _getinfos_http_server(spec):
     header = utils.nmap_decode_data(spec['value'])
     banner = b"HTTP/1.1 200 OK\r\nServer: " + header + b"\r\n\r\n"
     res = _getinfos_from_banner(banner, probe="GetRequest")
     return res
 
 
-def _getinfos_dns(spec, _):
+def _getinfos_dns(spec):
     """Extract domain names in an handy-to-index-and-query form."""
     infos = {}
     fields = {'domain': 'value', 'domaintarget': 'targetval'}
@@ -324,10 +324,8 @@ def _getinfos_dns(spec, _):
             if fields[field] not in spec:
                 continue
             infos[field] = []
-            for domain in utils.get_domains(
-                    spec.get('full' + fields[field],
-                             spec[fields[field]])):
-                infos[field].append(domain[:utils.MAXVALLEN])
+            for domain in utils.get_domains(spec[fields[field]]):
+                infos[field].append(domain)
             if not infos[field]:
                 del infos[field]
         except Exception:
@@ -338,33 +336,31 @@ def _getinfos_dns(spec, _):
     return res
 
 
-def _getinfos_sslsrv(spec, to_binary):
+def _getinfos_sslsrv(spec):
     """Calls a source specific function for SSL_SERVER recontype
 records.
 
     """
     source = spec.get('source')
     if source == 'cert':
-        return _getinfos_cert(spec, to_binary)
+        return _getinfos_cert(spec)
     if source.startswith('ja3-'):
-        return _getinfos_ja3(spec, to_binary)
+        return _getinfos_ja3(spec)
     return {}
 
 
-def _getinfos_cert(spec, to_binary):
+def _getinfos_cert(spec):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
 
     """
     # TODO: move to mongodb specific functions.
-    keyval = 'fullvalue' if 'fullvalue' in spec else 'value'
     try:
-        cert = utils.decode_b64(spec[keyval].encode())
+        cert = utils.decode_b64(spec['value'].encode())
     except Exception:
         utils.LOGGER.info("Cannot parse certificate for record %r", spec,
                           exc_info=True)
         return {}
-    spec[keyval] = to_binary(cert)
     info = utils.get_cert_info(cert)
     res = {}
     if info:
@@ -372,7 +368,7 @@ def _getinfos_cert(spec, to_binary):
     return res
 
 
-def _getinfos_ja3(spec, to_binary):
+def _getinfos_ja3(spec):
     """Extract hashes from JA3 fingerprint strings.
 
     """
@@ -406,14 +402,14 @@ def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
     return res
 
 
-def _getinfos_tcp_srv_banner(spec, _):
+def _getinfos_tcp_srv_banner(spec):
     """Extract info from a TCP server banner using Nmap database.
 
     """
     return _getinfos_from_banner(utils.nmap_decode_data(spec['value']))
 
 
-def _getinfos_ssh_server(spec, _):
+def _getinfos_ssh_server(spec):
     """Convert an SSH server banner to a TCP banner and use
 _getinfos_tcp_srv_banner()"""
     return _getinfos_from_banner(utils.nmap_decode_data(
@@ -421,7 +417,7 @@ _getinfos_tcp_srv_banner()"""
     ) + b'\r\n')
 
 
-def _getinfos_ssh_hostkey(spec, _):
+def _getinfos_ssh_hostkey(spec):
     """Parse SSH host keys."""
     infos = {}
     data = utils.nmap_decode_data(spec['value'])
@@ -469,7 +465,7 @@ _GETINFOS_FUNCTIONS = {
 }
 
 
-def getinfos(spec, to_binary):
+def getinfos(spec):
     """This functions takes a document from a passive sensor, and
     prepares its 'infos' field (which is not added but returned).
 
@@ -480,4 +476,4 @@ def getinfos(spec, to_binary):
     if function is None:
         return {}
     if hasattr(function, '__call__'):
-        return function(spec, to_binary)
+        return function(spec)
