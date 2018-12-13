@@ -338,9 +338,11 @@ want to do something special here, e.g., mix with other records.
             )
             updated = False
             # unlimited find()!
-            for i, record in enumerate(self.find(colname,
-                                                 self.searchversion(version),
-                                                 no_cursor_timeout=True)):
+            for i, record in enumerate(
+                    self.find(colname,
+                              self.searchversion(version),
+                              no_cursor_timeout=True).batch_size(1000)
+            ):
                 try:
                     update = migration_function(record)
                     if update is not None:
