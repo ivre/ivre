@@ -15,7 +15,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 sudo: required
-dist: trusty
+dist: xenial
 
 env:
   # PostgreSQL 10.1, 9.6.6, 9.5.10
@@ -43,12 +43,86 @@ language: python
 cache: pip
 
 python:
-  - 2.6
   - 2.7
-  - 3.3
   - 3.4
   - 3.5
   - 3.6
+  - 3.7
+
+matrix:
+  include:
+    - python: 2.6
+      dist: trusty
+      env: DB=postgres POSTGRES_VERSION=9.5.10
+    - python: 3.3
+      dist: trusty
+      env: DB=postgres POSTGRES_VERSION=9.5.10
+    - python: 2.6
+      dist: trusty
+      env: DB=postgres POSTGRES_VERSION=9.6.6
+    - python: 3.3
+      dist: trusty
+      env: DB=postgres POSTGRES_VERSION=9.6.6
+    - python: 2.6
+      dist: trusty
+      env: DB=postgres POSTGRES_VERSION=10.1
+    - python: 3.3
+      dist: trusty
+      env: DB=postgres POSTGRES_VERSION=10.1
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=2.6.12
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=2.6.12
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.0.15
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.0.15
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.2.21
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.2.21
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.4.17
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.4.17
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.6.8
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=3.6.8
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=4.0.2
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=4.0.2
+    - python: 2.6
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=4.1.3
+    - python: 3.3
+      dist: trusty
+      env: DB=mongo MONGODB_VERSION=4.1.3
+    - python: 2.6
+      dist: trusty
+      env: DB=sqlite
+    - python: 3.3
+      dist: trusty
+      env: DB=sqlite
+    - python: 2.6
+      dist: trusty
+      env: DB=maxmind
+    - python: 3.3
+      dist: trusty
+      env: DB=maxmind
 
 # PhantomJS is supposed to be installed
 # (https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-PhantomJS),
@@ -59,6 +133,7 @@ addons:
     - tesseract-ocr
     - tesseract-ocr-osd
     - tesseract-ocr-eng
+    - phantomjs
 
 install:
   # flake8 would upgrade by setuptools to a version >= 40.0.0, which does not support Python 3.3
@@ -89,10 +164,10 @@ before_script:
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
-  - for archive in tools-travis-ivre bro-2.5.2_ubuntu-14.04 nmap-7.60_ubuntu-precise; do wget --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - for archive in tools-travis-ivre bro-2.6_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   # get GeoIP CSV files -- we are supposed to build them, but that's
   # disabled in Travis since that's too slow
-  - wget --no-check-certificate -P `python -c 'from ivre import config; print(config.GEOIP_PATH)'` https://ivre.rocks/data/tests/db/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
+  - wget -q --no-check-certificate -P `python -c 'from ivre import config; print(config.GEOIP_PATH)'` https://ivre.rocks/data/tests/db/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
   - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:`pwd`/usr/local/nmap/bin:$PATH"
   - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib"
   - export BROPATH=".:`pwd`/usr/local/bro/share/bro:`pwd`/usr/local/bro/share/bro/policy:`pwd`/usr/local/bro/share/bro/site"
@@ -106,16 +181,16 @@ before_script:
   - cp tests/results-public-samples tests/samples/results
   - cp tests/iptables-samples tests/samples/iptables.log
   ## Nmap Internet-wide Modbus scan (JSON format, shortened)
-  - wget --no-check-certificate -O tests/samples/Nmap-Modbus-IPv4.json.bz2 https://ivre.rocks/data/tests/Nmap-Modbus-IPv4-partial.json.bz2 # JSON files w/ Nmap scan results
+  - wget -q --no-check-certificate -O tests/samples/Nmap-Modbus-IPv4.json.bz2 https://ivre.rocks/data/tests/Nmap-Modbus-IPv4-partial.json.bz2 # JSON files w/ Nmap scan results
   ## Masscan sample scans (XML format)
-  - for file in test-probe-ike-ipsec-nat-t-probe-U4500.xml.bz2 test-probe-ike-probe-U500.xml.bz2 test-T22.xml.bz2 test-T443.xml.bz2 test-T102-s7comm.xml.bz2; do wget --no-check-certificate "https://ivre.rocks/data/tests/$file" -O "tests/samples/$file" ; done
+  - for file in test-probe-ike-ipsec-nat-t-probe-U4500.xml.bz2 test-probe-ike-probe-U500.xml.bz2 test-T22.xml.bz2 test-T443.xml.bz2 test-T102-s7comm.xml.bz2; do wget -q --no-check-certificate "https://ivre.rocks/data/tests/$file" -O "tests/samples/$file" ; done
   ## Nmap IPv6 scans
-  - wget https://raw.githubusercontent.com/logstash-plugins/logstash-codec-nmap/master/spec/fixtures/ipv6_all.xml -O "tests/samples/ipv6_all.xml"
+  - wget -q https://raw.githubusercontent.com/logstash-plugins/logstash-codec-nmap/master/spec/fixtures/ipv6_all.xml -O "tests/samples/ipv6_all.xml"
   ## PCAP files from the Wireshark project
-  - for file in dns.cap imap.cap http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap Teredo.pcap sr-header.pcap; do wget "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file"; done
-  - for file in SSHv2.cap; do wget "http://packetlife.net/captures/$file" -O "tests/samples/$file"; done
-  - wget 'https://www.cloudshark.org/captures/616566f75f0c/download' -O tests/samples/gre-sample.pcap
-  - wget --no-check-certificate -O tests/samples/banners.pcap https://ivre.rocks/data/tests/banners.pcap
+  - for file in dns.cap imap.cap http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap Teredo.pcap sr-header.pcap; do wget -q "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file"; done
+  - for file in SSHv2.cap; do wget -q "http://packetlife.net/captures/$file" -O "tests/samples/$file"; done
+  - wget -q 'https://www.cloudshark.org/captures/616566f75f0c/download' -O tests/samples/gre-sample.pcap
+  - wget -q --no-check-certificate -O tests/samples/banners.pcap https://ivre.rocks/data/tests/banners.pcap
   - for file in tests/samples/*.cap; do mv "$file" "${file/.cap/.pcap}"; done
   - export BRO_SAMPLES=`pwd`/usr/local/bro/testing
   - ivre --version; echo; bro --version

@@ -912,7 +912,6 @@ which `predicate()` is True, given `webflt`.
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
         ))['addr']
-        addr = ivre.utils.force_int2ip(addr)
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         queries = [
             ivre.db.db.nmap.searchhost(addr),
@@ -1207,15 +1206,19 @@ which `predicate()` is True, given `webflt`.
         )
 
         # Remove
-        result = next(ivre.db.db.nmap.get(
+        addr = next(ivre.db.db.nmap.get(
+            ivre.db.db.nmap.flt_empty,
+            sort=[('addr', -1)])
+        )['addr']
+        for result in ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
-        ))
-        ivre.db.db.nmap.remove(result)
+        ):
+            ivre.db.db.nmap.remove(result)
+            hosts_count -= 1
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhost(addr)
         )
         self.assertEqual(count, 0)
-        hosts_count -= 1
 
     def test_40_passive(self):
 

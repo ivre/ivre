@@ -22,11 +22,11 @@
 @load base/protocols/ftp
 @load base/protocols/pop3
 
+@load ./ja3
+
 module PassiveRecon;
 
 export {
-    redef enable_syslog = F;
-
     redef enum Log::ID += { LOG };
 
     redef enum Notice::Type += {
@@ -43,6 +43,7 @@ export {
         SSH_CLIENT_ALGOS,
         SSH_SERVER_ALGOS,
         SSH_SERVER_HOSTKEY,
+        SSL_CLIENT,
         SSL_SERVER,
         DNS_ANSWER,
         FTP_CLIENT,
@@ -300,17 +301,33 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
 }
 
 event ssl_established(c: connection) {
-    if (! (c$ssl?$cert_chain && |c$ssl$cert_chain| > 0) )
-        return;
-    Log::write(LOG, [
-        $ts=c$start_time,
-        $uid=c$uid,
-        $host=c$id$resp_h,
-        $srvport=c$id$resp_p,
-        $recon_type=SSL_SERVER,
-        $source="cert",
-        $value=encode_base64(x509_get_certificate_string(c$ssl$cert_chain[0]$x509$handle))
-    ]);
+    if (c$ssl?$cert_chain && |c$ssl$cert_chain| > 0) {
+        Log::write(LOG, [
+            $ts=c$start_time,
+            $uid=c$uid,
+            $host=c$id$resp_h,
+            $srvport=c$id$resp_p,
+            $recon_type=SSL_SERVER,
+            $source="cert",
+            $value=encode_base64(x509_get_certificate_string(c$ssl$cert_chain[0]$x509$handle))
+        ]);
+    }
+    if (c$ssl?$ivreja3c) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=SSL_CLIENT,
+                         $source="ja3",
+                         $value=c$ssl$ivreja3c]);
+        if (c$ssl?$ivreja3s)
+            Log::write(LOG, [$ts=c$start_time,
+                             $uid=c$uid,
+                             $host=c$id$resp_h,
+                             $srvport=c$id$resp_p,
+                             $recon_type=SSL_SERVER,
+                             $source=fmt("ja3-%s", c$ssl$ivreja3c),
+                             $value=c$ssl$ivreja3s]);
+    }
 }
 
 event dns_A_reply(c: connection, msg: dns_msg, ans: dns_answer, a: addr) {

@@ -26,7 +26,7 @@ IVRE relies on:
     * optionally [[http://www.sqlalchemy.org/|sqlalchemy]] and [[http://initd.org/psycopg/|psycopg2]] to use the **experimental** PostgreSQL backend.
   * [[http://nmap.org/|Nmap]] version 7.25BETA2 minimum (actually, earlier versions can be used by setting ''%%script_timeout%%'' to ''%%None%%'' in each scan template).
   * optionally [[https://zmap.io/|ZMap]] and/or [[https://github.com/robertdavidgraham/masscan|Masscan]]
-  * [[http://www.bro.org/|Bro]] (version 2.3 minimum), [[http://qosient.com/argus/|Argus]], [[https://github.com/phaag/nfdump|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
+  * [[http://www.bro.org/|Bro]] (version 2.6 minimum), [[http://qosient.com/argus/|Argus]], [[https://github.com/phaag/nfdump|Nfdump]]& [[http://lcamtuf.coredump.cx/p0f/|p0f]] (version 2, will not work with version 3) for the passive fingerprint and flow modules.
   * [[http://www.mongodb.org/|MongoDB]], version 2.6 minimum (tests are run with versions 2.6.12, 3.0.15, 3.2.21, 3.4.17, 3.6.8, 4.0.2 and 4.1.3).
   * optionally [[http://neo4j.com/|Neo4j]] for the flow module.
   * optionally [[https://www.postgresql.org/|PostgreSQL]], version 9.5 minimum (tests are run with versions 9.5.10, 9.6.6 and 10.1), for the **experimental** PostgreSQL backend.
@@ -56,7 +56,7 @@ The following steps will show some examples of **passive** network recon with IV
 
 ===== Using Bro =====
 
-You need to run bro (2.3 minimum, regularly tested with 2.5.2) with the option ''%%-b%%'' and the location of the ''%%passiverecon/bare.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run (replace ''%%/usr/share/ivre%%'' by the appropriate location; use ''%%python -c 'import ivre.config; print(ivre.config.guess_prefix())'%%'' if you cannot find it):
+You need to run Bro (2.6 minimum, regularly tested with 2.6) with the option ''%%-b%%'' and the location of the ''%%passiverecon/bare.bro%%'' file. If you want to run it on the ''%%eth0%%'' interface, for example, run (replace ''%%/usr/share/ivre%%'' by the appropriate location; use ''%%python -c 'import ivre.config; print(ivre.config.guess_prefix())'%%'' if you cannot find it):
 
 <code>
 # mkdir logs

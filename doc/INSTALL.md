@@ -22,7 +22,7 @@ to integrate screenshots, install
 [FFmpeg](http://ffmpeg.org/) and [PhantomJS](http://phantomjs.org/).
 
 If you plan to analyze PCAP file on a machine, install, depending on
-your needs, [Bro](http://www.bro.org/) (version 2.3 minimum),
+your needs, [Bro](http://www.bro.org/) (version 2.6 minimum),
 [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work with
 version 3), [Argus](http://qosient.com/argus/) and/or
 [Nfdump](http://nfdump.sourceforge.net/).
