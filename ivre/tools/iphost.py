@@ -21,7 +21,6 @@
 
 
 from __future__ import print_function
-from datetime import datetime
 import getopt
 import re
 import sys
@@ -42,11 +41,7 @@ IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 
 def disp_rec(r):
     firstseen = r['firstseen']
-    if not isinstance(firstseen, datetime):
-        firstseen = datetime.fromtimestamp(firstseen)
     lastseen = r['lastseen']
-    if not isinstance(lastseen, datetime):
-        lastseen = datetime.fromtimestamp(lastseen)
     if 'addr' in r and r['addr']:
         if r['source'].startswith('PTR-'):
             print('%s PTR %s (%s, %s time%s, %s - %s)' % (

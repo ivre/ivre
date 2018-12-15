@@ -125,7 +125,7 @@ class SSLKey(object):
         proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
-        proc.stdin.write(self.dbc.from_binary(der))
+        proc.stdin.write(der)
         proc.stdin.close()
         return proc.stdout.read()
 

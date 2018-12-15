@@ -338,9 +338,11 @@ want to do something special here, e.g., mix with other records.
             )
             updated = False
             # unlimited find()!
-            for i, record in enumerate(self.find(colname,
-                                                 self.searchversion(version),
-                                                 no_cursor_timeout=True)):
+            for i, record in enumerate(
+                    self.find(colname,
+                              self.searchversion(version),
+                              no_cursor_timeout=True).batch_size(1000)
+            ):
                 try:
                     update = migration_function(record)
                     if update is not None:
@@ -3332,6 +3334,42 @@ e.g.  .explain()).
         """
         return self._get_cursor(self.colname_passive, flt, **kargs)
 
+    @classmethod
+    def rec2internal(cls, rec):
+        """Given a record as presented to the user, fixes it before it can be
+inserted in the database.
+
+        """
+        try:
+            rec['addr_0'], rec['addr_1'] = cls.ip2internal(rec.pop('addr'))
+        except (KeyError, ValueError):
+            pass
+        if rec.get('recontype') == 'SSL_SERVER' and \
+           rec.get('source') == 'cert':
+            rec['value'] = cls.to_binary(
+                utils.decode_b64(rec['value'].encode())
+            )
+        cls._fix_sizes(rec)
+        return rec
+
+    @classmethod
+    def internal2rec(cls, rec):
+        """Given a record as stored in the database, fixes it before it can be
+returned to backend-agnostic functions.
+
+        """
+        try:
+            rec['addr'] = cls.internal2ip([rec.pop('addr_0'),
+                                           rec.pop('addr_1')])
+        except (KeyError, socket.error):
+            pass
+        for key in ['value', 'targetval']:
+            if 'full' + key in rec:
+                rec[key] = rec.pop('full' + key)
+        if 'fullinfos' in rec:
+            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
+        return rec
+
     def get(self, spec, hint=None, **kargs):
         """Queries the passive column with the provided filter "spec", and
 returns a MongoDB cursor.
@@ -3347,17 +3385,7 @@ is not expected)."""
         if hint is not None:
             cursor.hint(hint)
         for rec in cursor:
-            try:
-                rec['addr'] = self.internal2ip([rec.pop('addr_0'),
-                                                rec.pop('addr_1')])
-            except (KeyError, socket.error):
-                pass
-            for key in ['value', 'targetval']:
-                if 'full' + key in rec:
-                    rec[key] = rec.pop('full' + key)
-            if 'fullinfos' in rec:
-                rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
-            yield rec
+            yield self.internal2rec(rec)
 
     def get_one(self, spec, **kargs):
         """Same function as get, except .find_one() method is called
@@ -3368,18 +3396,9 @@ Unlike get(), this function might take a long time, depending
 on "spec" and the indexes set on colname_passive column."""
         # TODO: check limits
         rec = self.find_one(self.colname_passive, spec, **kargs)
-        try:
-            rec['addr'] = self.internal2ip([rec['addr_0'], rec['addr_1']])
-        except (TypeError, KeyError, socket.error):
-            pass
-        else:
-            del rec['addr_0'], rec['addr_1']
-        for key in ['value', 'targetval']:
-            if 'full' + key in rec:
-                rec[key] = rec.pop('full' + key)
-        if 'fullinfos' in rec:
-            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
-        return rec
+        if rec is None:
+            return None
+        return self.internal2rec(rec)
 
     def update(self, spec, **kargs):
         """Updates the first record matching "spec" in the "passive" column,
@@ -3394,9 +3413,12 @@ setting values according to the keyword arguments.
         # so, we replace the value with its SHA1 hash and store the
         # original value in full[original column name].
         for key in ['value', 'targetval']:
-            if len(spec.get(key, "")) >  utils.MAXVALLEN:
+            if len(spec.get(key, "")) > utils.MAXVALLEN:
                 spec['full' + key] = spec[key]
-                spec[key] = hashlib.sha1(spec[key].encode()).hexdigest()
+                value = spec[key]
+                if not isinstance(value, bytes):
+                    value = value.encode()
+                spec[key] = hashlib.sha1(value).hexdigest()
         # We enforce a utils.MAXVALLEN // 10 size limits for subkey values in
         # infos; this is because MongoDB cannot index values longer than 1024
         # bytes.
@@ -3409,22 +3431,15 @@ setting values according to the keyword arguments.
     def insert(self, spec, getinfos=None):
         """Inserts the record "spec" into the passive column."""
         if getinfos is not None:
-            spec.update(getinfos(spec, self.to_binary))
-        try:
-            spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
-        except (KeyError, ValueError):
-            pass
-        self._fix_sizes(spec)
+            spec.update(getinfos(spec))
+        spec = self.rec2internal(spec)
         self.db[self.colname_passive].insert(spec)
 
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
         if spec is None:
             return
-        try:
-            spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
-        except (KeyError, ValueError):
-            pass
-        self._fix_sizes(spec)
+        orig = deepcopy(spec)
+        spec = self.rec2internal(spec)
         hint = self.get_hint(spec)
         current = self.get(spec, hint=hint, fields=[])
         try:
@@ -3443,8 +3458,9 @@ setting values according to the keyword arguments.
             )
         else:
             if getinfos is not None:
-                infos = getinfos(spec, self.to_binary)
+                infos = getinfos(orig)
                 if infos:
+                    self._fix_sizes(infos)
                     updatespec['$setOnInsert'] = infos
             self.db[self.colname_passive].update(
                 spec,
@@ -3483,22 +3499,16 @@ setting values according to the keyword arguments.
             for firstseen, lastseen, spec in generator(specs):
                 if spec is None:
                     continue
-                try:
-                    spec['addr_0'], spec['addr_1'] = self.ip2internal(
-                        spec.pop('addr')
-                    )
-                except (KeyError, ValueError):
-                    pass
-                self._fix_sizes(spec)
                 updatespec = {
                     '$inc': {'count': 1},
                     '$min': {'firstseen': firstseen},
                     '$max': {'lastseen': lastseen},
                 }
                 if getinfos is not None:
-                    infos = getinfos(spec, self.to_binary)
+                    infos = getinfos(spec)
                     if infos:
                         updatespec['$setOnInsert'] = infos
+                spec = self.rec2internal(spec)
                 bulk.find(spec).upsert().update(updatespec)
                 count += 1
                 if count >= config.MONGODB_BATCH_SIZE:
@@ -3522,11 +3532,7 @@ setting values according to the keyword arguments.
 
         """
         updatespec = {}
-        try:
-            spec['addr_0'], spec['addr_1'] = self.ip2internal(spec.pop('addr'))
-        except (KeyError, ValueError):
-            pass
-        self._fix_sizes(spec)
+        spec = self.rec2internal(spec)
         if 'firstseen' in spec:
             updatespec['$min'] = {'firstseen': spec.pop('firstseen')}
         if 'lastseen' in spec:
@@ -3554,7 +3560,7 @@ setting values according to the keyword arguments.
             )
         else:
             if getinfos is not None and "$setOnInsert" not in updatespec:
-                infos = getinfos(spec, self.to_binary)
+                infos = getinfos(spec)
                 if infos:
                     updatespec['$setOnInsert'] = infos
             self.db[self.colname_passive].update(

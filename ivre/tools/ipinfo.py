@@ -18,7 +18,6 @@
 
 
 from __future__ import print_function
-import datetime
 import functools
 import json
 import os
@@ -74,18 +73,12 @@ def disp_rec(rec):
         print("(%d time%s)" % (rec['count'], 's' if rec['count'] > 1 else ''),
               end=' ')
     if 'firstseen' in rec and 'lastseen' in rec:
-        if isinstance(rec['firstseen'], datetime.datetime):
-            print(
-                rec['firstseen'].replace(microsecond=0),
-                '-',
-                rec['lastseen'].replace(microsecond=0),
-                end=' '
-            )
-        else:
-            print(datetime.datetime.fromtimestamp(int(rec['firstseen'])), '-',
-                  end=' ')
-            print(datetime.datetime.fromtimestamp(int(rec['lastseen'])),
-                  end=' ')
+        print(
+            rec['firstseen'].replace(microsecond=0),
+            '-',
+            rec['lastseen'].replace(microsecond=0),
+            end=' '
+        )
     if 'sensor' in rec:
         print(rec['sensor'], end=' ')
     print()
@@ -149,13 +142,8 @@ def disp_recs_json(flt, sort, limit, skip):
                 del rec[fld]
             except KeyError:
                 pass
-        if 'fullvalue' in rec:
-            rec['value'] = rec.pop('fullvalue')
-        if 'fullinfos' in rec:
-            rec.setdefault('infos', {}).update(rec.pop('fullinfos'))
         if rec.get('recontype') == 'SSL_SERVER' and \
-           rec.get('source') == 'cert' and \
-           isinstance(rec.get('value'), bytes):
+           rec.get('source') == 'cert':
             rec['value'] = utils.encode_b64(rec['value']).decode()
         print(json.dumps(rec, indent=indent, default=db.passive.serialize))
 
@@ -187,10 +175,7 @@ def _disp_recs_tail(flt, field, nbr):
         if 'addr' in r:
             print(utils.force_int2ip(r['addr']), end=' ')
         else:
-            if 'fulltargetval' in r:
-                print(r['fulltargetval'], end=' ')
-            else:
-                print(r['targetval'], end=' ')
+            print(r['targetval'], end=' ')
         disp_rec(r)
 
 
@@ -213,10 +198,7 @@ def _disp_recs_tailf(flt, field):
         if 'addr' in r:
             print(utils.force_int2ip(r['addr']), end=' ')
         else:
-            if 'fulltargetval' in r:
-                print(r['fulltargetval'], end=' ')
-            else:
-                print(r['targetval'], end=' ')
+            print(r['targetval'], end=' ')
         disp_rec(r)
         sys.stdout.flush()
     # 2. loop
@@ -234,10 +216,7 @@ def _disp_recs_tailf(flt, field):
                 if 'addr' in r:
                     print(utils.force_int2ip(r['addr']), end=' ')
                 else:
-                    if 'fulltargetval' in r:
-                        print(r['fulltargetval'], end=' ')
-                    else:
-                        print(r['targetval'], end=' ')
+                    print(r['targetval'], end=' ')
                 disp_rec(r)
                 sys.stdout.flush()
     except KeyboardInterrupt:

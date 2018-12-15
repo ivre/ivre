@@ -1142,7 +1142,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             if config.DEBUG_DB:
                 start_time = time.time()
             with PassiveCSVFile(specs, self.ip2internal, tmp,
-                                getinfos=getinfos, to_binary=self.to_binary,
+                                getinfos=getinfos,
                                 separated_timestamps=separated_timestamps,
                                 limit=config.POSTGRES_BATCH_SIZE) as fdesc:
                 self.copy_from(fdesc, tmp.name)
