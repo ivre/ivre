@@ -46,8 +46,6 @@
 @load policy/frameworks/software/windows-version-detection
 @load policy/protocols/ftp/detect
 
-@load policy/protocols/smb
-
 export {
     redef Software::asset_tracking = ALL_HOSTS;
 }
