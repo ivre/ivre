@@ -1507,6 +1507,14 @@ which `predicate()` is True, given `webflt`.
                 self.assertTrue(res['infos']['service_name'] == service)
                 self.assertTrue(res['infos']['service_product'] == product)
 
+        # searchtimeago() method
+        res, out, _ = RUN(["ivre", "ipinfo", "--timeago", "0"])
+        self.assertEqual(res, 0)
+        self.assertNotEqual(out, b'\n')
+        res, out, _ = RUN(["ivre", "ipinfo", "--timeago", "1000000000"])
+        self.assertEqual(res, 0)
+        self.assertNotEqual(out, b'\n')
+
         # Top values
         for distinct in [True, False]:
             cur = ivre.db.db.passive.topvalues(field="addr",
