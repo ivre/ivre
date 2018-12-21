@@ -161,7 +161,7 @@ before_script:
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
-  - for archive in tools-travis-ivre bro-2.6_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - BRO_VERSION="2.$((RANDOM % 2 + 5))"; echo "BRO_VERSION $BRO_VERSION"; for archive in tools-travis-ivre bro-${BRO_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   # get GeoIP CSV files -- we are supposed to build them, but that's
   # disabled in Travis since that's too slow
   - wget -q --no-check-certificate -P `python -c 'from ivre import config; print(config.GEOIP_PATH)'` https://ivre.rocks/data/tests/db/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
