@@ -92,13 +92,13 @@ event ssl_extension(c: connection, is_orig: bool, code: count, val: string) {
         if (code in grease) {
             next;
         }
-        c$ivreja3c$extensions += cat(code);
+        c$ivreja3c$extensions[|c$ivreja3c$extensions|] = cat(code);
     }
     else {
         if (! c?$ivreja3s) {
             c$ivreja3s = IvreJA3SStore();
         }
-        c$ivreja3s$extensions += cat(code);
+        c$ivreja3s$extensions[|c$ivreja3s$extensions|] = cat(code);
     }
 }
 
@@ -112,7 +112,7 @@ event ssl_extension_ec_point_formats(c: connection, is_orig: bool, point_formats
             if (point_format in grease) {
                 next;
             }
-            c$ivreja3c$ec_point_fmt += cat(point_format);
+            c$ivreja3c$ec_point_fmt[|c$ivreja3c$ec_point_fmt|] = cat(point_format);
         }
     }
 }
@@ -128,12 +128,16 @@ event ssl_extension_elliptic_curves(c: connection, is_orig: bool, curves: index_
             if (curve in grease) {
                 next;
             }
-            c$ivreja3c$e_curves += cat(curve);
+            c$ivreja3c$e_curves[|c$ivreja3c$e_curves|] = cat(curve);
         }
     }
 }
 
+@if(Version::number >= 20600 || (Version::number == 20500 && Version::info$commit >= 944))
 event ssl_client_hello(c: connection, version: count, record_version: count, possible_ts: time, client_random: string, session_id: string, ciphers: index_vec, comp_methods: index_vec) &priority=1
+@else
+event ssl_client_hello(c: connection, version: count, possible_ts: time, client_random: string, session_id: string, ciphers: index_vec) &priority=1
+@endif
 {
     if (! c?$ivreja3c) {
         c$ivreja3c = IvreJA3CStore();
@@ -145,7 +149,7 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
         if (cipher in grease) {
             next;
         }
-        ciphers_string += cat(cipher);
+        ciphers_string[|ciphers_string|] = cat(cipher);
     }
 
     c$ssl$ivreja3c = fmt(
@@ -157,7 +161,11 @@ event ssl_client_hello(c: connection, version: count, record_version: count, pos
     );
 }
 
+@if(Version::number >= 20600 || (Version::number == 20500 && Version::info$commit >= 944))
 event ssl_server_hello(c: connection, version: count, record_version: count, possible_ts: time, server_random: string, session_id: string, cipher: count, comp_method: count) &priority=1
+@else
+event ssl_server_hello(c: connection, version: count, possible_ts: time, server_random: string, session_id: string, cipher: count, comp_method: count) &priority=1
+@endif
 {
     if (! c?$ivreja3s) {
         c$ivreja3s = IvreJA3SStore();
