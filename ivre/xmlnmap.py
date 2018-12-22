@@ -47,7 +47,7 @@ SCHEMA_VERSION = 11
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
-IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2'])
+IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2', 'sslv2-drown'])
 
 ALIASES_TABLE_ELEMS = {
     # ls unified output (ls NSE module + ftp-anon)
@@ -129,7 +129,6 @@ ALIASES_TABLE_ELEMS = {
     "ssl-dh-params": "vulns",
     "ssl-heartbleed": "vulns",
     "ssl-poodle": "vulns",
-    "sslv2-drown": "vulns",
     "supermicro-ipmi-conf": "vulns",
     "tls-ticketbleed": "vulns",
 }
