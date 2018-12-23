@@ -183,7 +183,7 @@ class TargetCity(Target):
 
 
 class TargetAS(Target):
-    """This class can be used to get IP addresses from a specic AS,
+    """This class can be used to get IP addresses from a specific AS,
     according to the data from Maxmind GeoIP.
 
     """
@@ -242,7 +242,7 @@ class TargetRange(Target):
 
 class TargetNetwork(TargetRange):
     """This class can be used to get the IP addresses of a specific
-    nework.
+    network.
 
     """
 

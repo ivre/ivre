@@ -65,7 +65,7 @@ def main():
             sys.exit(0)
         else:
             sys.stderr.write(
-                '%r %r not undestood (this is probably a bug).\n' % (o, a))
+                '%r %r not understood (this is probably a bug).\n' % (o, a))
             sys.exit(-1)
     moduli = {}
     if not bases:

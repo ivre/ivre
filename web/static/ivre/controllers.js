@@ -84,7 +84,7 @@ ivreWebUi
 	    else
 		$scope.notes_page = config.notesbase.replace(/#IP#/g, page);
 	};
-	// graphs:here beacause the buttons are located w/ the filters
+	// graphs:here because the buttons are located w/ the filters
 	$scope.build_ip_plane = function() {
 	    var totalnbrres = $scope.shared.filter.count;
 	    if(totalnbrres === undefined)

@@ -57,7 +57,7 @@ def main():
                         help='Give results in standard output instead of '
                              'inserting them in database.')
     parser.add_argument('--verbose', '-v', action='store_true',
-                        help='For test output, print out formated results.')
+                        help='For test output, print out formatted results.')
 
     if not USING_ARGPARSE:
         if 'nmap' in sys.argv:

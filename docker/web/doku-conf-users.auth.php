@@ -6,4 +6,4 @@
 #
 # Format:
 #
-# login:passwordhash:Real Name:email:groups,comma,seperated
+# login:passwordhash:Real Name:email:groups,comma,separated

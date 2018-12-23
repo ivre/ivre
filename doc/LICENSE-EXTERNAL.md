@@ -72,7 +72,7 @@ This file is licensed under
 [GPL v3 license](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
 See also
-[Use of ike-vendor-ids in other (open-source) softwares](https://github.com/royhills/ike-scan/issues/19).
+[Use of ike-vendor-ids in other (open-source) programs](https://github.com/royhills/ike-scan/issues/19).
 
 ## Natural Earth ##
 
@@ -91,5 +91,5 @@ Commission. It is not covered by IVRE license.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2016
+This file is part of IVRE. Copyright 2011 - 2018
 [Pierre LALET](mailto:pierre.lalet@cea.fr)

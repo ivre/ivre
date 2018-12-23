@@ -4,11 +4,11 @@ first scans and add the results to the database with all components
 machine.
 
 Please note that, depending on your distribution, the versions of some
-softwares might not be recent enough, particularly for MongoDB
+software packages might not be recent enough, particularly for MongoDB
 (version 2.6 minimum) and pymongo (version 2.7.2 minimum; see
 [README](README.md) to know which versions can be used with IVRE). If
-that's the case, you will have to install those softwares on you own,
-refering to their documentation (see
+that's the case, you will have to install those programs on you own,
+referring to their documentation (see
 [MongoDB on Debian](http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/)
 or
 [MongoDB on Ubuntu](http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/)

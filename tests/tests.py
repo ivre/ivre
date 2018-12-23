@@ -593,7 +593,7 @@ which `predicate()` is True, given `webflt`.
         # Specific test cases
         samples = [
             # Ignored script with a named table element, followed by
-            # a script with an unamed table element
+            # a script with an unnamed table element
             b"""<nmaprun scanner="nmap">
 <host>
 <script id="fcrdns" output="FAIL (No PTR record)">
@@ -2291,7 +2291,7 @@ which `predicate()` is True, given `webflt`.
             print(u"Waiting for runscans daemon & agent")
             time.sleep(2)
 
-        # Kill the agent and the dameon
+        # Kill the agent and the daemon
         os.kill(pid_agent, signal.SIGTERM)
         os.kill(pid_daemon, signal.SIGTERM)
         os.waitpid(pid_agent, 0)
@@ -2748,7 +2748,7 @@ def parse_env():
         setattr(
             IvreTests,
             test,
-            unittest.skip("Desactivated for database %r" % DATABASE)(
+            unittest.skip("Deactivated for database %r" % DATABASE)(
                 getattr(IvreTests, test),
             ),
         )

@@ -150,7 +150,7 @@ def main():
                         help='Purge or create and initialize the database.')
     parser.add_argument('--sleep', type=int, default=2,
                         help='Time to wait between each feed/sync '
-                        'cycle (only usefull with --daemon).')
+                        'cycle (only useful with --daemon).')
     parser.add_argument(
         '--daemon', action="store_true", help="""Run continuously
         feed/sync cycles. The "sync" part requires to be able to rsync

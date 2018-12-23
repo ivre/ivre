@@ -211,7 +211,7 @@ class DB(object):
     @staticmethod
     def searchrange(start, stop, neg=False):
         """Filters (if `neg` == True, filters out) one particular IP
-        range given its boudaries `start` and `stop`.
+        range given its boundaries `start` and `stop`.
 
         """
         raise NotImplementedError

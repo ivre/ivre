@@ -16,4 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-# Nothing to do
+PIP_INSTALL_OPTIONS=""
+# We only run codespell once, with Python 3.7
+test "$TRAVIS_PYTHON_VERSION" = 3.7 && pip install -U $PIP_INSTALL_OPTIONS codespell
+# flake8 won't run with Python 2.6 or 3.3
+test "$TRAVIS_PYTHON_VERSION" = 2.6 || test "$TRAVIS_PYTHON_VERSION" = 3.3 || pip install -U $PIP_INSTALL_OPTIONS flake8
