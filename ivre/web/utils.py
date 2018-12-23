@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This sub-module contains functions that might be usefull to any CGI
+"""This sub-module contains functions that might be useful to any CGI
 script.
 
 """

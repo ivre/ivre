@@ -15,7 +15,7 @@ Start by following the standard ivre installation.
 
 In addition, install `neo4j` and set a user/password (for example through the
 default admin interface on `http://localhost:7474`). Default user/password is
-`neo4j`/`neo4j`. Set the relevent URL in you `ivre.conf`:
+`neo4j`/`neo4j`. Set the relevant URL in you `ivre.conf`:
 
 ```python
 DB_FLOW = "neo4j://<user>:<password>@localhost:7474/"
@@ -72,7 +72,7 @@ You can access the CLI through `ivre flowcli`. Features include:
 
   - Searching for flows and nodes with filters (see the Flow Filters section of
     this document)
-  - Producing top values for given criterias
+  - Producing top values for given criteria
   - Plotting flows amounts over hours of days, on average.
 
 See `ivre flowcli -h` for usage details.
@@ -124,12 +124,12 @@ See the Flow Filter section of this document for more information on the filter
 syntax.
 
 The **Display** pane allows to change the size of nodes and edges based on some
-criterias:
+criteria:
 
   - On nodes, available keywords are `$in` and `$out`, to make the size
     proportional to the number of incoming or outgoing flows of a node.
-  - On edges, a poperty can be specified (for example `scbytes`, the number of
-    bytes from the server to the client).
+  - On edges, a property can be specified (for example `scbytes`, the
+    number of bytes from the server to the client).
 
 Do not forget to increase the `Size scale` to make the result more visible.
 
@@ -186,7 +186,7 @@ Some examples:
     (destination port) above 10000. `!dport <= 10000` will match the same
     flows plus the ones that do not have any destination port.
   - Edge filter `meta.query =~ .*google.*` will match all the flows that have
-    an associated metadata wich have a `query` attribute that match the
+    an associated metadata which have a `query` attribute that match the
     `.*google.*` regex.
   - Edge filter `ANY sports < 1024` will match flows with at least one source
     port < 1024.

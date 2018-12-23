@@ -19,10 +19,10 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains math functions missing from Python's math
-module that might be usefull to any other sub-module or script.
+module that might be useful to any other sub-module or script.
 """
 
 

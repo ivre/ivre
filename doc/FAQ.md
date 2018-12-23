@@ -68,7 +68,7 @@ can be used to find such hosts.
 
 ## HowTo configure iptables to get logs used by flow2db tool
 
-When you don't have acces to low level network data, an easy way to
+When you don't have access to low level network data, an easy way to
 discover a part of network traffic is to use netfilter logs collected
 via syslog.
 

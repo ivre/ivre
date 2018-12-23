@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -109,7 +109,7 @@ def main():
             sys.exit(0)
         else:
             sys.stderr.write(
-                '%r %r not undestood (this is probably a bug).\n' % (o, a))
+                '%r %r not understood (this is probably a bug).\n' % (o, a))
             sys.exit(-1)
     first = True
     flts = []

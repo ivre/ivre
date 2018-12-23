@@ -3528,7 +3528,7 @@ setting values according to the keyword arguments.
         "firstseen", "lastseen" and "count") by mixing "firstseen",
         "lastseen" and "count" from "spec" and from the database.
 
-        This is usefull to mix records from different databases.
+        This is useful to mix records from different databases.
 
         """
         updatespec = {}

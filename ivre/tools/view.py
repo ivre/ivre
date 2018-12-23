@@ -63,7 +63,7 @@ def main():
     flt = db.view.flt_empty
 
     parser.add_argument('--verbose', '-v', action='store_true',
-                        help='Print out formated results.')
+                        help='Print out formatted results.')
     parser.add_argument('--no-screenshots', action='store_true',
                         help='When used with --json, do not output '
                         'screenshots data.')

@@ -60,7 +60,7 @@
 	    </thead>
 	    <tbody>
 	      <tr ng-repeat="filter in all_filters"
-		  ng-class="{succes: filter.count > 0, warning: filter.count === undefined, error: filter.count === 0}">
+		  ng-class="{success: filter.count > 0, warning: filter.count === undefined, error: filter.count === 0}">
 		<td>{{names[filter.name]}}</td>
 		<td ng-switch="filter.count">
 		  <span ng-switch-when="0">No result!</span>

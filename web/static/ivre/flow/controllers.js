@@ -73,7 +73,7 @@ ivreWebUi.directive("sigmaGraph", function () {
                 settings: default_sigma_settings,
             });
 
-            // Instanciate the ActiveState plugin:
+            // Instantiate the ActiveState plugin:
             var activeState = sigma.plugins.activeState(s);
 
             // Initialize the dragNodes plugin:
@@ -255,7 +255,7 @@ ivreWebUi.factory("graphService", function () {
         sigma.layouts.fruchtermanReingold.start(s);
     }
 
-    // Post instanciation sigma conf
+    // Post instantiation sigma conf
     function setup(s, formatters) {
         update_display(s, formatters);
         console.log("Nodes: " + s.graph.nodes().length);
@@ -549,7 +549,7 @@ ivreWebUi
             var vis = d3.select("#timeline")
                 .append("svg:svg")
                 .attr("viewBox", [0, 0, dr_w, dr_h])
-                .attr("class", "fullfill")
+                .attr("class", "fulfill")
                 .attr("preserveAspectRatio", "none")
                 .append("svg:g");
 

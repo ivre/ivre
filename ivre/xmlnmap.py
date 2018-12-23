@@ -1706,8 +1706,8 @@ class NmapHandler(ContentHandler):
             line = lastosmatch['line']
             path = "os.osmatch.line:%s" % line
 
-        # CPEs are indexed in a dictionnary to agglomerate origins,
-        # but this dict is replaced with its values() in _pre_addhost.
+        # CPEs are indexed in a dictionary to agglomerate origins, but
+        # this dict is replaced with its values() in _pre_addhost.
         cpes = self._curhost.setdefault('cpes', {})
         if cpe not in cpes:
             try:

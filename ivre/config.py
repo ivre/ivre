@@ -210,8 +210,8 @@ def guess_prefix(directory=None):
 
     """
     def check_candidate(path, directory=None):
-        """Auxilliary function that checks whether a particular
-        path is a good candidate.
+        """Auxiliary function that checks whether a particular path is a good
+        candidate.
 
         """
         candidate = os.path.join(path, 'share', 'ivre')

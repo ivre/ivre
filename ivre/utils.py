@@ -18,9 +18,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""
-This sub-module contains functions that might be usefull to any other
+"""This sub-module contains functions that might be useful to any other
 sub-module or script.
+
 """
 
 
@@ -322,11 +322,11 @@ def str2regexp(string):
 
 
 def regexp2pattern(string):
-    """This function takes a regexp or a string and returns a pattern
-    and some flags, suitable for use with re.compile(), combined with
-    another pattern before. Usefull, for example, if you want to
-    create a regexp like '^ *Set-Cookie: *[name]=[value]' where name
-    and value are regexp.
+    """This function takes a regexp or a string and returns a pattern and
+    some flags, suitable for use with re.compile(), combined with
+    another pattern before. Useful, for example, if you want to create
+    a regexp like '^ *Set-Cookie: *[name]=[value]' where name and
+    value are regexp.
 
     """
     if isinstance(string, REGEXP_T):
@@ -426,7 +426,7 @@ def nmapspec2ports(string):
 
 def all2datetime(arg):
     """Return a datetime object from an int (timestamp) or an iso
-    formated string '%Y-%m-%d %H:%M:%S'.
+    formatted string '%Y-%m-%d %H:%M:%S'.
 
     """
     if isinstance(arg, datetime.datetime):
@@ -515,7 +515,7 @@ def diff(doc1, doc2):
 
 
 def fields2csv_head(fields, prefix=''):
-    """Given an (ordered) dictionnary `fields`, returns a list of the
+    """Given an (ordered) dictionary `fields`, returns a list of the
     fields. NB: recursive function, hence the `prefix` parameter.
 
     """
@@ -530,7 +530,7 @@ def fields2csv_head(fields, prefix=''):
 
 
 def doc2csv(doc, fields, nastr="NA"):
-    """Given a document and an (ordered) dictionnary `fields`, returns
+    """Given a document and an (ordered) dictionary `fields`, returns
     a list of CSV lines. NB: recursive function.
 
     """
