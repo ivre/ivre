@@ -416,6 +416,10 @@ var HELP_FILTERS = {
 	    "title": "display:cpe",
 	    "content": "Display only CPEs.",
 	},
+	"display:vulnerability": {
+	    "title": "display:vulnerability",
+	    "content": "Display only vulnerabilities.",
+	},
     },
 };
 
