@@ -1,0 +1,52 @@
+<!--
+  This file is part of IVRE.
+  Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+
+  IVRE is free software: you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  IVRE is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+  License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+-->
+
+<div class="result-container"
+     ng-repeat="host in results"
+     >
+  <div host-summary=""></div>
+  <div class="full">
+    <!-- ports w/ scripts, etc. -->
+    <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
+	ng-if="::port.port !== -1 && script_display_mode_needed_scripts_group(port.scripts, true)"
+	class="port">
+      <div port-summary=""></div>
+    </dt>
+    <dd ng-repeat-end
+	ng-if="port.port !== -1 && script_display_mode_needed_scripts_group(port.scripts, true)">
+      <div ng-if="::port.service_name"
+	   class="result-service"
+	   service-summary="">
+      </div>
+      <div ng-repeat="script in ::port.scripts | filter:{vulns: '!'}">
+	{{::script.id}}
+	<pre class="result-scripts-output"
+	     script-output="port"/>
+      </div>
+    </dd>
+    <!-- hostscripts -->
+    <dt class="result-host-scripts"
+	ng-if="script_display_mode_needed_scripts_group(host.scripts, true)"
+	>Host scripts</dt>
+    <dd ng-repeat="script in ::host.scripts | filter:{vulns: '!'}">
+      {{::script.id}}
+      <pre class="result-scripts-output"
+	   script-output="host"/>
+    </dd>
+  </div>
+</div>
