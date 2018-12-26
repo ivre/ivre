@@ -240,6 +240,7 @@ single or double quotes.
     `display:script:[script id],[script id],...` only display (a
     particular) script outputs.
   - `display:screenshot` only display screenshots.
+  - `display:vulnerability` only display vulnerabilities.
 
 
 ---
