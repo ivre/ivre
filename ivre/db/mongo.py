@@ -2596,7 +2596,7 @@ it is not expected)."""
             cpeflt2 = dict(("cpes.%s" % key, value) for key, value in cpeflt)
             # We need to keep enough cpes.* fields for the projection
             # *and* for our filter
-            fields = fields[:max(fields.index(field), len(cpeflt)) + 1]
+            fields = fields[:max(fields.index(field), len(cpeflt2)) + 1]
             flt = self.flt_and(flt, cpeflt1)
             specialproj = dict(("cpes.%s" % fname, 1) for fname in fields)
             specialproj["_id"] = 0
