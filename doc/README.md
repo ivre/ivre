@@ -55,7 +55,7 @@ IVRE relies on:
   * optionally [ZMap](https://zmap.io/) and/or
     [Masscan](https://github.com/robertdavidgraham/masscan)
 
-  * [Bro](http://www.bro.org/) (version 2.6 minimum),
+  * [Bro](http://www.bro.org/) (version 2.5 minimum),
     [Argus](http://qosient.com/argus/),
     [Nfdump](https://github.com/phaag/nfdump)&
     [p0f](http://lcamtuf.coredump.cx/p0f/) (version 2, will not work
@@ -121,7 +121,7 @@ recon, you can skip this part.
 
 ## Using Bro ##
 
-You need to run Bro (2.6 minimum, regularly tested with 2.6) with the
+You need to run Bro (2.5 minimum, tested with 2.5 and 2.6) with the
 option `-b` and the location of the `passiverecon/bare.bro` file. If
 you want to run it on the `eth0` interface, for example, run (replace
 `/usr/share/ivre` by the appropriate location; use `python -c 'import
