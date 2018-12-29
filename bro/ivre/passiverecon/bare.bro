@@ -35,6 +35,7 @@ event bro_init() {
     Log::disable_stream(Weird::LOG);
     Log::disable_stream(Notice::LOG);
     Log::disable_stream(Files::LOG);
+    Log::disable_stream(Reporter::LOG);
 
     local filter = Log::get_filter(PassiveRecon::LOG, "default");
     filter$path = getenv("LOG_PATH") == "" ? "/dev/stdout" : getenv("LOG_PATH");
