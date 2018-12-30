@@ -1,4 +1,4 @@
-py2neo>=3
+py2neo>=3,<4
 pycrypto
 future
 bottle

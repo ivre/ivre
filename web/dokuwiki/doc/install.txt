@@ -17,7 +17,7 @@ To install IVRE, you'll need [[http://www.python.org/|Python]] 2 (version 2.6 mi
   * [[https://bottlepy.org/|Bottle]]
   * [[http://www.pycrypto.org/|Crypto]]
   * [[http://api.mongodb.org/python/|pymongo]] version 2.7.2 minimum.
-  * [[http://py2neo.org/v3/|py2neo]] version 3 minimum, optional, to use the flow module.
+  * [[http://py2neo.org/v3/|py2neo]] version 3, optional, to use the flow module.
   * [[http://www.sqlalchemy.org/|sqlalchemy]] and [[http://initd.org/psycopg/|psycopg2]] to use the experimental PostgreSQL backend.
   * [[http://www.pythonware.com/products/pil/|PIL]] optional, to trim screenshots.
 
