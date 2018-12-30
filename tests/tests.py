@@ -1744,6 +1744,23 @@ which `predicate()` is True, given `webflt`.
                 if 'source' in rec
             ))
 
+    def test_60_flow(self):
+
+        # Init DB
+        res, out, err = RUN(["ivre", "flowcli", "--count"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
+        self.assertTrue(not err)
+        res, out, err = RUN(["ivre", "flowcli", "--init"],
+                            stdin=open(os.devnull))
+        self.assertEqual(res, 0)
+        self.assertTrue(not out)
+        self.assertTrue(not err)
+        res, out, err = RUN(["ivre", "flowcli", "--count"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
+        self.assertTrue(not err)
+
     # This test have to be done first.
     def test_10_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
@@ -2683,10 +2700,13 @@ TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "90_cleanup",
 
 DATABASES = {
     # **excluded** tests
-    "mongo": ["utils"],
-    "postgres": ["scans", "utils"],
-    "sqlite": ["30_nmap", "50_view", "scans", "utils"],
-    "maxmind": ["30_nmap", "40_passive", "50_view", "90_cleanup", "scans"],
+    "mongo": ["60_flow", "utils"],
+    "postgres": ["60_flow", "scans", "utils"],
+    "sqlite": ["30_nmap", "50_view", "60_flow", "scans", "utils"],
+    "neo4j": ["30_nmap", "40_passive", "50_view", "90_cleanup", "scans",
+              "utils"],
+    "maxmind": ["30_nmap", "40_passive", "50_view", "60_flow", "90_cleanup",
+                "scans"],
 }
 
 
