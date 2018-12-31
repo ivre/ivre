@@ -33,6 +33,11 @@ env:
   - DB=mongo MONGODB_VERSION=4.0.2
   ## Development release
   - DB=mongo MONGODB_VERSION=4.1.3
+  # Neo4j
+  - DB=neo4j NEO4J_VERSION=3.2.13
+  - DB=neo4j NEO4J_VERSION=3.3.9
+  - DB=neo4j NEO4J_VERSION=3.4.11
+  - DB=neo4j NEO4J_VERSION=3.5.1
   # Sqlite
   - DB=sqlite
   # MaxMind (& utils)
@@ -154,9 +159,10 @@ before_script:
   # display version
   - ivre version
   # init DB
-  - test "$DB" = "maxmind" || ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
-  - test "$DB" = "maxmind" || ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
-  - test "$DB" = "maxmind" || ivre view --init < /dev/null || echo "ERROR failed to init view database."
+  - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
+  - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
+  - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre view --init < /dev/null || echo "ERROR failed to init view database."
+  - test "$DB" != "neo4j" || ivre flowcli --init < /dev/null || echo "ERROR failed to init flow database."
   - cat .travis/ivre.conf >> ~/.ivre.conf
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)
