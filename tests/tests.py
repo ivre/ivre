@@ -1763,23 +1763,26 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(not err)
 
         for pcapfname in self.pcap_files:
-            with tempfile.TemporaryDirectory() as tmpdir:
-                broprocess = subprocess.Popen(
-                    ['bro', '-C', '-r', os.path.join(os.getcwd(), pcapfname),
-                     os.path.join(ivre.config.guess_prefix('bro'), 'ivre'),
-                     '-e',
-                     'redef tcp_content_deliver_all_resp = T; '
-                     'redef tcp_content_deliver_all_orig = T;'],
-                    cwd=tmpdir)
-                broprocess.wait()
-                res, out, _ = RUN(['ivre', 'bro2db'] + [
-                    os.path.join(dirname, fname)
-                    for dirname, _, fnames in os.walk(tmpdir)
-                    for fname in fnames
-                    if fname.endswith('.log')
-                ])
-                self.assertEqual(res, 0)
-                self.assertTrue(not out)
+            # Only Python 3.2+
+            # with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = tempfile.mkdtemp()
+            broprocess = subprocess.Popen(
+                ['bro', '-C', '-r', os.path.join(os.getcwd(), pcapfname),
+                 os.path.join(ivre.config.guess_prefix('bro'), 'ivre'),
+                 '-e',
+                 'redef tcp_content_deliver_all_resp = T; '
+                 'redef tcp_content_deliver_all_orig = T;'],
+                cwd=tmpdir)
+            broprocess.wait()
+            res, out, _ = RUN(['ivre', 'bro2db'] + [
+                os.path.join(dirname, fname)
+                for dirname, _, fnames in os.walk(tmpdir)
+                for fname in fnames
+                if fname.endswith('.log')
+            ])
+            self.assertEqual(res, 0)
+            self.assertTrue(not out)
+            ivre.utils.cleandir(tmpdir)
 
         res, out, err = RUN(["ivre", "flowcli", "--count"])
         self.assertEqual(res, 0)
