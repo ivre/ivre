@@ -612,3 +612,4 @@ view_top_version_http_apache_cli = []
 view_top_version_http_api = [('http', 'Microsoft IIS httpd', '7.5')]
 view_top_version_http_cgi = [['http', 'Microsoft IIS httpd', '7.5']]
 view_top_version_http_cli = ['http / Microsoft IIS httpd / 7.5']
+flow_count = b'24 clients\n64 servers\n79 flows\n'
