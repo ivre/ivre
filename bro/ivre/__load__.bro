@@ -27,7 +27,9 @@
 
 @load policy/frameworks/software/windows-version-detection
 
+@if(Version::number >= 20600)
 @load policy/protocols/dhcp/software
+@endif
 @load policy/protocols/ftp/software
 @load policy/protocols/http/detect-webapps
 @load policy/protocols/http/software

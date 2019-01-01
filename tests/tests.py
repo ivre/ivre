@@ -1269,7 +1269,8 @@ which `predicate()` is True, given `webflt`.
                 ['bro', '-C', '-b', '-r', fname,
                  os.path.join(
                      ivre.config.guess_prefix('bro'),
-                     'ivre', 'passiverecon', 'bare.bro'),
+                     'ivre', 'passiverecon', 'bare.bro',
+                 ),
                  '-e',
                  'redef tcp_content_deliver_all_resp = T; '
                  'redef tcp_content_deliver_all_orig = T;'],
@@ -1759,6 +1760,33 @@ which `predicate()` is True, given `webflt`.
         res, out, err = RUN(["ivre", "flowcli", "--count"])
         self.assertEqual(res, 0)
         self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
+        self.assertTrue(not err)
+
+        for pcapfname in self.pcap_files:
+            # Only Python 3.2+
+            # with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir = tempfile.mkdtemp()
+            broprocess = subprocess.Popen(
+                ['bro', '-C', '-r', os.path.join(os.getcwd(), pcapfname),
+                 os.path.join(ivre.config.guess_prefix('bro'), 'ivre'),
+                 '-e',
+                 'redef tcp_content_deliver_all_resp = T; '
+                 'redef tcp_content_deliver_all_orig = T;'],
+                cwd=tmpdir)
+            broprocess.wait()
+            res, out, _ = RUN(['ivre', 'bro2db'] + [
+                os.path.join(dirname, fname)
+                for dirname, _, fnames in os.walk(tmpdir)
+                for fname in fnames
+                if fname.endswith('.log')
+            ])
+            self.assertEqual(res, 0)
+            self.assertTrue(not out)
+            ivre.utils.cleandir(tmpdir)
+
+        res, out, err = RUN(["ivre", "flowcli", "--count"])
+        self.assertEqual(res, 0)
+        self.check_value("flow_count", out)
         self.assertTrue(not err)
 
     # This test have to be done first.
@@ -2694,8 +2722,8 @@ which `predicate()` is True, given `webflt`.
         RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
 
 
-TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "90_cleanup",
-             "conf", "scans", "utils"])
+TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "60_flow",
+             "90_cleanup", "conf", "scans", "utils"])
 
 
 DATABASES = {
