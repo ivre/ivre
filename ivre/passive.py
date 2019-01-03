@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -251,6 +251,20 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 newvalue = pattern.sub(replace, newvalue)
         if newvalue != value:
             spec['value'] = utils.nmap_encode_data(newvalue)
+    # SSL_{CLIENT,SERVER} JA3
+    elif ((spec['recontype'] == 'SSL_CLIENT' and spec['source'] == 'ja3') or
+          (spec['recontype'] == 'SSL_SERVER' and
+           spec['source'].startswith('ja3-'))):
+        value = spec['value']
+        spec.setdefault('infos', {})['raw'] = value
+        spec['value'] = hashlib.new("md5", value.encode()).hexdigest()
+        if spec['recontype'] == 'SSL_SERVER':
+            clientvalue = spec['source'][4:]
+            spec['infos'].setdefault('client', {})['raw'] = clientvalue
+            spec['source'] = 'ja3-%s' % hashlib.new(
+                "md5",
+                clientvalue.encode(),
+            ).hexdigest()
     return spec
 
 
@@ -372,24 +386,20 @@ def _getinfos_ja3(spec):
     """Extract hashes from JA3 fingerprint strings.
 
     """
-    value = spec['value']
+    value = spec['infos']['raw']
     data = value.encode()
 
-    info = dict((hashtype, hashlib.new(hashtype, data).hexdigest())
-                for hashtype in ['md5', 'sha1', 'sha256'])
-    info['value'] = value
-    spec['value'] = info['md5']
+    info = dict(((hashtype, hashlib.new(hashtype, data).hexdigest())
+                 for hashtype in ['sha1', 'sha256']),
+                **spec['infos'])
 
-    if spec.get('recontype') == 'SSL_SERVER' and \
-       spec.get('source', '').startswith('ja3-'):
-        clientvalue = spec['source'][4:]
+    if spec.get('recontype') == 'SSL_SERVER':
+        clientvalue = spec['infos']['client']['raw']
         clientdata = clientvalue.encode()
-        info['client'] = dict(
+        info['client'].update(
             (hashtype, hashlib.new(hashtype, clientdata).hexdigest())
-            for hashtype in ['md5', 'sha1', 'sha256']
+            for hashtype in ['sha1', 'sha256']
         )
-        info['client']['value'] = clientvalue
-        spec['source'] = 'ja3-%s' % info['client']['md5']
 
     return {'infos': info}
 
@@ -398,8 +408,7 @@ def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
     infos = utils.match_nmap_svc_fp(banner, proto=proto, probe=probe)
     if not infos:
         return {}
-    res = {'infos': infos}
-    return res
+    return {'infos': infos}
 
 
 def _getinfos_tcp_srv_banner(spec):
@@ -443,8 +452,7 @@ def _getinfos_ssh_hostkey(spec):
         infos['bits'] = 256
     elif keytype == 'ssh-ed25519':
         infos['bits'] = len(next(data)) * 8
-    res = {'infos': infos}
-    return res
+    return {'infos': infos}
 
 
 _GETINFOS_FUNCTIONS = {

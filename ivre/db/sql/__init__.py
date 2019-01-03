@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ import codecs
 from collections import namedtuple
 import csv
 import datetime
+import hashlib
 import json
 import re
 
@@ -181,9 +182,9 @@ class PassiveCSVFile(CSVFile):
                     line["lastseen"]
                 )
         if self.getinfos is not None:
-            additional_info = self.getinfos(line)
+            line.update(self.getinfos(line))
             try:
-                line.update(additional_info['infos'])
+                line.update(line.pop('infos'))
             except KeyError:
                 pass
         if "addr" in line:
@@ -1706,6 +1707,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         "infos.sha256": Passive.moreinfo.op('->>')('sha256'),
         "infos.subject": Passive.moreinfo.op('->>')('subject'),
         "infos.subject_text": Passive.moreinfo.op('->>')('subject_text'),
+        "infos.raw": Passive.moreinfo.op('->>')('raw'),
         "infos.domaintarget": Passive.moreinfo.op('->>')('domaintarget'),
         "infos.username": Passive.moreinfo.op('->>')('username'),
         "infos.password": Passive.moreinfo.op('->>')('password'),
@@ -1795,9 +1797,9 @@ returns the first result, or None if no result exists."""
         except (KeyError, ValueError):
             pass
         if getinfos is not None:
-            additional_info = getinfos(spec)
+            spec.update(getinfos(spec))
             try:
-                spec.update(additional_info['infos'])
+                spec.update(spec.pop('infos'))
             except KeyError:
                 pass
         addr = spec.pop("addr", None)
@@ -1868,8 +1870,7 @@ passive table."""
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, distinct=True):
-        """This method makes use of the aggregation framework to
-        produce top values for a given field.
+        """This method produces top values for a given field.
 
         If `distinct` is True (default), the top values are computed
         by distinct events. If it is False, they are computed based on
@@ -2042,6 +2043,81 @@ passive table."""
             (cls.tables.passive.moreinfo.op('->>')(
                 'pubkeyalgo'
             ) == keytype + 'Encryption')
+        ))
+
+    @classmethod
+    def _searchja3(cls, value_or_hash=None):
+        if value_or_hash is None:
+            return True
+        if utils.HEX.search(value_or_hash):
+            try:
+                key = {
+                    32: cls.tables.passive.value,
+                    40: cls.tables.passive.moreinfo.op('->>')('sha1'),
+                    64: cls.tables.passive.moreinfo.op('->>')('sha256'),
+                }[len(value_or_hash)]
+            except KeyError:
+                pass
+            else:
+                return key == value_or_hash
+        return (
+            (cls.tables.passive.moreinfo.op('->>')('raw') == value_or_hash) &
+            (cls.tables.passive.value == hashlib.new(
+                'md5',
+                value_or_hash.encode(),
+            ).hexdigest())
+        )
+
+    @classmethod
+    def searchja3client(cls, value_or_hash=None):
+        return PassiveFilter(main=(
+            (cls.tables.passive.recontype == 'SSL_CLIENT') &
+            (cls.tables.passive.source == 'ja3') &
+            cls._searchja3(value_or_hash)
+        ))
+
+    @classmethod
+    def searchja3server(cls, value_or_hash=None, client_value_or_hash=None):
+        base = (
+            (cls.tables.passive.recontype == 'SSL_SERVER') &
+            cls._searchja3(value_or_hash)
+        )
+        if client_value_or_hash is None:
+            return PassiveFilter(main=(
+                base &
+                (cls.tables.passive.source.op('~')('^ja3-'))
+            ))
+        if utils.HEX.search(client_value_or_hash):
+            length = len(client_value_or_hash)
+            if length == 32:
+                return PassiveFilter(main=(
+                    base &
+                    (cls.tables.passive.source == (
+                        'ja3-%s' % client_value_or_hash
+                    ))
+                ))
+            if length == 40:
+                return PassiveFilter(main=(
+                    base &
+                    (cls.tables.passive.source.op('~')('^ja3-')) &
+                    (cls.tables.passive.moreinfo.op('->')('client')
+                     .op('->>')('sha1') == client_value_or_hash)
+                ))
+            if length == 64:
+                return PassiveFilter(main=(
+                    base &
+                    (cls.tables.passive.source.op('~')('^ja3-')) &
+                    (cls.tables.passive.moreinfo.op('->')('client')
+                     .op('->>')('sha256') == client_value_or_hash)
+                ))
+        return PassiveFilter(main=(
+            base &
+            (cls.tables.passive.source == ('ja3-%s' % hashlib.new(
+                'md5',
+                client_value_or_hash.encode(),
+            ).hexdigest())) &
+            (cls.tables.passive.moreinfo.op('->')('client')
+             .op('->>')('raw') == client_value_or_hash)
         ))
 
     @classmethod
