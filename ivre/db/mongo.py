@@ -341,7 +341,7 @@ want to do something special here, e.g., mix with other records.
             for i, record in enumerate(
                     self.find(colname,
                               self.searchversion(version),
-                              no_cursor_timeout=True).batch_size(1000)
+                              no_cursor_timeout=True).batch_size(50000)
             ):
                 try:
                     update = migration_function(record)
@@ -3184,7 +3184,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                 ([('port', pymongo.ASCENDING)], {}),
                 ([('value', pymongo.ASCENDING)], {}),
                 ([('targetval', pymongo.ASCENDING)], {}),
-                ([('recontype', pymongo.ASCENDING)], {}),
+                ([
+                    ('recontype', pymongo.ASCENDING),
+                    ('source', pymongo.ASCENDING)
+                ], {}),
                 ([('firstseen', pymongo.ASCENDING)], {}),
                 ([('lastseen', pymongo.ASCENDING)], {}),
                 ([('sensor', pymongo.ASCENDING)], {}),
@@ -3227,6 +3230,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         self.schema_migrations_indexes[colname_passive] = {
             1: {
                 "drop": [
+                    ([('recontype', pymongo.ASCENDING)], {}),
                     ([
                         ('addr', pymongo.ASCENDING),
                         ('recontype', pymongo.ASCENDING),
@@ -3238,6 +3242,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                      {"sparse": True}),
                 ],
                 "ensure": [
+                    ([
+                        ('recontype', pymongo.ASCENDING),
+                        ('source', pymongo.ASCENDING)
+                    ], {}),
                     ([
                         ('addr_0', pymongo.ASCENDING),
                         ('addr_1', pymongo.ASCENDING),
