@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -341,7 +341,7 @@ want to do something special here, e.g., mix with other records.
             for i, record in enumerate(
                     self.find(colname,
                               self.searchversion(version),
-                              no_cursor_timeout=True).batch_size(1000)
+                              no_cursor_timeout=True).batch_size(50000)
             ):
                 try:
                     update = migration_function(record)
@@ -3184,7 +3184,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                 ([('port', pymongo.ASCENDING)], {}),
                 ([('value', pymongo.ASCENDING)], {}),
                 ([('targetval', pymongo.ASCENDING)], {}),
-                ([('recontype', pymongo.ASCENDING)], {}),
+                ([
+                    ('recontype', pymongo.ASCENDING),
+                    ('source', pymongo.ASCENDING)
+                ], {}),
                 ([('firstseen', pymongo.ASCENDING)], {}),
                 ([('lastseen', pymongo.ASCENDING)], {}),
                 ([('sensor', pymongo.ASCENDING)], {}),
@@ -3227,6 +3230,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         self.schema_migrations_indexes[colname_passive] = {
             1: {
                 "drop": [
+                    ([('recontype', pymongo.ASCENDING)], {}),
                     ([
                         ('addr', pymongo.ASCENDING),
                         ('recontype', pymongo.ASCENDING),
@@ -3238,6 +3242,10 @@ class MongoDBPassive(MongoDB, DBPassive):
                      {"sparse": True}),
                 ],
                 "ensure": [
+                    ([
+                        ('recontype', pymongo.ASCENDING),
+                        ('source', pymongo.ASCENDING)
+                    ], {}),
                     ([
                         ('addr_0', pymongo.ASCENDING),
                         ('addr_1', pymongo.ASCENDING),
@@ -3440,6 +3448,10 @@ setting values according to the keyword arguments.
             return
         orig = deepcopy(spec)
         spec = self.rec2internal(spec)
+        try:
+            del spec['infos']
+        except KeyError:
+            pass
         hint = self.get_hint(spec)
         current = self.get(spec, hint=hint, fields=[])
         try:
@@ -3458,8 +3470,12 @@ setting values according to the keyword arguments.
             )
         else:
             if getinfos is not None:
-                infos = getinfos(orig)
-                if infos:
+                orig.update(getinfos(orig))
+                try:
+                    infos = {'infos': orig['infos']}
+                except KeyError:
+                    pass
+                else:
                     self._fix_sizes(infos)
                     updatespec['$setOnInsert'] = infos
             self.db[self.colname_passive].update(
@@ -3505,11 +3521,22 @@ setting values according to the keyword arguments.
                     '$max': {'lastseen': lastseen},
                 }
                 if getinfos is not None:
-                    infos = getinfos(spec)
-                    if infos:
+                    spec.update(getinfos(spec))
+                    try:
+                        infos = {'infos': spec['infos']}
+                    except KeyError:
+                        pass
+                    else:
+                        self._fix_sizes(infos)
                         updatespec['$setOnInsert'] = infos
                 spec = self.rec2internal(spec)
-                bulk.find(spec).upsert().update(updatespec)
+                findspec = deepcopy(spec)
+                for key in ['infos', 'fullinfos']:
+                    try:
+                        del findspec[key]
+                    except KeyError:
+                        pass
+                bulk.find(findspec).upsert().update(updatespec)
                 count += 1
                 if count >= config.MONGODB_BATCH_SIZE:
                     utils.LOGGER.debug("DB:MongoDB bulk upsert: %d", count)
@@ -3749,6 +3776,50 @@ setting values according to the keyword arguments.
         return {'recontype': 'SSL_SERVER',
                 'source': 'cert',
                 'infos.pubkeyalgo': keytype + 'Encryption'}
+
+    @staticmethod
+    def _searchsja3(value_or_hash):
+        if value_or_hash is None:
+            return {}
+        if utils.HEX.search(value_or_hash):
+            key = {32: 'value', 40: 'infos.sha1',
+                   64: 'infos.sha256'}.get(len(value_or_hash), 'infos.raw')
+        else:
+            key = 'infos.raw'
+        if key == 'infos.raw':
+            return {'infos.raw': value_or_hash,
+                    'value': hashlib.new('md5',
+                                         value_or_hash.encode()).hexdigest()}
+        return {key: value_or_hash}
+
+    @classmethod
+    def searchja3client(cls, value_or_hash=None):
+        return dict(cls._searchsja3(value_or_hash), recontype='SSL_CLIENT',
+                    source='ja3')
+
+    @classmethod
+    def searchja3server(cls, value_or_hash=None, client_value_or_hash=None):
+        base = dict(cls._searchsja3(value_or_hash), recontype='SSL_SERVER')
+        if client_value_or_hash is None:
+            return dict(base, source=re.compile('^ja3-'))
+        if utils.HEX.search(client_value_or_hash):
+            key = {32: 'md5', 40: 'infos.client.sha1',
+                   64: 'infos.client.sha256'}.get(len(client_value_or_hash),
+                                                  'infos.client.raw')
+        else:
+            key = 'infos.client.raw'
+        if key == 'md5':
+            return dict(base, source='ja3-%s' % client_value_or_hash)
+        if key == 'infos.client.raw':
+            return dict(
+                base, source='ja3-%s' % hashlib.new(
+                    'md5',
+                    client_value_or_hash.encode(),
+                ).hexdigest(),
+                **{'infos.client.raw': client_value_or_hash}
+            )
+        return dict(base, source=re.compile('^ja3-'),
+                    **{key: client_value_or_hash})
 
     @staticmethod
     def searchsshkey(keytype=None):

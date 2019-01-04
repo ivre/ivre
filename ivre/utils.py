@@ -79,6 +79,7 @@ MAXVALLEN = 1000
 
 LOGGER = logging.getLogger("ivre")
 REGEXP_T = type(re.compile(''))
+HEX = re.compile('^[a-f0-9]+$', re.IGNORECASE)
 
 
 NMAP_FINGERPRINT_IVRE_KEY = {

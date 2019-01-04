@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1525,9 +1525,71 @@ which `predicate()` is True, given `webflt`.
                                                        else "not_"),
                 values["count"],
             )
+        for field, key in [('value', 'ja3cli_md5'),
+                           ('infos.raw', 'ja3cli_raw'),
+                           ('infos.sha1', 'ja3cli_sha1'),
+                           ('infos.sha256', 'ja3cli_sha256')]:
+            if DATABASE == "sqlite" and '.' in field:
+                # BUG in sqlite backend: cannot use topvalues with
+                # JSON fields
+                continue
+            for distinct in [True, False]:
+                cur = ivre.db.db.passive.topvalues(
+                    field=field,
+                    flt=ivre.db.db.passive.searchja3client(),
+                    distinct=distinct,
+                    topnbr=2
+                )
+                values = next(cur)
+                while values.get('_id') is None:
+                    values = next(cur)
+                self.check_value(
+                    "passive_top_%s_%sdistinct" % (key,
+                                                   "" if distinct else "not_"),
+                    values["_id"],
+                )
+                self.check_value(
+                    "passive_top_%s_%sdistinct_count" % (
+                        key,
+                        "" if distinct else "not_",
+                    ),
+                    values["count"],
+                )
+                if not distinct:
+                    # Let's try to find the record with same value and count
+                    for rec in ivre.db.db.passive.get(
+                            ivre.db.db.passive.searchja3client(
+                                value_or_hash=values["_id"]
+                            )
+                    ):
+                        if rec['count'] == values["count"]:
+                            break
+                    else:
+                        self.assertTrue(False)
         # Delete the reference on the cursor to close the connection
         # to the database (required for SQLite)
         del cur
+
+        # JA3 server:
+        # Get one record, then find it again with different filters.
+        rec1 = ivre.db.db.passive.get_one(ivre.db.db.passive.searchja3server())
+        for value in [None, rec1['infos']['raw'], rec1['value'],
+                      rec1['infos']['sha1'], rec1['infos']['sha256']]:
+            for clival in [None, rec1['infos']['client']['raw'],
+                           rec1['source'][4:], rec1['infos']['client']['sha1'],
+                           rec1['infos']['client']['sha1']]:
+                if value is None and clival is None:
+                    continue
+                for rec2 in ivre.db.db.passive.get(
+                    ivre.db.db.passive.searchja3server(
+                        value_or_hash=value,
+                        client_value_or_hash=clival,
+                    )
+                ):
+                    if rec1 == rec2:
+                        break
+                else:
+                    self.assertTrue(False)
 
         # Top values (CLI)
         res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])

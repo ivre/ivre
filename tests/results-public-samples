@@ -1,6 +1,6 @@
 # This file is part of IVRE.
 #
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # This file contains expected results for IVRE's tests run with public
 # data. It is intended for use within the Travis CI platform with
@@ -153,6 +153,22 @@ passive_count_country_FR = 59
 passive_count_country_DE = 13
 passive_count_country_KP = 0
 passive_count_country_XX = 0
+passive_top_ja3cli_md5_distinct_count = 1
+passive_top_ja3cli_md5_distinct = '755cdaa3496eb8728247a639dee17aad'
+passive_top_ja3cli_md5_not_distinct = '755cdaa3496eb8728247a639dee17aad'
+passive_top_ja3cli_md5_not_distinct_count = 4
+passive_top_ja3cli_raw_not_distinct = '769,255-49162-49172-136-135-57-56-49167-49157-132-53-49161-49159-49171-49169-69-68-51-50-49166-49164-49156-49154-150-65-47-5-4-49160-49170-22-19-49165-49155-65279-10,0-10-11-35-13172-5,23-24-25,0'
+passive_top_ja3cli_raw_distinct = '769,255-49162-49172-136-135-57-56-49167-49157-132-53-49161-49159-49171-49169-69-68-51-50-49166-49164-49156-49154-150-65-47-5-4-49160-49170-22-19-49165-49155-65279-10,0-10-11-35-13172-5,23-24-25,0'
+passive_top_ja3cli_raw_distinct_count = 1
+passive_top_ja3cli_raw_not_distinct_count = 4
+passive_top_ja3cli_sha1_distinct = 'c4417b70631a875a8b9ef1088b5ed44e70041137'
+passive_top_ja3cli_sha1_distinct_count = 1
+passive_top_ja3cli_sha1_not_distinct = 'c4417b70631a875a8b9ef1088b5ed44e70041137'
+passive_top_ja3cli_sha1_not_distinct_count = 4
+passive_top_ja3cli_sha256_distinct = 'dd1d9cc7667f5dc30386c9c21e388737bc9f51297e9b6537e8261c733e95af46'
+passive_top_ja3cli_sha256_distinct_count = 1
+passive_top_ja3cli_sha256_not_distinct = 'dd1d9cc7667f5dc30386c9c21e388737bc9f51297e9b6537e8261c733e95af46'
+passive_top_ja3cli_sha256_not_distinct_count = 4
 utils_bro_btest_Baseline_core_tunnels_teredo_http_count = 4
 utils_bro_btest_Baseline_scripts_policy_protocols_conn_mac_logging_conn1_count = 34
 utils_bro_btest_Baseline_scripts_base_frameworks_logging_ascii_tsv_ssh_filtered_count = 6

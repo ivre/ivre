@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1319,11 +1319,19 @@ class DBView(DBActive):
 
 
 class _RecInfo(object):
-    __slots__ = ["count", "firstseen", "lastseen"]
+    __slots__ = ["count", "firstseen", "infos", "lastseen"]
 
-    def __init__(self):
+    def __init__(self, infos):
         self.count = 0
         self.firstseen = self.lastseen = None
+        self.infos = infos
+
+    @property
+    def data(self):
+        data = {'count': self.count}
+        if self.infos:
+            data['infos'] = self.infos
+        return data
 
     def update(self, timestamp):
         self.count += 1
@@ -1438,7 +1446,7 @@ class DBPassive(DB):
             utils.LOGGER.debug("DB:local bulk upsert: %d", len(records))
             for spec, metadata in viewitems(records):
                 self.insert_or_update(metadata.firstseen,
-                                      dict(spec, count=metadata.count),
+                                      dict(spec, **metadata.data),
                                       getinfos=getinfos,
                                       lastseen=metadata.lastseen)
         records = {}
@@ -1447,8 +1455,10 @@ class DBPassive(DB):
         for timestamp, spec in specs:
             if spec is None:
                 continue
-            spec = tuple((key, spec[key]) for key in sorted(spec))
-            records.setdefault(spec, _RecInfo()).update(timestamp)
+            infos = spec.get('infos')
+            spec = tuple((key, spec[key]) for key in sorted(spec)
+                         if key != 'infos')
+            records.setdefault(spec, _RecInfo(infos)).update(timestamp)
             if len(records) >= config.LOCAL_BATCH_SIZE:
                 _bulk_execute(records)
                 records = {}
