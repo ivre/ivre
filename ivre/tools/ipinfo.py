@@ -273,6 +273,8 @@ def main():
                         help='Output most common (least common: ~) values for '
                         'FIELD, by default 10, use --limit to change that, '
                         '--limit 0 means unlimited.')
+    parser.add_argument('--dnsbl-update', action='store_true',
+                        help='Update the current database with DNS Blacklist')
     if USING_ARGPARSE:
         parser.add_argument('ips', nargs='*',
                             help='Display results for specified IP addresses'
@@ -302,6 +304,9 @@ def main():
         exit(0)
     if args.update_schema:
         db.passive.migrate_schema(None)
+        exit(0)
+    if args.dnsbl_update:
+        db.passive.update_dns_blacklist()
         exit(0)
     if args.short:
         disp_recs = disp_recs_short

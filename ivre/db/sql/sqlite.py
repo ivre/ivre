@@ -26,7 +26,7 @@ databases.
 from sqlalchemy import Index, and_, func, insert, update
 from sqlalchemy.exc import IntegrityError
 
-from ivre import utils
+from ivre import utils, config
 from ivre.db.sql import SQLDB, SQLDBPassive
 
 
@@ -90,3 +90,22 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
                 self.tables.passive
             ).where(whereclause).values(upsert)
             self.db.execute(updt)
+
+    def update_dns_blacklist(self):
+        """A specific implementation is required for SQLite because
+it is not possible to read and write the database at the same time."""
+
+        flt = self.searchdns(list(config.DNS_BLACKLIST_DOMAINS),
+                             subdomains=True)
+        base = self.get(flt)
+        specs = []
+        for old_spec in base:
+            if any(old_spec['value'].endswith(dnsbl)
+                   for dnsbl in config.DNS_BLACKLIST_DOMAINS):
+                spec = self._update_dns_blacklist(old_spec)
+                specs.append([spec, old_spec['firstseen'],
+                              old_spec['lastseen'], old_spec['_id']])
+        for elmt in specs:
+            self.insert_or_update(elmt[1], elmt[0],
+                                  lastseen=elmt[2])
+            self.remove(elmt[3])

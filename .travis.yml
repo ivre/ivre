@@ -189,6 +189,8 @@ before_script:
   - for file in test-probe-ike-ipsec-nat-t-probe-U4500.xml.bz2 test-probe-ike-probe-U500.xml.bz2 test-T22.xml.bz2 test-T443.xml.bz2 test-T102-s7comm.xml.bz2; do wget -q --no-check-certificate "https://ivre.rocks/data/tests/$file" -O "tests/samples/$file" ; done
   ## Nmap IPv6 scans
   - wget -q https://raw.githubusercontent.com/logstash-plugins/logstash-codec-nmap/master/spec/fixtures/ipv6_all.xml -O "tests/samples/ipv6_all.xml"
+  ## PCAP files from ivre.rocks
+  - wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/dnsbl.pcap.bz2 | bunzip2 > tests/samples/dnsbl.pcap
   ## PCAP files from the Wireshark project
   - for file in dns.cap imap.cap http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap Teredo.pcap sr-header.pcap; do wget -q "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file"; done
   - for file in SSHv2.cap; do wget -q "http://packetlife.net/captures/$file" -O "tests/samples/$file"; done

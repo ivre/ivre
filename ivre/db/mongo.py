@@ -3816,6 +3816,11 @@ setting values according to the keyword arguments.
 
     @staticmethod
     def searchdns(name, reverse=False, subdomains=False):
+        if isinstance(name, list):
+            if len(name) == 1:
+                name = name[0]
+            else:
+                name = {'$in': name}
         return {
             'recontype': 'DNS_ANSWER',
             (('infos.domaintarget' if reverse else 'infos.domain')
