@@ -3321,6 +3321,7 @@ Also, the structured data for SSL certificates has been updated.
 
         """
         assert "schema_version" not in doc
+        doc = internal2rec(doc)
         doc["schema_version"] = 1
         for key in ["firstseen", "lastseen"]:
             doc[key] = datetime.datetime.fromtimestamp(doc[key])
@@ -3332,7 +3333,7 @@ Also, the structured data for SSL certificates has been updated.
                 doc["recontype"] == "SSL_SERVER" and
                 doc["source"] == "cert"
         ):
-            doc.update(passive._getinfos_cert(doc, cls.to_binary))
+            doc.update(passive._getinfos_cert(doc))
         return doc
 
     def _get(self, flt, **kargs):
