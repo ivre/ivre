@@ -36,7 +36,6 @@ import os
 import re
 import socket
 import struct
-import time
 import uuid
 
 
@@ -3875,13 +3874,15 @@ setting values according to the keyword arguments.
 
     @staticmethod
     def searchtimeago(delta, neg=False, new=False):
-        if isinstance(delta, datetime.timedelta):
-            delta = delta.total_seconds()
+        if not isinstance(delta, datetime.timedelta):
+            delta = datetime.timedelta(seconds=delta)
         return {'lastseen' if new else 'firstseen':
-                {'$lt' if neg else '$gte': time.time() - delta}}
+                {'$lt' if neg else '$gte': datetime.datetime.now() - delta}}
 
     @staticmethod
     def searchnewer(timestamp, neg=False, new=False):
+        if not isinstance(timestamp, datetime.datetime):
+            timestamp = datetime.datetime.fromtimestamp(timestamp)
         return {'lastseen' if new else 'firstseen':
                 {'$lte' if neg else '$gt': timestamp}}
 
