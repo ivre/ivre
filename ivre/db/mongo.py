@@ -3320,7 +3320,7 @@ Also, the structured data for SSL certificates has been updated.
 
         """
         assert "schema_version" not in doc
-        doc = internal2rec(doc)
+        doc = cls.internal2rec(doc)
         doc["schema_version"] = 1
         for key in ["firstseen", "lastseen"]:
             doc[key] = datetime.datetime.fromtimestamp(doc[key])
