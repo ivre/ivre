@@ -79,10 +79,18 @@ def sqlite_engine_connect(dbapi_connection, connection_record):
 
     dbapi_connection.create_function('ACCESS', 2, access)
 
-    def access_astext(d, k):
-        return str(json.loads(d).get(k))
+    # FIXME: astext as a manual string cast for JSON.
+    # astext is dirty here because strings value in JSON are not
+    # properly converted to themselves. This may be due to improper
+    # type handling with the custom SQLJSONB.
+    # Proper way to do would be : `cast(x, String)`
+    def astext(x):
+        r = str(x)
+        if r.startswith('"'):
+            r = json.loads(r)
+        return r
 
-    dbapi_connection.create_function('ACCESS_TXT', 2, access_astext)
+    dbapi_connection.create_function('ASTEXT', 1, astext)
 
     def has_key(d, k):
         return k in json.loads(d) if json.loads(d) else False
@@ -101,8 +109,8 @@ def extend_binary_expression(element, compiler, **kwargs):
         if opstring == '->':
             return compiler.process(func.ACCESS(element.left, element.right))
         if opstring == '->>':
-            return compiler.process(func.ACCESS_TXT(element.left,
-                                                    element.right))
+            return compiler.process(func.ASTEXT(func.ACCESS(element.left,
+                                                            element.right)))
         if opstring == '?':
             return compiler.process(func.HAS_KEY(element.left, element.right))
     # FIXME: Variant base type Comparator seems to be used here.
