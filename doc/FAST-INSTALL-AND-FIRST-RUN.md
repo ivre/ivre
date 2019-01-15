@@ -59,8 +59,7 @@ and try again:
     # for m in rewrite.load wsgi.conf wsgi.load ; do
     >   [ -L $m ] || ln -s ../mods-available/$m ; done
     # cd ../
-    # ## replace /usr/share/ivre/web/wsgi/app.wsgi with the actual location if needed:
-    # echo 'Alias /cgi "/usr/share/ivre/web/wsgi/app.wsgi"' > conf-enabled/ivre.conf
+    # echo 'Alias /cgi "/usr/local/share/ivre/web/wsgi/app.wsgi"' > conf-enabled/ivre.conf
     # echo '<Location /cgi>' >> conf-enabled/ivre.conf
     # echo 'SetHandler wsgi-script' >> conf-enabled/ivre.conf
     # echo 'Options +ExecCGI' >> conf-enabled/ivre.conf
@@ -138,5 +137,5 @@ and the `ivre runscansagent` command.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2018
+This file is part of IVRE. Copyright 2011 - 2019
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
