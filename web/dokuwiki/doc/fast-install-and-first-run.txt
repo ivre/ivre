@@ -45,8 +45,7 @@ $ sudo -s
 # for m in rewrite.load wsgi.conf wsgi.load ; do
 >   [ -L $m ] || ln -s ../mods-available/$m ; done
 # cd ../
-# ## replace /usr/share/ivre/web/wsgi/app.wsgi with the actual location if needed:
-# echo 'Alias /cgi "/usr/share/ivre/web/wsgi/app.wsgi"' > conf-enabled/ivre.conf
+# echo 'Alias /cgi "/usr/local/share/ivre/web/wsgi/app.wsgi"' > conf-enabled/ivre.conf
 # echo '<Location /cgi>' >> conf-enabled/ivre.conf
 # echo 'SetHandler wsgi-script' >> conf-enabled/ivre.conf
 # echo 'Options +ExecCGI' >> conf-enabled/ivre.conf
@@ -109,5 +108,5 @@ Another way to run scans efficiently is to use an [[doc:agent|agent]] and the ''
 
 ----
 
-This file is part of IVRE. Copyright 2011 - 2018 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
+This file is part of IVRE. Copyright 2011 - 2019 [[mailto:pierre.lalet@cea.fr|Pierre LALET]]
 
