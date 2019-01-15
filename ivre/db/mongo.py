@@ -3467,6 +3467,11 @@ setting values according to the keyword arguments.
         # infos; this is because MongoDB cannot index values longer than 1024
         # bytes.
         for field in list(spec.get("infos", {})):
+            # Do not limit size of non-indexed values
+            if field not in (idx[6:]
+                             for idxes, _ in cls.indexes[cls.column_passive]
+                             for idx, _ in idxes if idx.startswith('infos')):
+                continue
             value = spec["infos"][field]
             if isinstance(value, basestring) and \
                len(value) > utils.MAXVALLEN // 10:
