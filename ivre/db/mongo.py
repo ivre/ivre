@@ -3431,8 +3431,9 @@ setting values according to the keyword arguments.
         # infos; this is because MongoDB cannot index values longer than 1024
         # bytes.
         for field in list(spec.get("infos", {})):
-            value = spec["infos"]
-            if len(value) > utils.MAXVALLEN // 10:
+            value = spec["infos"][field]
+            if isinstance(value, basestring) and \
+               len(value) > utils.MAXVALLEN // 10:
                 spec.setdefault("fullinfos", {})[field] = value
                 spec["infos"][field] = value[:utils.MAXVALLEN // 10]
 
