@@ -85,7 +85,6 @@ MongoDB < 3.2.
 
 class MongoDB(DB):
 
-    schema_migrations = []
     schema_migrations_indexes = []
     schema_latest_versions = []
     hint_indexes = []
@@ -110,6 +109,7 @@ class MongoDB(DB):
             self.maxtime = int(maxtime)
         except TypeError:
             self.maxtime = None
+        self.schema_migrations = []
 
     def set_limits(self, cur):
         if self.maxscan is not None:
@@ -811,6 +811,22 @@ class MongoDBActive(MongoDB, DBActive):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBActive.__init__(self)
         self.columns = [colname_hosts]
+        self.schema_migrations = [
+            # hosts
+            {
+                None: (1, self.migrate_schema_hosts_0_1),
+                1: (2, self.migrate_schema_hosts_1_2),
+                2: (3, self.migrate_schema_hosts_2_3),
+                3: (4, self.migrate_schema_hosts_3_4),
+                4: (5, self.migrate_schema_hosts_4_5),
+                5: (6, self.migrate_schema_hosts_5_6),
+                6: (7, self.migrate_schema_hosts_6_7),
+                7: (8, self.migrate_schema_hosts_7_8),
+                8: (9, self.migrate_schema_hosts_8_9),
+                9: (10, self.migrate_schema_hosts_9_10),
+                10: (11, self.migrate_schema_hosts_10_11),
+            },
+        ]
 
     def init(self):
         """Initializes the "active" columns, i.e., drops those columns and
@@ -3101,23 +3117,6 @@ it is not expected)."""
         else:
             return (result for result in cursor if result["value"])
 
-    schema_migrations = [
-        # hosts
-        {
-            None: (1, migrate_schema_hosts_0_1),
-            1: (2, migrate_schema_hosts_1_2),
-            2: (3, migrate_schema_hosts_2_3),
-            3: (4, migrate_schema_hosts_3_4),
-            4: (5, migrate_schema_hosts_4_5),
-            5: (6, migrate_schema_hosts_5_6),
-            6: (7, migrate_schema_hosts_6_7),
-            7: (8, migrate_schema_hosts_7_8),
-            8: (9, migrate_schema_hosts_8_9),
-            9: (10, migrate_schema_hosts_9_10),
-            10: (11, migrate_schema_hosts_10_11),
-        },
-    ]
-
 
 class MongoDBNmap(MongoDBActive, DBNmap):
 
@@ -3129,6 +3128,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                                **kwargs)
         DBNmap.__init__(self)
         self.columns.append(colname_scans)
+        self.schema_migrations.append({})  # scans
         self.content_handler = Nmap2Mongo
         self.output_function = None
 
@@ -3299,6 +3299,12 @@ class MongoDBPassive(MongoDB, DBPassive):
         MongoDB.__init__(self, host, dbname, **kargs)
         DBPassive.__init__(self)
         self.columns = [colname_passive]
+        self.schema_migrations = [
+            # passive
+            {
+                None: (1, self.migrate_schema_passive_0_1),
+            },
+        ]
 
     def init(self):
         """Initializes the "passive" columns, i.e., drops the columns, and
@@ -3934,13 +3940,6 @@ setting values according to the keyword arguments.
             timestamp = datetime.datetime.fromtimestamp(timestamp)
         return {'lastseen' if new else 'firstseen':
                 {'$lte' if neg else '$gt': timestamp}}
-
-    schema_migrations = [
-        # passive
-        {
-            None: (1, migrate_schema_passive_0_1),
-        },
-    ]
 
 
 class MongoDBAgent(MongoDB, DBAgent):
