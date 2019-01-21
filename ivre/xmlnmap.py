@@ -129,6 +129,7 @@ ALIASES_TABLE_ELEMS = {
     "ssl-dh-params": "vulns",
     "ssl-heartbleed": "vulns",
     "ssl-poodle": "vulns",
+    "sslv2-drown": "vulns",
     "supermicro-ipmi-conf": "vulns",
     "tls-ticketbleed": "vulns",
 }
