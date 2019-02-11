@@ -1739,10 +1739,13 @@ class SQLDBPassive(SQLDB, DBPassive):
             )
         ).fetchone()[0]
 
-    def remove(self, flt):
-        base = flt.query(
-            select([self.tables.passive.id]).select_from(flt.select_from)
-        ).cte("base")
+    def remove(self, spec_or_id):
+        if not isinstance(spec_or_id, Filter):
+            spec_or_id = self.searchobjectid(spec_or_id)
+        base = spec_or_id.query(
+            select([self.tables.passive.id]).select_from(
+                spec_or_id.select_from
+            )).cte("base")
         self.db.execute(
             delete(self.tables.passive).where(self.tables.passive.id.in_(base))
         )
@@ -1754,6 +1757,7 @@ returns a generator.
         """
         req = flt.query(
             select([
+                self.tables.passive.id.label("_id"),
                 self.tables.passive.addr, self.tables.passive.sensor,
                 self.tables.passive.count, self.tables.passive.firstseen,
                 self.tables.passive.lastseen, self.tables.passive.port,
@@ -1905,15 +1909,16 @@ passive table."""
     def searchnonexistent(cls):
         return PassiveFilter(main=False)
 
-    def _searchobjectid(self, oid, neg=False):
+    @classmethod
+    def _searchobjectid(cls, oid, neg=False):
         if len(oid) == 1:
             return PassiveFilter(
-                main=(self.tables.passive.id != oid[0]) if neg else
-                (self.tables.passive.id == oid[0])
+                main=(cls.tables.passive.id != oid[0]) if neg else
+                (cls.tables.passive.id == oid[0])
             )
         return PassiveFilter(
-            main=(self.tables.passive.id.notin_(oid[0])) if neg else
-            (self.tables.passive.id.in_(oid[0]))
+            main=(cls.tables.passive.id.notin_(oid[0])) if neg else
+            (cls.tables.passive.id.in_(oid[0]))
         )
 
     @classmethod
@@ -1975,6 +1980,18 @@ passive table."""
 
     @classmethod
     def searchdns(cls, name, reverse=False, subdomains=False):
+        if isinstance(name, list):
+            if len(name) == 1:
+                name = name[0]
+            else:
+                return cls._flt_or(*(cls._searchdns(domain,
+                                                    reverse,
+                                                    subdomains)
+                                     for domain in name))
+        return cls._searchdns(name, reverse, subdomains)
+
+    @classmethod
+    def _searchdns(cls, name, reverse=False, subdomains=False):
         return PassiveFilter(main=(
             (cls.tables.passive.recontype == 'DNS_ANSWER') &
             (

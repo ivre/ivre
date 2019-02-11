@@ -36,7 +36,7 @@ from future.utils import viewitems
 from past.builtins import long
 
 
-from ivre import utils
+from ivre import utils, config
 
 
 SCHEMA_VERSION = 1
@@ -265,6 +265,16 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 "md5",
                 clientvalue.encode(),
             ).hexdigest()
+    # Check DNS Blacklist answer
+    elif spec['recontype'] == 'DNS_ANSWER':
+        if any(spec['value'].endswith(dnsbl)
+               for dnsbl in config.DNS_BLACKLIST_DOMAINS):
+                dnsbl_val = spec['value']
+                spec['recontype'] = 'DNS_BLACKLIST'
+                spec['value'] = spec['addr']
+                spec.update({'source': "%s-%s" %
+                            (dnsbl_val.split('.', 4)[4], spec['source'])})
+                spec['addr'] = '.'.join(dnsbl_val.split('.')[3::-1])
     return spec
 
 
@@ -344,6 +354,24 @@ def _getinfos_dns(spec):
                 del infos[field]
         except Exception:
             pass
+    res = {}
+    if infos:
+        res['infos'] = infos
+    return res
+
+
+def _getinfos_dns_blacklist(spec):
+    """Extract and properly format DNSBL records."""
+    infos = {}
+    try:
+        if 'source' in spec:
+            infos['domain'] = []
+            for domain in utils.get_domains(spec['source'].split('-')[-4]):
+                infos['domain'].append(domain)
+            if not infos['domain']:
+                del infos['domain']
+    except Exception:
+        pass
     res = {}
     if infos:
         res['infos'] = infos
@@ -465,6 +493,7 @@ _GETINFOS_FUNCTIONS = {
     'HTTP_SERVER_HEADER':
     {'SERVER': _getinfos_http_server},
     'DNS_ANSWER': _getinfos_dns,
+    'DNS_BLACKLIST': _getinfos_dns_blacklist,
     'SSL_SERVER': _getinfos_sslsrv,
     'SSL_CLIENT': {'ja3': _getinfos_ja3},
     'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,

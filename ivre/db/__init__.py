@@ -1498,6 +1498,50 @@ class DBPassive(DB):
     def searchcertsubject(expr):
         raise NotImplementedError
 
+    @staticmethod
+    def searchdns(name, reverse=False, subdomains=False):
+        """Filters DNS records for domain `name`.
+        `name` can be a string, a list or a regular expression.
+        If `reverse` is set to True, filters reverse records.
+        If `subdomains` is set to True, the filter will match any subdomains.
+        """
+        raise NotImplementedError
+
+    def get(self, spec, **kargs):
+        """Queries the active column with the provided filter "spec",
+and returns a generator."""
+        raise NotImplementedError
+
+    @staticmethod
+    def _update_dns_blacklist(old_spec):
+        """Create a new dns blacklist entry based on the value of
+the old dns entry"""
+        spec = {}
+        dnsbl_val = old_spec['value']
+        spec['recontype'] = 'DNS_BLACKLIST'
+        spec['value'] = old_spec['addr']
+        spec['source'] = "%s-%s" % (dnsbl_val.split('.', 4)[4],
+                                    old_spec['source'])
+        spec['addr'] = '.'.join(dnsbl_val.split('.')[3::-1])
+        spec['count'] = old_spec['count']
+        return spec
+
+    def update_dns_blacklist(self):
+        """Update the current database to detect blacklist domains.
+This function inserts a new element in the database, corresponding to the
+old element and delete the existing one."""
+
+        flt = self.searchdns(list(config.DNS_BLACKLIST_DOMAINS),
+                             subdomains=True)
+        base = self.get(flt)
+        for old_spec in base:
+            if any(old_spec['value'].endswith(dnsbl)
+                   for dnsbl in config.DNS_BLACKLIST_DOMAINS):
+                spec = self._update_dns_blacklist(old_spec)
+                self.insert_or_update(old_spec['firstseen'], spec,
+                                      lastseen=old_spec['lastseen'])
+                self.remove(old_spec['_id'])
+
 
 class DBData(DB):
     country_codes = None

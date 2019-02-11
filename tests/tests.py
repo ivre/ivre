@@ -1831,6 +1831,39 @@ which `predicate()` is True, given `webflt`.
                 if 'source' in rec
             ))
 
+        # Test DNSBL
+
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchrecontype('DNS_BLACKLIST')
+        )
+        self.check_value("passive_dnsbl_count_before_update", count)
+
+        list_dnsbl = sorted((i['addr'], i['count'], i['value'])
+                            for i in ivre.db.db.passive.get(
+                            ivre.db.db.passive.searchrecontype(
+                                'DNS_BLACKLIST')))
+        self.check_value("passive_dnsbl_results_before_update", list_dnsbl)
+
+        with open(os.path.join(os.path.expanduser("~"),
+                               '.ivre.conf'), 'a') as fdesc:
+            fdesc.write('\nDNS_BLACKLIST_DOMAINS.add(\'dnsbl.ivre.rocks\')\n')
+
+        res, out, err = RUN(["ivre", "ipinfo", "--dnsbl-update"])
+
+        self.assertEqual(res, 0)
+        self.assertTrue(not out)
+
+        count = ivre.db.db.passive.count(
+            ivre.db.db.passive.searchrecontype('DNS_BLACKLIST')
+        )
+        self.check_value("passive_dnsbl_count_after_update", count)
+
+        list_dnsbl = sorted((i['addr'], i['count'], i['value'])
+                            for i in ivre.db.db.passive.get(
+                            ivre.db.db.passive.searchrecontype(
+                                'DNS_BLACKLIST')))
+        self.check_value("passive_dnsbl_results_after_update", list_dnsbl)
+
     def test_60_flow(self):
 
         # Init DB
