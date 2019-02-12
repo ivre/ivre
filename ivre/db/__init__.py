@@ -764,7 +764,7 @@ they are stored as canonical string representations.
         if key is not None:
             params.setdefault("values", {})['key'] = key
         if keytype is not None:
-            params.setdefault("values", {})['type'] = keytype
+            params.setdefault("values", {})['type'] = 'ssh-%s' % keytype
         if bits is not None:
             params.setdefault("values", {})['bits'] = bits
         if output is not None:

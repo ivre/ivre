@@ -891,6 +891,40 @@ which `predicate()` is True, given `webflt`.
         self.assertGreater(count, 0)
         self.check_value("nmap_anonftp_count", count)
 
+        # Check .searchsshkey()
+
+        def _find_fingerprint():
+            for host in ivre.db.db.nmap.get(ivre.db.db.nmap.searchsshkey()):
+                for port in host.get('ports', []):
+                    for script in port.get('scripts', []):
+                        if script['id'] == 'ssh-hostkey':
+                            for key in script.get('ssh-hostkey', []):
+                                if 'fingerprint' in key:
+                                    return host['addr'], key['fingerprint']
+
+        ip_addr, fingerprint = _find_fingerprint()
+        self.assertIsNotNone(fingerprint)
+
+        # Check .searchsshkey() with a fingerprint
+
+        def _has_fingerprint(host):
+            for port in host.get('ports', []):
+                for script in port.get('scripts', []):
+                    if script['id'] == 'ssh-hostkey':
+                        for key in script.get('ssh-hostkey', []):
+                            if key.get('fingerprint') == fingerprint:
+                                return True
+            return False
+
+        found_init_host = False
+        for host in ivre.db.db.nmap.get(ivre.db.db.nmap.searchsshkey(
+                fingerprint=fingerprint
+        )):
+            self.assertTrue(_has_fingerprint(host))
+            if host['addr'] == ip_addr:
+                found_init_host = True
+        self.assertTrue(found_init_host)
+
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhopdomain(re.compile('.'))
         )
