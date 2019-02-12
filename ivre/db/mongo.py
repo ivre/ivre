@@ -1788,13 +1788,6 @@ it is not expected)."""
         return cls.searchscript(name="ssl-cert",
                                 values={'pubkey.type': keytype})
 
-    @classmethod
-    def searchsshkey(cls, keytype=None):
-        if keytype is None:
-            return cls.searchscript(name="ssh-hostkey")
-        return cls.searchscript(name="ssh-hostkey",
-                                values={'type': 'ssh-%s' % keytype})
-
     @staticmethod
     def searchsvchostname(hostname):
         return {'ports.service_hostname': hostname}

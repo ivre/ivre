@@ -691,6 +691,7 @@ class ViewFilter(ActiveFilter):
 class SQLDBActive(SQLDB, DBActive):
     _needunwind_script = set([
         "http-headers",
+        "ssh-hostkey",
     ])
 
     @classmethod
@@ -1318,15 +1319,6 @@ the way IP addresses are stored.
             return cls.searchscript(name="ssl-cert")
         return cls.searchscript(name="ssl-cert",
                                 values={'pubkey': {'type': keytype}})
-
-    @classmethod
-    def searchsshkey(cls, keytype=None):
-        if keytype is not None:
-            utils.LOGGER.warning(
-                "Cannot use keytype with PostgreSQL backend. "
-                "Filter will return more results than expected"
-            )
-        return cls.searchscript(name="ssh-hostkey")
 
     @classmethod
     def searchsvchostname(cls, hostname):
