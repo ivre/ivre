@@ -695,6 +695,11 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), hosts_count)
+        # SHORT
+        res, out, err = RUN(['ivre', 'scancli', '--short'])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), hosts_count)
         # GNMAP
         res, out, err = RUN(['ivre', 'scancli', '--gnmap'])
         self.assertEqual(res, 0)
@@ -2630,6 +2635,11 @@ which `predicate()` is True, given `webflt`.
         # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), view_count)
+        # SHORT
+        res, out, err = RUN(['ivre', 'view', '--short'])
+        self.assertEqual(res, 0)
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
         # GNMAP

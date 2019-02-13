@@ -265,8 +265,7 @@ def _display_xml_host(h, out=sys.stdout):
         out.write('/>')
     out.write('\n')
     if 'addr' in h:
-        out.write('<address addr="%s" addrtype="ipv4"/>\n' %
-                  utils.force_int2ip(h['addr']))
+        out.write('<address addr="%s" addrtype="ipv4"/>\n' % h['addr'])
     for t in h.get('addresses', []):
         for a in h['addresses'][t]:
             out.write('<address addr="%s" addrtype="%s"/>\n' % (a, t))
@@ -582,7 +581,7 @@ def displayfunction_json(cur, db, no_screenshots=False):
 
 def display_short(db, flt, srt, lmt, skp):
     for val in db.distinct("addr", flt=flt, sort=srt, limit=lmt, skip=skp):
-        sys.stdout.write(utils.force_int2ip(val) + '\n')
+        sys.stdout.write(db.internal2ip(val) + '\n')
 
 
 def display_distinct(db, arg, flt, srt, lmt, skp):
