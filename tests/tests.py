@@ -691,9 +691,17 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(hosts_count, host_counter)
 
         # JSON
-        res, out, _ = RUN(['ivre', 'scancli', '--json'])
+        res, out, err = RUN(['ivre', 'scancli', '--json'])
         self.assertEqual(res, 0)
-        self.check_value("nmap_json_count", len(out.splitlines()))
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), hosts_count)
+        # GNMAP
+        res, out, err = RUN(['ivre', 'scancli', '--gnmap'])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
+        self.check_value("nmap_gnmap_up_count", count)
+
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
@@ -2619,11 +2627,17 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
-        # --json
+        # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
+        # GNMAP
+        ret, out, err = RUN(["ivre", "view", "--gnmap"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
+        self.check_value("view_gnmap_up_count", count)
 
         # Filters
         self.check_view_top_value("view_ssh_top_port", "port:ssh")

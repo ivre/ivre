@@ -41,8 +41,8 @@ from builtins import input
 from ivre import db, graphroute, nmapout
 from ivre.activecli import display_short, display_distinct, \
     displayfunction_json, displayfunction_honeyd, displayfunction_nmapxml, \
-    displayfunction_graphroute, displayfunction_explain, \
-    displayfunction_remove, displayfunction_csv
+    displayfunction_gnmap, displayfunction_graphroute, \
+    displayfunction_explain, displayfunction_remove, displayfunction_csv
 from ivre.utils import display_top, CLI_ARGPARSER
 
 
@@ -69,6 +69,8 @@ def main():
                         help='Output results as a honeyd config file.')
     parser.add_argument('--nmap-xml', action='store_true',
                         help='Output results as a nmap XML output file.')
+    parser.add_argument('--gnmap', action='store_true',
+                        help='Output results as a nmap grepable output file.')
     parser.add_argument(
         '--graphroute',
         choices=["dot", "rtgraph3d"] if graphroute.HAVE_DBUS else ["dot"],
@@ -151,6 +153,8 @@ def main():
         displayfunction = displayfunction_honeyd
     elif args.nmap_xml:
         displayfunction = displayfunction_nmapxml
+    elif args.gnmap:
+        displayfunction = displayfunction_gnmap
     elif args.graphroute is not None:
         def displayfunction(x):
             return displayfunction_graphroute(
