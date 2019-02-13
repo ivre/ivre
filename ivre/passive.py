@@ -269,12 +269,12 @@ def _prepare_rec(spec, ignorenets, neverignore):
     elif spec['recontype'] == 'DNS_ANSWER':
         if any(spec['value'].endswith(dnsbl)
                for dnsbl in config.DNS_BLACKLIST_DOMAINS):
-                dnsbl_val = spec['value']
-                spec['recontype'] = 'DNS_BLACKLIST'
-                spec['value'] = spec['addr']
-                spec.update({'source': "%s-%s" %
-                            (dnsbl_val.split('.', 4)[4], spec['source'])})
-                spec['addr'] = '.'.join(dnsbl_val.split('.')[3::-1])
+            dnsbl_val = spec['value']
+            spec['recontype'] = 'DNS_BLACKLIST'
+            spec['value'] = spec['addr']
+            spec.update({'source': "%s-%s" %
+                         (dnsbl_val.split('.', 4)[4], spec['source'])})
+            spec['addr'] = '.'.join(dnsbl_val.split('.')[3::-1])
     return spec
 
 

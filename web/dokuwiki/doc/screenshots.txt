@@ -2,41 +2,41 @@
 
 ===== Nmap results =====
 
-{{:doc:screenshots:webui-home-heatmap.png|screenshot}}
+{{doc:screenshots:webui-home-heatmap.png|screenshot}}
 
 Home page with "heatmap" IP addresses.
 
-{{:doc:screenshots:webui-details-heatmapzoom.png|screenshot}}
+{{doc:screenshots:webui-details-heatmapzoom.png|screenshot}}
 
 Scan result details, using the "heatmap" IP addresses to "zoom" in the address space
 
-{{:doc:screenshots:webui-screenshots-solar-world.png|screenshot}}
+{{doc:screenshots:webui-screenshots-solar-world.png|screenshot}}
 
 Screenshots containing the word "solar" and map
 
-{{:doc:screenshots:webui-topproducts-80.png|screenshot}}
+{{doc:screenshots:webui-topproducts-80.png|screenshot}}
 
 Most common products seen on port 80
 
-{{:doc:screenshots:webui-tooltip-topenipvendors.png|screenshot}}
+{{doc:screenshots:webui-tooltip-topenipvendors.png|screenshot}}
 
 Help tooltip and most common ENIP vendors
 
 ===== Flow analysis =====
 
-{{:doc:screenshots:webui-flow-dns-halo.png|screenshot}}
+{{doc:screenshots:webui-flow-dns-halo.png|screenshot}}
 
 DNS flows with halo to show connected nodes
 
-{{:doc:screenshots:webui-flow-details-host.png|screenshot}}
+{{doc:screenshots:webui-flow-details-host.png|screenshot}}
 
 Flows with details for a specific host
 
-{{:doc:screenshots:webui-flow-details-flow.png|screenshot}}
+{{doc:screenshots:webui-flow-details-flow.png|screenshot}}
 
 Flows with details for a specific flow
 
-{{:doc:screenshots:webui-flow-flow-map.png|screenshot}}
+{{doc:screenshots:webui-flow-flow-map.png|screenshot}}
 
 Flow map
 

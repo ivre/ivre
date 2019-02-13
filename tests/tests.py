@@ -456,7 +456,7 @@ class IvreTests(unittest.TestCase):
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         count = json.loads(udesc.read().decode())
         if name_or_value is None:
             pass
@@ -501,7 +501,7 @@ which `predicate()` is True, given `webflt`.
             req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                          HTTPD_PORT))
             udesc = urlopen(req)
-            self.assertEquals(udesc.getcode(), 200)
+            self.assertEqual(udesc.getcode(), 200)
             count = 0
             for record in json.loads(udesc.read().decode()):
                 if predicate(record):
@@ -691,9 +691,22 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(hosts_count, host_counter)
 
         # JSON
-        res, out, _ = RUN(['ivre', 'scancli', '--json'])
+        res, out, err = RUN(['ivre', 'scancli', '--json'])
         self.assertEqual(res, 0)
-        self.check_value("nmap_json_count", len(out.splitlines()))
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), hosts_count)
+        # SHORT
+        res, out, err = RUN(['ivre', 'scancli', '--short'])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), hosts_count)
+        # GNMAP
+        res, out, err = RUN(['ivre', 'scancli', '--gnmap'])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
+        self.check_value("nmap_gnmap_up_count", count)
+
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
@@ -2073,7 +2086,7 @@ which `predicate()` is True, given `webflt`.
             req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                          HTTPD_PORT))
             udesc = urlopen(req)
-            self.assertEquals(udesc.getcode(), 200)
+            self.assertEqual(udesc.getcode(), 200)
             result = ivre.db.db.data.infos_byip(addr)
             if result and 'coordinates' in result:
                 result['coordinates'] = list(result['coordinates'])
@@ -2518,20 +2531,20 @@ which `predicate()` is True, given `webflt`.
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
         with self.assertRaises(HTTPError) as herror:
             udesc = urlopen(req)
-        self.assertEquals(herror.exception.getcode(), 400)
+        self.assertEqual(herror.exception.getcode(), 400)
         #   invalid value
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
         req.add_header('Referer', 'http://invalid.invalid/invalid')
         with self.assertRaises(HTTPError) as herror:
             udesc = urlopen(req)
-        self.assertEquals(herror.exception.getcode(), 400)
+        self.assertEqual(herror.exception.getcode(), 400)
 
         # Get configuration
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         config_values = {
             "notesbase": ivre.config.WEB_NOTES_BASE,
             "dflt_limit": ivre.config.WEB_LIMIT,
@@ -2546,15 +2559,15 @@ which `predicate()` is True, given `webflt`.
             key, value = line[:-2].decode().split(' = ')
             self.assertTrue(key.startswith('config.'))
             key = key[7:]
-            self.assertEquals(json.loads(value), config_values[key])
+            self.assertEqual(json.loads(value), config_values[key])
 
         # Test redirections & static files
         req = Request('http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
-        self.assertEquals(udesc.url,
-                          'http://%s:%d/index.html' % (HTTPD_HOSTNAME,
-                                                       HTTPD_PORT))
+        self.assertEqual(udesc.getcode(), 200)
+        self.assertEqual(udesc.url,
+                         'http://%s:%d/index.html' % (HTTPD_HOSTNAME,
+                                                      HTTPD_PORT))
         result = False
         for line in udesc:
             if b'This file is part of IVRE.' in line:
@@ -2566,7 +2579,7 @@ which `predicate()` is True, given `webflt`.
         req = Request('http://%s:%d/dokuwiki/doc:readme' % (HTTPD_HOSTNAME,
                                                             HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         result = False
         for line in udesc:
             if b'is a network recon framework' in line:
@@ -2619,11 +2632,22 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
-        # --json
+        # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
+        # SHORT
+        res, out, err = RUN(['ivre', 'view', '--short'])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        self.assertEqual(len(out.splitlines()), view_count)
+        # GNMAP
+        ret, out, err = RUN(["ivre", "view", "--gnmap"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
+        self.check_value("view_gnmap_up_count", count)
 
         # Filters
         self.check_view_top_value("view_ssh_top_port", "port:ssh")
@@ -2703,7 +2727,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr in json.loads(udesc.read().decode()))
         # onlyips / IPs as numbers
         req = Request(
@@ -2714,7 +2738,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr_i in json.loads(udesc.read().decode()))
         # ipsports / IPs as strings
         req = Request('http://%s:%d/cgi/scans/ipsports?q=net:%s' % (
@@ -2723,7 +2747,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr in
                         (x[0] for x in json.loads(udesc.read().decode())))
         # ipsports / IPs as numbers
@@ -2735,7 +2759,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
         # timeline / IPs as strings
@@ -2745,7 +2769,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr in
                         (x[1] for x in json.loads(udesc.read().decode())))
         # timeline / IPs as numbers
@@ -2757,7 +2781,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr_i in
                         (x[1] for x in json.loads(udesc.read().decode())))
         # timeline - modulo 24h / IPs as strings
@@ -2769,7 +2793,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr in
                         (x[1] for x in json.loads(udesc.read().decode())))
         # timeline - modulo 24h / IPs as numbers
@@ -2782,7 +2806,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr_i in
                         (x[1] for x in json.loads(udesc.read().decode())))
         # countopenports / IPs as strings
@@ -2792,7 +2816,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr in
                         (x[0] for x in json.loads(udesc.read().decode())))
         # countopenports / IPs as numbers
@@ -2804,7 +2828,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
         # coordinates
@@ -2820,7 +2844,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(
             coords[::-1] in
             (x['coordinates']
@@ -2842,7 +2866,7 @@ which `predicate()` is True, given `webflt`.
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                      HTTPD_PORT))
         udesc = urlopen(req)
-        self.assertEquals(udesc.getcode(), 200)
+        self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(all(
             43 < lat < 51 and -5 < lon < 8
             for lat, lon in (

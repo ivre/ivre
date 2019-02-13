@@ -18,24 +18,28 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-pkgname=ivre
-pkgver=0.9.11
+pkgname='ivre'
+pkgver=0.9.12
 pkgrel=1
-pkgdesc="Network recon framework"
-url="https://ivre.rocks/"
+pkgdesc='Network recon framework'
 arch=('any')
+url='https://ivre.rocks/'
 license=('GPL3')
-depends=('python' 'python-crypto' 'python-pymongo' 'python-future'
-         'python-bottle')
-optdepends=('python-py2neo: flow analysis support'
-            'python-sqlalchemy: PostgreSQL backend support'
-            'python-psycopg2: PostgreSQL backend support'
-            'python-pillow: Screenshots'
+depends=('python' 'python-pymongo' 'python-future' 'python-bottle')
+optdepends=('python-py2neo: experimental flow analysis (Neo4j backend)'
+            'python-sqlalchemy: experimental PostgreSQL & SQLite backends'
+            'python-psycopg2: experimental PostgreSQL backend'
+            'python-pillow: trim screenshots on insertion'
+            'tesseract: extract words from screenshots on insertion'
+            'python-crypto: extract data from public keys ("ivre getmoduli")'
+            'python-scapy: parse PCAP files for ARP inspection (flow analysis)'
+            'python-matplotlib: create graphs from command line tools'
             'python-dbus: 3D traceroute graphs'
-            'python-matplotlib: Plots'
             'mongodb: database server'
-            'postgresql: database server'
+            'postgresql: database server (experimental backend)'
+            'neo4j-community: database server (experimental flow analysis)'
             'apache: Web server'
+            'mod_wsgi: Web server'
             'dokuwiki: Web server (notebook)'
             'nmap: Network scan'
             'masscan: Network scan'
@@ -43,10 +47,9 @@ optdepends=('python-py2neo: flow analysis support'
             'bro: Network traffic analysis'
             'argus: Network traffic analysis'
             'nfdump: Netflow analysis'
-            'phantomjs: Screenshots (http)'
-            'imagemagick: Screenshots'
-            'ffmpeg: Screenshots (rtsp)'
-            'tesseract: Screenshots analysis')
+            'imagemagick: Screenshots via Nmap scripts'
+            'phantomjs: HTTP screenshots via Nmap script'
+            'ffmpeg: RTSP Screenshots via Nmap script')
 makedepends=('git' 'python-setuptools')
 backup=('etc/httpd/conf/extra/ivre.conf')
 branch="`git branch | awk '/^*/ {print $2}'`"

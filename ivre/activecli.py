@@ -265,8 +265,7 @@ def _display_xml_host(h, out=sys.stdout):
         out.write('/>')
     out.write('\n')
     if 'addr' in h:
-        out.write('<address addr="%s" addrtype="ipv4"/>\n' %
-                  utils.force_int2ip(h['addr']))
+        out.write('<address addr="%s" addrtype="ipv4"/>\n' % h['addr'])
     for t in h.get('addresses', []):
         for a in h['addresses'][t]:
             out.write('<address addr="%s" addrtype="%s"/>\n' % (a, t))
@@ -370,6 +369,70 @@ def _displayhost_csv(fields, separator, nastr, dic, out=sys.stdout):
     out.write('\n')
 
 
+def _display_gnmap_scan(scan, out=sys.stdout):
+    if 'scaninfos' in scan and scan['scaninfos']:
+        for k in scan['scaninfos'][0]:
+            scan['scaninfo.%s' % k] = scan['scaninfos'][0][k]
+        del scan['scaninfos']
+    for k in ['version', 'startstr', 'args']:
+        if k not in scan:
+            scan[k] = ''
+        elif isinstance(scan[k], basestring):
+            scan[k] = scan[k].replace('"', '&quot;').replace('--', '-&#45;')
+    out.write('# Nmap %(version)s scan initiated %(startstr)s as: %(args)s\n')
+
+
+def _display_gnmap_host(host, out=sys.stdout):
+    addr = host['addr']
+    hostname = None
+    for name in host.get('hostnames', []):
+        if name.get('type') == 'PTR':
+            hostname = name.get('name')
+            if hostname is not None:
+                break
+    if hostname is None:
+        name = addr
+    else:
+        name = '%s (%s)' % (addr, hostname)
+    if host.get('state'):
+        out.write('Host: %s Status: %s\n' % (name, host['state'].capitalize()))
+    ports = []
+    info = []
+    for port in host.get('ports', []):
+        if port.get('port') == -1:
+            continue
+        if 'service_product' in port:
+            version = port['service_product']
+            for key in ['version', 'extrainfo']:
+                key = 'service_%s' % key
+                if key in port:
+                    version += ' %s' % port[key]
+            version = version.replace('/', '|')
+        else:
+            version = ''
+        ports.append('%d/%s/%s//%s//%s/' % (
+            port['port'],
+            port['state_state'],
+            port['protocol'],
+            port.get('service_name', ''),
+            version,
+        ))
+    if ports:
+        info.append('Ports: %s' % ', '.join(ports))
+    extraports = []
+    for state, counts in viewitems(host.get('extraports', {})):
+        extraports.append('%s (%d)' % (state, counts['total']))
+    if extraports:
+        info.append('Ignored State: %s' % ', '.join(extraports))
+    for osmatch in host.get('os', {}).get('osmatch', []):
+        info.append('OS: %s' % osmatch['name'])
+        break
+    # TODO: data from tcpsequence and ipidsequence is currently
+    # missing
+    if info:
+        out.write('Host: %s %s\n' % (name, '\t'.join(info)))
+
+
 def displayfunction_honeyd(cur):
     _display_honeyd_preamble(sys.stdout)
     honeyd_routes = {}
@@ -390,6 +453,12 @@ def displayfunction_nmapxml(cur):
     for h in cur:
         _display_xml_host(h, out=sys.stdout)
     _display_xml_epilogue(out=sys.stdout)
+
+
+def displayfunction_gnmap(cur):
+    _display_gnmap_scan({}, out=sys.stdout)
+    for h in cur:
+        _display_gnmap_host(h, out=sys.stdout)
 
 
 def displayfunction_explain(cur, db):
@@ -512,7 +581,7 @@ def displayfunction_json(cur, db, no_screenshots=False):
 
 def display_short(db, flt, srt, lmt, skp):
     for val in db.distinct("addr", flt=flt, sort=srt, limit=lmt, skip=skp):
-        sys.stdout.write(utils.force_int2ip(val) + '\n')
+        sys.stdout.write(db.internal2ip(val) + '\n')
 
 
 def display_distinct(db, arg, flt, srt, lmt, skp):
