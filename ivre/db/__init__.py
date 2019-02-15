@@ -1202,6 +1202,36 @@ class DBView(DBActive):
         super(DBView, self).__init__()
 
     @staticmethod
+    def merge_ja3_scripts(curscript, script, script_id):
+        """Merge two ja3 scripts and return the result. Avoid duplicates.
+        """
+        is_server = script_id == 'ssl-ja3-server'
+        # Merge script[script_id] and curscript[script_id] lists
+        # <x>[script_id] contains ja3 data for the <x> script
+        to_merge_ja3_list = []
+        for to_add_ja3 in script[script_id]:
+            to_merge = True
+            for cur_ja3 in curscript[script_id]:
+                if (to_add_ja3['raw'] == cur_ja3['raw'] and
+                    (not is_server or
+                     to_add_ja3['client']['raw'] == cur_ja3['client']['raw'])):
+                    to_merge = False
+                    break
+            if to_merge:
+                to_merge_ja3_list.append(to_add_ja3)
+        curscript[script_id].extend(to_merge_ja3_list)
+        # Compute output from curscript[script_id]
+        output = ""
+        for ja3 in curscript[script_id]:
+            output += ja3['md5']
+            if is_server:
+                output += ' - ' + ja3['client']['md5']
+
+            output += '\n'
+        curscript['output'] = output
+        return curscript
+
+    @staticmethod
     def merge_host_docs(rec1, rec2):
         """Merge two host records and return the result. Unmergeable /
         hard-to-merge fields are lost (e.g., extraports).
@@ -1263,6 +1293,13 @@ class DBView(DBActive):
                 for script in port.get("scripts", []):
                     if script['id'] not in present_scripts:
                         curport['scripts'].append(script)
+                    elif (script['id'] == 'ssl-ja3-server' or
+                          script['id'] == 'ssl-ja3-client'):
+                        # Merge ja3 fingerprints
+                        DBView.merge_ja3_scripts(
+                            list(filter(lambda x: x['id'] == script['id'],
+                                   curport['scripts']))[0],
+                            script, script['id'])
                 if not curport['scripts']:
                     del curport['scripts']
                 if 'service_name' in port and 'service_name' not in curport:
