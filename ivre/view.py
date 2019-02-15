@@ -209,10 +209,12 @@ def passive_record_to_view(rec):
         return
     outrec = {
         'addr': rec["addr"],
-        'state': "up",
         'state_reason': 'passive',
         'schema_version': SCHEMA_VERSION,
     }
+    # a DNS_ANSWER record is not enough to mark a host as up
+    if rec['recontype'] != 'DNS_ANSWER':
+        outrec['state'] = 'up'
     sensor = rec.get('sensor')
     if sensor:
         outrec['source'] = sensor
