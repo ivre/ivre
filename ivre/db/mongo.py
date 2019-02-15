@@ -3883,10 +3883,14 @@ setting values according to the keyword arguments.
                 'infos.algo': 'ssh-' + keytype}
 
     @staticmethod
-    def searchcertsubject(expr):
-        return {'recontype': 'SSL_SERVER',
-                'source': 'cert',
-                'infos.subject_text': expr}
+    def searchcertsubject(expr, issuer=None):
+        res = {'recontype': 'SSL_SERVER',
+               'source': 'cert',
+               'infos.subject_text': expr}
+        if issuer is None:
+            return res
+        res["infos.issuer_text"] = issuer
+        return res
 
     @staticmethod
     def searchcertissuer(expr):

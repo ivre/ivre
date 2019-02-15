@@ -1609,22 +1609,30 @@ which `predicate()` is True, given `webflt`.
                     field=field,
                     flt=ivre.db.db.passive.searchja3client(),
                     distinct=distinct,
-                    topnbr=2
                 )
                 values = next(cur)
                 while values.get('_id') is None:
                     values = next(cur)
+                maxnbr = values['count']
+                top_values = []
+                while values['count'] == maxnbr:
+                    top_values.append(values['_id'])
+                    try:
+                        values = next(cur)
+                    except StopIteration:
+                        break
                 self.check_value(
                     "passive_top_%s_%sdistinct" % (key,
                                                    "" if distinct else "not_"),
-                    values["_id"],
+                    top_values,
+                    check=self.assertItemsEqual,
                 )
                 self.check_value(
                     "passive_top_%s_%sdistinct_count" % (
                         key,
                         "" if distinct else "not_",
                     ),
-                    values["count"],
+                    maxnbr,
                 )
                 if not distinct:
                     # Let's try to find the record with same value and count
@@ -2705,6 +2713,14 @@ which `predicate()` is True, given `webflt`.
             ivre.db.db.view.searchscript(name="ssl-cert", neg=True),
             ["--no-script", "ssl-cert"],
             "!script:ssl-cert",
+        )
+
+        # Check torcert filter
+        count = self.check_view_count_value(
+            "view_torcert_count",
+            ivre.db.db.view.searchtorcert(),
+            ["--torcert"],
+            "torcert",
         )
 
         # Check Web /scans
