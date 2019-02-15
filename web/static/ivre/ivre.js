@@ -69,10 +69,14 @@ function hostnames_links(host) {
     if(!('hostnames' in host))
         return [];
     var hostnames = host.hostnames;
-    var results = [];
+    var results = {};
     for(var i in hostnames) {
         if('name' in hostnames[i]) {
-            var names = hostnames[i].name.split('.');
+            var fqdn = hostnames[i].name;
+            if(fqdn in results) {
+                continue;
+            }
+            var names = fqdn.split('.');
             var fullname = names.shift();
             var result = [{
                 'param': 'hostname',
@@ -86,10 +90,10 @@ function hostnames_links(host) {
                     'name': names[j],
                 });
             }
-            results.push(result);
+            results[hostnames[i].name] = result;
         }
     }
-    return results;
+    return Object.values(results);
 }
 
 function port_summary(host, width) {

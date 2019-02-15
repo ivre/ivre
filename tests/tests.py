@@ -705,7 +705,7 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
         self.assertTrue(not err)
         count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
-        self.check_value("nmap_gnmap_up_count", count)
+        self.assertEqual(count, hosts_count)
 
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
