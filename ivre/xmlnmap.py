@@ -1474,6 +1474,10 @@ class NmapHandler(ContentHandler):
             ):
                 if 'openports' not in self._curhost:
                     self._curhost['openports'] = {'count': 0}
+                elif 'state' not in self._curhost:
+                    # hosts with an open port are marked as up by
+                    # default (masscan)
+                    self._curhost['state'] = 'up'
                 self._pre_addhost()
                 self._addhost()
             self._curhost = None
