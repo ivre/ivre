@@ -217,7 +217,7 @@ def passive_record_to_view(rec):
         outrec['state'] = 'up'
     sensor = rec.get('sensor')
     if sensor:
-        outrec['source'] = sensor
+        outrec['source'] = [sensor]
     try:
         outrec['starttime'] = datetime.fromtimestamp(rec["firstseen"])
         outrec['endtime'] = datetime.fromtimestamp(rec["lastseen"])
