@@ -96,8 +96,8 @@ def run_cmd(cmd, interp=None, stdin=None, env=None):
     return proc.returncode, out, err
 
 
-def python_run(cmd, stdin=None):
-    return run_cmd(cmd, interp=[sys.executable], stdin=stdin)
+def python_run(cmd, stdin=None, env=None):
+    return run_cmd(cmd, interp=[sys.executable], stdin=stdin, env=env)
 
 
 def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
@@ -1272,6 +1272,7 @@ which `predicate()` is True, given `webflt`.
             "httphdr:content-type:/plain/i",
         )
 
+    def test_53_nmap_delete(self):
         # Remove
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty,
@@ -1281,7 +1282,6 @@ which `predicate()` is True, given `webflt`.
             ivre.db.db.nmap.searchhost(addr)
         ):
             ivre.db.db.nmap.remove(result)
-            hosts_count -= 1
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhost(addr)
         )
@@ -1808,17 +1808,6 @@ which `predicate()` is True, given `webflt`.
             self.assertTrue(not err)
             self.check_value("passive_count_country_%s" % cname, int(out))
 
-        # Delete
-        flt = ivre.db.db.passive.searchcert()
-        count = ivre.db.db.passive.count(flt)
-        # Test case OK?
-        self.assertGreater(count, 0)
-        ivre.db.db.passive.remove(flt)
-        new_count = ivre.db.db.passive.count(
-            ivre.db.db.passive.flt_empty
-        )
-        self.assertEqual(count + new_count, total_count)
-
         ret, out, _ = RUN(["ivre", "ipinfo", "--short"])
         self.assertEqual(ret, 0)
         count = sum(1 for _ in out.splitlines())
@@ -1926,6 +1915,21 @@ which `predicate()` is True, given `webflt`.
                             ivre.db.db.passive.searchrecontype(
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_after_update", list_dnsbl)
+
+    def test_54_passive_delete(self):
+        total_count = ivre.db.db.passive.count(
+            ivre.db.db.passive.flt_empty
+        )
+        # Delete
+        flt = ivre.db.db.passive.searchcert()
+        count = ivre.db.db.passive.count(flt)
+        # Test case OK?
+        self.assertGreater(count, 0)
+        ivre.db.db.passive.remove(flt)
+        new_count = ivre.db.db.passive.count(
+            ivre.db.db.passive.flt_empty
+        )
+        self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
 
@@ -2923,19 +2927,21 @@ which `predicate()` is True, given `webflt`.
         RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
 
 
-TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "60_flow",
-             "90_cleanup", "conf", "scans", "utils"])
+TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "53_nmap_delete",
+             "54_passive_delete", "60_flow", "90_cleanup", "conf", "scans",
+             "utils"])
 
 
 DATABASES = {
     # **excluded** tests
     "mongo": ["60_flow", "utils"],
     "postgres": ["60_flow", "scans", "utils"],
-    "sqlite": ["30_nmap", "50_view", "60_flow", "scans", "utils"],
-    "neo4j": ["30_nmap", "40_passive", "50_view", "90_cleanup", "scans",
-              "utils"],
-    "maxmind": ["30_nmap", "40_passive", "50_view", "60_flow", "90_cleanup",
-                "scans"],
+    "sqlite": ["30_nmap", "53_nmap_delete", "50_view", "60_flow", "scans",
+               "utils"],
+    "neo4j": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
+              "54_passive_delete", "90_cleanup", "scans", "utils"],
+    "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
+                "54_passive_delete", "60_flow", "90_cleanup", "scans"],
 }
 
 
