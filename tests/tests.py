@@ -83,14 +83,15 @@ def capture(function, *args, **kwargs):
 
 
 def run_iter(cmd, interp=None, stdin=None, stdout=subprocess.PIPE,
-             stderr=subprocess.PIPE):
+             stderr=subprocess.PIPE, env=None):
     if interp is not None:
         cmd = interp + [which(cmd[0])] + cmd[1:]
-    return subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr)
+    return subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr,
+                            env=env)
 
 
-def run_cmd(cmd, interp=None, stdin=None):
-    proc = run_iter(cmd, interp=interp, stdin=stdin)
+def run_cmd(cmd, interp=None, stdin=None, env=None):
+    proc = run_iter(cmd, interp=interp, stdin=stdin, env=env)
     out, err = proc.communicate()
     return proc.returncode, out, err
 
@@ -105,9 +106,9 @@ def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
                     stderr=stderr)
 
 
-def coverage_run(cmd, stdin=None):
+def coverage_run(cmd, stdin=None, env=None):
     return run_cmd(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
-                   stdin=stdin)
+                   stdin=stdin, env=env)
 
 
 def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
@@ -1899,11 +1900,18 @@ which `predicate()` is True, given `webflt`.
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_before_update", list_dnsbl)
 
-        with open(os.path.join(os.path.expanduser("~"),
-                               '.ivre.conf'), 'a') as fdesc:
-            fdesc.write('\nDNS_BLACKLIST_DOMAINS.add(\'dnsbl.ivre.rocks\')\n')
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv['IVRE_CONF'], 'rb'))
+            fdesc.write(
+                '\nDNS_BLACKLIST_DOMAINS.add(\'dnsbl.ivre.rocks\')\n'.encode()
+            )
+            newenv["IVRE_CONF"] = fdesc.name
 
-        res, out, err = RUN(["ivre", "ipinfo", "--dnsbl-update"])
+        res, out, err = RUN(["ivre", "ipinfo", "--dnsbl-update"],
+                            env=newenv)
+        os.unlink(fdesc.name)
 
         self.assertEqual(res, 0)
         self.assertTrue(not out)
