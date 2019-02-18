@@ -48,6 +48,11 @@
 @load policy/frameworks/software/windows-version-detection
 @load policy/protocols/ftp/detect
 
+# This is loaded by default in 2.6 and more
+@if(Version::number < 20600)
+@load policy/protocols/smb
+@endif
+
 export {
     redef Software::asset_tracking = ALL_HOSTS;
 }
