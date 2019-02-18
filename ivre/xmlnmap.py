@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 
 This sub-module contains the parser for nmap's XML output files.
 
@@ -1018,7 +1018,7 @@ X509 "service" tag.
     for key, name in [('subject_text', 'Subject'),
                       ('issuer_text', 'Issuer')]:
         try:
-            newout.append('%s: %s' % (name, info.pop(key)))
+            newout.append('%s: %s' % (name, info[key]))
         except KeyError:
             pass
     for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:

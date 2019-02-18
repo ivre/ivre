@@ -83,20 +83,21 @@ def capture(function, *args, **kwargs):
 
 
 def run_iter(cmd, interp=None, stdin=None, stdout=subprocess.PIPE,
-             stderr=subprocess.PIPE):
+             stderr=subprocess.PIPE, env=None):
     if interp is not None:
         cmd = interp + [which(cmd[0])] + cmd[1:]
-    return subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr)
+    return subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr,
+                            env=env)
 
 
-def run_cmd(cmd, interp=None, stdin=None):
-    proc = run_iter(cmd, interp=interp, stdin=stdin)
+def run_cmd(cmd, interp=None, stdin=None, env=None):
+    proc = run_iter(cmd, interp=interp, stdin=stdin, env=env)
     out, err = proc.communicate()
     return proc.returncode, out, err
 
 
-def python_run(cmd, stdin=None):
-    return run_cmd(cmd, interp=[sys.executable], stdin=stdin)
+def python_run(cmd, stdin=None, env=None):
+    return run_cmd(cmd, interp=[sys.executable], stdin=stdin, env=env)
 
 
 def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
@@ -105,9 +106,9 @@ def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
                     stderr=stderr)
 
 
-def coverage_run(cmd, stdin=None):
+def coverage_run(cmd, stdin=None, env=None):
     return run_cmd(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
-                   stdin=stdin)
+                   stdin=stdin, env=env)
 
 
 def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
@@ -1271,6 +1272,7 @@ which `predicate()` is True, given `webflt`.
             "httphdr:content-type:/plain/i",
         )
 
+    def test_53_nmap_delete(self):
         # Remove
         addr = next(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty,
@@ -1280,7 +1282,6 @@ which `predicate()` is True, given `webflt`.
             ivre.db.db.nmap.searchhost(addr)
         ):
             ivre.db.db.nmap.remove(result)
-            hosts_count -= 1
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchhost(addr)
         )
@@ -1609,22 +1610,30 @@ which `predicate()` is True, given `webflt`.
                     field=field,
                     flt=ivre.db.db.passive.searchja3client(),
                     distinct=distinct,
-                    topnbr=2
                 )
                 values = next(cur)
                 while values.get('_id') is None:
                     values = next(cur)
+                maxnbr = values['count']
+                top_values = []
+                while values['count'] == maxnbr:
+                    top_values.append(values['_id'])
+                    try:
+                        values = next(cur)
+                    except StopIteration:
+                        break
                 self.check_value(
                     "passive_top_%s_%sdistinct" % (key,
                                                    "" if distinct else "not_"),
-                    values["_id"],
+                    top_values,
+                    check=self.assertItemsEqual,
                 )
                 self.check_value(
                     "passive_top_%s_%sdistinct_count" % (
                         key,
                         "" if distinct else "not_",
                     ),
-                    values["count"],
+                    maxnbr,
                 )
                 if not distinct:
                     # Let's try to find the record with same value and count
@@ -1799,17 +1808,6 @@ which `predicate()` is True, given `webflt`.
             self.assertTrue(not err)
             self.check_value("passive_count_country_%s" % cname, int(out))
 
-        # Delete
-        flt = ivre.db.db.passive.searchcert()
-        count = ivre.db.db.passive.count(flt)
-        # Test case OK?
-        self.assertGreater(count, 0)
-        ivre.db.db.passive.remove(flt)
-        new_count = ivre.db.db.passive.count(
-            ivre.db.db.passive.flt_empty
-        )
-        self.assertEqual(count + new_count, total_count)
-
         ret, out, _ = RUN(["ivre", "ipinfo", "--short"])
         self.assertEqual(ret, 0)
         count = sum(1 for _ in out.splitlines())
@@ -1891,11 +1889,18 @@ which `predicate()` is True, given `webflt`.
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_before_update", list_dnsbl)
 
-        with open(os.path.join(os.path.expanduser("~"),
-                               '.ivre.conf'), 'a') as fdesc:
-            fdesc.write('\nDNS_BLACKLIST_DOMAINS.add(\'dnsbl.ivre.rocks\')\n')
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv['IVRE_CONF'], 'rb'))
+            fdesc.write(
+                '\nDNS_BLACKLIST_DOMAINS.add(\'dnsbl.ivre.rocks\')\n'.encode()
+            )
+            newenv["IVRE_CONF"] = fdesc.name
 
-        res, out, err = RUN(["ivre", "ipinfo", "--dnsbl-update"])
+        res, out, err = RUN(["ivre", "ipinfo", "--dnsbl-update"],
+                            env=newenv)
+        os.unlink(fdesc.name)
 
         self.assertEqual(res, 0)
         self.assertTrue(not out)
@@ -1910,6 +1915,21 @@ which `predicate()` is True, given `webflt`.
                             ivre.db.db.passive.searchrecontype(
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_after_update", list_dnsbl)
+
+    def test_54_passive_delete(self):
+        total_count = ivre.db.db.passive.count(
+            ivre.db.db.passive.flt_empty
+        )
+        # Delete
+        flt = ivre.db.db.passive.searchcert()
+        count = ivre.db.db.passive.count(flt)
+        # Test case OK?
+        self.assertGreater(count, 0)
+        ivre.db.db.passive.remove(flt)
+        new_count = ivre.db.db.passive.count(
+            ivre.db.db.passive.flt_empty
+        )
+        self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
 
@@ -2707,6 +2727,14 @@ which `predicate()` is True, given `webflt`.
             "!script:ssl-cert",
         )
 
+        # Check torcert filter
+        count = self.check_view_count_value(
+            "view_torcert_count",
+            ivre.db.db.view.searchtorcert(),
+            ["--torcert"],
+            "torcert",
+        )
+
         # Check Web /scans
         addr = next(ivre.db.db.view.get(
             ivre.db.db.view.flt_empty, fields=['addr']
@@ -2899,19 +2927,21 @@ which `predicate()` is True, given `webflt`.
         RUN(["ivre", "runscansagentdb", "--init"], stdin=open(os.devnull))
 
 
-TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "60_flow",
-             "90_cleanup", "conf", "scans", "utils"])
+TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "53_nmap_delete",
+             "54_passive_delete", "60_flow", "90_cleanup", "conf", "scans",
+             "utils"])
 
 
 DATABASES = {
     # **excluded** tests
     "mongo": ["60_flow", "utils"],
     "postgres": ["60_flow", "scans", "utils"],
-    "sqlite": ["30_nmap", "50_view", "60_flow", "scans", "utils"],
-    "neo4j": ["30_nmap", "40_passive", "50_view", "90_cleanup", "scans",
-              "utils"],
-    "maxmind": ["30_nmap", "40_passive", "50_view", "60_flow", "90_cleanup",
-                "scans"],
+    "sqlite": ["30_nmap", "53_nmap_delete", "50_view", "60_flow", "scans",
+               "utils"],
+    "neo4j": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
+              "54_passive_delete", "90_cleanup", "scans", "utils"],
+    "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
+                "54_passive_delete", "60_flow", "90_cleanup", "scans"],
 }
 
 

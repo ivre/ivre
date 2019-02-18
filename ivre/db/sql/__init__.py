@@ -1271,13 +1271,24 @@ the way IP addresses are stored.
             for key, value in viewitems(values):
                 subkey = _find_subkey(key)
                 if subkey is None:
-                    # XXX TEST THIS
-                    req = and_(
-                        req,
-                        cls.tables.script.data.contains(
-                            _to_json("%s.%s" % (basekey, key), value)
-                        ),
-                    )
+                    if isinstance(value, utils.REGEXP_T):
+                        base = cls.tables.script.data.op('->')(basekey)
+                        key = key.split('.')
+                        lastkey = key.pop()
+                        for subkey in key:
+                            base = base.op('->')(key)
+                        base = base.op('->>')(lastkey)
+                        req = and_(
+                            req,
+                            cls._searchstring_re(base, value, neg=False),
+                        )
+                    else:
+                        req = and_(
+                            req,
+                            cls.tables.script.data.contains(
+                                _to_json("%s.%s" % (basekey, key), value)
+                            ),
+                        )
                 elif subkey[1] is None:
                     # XXX TEST THIS
                     req = and_(
@@ -2130,12 +2141,20 @@ passive table."""
         ))
 
     @classmethod
-    def searchcertsubject(cls, expr):
-        return PassiveFilter(main=(
+    def searchcertsubject(cls, expr, issuer=None):
+        base = (
             (cls.tables.passive.recontype == 'SSL_SERVER') &
             (cls.tables.passive.source == 'cert') &
             (cls._searchstring_re(
                 cls.tables.passive.moreinfo.op('->>')('subject_text'), expr
+            ))
+        )
+        if issuer is None:
+            return PassiveFilter(main=base)
+        return PassiveFilter(main=(
+            base &
+            (cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('issuer_text'), issuer
             ))
         ))
 

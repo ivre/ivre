@@ -847,12 +847,13 @@ they are stored as canonical string representations.
                                  output=re.compile('nfs', flags=0))
 
     def searchtorcert(self):
+        expr = re.compile(
+            '^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
+            flags=0
+        )
         return self.searchscript(
             name='ssl-cert',
-            output=re.compile(
-                '^Subject: CN=www\\.[a-z2-7]{8,20}\\.(net|com)($|\n)',
-                flags=0,
-            ),
+            values={'subject_text': expr, 'issuer_text': expr},
         )
 
     @classmethod
@@ -1491,11 +1492,14 @@ class DBPassive(DB):
 
     def searchtorcert(self):
         return self.searchcertsubject(
-            re.compile('^CN=www\\.[a-z2-7]{8,20}\\.(net|com)$',
-                       flags=0))
+            re.compile('^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
+                       flags=0),
+            issuer=re.compile('^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
+                              flags=0),
+        )
 
     @staticmethod
-    def searchcertsubject(expr):
+    def searchcertsubject(expr, issuer=None):
         raise NotImplementedError
 
     @staticmethod
