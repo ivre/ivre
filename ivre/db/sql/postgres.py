@@ -41,7 +41,7 @@ from ivre.db.sql import PassiveCSVFile, ScanCSVFile, SQLDB, SQLDBActive, \
 class PostgresDB(SQLDB):
 
     def __init__(self, url):
-        SQLDB.__init__(self, url)
+        super(PostgresDB, self).__init__(url)
 
     @staticmethod
     def ip2internal(addr):
@@ -139,15 +139,13 @@ class BulkInsert(object):
 class PostgresDBFlow(PostgresDB, SQLDBFlow):
 
     def __init__(self, url):
-        PostgresDB.__init__(self, url)
-        SQLDBFlow.__init__(self, url)
+        super(PostgresDBFlow, self).__init__(url)
 
 
 class PostgresDBActive(PostgresDB, SQLDBActive):
 
     def __init__(self, url):
-        PostgresDB.__init__(self, url)
-        SQLDBActive.__init__(self, url)
+        super(PostgresDBActive, self).__init__(url)
 
     def __migrate_schema_10_11(self):
         """Converts a record from version 10 to version 11.
@@ -771,8 +769,7 @@ insert structures.
 class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
 
     def __init__(self, url):
-        PostgresDBActive.__init__(self, url)
-        SQLDBNmap.__init__(self, url)
+        super(PostgresDBNmap, self).__init__(url)
 
     def store_scan_doc(self, scan):
         scan = scan.copy()
@@ -918,8 +915,7 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
 class PostgresDBView(PostgresDBActive, SQLDBView):
 
     def __init__(self, url):
-        PostgresDBActive.__init__(self, url)
-        SQLDBView.__init__(self, url)
+        super(PostgresDBView, self).__init__(url)
 
     def _store_host(self, host):
         addr = self.ip2internal(host['addr'])
@@ -1067,8 +1063,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
 class PostgresDBPassive(PostgresDB, SQLDBPassive):
 
     def __init__(self, url):
-        PostgresDB.__init__(self, url)
-        SQLDBPassive.__init__(self, url)
+        super(PostgresDBPassive, self).__init__(url)
         Index(
             'ix_passive_record', self.tables.passive.addr,
             self.tables.passive.sensor, self.tables.passive.recontype,

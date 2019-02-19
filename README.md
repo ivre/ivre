@@ -3,7 +3,6 @@
 [![Join the chat at Gitter](https://badges.gitter.im/cea-sec/ivre.svg)](https://gitter.im/cea-sec/ivre)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/IvreRocks.svg?logo=twitter)](https://twitter.com/IvreRocks)
 
-
 # IVRE #
 
 <img align="right" src="web/static/logo.png" alt="Logo"/> IVRE

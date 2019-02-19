@@ -181,7 +181,7 @@ before_script:
   - nmap --script-updatedb
   # get samples
   - mkdir tests/samples
-  - cp tests/results-public-samples tests/samples/results
+  #  - cp tests/results-public-samples tests/samples/results
   - cp tests/iptables-samples tests/samples/iptables.log
   ## Nmap Internet-wide Modbus scan (JSON format, shortened)
   - wget -q --no-check-certificate -O tests/samples/Nmap-Modbus-IPv4.json.bz2 https://ivre.rocks/data/tests/Nmap-Modbus-IPv4-partial.json.bz2 # JSON files w/ Nmap scan results

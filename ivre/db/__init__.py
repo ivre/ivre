@@ -1200,6 +1200,41 @@ class DBView(DBActive):
 
     def __init__(self):
         super(DBView, self).__init__()
+        self.argparser.add_argument('--ssl-ja3-server',
+                                    metavar='JA3-SERVER[:JA3-CLIENT]',
+                                    nargs='?',
+                                    const=False,
+                                    default=None)
+        self.argparser.add_argument('--ssl-ja3-client',
+                                    metavar='JA3-CLIENT',
+                                    nargs='?',
+                                    const=False,
+                                    default=None)
+
+    def parse_args(self, args, flt=None):
+        flt = super(DBView, self).parse_args(args, flt=flt)
+        if args.ssl_ja3_client is not None:
+            flt = self.flt_and(flt, self.searchja3client(
+                value_or_hash=args.ssl_ja3_client
+            ))
+        if args.ssl_ja3_server is not None:
+            if args.ssl_ja3_server is False:
+                # There are no additional arguments
+                flt = self.flt_and(flt, self.searchja3server())
+            else:
+                splitted = args.ssl_ja3_server.split(':', 1)
+                if len(splitted) == 1:
+                    # Only a JA3 server is given
+                    flt = self.flt_and(flt, self.searchja3server(
+                        value_or_hash_srv=splitted[0]
+                    ))
+                else:
+                    # Both client and server JA3 are given
+                    flt = self.flt_and(flt, self.searchja3server(
+                        value_or_hash_srv=splitted[0],
+                        value_or_hash_clt=splitted[1]
+                    ))
+        return flt
 
     @staticmethod
     def merge_ja3_scripts(curscript, script, script_id):
@@ -1297,8 +1332,8 @@ class DBView(DBActive):
                           script['id'] == 'ssl-ja3-client'):
                         # Merge ja3 fingerprints
                         DBView.merge_ja3_scripts(
-                            list(filter(lambda x: x['id'] == script['id'],
-                                   curport['scripts']))[0],
+                            next(x for x in curport['scripts']
+                                 if x['id'] == script['id']),
                             script, script['id'])
                 if not curport['scripts']:
                     del curport['scripts']
@@ -1354,6 +1389,49 @@ class DBView(DBActive):
         self.store_host(self.merge_host_docs(rec, host))
         self.remove(rec)
         return True
+
+    @staticmethod
+    def ja3keyvalue(value_or_hash):
+        """Returns the key and the value to search for according
+        to the nature of the given argument for ja3 filtering"""
+        if utils.HEX.search(value_or_hash):
+            key = {32: 'md5', 40: 'sha1',
+                   64: 'sha256'}.get(len(value_or_hash), 'raw')
+        else:
+            key = 'raw'
+        if key == 'raw':
+            key = 'md5'
+            value_or_hash = (utils.hashlib.new('md5',
+                                               value_or_hash.encode())
+                             .hexdigest())
+        return (key, value_or_hash)
+
+    @classmethod
+    def _searchja3(cls, value_or_hash, script_id, neg):
+        if not value_or_hash:
+            return cls.searchscript(name=script_id, neg=neg)
+        key, value = cls.ja3keyvalue(value_or_hash)
+        return cls.searchscript(name=script_id, values={key: value}, neg=neg)
+
+    @classmethod
+    def searchja3client(cls, value_or_hash=None, neg=False):
+        return cls._searchja3(value_or_hash, 'ssl-ja3-client', neg=neg)
+
+    @classmethod
+    def searchja3server(cls, value_or_hash_srv=None,
+                        value_or_hash_clt=None, neg=False):
+        script_id = 'ssl-ja3-server'
+        if not value_or_hash_clt:
+            return cls._searchja3(value_or_hash_srv, script_id, neg=neg)
+        key_client, value_client = cls.ja3keyvalue(value_or_hash_clt)
+        values = {'client.%s' % (key_client): value_client}
+        if value_or_hash_srv:
+            key_srv, value_srv = cls.ja3keyvalue(value_or_hash_srv)
+            values[key_srv] = value_srv
+        return cls.searchscript(
+            name=script_id,
+            values=values,
+            neg=neg)
 
 
 class _RecInfo(object):

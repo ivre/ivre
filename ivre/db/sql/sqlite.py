@@ -33,14 +33,13 @@ from ivre.db.sql import SQLDB, SQLDBPassive
 class SqliteDB(SQLDB):
 
     def __init__(self, url):
-        SQLDB.__init__(self, url)
+        super(SqliteDB, self).__init__(url)
 
 
 class SqliteDBPassive(SqliteDB, SQLDBPassive):
 
     def __init__(self, url):
-        SqliteDB.__init__(self, url)
-        SQLDBPassive.__init__(self, url)
+        super(SqliteDBPassive, self).__init__(url)
         Index(
             'ix_passive_record', self.tables.passive.addr,
             self.tables.passive.sensor, self.tables.passive.recontype,
