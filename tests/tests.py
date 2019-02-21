@@ -2903,6 +2903,66 @@ which `predicate()` is True, given `webflt`.
             )
         ))
 
+        # Check ja3 filters
+        self.check_view_count_value(
+            "view_count_ja3_server",
+            ivre.db.db.view.searchja3server(),
+            ["--ssl-ja3-server"],
+            "ssl-ja3-server",
+        )
+        self.check_view_count_value(
+            "view_count_ja3_client",
+            ivre.db.db.view.searchja3client(),
+            ["--ssl-ja3-client"],
+            "ssl-ja3-client",
+        )
+        ja3_raw = ("771,49195-49199-49162-49161-49171-49172-51-57-"
+                   "47-53-255,0-11-10-35-13-15,14-13-25-11-12-24-9-"
+                   "10-22-23-8-6-7-20-21-4-5-18-19-1-2-3-15-16-17,0-1-2")
+        self.check_view_count_value(
+            "view_count_ja3_client_raw",
+            ivre.db.db.view.searchja3client(
+                value_or_hash=ja3_raw
+            ),
+            ["--ssl-ja3-client", ja3_raw],
+            "ssl-ja3-client:%s" % ja3_raw,
+        )
+        ja3 = "fd2273056f386e0ba8004e897c337037"
+        self.check_view_count_value(
+            "view_count_ja3_client_fd22",
+            ivre.db.db.view.searchja3client(
+                value_or_hash=ja3
+            ),
+            ["--ssl-ja3-client", ja3],
+            "ssl-ja3-client:%s" % ja3,
+        )
+        ja3s = "a95ca7eab4d47d051a5cd4fb7b6005dc"
+        self.check_view_count_value(
+            "view_count_ja3_server_a95",
+            ivre.db.db.view.searchja3server(
+                value_or_hash_srv=ja3s
+            ),
+            ["--ssl-ja3-server", ja3s],
+            "ssl-ja3-server:%s" % ja3s,
+        )
+        self.check_view_count_value(
+            "view_count_ja3_server_a95_fd22",
+            ivre.db.db.view.searchja3server(
+                value_or_hash_srv=ja3s,
+                value_or_hash_clt=ja3
+            ),
+            ["--ssl-ja3-server", "%s:%s" % (ja3s, ja3)],
+            "ssl-ja3-server:%s:%s" % (ja3s, ja3),
+        )
+        self.check_view_count_value(
+            "view_count_ja3_server_clt_fd22",
+            ivre.db.db.view.searchja3server(
+                value_or_hash_clt=ja3
+            ),
+            ["--ssl-ja3-server", ":%s" % (ja3)],
+            "ssl-ja3-server::%s" % (ja3),
+        )
+
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
         has_env_conf = "IVRE_CONF" in os.environ
