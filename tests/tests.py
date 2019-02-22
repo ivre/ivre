@@ -22,6 +22,7 @@ from __future__ import print_function
 
 from ast import literal_eval
 from contextlib import contextmanager
+from datetime import datetime
 from distutils.spawn import find_executable as which
 import errno
 from functools import reduce
@@ -2146,6 +2147,13 @@ which `predicate()` is True, given `webflt`.
                          ['0.0.0.0/0'])
         self.assertEqual(ivre.utils.net2range('0.0.0.0/0'),
                          ('0.0.0.0', '255.255.255.255'))
+        self.assertEqual(ivre.utils.net2range(
+            "::ffff:ffff:ffff:ffff/ffff:ffff:ffff:ffff:ffff::0"
+        ), ('::ffff:0:0:0', '::ffff:ffff:ffff:ffff'))
+        self.assertEqual(ivre.utils.net2range("192.168.0.0/255.255.255.0"),
+                         ('192.168.0.0', '192.168.0.255'))
+        self.assertEqual(ivre.utils.net2range("::/48"),
+                         ('::', '::ffff:ffff:ffff:ffff:ffff'))
 
         # String utils
         teststr = b"TEST STRING -./*'"
@@ -2251,6 +2259,77 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(ivre.utils.int2ip((1 << 24) + 1), "1.0.0.1")
         self.assertEqual(ivre.utils.ip2int('::2:0:0:0:2'), (2 << 64) + 2)
         self.assertEqual(ivre.utils.int2ip((2 << 64) + 2), '::2:0:0:0:2')
+        self.assertEqual(
+            ivre.utils.int2ip6(0x1234567890ABCDEFFED0000000004321),
+            '1234:5678:90ab:cdef:fed0::4321'
+        )
+        # ip2bin
+        # unicode error
+        self.assertEqual(
+            ivre.utils.ip2bin(b'\x33\xe6\x34\x35'),
+            b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff3\xe645'
+        )
+        try:
+            ivre.utils.ip2bin(b'\xe6')
+        except ValueError:
+            pass
+        else:
+            raise Exception('Error case not properly handled.')
+        # else case
+        try:
+            ivre.utils.ip2bin(b'\x32\x33\x54')
+        except ValueError:
+            pass
+        else:
+            raise Exception('Error case not properly handled.')
+        # FIXME : Cannot concat bytes and str in py3
+        # self.assertEqual(
+        #     ivre.utils.ip2bin(b'\x32\x33\x54T'),
+        #     '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff23TT'
+        # )
+        self.assertEqual(ivre.utils.ip2bin(b'\x54\x33\x53TTESTTESTTEST'),
+                         'T3STTESTTESTTEST')
+        # str2pyval
+        self.assertEqual(ivre.utils.str2pyval("{'test': 0}"), {'test': 0})
+        self.assertEqual(ivre.utils.str2pyval("{'test: 0}"), "{'test: 0}")
+        # all2datetime
+        # NOTICE : compared to datetime.utcfromtimestamp
+        self.assertEqual(ivre.utils.all2datetime(1410532663),
+                         datetime(2014, 9, 12, 14, 37, 43))
+        try:
+            # FIXME : also accept floats ?
+            ivre.utils.all2datetime(1410532663.0)
+        except TypeError:
+            pass
+        else:
+            raise Exception('Error case not properly handled.')
+
+        # fields2csv_head
+        self.assertItemsEqual(ivre.utils.fields2csv_head(
+            {"field": {"subfield": {"subsubfield": True,
+                                    "subsubfunc": lambda: None,
+                                    "notsubsubfield": False}}}),
+            ['field.subfield.subsubfield', 'field.subfield.subsubfunc']
+        )
+        # doc2csv
+        self.assertItemsEqual(
+            ivre.utils.doc2csv(
+                {"field": {
+                    "subfield": {"subsubfield": 1},
+                    "subvalue": 1
+                }},
+                {"field": {
+                    "subfield": {"subsubfield": lambda x: 0},
+                    "subvalue": True
+                }},
+            )[0],
+            [0, 1]
+        )
+        # serialize
+        self.assertEqual(
+            ivre.utils.serialize(re.compile("^test$", re.I | re.U)),
+            '/^test$/iu'
+        )
 
         # Math utils
         # http://stackoverflow.com/a/15285588/3223422
@@ -2278,6 +2357,12 @@ which `predicate()` is True, given `webflt`.
             self.assertTrue(is_prime(nbr) or len(factors) > 1)
             self.assertTrue(all(is_prime(x) for x in factors))
             self.assertEqual(reduce(lambda x, y: x * y, factors), nbr)
+        # Readables
+        self.assertEqual(ivre.utils.num2readable(1000), '1k')
+        self.assertEqual(
+            ivre.utils.num2readable(1000000000000000000000000), '1Y'
+        )
+        self.assertEqual(ivre.utils.num2readable(1049000.0), '1.049M')
 
         # Bro logs
         basepath = os.getenv('BRO_SAMPLES')
@@ -2331,6 +2416,16 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue('FR' in ukfr)
         self.assertTrue('GB' in ukfr)
         self.assertEqual(ivre.utils.country_unalias('FR'), 'FR')
+
+        # Serveur port guess
+        self.assertEqual(ivre.utils.guess_srv_port(67, 68, proto='udp'), 1)
+        self.assertEqual(ivre.utils.guess_srv_port(65432, 80), -1)
+        self.assertEqual(ivre.utils.guess_srv_port(666, 666), 0)
+        # Certificate argument parsing
+        self.assertItemsEqual(
+            list(ivre.utils._parse_cert_subject('O = "Test\\", Inc."')),
+            [('O', 'Test", Inc.')]
+        )
 
     def test_scans(self):
         "Run scans, with and without agents"
