@@ -2240,6 +2240,7 @@ which `predicate()` is True, given `webflt`.
         )
 
         # get_addr_type()
+        # ipv4
         self.assertEqual(ivre.utils.get_addr_type('0.123.45.67'),
                          'Current-Net')
         self.assertIsNone(ivre.utils.get_addr_type('8.8.8.8'))
@@ -2253,6 +2254,26 @@ which `predicate()` is True, given `webflt`.
                          'Reserved')
         self.assertEqual(ivre.utils.get_addr_type('255.255.255.255'),
                          'Broadcast')
+        # ipv6
+        self.assertEqual(ivre.utils.get_addr_type('::'),
+                         'Unspecified')
+        self.assertEqual(ivre.utils.get_addr_type('::1'), 'Loopback')
+        self.assertIsNone(ivre.utils.get_addr_type('::ffff:8.8.8.8'))
+        self.assertEqual(ivre.utils.get_addr_type('64:ff9b::8.8.8.8'),
+                         'Well-known prefix')
+        self.assertEqual(ivre.utils.get_addr_type('100::'),
+                         'Discard (RTBH)')
+        self.assertEqual(ivre.utils.get_addr_type('2001::'),
+                         'Protocol assignements')
+        self.assertIsNone(ivre.utils.get_addr_type('2001:4860:4860::8888'))
+        self.assertEqual(ivre.utils.get_addr_type('2001:db8::db2'),
+                         'Documentation')
+        self.assertEqual(ivre.utils.get_addr_type('fc00::'),
+                         'Unique Local Unicast')
+        self.assertEqual(ivre.utils.get_addr_type('fe80::'),
+                         'Link Local Unicast')
+        self.assertEqual(ivre.utils.get_addr_type('ff00::'),
+                         'Multicast')
 
         # ip2int() / int2ip()
         self.assertEqual(ivre.utils.ip2int("1.0.0.1"), (1 << 24) + 1)
@@ -2282,11 +2303,10 @@ which `predicate()` is True, given `webflt`.
             pass
         else:
             raise Exception('Error case not properly handled.')
-        # FIXME : Cannot concat bytes and str in py3
-        # self.assertEqual(
-        #     ivre.utils.ip2bin(b'\x32\x33\x54T'),
-        #     '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff23TT'
-        # )
+        self.assertEqual(
+            repr(ivre.utils.ip2bin(b'\x32\x33\x54T')),
+            '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff23TT'
+        )
         self.assertEqual(ivre.utils.ip2bin(b'\x54\x33\x53TTESTTESTTEST'),
                          'T3STTESTTESTTEST')
         # str2pyval
