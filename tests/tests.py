@@ -3659,6 +3659,23 @@ purposes to feed Elasticsearch view.
         # One entry in test should actually be one entry at the end.
         self.check_value("view_count_active", len(out.splitlines()))
 
+        # Test passive filters
+        # FIXME : positionnal IP filter is broken
+        # ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
+        #                    "10.0.0.1"])
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
+                           "--net", "192.168.0.0/16"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_network", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
+                           "--range", "192.168.0.0", "192.168.255.255"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_range", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive", "--host",
+                           "10.0.0.1"])
+        self.assertEqual(ret, 0)
+        self.assertEqual(len(out.splitlines()), 1)
+
         view_count = 0
         # Count passive results
         self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
