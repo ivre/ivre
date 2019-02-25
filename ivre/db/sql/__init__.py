@@ -35,8 +35,8 @@ from builtins import int, range
 from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 from sqlalchemy import create_engine, desc, func, column, delete, \
-    exists, join, select, update, and_, not_, or_
-
+    exists, join, select, update, and_, not_, or_, cast
+from sqlalchemy.dialects.postgresql import JSONB
 
 from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
 from ivre import config, utils, xmlnmap
@@ -1298,12 +1298,12 @@ the way IP addresses are stored.
                         ) == value,
                     )
                 elif '.' in subkey[1]:
-                    # XXX TEST THIS
-                    firstpart, tail = subkey.split('.', 1)
+                    firstpart, tail = subkey[1].split('.', 1)
                     req = and_(
                         req,
                         column(subkey[0].replace(".", "_").replace('-', '_'))
-                        .op('->')(firstpart).contains(_to_json(tail))
+                        .op('->')(firstpart)
+                        .op('@>')(cast(_to_json(tail, value), JSONB))
                     )
                 else:
                     req = and_(
