@@ -2737,6 +2737,20 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(ret, 0)
         self.check_value("view_test_active", len(out.splitlines()))
 
+        # Test passive filters
+        # FIXME : passive ip filter is broken
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
+                           "192.168.0.0/16"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_network", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
+                           "192.168.0.0-192.168.255.255"])
+        self.assertEqual(ret, 0)
+        self.check_value("view_test_range", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passive", "10.0.0.1"])
+        self.assertEqual(ret, 0)
+        self.assertEqual(len(out.splitlines()), 1)
+
         view_count = 0
         # Count passive results
         self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
