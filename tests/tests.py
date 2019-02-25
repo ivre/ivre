@@ -2738,7 +2738,6 @@ which `predicate()` is True, given `webflt`.
         self.check_value("view_test_active", len(out.splitlines()))
 
         # Test passive filters
-        # FIXME : passive ip filter is broken
         ret, out, _ = RUN(["ivre", "db2view", "--test", "passive",
                            "192.168.0.0/16"])
         self.assertEqual(ret, 0)
@@ -2769,7 +2768,8 @@ which `predicate()` is True, given `webflt`.
         self.assertGreater(view_count, 0)
         self.check_value("view_count_active", view_count)
         # Count merged results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view", "--view-category", "BRO",
+                              "passive"])[0], 0)
         ret, out, _ = RUN(["ivre", "view", "--count"])
         self.assertEqual(ret, 0)
         view_count = int(out)
@@ -2801,6 +2801,9 @@ which `predicate()` is True, given `webflt`.
         self.check_value("view_gnmap_up_count", count)
 
         # Filters
+        res, out, _ = RUN(["ivre", "view", "--count", "--category", "BRO"])
+        self.assertEqual(res, 0)
+        self.check_value("view_count_bro_category", int(out))
         self.check_view_top_value("view_ssh_top_port", "port:ssh")
         self.check_view_top_value("view_http_top_content_type",
                                   "httphdr:content-type")

@@ -1224,6 +1224,7 @@ class DBView(DBActive):
 
     def __init__(self):
         super(DBView, self).__init__()
+        self.category = None
         self.argparser.add_argument('--ssl-ja3-server',
                                     metavar='JA3-SERVER[:JA3-CLIENT]',
                                     nargs='?',

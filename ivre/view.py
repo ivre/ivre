@@ -290,6 +290,8 @@ def passive_record_to_view(rec):
                                               {'count': 0, 'ports': []})
         protoopenports['count'] += 1
         protoopenports['ports'].append(port['port'])
+    if db.view.category:
+        outrec['categories'] = [db.view.category]
     return outrec
 
 
@@ -343,6 +345,9 @@ def nmap_record_to_view(rec):
             rec['source'] = []
         elif not isinstance(rec['source'], list):
             rec['source'] = [rec['source']]
+    rec['categories'] = rec.get('categories', [])
+    if db.view.category:
+        rec['categories'].append(db.view.category)
     return rec
 
 
