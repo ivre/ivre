@@ -249,7 +249,7 @@ _EXTRACTORS = {
 }
 
 
-def passive_record_to_view(rec):
+def passive_record_to_view(rec, category=None):
     """Return a passive entry in the View format.
 
     Note that this entry is likely to have no sense in itself. This
@@ -290,10 +290,12 @@ def passive_record_to_view(rec):
                                               {'count': 0, 'ports': []})
         protoopenports['count'] += 1
         protoopenports['ports'].append(port['port'])
+    if category is not None:
+        outrec['categories'] = [category]
     return outrec
 
 
-def passive_to_view(flt):
+def passive_to_view(flt, category=None):
     """Generates passive entries in the View format.
 
     Note that this entry is likely to have no sense in itself. This
@@ -302,14 +304,14 @@ def passive_to_view(flt):
 
     """
     for rec in db.passive.get(flt, sort=[("addr", 1)]):
-        outrec = passive_record_to_view(rec)
+        outrec = passive_record_to_view(rec, category=category)
         if outrec is not None:
             yield outrec
 
 
-def from_passive(flt):
+def from_passive(flt, category=None):
     """Iterator over passive results, by address."""
-    records = passive_to_view(flt)
+    records = passive_to_view(flt, category=category)
     cur_addr = None
     cur_rec = {}
     for rec in records:
@@ -332,7 +334,7 @@ def from_passive(flt):
         yield cur_rec
 
 
-def nmap_record_to_view(rec):
+def nmap_record_to_view(rec, category=None):
     """Convert an nmap result in view.
 
     """
@@ -345,6 +347,9 @@ def nmap_record_to_view(rec):
             rec['source'] = []
         elif not isinstance(rec['source'], list):
             rec['source'] = [rec['source']]
+    rec.setdefault('categories', [])
+    if category is not None:
+        rec['categories'].append(category)
     for port in rec.get('ports', []):
         for script in port.get('scripts', []):
             if 'masscan' in script and 'raw' in script['masscan']:
@@ -358,7 +363,7 @@ def nmap_record_to_view(rec):
     return rec
 
 
-def from_nmap(flt):
+def from_nmap(flt, category=None):
     """Return an Nmap entry in the View format."""
     cur_addr = None
     cur_rec = None
@@ -366,7 +371,7 @@ def from_nmap(flt):
     for rec in db.nmap.get(flt, sort=[("addr", 1)]):
         if 'addr' not in rec:
             continue
-        rec = nmap_record_to_view(rec)
+        rec = nmap_record_to_view(rec, category=category)
         if cur_addr is None:
             cur_addr = rec['addr']
             cur_rec = rec

@@ -51,7 +51,7 @@ def main():
     fltpass = db.passive.flt_empty
     _from = []
 
-    parser.add_argument('--category', metavar='CATEGORY',
+    parser.add_argument('--view-category', metavar='CATEGORY',
                         help='Choose a different category than the default')
     parser.add_argument('--test', '-t', action='store_true',
                         help='Give results in standard output instead of '
@@ -71,29 +71,30 @@ def main():
             exit(-1)
     else:
         subparsers = parser.add_subparsers(dest='view_source',
-                                           help="Accepted values are "
-                                                "'nmap' and 'passive'")
+                                           help="Accepted values are 'nmap' "
+                                                "and 'passive'. None or 'all' "
+                                                "will do both")
 
         subparsers.add_parser('nmap', parents=[db.nmap.argparser])
-        passparser = subparsers.add_parser('passive',
-                                           parents=[db.passive.argparser])
+        subparsers.add_parser('passive', parents=[db.passive.argparser])
+        subparsers.add_parser('all')
 
     args = parser.parse_args()
 
-    if args.category:
-        db.view.category = args.category
+    view_category = args.view_category
     if not args.view_source:
         args.view_source = 'all'
     if args.view_source == 'all':
         fltnmap = DB().parse_args(args, flt=fltnmap)
         fltpass = DB().parse_args(args, flt=fltpass)
-        _from = [from_nmap(fltnmap), from_passive(fltpass)]
+        _from = [from_nmap(fltnmap, category=view_category),
+                 from_passive(fltpass, category=view_category)]
     elif args.view_source == 'nmap':
         fltnmap = db.nmap.parse_args(args, fltnmap)
-        _from = [from_nmap(fltnmap)]
+        _from = [from_nmap(fltnmap, category=view_category)]
     elif args.view_source == 'passive':
         fltpass = db.passive.parse_args(args, fltpass)
-        _from = [from_passive(fltpass)]
+        _from = [from_passive(fltpass, category=view_category)]
     if args.test:
 
         def output(x):

@@ -3698,7 +3698,8 @@ purposes to feed Elasticsearch view.
         self.assertGreater(view_count, 0)
         self.check_value("view_count_active", view_count)
         # Count merged results
-        self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
+        self.assertEqual(RUN(["ivre", "db2view", "--view-category", "PASSIVE",
+                              "passive"])[0], 0)
         if DATABASE == 'elastic':
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])
@@ -3729,6 +3730,10 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
+
+        res, out, _ = RUN(["ivre", "view", "--count", "--category", "PASSIVE"])
+        self.assertEqual(res, 0)
+        self.check_value("view_count_passive", int(out))
 
         # Top values & filters
         self.assertEqual(next(ivre.db.db.view.topvalues("category"))['_id'],
