@@ -1222,17 +1222,17 @@ class DBView(DBActive):
                 # There are no additional arguments
                 flt = self.flt_and(flt, self.searchja3server())
             else:
-                splitted = args.ssl_ja3_server.split(':', 1)
-                if len(splitted) == 1:
+                split = args.ssl_ja3_server.split(':', 1)
+                if len(split) == 1:
                     # Only a JA3 server is given
                     flt = self.flt_and(flt, self.searchja3server(
-                        value_or_hash_srv=splitted[0]
+                        value_or_hash=split[0]
                     ))
                 else:
                     # Both client and server JA3 are given
                     flt = self.flt_and(flt, self.searchja3server(
-                        value_or_hash_srv=splitted[0],
-                        value_or_hash_clt=splitted[1]
+                        value_or_hash=split[0],
+                        client_value_or_hash=split[1],
                     ))
         return flt
 
@@ -1418,20 +1418,21 @@ class DBView(DBActive):
         return cls._searchja3(value_or_hash, 'ssl-ja3-client', neg=neg)
 
     @classmethod
-    def searchja3server(cls, value_or_hash_srv=None,
-                        value_or_hash_clt=None, neg=False):
+    def searchja3server(cls, value_or_hash=None, client_value_or_hash=None,
+                        neg=False):
         script_id = 'ssl-ja3-server'
-        if not value_or_hash_clt:
-            return cls._searchja3(value_or_hash_srv, script_id, neg=neg)
-        key_client, value_client = cls.ja3keyvalue(value_or_hash_clt)
+        if not client_value_or_hash:
+            return cls._searchja3(value_or_hash, script_id, neg=neg)
+        key_client, value_client = cls.ja3keyvalue(client_value_or_hash)
         values = {'client.%s' % (key_client): value_client}
-        if value_or_hash_srv:
-            key_srv, value_srv = cls.ja3keyvalue(value_or_hash_srv)
+        if value_or_hash:
+            key_srv, value_srv = cls.ja3keyvalue(value_or_hash)
             values[key_srv] = value_srv
         return cls.searchscript(
             name=script_id,
             values=values,
-            neg=neg)
+            neg=neg,
+        )
 
 
 class _RecInfo(object):

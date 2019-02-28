@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -480,18 +480,18 @@ def flt_from_query(query, base_flt=None):
                 # There are no additional arguments
                 flt = db.view.flt_and(flt, db.view.searchja3server(neg=neg))
             else:
-                splitted = value.split(':', 1)
-                if len(splitted) == 1:
+                split = value.split(':', 1)
+                if len(split) == 1:
                     # Only a JA3 server is given
                     flt = db.view.flt_and(flt, db.view.searchja3server(
-                        value_or_hash_srv=splitted[0],
+                        value_or_hash=split[0],
                         neg=neg,
                     ))
                 else:
                     # Both client and server JA3 are specified
                     flt = db.view.flt_and(flt, db.view.searchja3server(
-                        value_or_hash_srv=splitted[0],
-                        value_or_hash_clt=splitted[1],
+                        value_or_hash=split[0],
+                        client_value_or_hash=split[1],
                         neg=neg,
                     ))
         # OS fingerprint

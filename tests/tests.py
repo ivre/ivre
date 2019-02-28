@@ -2940,7 +2940,7 @@ which `predicate()` is True, given `webflt`.
         self.check_view_count_value(
             "view_count_ja3_server_a95",
             ivre.db.db.view.searchja3server(
-                value_or_hash_srv=ja3s
+                value_or_hash=ja3s
             ),
             ["--ssl-ja3-server", ja3s],
             "ssl-ja3-server:%s" % ja3s,
@@ -2948,8 +2948,8 @@ which `predicate()` is True, given `webflt`.
         self.check_view_count_value(
             "view_count_ja3_server_a95_fd22",
             ivre.db.db.view.searchja3server(
-                value_or_hash_srv=ja3s,
-                value_or_hash_clt=ja3
+                value_or_hash=ja3s,
+                client_value_or_hash=ja3
             ),
             ["--ssl-ja3-server", "%s:%s" % (ja3s, ja3)],
             "ssl-ja3-server:%s:%s" % (ja3s, ja3),
@@ -2957,7 +2957,7 @@ which `predicate()` is True, given `webflt`.
         self.check_view_count_value(
             "view_count_ja3_server_clt_fd22",
             ivre.db.db.view.searchja3server(
-                value_or_hash_clt=ja3
+                client_value_or_hash=ja3
             ),
             ["--ssl-ja3-server", ":%s" % (ja3)],
             "ssl-ja3-server::%s" % (ja3),
