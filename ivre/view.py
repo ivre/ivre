@@ -155,8 +155,15 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
 
 def _extract_passive_SSL_SERVER(rec):
     """Handle ssl server headers."""
-    if rec.get('source') != 'cert':
-        return {}
+    source = rec.get('source')
+    if source == 'cert':
+        return _extract_passive_SSL_SERVER_cert(rec)
+    if source.startswith('ja3-'):
+        return _extract_passive_SSL_SERVER_ja3(rec)
+    return {}
+
+
+def _extract_passive_SSL_SERVER_cert(rec):
     script = {"id": "ssl-cert"}
     port = {
         'state_state': 'open',
@@ -172,6 +179,32 @@ def _extract_passive_SSL_SERVER(rec):
     return {'ports': [port]}
 
 
+def _extract_passive_SSL_SERVER_ja3(rec):
+    script = {"id": "ssl-ja3-server"}
+    port = {
+        'state_state': 'open',
+        'state_reason': 'passive',
+        'port': rec['port'],
+        'protocol': rec.get('protocol', 'tcp'),
+    }
+    script['output'] = rec['value'] + ' - ' + rec['source'][4:]
+    info = {
+        'raw': rec['infos']['raw'],
+        'sha256': rec['infos']['sha256'],
+        'sha1': rec['infos']['sha1'],
+        'md5': rec['value'],
+        'client': {
+            'raw': rec['infos']['client']['raw'],
+            'sha256': rec['infos']['client']['sha256'],
+            'sha1': rec['infos']['client']['sha1'],
+            'md5': rec['source'][4:]
+        }
+    }
+    script['ssl-ja3-server'] = [info]
+    port['scripts'] = [script]
+    return {'ports': [port]}
+
+
 def _extract_passive_DNS_ANSWER(rec):
     """Handle dns server headers."""
     name = rec['value']
@@ -181,11 +214,31 @@ def _extract_passive_DNS_ANSWER(rec):
                            'name': name}]}
 
 
+def _extract_passive_SSL_CLIENT(rec):
+    """Handle SSL client ja3 extraction."""
+    script = {"id": "ssl-ja3-client"}
+    script['output'] = rec['value']
+    script['ssl-ja3-client'] = [{
+        'raw': rec['infos']['raw'],
+        'sha256': rec['infos']['sha256'],
+        'sha1': rec['infos']['sha1'],
+        'md5': rec['value']
+    }]
+
+    port = {
+        'port': -1,
+        'scripts': [script]
+    }
+
+    return {'ports': [port]}
+
+
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
     'HTTP_CLIENT_HEADER': _extract_passive_HTTP_CLIENT_HEADER,
     'HTTP_SERVER_HEADER': _extract_passive_HTTP_SERVER_HEADER,
     'SSL_SERVER': _extract_passive_SSL_SERVER,
+    'SSL_CLIENT': _extract_passive_SSL_CLIENT,
     # FIXME: see db/prostgres while hostnames are not merged, it is useless
     # to add DNS answers. It creates empty results.
     'DNS_ANSWER': _extract_passive_DNS_ANSWER,

@@ -298,6 +298,14 @@ var HELP_FILTERS = {
 	    "title": "xp445",
 	    "content": "Look for Windows XP machines with TCP/445 port open.",
 	},
+	"ssl-ja3-client": {
+	    "title": "(!)ssl-ja3-client<b>[:JA3]</b>",
+	    "content": "Look for hosts with a JA3 or with the given JA3.",
+	},
+	"ssl-ja3-server": {
+	    "title": "(!)ssl-ja3-server<b>[:[JA3S][:JA3]]</b>",
+	    "content": "Look for hosts with a JA3S, with the given JA3S, with a JA3S corresponding to the given JA3 or with the given JA3S corresponding to the given JA3",
+	},
 	/* OS fingerprint */
 	"os:": {
 	    "title": "os:<b>[string or regexp]</b>",
@@ -348,7 +356,7 @@ var HELP_FILTERS = {
 	},
 	"countports:": {
 	    "title": "<b>(!)</b>countports:<b>[count](-[count])</b>",
-	    "content": "Loor for results with open port number within the specified range.",
+	    "content": "Look for results with open port number within the specified range.",
 	},
 	"otheropenport:": {
 	    "title": "otheropenport:<b>[port number](,[port number](,...))</b>",

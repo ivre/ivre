@@ -228,6 +228,7 @@ class SQLDB(DB):
     no_limit = None
 
     def __init__(self, url):
+        super(SQLDB, self).__init__()
         self.dburl = url
 
     @property
@@ -455,8 +456,7 @@ class SQLDBFlow(SQLDB, DBFlow):
     tables = table_layout(Flow)
 
     def __init__(self, url):
-        DBFlow.__init__(self)
-        SQLDB.__init__(self, url)
+        super(SQLDBFlow, self).__init__(url)
 
     @staticmethod
     def query(*args, **kargs):
@@ -692,6 +692,8 @@ class SQLDBActive(SQLDB, DBActive):
     _needunwind_script = set([
         "http-headers",
         "ssh-hostkey",
+        "ssl-ja3-client",
+        "ssl-ja3-server"
     ])
 
     @classmethod
@@ -703,8 +705,7 @@ class SQLDBActive(SQLDB, DBActive):
                 yield subkey
 
     def __init__(self, url):
-        SQLDB.__init__(self, url)
-        DBActive.__init__(self)
+        super(SQLDBActive, self).__init__(url)
         self.output_function = None
         self.bulk = None
 
@@ -1531,8 +1532,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
     base_filter = NmapFilter
 
     def __init__(self, url):
-        DBNmap.__init__(self)
-        SQLDBActive.__init__(self, url)
+        super(SQLDBNmap, self).__init__(url)
         self.content_handler = xmlnmap.Nmap2DB
 
     def store_or_merge_host(self, host):
@@ -1619,8 +1619,7 @@ class SQLDBView(SQLDBActive, DBView):
     base_filter = ViewFilter
 
     def __init__(self, url):
-        DBView.__init__(self)
-        SQLDBActive.__init__(self, url)
+        super(SQLDBView, self).__init__(url)
 
     def store_or_merge_host(self, host):
         # FIXME: may cause performance issues
@@ -1732,8 +1731,7 @@ class SQLDBPassive(SQLDB, DBPassive):
     base_filter = PassiveFilter
 
     def __init__(self, url):
-        SQLDB.__init__(self, url)
-        DBPassive.__init__(self)
+        super(SQLDBPassive, self).__init__(url)
 
     def count(self, flt):
         return self.db.execute(
