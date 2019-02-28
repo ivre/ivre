@@ -2922,10 +2922,18 @@ which `predicate()` is True, given `webflt`.
         self.check_view_count_value(
             "view_count_ja3_client_raw",
             ivre.db.db.view.searchja3client(
-                value_or_hash=ja3_raw
+                value_or_hash=ja3_raw,
             ),
             ["--ssl-ja3-client", ja3_raw],
             "ssl-ja3-client:%s" % ja3_raw,
+        )
+        self.check_view_count_value(
+            "view_count_ja3_client_raw",
+            ivre.db.db.view.searchja3client(
+                value_or_hash=re.compile('^%s$' % ja3_raw),
+            ),
+            ["--ssl-ja3-client", '/^%s$/' % ja3_raw],
+            "ssl-ja3-client:/^%s$/" % ja3_raw,
         )
         ja3 = "fd2273056f386e0ba8004e897c337037"
         self.check_view_count_value(

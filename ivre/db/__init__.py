@@ -1214,15 +1214,19 @@ class DBView(DBActive):
     def parse_args(self, args, flt=None):
         flt = super(DBView, self).parse_args(args, flt=flt)
         if args.ssl_ja3_client is not None:
+            cli = args.ssl_ja3_client
             flt = self.flt_and(flt, self.searchja3client(
-                value_or_hash=args.ssl_ja3_client
+                value_or_hash=(
+                    False if cli is False else utils.str2regexp(cli)
+                )
             ))
         if args.ssl_ja3_server is not None:
             if args.ssl_ja3_server is False:
                 # There are no additional arguments
                 flt = self.flt_and(flt, self.searchja3server())
             else:
-                split = args.ssl_ja3_server.split(':', 1)
+                split = [utils.str2regexp(v) if v else None
+                         for v in args.ssl_ja3_server.split(':', 1)]
                 if len(split) == 1:
                     # Only a JA3 server is given
                     flt = self.flt_and(flt, self.searchja3server(
@@ -1394,6 +1398,8 @@ class DBView(DBActive):
     def ja3keyvalue(value_or_hash):
         """Returns the key and the value to search for according
         to the nature of the given argument for ja3 filtering"""
+        if isinstance(value_or_hash, utils.REGEXP_T):
+            return ('raw', value_or_hash)
         if utils.HEX.search(value_or_hash):
             key = {32: 'md5', 40: 'sha1',
                    64: 'sha256'}.get(len(value_or_hash), 'raw')

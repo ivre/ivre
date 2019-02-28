@@ -472,7 +472,8 @@ def flt_from_query(query, base_flt=None):
             flt = db.view.flt_and(flt, db.view.searchxp445())
         elif param == "ssl-ja3-client":
             flt = db.view.flt_and(flt, db.view.searchja3client(
-                value_or_hash=value,
+                value_or_hash=(None if value is None else
+                               utils.str2regexp(value)),
                 neg=neg
             ))
         elif param == "ssl-ja3-server":
@@ -480,11 +481,12 @@ def flt_from_query(query, base_flt=None):
                 # There are no additional arguments
                 flt = db.view.flt_and(flt, db.view.searchja3server(neg=neg))
             else:
-                split = value.split(':', 1)
+                split = [utils.str2regexp(v) if v else None
+                         for v in value.split(':', 1)]
                 if len(split) == 1:
                     # Only a JA3 server is given
                     flt = db.view.flt_and(flt, db.view.searchja3server(
-                        value_or_hash=split[0],
+                        value_or_hash=(split[0]),
                         neg=neg,
                     ))
                 else:
