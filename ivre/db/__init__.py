@@ -1214,25 +1214,29 @@ class DBView(DBActive):
     def parse_args(self, args, flt=None):
         flt = super(DBView, self).parse_args(args, flt=flt)
         if args.ssl_ja3_client is not None:
+            cli = args.ssl_ja3_client
             flt = self.flt_and(flt, self.searchja3client(
-                value_or_hash=args.ssl_ja3_client
+                value_or_hash=(
+                    False if cli is False else utils.str2regexp(cli)
+                )
             ))
         if args.ssl_ja3_server is not None:
             if args.ssl_ja3_server is False:
                 # There are no additional arguments
                 flt = self.flt_and(flt, self.searchja3server())
             else:
-                splitted = args.ssl_ja3_server.split(':', 1)
-                if len(splitted) == 1:
+                split = [utils.str2regexp(v) if v else None
+                         for v in args.ssl_ja3_server.split(':', 1)]
+                if len(split) == 1:
                     # Only a JA3 server is given
                     flt = self.flt_and(flt, self.searchja3server(
-                        value_or_hash_srv=splitted[0]
+                        value_or_hash=split[0]
                     ))
                 else:
                     # Both client and server JA3 are given
                     flt = self.flt_and(flt, self.searchja3server(
-                        value_or_hash_srv=splitted[0],
-                        value_or_hash_clt=splitted[1]
+                        value_or_hash=split[0],
+                        client_value_or_hash=split[1],
                     ))
         return flt
 
@@ -1394,6 +1398,8 @@ class DBView(DBActive):
     def ja3keyvalue(value_or_hash):
         """Returns the key and the value to search for according
         to the nature of the given argument for ja3 filtering"""
+        if isinstance(value_or_hash, utils.REGEXP_T):
+            return ('raw', value_or_hash)
         if utils.HEX.search(value_or_hash):
             key = {32: 'md5', 40: 'sha1',
                    64: 'sha256'}.get(len(value_or_hash), 'raw')
@@ -1418,20 +1424,21 @@ class DBView(DBActive):
         return cls._searchja3(value_or_hash, 'ssl-ja3-client', neg=neg)
 
     @classmethod
-    def searchja3server(cls, value_or_hash_srv=None,
-                        value_or_hash_clt=None, neg=False):
+    def searchja3server(cls, value_or_hash=None, client_value_or_hash=None,
+                        neg=False):
         script_id = 'ssl-ja3-server'
-        if not value_or_hash_clt:
-            return cls._searchja3(value_or_hash_srv, script_id, neg=neg)
-        key_client, value_client = cls.ja3keyvalue(value_or_hash_clt)
+        if not client_value_or_hash:
+            return cls._searchja3(value_or_hash, script_id, neg=neg)
+        key_client, value_client = cls.ja3keyvalue(client_value_or_hash)
         values = {'client.%s' % (key_client): value_client}
-        if value_or_hash_srv:
-            key_srv, value_srv = cls.ja3keyvalue(value_or_hash_srv)
+        if value_or_hash:
+            key_srv, value_srv = cls.ja3keyvalue(value_or_hash)
             values[key_srv] = value_srv
         return cls.searchscript(
             name=script_id,
             values=values,
-            neg=neg)
+            neg=neg,
+        )
 
 
 class _RecInfo(object):
