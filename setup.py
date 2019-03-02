@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 
 Standard setup.py file. Run
 
@@ -27,13 +27,13 @@ $ python setup.py build
 """
 
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 from distutils.command.install_data import install_data
-from distutils.command.install_lib import install_lib
+from setuptools.command.install_lib import install_lib
 import os
 
 
-VERSION = __import__('ivre').VERSION
+VERSION = __import__('ivre').__version__
 
 
 class smart_install_data(install_data):
@@ -113,12 +113,14 @@ specialized scripts.
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Security",
         "Topic :: System :: Networking",
         "Topic :: System :: Networking :: Monitoring",
         "Topic :: System :: Software Distribution",
     ],
+    python_requires='>=2.6, !=3.0.*, !=3.1.*, !=3.2.*, <4',
     install_requires=[
         'pycrypto',
         'pymongo>=2.7.2',
@@ -134,9 +136,12 @@ specialized scripts.
         '3D traceroute graphs': ["dbus-python"],
         'Plots': ["matplotlib"],
     },
-    packages=['ivre', 'ivre/analyzer', 'ivre/db', 'ivre/parser', 'ivre/tools',
-              'ivre/web', 'ivre/db/sql'],
-    scripts=['bin/ivre'],
+    packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'ivre = ivre.tools.__main__:main'
+        ],
+    },
     data_files=[
         ('share/ivre/bro',
          ['bro/passiverecon2db-ignore.example']),
