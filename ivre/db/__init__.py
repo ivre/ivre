@@ -1210,6 +1210,13 @@ class DBView(DBActive):
                                     nargs='?',
                                     const=False,
                                     default=None)
+        self.argparser.add_argument('--http-user-agent',
+                                    metavar='USER-AGENT',
+                                    nargs='?',
+                                    const=False,
+                                    default=None,
+                                    help="USER-AGENT can be an exact "
+                                    "string or a regexp")
 
     def parse_args(self, args, flt=None):
         flt = super(DBView, self).parse_args(args, flt=flt)
@@ -1238,37 +1245,73 @@ class DBView(DBActive):
                         value_or_hash=split[0],
                         client_value_or_hash=split[1],
                     ))
+        if args.http_user_agent is not None:
+            ua = args.http_user_agent
+            flt = self.flt_and(flt, self.searchscript(
+                name='http-user-agent',
+                output=(utils.str2regexp(ua) if ua else None)))
         return flt
 
     @staticmethod
     def merge_ja3_scripts(curscript, script, script_id):
-        """Merge two ja3 scripts and return the result. Avoid duplicates.
+
+        def is_server(script_id):
+            return script_id == 'ssl-ja3-server'
+
+        def ja3_equals(a, b, script_id):
+            return (a['raw'] == b['raw'] and
+                    (not is_server(script_id) or
+                     a['client']['raw'] == b['client']['raw']))
+
+        def ja3_output(ja3, script_id):
+            output = ja3['md5']
+            if is_server(script_id):
+                output += ' - ' + ja3['client']['md5']
+            return output
+        return DBView._merge_scripts(curscript, script, script_id,
+                                     ja3_equals, ja3_output)
+
+    @staticmethod
+    def merge_ua_scripts(curscript, script, script_id):
+
+        def ua_equals(a, b, script_id):
+            return a == b
+
+        def ua_output(ua, script_id):
+            return ua
+
+        return DBView._merge_scripts(curscript, script, script_id,
+                                     ua_equals, ua_output)
+
+    @staticmethod
+    def _merge_scripts(curscript, script, script_id,
+                       script_equals, script_output):
+        """Merge two scripts and return the result. Avoid duplicates.
         """
-        is_server = script_id == 'ssl-ja3-server'
-        # Merge script[script_id] and curscript[script_id] lists
-        # <x>[script_id] contains ja3 data for the <x> script
-        to_merge_ja3_list = []
-        for to_add_ja3 in script[script_id]:
+        to_merge_list = []
+        for to_add in script[script_id]:
             to_merge = True
-            for cur_ja3 in curscript[script_id]:
-                if (to_add_ja3['raw'] == cur_ja3['raw'] and
-                    (not is_server or
-                     to_add_ja3['client']['raw'] == cur_ja3['client']['raw'])):
+            for cur in curscript[script_id]:
+                if script_equals(to_add, cur, script_id):
                     to_merge = False
                     break
             if to_merge:
-                to_merge_ja3_list.append(to_add_ja3)
-        curscript[script_id].extend(to_merge_ja3_list)
+                to_merge_list.append(to_add)
+        curscript[script_id].extend(to_merge_list)
         # Compute output from curscript[script_id]
         output = ""
-        for ja3 in curscript[script_id]:
-            output += ja3['md5']
-            if is_server:
-                output += ' - ' + ja3['client']['md5']
-
-            output += '\n'
+        for el in curscript[script_id]:
+            output += script_output(el, script_id) + '\n'
         curscript['output'] = output
         return curscript
+
+    @staticmethod
+    def merge_scripts(curscript, script, script_id):
+        if script_id.startswith('ssl-ja3-'):
+            return DBView.merge_ja3_scripts(curscript, script, script_id)
+        elif script_id == 'http-user-agent':
+            return DBView.merge_ua_scripts(curscript, script, script_id)
+        return {}
 
     @staticmethod
     def merge_host_docs(rec1, rec2):
@@ -1332,13 +1375,13 @@ class DBView(DBActive):
                 for script in port.get("scripts", []):
                     if script['id'] not in present_scripts:
                         curport['scripts'].append(script)
-                    elif (script['id'] == 'ssl-ja3-server' or
-                          script['id'] == 'ssl-ja3-client'):
-                        # Merge ja3 fingerprints
-                        DBView.merge_ja3_scripts(
-                            next(x for x in curport['scripts']
-                                 if x['id'] == script['id']),
-                            script, script['id'])
+                    elif (script['id'] in ['ssl-ja3-server',
+                                           'ssl-ja3-client',
+                                           'http-user-agent']):
+                        # Merge scripts
+                        curscript = next(x for x in curport['scripts']
+                                         if x['id'] == script['id'])
+                        DBView.merge_scripts(curscript, script, script['id'])
                 if not curport['scripts']:
                     del curport['scripts']
                 if 'service_name' in port and 'service_name' not in curport:

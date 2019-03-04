@@ -312,7 +312,7 @@ def str2regexp(string):
 
     """
     if string.startswith('/'):
-        string = string.split('/', 2)[1:]
+        string = string[1:].rsplit('/', 1)
         if len(string) == 1:
             string.append('')
         string = re.compile(
