@@ -75,6 +75,10 @@ def sqlite_engine_connect(dbapi_connection, connection_record):
     dbapi_connection.create_function('IREGEXP', 2, iregexp)
 
     def access(d, k):
+        if k.startswith('$.'):
+            # With sqlalchemy >= 1.3.0, this seems to be
+            # necessary. Please help me if you can.
+            k = json.loads(k[2:])
         return json.dumps(json.loads(d).get(k), sort_keys=True)
 
     dbapi_connection.create_function('ACCESS', 2, access)
