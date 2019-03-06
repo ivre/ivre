@@ -91,6 +91,8 @@ class DB(object):
         self.argparser.add_argument('--port', metavar='PORT')
         self.argparser.add_argument('--service', metavar='SVC')
         self.argparser.add_argument('--svchostname', metavar='HOSTNAME')
+        self.argparser.add_argument('--useragent', metavar='USER-AGENT',
+                                    nargs='?', const=False)
 
     def parse_args(self, args, flt=None):
         if flt is None:
@@ -129,6 +131,16 @@ class DB(object):
                 flt,
                 self.searchsvchostname(utils.str2regexp(args.svchostname))
             )
+        if args.useragent is not None:
+            if args.useragent is False:
+                flt = self.flt_and(flt, self.searchuseragent())
+            else:
+                flt = self.flt_and(
+                    flt,
+                    self.searchuseragent(
+                        useragent=utils.str2regexp(args.useragent)
+                    ),
+                )
         return flt
 
     @staticmethod
@@ -263,10 +275,12 @@ class DB(object):
 
     def searchjavaua(self):
         """Finds Java User-Agent."""
-        return self.searchuseragent(re.compile('(^| )(Java|javaws)/', flags=0))
+        return self.searchuseragent(
+            useragent=re.compile('(^| )(Java|javaws)/', flags=0),
+        )
 
     @staticmethod
-    def searchuseragent(useragent):
+    def searchuseragent(useragent=None, neg=False):
         """Finds specified User-Agent(s)."""
         raise NotImplementedError
 
@@ -914,6 +928,16 @@ they are stored as canonical string representations.
             args['forest_dns'] = args.pop('forest')
         return cls.searchscript(name='smb-os-discovery', values=args)
 
+    @classmethod
+    def searchuseragent(cls, useragent=None, neg=False):
+        if useragent is None:
+            return cls.searchscript(name="http-user-agent", neg=neg)
+        return cls.searchscript(
+            name="http-user-agent",
+            values=useragent,
+            neg=neg
+        )
+
     def parse_args(self, args, flt=None):
         flt = super(DBActive, self).parse_args(args, flt=flt)
         if args.category is not None:
@@ -1210,13 +1234,6 @@ class DBView(DBActive):
                                     nargs='?',
                                     const=False,
                                     default=None)
-        self.argparser.add_argument('--http-user-agent',
-                                    metavar='USER-AGENT',
-                                    nargs='?',
-                                    const=False,
-                                    default=None,
-                                    help="USER-AGENT can be an exact "
-                                    "string or a regexp")
 
     def parse_args(self, args, flt=None):
         flt = super(DBView, self).parse_args(args, flt=flt)
@@ -1245,11 +1262,6 @@ class DBView(DBActive):
                         value_or_hash=split[0],
                         client_value_or_hash=split[1],
                     ))
-        if args.http_user_agent is not None:
-            ua = args.http_user_agent
-            flt = self.flt_and(flt, self.searchscript(
-                name='http-user-agent',
-                output=(utils.str2regexp(ua) if ua else None)))
         return flt
 
     @staticmethod
@@ -1523,7 +1535,6 @@ class DBPassive(DB):
         self.argparser.add_argument('--basicauth', action='store_true')
         self.argparser.add_argument('--auth', action='store_true')
         self.argparser.add_argument('--java', action='store_true')
-        self.argparser.add_argument('--ua')
         self.argparser.add_argument('--ftp', action='store_true')
         self.argparser.add_argument('--pop', action='store_true')
         self.argparser.add_argument('--timeago', type=int)
@@ -1542,11 +1553,6 @@ class DBPassive(DB):
             flt = self.flt_and(flt, self.searchbasicauth())
         if args.auth:
             flt = self.flt_and(flt, self.searchhttpauth())
-        if args.ua is not None:
-            flt = self.flt_and(
-                flt,
-                self.searchuseragent(utils.str2regexp(args.ua))
-            )
         if args.java:
             flt = self.flt_and(
                 flt,

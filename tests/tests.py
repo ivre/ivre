@@ -2676,6 +2676,8 @@ which `predicate()` is True, given `webflt`.
         self.check_view_top_value("view_http_top_header", "httphdr.name")
         self.check_view_top_value("view_http_top_header_value",
                                   "httphdr.value")
+        self.check_view_top_value("view_http_top_ua", "useragent")
+        self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
         self.check_view_top_value("view_top_isotsap_product",
@@ -2972,22 +2974,18 @@ which `predicate()` is True, given `webflt`.
         )
         self.check_view_count_value(
             "view_count_http_user_agent",
-            ivre.db.db.view.searchscript(name='http-user-agent'),
-            ["--http-user-agent"],
-            "http-user-agent",
+            ivre.db.db.view.searchuseragent(),
+            ["--useragent"],
+            "useragent",
         )
-        ret, out, err = RUN(["ivre", "view", "--host", "10.251.23.139"])
-        self.assertEqual(ret, 0)
-        self.assertTrue(not err)
-        self.assertTrue("http-user-agent" in out.decode())
         regexp = '/URL/7.3/i'
         self.check_view_count_value(
             "view_count_http_user_agent_URL_7_3",
-            ivre.db.db.view.searchscript(
-                name='http-user-agent',
-                output=ivre.utils.str2regexp(regexp)),
-            ["--http-user-agent", regexp],
-            "http-user-agent:%s" % regexp,
+            ivre.db.db.view.searchuseragent(
+                useragent=ivre.utils.str2regexp(regexp)
+            ),
+            ["--useragent", regexp],
+            "useragent:%s" % regexp,
         )
 
     def test_conf(self):
