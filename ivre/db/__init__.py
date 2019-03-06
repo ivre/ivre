@@ -263,10 +263,12 @@ class DB(object):
 
     def searchjavaua(self):
         """Finds Java User-Agent."""
-        return self.searchuseragent(re.compile('(^| )(Java|javaws)/', flags=0))
+        return self.searchuseragent(
+            useragent=re.compile('(^| )(Java|javaws)/', flags=0),
+        )
 
     @staticmethod
-    def searchuseragent(useragent):
+    def searchuseragent(useragent=None):
         """Finds specified User-Agent(s)."""
         raise NotImplementedError
 
@@ -1247,9 +1249,13 @@ class DBView(DBActive):
                     ))
         if args.http_user_agent is not None:
             ua = args.http_user_agent
-            flt = self.flt_and(flt, self.searchscript(
-                name='http-user-agent',
-                output=(utils.str2regexp(ua) if ua else None)))
+            if ua:
+                flt = self.flt_and(
+                    flt,
+                    self.searchuseragent(useragent=utils.str2regexp(ua)),
+                )
+            else:
+                flt = self.flt_and(flt, self.searchuseragent())
         return flt
 
     @staticmethod
@@ -1456,6 +1462,16 @@ class DBView(DBActive):
         return (key, value_or_hash)
 
     @classmethod
+    def searchuseragent(cls, useragent=None, neg=False):
+        if useragent is None:
+            return cls.searchscript(name="http-user-agent", neg=neg)
+        return cls.searchscript(
+            name="http-user-agent",
+            values=useragent,
+            neg=neg
+        )
+
+    @classmethod
     def _searchja3(cls, value_or_hash, script_id, neg):
         if not value_or_hash:
             return cls.searchscript(name=script_id, neg=neg)
@@ -1545,7 +1561,7 @@ class DBPassive(DB):
         if args.ua is not None:
             flt = self.flt_and(
                 flt,
-                self.searchuseragent(utils.str2regexp(args.ua))
+                self.searchuseragent(useragent=utils.str2regexp(args.ua))
             )
         if args.java:
             flt = self.flt_and(

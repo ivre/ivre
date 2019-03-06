@@ -1765,9 +1765,12 @@ it is not expected)."""
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            for field, value in viewitems(values):
-                req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
-                               field)] = value
+            if isinstance(values, (basestring, utils.REGEXP_T)):
+                req[xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)] = values
+            else:
+                for field, value in viewitems(values):
+                    req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
+                                   field)] = value
         if not req:
             return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
@@ -3800,7 +3803,12 @@ setting values according to the keyword arguments.
         return {'infos.service_hostname': hostname}
 
     @staticmethod
-    def searchuseragent(useragent):
+    def searchuseragent(useragent=None):
+        if useragent is None:
+            return {
+                'recontype': 'HTTP_CLIENT_HEADER',
+                'source': 'USER-AGENT',
+            }
         return {
             'recontype': 'HTTP_CLIENT_HEADER',
             'source': 'USER-AGENT',

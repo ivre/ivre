@@ -691,6 +691,7 @@ class ViewFilter(ActiveFilter):
 class SQLDBActive(SQLDB, DBActive):
     _needunwind_script = set([
         "http-headers",
+        "http-user-agent",
         "ssh-hostkey",
         "ssl-ja3-client",
         "ssl-ja3-server"
@@ -700,7 +701,7 @@ class SQLDBActive(SQLDB, DBActive):
     def needunwind_script(cls, key):
         key = key.split('.')
         for i in range(len(key)):
-            subkey = '.'.join(key[:i])
+            subkey = '.'.join(key[:i + 1])
             if subkey in cls._needunwind_script:
                 yield subkey
 
@@ -1242,16 +1243,23 @@ the way IP addresses are stored.
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             basekey = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
-            needunwind = sorted(set(
-                unwind
-                for subkey in values
-                for unwind in cls.needunwind_script("%s.%s" % (basekey,
-                                                               subkey))
-            ))
+            if isinstance(values, (basestring, utils.REGEXP_T)):
+                needunwind = sorted(set(cls.needunwind_script(basekey)))
+            else:
+                needunwind = sorted(set(
+                    unwind
+                    for subkey in values
+                    for unwind in cls.needunwind_script(
+                        "%s.%s" % (basekey, subkey),
+                    )
+                ))
 
             def _find_subkey(key):
                 lastmatch = None
-                key = key.split('.')
+                if key is None:
+                    key = []
+                else:
+                    key = key.split('.')
                 for subkey in needunwind:
                     subkey = subkey.split('.')[1:]
                     if len(key) < len(subkey):
@@ -1269,7 +1277,13 @@ the way IP addresses are stored.
                 while key:
                     result = {key.pop(): result}
                 return result
-            for key, value in viewitems(values):
+
+            if isinstance(values, (basestring, utils.REGEXP_T)):
+                kv_generator = [(None, values)]
+            else:
+                kv_generator = viewitems(values)
+
+            for key, value in kv_generator:
                 subkey = _find_subkey(key)
                 if subkey is None:
                     if isinstance(value, utils.REGEXP_T):
@@ -1291,12 +1305,15 @@ the way IP addresses are stored.
                             ),
                         )
                 elif subkey[1] is None:
-                    # XXX TEST THIS
                     req = and_(
                         req,
-                        column(
-                            subkey[0].replace(".", "_").replace('-', '_')
-                        ) == value,
+                        cls._searchstring_re(
+                            column(
+                                subkey[0].replace(".", "_").replace('-', '_')
+                            ).op('->>')(0),
+                            value,
+                            neg=False
+                        )
                     )
                 elif '.' in subkey[1]:
                     firstpart, tail = subkey[1].split('.', 1)
@@ -2008,7 +2025,12 @@ passive table."""
         ))
 
     @classmethod
-    def searchuseragent(cls, useragent):
+    def searchuseragent(cls, useragent=None):
+        if useragent is None:
+            return PassiveFilter(main=(
+                (cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER') &
+                (cls.tables.passive.source == 'USER-AGENT')
+            ))
         return PassiveFilter(main=(
             (cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER') &
             (cls.tables.passive.source == 'USER-AGENT') &

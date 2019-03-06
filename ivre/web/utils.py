@@ -497,10 +497,12 @@ def flt_from_query(query, base_flt=None):
                         neg=neg,
                     ))
         elif param == "http-user-agent":
-            flt = db.view.flt_and(flt, db.view.searchscript(
-                name=param,
-                output=(utils.str2regexp(value) if value else None),
-                neg=neg))
+            if value:
+                flt = db.view.flt_and(flt, db.view.searchuseragent(
+                    useragent=utils.str2regexp(value)
+                ))
+            else:
+                flt = db.view.flt_and(flt, db.view.searchuseragent())
         # OS fingerprint
         elif not neg and param == "os":
             flt = db.view.flt_and(
