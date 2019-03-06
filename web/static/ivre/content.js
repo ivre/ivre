@@ -306,8 +306,8 @@ var HELP_FILTERS = {
 	    "title": "(!)ssl-ja3-server<b>[:[JA3S][:JA3]]</b>",
 	    "content": "Look for hosts with a JA3S, with the given JA3S, with a JA3S corresponding to the given JA3 or with the given JA3S corresponding to the given JA3",
 	},
-	"http-user-agent": {
-	    "title": "(!)http-user-agent<b>[:[string or regexp]]</b>",
+	"useragent": {
+	    "title": "(!)useragent<b>[:[string or regexp]]</b>",
 	    "content": "Look for hosts using a User-Agent matching the argument."
 	},
 	/* OS fingerprint */

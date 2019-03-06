@@ -2025,7 +2025,10 @@ passive table."""
         ))
 
     @classmethod
-    def searchuseragent(cls, useragent=None):
+    def searchuseragent(cls, useragent=None, neg=False):
+        if neg:
+            raise ValueError("searchuseragent([...], neg=True) is not "
+                             "supported in passive DB.")
         if useragent is None:
             return PassiveFilter(main=(
                 (cls.tables.passive.recontype == 'HTTP_CLIENT_HEADER') &

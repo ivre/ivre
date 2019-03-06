@@ -3803,7 +3803,10 @@ setting values according to the keyword arguments.
         return {'infos.service_hostname': hostname}
 
     @staticmethod
-    def searchuseragent(useragent=None):
+    def searchuseragent(useragent=None, neg=False):
+        if neg:
+            raise ValueError("searchuseragent([...], neg=True) is not "
+                             "supported in passive DB.")
         if useragent is None:
             return {
                 'recontype': 'HTTP_CLIENT_HEADER',

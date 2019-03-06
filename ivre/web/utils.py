@@ -496,7 +496,7 @@ def flt_from_query(query, base_flt=None):
                         client_value_or_hash=split[1],
                         neg=neg,
                     ))
-        elif param == "http-user-agent":
+        elif param == "useragent":
             if value:
                 flt = db.view.flt_and(flt, db.view.searchuseragent(
                     useragent=utils.str2regexp(value)
