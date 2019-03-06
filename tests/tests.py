@@ -43,8 +43,10 @@ import tempfile
 import time
 try:
     from urllib.request import HTTPError, Request, urlopen
+    from urllib.parse import quote
 except ImportError:
     from urllib2 import HTTPError, Request, urlopen
+    from urllib import quote
 
 
 from future.builtins import int as int_types, range
@@ -395,7 +397,7 @@ class IvreTests(unittest.TestCase):
 
     def _check_top_value_cgi(self, name, field, count=10, **kwargs):
         req = Request('http://%s:%d/cgi/scans/top/%s:%d' % (
-            HTTPD_HOSTNAME, HTTPD_PORT, field, count
+            HTTPD_HOSTNAME, HTTPD_PORT, quote(field), count
         ))
         req.add_header('Referer',
                        'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
@@ -1155,7 +1157,7 @@ which `predicate()` is True, given `webflt`.
         self._check_top_value_cli("nmap_top_version_http", "version:http",
                                   command="scancli")
         self._check_top_value_cli("nmap_top_version_http_apache",
-                                  "version:http:Apache",
+                                  "version:http:Apache httpd",
                                   command="scancli")
         categories = ivre.db.db.nmap.topvalues("category")
         category = next(categories)
@@ -2698,7 +2700,7 @@ which `predicate()` is True, given `webflt`.
         self.check_view_top_value("view_top_version", "version")
         self.check_view_top_value("view_top_version_http", "version:http")
         self.check_view_top_value("view_top_version_http_apache",
-                                  "version:http:Apache")
+                                  "version:http:Apache httpd")
         categories = ivre.db.db.view.topvalues("category")
         category = next(categories)
         self.assertEqual(category["_id"], "TEST")
