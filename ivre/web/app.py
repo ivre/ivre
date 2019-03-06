@@ -269,7 +269,7 @@ def get_nmap_count():
     return "%s(%d);\n" % (flt_params.callback, count)
 
 
-@application.get('/scans/top/<field>')
+@application.get('/scans/top/<field:path>')
 @check_referer
 def get_nmap_top(field):
     flt_params = get_nmap_base()

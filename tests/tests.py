@@ -2676,6 +2676,8 @@ which `predicate()` is True, given `webflt`.
         self.check_view_top_value("view_http_top_header", "httphdr.name")
         self.check_view_top_value("view_http_top_header_value",
                                   "httphdr.value")
+        self.check_view_top_value("view_http_top_ua", "useragent")
+        self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
         self.check_view_top_value("view_top_isotsap_product",

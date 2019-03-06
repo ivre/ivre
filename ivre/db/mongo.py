@@ -659,26 +659,35 @@ want to do something special here, e.g., mix with other records.
 class MongoDBActive(MongoDB, DBActive):
 
     ipaddr_fields = ["addr", "traces.hops.ipaddr", "state_reason_ip"]
-    needunwind = ["categories", "ports", "ports.scripts",
-                  "ports.scripts.ssh-hostkey",
-                  "ports.scripts.smb-enum-shares.shares",
-                  "ports.scripts.ls.volumes",
-                  "ports.scripts.ls.volumes.files",
-                  "ports.scripts.mongodb-databases.databases",
-                  "ports.scripts.mongodb-databases.databases.shards",
-                  "ports.scripts.ike-info.transforms",
-                  "ports.scripts.ike-info.vendor_ids",
-                  "ports.scripts.vulns",
-                  "ports.scripts.vulns.check_results",
-                  "ports.scripts.vulns.description",
-                  "ports.scripts.vulns.extra_info",
-                  "ports.scripts.vulns.ids",
-                  "ports.scripts.vulns.refs",
-                  "ports.scripts.http-headers",
-                  "ports.screenwords",
-                  "traces", "traces.hops",
-                  "os.osmatch", "os.osclass", "hostnames",
-                  "hostnames.domains", "cpes"]
+    needunwind = [
+        "categories",
+        "cpes",
+        "os.osclass",
+        "os.osmatch",
+        "ports",
+        "ports.screenwords",
+        "ports.scripts",
+        "ports.scripts.http-headers",
+        "ports.scripts.http-user-agent",
+        "ports.scripts.ike-info.transforms",
+        "ports.scripts.ike-info.vendor_ids",
+        "ports.scripts.ls.volumes",
+        "ports.scripts.ls.volumes.files",
+        "ports.scripts.mongodb-databases.databases",
+        "ports.scripts.mongodb-databases.databases.shards",
+        "ports.scripts.smb-enum-shares.shares",
+        "ports.scripts.ssh-hostkey",
+        "ports.scripts.vulns",
+        "ports.scripts.vulns.check_results",
+        "ports.scripts.vulns.description",
+        "ports.scripts.vulns.extra_info",
+        "ports.scripts.vulns.ids",
+        "ports.scripts.vulns.refs",
+        "traces",
+        "traces.hops",
+        "hostnames",
+        "hostnames.domains",
+    ]
     column_hosts = 0
     indexes = [
         # hosts
@@ -2687,6 +2696,17 @@ it is not expected)."""
         elif field.startswith('cert.'):
             subfield = field[5:]
             field = 'ports.scripts.ssl-cert.' + subfield
+        elif field == 'useragent' or field.startswith('useragent:'):
+            if field == 'useragent':
+                flt = self.flt_and(flt, self.searchuseragent())
+            else:
+                subfield = utils.str2regexp(field[10:])
+                flt = self.flt_and(flt,
+                                   self.searchuseragent(useragent=subfield))
+                specialflt = [
+                    {"$match": {'ports.scripts.http-user-agent': subfield}},
+                ]
+            field = "ports.scripts.http-user-agent"
         elif field == 'sshkey.bits':
             flt = self.flt_and(flt, self.searchsshkey())
             specialproj = {"ports.scripts.ssh-hostkey.type": 1,

@@ -595,6 +595,35 @@ insert structures.
                 and_(self.tables.script.name == 'ssl-cert',
                      self.tables.script.data['ssl-cert'].has_key(subfield))
             )  # noqa: W601 (BinaryExpression)
+        elif field == 'useragent' or field.startswith('useragent:'):
+            if field == 'useragent':
+                flt = self.flt_and(flt, self.searchuseragent())
+                field = self._topstructure(
+                    self.tables.script,
+                    [column('http_user_agent')],
+                    self.tables.script.name == 'http-user-agent',
+                    None,
+                    func.jsonb_array_elements(
+                        self.tables.script.data['http-user-agent'],
+                    ).alias('http_user_agent')
+                )  # noqa: W601 (BinaryExpression)
+            else:
+                subfield = utils.str2regexp(field[10:])
+                flt = self.flt_and(flt,
+                                   self.searchuseragent(useragent=subfield))
+                field = self._topstructure(
+                    self.tables.script,
+                    [column('http_user_agent')],
+                    and_(self.tables.script.name == 'http-user-agent',
+                         self._searchstring_re(
+                             column('http_user_agent').op('->>')(0),
+                             subfield,
+                         )),
+                    None,
+                    func.jsonb_array_elements(
+                        self.tables.script.data['http-user-agent'],
+                    ).alias('http_user_agent')
+                )  # noqa: W601 (BinaryExpression)
         elif field == "source":
             field = self._topstructure(self.tables.scan,
                                        [self.tables.scan.source])
