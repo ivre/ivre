@@ -78,8 +78,9 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
         return {}
     return {'ports': [{
         'port': -1,
-        'scripts': [{'id': 'passive-http-user-agent',
-                     'output': rec['value']}],
+        'scripts': [{'id': 'http-user-agent',
+                     'output': rec['value'],
+                     'http-user-agent': [rec['value']]}],
     }]}
 
 

@@ -125,6 +125,7 @@ If your command includes spaces, you need to protect it by using single or doubl
   * ''%%xp445%%'' look for Windows XP machines with TCP/445 port open.
   * ''%%[!]ssl-ja3-client[:JA3]%%'' look for hosts with a JA3 or with the given JA3.
   * ''%%[!]ssl-ja3-server[:[JA3S][:JA3]]%%'' look for hosts with a JA3S, with the given JA3S, with a JA3S corresponding to the given JA3 or with the given JA3S corresponding to the given JA3.
+  * ''%%[!]http-user-agent[:[string or regexp]]%%'' look for hosts using a User-Agent matching the argument.
   * ''%%os:%%'' look for a specific value in the OS discovery results.
   * ''%%devtype:%%'', ''%%devicetype:%%'' look for a type of devices.
   * ''%%netdev%%'', ''%%networkdevice%%'' look for network devices (firewalls, routers, ...).
