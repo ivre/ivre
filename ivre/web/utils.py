@@ -133,6 +133,7 @@ def query_from_params(params):
     except KeyError:
         return []
     try:
+        query = query.replace('\\', '\\\\')
         return [
             [neg] + pval.split(':', 1) if ':' in pval
             else [neg, pval, None]

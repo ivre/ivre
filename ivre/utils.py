@@ -305,20 +305,49 @@ def get_domains(name):
     return ('.'.join(name[i:]) for i in range(len(name)))
 
 
+def _espace_slash(string):
+    """This function transforms '\\/' in '/' but leaves '\\\\/' unchanged. This
+    is useful to parse regexp from Javascript style (/regexp/).
+
+    """
+    escaping = False
+    new_string = ""
+    for char in string:
+        if not escaping and char == '\\':
+            escaping = True
+        elif escaping and char != '/':
+            new_string += '\\' + char
+            escaping = False
+        else:
+            new_string += char
+            escaping = False
+    return new_string
+
+
+def _escape_first_slash(string):
+    """This function removes the first '\\' if the string starts with '\\/'."""
+    if string.startswith('\\/'):
+        string = string[1:]
+    return string
+
+
 def str2regexp(string):
     """This function takes a string and returns either this string or
     a python regexp object, when the string is using the syntax
     /regexp[/flags].
-
     """
     if string.startswith('/'):
         string = string[1:].rsplit('/', 1)
+        # Enable slash-escape even if it is not necessary
+        string[0] = _espace_slash(string[0])
         if len(string) == 1:
             string.append('')
         string = re.compile(
             string[0],
             sum(getattr(re, f.upper()) for f in string[1])
         )
+    else:
+        string = _escape_first_slash(string)
     return string
 
 
