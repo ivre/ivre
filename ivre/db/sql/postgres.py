@@ -624,6 +624,43 @@ insert structures.
                         self.tables.script.data['http-user-agent'],
                     ).alias('http_user_agent')
                 )  # noqa: W601 (BinaryExpression)
+        elif field == 'ja3-client' or (
+                field.startswith('ja3-client') and field[10] in ':.'
+        ):
+            if ':' in field:
+                field, value = field.split(':', 1)
+                subkey, value = self.ja3keyvalue(utils.str2regexp(value))
+            else:
+                value = None
+            if '.' in field:
+                field, subfield = field.split('.', 1)
+            else:
+                subfield = 'md5'
+            flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
+            if value is None:
+                field = self._topstructure(
+                    self.tables.script,
+                    [column('ssl_ja3_client').op('->>')(subfield)],
+                    self.tables.script.name == 'ssl-ja3-client',
+                    None,
+                    func.jsonb_array_elements(
+                        self.tables.script.data['ssl-ja3-client'],
+                    ).alias('ssl_ja3_client')
+                )  # noqa: W601 (BinaryExpression)
+            else:
+                field = self._topstructure(
+                    self.tables.script,
+                    [column('ssl_ja3_client').op('->>')(subfield)],
+                    and_(self.tables.script.name == 'ssl-ja3-client',
+                         self._searchstring_re(
+                             column('ssl_ja3_client').op('->>')(subkey),
+                             value,
+                         )),
+                    None,
+                    func.jsonb_array_elements(
+                        self.tables.script.data['ssl-ja3-client'],
+                    ).alias('ssl_ja3_client')
+                )  # noqa: W601 (BinaryExpression)
         elif field == "source":
             field = self._topstructure(self.tables.scan,
                                        [self.tables.scan.source])
