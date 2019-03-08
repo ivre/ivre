@@ -2680,6 +2680,23 @@ which `predicate()` is True, given `webflt`.
                                   "httphdr.value")
         self.check_view_top_value("view_http_top_ua", "useragent")
         self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
+        self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client")
+        self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client.md5")
+        self.check_view_top_value("view_ssl_top_ja3cli_sha1",
+                                  "ja3-client.sha1")
+        self.check_view_top_value("view_ssl_top_ja3cli_sha256",
+                                  "ja3-client.sha256")
+        self.check_view_top_value("view_ssl_top_ja3cli_raw", "ja3-client.raw")
+        self.check_view_top_value("view_ssl_top_ja3cli_md5_771",
+                                  "ja3-client:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3cli_md5_771",
+                                  "ja3-client.md5:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3cli_sha1_771",
+                                  "ja3-client.sha1:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3cli_sha256_771",
+                                  "ja3-client.sha256:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3cli_raw_771",
+                                  "ja3-client.raw:/^771/")
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
         self.check_view_top_value("view_top_isotsap_product",
