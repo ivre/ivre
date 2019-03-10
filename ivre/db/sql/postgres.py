@@ -661,6 +661,66 @@ insert structures.
                         self.tables.script.data['ssl-ja3-client'],
                     ).alias('ssl_ja3_client')
                 )  # noqa: W601 (BinaryExpression)
+        elif field == 'ja3-server' or (
+                field.startswith('ja3-server') and field[10] in ':.'
+        ):
+            if ':' in field:
+                field, values = field.split(':', 1)
+                if ':' in values:
+                    value1, value2 = values.split(':', 1)
+                    if value1:
+                        subkey1, value1 = self.ja3keyvalue(
+                            utils.str2regexp(value1)
+                        )
+                    else:
+                        subkey1, value1 = None, None
+                    if value2:
+                        subkey2, value2 = self.ja3keyvalue(
+                            utils.str2regexp(value2)
+                        )
+                    else:
+                        subkey2, value2 = None, None
+                else:
+                    subkey1, value1 = self.ja3keyvalue(
+                        utils.str2regexp(values)
+                    )
+                    subkey2, value2 = None, None
+            else:
+                subkey1, value1 = None, None
+                subkey2, value2 = None, None
+            if '.' in field:
+                field, subfield = field.split('.', 1)
+            else:
+                subfield = 'md5'
+            condition = self.tables.script.name == 'ssl-ja3-server'
+            if value1 is not None:
+                condition = and_(
+                    condition,
+                    self._searchstring_re(
+                        column('ssl_ja3_server').op('->>')(subkey1),
+                        value1,
+                    )
+                )
+            if value2 is not None:
+                condition = and_(
+                    condition,
+                    self._searchstring_re(
+                        column('ssl_ja3_server').op('->')('client')
+                        .op('->>')(subkey2),
+                        value2,
+                    )
+                )
+            field = self._topstructure(
+                self.tables.script,
+                [column('ssl_ja3_server').op('->>')(subfield),
+                 column('ssl_ja3_server').op('->')('client')
+                 .op('->>')(subfield)],
+                condition,
+                None,
+                func.jsonb_array_elements(
+                    self.tables.script.data['ssl-ja3-server'],
+                ).alias('ssl_ja3_server')
+            )  # noqa: W601 (BinaryExpression)
         elif field == "source":
             field = self._topstructure(self.tables.scan,
                                        [self.tables.scan.source])

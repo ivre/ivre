@@ -2680,6 +2680,7 @@ which `predicate()` is True, given `webflt`.
                                   "httphdr.value")
         self.check_view_top_value("view_http_top_ua", "useragent")
         self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
+
         self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client")
         self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client.md5")
         self.check_view_top_value("view_ssl_top_ja3cli_sha1",
@@ -2697,6 +2698,45 @@ which `predicate()` is True, given `webflt`.
                                   "ja3-client.sha256:/^771/")
         self.check_view_top_value("view_ssl_top_ja3cli_raw_771",
                                   "ja3-client.raw:/^771/")
+
+        self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server.md5")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha1",
+                                  "ja3-server.sha1")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha256",
+                                  "ja3-server.sha256")
+        self.check_view_top_value("view_ssl_top_ja3srv_raw", "ja3-server.raw")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5_769",
+                                  "ja3-server:/^769/")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5_769",
+                                  "ja3-server.md5:/^769/")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha1_769",
+                                  "ja3-server.sha1:/^769/")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha256_769",
+                                  "ja3-server.sha256:/^769/")
+        self.check_view_top_value("view_ssl_top_ja3srv_raw_769",
+                                  "ja3-server.raw:/^769/")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5_771",
+                                  "ja3-server::/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5_771",
+                                  "ja3-server.md5::/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha1_771",
+                                  "ja3-server.sha1::/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha256_771",
+                                  "ja3-server.sha256::/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_raw_771",
+                                  "ja3-server.raw::/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5_769_771",
+                                  "ja3-server:/^769/:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_md5_769_771",
+                                  "ja3-server.md5:/^769/:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha1_769_771",
+                                  "ja3-server.sha1:/^769/:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_sha256_769_771",
+                                  "ja3-server.sha256:/^769/:/^771/")
+        self.check_view_top_value("view_ssl_top_ja3srv_raw_769_771",
+                                  "ja3-server.raw:/^769/:/^771/")
+
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
         self.check_view_top_value("view_top_isotsap_product",

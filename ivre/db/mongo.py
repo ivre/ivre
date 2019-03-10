@@ -678,6 +678,7 @@ class MongoDBActive(MongoDB, DBActive):
         "ports.scripts.smb-enum-shares.shares",
         "ports.scripts.ssh-hostkey",
         "ports.scripts.ssl-ja3-client",
+        "ports.scripts.ssl-ja3-server",
         "ports.scripts.vulns",
         "ports.scripts.vulns.check_results",
         "ports.scripts.vulns.description",
@@ -2732,6 +2733,78 @@ it is not expected)."""
                                "ports.scripts.ssl-ja3-client.%s" % subfield: 1}
             flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
             field = "ports.scripts.ssl-ja3-client.%s" % subfield
+        elif field == 'ja3-server' or (
+                field.startswith('ja3-server') and field[10] in ':.'
+        ):
+            if ':' in field:
+                field, values = field.split(':', 1)
+                if ':' in values:
+                    value1, value2 = values.split(':', 1)
+                    if value1:
+                        subkey1, value1 = self.ja3keyvalue(
+                            utils.str2regexp(value1)
+                        )
+                    else:
+                        subkey1, value1 = None, None
+                    if value2:
+                        subkey2, value2 = self.ja3keyvalue(
+                            utils.str2regexp(value2)
+                        )
+                    else:
+                        subkey2, value2 = None, None
+                else:
+                    subkey1, value1 = self.ja3keyvalue(
+                        utils.str2regexp(values)
+                    )
+                    subkey2, value2 = None, None
+            else:
+                subkey1, value1 = None, None
+                subkey2, value2 = None, None
+            if '.' in field:
+                field, subfield = field.split('.', 1)
+            else:
+                subfield = 'md5'
+            flt = self.flt_and(flt, self.searchja3server(
+                value_or_hash=value1,
+                client_value_or_hash=value2,
+            ))
+            specialproj = {
+                "_id": 0,
+                "ports.scripts.ssl-ja3-server.%s" % subfield: 1,
+                "ports.scripts.ssl-ja3-server.client.%s" % subfield: 1,
+            }
+            if subkey1 is not None and subkey1 != subfield:
+                specialproj["ports.scripts.ssl-ja3-server.%s" % subkey1] = 1
+            if subkey2 is not None and subkey2 != subfield:
+                specialproj[
+                    "ports.scripts.ssl-ja3-server.client.%s" % subkey2
+                ] = 1
+            field = "ports.scripts.ssl-ja3-server"
+            if self.mongodb_32_more:
+                specialflt.append({"$project": {
+                    "_id": 0,
+                    field: [
+                        '$ports.scripts.ssl-ja3-server.%s' % subfield,
+                        '$ports.scripts.ssl-ja3-server.client.%s' % subfield,
+                    ],
+                }})
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'])}
+            else:
+                specialflt.append({"$project": {
+                    "_id": 0,
+                    field: _old_array(
+                        '$ports.scripts.ssl-ja3-server.%s' % subfield,
+                        '$ports.scripts.ssl-ja3-server.client.%s' % subfield,
+                        convert_to_string=True,
+                    ),
+                }})
+
+                def outputproc(x):
+                    return {'count': x['count'],
+                            '_id': tuple(x['_id'].split('###', 1))}
         elif field == 'sshkey.bits':
             flt = self.flt_and(flt, self.searchsshkey())
             specialproj = {"ports.scripts.ssh-hostkey.type": 1,
