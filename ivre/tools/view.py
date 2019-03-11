@@ -135,9 +135,12 @@ def main():
     if args.short:
         display_short(db.view, flt, sortkeys, args.limit, args.skip)
         sys.exit(0)
-    elif args.distinct is not None:
+    if args.distinct is not None:
         display_distinct(db.view, args.distinct, flt, sortkeys,
                          args.limit, args.skip)
+        sys.exit(0)
+    if args.explain:
+        displayfunction_explain(flt, db.view)
         sys.exit(0)
     if args.json:
         def displayfunction(x):
@@ -156,9 +159,6 @@ def main():
                 x, args.graphroute, args.graphroute_include,
                 args.graphroute_dont_reset
             )
-    elif args.explain:
-        def displayfunction(x):
-            return displayfunction_explain(x, db.view)
     elif args.delete:
         def displayfunction(x):
             return displayfunction_remove(x, db.view)

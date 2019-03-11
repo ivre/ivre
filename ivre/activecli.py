@@ -461,8 +461,8 @@ def displayfunction_gnmap(cur):
         _display_gnmap_host(h, out=sys.stdout)
 
 
-def displayfunction_explain(cur, db):
-    sys.stdout.write(db.explain(cur, indent=4) + '\n')
+def displayfunction_explain(flt, db):
+    sys.stdout.write(db.explain(db._get(flt), indent=4) + '\n')
 
 
 def displayfunction_remove(cur, db):
