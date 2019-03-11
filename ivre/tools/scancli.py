@@ -144,6 +144,9 @@ def main():
         display_distinct(db.db.nmap, args.distinct, hostfilter, sortkeys,
                          args.limit, args.skip)
         sys.exit(0)
+    elif args.explain:
+        displayfunction_explain(hostfilter, db.db.nmap)
+        sys.exit(0)
     if args.json:
         def displayfunction(x):
             return displayfunction_json(
@@ -161,9 +164,6 @@ def main():
                 x, args.graphroute, args.graphroute_include,
                 args.graphroute_dont_reset
             )
-    elif args.explain:
-        def displayfunction(x):
-            return displayfunction_explain(x, db.db.nmap)
     elif args.delete:
         def displayfunction(x):
             return displayfunction_remove(x, db.db.nmap)

@@ -138,6 +138,9 @@ def main():
         display_distinct(db.view, args.distinct, flt, sortkeys,
                          args.limit, args.skip)
         sys.exit(0)
+    elif args.explain:
+        displayfunction_explain(flt, db.view)
+        sys.exit(0)
     if args.json:
         def displayfunction(x):
             return displayfunction_json(
@@ -155,9 +158,6 @@ def main():
                 x, args.graphroute, args.graphroute_include,
                 args.graphroute_dont_reset
             )
-    elif args.explain:
-        def displayfunction(x):
-            return displayfunction_explain(x, db.view)
     elif args.delete:
         def displayfunction(x):
             return displayfunction_remove(x, db.view)
