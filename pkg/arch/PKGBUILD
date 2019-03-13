@@ -19,7 +19,8 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 pkgbase='ivre'
-pkgname=('ivre' 'ivre-web' 'ivre-docs' 'python-ivre' 'python2-ivre')
+# ivre-data must be the last one as it changes $pkgver
+pkgname=('ivre' 'ivre-docs' 'ivre-web' 'python-ivre' 'python2-ivre' 'ivre-data')
 pkgver=0.9.12
 pkgrel=1
 pkgdesc='Network recon framework'
@@ -70,6 +71,16 @@ package_ivre() {
      "${pkgdir}/usr/share/ivre/dokuwiki" \
      "${pkgdir}/usr/share/ivre/web"
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/LICENSE*
+}
+
+package_ivre-data() {
+  pkgdesc+=' (data files)'
+  pkgver+="_`date -u +%Y%m%d%H%M%S`"
+  cd "$srcdir/$pkgbase"
+  mkdir -p "${pkgdir}/usr/share/ivre/geoip"
+  echo "GEOIP_PATH = '${pkgdir}/usr/share/ivre/geoip'" > tmp_ivre_conf
+  PYTHONPATH=./build/lib IVRE_CONF=./tmp_ivre_conf ./build/script*/ivre ipdata --download --import-all
+  rm tmp_ivre_conf
 }
 
 package_ivre-docs() {
