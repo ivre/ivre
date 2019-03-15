@@ -66,8 +66,10 @@ hr {
     margin-top: 10px;
 }
 
-.sidebar {
-    position: fixed;
+@media (min-width: 992px) {
+    .sidebar {
+        position: fixed;
+    }
 }
 
 .sidebar .progress {
@@ -94,7 +96,14 @@ form {
 }
 
 #notes-container {
-    position: fixed;
+    margin-top: 30px;
+}
+
+@media (min-width: 992px) {
+    #notes-container {
+        position: fixed;
+        margin-top: 0;
+    }
 }
 
 .result-container {

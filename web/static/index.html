@@ -70,7 +70,7 @@
 	    </ul>
 	  </ul>
 	</div>
-	<div id="results-container" class="col-sm-12 col-sm-offset-12 col-md-5 col-md-offset-2"
+	<div id="results-container" class="col-sm-12 col-md-5 col-md-offset-2"
 	     ng-controller="IvreResultListCtrl"
 	     ng-switch="display_mode">
 	  <!-- The messages -->
@@ -84,7 +84,7 @@
 	  <div ng-switch-when="vulnerability" display-vulnerability=""></div>
 	  <div ng-switch-default="host" display-host=""></div>
 	</div>
-	<div id="notes-container" class="col-sm-12 col-sm-offset-12 col-md-5 col-md-offset-7"
+	<div id="notes-container" class="col-sm-12 col-md-5 col-md-offset-7"
 	     ng-controller="IvreAnalysisCtrl">
 	  <iframe id="notes" frameborder="0" height="99%" width="100%"
 		  ng-style="{'display': notes_display}"
@@ -95,7 +95,7 @@
 	    <div>
 	      <center>
 		<span name="charttitle"></span>
-		<i class="icon-remove clickable"
+		<i class="glyphicon glyphicon-remove clickable"
 		   onclick="hidecharts();"></i>
 	      </center>
 	    </div>
