@@ -995,7 +995,9 @@ which `predicate()` is True, given `webflt`.
                     query,
                     ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
                 )
-            # FIXME: test PostgreSQL indexes
+            if DATABASE == "postgres":
+                output = ivre.db.db.nmap.explain(ivre.db.db.nmap._get(query))
+                self.assertTrue("ix_n_scan_host" in output)
 
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchx11())
         self.check_value("nmap_x11_count", count)
