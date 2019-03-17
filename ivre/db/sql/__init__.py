@@ -256,6 +256,15 @@ class SQLDB(DB):
         self.drop()
         self.create()
 
+    def explain(self, req, **_):
+        """This method calls the SQL EXPLAIN statement to retrieve database
+        statistics.
+        """
+        raise NotImplementedError()
+
+    def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
+        raise NotImplementedError()
+
     @staticmethod
     def ip2internal(addr):
         # required for use with ivre.db.sql.tables.DefaultINET() (see
@@ -879,8 +888,8 @@ the way IP addresses are stored.
         return tuple(action(flt, limit=limit, skip=skip)
                      for action in [self.get, self.count])
 
-    def get(self, flt, limit=None, skip=None, sort=None,
-            **kargs):
+    def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
+        utils.LOGGER.warning("Argument 'fields' provided but unused.")
         req = flt.query(select(
             [self.tables.scan.id, self.tables.scan.addr,
              self.tables.scan.source, self.tables.scan.info,
@@ -897,6 +906,10 @@ the way IP addresses are stored.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
+        return req
+
+    def get(self, flt, limit=None, skip=None, sort=None, fields=None):
+        req = self._get(flt, limit=limit, skip=skip, sort=sort, fields=fields)
         for scanrec in self.db.execute(req):
             rec = {}
             (rec["_id"], rec["addr"], rec["source"], rec["infos"],
@@ -1767,11 +1780,8 @@ class SQLDBPassive(SQLDB, DBPassive):
             delete(self.tables.passive).where(self.tables.passive.id.in_(base))
         )
 
-    def get(self, flt, limit=None, skip=None, sort=None):
-        """Queries the passive database with the provided filter "flt", and
-returns a generator.
-
-        """
+    def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
+        utils.LOGGER.warning("Argument 'fields' provided but unused.")
         req = flt.query(
             select([
                 self.tables.passive.id.label("_id"),
@@ -1789,6 +1799,14 @@ returns a generator.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
+        return req
+
+    def get(self, flt, limit=None, skip=None, sort=None, fields=None):
+        """Queries the passive database with the provided filter "flt", and
+returns a generator.
+
+        """
+        req = self._get(flt, limit=limit, skip=skip, sort=sort, fields=fields)
         for rec in self.db.execute(req):
             rec = dict((key, value) for key, value in viewitems(rec)
                        if value is not None)

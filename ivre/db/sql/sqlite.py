@@ -35,6 +35,9 @@ class SqliteDB(SQLDB):
     def __init__(self, url):
         super(SqliteDB, self).__init__(url)
 
+    def explain(self, req, **_):
+        raise Exception("Explain is not yet implemented for sqlite.")
+
 
 class SqliteDBPassive(SqliteDB, SQLDBPassive):
 

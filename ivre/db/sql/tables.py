@@ -448,6 +448,7 @@ class N_Scan(Base, _Scan):
     __table_args__ = (
         Index('ix_n_scan_info', 'info', postgresql_using='gin'),
         Index('ix_n_scan_time', 'time_start', 'time_stop'),
+        Index('ix_n_scan_host', 'addr'),
     )
 
 

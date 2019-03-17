@@ -79,6 +79,14 @@ class PostgresDB(SQLDB):
     def start_bulk_insert(self, size=None, retries=0):
         return BulkInsert(self.db, size=size, retries=retries)
 
+    def explain(self, req, **_):
+        req_comp = req.compile(dialect=postgresql.dialect())
+        arg_dic = {}
+        for k in req_comp.params:
+            arg_dic[k] = repr(req_comp.params[k])
+        req_cur = self.db.execute(text("EXPLAIN " + req_comp.string % arg_dic))
+        return "\n".join(map(" ".join, req_cur.fetchall()))
+
 
 class BulkInsert(object):
     """A PostgreSQL transaction, with automatic commits"""
