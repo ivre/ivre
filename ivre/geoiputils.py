@@ -92,12 +92,14 @@ def unzip_all(fname, cond=None, clean=True):
         os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
 
-def gunzip(fname):
+def gunzip(fname, clean=True):
     if not fname.endswith('.gz'):
         raise Exception('filename should end with ".gz"')
     with utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp:
         with open(os.path.join(config.GEOIP_PATH, fname[:-3]), "wb") as outp:
             outp.write(inp.read())
+    if clean:
+        os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
 
 def untar_all(fname, cond=None, clean=True):
