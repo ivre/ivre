@@ -27,13 +27,13 @@ $ python setup.py build
 """
 
 
-from setuptools import setup, find_packages
+from distutils.core import setup
 from distutils.command.install_data import install_data
-from setuptools.command.install_lib import install_lib
+from distutils.command.install_lib import install_lib
 import os
 
 
-VERSION = __import__('ivre').__version__
+VERSION = __import__('ivre').VERSION
 
 
 class smart_install_data(install_data):
@@ -136,12 +136,9 @@ specialized scripts.
         '3D traceroute graphs': ["dbus-python"],
         'Plots': ["matplotlib"],
     },
-    packages=find_packages(),
-    entry_points={
-        'console_scripts': [
-            'ivre = ivre.tools.__main__:main'
-        ],
-    },
+    packages=['ivre', 'ivre/analyzer', 'ivre/db', 'ivre/db/sql', 'ivre/parser',
+              'ivre/tools', 'ivre/web'],
+    scripts=['bin/ivre'],
     data_files=[
         ('share/ivre/bro',
          ['bro/passiverecon2db-ignore.example']),
