@@ -889,7 +889,8 @@ the way IP addresses are stored.
                      for action in [self.get, self.count])
 
     def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
-        utils.LOGGER.warning("Argument 'fields' provided but unused.")
+        if fields is not None:
+            utils.LOGGER.warning("Argument 'fields' provided but not used in this backend.")
         req = flt.query(select(
             [self.tables.scan.id, self.tables.scan.addr,
              self.tables.scan.source, self.tables.scan.info,
