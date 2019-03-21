@@ -1648,6 +1648,20 @@ which `predicate()` is True, given `webflt`.
                             break
                     else:
                         self.assertTrue(False)
+                    # For the raw value, let's try again with a
+                    # regular expression
+                    if field == 'infos.raw':
+                        for rec in ivre.db.db.passive.get(
+                                ivre.db.db.passive.searchja3client(
+                                    value_or_hash=re.compile(
+                                        '^' + re.escape(values["_id"]) + '$',
+                                    ),
+                                )
+                        ):
+                            if rec['count'] == values["count"]:
+                                break
+                        else:
+                            self.assertTrue(False)
         # Delete the reference on the cursor to close the connection
         # to the database (required for SQLite)
         del cur
@@ -1661,6 +1675,27 @@ which `predicate()` is True, given `webflt`.
                            rec1['source'][4:], rec1['infos']['client']['sha1'],
                            rec1['infos']['client']['sha1']]:
                 if value is None and clival is None:
+                    continue
+                for rec2 in ivre.db.db.passive.get(
+                    ivre.db.db.passive.searchja3server(
+                        value_or_hash=value,
+                        client_value_or_hash=clival,
+                    )
+                ):
+                    if rec1 == rec2:
+                        break
+                else:
+                    self.assertTrue(False)
+                # Run a new test for raw values using regular
+                # expressions
+                newtest = False
+                if value == rec1['infos']['raw']:
+                    value = re.compile('^' + re.escape(value) + '$')
+                    newtest = True
+                if clival == rec1['infos']['client']['raw']:
+                    clival = re.compile('^' + re.escape(clival) + '$')
+                    newtest = True
+                if not newtest:
                     continue
                 for rec2 in ivre.db.db.passive.get(
                     ivre.db.db.passive.searchja3server(

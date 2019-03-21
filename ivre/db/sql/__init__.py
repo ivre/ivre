@@ -26,7 +26,6 @@ import codecs
 from collections import namedtuple
 import csv
 import datetime
-import hashlib
 import json
 import re
 
@@ -2092,24 +2091,18 @@ passive table."""
     def _searchja3(cls, value_or_hash=None):
         if value_or_hash is None:
             return True
-        if utils.HEX.search(value_or_hash):
-            try:
-                key = {
-                    32: cls.tables.passive.value,
-                    40: cls.tables.passive.moreinfo.op('->>')('sha1'),
-                    64: cls.tables.passive.moreinfo.op('->>')('sha256'),
-                }[len(value_or_hash)]
-            except KeyError:
-                pass
-            else:
-                return key == value_or_hash
-        return (
-            (cls.tables.passive.moreinfo.op('->>')('raw') == value_or_hash) &
-            (cls.tables.passive.value == hashlib.new(
-                'md5',
-                value_or_hash.encode(),
-            ).hexdigest())
-        )
+        key, value = cls._ja3keyvalue(value_or_hash)
+        try:
+            return {
+                'md5': cls.tables.passive.value,
+                'sha1': cls.tables.passive.moreinfo.op('->>')('sha1'),
+                'sha256': cls.tables.passive.moreinfo.op('->>')('sha256')
+            }[key] == value
+        except KeyError:
+            return cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('raw'),
+                value,
+            )
 
     @classmethod
     def searchja3client(cls, value_or_hash=None):
@@ -2128,39 +2121,30 @@ passive table."""
         if client_value_or_hash is None:
             return PassiveFilter(main=(
                 base &
-                (cls.tables.passive.source.op('~')('^ja3-'))
+                cls.tables.passive.source.op('~')('^ja3-')
             ))
-        if utils.HEX.search(client_value_or_hash):
-            length = len(client_value_or_hash)
-            if length == 32:
-                return PassiveFilter(main=(
-                    base &
-                    (cls.tables.passive.source == (
-                        'ja3-%s' % client_value_or_hash
-                    ))
-                ))
-            if length == 40:
-                return PassiveFilter(main=(
-                    base &
-                    (cls.tables.passive.source.op('~')('^ja3-')) &
-                    (cls.tables.passive.moreinfo.op('->')('client')
-                     .op('->>')('sha1') == client_value_or_hash)
-                ))
-            if length == 64:
-                return PassiveFilter(main=(
-                    base &
-                    (cls.tables.passive.source.op('~')('^ja3-')) &
-                    (cls.tables.passive.moreinfo.op('->')('client')
-                     .op('->>')('sha256') == client_value_or_hash)
-                ))
+        key, value = cls._ja3keyvalue(client_value_or_hash)
+        if key == 'md5':
+            return PassiveFilter(main=(
+                base &
+                (cls.tables.passive.source == 'ja3-%s' % value)
+            ))
+        base &= cls.tables.passive.source.op('~')('^ja3-')
+        if key in ['sha1', 'sha256']:
+            return PassiveFilter(main=(
+                base &
+                (cls.tables.passive.moreinfo.op('->')("client").op('->>')(
+                    key
+                ) == value)
+            ))
         return PassiveFilter(main=(
             base &
-            (cls.tables.passive.source == ('ja3-%s' % hashlib.new(
-                'md5',
-                client_value_or_hash.encode(),
-            ).hexdigest())) &
-            (cls.tables.passive.moreinfo.op('->')('client')
-             .op('->>')('raw') == client_value_or_hash)
+            cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->')("client").op('->>')(
+                    'raw'
+                ),
+                value,
+            )
         ))
 
     @classmethod
