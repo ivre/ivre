@@ -2714,7 +2714,7 @@ it is not expected)."""
         ):
             if ':' in field:
                 field, value = field.split(':', 1)
-                subkey, value = self.ja3keyvalue(utils.str2regexp(value))
+                subkey, value = self._ja3keyvalue(utils.str2regexp(value))
                 specialflt = [
                     {"$match": {
                         'ports.scripts.ssl-ja3-client.%s' % subkey: value,
@@ -2741,19 +2741,19 @@ it is not expected)."""
                 if ':' in values:
                     value1, value2 = values.split(':', 1)
                     if value1:
-                        subkey1, value1 = self.ja3keyvalue(
+                        subkey1, value1 = self._ja3keyvalue(
                             utils.str2regexp(value1)
                         )
                     else:
                         subkey1, value1 = None, None
                     if value2:
-                        subkey2, value2 = self.ja3keyvalue(
+                        subkey2, value2 = self._ja3keyvalue(
                             utils.str2regexp(value2)
                         )
                     else:
                         subkey2, value2 = None, None
                 else:
-                    subkey1, value1 = self.ja3keyvalue(
+                    subkey1, value1 = self._ja3keyvalue(
                         utils.str2regexp(values)
                     )
                     subkey2, value2 = None, None
@@ -3958,49 +3958,28 @@ setting values according to the keyword arguments.
                 'source': 'cert',
                 'infos.pubkeyalgo': keytype + 'Encryption'}
 
-    @staticmethod
-    def _searchsja3(value_or_hash):
+    @classmethod
+    def _searchja3(cls, value_or_hash):
         if value_or_hash is None:
             return {}
-        if utils.HEX.search(value_or_hash):
-            key = {32: 'value', 40: 'infos.sha1',
-                   64: 'infos.sha256'}.get(len(value_or_hash), 'infos.raw')
-        else:
-            key = 'infos.raw'
-        if key == 'infos.raw':
-            return {'infos.raw': value_or_hash,
-                    'value': hashlib.new('md5',
-                                         value_or_hash.encode()).hexdigest()}
-        return {key: value_or_hash}
+        key, value = cls._ja3keyvalue(value_or_hash)
+        return {'value' if key == 'md5' else 'infos.%s' % key: value}
 
     @classmethod
     def searchja3client(cls, value_or_hash=None):
-        return dict(cls._searchsja3(value_or_hash), recontype='SSL_CLIENT',
+        return dict(cls._searchja3(value_or_hash), recontype='SSL_CLIENT',
                     source='ja3')
 
     @classmethod
     def searchja3server(cls, value_or_hash=None, client_value_or_hash=None):
-        base = dict(cls._searchsja3(value_or_hash), recontype='SSL_SERVER')
+        base = dict(cls._searchja3(value_or_hash), recontype='SSL_SERVER')
         if client_value_or_hash is None:
             return dict(base, source=re.compile('^ja3-'))
-        if utils.HEX.search(client_value_or_hash):
-            key = {32: 'md5', 40: 'infos.client.sha1',
-                   64: 'infos.client.sha256'}.get(len(client_value_or_hash),
-                                                  'infos.client.raw')
-        else:
-            key = 'infos.client.raw'
+        key, value = cls._ja3keyvalue(client_value_or_hash)
         if key == 'md5':
-            return dict(base, source='ja3-%s' % client_value_or_hash)
-        if key == 'infos.client.raw':
-            return dict(
-                base, source='ja3-%s' % hashlib.new(
-                    'md5',
-                    client_value_or_hash.encode(),
-                ).hexdigest(),
-                **{'infos.client.raw': client_value_or_hash}
-            )
+            return dict(base, source='ja3-%s' % value)
         return dict(base, source=re.compile('^ja3-'),
-                    **{key: client_value_or_hash})
+                    **{'infos.client.%s' % key: client_value_or_hash})
 
     @staticmethod
     def searchsshkey(keytype=None):

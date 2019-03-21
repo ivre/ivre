@@ -629,7 +629,7 @@ insert structures.
         ):
             if ':' in field:
                 field, value = field.split(':', 1)
-                subkey, value = self.ja3keyvalue(utils.str2regexp(value))
+                subkey, value = self._ja3keyvalue(utils.str2regexp(value))
             else:
                 value = None
             if '.' in field:
@@ -669,19 +669,19 @@ insert structures.
                 if ':' in values:
                     value1, value2 = values.split(':', 1)
                     if value1:
-                        subkey1, value1 = self.ja3keyvalue(
+                        subkey1, value1 = self._ja3keyvalue(
                             utils.str2regexp(value1)
                         )
                     else:
                         subkey1, value1 = None, None
                     if value2:
-                        subkey2, value2 = self.ja3keyvalue(
+                        subkey2, value2 = self._ja3keyvalue(
                             utils.str2regexp(value2)
                         )
                     else:
                         subkey2, value2 = None, None
                 else:
-                    subkey1, value1 = self.ja3keyvalue(
+                    subkey1, value1 = self._ja3keyvalue(
                         utils.str2regexp(values)
                     )
                     subkey2, value2 = None, None

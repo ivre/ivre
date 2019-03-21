@@ -322,6 +322,26 @@ class DB(object):
         raise NotImplementedError
 
     @staticmethod
+    def _ja3keyvalue(value_or_hash):
+        """Returns the key and the value to search for according
+        to the nature of the given argument for ja3 filtering"""
+        if isinstance(value_or_hash, utils.REGEXP_T):
+            return ('raw', value_or_hash)
+        if utils.HEX.search(value_or_hash):
+            key = {32: 'md5', 40: 'sha1',
+                   64: 'sha256'}.get(len(value_or_hash), 'raw')
+        else:
+            key = 'raw'
+        # If we have the raw value, we compute the MD5 hash because it
+        # is indexed, so it will be faster to query.
+        if key == 'raw':
+            return (
+                'md5',
+                utils.hashlib.new('md5', value_or_hash.encode()).hexdigest(),
+            )
+        return (key, value_or_hash)
+
+    @staticmethod
     def str2id(string):
         """Returns a unique identifier from `string`.
 
@@ -1449,29 +1469,11 @@ class DBView(DBActive):
         self.remove(rec)
         return True
 
-    @staticmethod
-    def ja3keyvalue(value_or_hash):
-        """Returns the key and the value to search for according
-        to the nature of the given argument for ja3 filtering"""
-        if isinstance(value_or_hash, utils.REGEXP_T):
-            return ('raw', value_or_hash)
-        if utils.HEX.search(value_or_hash):
-            key = {32: 'md5', 40: 'sha1',
-                   64: 'sha256'}.get(len(value_or_hash), 'raw')
-        else:
-            key = 'raw'
-        if key == 'raw':
-            key = 'md5'
-            value_or_hash = (utils.hashlib.new('md5',
-                                               value_or_hash.encode())
-                             .hexdigest())
-        return (key, value_or_hash)
-
     @classmethod
     def _searchja3(cls, value_or_hash, script_id, neg):
         if not value_or_hash:
             return cls.searchscript(name=script_id, neg=neg)
-        key, value = cls.ja3keyvalue(value_or_hash)
+        key, value = cls._ja3keyvalue(value_or_hash)
         return cls.searchscript(name=script_id, values={key: value}, neg=neg)
 
     @classmethod
@@ -1484,10 +1486,10 @@ class DBView(DBActive):
         script_id = 'ssl-ja3-server'
         if not client_value_or_hash:
             return cls._searchja3(value_or_hash, script_id, neg=neg)
-        key_client, value_client = cls.ja3keyvalue(client_value_or_hash)
+        key_client, value_client = cls._ja3keyvalue(client_value_or_hash)
         values = {'client.%s' % (key_client): value_client}
         if value_or_hash:
-            key_srv, value_srv = cls.ja3keyvalue(value_or_hash)
+            key_srv, value_srv = cls._ja3keyvalue(value_or_hash)
             values[key_srv] = value_srv
         return cls.searchscript(
             name=script_id,
