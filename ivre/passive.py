@@ -104,6 +104,8 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
 # Bro specific
 
 SYMANTEC_UA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
+SYMANTEC_SEP_UA = re.compile('(SEP/[0-9\\.]+),? MID/\\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\\},? SID/[0-9]+(?: SEQ/[0-9]+)?(.*)$')
+KASPERSKY_UA = re.compile('AAAAA[a-zA-Z0-9_-]{1,2}AB$')
 DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
 
 
@@ -211,6 +213,12 @@ def _prepare_rec(spec, ignorenets, neverignore):
        spec.get('source') == 'USER-AGENT':
         if SYMANTEC_UA.match(spec['value']):
             spec['value'] = 'SymantecRandomUserAgent'
+        elif KASPERSKY_UA.match(spec['value']):
+            spec['value'] = 'KasperskyWeirdUserAgent'
+        else:
+            match = SYMANTEC_SEP_UA.match(spec['value'])
+            if match is not None:
+                spec['value'] = '%s%s' % match.groups()
     # Change any Digest authorization header to remove non-constant
     # information. On one hand we loose the necessary information to
     # try to recover the passwords, but on the other hand we store
