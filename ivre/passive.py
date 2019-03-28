@@ -104,7 +104,10 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
 # Bro specific
 
 SYMANTEC_UA = re.compile('[a-zA-Z0-9/+]{32,33}AAAAA$')
-SYMANTEC_SEP_UA = re.compile('(SEP/[0-9\\.]+),? MID/\\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}\\},? SID/[0-9]+(?: SEQ/[0-9]+)?(.*)$')
+SYMANTEC_SEP_UA = re.compile(
+    '(SEP/[0-9\\.]+),? MID/\\{[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-'
+    '[A-F0-9]{12}\\},? SID/[0-9]+(?: SEQ/[0-9]+)?(.*)$'
+)
 KASPERSKY_UA = re.compile('AAAAA[a-zA-Z0-9_-]{1,2}AB$')
 DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
 
