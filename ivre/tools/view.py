@@ -34,6 +34,7 @@ from builtins import input
 
 from ivre import graphroute
 from ivre.db import db
+from ivre.nmapout import displayhosts
 from ivre.activecli import display_short, display_distinct, \
     displayfunction_json, displayfunction_honeyd, displayfunction_nmapxml, \
     displayfunction_gnmap, displayfunction_graphroute, \
@@ -170,8 +171,7 @@ def main():
     else:
 
         def displayfunction(cursor):
-            for rec in cursor:
-                sys.stdout.write(str(rec) + '\n')
+            displayhosts(cursor, out=sys.stdout)
 
     if args.update_schema:
         db.db.nmap.migrate_schema(args.version)

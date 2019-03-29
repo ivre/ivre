@@ -2687,7 +2687,6 @@ which `predicate()` is True, given `webflt`.
         ret, out, err = RUN(["ivre", "view"])
         self.assertEqual(ret, 0)
         self.assertTrue(not err)
-        self.assertEqual(len(out.splitlines()), view_count)
 
         # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
