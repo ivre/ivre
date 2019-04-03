@@ -208,6 +208,197 @@ class DB(object):
         raise NotImplementedError
 
     @staticmethod
+    def features_addr_list(use_asnum, use_ipv6, use_single_int):
+        """Returns a list of IP address features (for ML algorithms)
+
+If `use_asnum` is true, the first element is the AS number associated
+with the address (or 0 if no AS number has been found).
+
+If `use_single_int` is true, the next value is an integer representing
+the IP address (IPv4 addresses are converted to IPv6 using the
+standard ::ffff:A.B.C.D mapping when `use_ipv6` is true).
+
+If `use_single_int` is false, the next values are each byte of the IP
+address (4 bytes if `use_ipv6` is false, 16 otherwise, using the
+standard ::ffff:A.B.C.D mapping for IPv4 addresses).
+
+        """
+        result = ['asnum'] if use_asnum else []
+        if use_single_int:
+            return result + ['addr']
+        return result + ['addr_%d' % d for d in range(16 if use_ipv6 else 4)]
+
+    def features_addr_get(self, addr, use_asnum, use_ipv6, use_single_int):
+        """Returns a list of feature values (for ML algorithms) for an IP address.
+
+See .features_addr_list() for the number and meaning of the features.
+
+        """
+        if use_asnum:
+            result = [self.globaldb.data.as_byip(addr).get('as_num', 0)]
+        else:
+            result = []
+        if use_single_int:
+            if use_ipv6:
+                return result + [utils.ip2int(addr if ':' in addr
+                                              else ('::ffff:%s' % addr))]
+            return result + [utils.ip2int(addr)]
+        addrbin = utils.ip2bin(addr)
+        if use_ipv6:
+            return result + [
+                ord(addrbin[i:i + 1]) for i in range(len(addrbin))
+            ]
+        return result + [
+            ord(addrbin[i:i + 1]) for i in range(len(addrbin))
+        ][-4:]
+
+    def features_port_list(self, flt, yieldall, use_service, use_product,
+                           use_version):
+        """Returns a list of ports features (for ML algorithms) as tuples of
+existing values.
+
+The first element of each tuple is the port number; if `use_service`
+is true, the next element is the service name; if `use_product` is
+true, the next element is the product name; if `use_version` is true,
+the next element is the string representing the version.
+
+If `yieldall` is true, when a specific feature exists (e.g., `(80,
+'http', 'Apache httpd')`), more generic features are also generated
+(e.g., `(80, 'http', None)`, `(80, None, None)`).
+
+`use_version` implies `use_product`, and `use_product` implies
+`use_service`.
+
+        """
+        if not yieldall:
+            # when `yieldall` is false, the sort operation is done in
+            # database, unless we are using MongoDB < 3.2
+            try:
+                supports_sort = self.mongodb_32_more
+            except AttributeError:
+                supports_sort = True
+            if supports_sort:
+                return list(
+                    tuple(val) for val in
+                    self._features_port_list(flt, yieldall, use_service,
+                                             use_product, use_version)
+                )
+            return sorted(set(
+                tuple(val) for val in
+                self._features_port_list(flt, yieldall, use_service,
+                                         use_product, use_version)
+            ), key=lambda val: ["" if v is None else v for v in val])
+
+        def _gen(val):
+            yield tuple(val)
+            for i in range(-1, -len(val), -1):
+                val[i] = None
+                yield tuple(val)
+        return sorted(set(
+            val
+            for vals in self._features_port_list(flt, yieldall, use_service,
+                                                 use_product, use_version)
+            for val in _gen(vals)
+        ), key=lambda val: ["" if v is None else v for v in val])
+
+    def _features_port_list(self, flt, yieldall, use_service, use_product,
+                            use_version):
+        raise NotImplementedError()
+
+    def features_port_get(self, features, flt, yieldall, use_service,
+                          use_product, use_version):
+        """Generates `(addr, port_features)` tuples where `addr` is a host IP
+address and `port_features` a list of values ports feature values (for ML
+algorithms) as lists of values.
+
+`features` is a list of features that may be generated, as provided by
+.features_port_list().
+
+        """
+        features = dict((f, i) for i, f in enumerate(features))
+        return self._features_port_get(features, flt, yieldall, use_service,
+                                       use_product, use_version)
+
+    def _features_port_get(self, features, flt, yieldall, use_service,
+                           use_product, use_version):
+        raise NotImplementedError()
+
+    def features(self, headers=True, flt=None, use_asnum=True, use_ipv6=True,
+                 use_single_int=False, yieldall=True, use_service=True,
+                 use_product=False, use_version=False, subflts=None):
+        """Generates lists of feature values (for ML algorithms).
+
+If `headers` is true, the first generated list will be the list of the
+feature names (a kind of header line).
+
+`flt` is a base filter, (`.flt_empty` will be used by default).
+
+If `subflts` is provided, it must be a list of filters. A "category"
+field will be appended at the end of the feature values, which will be
+set to the index of the sub-filter used to generate the result.
+
+For example, to find differences between two networks, one could do:
+
+    dbase.features(subflts=[dbase.searchasnum(1234), dbase.searchasnum(4321)])
+
+The last value of each feature will be 0 for AS number 1234 and 1 for
+AS number 4321.
+
+        """
+        if flt is None:
+            flt = self.flt_empty
+        use_service = use_service or use_product or use_version
+        use_product = use_product or use_version
+        features_port = self.features_port_list(
+            flt,
+            yieldall,
+            use_service,
+            use_product,
+            use_version,
+        )
+        if headers:
+            headers = self.features_addr_list(
+                use_asnum,
+                use_ipv6,
+                use_single_int,
+            ) + features_port
+            if subflts:
+                yield headers + ['category']
+            else:
+                yield headers
+        if subflts:
+            for i, subflt in enumerate(subflts):
+                for addr, features in self.features_port_get(
+                        features_port,
+                        self.flt_and(flt, subflt),
+                        yieldall,
+                        use_service,
+                        use_product,
+                        use_version,
+                ):
+                    yield self.features_addr_get(
+                        addr,
+                        use_asnum,
+                        use_ipv6,
+                        use_single_int,
+                    ) + features + [i]
+        else:
+            for addr, features in self.features_port_get(
+                    features_port,
+                    flt,
+                    yieldall,
+                    use_service,
+                    use_product,
+                    use_version,
+            ):
+                yield self.features_addr_get(
+                    addr,
+                    use_asnum,
+                    use_ipv6,
+                    use_single_int,
+                ) + features
+
+    @staticmethod
     def searchversion(version):
         """Filters documents based on their schema's version."""
         raise NotImplementedError
