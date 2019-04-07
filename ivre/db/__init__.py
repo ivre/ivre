@@ -326,16 +326,19 @@ algorithms) as lists of values.
     def features(self, headers=True, flt=None, use_asnum=True, use_ipv6=True,
                  use_single_int=False, yieldall=True, use_service=True,
                  use_product=False, use_version=False, subflts=None):
-        """Generates lists of feature values (for ML algorithms).
+        """Returns a two-element tuple. The first element is a list on feature
+names, the second is a generator of lists of feature values. This is
+meant to be used with ML algorithms).
 
 If `headers` is true, the first generated list will be the list of the
 feature names (a kind of header line).
 
 `flt` is a base filter, (`.flt_empty` will be used by default).
 
-If `subflts` is provided, it must be a list of filters. A "category"
-field will be appended at the end of the feature values, which will be
-set to the index of the sub-filter used to generate the result.
+If `subflts` is provided, it must be a list of filters, or a list of
+(label, filter) tuples. A "category" field will be appended at the end
+of the feature values, which will be set to the index (or label) of
+the sub-filter used to generate the result.
 
 For example, to find differences between two networks, one could do:
 
@@ -343,6 +346,12 @@ For example, to find differences between two networks, one could do:
 
 The last value of each feature will be 0 for AS number 1234 and 1 for
 AS number 4321.
+
+To use this to create a pandas DataFrame, you can run:
+
+    import pandas
+    columns, data = dbase.features()
+    df = pandas.DataFrame(data=data, columns=columns)
 
         """
         if flt is None:
@@ -356,47 +365,57 @@ AS number 4321.
             use_product,
             use_version,
         )
-        if headers:
-            headers = self.features_addr_list(
-                use_asnum,
-                use_ipv6,
-                use_single_int,
-            ) + features_port
-            if subflts:
-                yield headers + ['category']
-            else:
-                yield headers
+        headers = self.features_addr_list(
+            use_asnum,
+            use_ipv6,
+            use_single_int,
+        ) + features_port
         if subflts:
-            for i, subflt in enumerate(subflts):
-                for addr, features in self.features_port_get(
+            if isinstance(subflts[0], (list, tuple)) and len(subflts[0]) == 2:
+                generator = subflts
+            else:
+                generator = enumerate(subflts)
+            headers.append('category')
+            return (
+                headers,
+                (
+                    self.features_addr_get(
+                        addr,
+                        use_asnum,
+                        use_ipv6,
+                        use_single_int,
+                    ) + features + [label]
+                    for label, subflt in generator
+                    for addr, features in self.features_port_get(
                         features_port,
                         self.flt_and(flt, subflt),
                         yieldall,
                         use_service,
                         use_product,
                         use_version,
-                ):
-                    yield self.features_addr_get(
+                    )
+                )
+            )
+        else:
+            return (
+                headers,
+                (
+                    self.features_addr_get(
                         addr,
                         use_asnum,
                         use_ipv6,
-                        use_single_int,
-                    ) + features + [i]
-        else:
-            for addr, features in self.features_port_get(
-                    features_port,
-                    flt,
-                    yieldall,
-                    use_service,
-                    use_product,
-                    use_version,
-            ):
-                yield self.features_addr_get(
-                    addr,
-                    use_asnum,
-                    use_ipv6,
-                    use_single_int,
-                ) + features
+                        use_single_int
+                    ) + features
+                    for addr, features in self.features_port_get(
+                        features_port,
+                        flt,
+                        yieldall,
+                        use_service,
+                        use_product,
+                        use_version,
+                    )
+                )
+            )
 
     @staticmethod
     def searchversion(version):
