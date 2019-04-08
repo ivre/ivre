@@ -41,7 +41,7 @@ from py2neo.database.status import TransientError
 from py2neo.types import remote
 
 
-from ivre.db import DB, DBFlow
+from ivre.db import DBFlow
 from ivre import config
 from ivre import utils
 
@@ -55,7 +55,7 @@ warnings.filterwarnings(
 )
 
 
-class Neo4jDB(DB):
+class Neo4jDB(DBFlow):
     values = re.compile('{([^}]+)}')
 
     DATE_FIELDS = ['firstseen', 'lastseen']
@@ -163,18 +163,6 @@ class Neo4jDB(DB):
         if isinstance(val, datetime):
             val = utils.datetime2timestamp(val)
         return val
-
-    @classmethod
-    def _date_round(cls, date):
-        if isinstance(date, datetime):
-            ts = utils.datetime2timestamp(date)
-        else:
-            ts = date
-        ts = ts - (ts % config.FLOW_TIME_PRECISION)
-        if isinstance(date, datetime):
-            return datetime.fromtimestamp(ts)
-        else:
-            return ts
 
 
 class Query(object):
@@ -552,6 +540,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                    "SIP", "Modbus", "SNMP", "Time", "Name", "Software"]
 
     LABEL2NAME = {}
+    query_cache = {}
 
     def __init__(self, url):
         Neo4jDB.__init__(self, url)
@@ -1302,6 +1291,36 @@ DETACH DELETE old_f
         self.db.run(q)
         if config.DEBUG_DB:
             utils.LOGGER.debug("DB:Took %f secs", time.time() - tstamp)
+
+    def conn2flow(self, bulk, rec):
+        """Returns a statement inserting a CONN flow from a Bro log"""
+        query_cache = self.query_cache
+        linkattrs = ('proto',)
+        accumulators = {}
+        if rec['proto'] == 'icmp':
+            accumulators = {'codes': ('{code}', None)}
+            linkattrs = linkattrs + ('type',)
+        elif 'sport' in rec and 'dport' in rec:
+            accumulators = {'sports': ('{sport}', 5)}
+            linkattrs = linkattrs + ('dport',)
+
+        counters = {
+            "cspkts": "{orig_pkts}",
+            "csbytes": "{orig_ip_bytes}",
+            "scpkts": "{resp_pkts}",
+            "scbytes": "{resp_ip_bytes}",
+        }
+        if linkattrs not in query_cache:
+            print(self.add_flow(
+                ["Flow"], linkattrs, counters=counters,
+                accumulators=accumulators))
+            query_cache[linkattrs] = self.add_flow(
+                ["Flow"], linkattrs, counters=counters,
+                accumulators=accumulators)
+        bulk.append(query_cache[linkattrs], rec)
+
+    def bulk_commit(self, bulk):
+        bulk.commit()
 
 
 Neo4jDBFlow.LABEL2NAME.update({

@@ -188,35 +188,14 @@ def any2neo(desc, kind=None):
     return inserter
 
 
-def conn2neo(bulk, rec):
-    """Returns a statement inserting a CONN flow from a Bro log"""
-    query_cache = conn2neo.query_cache
-    linkattrs = ('proto',)
-    accumulators = {}
+def conn2flow(bulk, rec):
+    utils.LOGGER.debug(str(rec))
     if rec['proto'] == 'icmp':
         # FIXME incorrect: source & dest flow?
         rec['type'], rec['code'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
-        accumulators = {'codes': ('{code}', None)}
-        linkattrs = linkattrs + ('type',)
     elif 'id_orig_p' in rec and 'id_resp_p' in rec:
         rec['sport'], rec['dport'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
-        accumulators = {'sports': ('{sport}', 5)}
-        linkattrs = linkattrs + ('dport',)
-
-    counters = {
-        "cspkts": "{orig_pkts}",
-        "csbytes": "{orig_ip_bytes}",
-        "scpkts": "{resp_pkts}",
-        "scbytes": "{resp_ip_bytes}",
-    }
-    if linkattrs not in query_cache:
-        query_cache[linkattrs] = db.flow.add_flow(
-            ["Flow"], linkattrs, counters=counters,
-            accumulators=accumulators)
-    bulk.append(query_cache[linkattrs], rec)
-
-
-conn2neo.query_cache = {}
+    return db.flow.conn2flow(bulk, rec)
 
 
 # VERY simplistic IPv4/v6 re
@@ -224,11 +203,11 @@ IP_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|'
                    '^[a-f0-9:]*:[a-f0-9]{0,4}$')
 
 
-def dns2neo(bulk, rec):
+def dns2flow(bulk, rec):
     # FIXME
-    if db.flow.db_version[0] >= 3:
-        rec["answers"] = ', '.join(rec.get("answers") or [])
 
+    answers = rec.get("answers", None)
+    rec["answers"] = answers if answers else []
     if (rec.get("query", "") or "").endswith(".in-addr.arpa"):
         # Reverse DNS
         # rec["names"] = rec["answers"]
@@ -238,8 +217,10 @@ def dns2neo(bulk, rec):
         # Name to resolve + aliases
         # rec["names"] =  [rec["query"]] + [addr for addr in rec["answers"]
         #                                   if not IP_RE.match(addr)]
-        rec["addrs"] = [addr for addr in rec.get("answers", []) or []
-                        if IP_RE.match(addr)]
+        rec["addrs"] = [addr for addr in
+                        rec.get("answers", []) if IP_RE.match(addr)]
+    if db.flow.db_version[0] >= 3:
+        rec["answers"] = ', '.join(rec.get("answers") or [])
 
     any2neo(ALL_DESCS["dns"])(bulk, rec)
     # TODO: loop in neo
@@ -249,15 +230,15 @@ def dns2neo(bulk, rec):
         any2neo(ALL_DESCS["dns"], "host")(bulk, tmp_rec)
 
 
-def knwon_devices2neo(bulk, rec):
+def knwon_devices2flow(bulk, rec):
     any2neo(ALL_DESCS["known_devices__name"], "host")(bulk, rec)
     any2neo(ALL_DESCS["known_devices__mac"], "host")(bulk, rec)
 
 
 FUNCTIONS = {
-    "conn": conn2neo,
-    "dns": dns2neo,
-    "known_devices": knwon_devices2neo,
+    "conn": conn2flow,
+    "dns": dns2flow,
+    "known_devices": knwon_devices2flow,
 }
 
 
@@ -301,6 +282,6 @@ def main():
                 if not line:
                     continue
                 func(bulk, _bro2neo(line))
-            bulk.commit()
+            db.flow.bulk_commit(bulk)
             if brof.path == "conn" and not args.no_cleanup:
                 db.flow.cleanup_flows()

@@ -42,6 +42,7 @@ try:
 except ImportError:
     from urllib import unquote
 import uuid
+import time
 
 
 from future.builtins import bytes, range
@@ -50,9 +51,11 @@ from past.builtins import basestring
 import bson
 import pymongo
 
-
-from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
+import random
+from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBFlow, \
+    LockError
 from ivre import config, passive, utils, xmlnmap
+from pymongo.errors import BulkWriteError
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -4510,3 +4513,254 @@ scan object on success, and raises a LockError on failure.
                 self.set_limits(
                     self.find(self.columns[self.column_masters],
                               fields=["_id"])))
+
+
+class MongoDBFlow(MongoDB, DBFlow):
+    column_flow = 0
+    column_passive = 1
+    column_timescale = 2
+
+    count_flow = 0
+    count_passive = 0
+    count_timescale = 0
+
+    def __init__(self, host, dbname, colname_flows="flows",
+                 colname_passive="passive", colname_timescales="timescales",
+                 **kargs):
+        MongoDB.__init__(self, host, dbname, **kargs)
+        DBFlow.__init__(self)
+        self.columns = [colname_flows, colname_passive, colname_timescales]
+
+    def start_bulk_insert(self):
+        """
+        Initialize bulks for inserting data in MongoDB.
+        Returns [flow_bulk, passive_bulk]
+        """
+        utils.LOGGER.debug("start_bulk_insert called")
+        return [
+            self.db[self.columns[self.column_flow]]
+                .initialize_unordered_bulk_op(),
+            self.db[self.columns[self.column_passive]]
+                .initialize_unordered_bulk_op(),
+            self.db[self.columns[self.column_timescale]]
+                .initialize_unordered_bulk_op()]
+
+    def _get_flow_key(self, rec):
+        key = {
+            'src_addr_0': rec['src_addr_0'],
+            'src_addr_1': rec['src_addr_1'],
+            'dst_addr_0': rec['dst_addr_0'],
+            'dst_addr_1': rec['dst_addr_1'],
+            'proto': rec['proto'],
+            # 'sensor': rec['sensor']
+        }
+        if rec['proto'] in ['udp', 'tcp']:
+            key['dst_port'] = rec['dport']
+        return key
+
+    def _get_passive_keys(self, rec):
+        keys = [
+            {'addr_0': rec['src_addr_0'], 'addr_1': rec['src_addr_1']},
+            {'addr_0': rec['dst_addr_0'], 'addr_1': rec['dst_addr_1']}
+        ]
+        for key in keys:
+            key['recontype'] = 'UNKNOWN'
+        return keys
+
+    def _add_or_update_dict_in_dict(self, main_dict, main_key, key, value):
+        if main_key not in main_dict:
+            main_dict[main_key] = {}
+        main_dict[main_key].update({key: value})
+
+    def _conn2flow(self, flow_bulk, rec):
+        """
+        Take a parsed conn.log line entry and add it to flow bulk
+        """
+        findspec = self._get_flow_key(rec)
+
+        updatespec = {
+            '$min': {'firstseen': rec['start_time']},
+            '$max': {'lastseen': rec['end_time']},
+            '$set': {'proto': rec['proto']},
+            '$inc': {
+                'sdpkts': rec['orig_pkts'],
+                'dspkts': rec['resp_pkts'],
+                'sdbytes': rec['orig_ip_bytes'],
+                'dsbytes': rec['resp_ip_bytes'],
+                'count': 1
+            }
+        }
+
+        if rec['proto'] in ['udp', 'tcp']:
+            self._add_or_update_dict_in_dict(updatespec, '$setOnInsert',
+                                             'dst_port', rec['dport'])
+            self._add_or_update_dict_in_dict(updatespec, '$addToSet',
+                                             'src_ports', rec['sport'])
+
+        flow_bulk.find(findspec).upsert().update(updatespec)
+
+    def _conn2passive(self, passive_bulk, rec):
+        """
+        Take a parsed conn.log line entry and add it to passive bulk
+        """
+
+        # Try to use MongoDBPassive later
+
+        updatespec = {
+            '$inc': {'count': 1},
+            '$min': {'firstseen': rec['start_time']},
+            '$max': {'lastseen': rec['end_time']},
+            '$set': {'schema_version': passive.SCHEMA_VERSION},
+            # '$set': {'sensor': rec['sensor']}
+        }
+
+        # Add heuristic to determine which one of the src/dst is the server
+        # and store srvport accordingly
+
+        findspecs = self._get_passive_keys(rec)
+
+        for findspec in findspecs:
+            passive_bulk.find(findspec).upsert().update(updatespec)
+
+    def _conn2timescales(self, timescale_bulk, rec):
+        findspec = {
+            'time': self.date_round(rec['start_time'])
+        }
+
+        updatespec = {
+            '$addToSet': {'flows': self._get_flow_key(rec)}
+        }
+
+        passive_keys = self._get_passive_keys(rec)
+        for passive_key in passive_keys:
+            self._add_or_update_dict_in_dict(updatespec, '$addToSet',
+                                             'hosts', passive_key)
+
+        timescale_bulk.find(findspec).upsert().update(updatespec)
+
+    def conn2flow(self, bulks, rec):
+        """
+        Take a parsed conn.log line entry and add it to bulks
+        """
+        rec['src_addr_0'], rec['src_addr_1'] = self.ip2internal(rec['src'])
+        rec['dst_addr_0'], rec['dst_addr_1'] = self.ip2internal(rec['dst'])
+        self._conn2flow(bulks[self.column_flow], rec)
+        self._conn2passive(bulks[self.column_passive], rec)
+        self._conn2timescales(bulks[self.column_timescale], rec)
+
+    def bulk_commit(self, bulks):
+        for bulk in bulks:
+            try:
+                start_time = time.time()
+                result = bulk.execute()
+                newtime = time.time()
+                rate = result.get('nInserted') / (newtime - start_time)
+                utils.LOGGER.debug("%d inserts, %f/sec\n",
+                                   result.get('nInserted'), rate)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+
+    def init(self):
+        """Initializes the "flows" columns, i.e., drops those columns and
+        creates the default indexes.
+
+        """
+        self.db[self.columns[self.column_flow]].drop()
+        self.db[self.columns[self.column_timescale]].drop()
+
+    def get_flows(self):
+        for flow in self.find(self.columns[self.column_flow]):
+            try:
+                flow['src_addr'] = self.internal2ip([flow.pop('src_addr_0'),
+                                                     flow.pop('src_addr_1')])
+                flow['dst_addr'] = self.internal2ip([flow.pop('dst_addr_0'),
+                                                     flow.pop('dst_addr_1')])
+            except (KeyError):
+                pass
+            yield flow
+
+    def get_flows_count(self):
+        sources = self.db[self.columns[self.column_flow]].aggregate([
+            {
+                '$group': {
+                    '_id': {
+                        'src_addr_0': '$src_addr_0',
+                        'src_addr_1': '$src_addr_1'
+                    }
+                }
+            },
+            {'$count': 'count'}
+        ]).next()['count']
+
+        destinations = self.db[self.columns[self.column_flow]].aggregate([
+            {
+                '$group': {
+                    '_id': {
+                        'dst_addr_0': '$dst_addr_0',
+                        'dst_addr_1': '$dst_addr_1'
+                    }
+                }
+            },
+            {'$count': 'count'}
+        ]).next()['count']
+
+        flows = self.db[self.columns[self.column_flow]].count_documents()
+
+        return {'clients': sources, 'servers': destinations, 'flows': flows}
+
+    def from_filters(self, filters, limit=None, skip=0, orderby="", mode=None,
+                     timeline=False):
+        pass
+
+    def count(self, query):
+        return self.get_flows_count()
+
+    @classmethod
+    def _node2json(cls, addr):
+        return {
+            "id": addr,
+            "label": addr,
+            "labels": ["TODO"],
+            "x": random.random(),
+            "y": random.random(),
+            "data": []
+        }
+
+    @classmethod
+    def _edge2json(cls, ref, source, target, proto, dst_port):
+        return {
+            "id": ref,
+            "label": proto + '/' + str(dst_port),
+            "labels": [proto + '/' + str(dst_port)],
+            "source": source,
+            "target": target,
+            "data": []
+        }
+
+    def cursor2json_iter(self, cursor):
+        random.seed()
+        for row in cursor:
+            src_node = self._node2json(row.get('src_addr'))
+            dst_node = self._node2json(row.get('dst_addr'))
+            flow_node = self._edge2json(str(row.get('_id')),
+                                        row.get('src_addr'),
+                                        row.get('dst_addr'),
+                                        row.get('proto'),
+                                        row.get('dst_port'))
+            yield {"src": src_node, "dst": dst_node, "flow": flow_node}
+
+    def cursor2json_graph(self, cursor):
+        g = {"nodes": [], "edges": []}
+        done = set()
+
+        for row in self.cursor2json_iter(cursor):
+            for node, typ in ((row["src"], "nodes"),
+                              (row["flow"], "edges"),
+                              (row["dst"], "nodes")):
+                if node["id"] not in done:
+                    g[typ].append(node)
+                    done.add(node["id"])
+        return g
+
+    def to_graph(self, query):
+        return self.cursor2json_graph(self.get_flows())

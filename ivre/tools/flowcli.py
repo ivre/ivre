@@ -21,6 +21,7 @@ Access and query the flows database.
 
 See doc/FLOW.md for more information.
 """
+from __future__ import print_function
 
 import os
 import sys

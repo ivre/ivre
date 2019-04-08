@@ -52,6 +52,7 @@ except ImportError:
 
 
 from ivre import config, geoiputils, nmapout, utils, xmlnmap
+from datetime import datetime
 
 
 class DB(object):
@@ -2433,6 +2434,18 @@ LockError on failure.
 class DBFlow(DB):
     """Backend-independent code to handle flows"""
 
+    @classmethod
+    def date_round(cls, date):
+        if isinstance(date, datetime):
+            ts = utils.datetime2timestamp(date)
+        else:
+            ts = date
+        ts = ts - (ts % config.FLOW_TIME_PRECISION)
+        if isinstance(date, datetime):
+            return datetime.fromtimestamp(ts)
+        else:
+            return ts
+
 
 class MetaDB(object):
 
@@ -2459,6 +2472,7 @@ class MetaDB(object):
         "data": {"maxmind": ("maxmind", "MaxMindDBData")},
         "agent": {"mongodb": ("mongo", "MongoDBAgent")},
         "flow": {"neo4j": ("neo4j", "Neo4jDBFlow"),
+                 "mongodb": ("mongo", "MongoDBFlow"),
                  "postgresql": ("sql.postgres", "PostgresDBFlow")},
         "view": {"http": ("http", "HttpDBView"),
                  "mongodb": ("mongo", "MongoDBView"),
