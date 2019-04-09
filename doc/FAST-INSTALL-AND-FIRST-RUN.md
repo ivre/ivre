@@ -84,7 +84,7 @@ button to check if everything works.
     $ sudo ivre runscansagentdb --init
     This will remove any agent and/or scan in your database and files. Process ? [y/N] y
     $ sudo ivre ipdata --download
-    $ ivre ipdata --import-all
+    $ sudo ivre ipdata --import-all
 
 The two latest steps may take a long time to run, nothing to worry
 about.
