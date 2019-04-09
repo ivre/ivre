@@ -1467,3 +1467,45 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                     utils.num2readable(total_upserted), total_time_spent,
                     utils.num2readable(total_upserted / total_time_spent),
                 )
+
+    def _features_port_get(self, features, flt, yieldall, use_service,
+                           use_product, use_version):
+        flt = self.flt_and(flt, self.searchport(0, neg=True))
+        if use_version:
+            fields = [
+                cast(self.tables.passive.port, String),
+                self.tables.passive.moreinfo.op('->>')('service_name'),
+                self.tables.passive.moreinfo.op('->>')('service_product'),
+                self.tables.passive.moreinfo.op('->>')('service_version'),
+            ]
+        elif use_product:
+            fields = [
+                cast(self.tables.passive.port, String),
+                self.tables.passive.moreinfo.op('->>')('service_name'),
+                self.tables.passive.moreinfo.op('->>')('service_product'),
+            ]
+        elif use_service:
+            fields = [cast(self.tables.passive.port, String),
+                      self.tables.passive.moreinfo.op('->>')('service_name')]
+        else:
+            fields = [self.tables.passive.port]
+        n_features = len(features)
+        for addr, cur_features in self.db.execute(
+            flt.query(
+                select([self.tables.passive.addr,
+                        func.array_agg(func.distinct(
+                            postgresql.array(fields)
+                        ))])
+                .group_by(self.tables.passive.addr)
+            )
+        ):
+            currec = [0] * n_features
+            for feat in cur_features:
+                if use_service:
+                    # convert port number back to an integer
+                    feat[0] = int(feat[0])
+                try:
+                    currec[features[tuple(feat)]] = 1
+                except KeyError:
+                    pass
+            yield (addr, currec)

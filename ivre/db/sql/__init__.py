@@ -33,8 +33,8 @@ import re
 from builtins import int, range
 from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
-from sqlalchemy import create_engine, desc, func, column, delete, \
-    exists, join, select, update, and_, not_, or_, cast
+from sqlalchemy import and_, cast, column, create_engine, delete, desc, func, \
+    exists, join, not_, nullsfirst, or_, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 
 from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
@@ -1941,6 +1941,45 @@ passive table."""
              "_id": outputproc(result[1:] if len(result) > 2 else result[1])}
             for result in self.db.execute(req.order_by(order).limit(topnbr))
         )
+
+    def _features_port_list(self, flt, yieldall, use_service,
+                            use_product, use_version):
+        # This is in SQLDBPassive because it **should** work with
+        # SQLite. However, because ACCESS_TXT does not work well with
+        # the result processor, it does not. This is a similar problem
+        # than .topvalues() with JSON fields.
+        flt = self.flt_and(flt, self.searchport(0, neg=True))
+        if use_version:
+            fields = [
+                self.tables.passive.port,
+                self.tables.passive.moreinfo.op('->>')('service_name'),
+                self.tables.passive.moreinfo.op('->>')('service_product'),
+                self.tables.passive.moreinfo.op('->>')('service_version'),
+            ]
+        elif use_product:
+            fields = [
+                self.tables.passive.port,
+                self.tables.passive.moreinfo.op('->>')('service_name'),
+                self.tables.passive.moreinfo.op('->>')('service_product'),
+            ]
+        elif use_service:
+            fields = [self.tables.passive.port,
+                      self.tables.passive.moreinfo.op('->>')('service_name')]
+        else:
+            fields = [self.tables.passive.port]
+        req = (
+            flt.query(
+                select(fields)
+                .group_by(*fields)
+            )
+        )
+        if not yieldall:
+            req = req.order_by(*(nullsfirst(fld) for fld in fields))
+            return self.db.execute(req)
+        else:
+            # results will be modified, we cannot keep a RowProxy
+            # instance, so we convert the results to lists
+            return (list(rec) for rec in self.db.execute(req))
 
     @classmethod
     def searchnonexistent(cls):
