@@ -1276,6 +1276,79 @@ which `predicate()` is True, given `webflt`.
             "httphdr:content-type:/plain/i",
         )
 
+        columns, data = ivre.db.db.nmap.features(use_service=False)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_ports_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_ports_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features()
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_services_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_services_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(use_product=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_products_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_products_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(use_version=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_versions_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_versions_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(yieldall=False,
+                                                 use_version=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_versions_noyieldall_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_versions_noyieldall_ndata", len(data))
+
+        subflts = [(country, ivre.db.db.nmap.searchcountry(country))
+                   for country in ['FR', 'DE']]
+        columns, data = ivre.db.db.nmap.features(use_service=False,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_ports_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_ports_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_services_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_services_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(use_product=True,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_products_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_products_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(use_version=True,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_versions_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_versions_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.nmap.features(yieldall=False,
+                                                 use_version=True,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("nmap_features_versions_noyieldall_FRDE_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("nmap_features_versions_noyieldall_FRDE_ndata",
+                         len(data))
+
     def test_53_nmap_delete(self):
         # Remove
         addr = next(ivre.db.db.nmap.get(
@@ -1976,6 +2049,87 @@ which `predicate()` is True, given `webflt`.
                             ivre.db.db.passive.searchrecontype(
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_after_update", list_dnsbl)
+
+        if DATABASE != "sqlite":
+            # BUG in sqlite backend: same bug as "cannot use topvalues
+            # with JSON fields"
+            columns, data = ivre.db.db.passive.features(use_service=False)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_ports_ncolumns", ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_ports_ndata", len(data))
+            columns, data = ivre.db.db.passive.features()
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_services_ncolumns", ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_services_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(use_product=True)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_products_ncolumns", ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_products_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(use_version=True)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_versions_ncolumns", ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_versions_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(yieldall=False,
+                                                        use_version=True)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_versions_noyieldall_ncolumns",
+                             ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_versions_noyieldall_ndata",
+                             len(data))
+
+            subflts = [(country, ivre.db.db.passive.searchcountry(country))
+                       for country in ['FR', 'DE']]
+            columns, data = ivre.db.db.passive.features(use_service=False,
+                                                        subflts=subflts)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_ports_FRDE_ncolumns", ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_ports_FRDE_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(subflts=subflts)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_services_FRDE_ncolumns",
+                             ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_services_FRDE_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(use_product=True,
+                                                        subflts=subflts)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_products_FRDE_ncolumns",
+                             ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_products_FRDE_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(use_version=True,
+                                                        subflts=subflts)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value("passive_features_versions_FRDE_ncolumns",
+                             ncolumns)
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_versions_FRDE_ndata", len(data))
+            columns, data = ivre.db.db.passive.features(yieldall=False,
+                                                        use_version=True,
+                                                        subflts=subflts)
+            ncolumns = len(columns)
+            data = list(data)
+            self.check_value(
+                "passive_features_versions_noyieldall_FRDE_ncolumns", ncolumns,
+            )
+            self.assertTrue(all(len(d) == ncolumns for d in data))
+            self.check_value("passive_features_versions_noyieldall_FRDE_ndata",
+                             len(data))
 
     def test_54_passive_delete(self):
         total_count = ivre.db.db.passive.count(
@@ -3106,6 +3260,79 @@ which `predicate()` is True, given `webflt`.
             ["--useragent", regexp],
             "useragent:%s" % regexp,
         )
+
+        columns, data = ivre.db.db.view.features(use_service=False)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_ports_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_ports_ndata", len(data))
+        columns, data = ivre.db.db.view.features()
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_services_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_services_ndata", len(data))
+        columns, data = ivre.db.db.view.features(use_product=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_products_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_products_ndata", len(data))
+        columns, data = ivre.db.db.view.features(use_version=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_versions_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_versions_ndata", len(data))
+        columns, data = ivre.db.db.view.features(yieldall=False,
+                                                 use_version=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_versions_noyieldall_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_versions_noyieldall_ndata", len(data))
+
+        subflts = [(country, ivre.db.db.view.searchcountry(country))
+                   for country in ['FR', 'DE']]
+        columns, data = ivre.db.db.view.features(use_service=False,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_ports_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_ports_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.view.features(subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_services_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_services_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.view.features(use_product=True,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_products_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_products_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.view.features(use_version=True,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_versions_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_versions_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.view.features(yieldall=False,
+                                                 use_version=True,
+                                                 subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("view_features_versions_noyieldall_FRDE_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("view_features_versions_noyieldall_FRDE_ndata",
+                         len(data))
 
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
