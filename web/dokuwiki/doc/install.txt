@@ -103,7 +103,7 @@ Nmap does not take application screenshots by default. To do so, you have to ins
 <code>
 # cp /usr/share/ivre/nmap_scripts/*.nse /usr/share/nmap/scripts/
 # patch /usr/share/nmap/scripts/rtsp-url-brute.nse \
-> /usr/share/ivre/nmap_scripts/patches/rtsp-url-brute.patch
+< /usr/share/ivre/nmap_scripts/patches/rtsp-url-brute.patch
 # nmap --script-updatedb
 
 </code>

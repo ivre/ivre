@@ -188,7 +188,7 @@ and IVRE have been installed in `/usr`:
 
     # cp /usr/share/ivre/nmap_scripts/*.nse /usr/share/nmap/scripts/
     # patch /usr/share/nmap/scripts/rtsp-url-brute.nse \
-	> /usr/share/ivre/nmap_scripts/patches/rtsp-url-brute.patch
+	< /usr/share/ivre/nmap_scripts/patches/rtsp-url-brute.patch
     # nmap --script-updatedb
 
 And now, you can play:
