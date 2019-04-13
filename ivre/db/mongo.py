@@ -80,7 +80,7 @@ MongoDB < 3.2.
     for elt in values:
         result.extend([sep, {'$toLower': elt} if convert_to_string else elt])
     if len(result) == 1:
-        return result
+        return result[0]
     return {'$concat': result}
 
 
