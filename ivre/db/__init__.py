@@ -287,7 +287,7 @@ If `yieldall` is true, when a specific feature exists (e.g., `(80,
                 tuple(val) for val in
                 self._features_port_list(flt, yieldall, use_service,
                                          use_product, use_version)
-            ), key=lambda val: ["" if v is None else v for v in val])
+            ), key=lambda val: [utils.key_sort_none(v) for v in val])
 
         def _gen(val):
             yield tuple(val)
@@ -299,7 +299,7 @@ If `yieldall` is true, when a specific feature exists (e.g., `(80,
             for vals in self._features_port_list(flt, yieldall, use_service,
                                                  use_product, use_version)
             for val in _gen(vals)
-        ), key=lambda val: ["" if v is None else v for v in val])
+        ), key=lambda val: [utils.key_sort_none(v) for v in val])
 
     def _features_port_list(self, flt, yieldall, use_service, use_product,
                             use_version):

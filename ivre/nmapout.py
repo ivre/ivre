@@ -94,7 +94,8 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
                              for reason, count in viewitems(counts["reasons"])
                              if reason != "total")))
     ports = record.get('ports', [])
-    ports.sort(key=lambda x: (x.get('protocol') or '', x['port']))
+    ports.sort(key=lambda x: (utils.key_sort_none(x.get('protocol')),
+                              x['port']))
     for port in ports:
         if port.get('port') == -1:
             record['scripts'] = port['scripts']
