@@ -16,20 +16,16 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-wget -q "https://neo4j.com/artifact.php?name=neo4j-community-${NEO4J_VERSION}-unix.tar.gz" -O - | tar zxf -
-export PATH="`pwd`/neo4j-community-${NEO4J_VERSION}/bin:$PATH"
+wget -q "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-$ELASTIC_VERSION-linux-x86_64.tar.gz" -O - | tar zxf -
+export PATH="`pwd`/elasticsearch-$ELASTIC_VERSION/bin:$PATH"
 PIP_INSTALL_OPTIONS=""
-rmdir "`pwd`/neo4j-community-${NEO4J_VERSION}/data/databases"
-sudo mount -t tmpfs tmpfs "`pwd`/neo4j-community-${NEO4J_VERSION}/data" -o users,uid=travis,gid=travis,mode=0700
-neo4j start
+mkdir -p data/db
+sudo mount -t tmpfs tmpfs data/db -o users,uid=travis,gid=travis,mode=0700
+elasticsearch -d -h -E path.data=`pwd`/data/db
 
-# Wait for Neo4j
-until nc -z localhost 7474 ; do echo Waiting for Neo4j; sleep 1; done
+until nc -z localhost 9200 ; do echo Waiting for Elasticsearch; sleep 1; done
+sleep 2
 
-# Remove "password change required" for user neo4j
-neo4j stop
-sed -i 's/:password_change_required$/:/' "`pwd`/neo4j-community-${NEO4J_VERSION}/data/dbms/auth"
-neo4j start
+echo 'DB = "elastic://ivre@localhost:9200/ivre"' >> ~/.ivre.conf
 
-# Wait for Neo4j (again)
-until nc -z localhost 7474 ; do echo Waiting for Neo4j; sleep 1; done
+curl http://127.0.0.1:9200
