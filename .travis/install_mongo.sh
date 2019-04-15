@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,9 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 # https://gist.github.com/roidrage/14e45c24b5a134e1f165
-wget -q "http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
-tar xfz "mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
-rm "mongodb-linux-x86_64-$MONGODB_VERSION.tgz"
+wget -q "http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-$MONGODB_VERSION.tgz" -O - | tar zxf -
 export PATH="`pwd`/mongodb-linux-x86_64-$MONGODB_VERSION/bin:$PATH"
 PIP_INSTALL_OPTIONS=""
 mkdir -p data/db
@@ -30,3 +28,5 @@ mongod --dbpath=data/db >/dev/null 2>&1 &
 # Wait for MongoDB
 # https://github.com/travis-ci/travis-ci/issues/2246#issuecomment-51685471
 until nc -z localhost 27017 ; do echo Waiting for MongoDB; sleep 1; done
+
+mongo --eval 'db.version()'
