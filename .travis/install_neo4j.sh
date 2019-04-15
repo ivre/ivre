@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,12 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-DB=neo4j
-NEO4J_VERSION=3.5.1
-
-wget -q -O - "https://neo4j.com/artifact.php?name=neo4j-community-${NEO4J_VERSION}-unix.tar.gz" | tar zxf -
+wget -q "https://neo4j.com/artifact.php?name=neo4j-community-${NEO4J_VERSION}-unix.tar.gz" -O - | tar zxf -
 export PATH="`pwd`/neo4j-community-${NEO4J_VERSION}/bin:$PATH"
-
+PIP_INSTALL_OPTIONS=""
+rmdir "`pwd`/neo4j-community-${NEO4J_VERSION}/data/databases"
+sudo mount -t tmpfs tmpfs "`pwd`/neo4j-community-${NEO4J_VERSION}/data" -o users,uid=travis,gid=travis,mode=0700
 neo4j start
 
 # Wait for Neo4j

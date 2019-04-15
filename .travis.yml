@@ -34,9 +34,6 @@ env:
   ## Development release
   - DB=mongo MONGODB_VERSION=4.1.3
   # Neo4j
-  - DB=neo4j NEO4J_VERSION=3.2.13
-  - DB=neo4j NEO4J_VERSION=3.3.9
-  - DB=neo4j NEO4J_VERSION=3.4.11
   - DB=neo4j NEO4J_VERSION=3.5.1
   # Sqlite
   - DB=sqlite
