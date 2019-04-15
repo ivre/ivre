@@ -462,7 +462,10 @@ def all2datetime(arg):
     if isinstance(arg, datetime.datetime):
         return arg
     if isinstance(arg, basestring):
-        return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+        try:
+            return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S.%f')
     if isinstance(arg, int_types):
         return datetime.datetime.fromtimestamp(arg)
     else:
