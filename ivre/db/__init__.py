@@ -1626,10 +1626,22 @@ class DBView(DBActive):
                         DBView.merge_scripts(curscript, script, script['id'])
                 if not curport['scripts']:
                     del curport['scripts']
-                if 'service_name' in port and 'service_name' not in curport:
-                    for key in port:
-                        if key.startswith("service_"):
-                            curport[key] = port[key]
+                if 'service_name' in port:
+                    if 'service_name' not in curport:
+                        for key in port:
+                            if key.startswith("service_"):
+                                curport[key] = port[key]
+                    elif port['service_name'] == curport['service_name']:
+                        # if the "old" record has information missing
+                        # from the "new" record and information from
+                        # both records is consistent, let's keep the
+                        # "old" data.
+                        for key in port:
+                            if (
+                                    key.startswith("service_") and
+                                    key not in curport
+                            ):
+                                curport[key] = port[key]
             else:
                 ports[(port.get('protocol'), port['port'])] = port
         rec["ports"] = sorted(viewvalues(ports), key=lambda port: (
