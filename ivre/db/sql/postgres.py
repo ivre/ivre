@@ -28,8 +28,8 @@ import time
 
 
 from sqlalchemy import ARRAY, Column, Index, LargeBinary, String, Table, \
-    and_, cast, column, delete, desc, exists, func, insert, join, nullsfirst, \
-    select, text, tuple_, update
+    and_, cast, column, delete, desc, exists, func, insert, join, not_, \
+    nullsfirst, select, text, tuple_, update
 from sqlalchemy.dialects import postgresql
 
 
@@ -980,6 +980,29 @@ insert structures.
                 except KeyError:
                     pass
             yield (addr, currec)
+        # add features for addresses without open ports
+        base2 = flt.query(
+            select([func.distinct(self.tables.port.scan).label('scan')])
+            .select_from(flt.select_from)
+            .where(and_(
+                exists(select([1]).select_from(base)
+                       .where(self.tables.port.scan == base.c.id)),
+                self.tables.port.state == "open",
+                self.tables.port.port != -1,
+            ))
+        ).cte("base2")
+        for addr, in self.db.execute(
+                flt.query(
+                    select([func.distinct(self.tables.scan.addr)])
+                    .select_from(flt.select_from)
+                    .where(not_(exists(
+                        select([1]).select_from(base2)
+                        .where(self.tables.scan.id == base2.c.scan)
+                    )))
+                )
+        ):
+            print("ADDING RECORD FOR %r" % addr)
+            yield (addr, [0] * n_features)
 
 
 class PostgresDBNmap(PostgresDBActive, SQLDBNmap):

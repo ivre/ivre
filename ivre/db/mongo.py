@@ -3299,8 +3299,7 @@ it is not expected)."""
                         continue
                     yield (port['port'], )
         n_features = len(features)
-        for rec in self.get(self.flt_and(flt,
-                                         {'ports.port': {'$exists': True}})):
+        for rec in self.get(flt):
             currec = [0] * n_features
             for feat in _extract(rec):
                 try:
