@@ -1735,6 +1735,21 @@ class _RecInfo(object):
             data['infos'] = self.infos
         return data
 
+    def update_from_spec(self, spec):
+        self.count += spec.get('count')
+        firstseen = spec.get('firstseen')
+        if firstseen is not None:
+            if self.firstseen is None:
+                self.firstseen = firstseen
+            else:
+                self.firstseen = min(self.firstseen, firstseen)
+        lastseen = spec.get('lastseen')
+        if lastseen is not None:
+            if self.lastseen is None:
+                self.lastseen = lastseen
+            else:
+                self.lastseen = min(self.lastseen, lastseen)
+
     def update(self, timestamp):
         self.count += 1
         if self.firstseen is None:
@@ -1830,7 +1845,8 @@ class DBPassive(DB):
                                       getinfos=getinfos,
                                       lastseen=lastseen or timestamp)
 
-    def insert_or_update_local_bulk(self, specs, getinfos=None):
+    def insert_or_update_local_bulk(self, specs, getinfos=None,
+                                    separated_timestamps=True):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of (timestamp, spec) values. This generic
         implementation does not use the bulk capacity of the
@@ -1848,16 +1864,30 @@ class DBPassive(DB):
         records = {}
         utils.LOGGER.debug("DB: creating a local bulk upsert (%d records)",
                            config.LOCAL_BATCH_SIZE)
-        for timestamp, spec in specs:
-            if spec is None:
-                continue
-            infos = spec.get('infos')
-            spec = tuple((key, spec[key]) for key in sorted(spec)
-                         if key != 'infos')
-            records.setdefault(spec, _RecInfo(infos)).update(timestamp)
-            if len(records) >= config.LOCAL_BATCH_SIZE:
-                _bulk_execute(records)
-                records = {}
+        if separated_timestamps:
+            for timestamp, spec in specs:
+                if spec is None:
+                    continue
+                infos = spec.pop('infos', None)
+                spec = tuple((key, spec[key]) for key in sorted(spec))
+                records.setdefault(spec, _RecInfo(infos)).update(timestamp)
+                if len(records) >= config.LOCAL_BATCH_SIZE:
+                    _bulk_execute(records)
+                    records = {}
+        else:
+            for spec in specs:
+                if spec is None:
+                    continue
+                infos = spec.pop('infos', None)
+                basespec = tuple(
+                    (key, spec[key]) for key in sorted(spec)
+                    if key not in ['count', 'firstseen', 'lastseen']
+                )
+                records.setdefault(basespec,
+                                   _RecInfo(infos)).update_from_spec(spec)
+                if len(records) >= config.LOCAL_BATCH_SIZE:
+                    _bulk_execute(records)
+                    records = {}
         _bulk_execute(records)
 
     def searchcountry(self, code, neg=False):

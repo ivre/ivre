@@ -165,21 +165,12 @@ class PassiveCSVFile(CSVFile):
     def fixline(self, line):
         if self.timestamps:
             timestamp, line = line
-            if isinstance(timestamp, datetime.datetime):
-                line["firstseen"] = line["lastseen"] = timestamp
-            else:
-                line["firstseen"] = line["lastseen"] = (
-                    datetime.datetime.fromtimestamp(timestamp)
-                )
+            line["firstseen"] = line["lastseen"] = utils.all2datetime(
+                timestamp
+            )
         else:
-            if not isinstance(line["firstseen"], datetime.datetime):
-                line["firstseen"] = datetime.datetime.fromtimestamp(
-                    line["firstseen"]
-                )
-            if not isinstance(line["lastseen"], datetime.datetime):
-                line["lastseen"] = datetime.datetime.fromtimestamp(
-                    line["lastseen"]
-                )
+            line["firstseen"] = utils.all2datetime(line["firstseen"])
+            line["lastseen"] = utils.all2datetime(line["lastseen"])
         if self.getinfos is not None:
             line.update(self.getinfos(line))
             try:
@@ -1389,10 +1380,8 @@ the way IP addresses are stored.
         )
 
     def searchtimerange(self, start, stop, neg=False):
-        if not isinstance(start, datetime.datetime):
-            start = datetime.datetime.fromtimestamp(start)
-        if not isinstance(stop, datetime.datetime):
-            stop = datetime.datetime.fromtimestamp(stop)
+        start = utils.all2datetime(start)
+        stop = utils.all2datetime(stop)
         if neg:
             return self.base_filter(
                 main=(self.tables.scan.time_start < start) |
@@ -1844,11 +1833,9 @@ returns the first result, or None if no result exists."""
             except KeyError:
                 pass
         addr = spec.pop("addr", None)
-        if not isinstance(timestamp, datetime.datetime):
-            timestamp = datetime.datetime.fromtimestamp(timestamp)
-        if lastseen is not None and not isinstance(lastseen,
-                                                   datetime.datetime):
-            lastseen = datetime.datetime.fromtimestamp(lastseen)
+        timestamp = utils.all2datetime(timestamp)
+        if lastseen is not None:
+            lastseen = utils.all2datetime(lastseen)
         if addr:
             addr = self.ip2internal(addr)
         otherfields = dict(
@@ -2350,7 +2337,6 @@ passive table."""
     def searchnewer(cls, timestamp, neg=False, new=False):
         field = cls.tables.passive.lastseen if new else \
             cls.tables.passive.firstseen
-        if not isinstance(timestamp, datetime.datetime):
-            timestamp = datetime.datetime.fromtimestamp(timestamp)
+        timestamp = utils.all2datetime(timestamp)
         return PassiveFilter(main=(field <= timestamp if neg else
                                    field > timestamp))
