@@ -173,6 +173,7 @@ mapping.
         return struct.pack('!QQ', ipval >> 64, ipval & 0xffffffffffffffff)
     except TypeError:
         pass
+    raw_ipval = ipval
     try:
         ipval = ipval.decode()
     except UnicodeDecodeError:
@@ -195,9 +196,9 @@ mapping.
         pass
     # Probably already a binary representation
     if len(ipval) == 16:
-        return ipval
+        return raw_ipval
     if len(ipval) == 4:
-        return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + ipval
+        return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + raw_ipval
     raise ValueError('Invalid IP address %r' % ipval)
 
 
@@ -1369,7 +1370,12 @@ def parse_ssh_key(data):
         data = data[4 + length:]
 
 
+# https://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.xhtml
+# Consulted february 2019
 _ADDR_TYPES = [
+    "Unspecified",
+    "Loopback",
+    "Reserved",
     "Current-Net",
     None,
     "Private",
@@ -1389,28 +1395,68 @@ _ADDR_TYPES = [
     "Multicast",
     "Reserved",
     "Broadcast",
+    "Reserved",
+    "Well-known prefix",
+    "Reserved",
+    # RFC 6666 Remote Triggered Black Hole
+    "Discard (RTBH)",
+    "Reserved",
+    None,
+    "Protocol assignements",
+    None,
+    "Documentation",
+    None,
+    "6to4",
+    None,
+    "Reserved",
+    "Unique Local Unicast",
+    "Reserved",
+    "Link Local Unicast",
+    "Reserved",
+    "Multicast",
 ]
 
 _ADDR_TYPES_LAST_IP = [
-    ip2int("0.255.255.255"),
-    ip2int("9.255.255.255"),
-    ip2int("10.255.255.255"),
-    ip2int("100.63.255.255"),
-    ip2int("100.127.255.255"),
-    ip2int("126.255.255.255"),
-    ip2int("127.255.255.255"),
-    ip2int("169.253.255.255"),
-    ip2int("169.254.255.255"),
-    ip2int("172.15.255.255"),
-    ip2int("172.31.255.255"),
-    ip2int("192.88.98.255"),
-    ip2int("192.88.99.255"),
-    ip2int("192.167.255.255"),
-    ip2int("192.168.255.255"),
-    ip2int("223.255.255.255"),
-    ip2int("239.255.255.255"),
-    ip2int("255.255.255.254"),
-    ip2int("255.255.255.255"),
+    ip2int("::"),
+    ip2int("::1"),
+    ip2int("::fffe:ffff:ffff"),
+    ip2int("::ffff:0.255.255.255"),
+    ip2int("::ffff:9.255.255.255"),
+    ip2int("::ffff:10.255.255.255"),
+    ip2int("::ffff:100.63.255.255"),
+    ip2int("::ffff:100.127.255.255"),
+    ip2int("::ffff:126.255.255.255"),
+    ip2int("::ffff:127.255.255.255"),
+    ip2int("::ffff:169.253.255.255"),
+    ip2int("::ffff:169.254.255.255"),
+    ip2int("::ffff:172.15.255.255"),
+    ip2int("::ffff:172.31.255.255"),
+    ip2int("::ffff:192.88.98.255"),
+    ip2int("::ffff:192.88.99.255"),
+    ip2int("::ffff:192.167.255.255"),
+    ip2int("::ffff:192.168.255.255"),
+    ip2int("::ffff:223.255.255.255"),
+    ip2int("::ffff:239.255.255.255"),
+    ip2int("::ffff:255.255.255.254"),
+    ip2int("::ffff:255.255.255.255"),
+    ip2int("64:ff9a:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("64:ff9b::ffff:ffff"),
+    ip2int("ff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("100::ffff:ffff:ffff:ffff"),
+    ip2int("1fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("2000:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("2001:1ff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("2001:db7:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("2001:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("2002:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("3fff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("fbff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("fdff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("fe7f:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("febf:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("feff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
+    ip2int("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
 ]
 
 
@@ -1418,13 +1464,13 @@ def get_addr_type(addr):
     """Returns the type (Private, Loopback, etc.) of an IPv4 address, or
 None if it is a "normal", usable address.
 
-    TODO: implement IPv6
-
     """
+
+    if ':' not in addr:
+        addr = "::ffff:" + addr
     try:
         addr = ip2int(addr)
     except (TypeError, socket.error):
-        # FIXME no IPv6 support
         return None
     return _ADDR_TYPES[bisect_left(_ADDR_TYPES_LAST_IP, addr)]
 
