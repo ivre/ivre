@@ -28,8 +28,8 @@ import time
 
 
 from sqlalchemy import ARRAY, Column, Index, LargeBinary, String, Table, \
-    and_, column, delete, desc, exists, func, insert, join, select, text, \
-    tuple_, update
+    and_, cast, column, delete, desc, exists, func, insert, join, not_, \
+    nullsfirst, select, text, tuple_, update
 from sqlalchemy.dialects import postgresql
 
 
@@ -899,6 +899,111 @@ insert structures.
                     for result in
                     self.db.execute(req.order_by(order).limit(topnbr)))
 
+    def _features_port_list(self, flt, yieldall, use_service,
+                            use_product, use_version):
+        base = flt.query(
+            select([self.tables.scan.id]).select_from(flt.select_from)
+        ).cte("base")
+        if use_version:
+            fields = [self.tables.port.port,
+                      self.tables.port.service_name,
+                      self.tables.port.service_product,
+                      self.tables.port.service_version]
+        elif use_product:
+            fields = [self.tables.port.port,
+                      self.tables.port.service_name,
+                      self.tables.port.service_product]
+        elif use_service:
+            fields = [self.tables.port.port,
+                      self.tables.port.service_name]
+        else:
+            fields = [self.tables.port.port]
+        req = (
+            select(fields)
+            .group_by(*fields)
+            .where(and_(
+                exists(select([1]).select_from(base)
+                       .where(self.tables.port.scan == base.c.id)),
+                self.tables.port.state == "open",
+                self.tables.port.port != -1,
+            ))
+        )
+        if not yieldall:
+            req = req.order_by(*(nullsfirst(fld) for fld in fields))
+            return self.db.execute(req)
+        else:
+            # results will be modified, we cannot keep a RowProxy
+            # instance, so we convert the results to lists
+            return (list(rec) for rec in self.db.execute(req))
+
+    def _features_port_get(self, features, flt, yieldall, use_service,
+                           use_product, use_version):
+        base = flt.query(
+            select([self.tables.scan.id]).select_from(flt.select_from)
+        ).cte("base")
+        if use_version:
+            fields = [cast(self.tables.port.port, String),
+                      self.tables.port.service_name,
+                      self.tables.port.service_product,
+                      self.tables.port.service_version]
+        elif use_product:
+            fields = [cast(self.tables.port.port, String),
+                      self.tables.port.service_name,
+                      self.tables.port.service_product]
+        elif use_service:
+            fields = [cast(self.tables.port.port, String),
+                      self.tables.port.service_name]
+        else:
+            fields = [self.tables.port.port]
+        n_features = len(features)
+        for addr, cur_features in self.db.execute(
+                select([
+                    self.tables.scan.addr,
+                    func.array_agg(func.distinct(postgresql.array(fields))),
+                ])
+                .select_from(join(self.tables.scan, self.tables.port))
+                .group_by(self.tables.scan.addr)
+                .where(and_(
+                    exists(select([1]).select_from(base)
+                           .where(self.tables.port.scan == base.c.id)),
+                    self.tables.port.state == "open",
+                    self.tables.port.port != -1,
+                ))
+        ):
+            currec = [0] * n_features
+            for feat in cur_features:
+                if use_service:
+                    # convert port number back to an integer
+                    feat[0] = int(feat[0])
+                try:
+                    currec[features[tuple(feat)]] = 1
+                except KeyError:
+                    pass
+            yield (addr, currec)
+        # add features for addresses without open ports
+        base2 = flt.query(
+            select([func.distinct(self.tables.port.scan).label('scan')])
+            .select_from(flt.select_from)
+            .where(and_(
+                exists(select([1]).select_from(base)
+                       .where(self.tables.port.scan == base.c.id)),
+                self.tables.port.state == "open",
+                self.tables.port.port != -1,
+            ))
+        ).cte("base2")
+        for addr, in self.db.execute(
+                flt.query(
+                    select([func.distinct(self.tables.scan.addr)])
+                    .select_from(flt.select_from)
+                    .where(not_(exists(
+                        select([1]).select_from(base2)
+                        .where(self.tables.scan.id == base2.c.scan)
+                    )))
+                )
+        ):
+            print("ADDING RECORD FOR %r" % addr)
+            yield (addr, [0] * n_features)
+
 
 class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
 
@@ -1385,3 +1490,45 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                     utils.num2readable(total_upserted), total_time_spent,
                     utils.num2readable(total_upserted / total_time_spent),
                 )
+
+    def _features_port_get(self, features, flt, yieldall, use_service,
+                           use_product, use_version):
+        flt = self.flt_and(flt, self.searchport(0, neg=True))
+        if use_version:
+            fields = [
+                cast(self.tables.passive.port, String),
+                self.tables.passive.moreinfo.op('->>')('service_name'),
+                self.tables.passive.moreinfo.op('->>')('service_product'),
+                self.tables.passive.moreinfo.op('->>')('service_version'),
+            ]
+        elif use_product:
+            fields = [
+                cast(self.tables.passive.port, String),
+                self.tables.passive.moreinfo.op('->>')('service_name'),
+                self.tables.passive.moreinfo.op('->>')('service_product'),
+            ]
+        elif use_service:
+            fields = [cast(self.tables.passive.port, String),
+                      self.tables.passive.moreinfo.op('->>')('service_name')]
+        else:
+            fields = [self.tables.passive.port]
+        n_features = len(features)
+        for addr, cur_features in self.db.execute(
+            flt.query(
+                select([self.tables.passive.addr,
+                        func.array_agg(func.distinct(
+                            postgresql.array(fields)
+                        ))])
+                .group_by(self.tables.passive.addr)
+            )
+        ):
+            currec = [0] * n_features
+            for feat in cur_features:
+                if use_service:
+                    # convert port number back to an integer
+                    feat[0] = int(feat[0])
+                try:
+                    currec[features[tuple(feat)]] = 1
+                except KeyError:
+                    pass
+            yield (addr, currec)

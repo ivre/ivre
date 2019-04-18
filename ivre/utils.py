@@ -36,7 +36,7 @@ import bz2
 import codecs
 import datetime
 import errno
-from functools import reduce
+import functools
 import gzip
 import hashlib
 import json
@@ -463,8 +463,11 @@ def all2datetime(arg):
     if isinstance(arg, datetime.datetime):
         return arg
     if isinstance(arg, basestring):
-        return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
-    if isinstance(arg, int_types):
+        try:
+            return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S.%f')
+    if isinstance(arg, int_types) or isinstance(arg, float):
         return datetime.datetime.fromtimestamp(arg)
     else:
         raise TypeError("%s is of unknown type." % repr(arg))
@@ -883,7 +886,7 @@ def country_unalias(country):
     if isinstance(country, basestring):
         return COUNTRY_ALIASES.get(country, country)
     if hasattr(country, '__iter__'):
-        return reduce(
+        return functools.reduce(
             lambda x, y: x + (y if isinstance(y, list) else [y]),
             (country_unalias(country_elt) for country_elt in country),
             [],
@@ -1654,3 +1657,38 @@ def display_top(db, arg, flt, lmt):
             entry['_id'] = json.dumps(entry['_id'],
                                       default=serialize)
         print("%(_id)s: %(count)d" % entry)
+
+
+if PY3:
+
+    # https://stackoverflow.com/a/26348624
+    @functools.total_ordering
+    class MinValue(object):
+        def __le__(self, other):
+            return True
+
+        def __eq__(self, other):
+            return self is other
+
+    MIN_VALUE = MinValue()
+
+    def key_sort_none(value):
+        """This function can be used as `key=` argument for sorted() and
+.sort(), in order to sort values that can be of a certain type (e.g.,
+str), or None, so that None is always lower.
+
+We just need to replace None with MIN_VALUE, which is an object that
+happily compares with anything, and is lower than anything.
+
+        """
+        if value is None:
+            return MIN_VALUE
+        return value
+
+else:
+    def key_sort_none(value):
+        """In Python 2, None is lower than most types (int, str, etc.), so we
+have nothing to do here.
+
+        """
+        return value
