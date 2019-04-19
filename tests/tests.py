@@ -2521,9 +2521,8 @@ which `predicate()` is True, given `webflt`.
         # NOTICE : compared to datetime.utcfromtimestamp
         self.assertEqual(ivre.utils.all2datetime(1410532663),
                          datetime(2014, 9, 12, 14, 37, 43))
-        with self.assertRaises(TypeError):
-            # FIXME : also accept floats ?
-            ivre.utils.all2datetime(1410532663.0)
+        self.assertEqual(ivre.utils.all2datetime(1410532663.0),
+                         datetime(2014, 9, 12, 14, 37, 43))
 
         # fields2csv_head
         self.assertItemsEqual(ivre.utils.fields2csv_head(
