@@ -158,6 +158,11 @@ NMAP_FINGERPRINT_IVRE_KEY = {
     'v': 'service_version',
 }
 
+# VERY simplistic IPv4/v6 re
+IP_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|'
+                   '^[a-f0-9:]*:[a-f0-9]{0,4}$')
+
+IPv4_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
 
 logging.basicConfig()
 
@@ -1785,3 +1790,28 @@ have nothing to do here.
 
         """
         return value
+
+
+def ptr2addr(ptr):
+    """
+    Returns the IP address (v4 or v6) represented by the given PTR,
+    None if the string does not seem to be a PTR
+    """
+    if ptr.endswith(".in-addr.arpa"):
+        return '.'.join(reversed(ptr.split(".")[:4]))
+    elif ptr.endswith(".ip6.arpa"):
+        splitted = ptr.split(".")[:-2]
+        reversed_ptr = list(reversed(splitted))
+        addr_t = []
+        for i in xrange(0, len(splitted), 4):
+            addr_t.append(reversed_ptr[i] + reversed_ptr[i+1] +
+                          reversed_ptr[i+2] + reversed_ptr[i+3])
+        return ":".join(addr_t)
+    return None
+
+
+def is_ptr(ptr):
+    """
+    Check whether the given string is a PTR
+    """
+    return ptr.endswith(".in-addr.arpa") or ptr.endswith(".ip6.arpa")

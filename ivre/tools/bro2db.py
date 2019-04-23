@@ -20,16 +20,9 @@
 
 
 import os
-import re
-
-
-from future.utils import viewitems
-
-
 from ivre.parser.bro import BroFile
 from ivre.db import db
-from ivre import config
-from ivre import utils
+from ivre import config, utils, flow
 
 
 FLOW_KEYS_TCP = {"dport": "{id_resp_p}", "proto": '"tcp"'}
@@ -137,7 +130,7 @@ ALL_DESCS = {
 }
 
 
-def _bro2neo(rec):
+def _bro2flow(rec):
     """Prepares a document for db.flow.*add_flow()."""
     if "id_orig_h" in rec:
         rec["src"] = rec.pop("id_orig_h")
@@ -145,101 +138,35 @@ def _bro2neo(rec):
         rec["dst"] = rec.pop("id_resp_h")
     if "ts" in rec:
         rec["start_time"] = rec["end_time"] = rec.pop("ts")
-    return rec
-
-
-def any2neo(desc, kind=None):
-    if kind is None:
-        kind = desc.get("kind", "flow")
-
-    def inserter(bulk, rec):
-        keys = desc["keys"]
-        link_type = desc.get("link", "INTEL")
-        counters = desc.get("counters", [])
-        accumulators = desc.get("accumulators", {})
-        keys = utils.normalize_props(keys)
-        counters = utils.normalize_props(counters)
-        for props in (keys, counters, accumulators):
-            for k, v in list(viewitems(props)):
-                if v[0] == '{' and v[-1] == '}':
-                    prop = v[1:-1]
-                else:
-                    prop = k
-                if (prop not in rec or rec[prop] is None) and k in props:
-                    del(props[k])
-        if kind == "flow":
-            flow_keys = desc.get("flow_keys", DEFAULT_FLOW_KEYS)
-            bulk.append(
-                db.flow.add_flow_metadata(
-                    desc["labels"], link_type, keys, flow_keys,
-                    counters=counters, accumulators=accumulators),
-                rec
-            )
-        elif kind == "host":
-            host_keys = desc.get("host_keys", DEFAULT_HOST_KEYS)
-            bulk.append(
-                db.flow.add_host_metadata(
-                    desc["labels"], link_type, keys, host_keys=host_keys,
-                    counters=counters, accumulators=accumulators),
-                rec
-            )
-        else:
-            raise ValueError("Unrecognized kind")
-    return inserter
-
-
-def conn2flow(bulk, rec):
-    utils.LOGGER.debug(str(rec))
-    if rec['proto'] == 'icmp':
+    if rec.get('proto', None) == 'icmp':
         # FIXME incorrect: source & dest flow?
         rec['type'], rec['code'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
     elif 'id_orig_p' in rec and 'id_resp_p' in rec:
         rec['sport'], rec['dport'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
-    return db.flow.conn2flow(bulk, rec)
+    return rec
 
 
-# VERY simplistic IPv4/v6 re
-IP_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|'
-                   '^[a-f0-9:]*:[a-f0-9]{0,4}$')
+def http2flow(bulk, rec):
+    rec['proto'] = 'tcp'
+    db.flow.any2flow(bulk, 'http', rec)
 
 
-def dns2flow(bulk, rec):
-    # FIXME
-
-    answers = rec.get("answers", None)
-    rec["answers"] = answers if answers else []
-    if (rec.get("query", "") or "").endswith(".in-addr.arpa"):
-        # Reverse DNS
-        # rec["names"] = rec["answers"]
-        rec["addrs"] = ['.'.join(reversed(rec["query"].split(".")[:4]))]
-    else:
-        # Forward DNS
-        # Name to resolve + aliases
-        # rec["names"] =  [rec["query"]] + [addr for addr in rec["answers"]
-        #                                   if not IP_RE.match(addr)]
-        rec["addrs"] = [addr for addr in
-                        rec.get("answers", []) if IP_RE.match(addr)]
-    if db.flow.db_version[0] >= 3:
-        rec["answers"] = ', '.join(rec.get("answers") or [])
-
-    any2neo(ALL_DESCS["dns"])(bulk, rec)
-    # TODO: loop in neo
-    for addr in rec["addrs"]:
-        tmp_rec = rec.copy()
-        tmp_rec["addr"] = addr
-        any2neo(ALL_DESCS["dns"], "host")(bulk, tmp_rec)
-
-
-def knwon_devices2flow(bulk, rec):
-    any2neo(ALL_DESCS["known_devices__name"], "host")(bulk, rec)
-    any2neo(ALL_DESCS["known_devices__mac"], "host")(bulk, rec)
+def ssh2flow(bulk, rec):
+    rec['proto'] = 'tcp'
+    db.flow.any2flow(bulk, 'ssh', rec)
 
 
 FUNCTIONS = {
-    "conn": conn2flow,
-    "dns": dns2flow,
-    "known_devices": knwon_devices2flow,
+    "conn": db.flow.conn2flow,
+    "http": http2flow,
+    "ssh": ssh2flow
 }
+
+
+def any2flow(name):
+    def inserter(bulk, rec):
+        return db.flow.any2flow(bulk, name, rec)
+    return inserter
 
 
 def main():
@@ -272,8 +199,8 @@ def main():
                                ))
             if brof.path in FUNCTIONS:
                 func = FUNCTIONS[brof.path]
-            elif brof.path in ALL_DESCS:
-                func = any2neo(ALL_DESCS[brof.path])
+            elif brof.path in flow.META_DESC:
+                func = any2flow(brof.path)
             else:
                 utils.LOGGER.debug("Log format not (yet) supported for %r",
                                    fname)
@@ -281,7 +208,5 @@ def main():
             for line in brof:
                 if not line:
                     continue
-                func(bulk, _bro2neo(line))
+                func(bulk, _bro2flow(line))
             db.flow.bulk_commit(bulk)
-            if brof.path == "conn" and not args.no_cleanup:
-                db.flow.cleanup_flows()
