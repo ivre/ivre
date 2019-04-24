@@ -1305,6 +1305,173 @@ class NmapHandler(ContentHandler):
                         self._curport.setdefault('scripts', []).append({
                             'id': 'vnc-info', 'output': '\n'.join(output),
                         })
+                elif attrs['name'] == 'smb':
+                    # smb has to be handled differently: we build host
+                    # scripts to match Nmap behavior
+                    self._curport['service_name'] = (
+                        'netbios-ssn'
+                        if self._curport.get('port') == 139 else
+                        'microsoft-ds'
+                        if self._curport.get('port') == 445 else
+                        'smb'
+                    )
+                    raw_output = MASSCAN_ENCODING.sub(_masscan_decode_raw,
+                                                      banner.encode())
+                    masscan_data = {
+                        "raw": self._to_binary(raw_output),
+                        "encoded": banner,
+                    }
+                    if banner.startswith('ERROR'):
+                        self._curhost.setdefault('ports', []).append({
+                            'port': -1,
+                            'scripts': [{
+                                'id': 'smb-os-discovery',
+                                'output': banner,
+                                'masscan': masscan_data,
+                            }],
+                        })
+                        return
+                    data = {}
+                    while True:
+                        banner = banner.strip()
+                        if not banner:
+                            break
+                        if banner.startswith('SMBv'):
+                            try:
+                                idx = banner.index(' ')
+                            except ValueError:
+                                data['version'] = banner
+                                banner = ""
+                            else:
+                                data['version'] = banner[:idx]
+                                banner = banner[idx:]
+                            continue
+                        # os values may contain spaces
+                        if banner.startswith('os=') or \
+                           banner.startswith('ver='):
+                            key, banner = banner.split('=', 1)
+                            value = []
+                            while banner and not re.compile(
+                                    '^[a-z-]+=', re.I
+                            ).search(banner):
+                                try:
+                                    idx = banner.index(' ')
+                                except ValueError:
+                                    value.append(banner)
+                                    banner = ""
+                                    break
+                                else:
+                                    value.append(banner[:idx])
+                                    banner = banner[idx + 1:]
+                            data[key] = ' '.join(value)
+                            continue
+                        if banner.startswith('time=') or \
+                           banner.startswith('boottime='):
+                            key, banner = banner.split('=', 1)
+                            idx = re.compile(
+                                '\\d+-\\d+\\d+ \\d+:\\d+:\\d+'
+                            ).search(banner).end()
+                            tstamp = banner[:idx]
+                            banner = banner[idx:]
+                            if banner.startswith(' TZ='):
+                                banner = banner[4:]
+                                try:
+                                    idx = banner.index(' ')
+                                except ValueError:
+                                    tzone = banner
+                                    banner = ""
+                                else:
+                                    tzone = banner[:idx]
+                                    banner = banner[idx:]
+                                tzone = int(tzone)
+                                tzone = '%+03d%02d' % (tzone // 60, tzone % 60)
+                            else:
+                                tzone = ""
+                            if tstamp.startswith('60056-05-28 '):
+                                # maximum windows timestamp value
+                                continue
+                            try:
+                                data[key] = datetime.datetime.strptime(
+                                    tstamp + tzone,
+                                    '%Y-%m-%d %H:%M:%S' + (
+                                        '%z' if tzone else ''
+                                    ),
+                                )
+                                # data[key] = utils.all2datetime(tstamp)
+                            except ValueError:
+                                utils.LOGGER.warning(
+                                    "Invalid timestamp from Masscan SMB "
+                                    "result %r",
+                                    tstamp,
+                                    exc_info=True,
+                                )
+                            continue
+                        try:
+                            idx = banner.index(' ')
+                        except ValueError:
+                            key, value = banner.split('=', 1)
+                            banner = ''
+                        else:
+                            key, value = banner[:idx].split('=', 1)
+                            banner = banner[idx:]
+                        data[key] = value
+                    smb_os_disco = {}
+                    smb_os_disco_output = ['']
+                    for masscankey, nmapkey, humankey in [
+                            ('name', 'server', 'NetBIOS computer name'),
+                            ('domain', 'workgroup', None),
+                            ('name-dns', 'fqdn', 'FQDN'),
+                            ('domain-dns', 'domain_dns', 'Domain name'),
+                            ('forest', 'forest_dns', 'Forest name')
+                            # TODO
+                            # ('guid', 'guid', None),
+                            # ('ntlm-ver', 'guid', None),
+                            # ('os', 'guid', None),
+                            # ('ver', 'guid', None),
+                            # ('version', 'guid', None),
+                    ]:
+                        if masscankey in data:
+                            smb_os_disco[nmapkey] = data[masscankey]
+                            if humankey is not None:
+                                smb_os_disco_output.append("  %s: %s" % (
+                                    humankey,
+                                    data[masscankey],
+                                ))
+                    scripts = []
+                    if 'time' in data:
+                        # FIXME TIME ZONE
+                        smb_os_disco['date'] = data['time'].strftime(
+                            '%Y-%m-%dT%H:%M:%S'
+                        )
+                        smb_os_disco_output.append(
+                            '  System time: %s' % smb_os_disco['date']
+                        )
+                        smb2_time = {'date': str(data['time'])}
+                        smb2_time_out = ['', '  date: %s' % data['time']]
+                        if 'boottime' in data:
+                            # Masscan has to be patched to report
+                            # this.
+                            smb2_time['start_time'] = str(data['boottime'])
+                            smb2_time_out.append(
+                                '  start_time: %s' % data['boottime']
+                            )
+                        scripts.append({
+                            'id': 'smb2-time',
+                            'smb2-time': smb2_time,
+                            'output': '\n'.join(smb2_time_out)
+                        })
+                    smb_os_disco_output.append('')
+                    scripts.append({
+                        'id': 'smb-os-discovery',
+                        'smb-os-discovery': smb_os_disco,
+                        'output': '\n'.join(smb_os_disco_output),
+                        'masscan': masscan_data,
+                    })
+                    self._curhost.setdefault('ports', []).append({
+                        'port': -1,
+                        'scripts': scripts,
+                    })
+                    return
                 # create fake scripts from masscan "service" tags
                 raw_output = MASSCAN_ENCODING.sub(_masscan_decode_raw,
                                                   banner.encode())
