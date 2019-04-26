@@ -127,12 +127,12 @@ addons:
 
 install:
   - source ./.travis/install_${DB}.sh
-  - pip install -U $PIP_INSTALL_OPTIONS .
   - PYVERS=`python -c 'import sys;print("%d%d" % sys.version_info[:2])'`; if [ -f "requirements-$DB-$PYVERS.txt" ]; then  pip install -U $PIP_INSTALL_OPTIONS -r "requirements-$DB-$PYVERS.txt"; else pip install -U $PIP_INSTALL_OPTIONS -r "requirements-$DB.txt"; fi
   # Python 2.6 needs unittest2, and coverage / codecov would install requests to a version which
   # does not support Python 2.6
   - test "$TRAVIS_PYTHON_VERSION" = 2.6 && pip install -U unittest2 'requests<=2.18.4' || true
   - pip install -U $PIP_INSTALL_OPTIONS coverage codecov
+  - pip install -U $PIP_INSTALL_OPTIONS --no-deps .
   # cleanup
   - rm -rf ivre/
 
