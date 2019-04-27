@@ -431,8 +431,16 @@ def flt_from_query(query, base_flt=None):
             if subfield in ['fingerprint', 'key', 'type', 'bits']:
                 if subfield == 'type':
                     subfield = 'keytype'
+                elif subfield == 'bits':
+                    try:
+                        value = int(value)
+                    except (ValueError, TypeError):
+                        pass
+                else:
+                    value = utils.str2regexp(value)
                 flt = db.view.flt_and(flt, db.view.searchsshkey(
-                    **{subfield: utils.str2regexp(value)}))
+                    **{subfield: value}
+                ))
             else:
                 add_unused(neg, param, value)
         elif not neg and param == 'httphdr':
