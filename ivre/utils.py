@@ -1430,7 +1430,7 @@ _ADDR_TYPES = [
     "Discard (RTBH)",
     "Reserved",
     None,
-    "Protocol assignements",
+    "Protocol assignments",
     None,
     "Documentation",
     None,

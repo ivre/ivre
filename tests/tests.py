@@ -2477,7 +2477,7 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(ivre.utils.get_addr_type('100::'),
                          'Discard (RTBH)')
         self.assertEqual(ivre.utils.get_addr_type('2001::'),
-                         'Protocol assignements')
+                         'Protocol assignments')
         self.assertIsNone(ivre.utils.get_addr_type('2001:4860:4860::8888'))
         self.assertEqual(ivre.utils.get_addr_type('2001:db8::db2'),
                          'Documentation')
