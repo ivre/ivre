@@ -77,7 +77,6 @@ def main():
         subparsers.add_parser('nmap', parents=[db.nmap.argparser])
         passparser = subparsers.add_parser('passive',
                                            parents=[db.passive.argparser])
-        passparser.add_argument('ips', nargs='*')
 
     args = parser.parse_args()
 
@@ -101,26 +100,6 @@ def main():
             print(x)
     else:
         output = db.view.store_or_merge_host
-    # Filter by ip for passive
-    if args.view_source == 'passive' and args.ips:
-        flt = db.passive.flt_empty
-        for a in args.ips:
-            if '-' in a:
-                a = a.split('-', 1)
-                if a[0].isdigit():
-                    a[0] = int(a[0])
-                if a[1].isdigit():
-                    a[1] = int(a[1])
-                flt = db.passive.flt_or(
-                    flt, db.passive.searchrange(a[0], a[1])
-                )
-            elif '/' in a:
-                flt = db.passive.flt_or(flt, db.passive.searchnet(a))
-            else:
-                if a.isdigit():
-                    a = db.passive.ip2internal(int(a))
-                flt = db.passive.flt_or(flt, db.passive.searchhost(a))
-        fltpass = db.passive.flt_and(fltpass, flt)
     # Output results
     itr = to_view(_from)
     if not itr:

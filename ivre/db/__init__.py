@@ -99,6 +99,12 @@ class DB(object):
         self.argparser.add_argument('--svchostname', metavar='HOSTNAME')
         self.argparser.add_argument('--useragent', metavar='USER-AGENT',
                                     nargs='?', const=False)
+        self.argparser.add_argument('--host', metavar='IP')
+        self.argparser.add_argument('--range', metavar='IP', nargs=2)
+        self.argparser.add_argument('--net', metavar='IP/MASK')
+        self.argparser.add_argument('ips', nargs='*',
+                                    help='Display results for specified IP '
+                                    'addresses or ranges.')
 
     def parse_args(self, args, flt=None):
         if flt is None:
@@ -147,6 +153,33 @@ class DB(object):
                         useragent=utils.str2regexp(args.useragent)
                     ),
                 )
+        if args.host is not None:
+            flt = self.flt_and(flt, self.searchhost(args.host))
+        if args.net is not None:
+            flt = self.flt_and(flt, self.searchnet(args.net))
+        if args.range is not None:
+            flt = self.flt_and(flt, self.searchrange(*args.range))
+        if args.ips:
+            loc_flt = None
+            def _updtflt_(oflt, nflt):
+                if not oflt:
+                    return nflt
+                return self.flt_or(oflt, nflt)
+            for a in args.ips:
+                if '-' in a:
+                    a = a.split('-', 1)
+                    if a[0].isdigit():
+                        a[0] = int(a[0])
+                    if a[1].isdigit():
+                        a[1] = int(a[1])
+                    loc_flt = _updtflt_(loc_flt, self.searchrange(a[0], a[1]))
+                elif '/' in a:
+                    loc_flt = _updtflt_(loc_flt, self.searchnet(a))
+                else:
+                    if a.isdigit():
+                        a = self.ip2internal(int(a))
+                    loc_flt = _updtflt_(loc_flt, self.searchhost(a))
+            flt = self.flt_and(flt, loc_flt)
         return flt
 
     @staticmethod
@@ -451,6 +484,10 @@ To use this to create a pandas DataFrame, you can run:
         """
         raise NotImplementedError
 
+    @staticmethod
+    def searchhost(addr, neg=False):
+        raise NotImplementedError
+
     @classmethod
     def searchipv4(cls):
         return cls.searchnet('0.0.0.0/0')
@@ -642,11 +679,8 @@ class DBActive(DB):
                                         'results with this ID')
             self.argparser.add_argument('--no-id', metavar='ID', help='show '
                                         'only results WITHOUT this ID')
-        self.argparser.add_argument('--host', metavar='IP')
         self.argparser.add_argument('--hostname', metavar='NAME / ~NAME')
         self.argparser.add_argument('--domain', metavar='NAME / ~NAME')
-        self.argparser.add_argument('--net', metavar='IP/MASK')
-        self.argparser.add_argument('--range', metavar='IP', nargs=2)
         self.argparser.add_argument('--hop', metavar='IP')
         self.argparser.add_argument('--not-port', metavar='PORT')
         self.argparser.add_argument('--openport', action='store_true')
@@ -1283,8 +1317,6 @@ field from having different data types.
             flt = self.flt_and(flt, self.searchobjectid(args.id))
         if args.no_id is not None:
             flt = self.flt_and(flt, self.searchobjectid(args.no_id, neg=True))
-        if args.host is not None:
-            flt = self.flt_and(flt, self.searchhost(args.host))
         if args.hostname is not None:
             if args.hostname[:1] in '!~':
                 flt = self.flt_and(
@@ -1309,10 +1341,6 @@ field from having different data types.
                     flt,
                     self.searchdomain(utils.str2regexp(args.domain))
                 )
-        if args.net is not None:
-            flt = self.flt_and(flt, self.searchnet(args.net))
-        if args.range is not None:
-            flt = self.flt_and(flt, self.searchrange(*args.range))
         if args.hop is not None:
             flt = self.flt_and(flt, self.searchhop(args.hop))
         if args.not_port is not None:
