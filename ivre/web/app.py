@@ -501,10 +501,12 @@ def get_flow():
     utils.LOGGER.debug("Action: %r, Query: %r", action, query)
     if action == "details":
         # TODO: error
-        if "Host" in query["labels"]:
+        if query["type"] == 'node':
             res = db.flow.host_details(query["id"])
         else:
             res = db.flow.flow_details(query["id"])
+        if res is None:
+            abort(404, "Entity not found")
     else:
         cquery = db.flow.from_filters(query, limit=limit, skip=skip,
                                       orderby=orderby, mode=mode,

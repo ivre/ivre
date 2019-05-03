@@ -24,6 +24,10 @@ Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
 This sub-module contains functions used for flow.
 """
 
+import re
+from ivre import utils
+
+
 HTTP_PASSIVE_RECONTYPES_SERVER = {
     'HTTP_CLIENT_HEADER_SERVER': {
         "HOST": "host"
@@ -78,3 +82,89 @@ def ssh2passive_keys(rec, is_server):
             ]
         }
     ]
+
+
+class Query(object):
+    # The order matters because regex pipe is ungreedy
+    operators = [':', '==', '=~', '=', '!=', '<=', '<', '>=', '>']
+    operators_re = re.compile('|'.join(re.escape(x) for x in operators))
+    identifier = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
+    or_re = re.compile('^OR|\\|\\|$')
+    # matches '"test" test' in 2 groups "test" and test
+    splitter_re = re.compile('(?:[^\\s"]|"(?:\\\\.|[^"])*")+')
+    clauses = []
+
+    @classmethod
+    def _split_filter_or(cls, flt):
+        current = []
+        for subflt in cls.splitter_re.finditer(flt):
+            subflt = subflt.group()
+            if cls.or_re.search(subflt):
+                yield " ".join(current)
+                current = []
+            else:
+                current.append(subflt)
+        yield " ".join(current)
+
+    def _parse(self, query):
+        pass
+
+    def _add_clause_from_filter(self, flt):
+        """
+        Returns a clause object computed from the given filter
+        flt format is
+        "[!|-|~][ANY |ALL |ONE |NONE |LEN ]<attr>[operator <value>]"
+        """
+        clause = {'neg': False, 'array_mode': None, 'len_mode': False,
+                  'attr': None, 'operator': None, 'value': None}
+        if not flt:
+            return None
+        if flt[0] in "-!~":
+            clause['neg'] = True
+            flt = flt[1:]
+        array_modes = ['ANY', 'ALL', 'ONE', 'NONE']
+        for array_mode in array_modes:
+            if flt.startswith(array_mode + ' '):
+                clause['array_mode'] = array_mode
+                flt = flt[len(array_mode) + 1:]
+                break
+        if clause['array_mode'] is None and flt.startswith("LEN "):
+            clause['len_mode'] = True
+            flt = flt[4:]
+
+        try:
+            clause['operator'] = self.operators_re.search(flt).group()
+        except AttributeError:
+            clause['operator'] = None
+            clause['attr'] = flt
+        else:
+            clause['attr'], value = [
+                elt.strip() for elt in flt.split(clause['operator'], 1)]
+            clause['value'] = utils.str2pyval(value)
+        return clause
+
+    def add_clause_from_filter(self, flt, mode="node"):
+        """
+        Returns an array representing "AND" clauses, each
+        clauses being an array of "OR" clauses
+        so that 'c1 OR c2 AND c3' will be reprensented as
+        [[c1,c2],[c3]]
+        """
+        clauses = []
+        for subflt in self._split_filter_or(flt):
+            if subflt:
+                subclause = self._add_clause_from_filter(subflt)
+                clauses.append(subclause)
+        return self.add_clause(clauses)
+
+    def add_clause(self, clause):
+        self.clauses.append(clause)
+
+    def __init__(self):
+        self.clauses = []
+
+    def __str__(self):
+        return str(self.clauses)
+
+    def toDB(self):
+        raise('Not impletemented error')

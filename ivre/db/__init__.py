@@ -431,15 +431,15 @@ To use this to create a pandas DataFrame, you can run:
         raise NotImplementedError
 
     @classmethod
-    def searchnet(cls, net, neg=False):
+    def searchnet(cls, net, neg=False, prefix=''):
         """Filters (if `neg` == True, filters out) one particular IP
         network (CIDR notation).
 
         """
-        return cls.searchrange(*utils.net2range(net), neg=neg)
+        return cls.searchrange(*utils.net2range(net), neg=neg, prefix=prefix)
 
     @staticmethod
-    def searchrange(start, stop, neg=False):
+    def searchrange(start, stop, neg=False, prefix=''):
         """Filters (if `neg` == True, filters out) one particular IP
         range given its boundaries `start` and `stop`.
 
