@@ -29,6 +29,7 @@ __all__ = [
     'flowcli',
     'getmoduli',
     'httpd',
+    'ipcalc',
     'ipdata',
     'ipinfo',
     'iphost',
