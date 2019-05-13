@@ -2647,6 +2647,20 @@ which `predicate()` is True, given `webflt`.
             [('O', 'Test", Inc.')]
         )
 
+        # ipcalc tool
+        res, out, _ = RUN(["ivre", "ipcalc", "192.168.0.0/16"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b'192.168.0.0-192.168.255.255\n')
+        res, out, _ = RUN(["ivre", "ipcalc", "10.0.0.0-10.255.255.255"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b'10.0.0.0/8\n')
+        res, out, _ = RUN(["ivre", "ipcalc", "8.8.8.8"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b'134744072\n')
+        res, out, _ = RUN(["ivre", "ipcalc", "134744072"])
+        self.assertEqual(res, 0)
+        self.assertEqual(out, b'8.8.8.8\n')
+
     def test_scans(self):
         "Run scans, with and without agents"
 
