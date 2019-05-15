@@ -4529,7 +4529,11 @@ class MongoDBFlow(MongoDB, DBFlow):
 
     needunwind = [
         'src_ports',
-        'meta.*',
+        'codes',
+        'meta.dns',
+        'meta.dns.answers',
+        'meta.http',
+        'meta.ssh'
     ]
 
     def __init__(self, host, dbname, colname_flows="flows",
@@ -4631,7 +4635,7 @@ class MongoDBFlow(MongoDB, DBFlow):
             '$min': {'firstseen': rec['start_time']},
             '$max': {'lastseen': rec['end_time']},
             # TODO : should be optionnal
-            '$addToSet': {'meta.%s' % name:  meta_dict},
+            '$addToSet': {'meta.%s' % name: meta_dict},
             '$inc': {'count': 1}
         }
 
@@ -4954,6 +4958,186 @@ class MongoDBFlow(MongoDB, DBFlow):
                 query.add_clause_from_filter(flt, mode=flt_type)
         return query
 
+    def top(self, query, fields, collect_fields=[], sum_fields=[],
+            limit=10, skip=None, least=False):
+        """
+        Return the top values honoring the given `query` for the given
+        fields list `fields`, counting and sorting the aggregated records
+        by `sum_fields` sum and storing the `collect_fields` fields of
+        each original entry in aggregated records as a list.
+        By default, the aggregated records are sorted by their number of
+        occurences.
+        Return format:
+            {
+                fields: {
+                    field1: value,
+                    field2: value
+                },
+                count: count,
+                collected: [
+                    {'collect1': value, 'collect2': value},
+                    ...
+                ]
+            }
+        """
+        pipeline = []
+
+        # Translation dictionnary for special fields
+        special_fields = {'src.addr': ['src_addr_0', 'src_addr_1'],
+                          'dst.addr': ['dst_addr_0', 'dst_addr_1'],
+                          'dport': ['dst_port'],
+                          'sport': ['src_ports']}
+        # special fields that are not addresses will be translated again at
+        # the end
+        reverse_special_fields = {'dst_port': 'dport', 'src_ports': 'sport'}
+
+        # Compute the internal fields
+        # internal_fields = [aggr fields, collect_fields, sum_fields]
+        internal_fields = [[], [], []]
+        external_fields = [fields, collect_fields, sum_fields]
+        for i in range(len(external_fields)):
+            for field in external_fields[i]:
+                if field in special_fields:
+                    internal_fields[i].extend(special_fields[field])
+                else:
+                    internal_fields[i].append(field)
+
+        internal_fields_set = set(internal_fields[0])
+
+        # Remove non existing agggr field
+        match = {}
+        for field in internal_fields_set:
+            match[field] = {"$exists": True}
+        pipeline.append({"$match": match})
+
+        # Unwind aggregate array fields
+        for field in internal_fields_set:
+            for i in range(field.count('.'), -1, -1):
+                subfield = field.rsplit('.', i)[0]
+                if subfield in self.needunwind:
+                    pipeline += [{"$unwind": "$" + subfield}]
+
+        # Match the given query
+        # It is important to match the query after the unwind stages
+        # because the query could target one of the aggregated fields
+        flt = self.flt_from_query(query)
+        if flt:
+            pipeline.append({'$match': flt})
+
+        # Create a projection for every fields retrieved
+        # In the same time, prepare a group objects for the group stage
+        project_fields = {}  # represents the projection {new_field: old_field}
+        reverse_project_fields = {}
+        group_fields = [{}, {}]
+        index = 0  # each new field will be indexed
+        for i in range(len(group_fields)):
+            for field in internal_fields[i]:
+                cur_field = "$%s" % field
+                field_name = None
+                if cur_field in reverse_project_fields:
+                    field_name = reverse_project_fields[cur_field]
+                else:
+                    field_name = "field%s" % index
+                    project_fields[field_name] = cur_field
+                    reverse_project_fields[cur_field] = field_name
+                new_field_name = "$%s" % field_name
+                # _id group
+                if i == 0:
+                    group_fields[i][field_name] = new_field_name
+                # collect group
+                else:
+                    group_fields[i][field_name] = {'$push': new_field_name}
+                index += 1
+        # Add sum projection if sum_fields are provided
+        if len(sum_fields) > 0:
+            project_fields['_sum'] = {
+                '$sum': ['$%s' % field for field in internal_fields[2]]}
+
+        pipeline.append({'$project': project_fields})
+
+        # Group stage
+        group = group_fields[1]
+        group['_id'] = group_fields[0]
+        group['_count'] = {'$sum': '$_sum' if len(sum_fields) > 0 else 1}
+        pipeline.append({'$group': group})
+
+        pipeline.append({"$sort": {"_count": 1 if least else -1}})
+
+        if skip is not None:
+            pipeline.append({"$skip": skip})
+        if limit is not None:
+            pipeline.append({"$limit": limit})
+
+        utils.LOGGER.debug(str(pipeline))
+        res = self.db[self.columns[self.column_flow]].aggregate(pipeline)
+        for entry in res:
+            # Translate again the collected fields
+            ext_entry = {}
+            for key, value in entry.items():
+                if key in project_fields:
+                    ext_entry[project_fields[key][1:]] = value
+                else:
+                    ext_entry[key] = value
+            # Translate again the aggr fields
+            ext_entry['_id'] = {}
+            for key, value in entry['_id'].items():
+                if key in project_fields:
+                    ext_entry['_id'][project_fields[key][1:]] = value
+                else:
+                    ext_entry['_id'][key] = value
+            # apply internal2ip to addr results
+            for addr_field in ['src_addr', 'dst_addr']:
+                addr0, addr1 = (addr_field + '_0', addr_field + '_1')
+                addr = addr_field[:3] + '.addr'
+                # Apply in aggregate fields
+                if addr0 in ext_entry['_id'] and addr1 in ext_entry['_id']:
+                    ext_entry['_id'][addr] = self.internal2ip(
+                        (ext_entry['_id'][addr0], ext_entry['_id'][addr1]))
+                    ext_entry['_id'].pop(addr0)
+                    ext_entry['_id'].pop(addr1)
+                # Apply in collected fields
+                if addr0 in ext_entry and addr1 in ext_entry:
+                    ext_entry[addr] = []
+                    for i in range(len(ext_entry[addr0])):
+                        ext_entry[addr].append(self.internal2ip(
+                            [ext_entry[addr0][i], ext_entry[addr1][i]]))
+                    del ext_entry[addr0]
+                    del ext_entry[addr1]
+            # reverse special fields
+            for key, value in ext_entry.items():
+                if key in reverse_special_fields:
+                    ext_entry[reverse_special_fields[key]] = value
+                    del ext_entry[key]
+            for key, value in ext_entry['_id'].items():
+                if key in reverse_special_fields:
+                    ext_entry['_id'][reverse_special_fields[key]] = value
+                    del ext_entry['_id'][key]
+
+            # Format results
+            res_fields = ext_entry.pop('_id')
+            res_count = ext_entry.pop('_count')
+            # Format collected results
+            res_collected = []
+            if len(ext_entry) > 0:
+                number = 0
+                for key in ext_entry:
+                    number = len(ext_entry[key])
+                    break
+                for i in range(number):
+                    rec = {}
+                    for key in collect_fields:
+                        ext_entry_value = ext_entry.get(key, [])
+                        # If the given collected field does not exist,
+                        # ext_entry_value will be [].
+                        rec[key] = (ext_entry_value[i]
+                                    if len(ext_entry_value) > 0 else None)
+                    res_collected.append(rec)
+            yield {
+                'fields': res_fields,
+                'collected': res_collected,
+                'count': res_count
+            }
+
     def count(self, query):
         flt = self.flt_from_query(query)
         return self.get_flows_count(flt)
@@ -5045,11 +5229,9 @@ class MongoDBFlow(MongoDB, DBFlow):
         with each other if they share the same root.
         If no array attribute can be found, returns (None, attr)
         Example: a.b.c matches with a.b and a
-        The star character stands for any "branch", so that
-        a.b.c matches with a.*.c
         """
         splt_attr = attr.split('.')
-        for suffix_size in xrange(len(splt_attr)):
+        for suffix_size in range(len(splt_attr)):
             for unwind_attr in self.needunwind:
                 splt_unwind_attr = unwind_attr.split('.')
                 # if attributes don't have the same number of branches, they
@@ -5058,9 +5240,8 @@ class MongoDBFlow(MongoDB, DBFlow):
                     continue
                 # compare branches one by one starting by the end
                 ok = True
-                for i in xrange(len(splt_attr) - suffix_size - 1, -1, -1):
-                    if (splt_unwind_attr[i] != splt_attr[i] and
-                            splt_unwind_attr[i] != '*'):
+                for i in range(len(splt_attr) - suffix_size - 1, -1, -1):
+                    if (splt_unwind_attr[i] != splt_attr[i]):
                         ok = False
                 if ok:
                     split_size = len(splt_attr) - suffix_size
@@ -5256,6 +5437,10 @@ class MongoDBFlow(MongoDB, DBFlow):
     def to_graph(self, query):
         flt = self.flt_from_query(query)
         return self.cursor2json_graph(self.get_flows(flt))
+
+    def to_iter(self, query):
+        flt = self.flt_from_query(query)
+        return self.cursor2json_iter(self.get_flows(flt))
 
     @classmethod
     def search_flow_net(cls, net, neg=False, prefix=''):

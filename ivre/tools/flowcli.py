@@ -62,7 +62,7 @@ def main():
                         help='Outputs the full json records of results.')
     parser.add_argument('--count', '-c', action='store_true',
                         help='Only return the count of the results.')
-    parser.add_argument('--limit', '-l', type=int,
+    parser.add_argument('--limit', '-l', type=int, default=None,
                         help='Ouput at most LIMIT results.')
     parser.add_argument('--skip', type=int, default=0,
                         help='Skip first SKIP results.')
@@ -74,10 +74,12 @@ def main():
                         '"--top src.addr dport".')
     parser.add_argument('--collect', '-C', nargs="+",
                         help='When using --top, also collect these '
-                        'properties.')
+                        'properties.', default=[])
     parser.add_argument('--sum', '-S', nargs="+",
                         help='When using --top, sum on these properties to '
-                        'order the result.')
+                        'order the result.', default=[])
+    parser.add_argument('--least', '-L', action='store_true',
+                        help='When using --top, sort records by least')
     parser.add_argument('--mode', '-m',
                         help="Query special mode (flow_map, talk_map...)")
     parser.add_argument('--timeline', '-T', action="store_true",
@@ -133,14 +135,18 @@ def main():
                   '%(flows)d flows\n' % count)
 
     elif args.top:
-        top = db.flow.top(query, args.top, args.collect, args.sum)
+        top = db.flow.top(query, args.top, collect_fields=args.collect,
+                          sum_fields=args.sum, limit=args.limit,
+                          skip=args.skip, least=args.least)
         for rec in top:
             sys.stdout.write("%s%s%s%s%s\n" % (
-                coma.join(str(elt) for elt in rec["fields"]),
+                coma.join(str(rec['fields'].get(elt, "Unknown"))
+                          for elt in args.top),
                 sep,
                 rec["count"],
                 sep,
-                coma.join(str(coma2.join(str(val) for val in elt))
+                coma.join(str('(' + coma2.join(str(elt.get(key, "Unknown"))
+                                               for key in args.collect) + ')')
                           for elt in rec["collected"])
                 if rec["collected"] else ""
             ))
@@ -166,7 +172,7 @@ def main():
 
     else:
         fmt = '%%s%s%%s%s%%s' % (sep, sep)
-        node_width = len('XXX.XXX.XXX.XXX')
+        node_width = len('XXXX:XXXX:XXXX:XXXX:XXXX:XXXX')
         flow_width = len('tcp/XXXXX')
         for res in db.flow.to_iter(query):
             if args.json:

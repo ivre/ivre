@@ -1803,9 +1803,9 @@ def ptr2addr(ptr):
         splitted = ptr.split(".")[:-2]
         reversed_ptr = list(reversed(splitted))
         addr_t = []
-        for i in xrange(0, len(splitted), 4):
-            addr_t.append(reversed_ptr[i] + reversed_ptr[i+1] +
-                          reversed_ptr[i+2] + reversed_ptr[i+3])
+        for i in range(0, len(splitted), 4):
+            addr_t.append(reversed_ptr[i] + reversed_ptr[i + 1] +
+                          reversed_ptr[i + 2] + reversed_ptr[i + 3])
         return ":".join(addr_t)
     return None
 
