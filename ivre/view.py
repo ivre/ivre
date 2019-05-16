@@ -397,7 +397,11 @@ def to_view(itrs):
             i += 1
     next_addrs = [rec['addr'] for rec in next_recs]
     cur_rec = None
-    cur_addr = min(next_addrs, key=utils.ip2int)
+    try:
+        cur_addr = min(next_addrs, key=utils.ip2int)
+    except ValueError:
+        # next_addrs is empty
+        cur_addr = None
     while next_recs:
         # We cannot use a `for i in range(len(itrs))` loop because
         # itrs is modified in the loop.

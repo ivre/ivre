@@ -27,13 +27,11 @@ This sub-module contains functions used for passive recon.
 
 from datetime import datetime
 import hashlib
-import math
 import re
 import struct
 
 
 from future.utils import viewitems
-from past.builtins import long
 
 
 from ivre import utils, config
@@ -471,27 +469,8 @@ def _getinfos_ssh_hostkey(spec):
     data = utils.nmap_decode_data(spec['value'])
     for hashtype in ['md5', 'sha1', 'sha256']:
         infos[hashtype] = hashlib.new(hashtype, data).hexdigest()
-    data = utils.parse_ssh_key(data)
-    keytype = infos["algo"] = next(data).decode()
-    if keytype == "ssh-rsa":
-        try:
-            infos["exponent"], infos["modulus"] = (
-                long(utils.encode_hex(elt), 16) for elt in data
-            )
-        except Exception:
-            utils.LOGGER.info("Cannot parse SSH host key for record %r", spec,
-                              exc_info=True)
-        else:
-            infos["bits"] = math.ceil(math.log(infos["modulus"], 2))
-            # convert integer to strings to prevent overflow errors
-            # (e.g., "MongoDB can only handle up to 8-byte ints")
-            for val in ["exponent", "modulus"]:
-                infos[val] = str(infos[val])
-    elif keytype == 'ecdsa-sha2-nistp256':
-        infos['bits'] = 256
-    elif keytype == 'ssh-ed25519':
-        infos['bits'] = len(next(data)) * 8
-    return {'infos': infos}
+    info = utils.parse_ssh_key(data)
+    return {'infos': info}
 
 
 _GETINFOS_FUNCTIONS = {
