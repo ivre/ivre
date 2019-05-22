@@ -2051,6 +2051,13 @@ which `predicate()` is True, given `webflt`.
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_after_update", list_dnsbl)
 
+        for dnstype in ['A', 'AAAA', 'PTR']:
+            res, out, err = RUN(["ivre", "ipinfo", "--count", "--dnstype",
+                                dnstype])
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+            self.check_value("passive_count_dnstype_%s" % dnstype, int(out))
+
         if DATABASE != "sqlite":
             # BUG in sqlite backend: same bug as "cannot use topvalues
             # with JSON fields"

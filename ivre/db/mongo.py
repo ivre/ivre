@@ -4140,17 +4140,23 @@ setting values according to the keyword arguments.
         }
 
     @staticmethod
-    def searchdns(name, reverse=False, subdomains=False):
+    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False):
         if isinstance(name, list):
             if len(name) == 1:
                 name = name[0]
             else:
                 name = {'$in': name}
-        return {
+        res = {
             'recontype': 'DNS_ANSWER',
-            (('infos.domaintarget' if reverse else 'infos.domain')
-             if subdomains else ('targetval' if reverse else 'value')): name,
         }
+        if name is not None:
+            res[
+                (('infos.domaintarget' if reverse else 'infos.domain')
+                 if subdomains else ('targetval' if reverse else 'value'))
+            ] = name
+        if dnstype is not None:
+            res['source'] = re.compile('^%s-' % dnstype.upper())
+        return res
 
     @staticmethod
     def searchcert(keytype=None):

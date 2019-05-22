@@ -1778,6 +1778,8 @@ class DBPassive(DB):
         self.argparser.add_argument('--pop', action='store_true')
         self.argparser.add_argument('--timeago', type=int)
         self.argparser.add_argument('--timeagonew', type=int)
+        self.argparser.add_argument('--dnstype', metavar='DNS_TYPE',
+                                    help='Display results for specified DNS type.')
 
     def parse_args(self, args, flt=None):
         flt = super(DBPassive, self).parse_args(args, flt=flt)
@@ -1820,6 +1822,8 @@ class DBPassive(DB):
             flt = self.flt_and(self.searchtimeago(args.timeago, new=False))
         if args.timeagonew is not None:
             flt = self.flt_and(self.searchtimeago(args.timeagonew, new=True))
+        if args.dnstype is not None:
+            flt = self.flt_and(flt, self.searchdns(dnstype=args.dnstype))
         return flt
 
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
@@ -1928,10 +1932,11 @@ class DBPassive(DB):
         raise NotImplementedError
 
     @staticmethod
-    def searchdns(name, reverse=False, subdomains=False):
-        """Filters DNS records for domain `name`.
+    def searchdns(name=None, reverse=False, dnstype=None, subdomains=False):
+        """Filters DNS records for domain `name` or type `dnstype`.
         `name` can be a string, a list or a regular expression.
         If `reverse` is set to True, filters reverse records.
+	`dnstype` if specified, may be "A", "AAAA", "PTR".
         If `subdomains` is set to True, the filter will match any subdomains.
         """
         raise NotImplementedError

@@ -339,6 +339,15 @@ event dns_A_reply(c: connection, msg: dns_msg, ans: dns_answer, a: addr) {
                      $value=ans$query]);
 }
 
+event dns_AAAA_reply(c: connection, msg: dns_msg, ans: dns_answer, a: addr) {
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=a,
+                     $recon_type=DNS_ANSWER,
+                     $source=fmt("AAAA-%s-%d", c$id$resp_h, c$id$resp_p),
+                     $value=ans$query]);
+}
+
 event dns_PTR_reply(c: connection, msg: dns_msg, ans: dns_answer, name: string) {
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,

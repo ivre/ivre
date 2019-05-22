@@ -2042,22 +2042,27 @@ passive table."""
         return PassiveFilter(main=(cls.tables.passive.recontype == rectype))
 
     @classmethod
-    def searchdns(cls, name, reverse=False, subdomains=False):
-        if isinstance(name, list):
-            if len(name) == 1:
-                name = name[0]
-            else:
-                return cls._flt_or(*(cls._searchdns(domain,
-                                                    reverse,
-                                                    subdomains)
-                                     for domain in name))
-        return cls._searchdns(name, reverse, subdomains)
+    def searchdns(cls, name=None, reverse=False, dnstype=None,
+                  subdomains=False):
+        if name is not None:
+            if isinstance(name, list):
+                if len(name) == 1:
+                    name = name[0]
+                else:
+                    return cls._flt_or(*(cls._searchdns(name=domain,
+                                                        reverse=reverse,
+                                                        dnstype=dnstype,
+                                                        subdomains=subdomains)
+                                         for domain in name))
+        return cls._searchdns(name=name, reverse=reverse, dnstype=dnstype,
+                              subdomains=subdomains)
 
     @classmethod
-    def _searchdns(cls, name, reverse=False, subdomains=False):
-        return PassiveFilter(main=(
-            (cls.tables.passive.recontype == 'DNS_ANSWER') &
-            (
+    def _searchdns(cls, name=None, reverse=False, dnstype=None,
+                   subdomains=False):
+        cnd = cls.tables.passive.recontype == 'DNS_ANSWER'
+        if name is not None:
+            cnd &= (
                 (cls.tables.passive.moreinfo['domaintarget'
                                              if reverse else
                                              'domain'].has_key(name))
@@ -2067,7 +2072,9 @@ passive table."""
                                      if reverse else
                                      cls.tables.passive.value, name)
             )
-        ))
+        if dnstype is not None:
+            cnd &= cls.tables.passive.source.op('~')('^%s-' % dnstype.upper())
+        return PassiveFilter(main=cnd)
 
     @classmethod
     def searchuseragent(cls, useragent=None, neg=False):
