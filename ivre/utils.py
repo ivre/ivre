@@ -188,11 +188,13 @@ mapping.
     try:
         return (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' +
                 socket.inet_aton(ipval))
-    except socket.error:
+    except (socket.error, ValueError, TypeError):
+        # Value and Type Errors when correct unicode but
+        # already a binary representation
         pass
     try:
         return socket.inet_pton(socket.AF_INET6, ipval)
-    except socket.error:
+    except (socket.error, ValueError, TypeError):
         pass
     # Probably already a binary representation
     if len(ipval) == 16:
