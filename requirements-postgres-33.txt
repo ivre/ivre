@@ -3,3 +3,5 @@ sqlalchemy
 psycopg2<=2.7.7
 future
 bottle
+# codecov would install 2.22.0
+requests==2.21.0
