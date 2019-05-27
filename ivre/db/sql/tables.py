@@ -178,7 +178,7 @@ class DefaultINET(UserDefinedType):
     python_type = bytes
 
     def __init__(self):
-        self.__visit_name__ = "DefaultINET"
+        self.__visit_name__ = "VARCHAR(32)"
 
     def get_col_spec(self):
         return self.__visit_name__

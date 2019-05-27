@@ -2051,6 +2051,13 @@ which `predicate()` is True, given `webflt`.
                                 'DNS_BLACKLIST')))
         self.check_value("passive_dnsbl_results_after_update", list_dnsbl)
 
+        for dnstype in ['A', 'AAAA', 'PTR']:
+            res, out, err = RUN(["ivre", "ipinfo", "--count", "--dnstype",
+                                dnstype])
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+            self.check_value("passive_count_dnstype_%s" % dnstype, int(out))
+
         if DATABASE != "sqlite":
             # BUG in sqlite backend: same bug as "cannot use topvalues
             # with JSON fields"
@@ -2514,6 +2521,11 @@ which `predicate()` is True, given `webflt`.
         )
         self.assertEqual(ivre.utils.ip2bin(b'T3STTESTTESTTEST'),
                          b'T3STTESTTESTTEST')
+        self.assertEqual(
+            ivre.utils.ip2bin(
+                b' \x01H`\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00h'),
+            b' \x01H`\x00\x00 \x01\x00\x00\x00\x00\x00\x00\x00h'
+        )
         # str2pyval
         self.assertEqual(ivre.utils.str2pyval("{'test': 0}"), {'test': 0})
         self.assertEqual(ivre.utils.str2pyval("{'test: 0}"), "{'test: 0}")
