@@ -6,7 +6,7 @@
 # data. It is intended for use within the Travis CI platform with
 # files downloaded during the "before_script" phase.
 
-flow_count = b'26 clients\n95 servers\n110 flows\n'
+flow_count = b'26 clients\n95 servers\n108 flows\n'
 nmap_10-100_ports = 118
 nmap_20_ports = 1
 nmap_80_443_count = 108

@@ -44,7 +44,7 @@ from py2neo.types import remote
 from ivre.db import DBFlow
 from ivre import config
 from ivre import utils
-
+from ivre import flow
 
 http.socket_timeout = 3600
 # We are aware of that, let's just ignore it for now
@@ -53,6 +53,110 @@ warnings.filterwarnings(
     "Map literals returned over the Neo4j REST interface are ambiguous.*",
     module="py2neo.database",
 )
+
+FLOW_KEYS_TCP = {"dport": "{dport}", "proto": '"tcp"'}
+FLOW_KEYS_UDP = {"dport": "{dport}", "proto": '"udp"'}
+DEFAULT_FLOW_KEYS = FLOW_KEYS_TCP
+DEFAULT_HOST_KEYS = {"addr": "{addr}"}
+ALL_DESCS = {
+    "dns": {
+        "labels": ["DNS"],
+        "flow_keys": {"dport": "{dport}", "proto": '{proto}'},
+        "keys": {"query": None, "class": "{qclass_name}",
+                 "type": "{qtype_name}", "rcode": "{rcode_name}",
+                 "answers": None},
+    },
+
+    "http": {
+        "labels": ["HTTP"],
+        "keys": {"dport": "{dport}", "method": None,
+                 "host": None, "user_agent": None,
+                 "status_code": None, "status_msg": None,
+                 "info_code": None, "info_msg": None,
+                 "username": None, "password": None,
+                 "proxied": None},
+        "counters": ["request_body_len", "response_body_len"],
+    },
+
+    "known_devices__name": {
+        "labels": ["Name"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["name"],
+        "accumulators": {"source": ("{source}", 5)},
+    },
+
+    "known_devices__mac": {
+        "labels": ["Mac"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["mac"],
+        "accumulators": {"source": ("{source}", 5)},
+    },
+
+    "software": {
+        "labels": ["Software"],
+        "host_keys": {"addr": "{host}"},
+        "keys": ["software_type", "name", "version_major", "version_minor",
+                 "version_minor2", "version_minor3", "version_addl"],
+        "accumulators": {"unparsed_version": ("{unparsed_version}", 5)},
+        "kind": "host",
+    },
+
+    "ssl": {
+        "labels": ["SSL"],
+        "keys": {"dport": "{dport}", "version": None,
+                 "cipher": None, "curve": None,
+                 "server_name": None, "last_alert": None,
+                 "next_protocol": None, "subject": None,
+                 "issuer": None, "client_subject": None,
+                 "client_issuer": None},
+    },
+
+    "ssh": {
+        "labels": ["SSH"],
+        "keys": {"dport": "{dport}", "version": None,
+                 "auth_success": None, "client": None,
+                 "server": None, "cipher_alg": None,
+                 "mac_alg": None, "compression_alg": None,
+                 "kex_alg": None, "host_key_alg": None,
+                 "host_key": None},
+    },
+
+    "sip": {
+        "labels": ["SIP"],
+        "keys": {"dport": "{dport}", "method": None,
+                 "uri": None, "request_from": None,
+                 "request_to": None, "response_from": None,
+                 "response_to": None, "reply_to": None,
+                 "user_agent": None, "status_code": None,
+                 "status_msg": None, "warning": None},
+        "counters": ["request_body_len", "response_body_len"],
+    },
+
+    "snmp": {
+        "labels": ["SNMP"],
+        "keys": ["version", "community"],
+        "flow_keys": FLOW_KEYS_UDP,
+        "counters": {
+            "get_requests": None,
+            "get_bulk_requests": None,
+            "get_responses": None,
+            "set_requests": None,
+        },
+    },
+
+    "modbus": {
+        "labels": ["Modbus"],
+        "keys": {"name": "{func}", "exception": None},
+    },
+
+    "rdp": {
+        "labels": ["RDP"],
+        "keys": ["cookie", "result", "security_protocol", "keyboard_layout",
+                 "client_build", "client_name", "client_dig_product_id",
+                 "cert_type", "cert_count", "cert_permanent",
+                 "encryption_level", "encryption_method"],
+    },
+}
 
 
 class Neo4jDB(DBFlow):
@@ -153,7 +257,7 @@ class Neo4jDB(DBFlow):
             d[k] = cls.to_dbprop(k, d[k])
         seen_time = d.get("start_time", d.get("end_time", None))
         if seen_time and "seen_time" not in d:
-            d["seen_time"] = cls._date_round(seen_time)
+            d["seen_time"] = cls.date_round(seen_time)
 
     @classmethod
     def to_dbprop(cls, prop, val):
@@ -164,8 +268,9 @@ class Neo4jDB(DBFlow):
             val = utils.datetime2timestamp(val)
         return val
 
-
-class Query(object):
+# FIXME this class is a little hack to keep the logic of the Neo4j backend
+# unchanged. It should be updated to use flow.Query.
+class Neo4jFlowQuery(flow.Query):
     operators = {
         ":": "=",
         "=": "=",
@@ -177,9 +282,9 @@ class Query(object):
         ">=": ">=",
         "=~": "=~",
     }
-    operators_re = re.compile('|'.join(re.escape(x) for x in operators))
-    identifier = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
-    or_re = re.compile('^OR|\\|\\|$')
+    # TODO attributes is a dictionnary to translate "query" attributes in
+    # "backend" attributes.
+    attributes = []
 
     def __init__(self, src=None, link=None, dst=None, ret=None,
                  limit=None, skip=None, **params):
@@ -256,6 +361,10 @@ class Query(object):
             self.clauses.extend(clause)
         return self
 
+    """
+    This should be remove and flow.Query._add_clause_from_filter should be
+    used instead.
+    """
     def _add_clause_from_filter(self, flt, mode="node"):
         """Returns a WHERE clause (tuple (query, parameters)) from a single
         filter (no OR).
@@ -410,6 +519,10 @@ class Query(object):
                 current.append(subflt)
         yield " ".join(current)
 
+    """
+    This should be remove and flow.Query.add_clause_from_filter should be
+    used instead.
+    """
     def add_clause_from_filter(self, flt, mode="node"):
         """ADD a WHERE clause from a node filter.
 
@@ -723,6 +836,42 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         # utils.LOGGER.debug("DB:%s", query)
         return query
 
+    def any2flow(self, bulk, name, rec):
+        kind = "flow" # FIXME
+        desc = ALL_DESCS[name]
+        keys = desc["keys"]
+        link_type = desc.get("link", "INTEL")
+        counters = desc.get("counters", [])
+        accumulators = desc.get("accumulators", {})
+        keys = utils.normalize_props(keys)
+        counters = utils.normalize_props(counters)
+        for props in (keys, counters, accumulators):
+            for k, v in list(viewitems(props)):
+                if v[0] == '{' and v[-1] == '}':
+                    prop = v[1:-1]
+                else:
+                    prop = k
+                if (prop not in rec or rec[prop] is None) and k in props:
+                    del(props[k])
+        if kind == "flow":
+            flow_keys = desc.get("flow_keys", DEFAULT_FLOW_KEYS)
+            bulk.append(
+                self.add_flow_metadata(
+                    desc["labels"], link_type, keys, flow_keys,
+                    counters=counters, accumulators=accumulators),
+                rec
+            )
+        elif kind == "host":
+            host_keys = desc.get("host_keys", DEFAULT_HOST_KEYS)
+            bulk.append(
+                self.add_host_metadata(
+                    desc["labels"], link_type, keys, host_keys=host_keys,
+                    counters=counters, accumulators=accumulators),
+                rec
+            )
+        else:
+            raise ValueError("Unrecognized kind")
+
     @classmethod
     def add_host(cls, elt="h", labels=None, keys=None, time=True):
         if keys is None:
@@ -873,7 +1022,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         for flt_type in ["node", "edge"]:
             for flt in queries.get("%ss" % flt_type, []):
                 query.add_clause_from_filter(flt, mode=flt_type)
-
         if mode == "talk_map":
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
                              'COLLECT(DISTINCT LABELS(link)) AS labels, '
@@ -1014,8 +1162,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         """Transforms a neo4j returned by executing a query into an iterator of
         {src: <dict>, flow: <dict>, dst: <dict>}.
         """
-        for src, flow, dst in cursor:
-            for rec in [src, flow, dst]:
+        for src, flw, dst in cursor:
+            for rec in [src, flw, dst]:
                 cls._cleanup_record(rec)
             src_props = cls._get_props(src["elt"], src.get("meta"))
             src_ref = cls._get_ref(src["elt"], src_props)
@@ -1027,11 +1175,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             dst_labels = cls._get_labels(dst["elt"], dst_props)
             dst_node = cls._node2json(dst_ref, dst_labels, dst_props)
 
-            flow_props = cls._get_props(flow["elt"], flow.get("meta"))
+            flow_props = cls._get_props(flw["elt"], flw.get("meta"))
             flow_props["addr_src"] = src_props.get('addr', None)
             flow_props["addr_dst"] = dst_props.get('addr', None)
-            flow_ref = cls._get_ref(flow["elt"], flow_props)
-            flow_labels = cls._get_labels(flow["elt"], flow_props)
+            flow_ref = cls._get_ref(flw["elt"], flow_props)
+            flow_labels = cls._get_labels(flw["elt"], flow_props)
             flow_node = cls._edge2json(flow_ref, src_ref, dst_ref, flow_labels,
                                        flow_props)
             yield {"src": src_node, "dst": dst_node, "flow": flow_node}
@@ -1292,6 +1440,32 @@ DETACH DELETE old_f
         if config.DEBUG_DB:
             utils.LOGGER.debug("DB:Took %f secs", time.time() - tstamp)
 
+    def dns2flow(self, bulk, rec):
+        # FIXME
+        if self.db_version[0] >= 3:
+            rec["answers"] = ', '.join(rec.get("answers") or [])
+
+        if (rec.get("query", "") or "").endswith(".in-addr.arpa"):
+            # Reverse DNS
+            # rec["names"] = rec["answers"]
+            rec["addrs"] = ['.'.join(reversed(rec["query"].split(".")[:4]))]
+        else:
+            # Forward DNS
+            # Name to resolve + aliases
+            # rec["names"] =  [rec["query"]] + [addr for addr in rec["answers"]
+            #                                   if not IP_RE.match(addr)]
+            rec["addrs"] = [addr for addr in rec.get("answers", []) or []
+                            if utils.IP_RE.match(addr)]
+
+        self.any2flow(bulk, "dns", rec)
+        # TODO: loop in neo
+        for addr in rec["addrs"]:
+            tmp_rec = rec.copy()
+            tmp_rec["addr"] = addr
+            self.any2flow(bulk, "dns", tmp_rec)
+
+
+
     def conn2flow(self, bulk, rec):
         """Returns a statement inserting a CONN flow from a Bro log"""
         query_cache = self.query_cache
@@ -1311,13 +1485,11 @@ DETACH DELETE old_f
             "scbytes": "{resp_ip_bytes}",
         }
         if linkattrs not in query_cache:
-            print(self.add_flow(
-                ["Flow"], linkattrs, counters=counters,
-                accumulators=accumulators))
             query_cache[linkattrs] = self.add_flow(
                 ["Flow"], linkattrs, counters=counters,
                 accumulators=accumulators)
         bulk.append(query_cache[linkattrs], rec)
+
 
     def bulk_commit(self, bulk):
         bulk.commit()

@@ -25,111 +25,6 @@ from ivre.db import db
 from ivre import config, utils, flow
 
 
-FLOW_KEYS_TCP = {"dport": "{id_resp_p}", "proto": '"tcp"'}
-FLOW_KEYS_UDP = {"dport": "{id_resp_p}", "proto": '"udp"'}
-DEFAULT_FLOW_KEYS = FLOW_KEYS_TCP
-DEFAULT_HOST_KEYS = {"addr": "{addr}"}
-ALL_DESCS = {
-    "dns": {
-        "labels": ["DNS"],
-        "flow_keys": {"dport": "{id_resp_p}", "proto": '{proto}'},
-        "keys": {"query": None, "class": "{qclass_name}",
-                 "type": "{qtype_name}", "rcode": "{rcode_name}",
-                 "answers": None},
-    },
-
-    "http": {
-        "labels": ["HTTP"],
-        "keys": {"dport": "{id_resp_p}", "method": None,
-                 "host": None, "user_agent": None,
-                 "status_code": None, "status_msg": None,
-                 "info_code": None, "info_msg": None,
-                 "username": None, "password": None,
-                 "proxied": None},
-        "counters": ["request_body_len", "response_body_len"],
-    },
-
-    "known_devices__name": {
-        "labels": ["Name"],
-        "host_keys": {"addr": "{host}"},
-        "keys": ["name"],
-        "accumulators": {"source": ("{source}", 5)},
-    },
-
-    "known_devices__mac": {
-        "labels": ["Mac"],
-        "host_keys": {"addr": "{host}"},
-        "keys": ["mac"],
-        "accumulators": {"source": ("{source}", 5)},
-    },
-
-    "software": {
-        "labels": ["Software"],
-        "host_keys": {"addr": "{host}"},
-        "keys": ["software_type", "name", "version_major", "version_minor",
-                 "version_minor2", "version_minor3", "version_addl"],
-        "accumulators": {"unparsed_version": ("{unparsed_version}", 5)},
-        "kind": "host",
-    },
-
-    "ssl": {
-        "labels": ["SSL"],
-        "keys": {"dport": "{id_resp_p}", "version": None,
-                 "cipher": None, "curve": None,
-                 "server_name": None, "last_alert": None,
-                 "next_protocol": None, "subject": None,
-                 "issuer": None, "client_subject": None,
-                 "client_issuer": None},
-    },
-
-    "ssh": {
-        "labels": ["SSH"],
-        "keys": {"dport": "{id_resp_p}", "version": None,
-                 "auth_success": None, "client": None,
-                 "server": None, "cipher_alg": None,
-                 "mac_alg": None, "compression_alg": None,
-                 "kex_alg": None, "host_key_alg": None,
-                 "host_key": None},
-    },
-
-    "sip": {
-        "labels": ["SIP"],
-        "keys": {"dport": "{id_resp_p}", "method": None,
-                 "uri": None, "request_from": None,
-                 "request_to": None, "response_from": None,
-                 "response_to": None, "reply_to": None,
-                 "user_agent": None, "status_code": None,
-                 "status_msg": None, "warning": None},
-        "counters": ["request_body_len", "response_body_len"],
-    },
-
-    "snmp": {
-        "labels": ["SNMP"],
-        "keys": ["version", "community"],
-        "flow_keys": FLOW_KEYS_UDP,
-        "counters": {
-            "get_requests": None,
-            "get_bulk_requests": None,
-            "get_responses": None,
-            "set_requests": None,
-        },
-    },
-
-    "modbus": {
-        "labels": ["Modbus"],
-        "keys": {"name": "{func}", "exception": None},
-    },
-
-    "rdp": {
-        "labels": ["RDP"],
-        "keys": ["cookie", "result", "security_protocol", "keyboard_layout",
-                 "client_build", "client_name", "client_dig_product_id",
-                 "cert_type", "cert_count", "cert_permanent",
-                 "encryption_level", "encryption_method"],
-    },
-}
-
-
 def _bro2flow(rec):
     """Prepares a document for db.flow.*add_flow()."""
     if "id_orig_h" in rec:
@@ -155,11 +50,11 @@ def ssh2flow(bulk, rec):
     rec['proto'] = 'tcp'
     db.flow.any2flow(bulk, 'ssh', rec)
 
-
 FUNCTIONS = {
     "conn": db.flow.conn2flow,
     "http": http2flow,
-    "ssh": ssh2flow
+    "ssh": ssh2flow,
+    "dns": db.flow.dns2flow,
 }
 
 

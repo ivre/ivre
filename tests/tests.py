@@ -1,3 +1,4 @@
+
 #! /usr/bin/env python
 
 # This file is part of IVRE.
@@ -44,10 +45,10 @@ import tempfile
 import time
 try:
     from urllib.request import HTTPError, Request, urlopen
-    from urllib.parse import quote
+    from urllib.parse import quote, urlencode
 except ImportError:
     from urllib2 import HTTPError, Request, urlopen
-    from urllib import quote
+    from urllib import quote, urlencode
 
 
 from future.builtins import int as int_types, range
@@ -67,7 +68,7 @@ import ivre.parser.iptables
 import ivre.passive
 import ivre.utils
 import ivre.web.utils
-
+import ivre.flow
 
 HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
@@ -440,6 +441,18 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(name_or_value, count)
         return count
 
+    def check_flow_count_value_cli(self, name_or_value, cliflt, command="",
+                                   **kwargs):
+        res, out, _ = RUN(["ivre", command, "--count"] + cliflt)
+        self.assertEqual(res, 0)
+        m = re.search("(\d+) clients\n(\d+) servers\n(\d+) flows", out)
+        count = {'clients': int(m.group(1)), 'servers': int(m.group(2)), 'flows': int(m.group(3))}
+        if name_or_value is None:
+            pass
+        else:
+            self.check_value(name_or_value, count)
+        return count
+
     def check_count_value_cli(self, name_or_value, cliflt, command="",
                               **kwargs):
         res, out, _ = RUN(["ivre", command, "--count"] + cliflt)
@@ -493,6 +506,43 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(cnt1, cnt3)
         return cnt1
 
+    def check_flow_count_value_cgi(self, name_or_value, webflt, webroute=""):
+        if webflt is not None:
+            webflt['count'] = True
+        else:
+            webflt = {'count': True}
+        req = Request('http://%s:%d/cgi/%s?q=%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT, webroute,
+            quote(json.dumps(webflt))))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEqual(udesc.getcode(), 200)
+        res = udesc.read().decode()
+        count = json.loads(res)
+        if name_or_value is None:
+            pass
+        elif isinstance(name_or_value, str):
+            self.check_value(name_or_value, count)
+        else:
+            self.assertEqual(name_or_value, count)
+        return count
+
+    def check_flow_count_value_api(self, name_or_value, flt, database):
+        flt = database.from_filters(flt)
+        return self.check_count_value_api(name_or_value, flt, database=database)
+
+    def check_flow_count_value(self, name_or_value, flt, cliflt, webflt):
+        cnt1 = self.check_flow_count_value_api(name_or_value, flt,
+                                          database=ivre.db.db.flow)
+        cnt2 = self.check_flow_count_value_cli(name_or_value, cliflt,
+                                          command="flowcli")
+        cnt3 = self.check_flow_count_value_cgi(name_or_value, webflt,
+                                          webroute="flows")
+        self.assertEqual(cnt1, cnt2)
+        self.assertEqual(cnt2, cnt3)
+        return cnt1
+
     def find_record_cgi(self, predicate, webroute="", webflt=None):
         """Browse the results from the JSON interface to find a record for
 which `predicate()` is True, given `webflt`.
@@ -529,12 +579,12 @@ which `predicate()` is True, given `webflt`.
             if fname.endswith('.xml') or fname.endswith('.json') or
             fname.endswith('.xml.bz2') or fname.endswith('.json.bz2')
         )
-        cls.pcap_files = (
+        cls.pcap_files = [
             os.path.join(root, fname)
             for root, _, files in os.walk(SAMPLES)
             for fname in files
             if fname.endswith('.pcap')
-        )
+        ]
         cls.children = []
 
     @classmethod
@@ -2196,12 +2246,10 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
+        # Start a Web server to test CGI
+        self.start_web_server()
 
         # Init DB
-        res, out, err = RUN(["ivre", "flowcli", "--count"])
-        self.assertEqual(res, 0)
-        self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
-        self.assertTrue(not err)
         res, out, err = RUN(["ivre", "flowcli", "--init"],
                             stdin=open(os.devnull))
         self.assertEqual(res, 0)
@@ -2211,7 +2259,6 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
         self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
         self.assertTrue(not err)
-
         for pcapfname in self.pcap_files:
             # Only Python 3.2+
             # with tempfile.TemporaryDirectory() as tmpdir:
@@ -2230,14 +2277,49 @@ which `predicate()` is True, given `webflt`.
                 for fname in fnames
                 if fname.endswith('.log')
             ])
+
             self.assertEqual(res, 0)
             self.assertTrue(not out)
             ivre.utils.cleandir(tmpdir)
+        total = self.check_flow_count_value("flow_count", ivre.db.db.flow.flt_empty, [], None)
+        self.check_flow_count_value("flow_count_192.168.122.214", {"nodes": ["addr = 192.168.122.214"]}, ["--node-filters", "addr = 192.168.122.214"], {"nodes": ["addr = 192.168.122.214"]})
+        self.check_flow_count_value("flow_count_src_95.136.242.99", {"nodes": ["src.addr = 95.136.242.99"]}, ["--node-filters", "src.addr = 95.136.242.99"], {"nodes": ["src.addr = 95.136.242.99"]})
+        self.check_flow_count_value("flow_count_dst_95.136.242.99", {"nodes": ["dst.addr = 95.136.242.99"]}, ["--node-filters", "dst.addr = 95.136.242.99"], {"nodes": ["dst.addr = 95.136.242.99"]})
 
-        res, out, err = RUN(["ivre", "flowcli", "--count"])
-        self.assertEqual(res, 0)
-        self.check_value("flow_count", out)
-        self.assertTrue(not err)
+        
+        tcp = self.check_flow_count_value("flow_count_tcp", {"nodes": ["proto = tcp"]}, ["--node-filters", "proto = tcp"], {"nodes": ["proto = tcp"]})
+        udp = self.check_flow_count_value("flow_count_udp", {"nodes": ["proto : udp"]}, ["--node-filters", "proto : udp"], {"nodes": ["proto : udp"]})
+        icmp = self.check_flow_count_value("flow_count_icmp", {"nodes": ["proto == icmp"]}, ["--node-filters", "proto == icmp"], {"nodes": ["proto == icmp"]})
+        self.assertEqual(total['flows'], tcp['flows'] + udp['flows'] + icmp['flows'])
+        
+        dport_443 = self.check_flow_count_value("flow_count_dport_443", {"nodes": ['dst_port = 443']}, ["--node-filters", "dst_port=443"], {"nodes": ["dst_port = 443"]})
+        tcp_dport_443 = self.check_flow_count_value("flow_count_tcp_dport_443", {"nodes": ['dst_port = 443', 'proto = tcp']}, ["--node-filters", "dst_port = 443", "proto = tcp"], {"nodes": ["dst_port = 443", "proto = tcp"]})
+        udp_dport_443 = self.check_flow_count_value("flow_count_ucp_dport_443", {"nodes": ['dst_port = 443', 'proto = udp']}, ["--node-filters", "dst_port = 443", "proto = udp"], {"nodes": ["dst_port = 443", "proto = udp"]})
+        self.assertEqual(dport_443["flows"], tcp_dport_443["flows"] + udp_dport_443["flows"])
+
+        sport = self.check_flow_count_value("flow_count_sport", {"nodes": ['src_ports']}, ["--node-filters", "src_ports"], {"nodes": ["src_ports"]})
+        not_sport = self.check_flow_count_value("flow_count_not_sport", {"nodes": ['!src_ports']}, ["--node-filters", '!src_ports'], {"nodes": ["!src_ports"]})
+        self.assertEqual(total["flows"], sport["flows"] + not_sport["flows"])
+
+        sport_68 = self.check_flow_count_value("flow_count_sport_68", {"nodes": ['src_ports = 68']}, ["--node-filters", 'src_ports=68'], {"nodes": ["src_ports = 68"]})        
+        sport_not_68 = self.check_flow_count_value("flow_count_sport_not_68", {"nodes": ['src_ports != 68']}, ["--node-filters", 'src_ports != 68'], {"nodes": ['src_ports != 68']})
+        self.assertEqual(total["flows"], sport_68["flows"] + sport_not_68["flows"])
+
+        sport_gt_68 = self.check_flow_count_value("flow_count_sport_gt_68", {"nodes": ['src_ports > 68']}, ["--node-filters", "src_ports > 68"], {"nodes": ["src_ports > 68"]})
+        sport_lt_68 = self.check_flow_count_value("flow_count_sport_lt_68", {"nodes": ['src_ports < 68']}, ["--node-filters", "src_ports < 68"], {"nodes": ["src_ports < 68"]})
+        self.assertEqual(sport["flows"], sport_68["flows"] + sport_gt_68["flows"] + sport_lt_68["flows"])
+        
+        sport_gte_68 = self.check_flow_count_value("flow_count_sport_gte_68", {"nodes": ['src_ports >= 68']}, ["--node-filters", "src_ports >= 68"], {"nodes": ["src_ports >= 68"]})
+        sport_lte_68 = self.check_flow_count_value("flow_count_sport_lte_68", {"nodes": ['src_ports <= 68']}, ["--node-filters", "src_ports <= 68"], {"nodes": ["src_ports <= 68"]})
+        self.assertEqual(sport["flows"], sport_gte_68["flows"] + sport_lt_68["flows"])
+        self.assertEqual(sport["flows"], sport_lte_68["flows"] + sport_gt_68["flows"])
+        
+        meta_http = self.check_flow_count_value("flow_count_http", {"nodes": ['meta.http']}, ['--node-filters', "meta.http"], {"nodes": ["meta.http"]})
+
+        self.check_flow_count_value("flow_count_meta_dns_query_neuf_fr", {"nodes": ['meta.dns.query =~ .*neuf\.fr.*']}, ['--node-filters', "meta.dns.query =~ .*neuf\.fr.*"], {"nodes": ["meta.dns.query =~ .*neuf\.fr.*"]})
+        
+        self.check_flow_count_value("flow_count_10.0.0.0/8", {"nodes": ['addr =~ 10.0.0.0/8']}, ['--node-filters', "addr =~ 10.0.0.0/8"], {"nodes": ["addr =~ 10.0.0.0/8"]})
+        
 
     # This test have to be done first.
     def test_10_data(self):
@@ -3644,7 +3726,7 @@ TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "53_nmap_delete",
 
 DATABASES = {
     # **excluded** tests
-    "mongo": ["60_flow", "utils"],
+    "mongo": ["utils"],
     "postgres": ["60_flow", "scans", "utils"],
     "sqlite": ["30_nmap", "53_nmap_delete", "50_view", "60_flow", "scans",
                "utils"],

@@ -4860,6 +4860,9 @@ class MongoDBFlow(MongoDB, DBFlow):
         }
         timescale_bulk.find(findspec).upsert().update(updatespec)
 
+    def dns2flow(self, bulks, rec):
+        return self.any2flow(bulks, 'dns', rec)
+
     def any2flow(self, bulks, name, rec):
         # Convert addr
         rec['src_addr_0'], rec['src_addr_1'] = self.ip2internal(rec['src'])
@@ -4921,34 +4924,43 @@ class MongoDBFlow(MongoDB, DBFlow):
             yield f
 
     def get_flows_count(self, flt):
-        sources = self.db[self.columns[self.column_flow]].aggregate([
-            {'$match': flt},
-            {
-                '$group': {
-                    '_id': {
-                        'src_addr_0': '$src_addr_0',
-                        'src_addr_1': '$src_addr_1'
+        sources = 0
+        destinations = 0
+        flows = self.db[self.columns[self.column_flow]].count(flt)
+        if flows > 0:
+            sources = self.db[self.columns[self.column_flow]].aggregate([
+                {'$match': flt},
+                {
+                    '$group': {
+                        '_id': {
+                            'src_addr_0': '$src_addr_0',
+                            'src_addr_1': '$src_addr_1'
+                        },
                     }
-                }
-            },
-            {'$count': 'count'},
-        ]).next()['count']
+                },
+                {'$group': {
+                    '_id': None,
+                    'count': {'$sum': 1}
+                }}
+            ]).next()['count']
 
-        destinations = self.db[self.columns[self.column_flow]].aggregate([
-            {'$match': flt},
-            {
-                '$group': {
-                    '_id': {
-                        'dst_addr_0': '$dst_addr_0',
-                        'dst_addr_1': '$dst_addr_1'
+            destinations = self.db[self.columns[self.column_flow]].aggregate([
+                {'$match': flt},
+                {
+                    '$group': {
+                        '_id': {
+                            'dst_addr_0': '$dst_addr_0',
+                            'dst_addr_1': '$dst_addr_1'
+                        },
                     }
-                }
-            },
-            {'$count': 'count'},
-        ]).next()['count']
-        f = self.db[self.columns[self.column_flow]].count_documents(flt)
+                },
+                {'$group': {
+                    '_id': None,
+                    'count': {'$sum': 1}
+                }}
+            ]).next()['count']
 
-        return {'clients': sources, 'servers': destinations, 'flows': f}
+        return {'clients': sources, 'servers': destinations, 'flows': flows}
 
     def from_filters(self, filters, limit=None, skip=0, orderby="", mode=None,
                      timeline=False):

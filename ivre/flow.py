@@ -86,8 +86,8 @@ def ssh2passive_keys(rec, is_server):
 
 class Query(object):
     # The order matters because regex pipe is ungreedy
-    operators = [':', '==', '=~', '=', '!=', '<=', '<', '>=', '>']
-    operators_re = re.compile('|'.join(re.escape(x) for x in operators))
+    operators_chars = [':', '==', '=~', '=', '!=', '<=', '<', '>=', '>']
+    operators_re = re.compile('|'.join(re.escape(x) for x in operators_chars))
     identifier = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
     or_re = re.compile('^OR|\\|\\|$')
     # matches '"test" test' in 2 groups "test" and test
@@ -105,9 +105,6 @@ class Query(object):
             else:
                 current.append(subflt)
         yield " ".join(current)
-
-    def _parse(self, query):
-        pass
 
     def _add_clause_from_filter(self, flt):
         """
@@ -165,6 +162,3 @@ class Query(object):
 
     def __str__(self):
         return str(self.clauses)
-
-    def toDB(self):
-        raise('Not impletemented error')
