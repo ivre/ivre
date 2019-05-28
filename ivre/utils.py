@@ -730,7 +730,7 @@ def serialize(obj):
 
 
 class LogFilter(logging.Filter):
-    """A logging filter that prevents dupplicate warnings and only reports
+    """A logging filter that prevents duplicate warnings and only reports
 messages with level lower than INFO when config.DEBUG (or
 config.DEBUG_DB) is True.
 

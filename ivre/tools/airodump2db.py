@@ -27,10 +27,10 @@ from ivre.parser.airodump import Airodump
 
 def main():
     """Update the flow database from Airodump CSV files"""
-    parser, use_argparse = utils.create_argparser(__doc__, extraargs='files')
+    parser, use_argparse = utils.create_argparser(__doc__, extraargs="files")
     if use_argparse:
-        parser.add_argument('files', nargs='*', metavar='FILE',
-                            help='Airodump CSV files')
+        parser.add_argument("files", nargs='*', metavar='FILE',
+                            help="Airodump CSV files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     args = parser.parse_args()

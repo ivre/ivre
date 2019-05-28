@@ -35,10 +35,10 @@ def reader(fname):
 
 def main():
     """Update the flow database from ARP requests in PCAP files"""
-    parser, use_argparse = utils.create_argparser(__doc__, extraargs='files')
+    parser, use_argparse = utils.create_argparser(__doc__, extraargs="files")
     if use_argparse:
-        parser.add_argument('files', nargs='*', metavar='FILE',
-                            help='PCAP files')
+        parser.add_argument("files", nargs='*', metavar='FILE',
+                            help="PCAP files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     args = parser.parse_args()

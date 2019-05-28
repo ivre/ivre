@@ -318,8 +318,8 @@ def main():
                         help='run COUNT nmap processes in parallel '
                         '(when --output=XMLFork)')
     parser.add_argument('--nmap-max-cpu', metavar='TIME', type=int,
-                        help='maximum amount of CPU time (in seconds) '
-                        'per nmap process')
+                        help="maximum amount of CPU time (in seconds) "
+                        "per nmap process")
     parser.add_argument('--nmap-max-heap-size', metavar='SIZE', type=int,
                         help="maximum size (in bytes) of each nmap "
                         "process's heap")
