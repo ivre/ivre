@@ -266,8 +266,8 @@ def main():
     parser, use_argparse = utils.create_argparser(__doc__,
                                                   extraargs="logfiles")
     if use_argparse:
-        parser.add_argument('logfiles', nargs='*', metavar='FILE',
-                            help='Bro log files')
+        parser.add_argument("logfiles", nargs='*', metavar='FILE',
+                            help="Bro log files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     parser.add_argument("-C", "--no-cleanup",
