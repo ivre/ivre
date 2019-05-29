@@ -96,7 +96,7 @@ var GraphTopValues = (function(_super) {
 
     $.extend(GraphTopValues.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi/scans/top/' + encodeURIComponent(this.field) + ':' +
+	    return 'cgi/view/top/' + encodeURIComponent(this.field) + ':' +
                 this.count + '?q=' + encodeURIComponent(this.query);
 	},
 	draw: function(dataset) {
@@ -514,7 +514,7 @@ var GraphMap = (function(_super) {
 
     $.extend(GraphMap.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi/scans/coordinates?ipsasnumbers=1&q=' +
+	    return 'cgi/view/coordinates?ipsasnumbers=1&q=' +
                 encodeURIComponent(this.query);
 	},
 	draw: function(locs) {
@@ -663,7 +663,7 @@ var GraphPlane = (function(_super) {
 
     $.extend(GraphPlane.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi/scans/countopenports?ipsasnumbers=1&q=' +
+	    return 'cgi/view/countopenports?ipsasnumbers=1&q=' +
 		encodeURIComponent(this.query);
 	},
 	draw: function(ips) {
@@ -847,7 +847,7 @@ var GraphIpPort = (function(_super) {
 
     $.extend(GraphIpPort.prototype, _super.prototype, {
 	get_url: function() {
-	    return 'cgi/scans/ipsports?ipsasnumbers=1&q=' +
+	    return 'cgi/view/ipsports?ipsasnumbers=1&q=' +
 		encodeURIComponent(this.query);
 	},
 	draw: function(ips) {
@@ -1005,7 +1005,7 @@ var GraphTimeline = (function(_super) {
 
     $.extend(GraphTimeline.prototype, _super.prototype, {
 	get_url: function() {
-	    var url =  'cgi/scans/timeline?ipsasnumbers=1&q=' +
+	    var url =  'cgi/view/timeline?ipsasnumbers=1&q=' +
 		encodeURIComponent(this.query);
 	    if(this.modulo) {
 		url += "&modulo=" + this.modulo;
@@ -1180,7 +1180,7 @@ var GraphDiffCategories = (function(_super) {
 
     $.extend(GraphDiffCategories.prototype, _super.prototype, {
 	get_url: function() {
-	    var url = 'cgi/scans/diffcats?ipsasnumbers=1&cat1=' +
+	    var url = 'cgi/view/diffcats?ipsasnumbers=1&cat1=' +
 		encodeURIComponent(this.category1) + '&cat2=' +
 		encodeURIComponent(this.category2) + '&query=' +
 		encodeURIComponent(this.query);

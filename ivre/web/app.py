@@ -114,10 +114,10 @@ FilterParams = namedtuple("flt_params", ['flt', 'sortby', 'unused',
                                          'ipsasnumbers', 'datesasstrings'])
 
 
-def get_nmap_base():
+def get_nmap_base(dbase):
     response.set_header('Content-Type', 'application/javascript')
     query = webutils.query_from_params(request.params)
-    flt, sortby, unused, skip, limit = webutils.flt_from_query(query)
+    flt, sortby, unused, skip, limit = webutils.flt_from_query(dbase, query)
     if limit is None:
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:
@@ -134,16 +134,17 @@ def get_nmap_base():
 
 
 @application.get(
-    '/scans/<action:re:'
+    '/<subdb:re:scans|view>/<action:re:'
     'onlyips|ipsports|timeline|coordinates|countopenports|diffcats>'
 )
 @check_referer
-def get_nmap_action(action):
-    flt_params = get_nmap_base()
+def get_nmap_action(subdb, action):
+    subdb = db.view if subdb == 'view' else db.nmap
+    flt_params = get_nmap_base(subdb)
     preamble = "[\n"
     postamble = "]\n"
     if action == "timeline":
-        result, count = db.view.get_open_port_count(flt_params.flt)
+        result, count = subdb.get_open_port_count(flt_params.flt)
         if request.params.get("modulo") is None:
             def r2time(r):
                 return int(utils.datetime2timestamp(r['starttime']))
@@ -167,10 +168,10 @@ def get_nmap_action(action):
             }
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
         postamble = ']}\n'
-        result = list(db.view.getlocations(flt_params.flt))
+        result = list(subdb.getlocations(flt_params.flt))
         count = len(result)
     elif action == "countopenports":
-        result, count = db.view.get_open_port_count(flt_params.flt)
+        result, count = subdb.get_open_port_count(flt_params.flt)
         if flt_params.ipsasnumbers:
             def r2res(r):
                 return [utils.ip2int(r['addr']), r['openports']['count']]
@@ -178,7 +179,7 @@ def get_nmap_action(action):
             def r2res(r):
                 return [r['addr'], r['openports']['count']]
     elif action == "ipsports":
-        result, count = db.view.get_ips_ports(flt_params.flt)
+        result, count = subdb.get_ips_ports(flt_params.flt)
         if flt_params.ipsasnumbers:
             def r2res(r):
                 return [
@@ -196,7 +197,7 @@ def get_nmap_action(action):
                      if 'state_state' in p]
                 ]
     elif action == "onlyips":
-        result, count = db.view.get_ips(flt_params.flt)
+        result, count = subdb.get_ips(flt_params.flt)
         if flt_params.ipsasnumbers:
             def r2res(r):
                 return utils.ip2int(r['addr'])
@@ -207,14 +208,14 @@ def get_nmap_action(action):
         def r2res(r):
             return r
         if request.params.get("onlydiff"):
-            output = db.view.diff_categories(request.params.get("cat1"),
-                                             request.params.get("cat2"),
-                                             flt=flt_params.flt,
-                                             include_both_open=False)
+            output = subdb.diff_categories(request.params.get("cat1"),
+                                           request.params.get("cat2"),
+                                           flt=flt_params.flt,
+                                           include_both_open=False)
         else:
-            output = db.view.diff_categories(request.params.get("cat1"),
-                                             request.params.get("cat2"),
-                                             flt=flt_params.flt)
+            output = subdb.diff_categories(request.params.get("cat1"),
+                                           request.params.get("cat2"),
+                                           flt=flt_params.flt)
         count = 0
         result = {}
         if flt_params.ipsasnumbers:
@@ -259,20 +260,22 @@ def get_nmap_action(action):
         yield "\n"
 
 
-@application.get('/scans/count')
+@application.get('/<subdb:re:scans|view>/count')
 @check_referer
-def get_nmap_count():
-    flt_params = get_nmap_base()
-    count = db.view.count(flt_params.flt)
+def get_nmap_count(subdb):
+    subdb = db.view if subdb == 'view' else db.nmap
+    flt_params = get_nmap_base(subdb)
+    count = subdb.count(flt_params.flt)
     if flt_params.callback is None:
         return "%d\n" % count
     return "%s(%d);\n" % (flt_params.callback, count)
 
 
-@application.get('/scans/top/<field:path>')
+@application.get('/<subdb:re:scans|view>/top/<field:path>')
 @check_referer
-def get_nmap_top(field):
-    flt_params = get_nmap_base()
+def get_nmap_top(subdb, field):
+    subdb = db.view if subdb == 'view' else db.nmap
+    flt_params = get_nmap_base(subdb)
     if field[0] in '-!':
         field = field[1:]
         least = True
@@ -291,8 +294,9 @@ def get_nmap_top(field):
     else:
         yield "%s([\n" % flt_params.callback
     # hack to avoid a trailing comma
-    cursor = iter(db.view.topvalues(field, flt=flt_params.flt, least=least,
-                                    topnbr=topnbr))
+    cursor = iter(subdb.topvalues(
+        field, flt=flt_params.flt, least=least, topnbr=topnbr,
+    ))
     try:
         rec = next(cursor)
     except StopIteration:
@@ -308,17 +312,18 @@ def get_nmap_top(field):
         yield "\n]);\n"
 
 
-@application.get('/scans')
+@application.get('/<subdb:re:scans|view>')
 @check_referer
-def get_nmap():
-    flt_params = get_nmap_base()
+def get_nmap(subdb):
+    subdb = db.view if subdb == 'view' else db.nmap
+    flt_params = get_nmap_base(subdb)
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
-    # result = db.view.get(flt_params.flt, limit=flt_params.limit,
-    #                      skip=flt_params.skip, sort=flt_params.sortby)
-    result = db.view.get(flt_params.flt, skip=flt_params.skip,
-                         sort=flt_params.sortby)
+    # result = subdb.get(flt_params.flt, limit=flt_params.limit,
+    #                    skip=flt_params.skip, sort=flt_params.sortby)
+    result = subdb.get(flt_params.flt, skip=flt_params.skip,
+                       sort=flt_params.sortby)
 
     if flt_params.unused:
         msg = 'Option%s not understood: %s' % (
@@ -332,7 +337,7 @@ def get_nmap():
         yield webutils.js_del_alert("param-unused")
 
     if config.DEBUG:
-        msg1 = "filter: %s" % db.view.flt2str(flt_params.flt)
+        msg1 = "filter: %s" % subdb.flt2str(flt_params.flt)
         msg2 = "user: %r" % webutils.get_user()
         utils.LOGGER.debug(msg1)
         utils.LOGGER.debug(msg2)
@@ -376,7 +381,7 @@ def get_nmap():
                         hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
         yield "%s\t%s" % ('' if i == 0 else ',\n',
                           json.dumps(rec, default=utils.serialize))
-        check = db.view.cmp_schema_version_host(rec)
+        check = subdb.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
         # XXX-WORKAROUND-PGSQL
@@ -432,15 +437,15 @@ def parse_form():
     return (request.forms.get('referer'), source, categories, files)
 
 
-def import_files(source, categories, files):
+def import_files(subdb, source, categories, files):
     count = 0
     categories = list(categories)
     for fileelt in files:
         fdesc = tempfile.NamedTemporaryFile(delete=False)
         fileelt.save(fdesc)
         try:
-            if db.nmap.store_scan(fdesc.name, categories=categories,
-                                  source=source):
+            if subdb.store_scan(fdesc.name, categories=categories,
+                                source=source):
                 count += 1
                 os.unlink(fdesc.name)
             else:
@@ -451,11 +456,12 @@ def import_files(source, categories, files):
     return count
 
 
-@application.post('/scans')
+@application.post('/<subdb:re:scans|view>')
 @check_referer
-def post_nmap():
+def post_nmap(subdb):
     referer, source, categories, files = parse_form()
-    count = import_files(source, categories, files)
+    count = import_files(db.view if subdb == 'view' else db.nmap, source,
+                         categories, files)
     if request.params.get("output") == "html":
         response.set_header('Refresh', '5;url=%s' % referer)
         return """<html>

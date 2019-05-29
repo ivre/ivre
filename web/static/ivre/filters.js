@@ -114,7 +114,7 @@ var Filter = (function() {
         do_count: function() {
             var filterobject = this;
             $.ajax({
-                url: 'cgi/scans/count?q=' +
+                url: 'cgi/view/count?q=' +
                     encodeURIComponent(this.query),
                 jsonp: "callback",
                 dataType: "jsonp",
@@ -132,7 +132,7 @@ var Filter = (function() {
             var filterobject = this;
             if(this.callbacks.get_results.length > 0) {
                 $.ajax({
-                    url: 'cgi/scans?q=' + encodeURIComponent(this.query),
+                    url: 'cgi/view?q=' + encodeURIComponent(this.query),
                     jsonp: "callback",
                     dataType: "jsonp",
                     beforeSend: function() {

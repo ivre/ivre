@@ -168,8 +168,8 @@ def get_anonymized_user():
                                      msg=get_user().encode()).digest()[:9])
 
 
-def _parse_query(query):
-    """Returns a DB filter (valid for db.view) from a query string
+def _parse_query(dbase, query):
+    """Returns a DB filter (valid for dbase) from a query string
     usable in WEB_DEFAULT_INIT_QUERY and WEB_INIT_QUERIES
     configuration items.
 
@@ -178,18 +178,18 @@ def _parse_query(query):
         query = 'full'
     query = query.split(':')
     return {
-        'full': lambda: db.view.flt_empty,
-        'noaccess': db.view.searchnonexistent,
-        'category': lambda cat: db.view.searchcategory(cat.split(',')),
+        'full': lambda: dbase.flt_empty,
+        'noaccess': dbase.searchnonexistent,
+        'category': lambda cat: dbase.searchcategory(cat.split(',')),
     }[query[0]](*query[1:])
 
 
-def get_init_flt():
+def get_init_flt(dbase):
     """Return a filter corresponding to the current user's
     privileges.
 
     """
-    init_queries = dict([key, _parse_query(value)]
+    init_queries = dict([key, _parse_query(dbase, value)]
                         for key, value in viewitems(config.WEB_INIT_QUERIES))
     user = get_user()
     if user in init_queries:
@@ -199,11 +199,11 @@ def get_init_flt():
         if realm in init_queries:
             return init_queries[realm]
     if config.WEB_PUBLIC_SRV:
-        return db.view.searchcategory(["Shared", get_anonymized_user()])
-    return _parse_query(config.WEB_DEFAULT_INIT_QUERY)
+        return dbase.searchcategory(["Shared", get_anonymized_user()])
+    return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
 
 
-def flt_from_query(query, base_flt=None):
+def flt_from_query(dbase, query, base_flt=None):
     """Return a tuple (`flt`, `sortby`, `unused`, `skip`, `limit`):
 
       - a filter based on the query
@@ -221,7 +221,7 @@ def flt_from_query(query, base_flt=None):
     sortby = []
     skip = 0
     limit = None
-    flt = get_init_flt() if base_flt is None else base_flt
+    flt = get_init_flt(dbase) if base_flt is None else base_flt
 
     def add_unused(neg, param, value):
         """Add to the `unused` list a string representing (neg, param,
@@ -238,50 +238,50 @@ def flt_from_query(query, base_flt=None):
         elif not neg and param == 'limit':
             limit = int(value)
         elif param == "id":
-            flt = db.view.flt_and(flt, db.view.searchobjectid(
+            flt = dbase.flt_and(flt, dbase.searchobjectid(
                 value.replace('-', ',').split(','),
                 neg=neg))
         elif param == "host":
-            flt = db.view.flt_and(flt, db.view.searchhost(value, neg=neg))
+            flt = dbase.flt_and(flt, dbase.searchhost(value, neg=neg))
         elif param == "net":
-            flt = db.view.flt_and(flt, db.view.searchnet(value, neg=neg))
+            flt = dbase.flt_and(flt, dbase.searchnet(value, neg=neg))
         elif param == "range":
-            flt = db.view.flt_and(flt, db.view.searchrange(
+            flt = dbase.flt_and(flt, dbase.searchrange(
                 *value.replace('-', ',').split(',', 1),
                 neg=neg))
         elif param == "countports":
             vals = [int(val) for val in value.replace('-', ',').split(',', 1)]
             if len(vals) == 1:
-                flt = db.view.flt_and(flt, db.view.searchcountopenports(
+                flt = dbase.flt_and(flt, dbase.searchcountopenports(
                     minn=vals[0], maxn=vals[0], neg=neg))
             else:
-                flt = db.view.flt_and(flt, db.view.searchcountopenports(
+                flt = dbase.flt_and(flt, dbase.searchcountopenports(
                     minn=vals[0], maxn=vals[1], neg=neg))
         elif param == "hostname":
-            flt = db.view.flt_and(
-                flt, db.view.searchhostname(utils.str2regexp(value), neg=neg))
+            flt = dbase.flt_and(
+                flt, dbase.searchhostname(utils.str2regexp(value), neg=neg))
         elif param == "domain":
-            flt = db.view.flt_and(
-                flt, db.view.searchdomain(utils.str2regexp(value), neg=neg))
+            flt = dbase.flt_and(
+                flt, dbase.searchdomain(utils.str2regexp(value), neg=neg))
         elif param == "category":
-            flt = db.view.flt_and(flt, db.view.searchcategory(
+            flt = dbase.flt_and(flt, dbase.searchcategory(
                 utils.str2regexp(value), neg=neg))
         elif param == "country":
-            flt = db.view.flt_and(flt, db.view.searchcountry(
+            flt = dbase.flt_and(flt, dbase.searchcountry(
                 utils.str2list(value.upper()), neg=neg))
         elif param == "city":
-            flt = db.view.flt_and(flt, db.view.searchcity(
+            flt = dbase.flt_and(flt, dbase.searchcity(
                 utils.str2regexp(value), neg=neg))
         elif param == "asnum":
-            flt = db.view.flt_and(flt, db.view.searchasnum(
+            flt = dbase.flt_and(flt, dbase.searchasnum(
                 utils.str2list(value), neg=neg))
         elif param == "asname":
-            flt = db.view.flt_and(flt, db.view.searchasname(
+            flt = dbase.flt_and(flt, dbase.searchasname(
                 utils.str2regexp(value), neg=neg))
         elif param == "source":
-            flt = db.view.flt_and(flt, db.view.searchsource(value, neg=neg))
+            flt = dbase.flt_and(flt, dbase.searchsource(value, neg=neg))
         elif param == "timerange":
-            flt = db.view.flt_and(flt, db.view.searchtimerange(
+            flt = dbase.flt_and(flt, dbase.searchtimerange(
                 *(float(val) for val in value.replace('-', ',').split(',')),
                 neg=neg))
         elif param == 'timeago':
@@ -296,33 +296,33 @@ def flt_from_query(query, base_flt=None):
                 timeago = int(value[:-1]) * unit
             else:
                 timeago = int(value)
-            flt = db.view.flt_and(flt, db.view.searchtimeago(
+            flt = dbase.flt_and(flt, dbase.searchtimeago(
                 datetime.timedelta(0, timeago), neg=neg))
         elif not neg and param == "service":
             if ':' in value:
                 req, port = value.split(':', 1)
                 port = int(port)
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchservice(utils.str2regexp(req), port=port))
+                    dbase.searchservice(utils.str2regexp(req), port=port))
             else:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchservice(utils.str2regexp(value)))
+                    dbase.searchservice(utils.str2regexp(value)))
         elif not neg and param == "product" and ":" in value:
             product = value.split(':', 2)
             if len(product) == 2:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchproduct(
+                    dbase.searchproduct(
                         utils.str2regexp(product[1]),
                         service=utils.str2regexp(product[0])
                     )
                 )
             else:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchproduct(
+                    dbase.searchproduct(
                         utils.str2regexp(product[1]),
                         service=utils.str2regexp(product[0]),
                         port=int(product[2])
@@ -331,18 +331,18 @@ def flt_from_query(query, base_flt=None):
         elif not neg and param == "version" and value.count(":") >= 2:
             product = value.split(':', 3)
             if len(product) == 3:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchproduct(
+                    dbase.searchproduct(
                         utils.str2regexp(product[1]),
                         version=utils.str2regexp(product[2]),
                         service=utils.str2regexp(product[0]),
                     )
                 )
             else:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchproduct(
+                    dbase.searchproduct(
                         utils.str2regexp(product[1]),
                         version=utils.str2regexp(product[2]),
                         service=utils.str2regexp(product[0]),
@@ -352,17 +352,17 @@ def flt_from_query(query, base_flt=None):
         elif param == "script":
             value = value.split(':', 1)
             if len(value) == 1:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchscript(
+                    dbase.searchscript(
                         name=utils.str2regexp(value[0]),
                         neg=neg
                     ),
                 )
             else:
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchscript(
+                    dbase.searchscript(
                         name=utils.str2regexp(value[0]),
                         output=utils.str2regexp(value[1]),
                         neg=neg
@@ -370,29 +370,29 @@ def flt_from_query(query, base_flt=None):
                 )
         # results of scripts or version scans
         elif not neg and param == "anonftp":
-            flt = db.view.flt_and(flt, db.view.searchftpanon())
+            flt = dbase.flt_and(flt, dbase.searchftpanon())
         elif not neg and param == 'anonldap':
-            flt = db.view.flt_and(flt, db.view.searchldapanon())
+            flt = dbase.flt_and(flt, dbase.searchldapanon())
         elif not neg and param == 'authbypassvnc':
-            flt = db.view.flt_and(flt, db.view.searchvncauthbypass())
+            flt = dbase.flt_and(flt, dbase.searchvncauthbypass())
         elif not neg and param == "authhttp":
-            flt = db.view.flt_and(flt, db.view.searchhttpauth())
+            flt = dbase.flt_and(flt, dbase.searchhttpauth())
         elif not neg and param == 'banner':
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchbanner(utils.str2regexp(value)))
+                dbase.searchbanner(utils.str2regexp(value)))
         elif param == 'cookie':
-            flt = db.view.flt_and(flt, db.view.searchcookie(value))
+            flt = dbase.flt_and(flt, dbase.searchcookie(value))
         elif param == 'file':
             if value is None:
-                flt = db.view.flt_and(flt, db.view.searchfile())
+                flt = dbase.flt_and(flt, dbase.searchfile())
             else:
                 value = value.split(':', 1)
                 if len(value) == 1:
-                    flt = db.view.flt_and(flt, db.view.searchfile(
+                    flt = dbase.flt_and(flt, dbase.searchfile(
                         fname=utils.str2regexp(value[0])))
                 else:
-                    flt = db.view.flt_and(flt, db.view.searchfile(
+                    flt = dbase.flt_and(flt, dbase.searchfile(
                         fname=utils.str2regexp(value[1]),
                         scripts=value[0].split(',')))
         elif param == 'vuln':
@@ -404,28 +404,28 @@ def flt_from_query(query, base_flt=None):
             except AttributeError:
                 vulnid = None
                 status = None
-            flt = db.view.flt_and(flt, db.view.searchvuln(vulnid=vulnid,
-                                                          status=status))
+            flt = dbase.flt_and(flt, dbase.searchvuln(vulnid=vulnid,
+                                                      status=status))
         elif not neg and param == 'geovision':
-            flt = db.view.flt_and(flt, db.view.searchgeovision())
+            flt = dbase.flt_and(flt, dbase.searchgeovision())
         elif param == 'httptitle':
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchhttptitle(utils.str2regexp(value)))
+                dbase.searchhttptitle(utils.str2regexp(value)))
         elif not neg and param == "nfs":
-            flt = db.view.flt_and(flt, db.view.searchnfs())
+            flt = dbase.flt_and(flt, dbase.searchnfs())
         elif not neg and param in ["nis", "yp"]:
-            flt = db.view.flt_and(flt, db.view.searchypserv())
+            flt = dbase.flt_and(flt, dbase.searchypserv())
         elif not neg and param == 'mssqlemptypwd':
-            flt = db.view.flt_and(flt, db.view.searchmssqlemptypwd())
+            flt = dbase.flt_and(flt, dbase.searchmssqlemptypwd())
         elif not neg and param == 'mysqlemptypwd':
-            flt = db.view.flt_and(flt, db.view.searchmysqlemptypwd())
+            flt = dbase.flt_and(flt, dbase.searchmysqlemptypwd())
         elif not neg and param == 'sshkey':
             if value:
-                flt = db.view.flt_and(flt, db.view.searchsshkey(
+                flt = dbase.flt_and(flt, dbase.searchsshkey(
                     output=utils.str2regexp(value)))
             else:
-                flt = db.view.flt_and(flt, db.view.searchsshkey())
+                flt = dbase.flt_and(flt, dbase.searchsshkey())
         elif not neg and param.startswith('sshkey.'):
             subfield = param.split('.', 1)[1]
             if subfield in ['fingerprint', 'key', 'type', 'bits']:
@@ -438,49 +438,49 @@ def flt_from_query(query, base_flt=None):
                         pass
                 else:
                     value = utils.str2regexp(value)
-                flt = db.view.flt_and(flt, db.view.searchsshkey(
+                flt = dbase.flt_and(flt, dbase.searchsshkey(
                     **{subfield: value}
                 ))
             else:
                 add_unused(neg, param, value)
         elif not neg and param == 'httphdr':
             if value is None:
-                flt = db.view.flt_and(flt, db.view.searchhttphdr())
+                flt = dbase.flt_and(flt, dbase.searchhttphdr())
             elif ':' in value:
                 name, value = (utils.str2regexp(string) for
                                string in value.split(':', 1))
-                flt = db.view.flt_and(flt, db.view.searchhttphdr(name=name,
-                                                                 value=value))
+                flt = dbase.flt_and(flt, dbase.searchhttphdr(name=name,
+                                                             value=value))
             else:
-                flt = db.view.flt_and(flt, db.view.searchhttphdr(
+                flt = dbase.flt_and(flt, dbase.searchhttphdr(
                     name=utils.str2regexp(value)
                 ))
         elif not neg and param == 'owa':
-            flt = db.view.flt_and(flt, db.view.searchowa())
+            flt = dbase.flt_and(flt, dbase.searchowa())
         elif param == 'phpmyadmin':
-            flt = db.view.flt_and(flt, db.view.searchphpmyadmin())
+            flt = dbase.flt_and(flt, dbase.searchphpmyadmin())
         elif not neg and param.startswith('smb.'):
-            flt = db.view.flt_and(flt, db.view.searchsmb(
+            flt = dbase.flt_and(flt, dbase.searchsmb(
                 **{param[4:]: utils.str2regexp(value)}))
         elif not neg and param == 'smbshare':
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchsmbshares(access="" if value is None else value),
+                dbase.searchsmbshares(access="" if value is None else value),
             )
         elif param == 'torcert':
-            flt = db.view.flt_and(flt, db.view.searchtorcert())
+            flt = dbase.flt_and(flt, dbase.searchtorcert())
         elif not neg and param == 'webfiles':
-            flt = db.view.flt_and(flt, db.view.searchwebfiles())
+            flt = dbase.flt_and(flt, dbase.searchwebfiles())
         elif not neg and param == "webmin":
-            flt = db.view.flt_and(flt, db.view.searchwebmin())
+            flt = dbase.flt_and(flt, dbase.searchwebmin())
         elif not neg and param == 'x11srv':
-            flt = db.view.flt_and(flt, db.view.searchx11())
+            flt = dbase.flt_and(flt, dbase.searchx11())
         elif not neg and param == 'x11open':
-            flt = db.view.flt_and(flt, db.view.searchx11access())
+            flt = dbase.flt_and(flt, dbase.searchx11access())
         elif not neg and param == 'xp445':
-            flt = db.view.flt_and(flt, db.view.searchxp445())
+            flt = dbase.flt_and(flt, dbase.searchxp445())
         elif param == "ssl-ja3-client":
-            flt = db.view.flt_and(flt, db.view.searchja3client(
+            flt = dbase.flt_and(flt, dbase.searchja3client(
                 value_or_hash=(None if value is None else
                                utils.str2regexp(value)),
                 neg=neg
@@ -488,65 +488,65 @@ def flt_from_query(query, base_flt=None):
         elif param == "ssl-ja3-server":
             if value is None:
                 # There are no additional arguments
-                flt = db.view.flt_and(flt, db.view.searchja3server(neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchja3server(neg=neg))
             else:
                 split = [utils.str2regexp(v) if v else None
                          for v in value.split(':', 1)]
                 if len(split) == 1:
                     # Only a JA3 server is given
-                    flt = db.view.flt_and(flt, db.view.searchja3server(
+                    flt = dbase.flt_and(flt, dbase.searchja3server(
                         value_or_hash=(split[0]),
                         neg=neg,
                     ))
                 else:
                     # Both client and server JA3 are specified
-                    flt = db.view.flt_and(flt, db.view.searchja3server(
+                    flt = dbase.flt_and(flt, dbase.searchja3server(
                         value_or_hash=split[0],
                         client_value_or_hash=split[1],
                         neg=neg,
                     ))
         elif param == "useragent":
             if value:
-                flt = db.view.flt_and(flt, db.view.searchuseragent(
+                flt = dbase.flt_and(flt, dbase.searchuseragent(
                     useragent=utils.str2regexp(value)
                 ))
             else:
-                flt = db.view.flt_and(flt, db.view.searchuseragent())
+                flt = dbase.flt_and(flt, dbase.searchuseragent())
         # OS fingerprint
         elif not neg and param == "os":
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchos(utils.str2regexp(value)))
+                dbase.searchos(utils.str2regexp(value)))
         # device types
         elif param in ['devicetype', 'devtype']:
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchdevicetype(utils.str2regexp(value)))
+                dbase.searchdevicetype(utils.str2regexp(value)))
         elif param in ['netdev', 'networkdevice']:
-            flt = db.view.flt_and(flt, db.view.searchnetdev())
+            flt = dbase.flt_and(flt, dbase.searchnetdev())
         elif param == 'phonedev':
-            flt = db.view.flt_and(flt, db.view.searchphonedev())
+            flt = dbase.flt_and(flt, dbase.searchphonedev())
         # traceroute
         elif param == 'hop':
             if ':' in value:
                 hop, ttl = value.split(':', 1)
-                flt = db.view.flt_and(flt,
-                                      db.view.searchhop(hop, ttl=int(ttl),
-                                                        neg=neg))
+                flt = dbase.flt_and(flt,
+                                    dbase.searchhop(hop, ttl=int(ttl),
+                                                    neg=neg))
             else:
-                flt = db.view.flt_and(flt,
-                                      db.view.searchhop(value, neg=neg))
+                flt = dbase.flt_and(flt,
+                                    db.view.searchhop(value, neg=neg))
         elif param == 'hopname':
-            flt = db.view.flt_and(flt,
-                                  db.view.searchhopname(value, neg=neg))
+            flt = dbase.flt_and(flt,
+                                dbase.searchhopname(value, neg=neg))
         elif param == 'hopdomain':
-            flt = db.view.flt_and(flt,
-                                  db.view.searchhopdomain(value, neg=neg))
+            flt = dbase.flt_and(flt,
+                                dbase.searchhopdomain(value, neg=neg))
         elif not neg and param in ["ike.vendor_id.name",
                                    "ike.vendor_id.value"]:
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchscript(
+                dbase.searchscript(
                     name="ike-info",
                     values={
                         'vendor_ids.%s' % param[14:]: utils.str2regexp(value)
@@ -554,9 +554,9 @@ def flt_from_query(query, base_flt=None):
                 ),
             )
         elif not neg and param == "ike.notification":
-            flt = db.view.flt_and(
+            flt = dbase.flt_and(
                 flt,
-                db.view.searchscript(
+                dbase.searchscript(
                     name="ike-info",
                     values={
                         'notification_type': utils.str2regexp(value)
@@ -579,34 +579,34 @@ def flt_from_query(query, base_flt=None):
                     proto, port = "tcp", port
                 protos.setdefault(proto, []).append(int(port))
             for proto, ports in viewitems(protos):
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchport(ports[0], protocol=proto, state=param)
+                    dbase.searchport(ports[0], protocol=proto, state=param)
                     if len(ports) == 1 else
-                    db.view.searchports(ports, protocol=proto, state=param)
+                    dbase.searchports(ports, protocol=proto, state=param)
                 )
         elif param == 'otheropenport':
-            flt = db.view.flt_and(
-                flt, db.view.searchportsother([int(val) for val in
-                                               value.split(',')])
+            flt = dbase.flt_and(
+                flt, dbase.searchportsother([int(val) for val in
+                                             value.split(',')])
             )
         elif param == "screenshot":
             if value is None:
-                flt = db.view.flt_and(flt, db.view.searchscreenshot(neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchscreenshot(neg=neg))
             elif value.isdigit():
-                flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                flt = dbase.flt_and(flt, dbase.searchscreenshot(
                     port=int(value), neg=neg))
             elif value.startswith('tcp/') or value.startswith('udp/'):
                 value = value.split('/', 1)
-                flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                flt = dbase.flt_and(flt, dbase.searchscreenshot(
                     port=int(value[1]), protocol=value[0], neg=neg))
             else:
-                flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                flt = dbase.flt_and(flt, dbase.searchscreenshot(
                     service=value, neg=neg))
         elif param == "screenwords":
             if value is None:
-                flt = db.view.flt_and(
-                    flt, db.view.searchscreenshot(words=not neg)
+                flt = dbase.flt_and(
+                    flt, dbase.searchscreenshot(words=not neg)
                 )
             else:
                 params = value.split(':', 1)
@@ -614,19 +614,19 @@ def flt_from_query(query, base_flt=None):
                           params[0].split(',')]
                          if ',' in params[0] else utils.str2regexp(params[0]))
                 if len(params) == 1:
-                    flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                    flt = dbase.flt_and(flt, dbase.searchscreenshot(
                         words=words, neg=neg))
                 elif params[1].isdigit():
-                    flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                    flt = dbase.flt_and(flt, dbase.searchscreenshot(
                         port=int(value), neg=neg, words=words))
                 elif (params[1].startswith('tcp/') or
                       params[1].startswith('udp/')):
                     params[1] = params[1].split('/', 1)
-                    flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                    flt = dbase.flt_and(flt, dbase.searchscreenshot(
                         port=int(params[1][1]), protocol=params[1][0],
                         neg=neg, words=words))
                 else:
-                    flt = db.view.flt_and(flt, db.view.searchscreenshot(
+                    flt = dbase.flt_and(flt, dbase.searchscreenshot(
                         service=value, neg=neg, words=words))
         elif param == "cpe":
             if value:
@@ -634,9 +634,9 @@ def flt_from_query(query, base_flt=None):
                 cpe_fields = ["cpe_type", "vendor", "product", "version"]
                 for field, cpe_arg in zip(cpe_fields, value.split(':', 3)):
                     cpe_kwargs[field] = utils.str2regexp(cpe_arg)
-                flt = db.view.flt_and(flt, db.view.searchcpe(**cpe_kwargs))
+                flt = dbase.flt_and(flt, dbase.searchcpe(**cpe_kwargs))
             else:
-                flt = db.view.flt_and(flt, db.view.searchcpe())
+                flt = dbase.flt_and(flt, dbase.searchcpe())
         elif param == 'display':
             # ignore this parameter
             pass
@@ -645,48 +645,48 @@ def flt_from_query(query, base_flt=None):
                param.startswith('udp_') or param.startswith('udp/'):
                 proto, port = param.replace('_', '/').split('/', 1)
                 port = int(port)
-                flt = db.view.flt_and(flt, db.view.searchport(port,
-                                                              protocol=proto,
-                                                              neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchport(port,
+                                                          protocol=proto,
+                                                          neg=neg))
             elif param == "openport":
-                flt = db.view.flt_and(flt, db.view.searchopenport(neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchopenport(neg=neg))
             elif param.isdigit():
-                flt = db.view.flt_and(flt, db.view.searchport(int(param),
-                                                              neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchport(int(param),
+                                                          neg=neg))
             elif all(x.isdigit() for x in param.split(',')):
-                flt = db.view.flt_and(
+                flt = dbase.flt_and(
                     flt,
-                    db.view.searchports([int(val) for val in param.split(',')],
-                                        neg=neg)
+                    dbase.searchports([int(val) for val in param.split(',')],
+                                      neg=neg)
                 )
             elif IPADDR.match(param):
-                flt = db.view.flt_and(flt, db.view.searchhost(param, neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchhost(param, neg=neg))
             elif NETADDR.match(param):
-                flt = db.view.flt_and(flt, db.view.searchnet(param, neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchnet(param, neg=neg))
             elif get_notepad_pages is not None and param == 'notes':
-                flt = db.view.flt_and(flt, db.view.searchhosts(
+                flt = dbase.flt_and(flt, dbase.searchhosts(
                     get_notepad_pages(), neg=neg))
             elif '<' in param:
                 param = param.split('<', 1)
                 if param[1] and param[1][0] == '=':
-                    flt = db.view.flt_and(flt, db.view.searchcmp(
+                    flt = dbase.flt_and(flt, dbase.searchcmp(
                         param[0],
                         int(param[1][1:]),
                         '>' if neg else '<='))
                 else:
-                    flt = db.view.flt_and(flt, db.view.searchcmp(
+                    flt = dbase.flt_and(flt, dbase.searchcmp(
                         param[0],
                         int(param[1]),
                         '>=' if neg else '<'))
             elif '>' in param:
                 param = param.split('>', 1)
                 if param[1] and param[1][0] == '=':
-                    flt = db.view.flt_and(flt, db.view.searchcmp(
+                    flt = dbase.flt_and(flt, dbase.searchcmp(
                         param[0],
                         int(param[1][1:]),
                         '<' if neg else '>='))
                 else:
-                    flt = db.view.flt_and(flt, db.view.searchcmp(
+                    flt = dbase.flt_and(flt, dbase.searchcmp(
                         param[0],
                         int(param[1]),
                         '<=' if neg else '>'))

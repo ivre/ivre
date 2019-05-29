@@ -157,7 +157,7 @@ ivreWebUi
 	    else {
 		query = "limit:0";
 	    }
-	    return 'cgi/scans?q=' + encodeURIComponent(query) +
+	    return 'cgi/view?q=' + encodeURIComponent(query) +
 		'&ipsasnumbers=1&datesasstrings=1';
 	};
 	$scope.get_title = function() {return document.title;};
@@ -851,7 +851,7 @@ ivreWebUi
 		$("#uploadReferer")
 		    .attr("value", document.referrer);
 		$("#upload")
-		    .attr("action", 'cgi/scans')
+		    .attr("action", 'cgi/view')
 		    .submit();
 	    }
 	};

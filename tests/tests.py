@@ -374,7 +374,7 @@ class IvreTests(unittest.TestCase):
         )
         self.check_value(name, values, check=self.assertItemsEqual)
 
-    def _check_top_value_cli(self, name, field, count=10, command=None,
+    def _check_top_value_cli(self, name, field, count=10, command="",
                              **kwargs):
         res, out, err = RUN(["ivre", command, "--top", field, "--limit",
                              str(count)])
@@ -396,9 +396,10 @@ class IvreTests(unittest.TestCase):
         self.check_value(name, self._sort_top_values(listval),
                          check=self.assertItemsEqual)
 
-    def _check_top_value_cgi(self, name, field, count=10, **kwargs):
-        req = Request('http://%s:%d/cgi/scans/top/%s:%d' % (
-            HTTPD_HOSTNAME, HTTPD_PORT, quote(field), count
+    def _check_top_value_cgi(self, name, field, count=10, webroute="",
+                             **kwargs):
+        req = Request('http://%s:%d/cgi/%s/top/%s:%d' % (
+            HTTPD_HOSTNAME, HTTPD_PORT, webroute, quote(field), count
         ))
         req.add_header('Referer',
                        'http://%s:%d/' % (HTTPD_HOSTNAME, HTTPD_PORT))
@@ -409,13 +410,13 @@ class IvreTests(unittest.TestCase):
                          check=self.assertItemsEqual)
 
     def check_nmap_top_value(self, name, field, count=10):
-        for method in ['api', 'cli']:
+        for method in ['api', 'cli', 'cgi']:
             specific_name = "%s_%s" % (name, method)
             if name in self.results and specific_name not in self.results:
                 specific_name = name
             getattr(self, "_check_top_value_%s" % method)(
                 specific_name, field, count=count,
-                database=ivre.db.db.nmap, command="scancli"
+                database=ivre.db.db.nmap, command="scancli", webroute="scans",
             )
 
     def check_view_top_value(self, name, field, count=10):
@@ -425,7 +426,7 @@ class IvreTests(unittest.TestCase):
                 specific_name = name
             getattr(self, "_check_top_value_%s" % method)(
                 specific_name, field, count=count,
-                database=ivre.db.db.view, command="view"
+                database=ivre.db.db.view, command="view", webroute="view",
             )
 
     def check_count_value_api(self, name_or_value, flt, database=None,
@@ -452,9 +453,9 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(name_or_value, count)
         return count
 
-    def check_count_value_cgi(self, name_or_value, webflt):
-        req = Request('http://%s:%d/cgi/scans/count%s' % (
-            HTTPD_HOSTNAME, HTTPD_PORT,
+    def check_count_value_cgi(self, name_or_value, webflt, webroute=""):
+        req = Request('http://%s:%d/cgi/%s/count%s' % (
+            HTTPD_HOSTNAME, HTTPD_PORT, webroute,
             '' if webflt is None else '?q=%s' % webflt,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -475,7 +476,10 @@ class IvreTests(unittest.TestCase):
                                           database=ivre.db.db.nmap)
         cnt2 = self.check_count_value_cli(name_or_value, cliflt,
                                           command="scancli")
+        cnt3 = self.check_count_value_cgi(name_or_value, webflt,
+                                          webroute="scans")
         self.assertEqual(cnt1, cnt2)
+        self.assertEqual(cnt1, cnt3)
         return cnt1
 
     def check_view_count_value(self, name_or_value, flt, cliflt, webflt):
@@ -483,12 +487,13 @@ class IvreTests(unittest.TestCase):
                                           database=ivre.db.db.view)
         cnt2 = self.check_count_value_cli(name_or_value, cliflt,
                                           command="view")
-        cnt3 = self.check_count_value_cgi(name_or_value, webflt)
+        cnt3 = self.check_count_value_cgi(name_or_value, webflt,
+                                          webroute="view")
         self.assertEqual(cnt1, cnt2)
         self.assertEqual(cnt1, cnt3)
         return cnt1
 
-    def find_record_cgi(self, predicate, webflt=None):
+    def find_record_cgi(self, predicate, webroute="", webflt=None):
         """Browse the results from the JSON interface to find a record for
 which `predicate()` is True, given `webflt`.
 
@@ -499,8 +504,8 @@ which `predicate()` is True, given `webflt`.
             if current:
                 query.append('skip%%3A%d' % current)
             query = "?q=%s" % '%20'.join(query) if query else ""
-            req = Request('http://%s:%d/cgi/scans%s' % (
-                HTTPD_HOSTNAME, HTTPD_PORT, query,
+            req = Request('http://%s:%d/cgi/%s%s' % (
+                HTTPD_HOSTNAME, HTTPD_PORT, webroute, query,
             ))
             req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
                                                          HTTPD_PORT))
@@ -543,6 +548,9 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
     def test_30_nmap(self):
+
+        # Start a Web server to test CGI
+        self.start_web_server()
 
         #
         # Database tests
@@ -2882,9 +2890,6 @@ which `predicate()` is True, given `webflt`.
 
     def test_50_view(self):
 
-        # Start a Web server to test CGI
-        self.start_web_server()
-
         #
         # Web server tests
         #
@@ -3138,7 +3143,7 @@ which `predicate()` is True, given `webflt`.
             "torcert",
         )
 
-        # Check Web /scans
+        # Check Web /view
         addr = next(ivre.db.db.view.get(
             ivre.db.db.view.flt_empty, fields=['addr']
         ))['addr']
@@ -3146,13 +3151,13 @@ which `predicate()` is True, given `webflt`.
         addr = ivre.utils.force_int2ip(addr)
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         # In the whole database
-        self.find_record_cgi(lambda rec: addr == rec['addr'])
+        self.find_record_cgi(lambda rec: addr == rec['addr'], webroute="view")
         # In the /24 network
-        self.find_record_cgi(lambda rec: addr == rec['addr'],
+        self.find_record_cgi(lambda rec: addr == rec['addr'], webroute="view",
                              webflt='net:%s' % addr_net)
         # Check Web functions used for graphs
         # onlyips / IPs as strings
-        req = Request('http://%s:%d/cgi/scans/onlyips?q=net:%s' % (
+        req = Request('http://%s:%d/cgi/view/onlyips?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -3162,7 +3167,7 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(addr in json.loads(udesc.read().decode()))
         # onlyips / IPs as numbers
         req = Request(
-            'http://%s:%d/cgi/scans/onlyips?q=net:%s&ipsasnumbers=1' % (
+            'http://%s:%d/cgi/view/onlyips?q=net:%s&ipsasnumbers=1' % (
                 HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
@@ -3172,7 +3177,7 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(udesc.getcode(), 200)
         self.assertTrue(addr_i in json.loads(udesc.read().decode()))
         # ipsports / IPs as strings
-        req = Request('http://%s:%d/cgi/scans/ipsports?q=net:%s' % (
+        req = Request('http://%s:%d/cgi/view/ipsports?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -3183,7 +3188,7 @@ which `predicate()` is True, given `webflt`.
                         (x[0] for x in json.loads(udesc.read().decode())))
         # ipsports / IPs as numbers
         req = Request(
-            'http://%s:%d/cgi/scans/ipsports?q=net:%s&ipsasnumbers=1' % (
+            'http://%s:%d/cgi/view/ipsports?q=net:%s&ipsasnumbers=1' % (
                 HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
@@ -3194,7 +3199,7 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
         # timeline / IPs as strings
-        req = Request('http://%s:%d/cgi/scans/timeline?q=net:%s' % (
+        req = Request('http://%s:%d/cgi/view/timeline?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -3205,7 +3210,7 @@ which `predicate()` is True, given `webflt`.
                         (x[1] for x in json.loads(udesc.read().decode())))
         # timeline / IPs as numbers
         req = Request(
-            'http://%s:%d/cgi/scans/timeline?q=net:%s&ipsasnumbers=1' % (
+            'http://%s:%d/cgi/view/timeline?q=net:%s&ipsasnumbers=1' % (
                 HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
@@ -3217,7 +3222,7 @@ which `predicate()` is True, given `webflt`.
                         (x[1] for x in json.loads(udesc.read().decode())))
         # timeline - modulo 24h / IPs as strings
         req = Request(
-            'http://%s:%d/cgi/scans/timeline?q=net:%s&modulo=86400' % (
+            'http://%s:%d/cgi/view/timeline?q=net:%s&modulo=86400' % (
                 HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
@@ -3229,7 +3234,7 @@ which `predicate()` is True, given `webflt`.
                         (x[1] for x in json.loads(udesc.read().decode())))
         # timeline - modulo 24h / IPs as numbers
         req = Request(
-            'http://%s:%d/cgi/scans/timeline?'
+            'http://%s:%d/cgi/view/timeline?'
             'q=net:%s&ipsasnumbers=1&modulo=86400' % (
                 HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
@@ -3241,7 +3246,7 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(addr_i in
                         (x[1] for x in json.loads(udesc.read().decode())))
         # countopenports / IPs as strings
-        req = Request('http://%s:%d/cgi/scans/countopenports?q=net:%s' % (
+        req = Request('http://%s:%d/cgi/view/countopenports?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -3252,7 +3257,7 @@ which `predicate()` is True, given `webflt`.
                         (x[0] for x in json.loads(udesc.read().decode())))
         # countopenports / IPs as numbers
         req = Request(
-            'http://%s:%d/cgi/scans/countopenports?q=net:%s&ipsasnumbers=1' % (
+            'http://%s:%d/cgi/view/countopenports?q=net:%s&ipsasnumbers=1' % (
                 HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
             )
         )
@@ -3269,7 +3274,7 @@ which `predicate()` is True, given `webflt`.
         addr = ivre.utils.force_int2ip(result['addr'])
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         coords = result['infos']['coordinates']
-        req = Request('http://%s:%d/cgi/scans/coordinates?q=net:%s' % (
+        req = Request('http://%s:%d/cgi/view/coordinates?q=net:%s' % (
             HTTPD_HOSTNAME, HTTPD_PORT, addr_net,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
@@ -3281,17 +3286,17 @@ which `predicate()` is True, given `webflt`.
             (x['coordinates']
              for x in json.loads(udesc.read().decode())['geometries'])
         )
-        # Check Web /scans (again, new addresses)
+        # Check Web /view (again, new addresses)
         #   In the whole database
-        self.find_record_cgi(lambda rec: addr == rec['addr'])
+        self.find_record_cgi(lambda rec: addr == rec['addr'], webroute="view")
         #   In the /24 network
-        self.find_record_cgi(lambda rec: addr == rec['addr'],
+        self.find_record_cgi(lambda rec: addr == rec['addr'], webroute="view",
                              webflt='net:%s' % addr_net)
         # Check that all coordinates for IPs in "FR" are in a
         # rectangle given by 43 < lat < 51 and -5 < lon < 8 (for some
         # reasons, overseas territories have they own country code,
         # e.g., "RE").
-        req = Request('http://%s:%d/cgi/scans/coordinates?q=country:FR' % (
+        req = Request('http://%s:%d/cgi/view/coordinates?q=country:FR' % (
             HTTPD_HOSTNAME, HTTPD_PORT,
         ))
         req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
