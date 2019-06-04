@@ -2456,6 +2456,10 @@ def _sqlite_url2dbinfos(url):
     return (url.scheme, ("%s://%s" % (url.scheme, url.path),), {})
 
 
+def _http_url2dbinfos(url):
+    return (url.scheme, (url.geturl(),), {})
+
+
 class MetaDB(object):
     db_types = {
         "nmap": {},
@@ -2475,6 +2479,7 @@ class MetaDB(object):
         "neo4j": _neo4j_url2dbinfos,
         "maxmind": _maxmind_url2dbinfos,
         "sqlite": _sqlite_url2dbinfos,
+        "http": _http_url2dbinfos,
     }
 
     @classmethod
@@ -2526,6 +2531,13 @@ class MetaDB(object):
             pass
         else:
             self.db_types["data"]["maxmind"] = MaxMindDBData
+        try:
+            from ivre.db.http import HttpDBNmap, HttpDBView
+        except ImportError:
+            pass
+        else:
+            self.db_types["nmap"]["http"] = HttpDBNmap
+            self.db_types["view"]["http"] = HttpDBView
         for datatype, dbtypes in viewitems(self.db_types):
             specificurl = urls.get(datatype, url)
             if specificurl is not None:

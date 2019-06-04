@@ -1358,6 +1358,39 @@ which `predicate()` is True, given `webflt`.
         self.check_value("nmap_features_versions_noyieldall_FRDE_ndata",
                          len(data))
 
+        # BEGIN Using the HTTP server as a database
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv['IVRE_CONF'], 'rb'))
+            fdesc.write(
+                ('\nDB_NMAP = "http://%s:%d/cgi#Referer=http://%s:%d/"\n' % (
+                    HTTPD_HOSTNAME, HTTPD_PORT, HTTPD_HOSTNAME, HTTPD_PORT,
+                )).encode()
+            )
+        newenv["IVRE_CONF"] = fdesc.name
+
+        res, out, err = RUN(["ivre", "scancli", "--count"], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        self.check_value("nmap_get_count", int(out))
+
+        addr = next(ivre.db.db.nmap.get(
+            ivre.db.db.nmap.flt_empty
+        ))['addr']
+        res, out, err = RUN(["ivre", "scancli", "--host", addr], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        found = False
+        for line in out.splitlines():
+            if line.startswith(b'Host '):
+                self.assertTrue(b' ' + addr.encode() + b' ' in line)
+                found = True
+        self.assertTrue(found)
+
+        os.unlink(fdesc.name)
+        # END Using the HTTP server as a database
+
     def test_53_nmap_delete(self):
         # Remove
         addr = next(ivre.db.db.nmap.get(
@@ -3466,6 +3499,39 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("view_features_versions_noyieldall_FRDE_ndata",
                          len(data))
+
+        # BEGIN Using the HTTP server as a database
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv['IVRE_CONF'], 'rb'))
+            fdesc.write(
+                ('\nDB_NMAP = "http://%s:%d/cgi#Referer=http://%s:%d/"\n' % (
+                    HTTPD_HOSTNAME, HTTPD_PORT, HTTPD_HOSTNAME, HTTPD_PORT,
+                )).encode()
+            )
+        newenv["IVRE_CONF"] = fdesc.name
+
+        res, out, err = RUN(["ivre", "view", "--count"], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        self.check_value("view_get_count", int(out))
+
+        addr = next(ivre.db.db.view.get(
+            ivre.db.db.view.flt_empty
+        ))['addr']
+        res, out, err = RUN(["ivre", "view", "--host", addr], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        found = False
+        for line in out.splitlines():
+            if line.startswith(b'Host '):
+                self.assertTrue(b' ' + addr.encode() + b' ' in line)
+                found = True
+        self.assertTrue(found)
+
+        os.unlink(fdesc.name)
+        # END Using the HTTP server as a database
 
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
