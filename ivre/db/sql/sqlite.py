@@ -34,6 +34,8 @@ class SqliteDB(SQLDB):
 
     def __init__(self, url):
         super(SqliteDB, self).__init__(url)
+        # url.geturl() removes two necessary '/' from url
+        self.dburl = "%s://%s" % (url.scheme, url.path)
 
     def explain(self, req, **_):
         raise Exception("Explain is not yet implemented for sqlite.")

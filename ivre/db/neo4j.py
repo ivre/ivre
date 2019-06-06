@@ -62,7 +62,7 @@ class Neo4jDB(DB):
     TIMEFMT = '%Y-%m-%d %H:%M:%S.%f'
 
     def __init__(self, url):
-        self.dburl = url
+        self.dburl = url._replace(scheme='http').geturl()
 
     @property
     def db(self):

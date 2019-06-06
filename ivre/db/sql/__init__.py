@@ -219,7 +219,7 @@ class SQLDB(DB):
 
     def __init__(self, url):
         super(SQLDB, self).__init__()
-        self.dburl = url
+        self.dburl = url.geturl()
 
     @property
     def db(self):

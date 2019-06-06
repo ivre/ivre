@@ -37,6 +37,10 @@ import random
 import re
 import socket
 import struct
+try:
+    from urllib.parse import unquote
+except ImportError:
+    from urllib import unquote
 import uuid
 
 
@@ -93,23 +97,44 @@ class MongoDB(DB):
     ipaddr_fields = []
     no_limit = 0
 
-    def __init__(self, host, dbname,
-                 username=None, password=None, mechanism=None,
-                 maxscan=None, maxtime=None,
-                 **_):
-        self.host = host
-        self.dbname = dbname
-        self.username = username
-        self.password = password
-        self.mechanism = mechanism
+    def __init__(self, url):
+        self.username = None
+        self.password = None
+        self.mechanism = None
+        if '@' in url.netloc:
+            username, self.host = url.netloc.split('@', 1)
+            if ':' in username:
+                self.username, self.password = (unquote(val) for val in
+                                                username.split(':', 1))
+            else:
+                username = unquote(username)
+                if username == 'GSSAPI':
+                    import krbV
+                    self.username = (krbV.default_context().default_ccache()
+                                     .principal().name)
+                    self.mechanism = 'GSSAPI'
+                else:
+                    self.username = username
+                    if '@' in username:
+                        self.mechanism = 'GSSAPI'
+        else:
+            self.host = url.netloc
+        if not self.host:
+            self.host = None
+        self.dbname = url.path.lstrip('/')
+        if not self.dbname:
+            self.dbname = 'ivre'
+        params = dict(x.split('=', 1) if '=' in x else (x, None)
+                      for x in url.query.split('&') if x)
         try:
-            self.maxscan = int(maxscan)
+            self.maxscan = int(params.pop('maxscan', None))
         except TypeError:
             self.maxscan = None
         try:
-            self.maxtime = int(maxtime)
+            self.maxtime = int(params.pop('maxtime', None))
         except TypeError:
             self.maxtime = None
+        self.params = params
         self.schema_migrations = []
 
     def set_limits(self, cur):
@@ -879,10 +904,9 @@ class MongoDBActive(MongoDB, DBActive):
         xmlnmap.SCHEMA_VERSION,
     ]
 
-    def __init__(self, host, dbname, colname_hosts, **kargs):
-        MongoDB.__init__(self, host, dbname, **kargs)
+    def __init__(self, url):
+        MongoDB.__init__(self, url)
         DBActive.__init__(self)
-        self.columns = [colname_hosts]
         self.schema_migrations = [
             # hosts
             {
@@ -3373,12 +3397,11 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
     column_scans = 1
 
-    def __init__(self, host, dbname, colname_scans="scans",
-                 colname_hosts="hosts", **kwargs):
-        MongoDBActive.__init__(self, host, dbname, colname_hosts=colname_hosts,
-                               **kwargs)
+    def __init__(self, url):
+        MongoDBActive.__init__(self, url)
         DBNmap.__init__(self)
-        self.columns.append(colname_scans)
+        self.columns = [self.params.pop('colname_hosts', 'hosts'),
+                        self.params.pop('colname_scans', 'scans')]
         self.schema_migrations.append({})  # scans
         self.content_handler = Nmap2Mongo
         self.output_function = None
@@ -3433,10 +3456,10 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 
 class MongoDBView(MongoDBActive, DBView):
 
-    def __init__(self, host, dbname, colname_hosts="views", **kwargs):
-        MongoDBActive.__init__(self, host, dbname, colname_hosts=colname_hosts,
-                               **kwargs)
+    def __init__(self, url):
+        MongoDBActive.__init__(self, url)
         DBView.__init__(self)
+        self.columns = [self.params.pop('colname_hosts', 'views')]
 
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
@@ -3545,12 +3568,10 @@ class MongoDBPassive(MongoDB, DBPassive):
         ]),
     ]
 
-    def __init__(self, host, dbname,
-                 colname_passive="passive",
-                 **kargs):
-        MongoDB.__init__(self, host, dbname, **kargs)
+    def __init__(self, url):
+        MongoDB.__init__(self, url)
         DBPassive.__init__(self)
-        self.columns = [colname_passive]
+        self.columns = [self.params.pop('colname_passive', 'passive')]
         self.schema_migrations = [
             # passive
             {
@@ -4287,14 +4308,12 @@ class MongoDBAgent(MongoDB, DBAgent):
         ],
     ]
 
-    def __init__(self, host, dbname,
-                 colname_agents="agents",
-                 colname_scans="runningscans",
-                 colname_masters="masters",
-                 **kargs):
-        MongoDB.__init__(self, host, dbname, **kargs)
+    def __init__(self, url):
+        MongoDB.__init__(self, url)
         DBAgent.__init__(self)
-        self.columns = [colname_agents, colname_scans, colname_masters]
+        self.columns = [self.params.pop('colname_agents', 'agents'),
+                        self.params.pop('colname_scans', 'runningscans'),
+                        self.params.pop('colname_masters', 'masters')]
 
     def init(self):
         """Initializes the "agent" columns, i.e., drops those columns
