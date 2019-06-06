@@ -47,19 +47,31 @@ class HttpDB(DB):
         ):
             urlop.addheader(hdr, val)
 
-    def get(self, spec, **kargs):
-        # TODO: handle "pages"
-        url = '%s/%s' % (self.baseurl, self.route)
-        if spec:
-            url += '?q=%s' % spec
-        req = self.db.open(url)
-        req.readline()
-        for line in req:
-            if line == b']\n':
+    def get(self, spec, limit=None, skip=None, sort=None, fields=None):
+        url = '%s/%s?q=%sskip:' % (self.baseurl, self.route,
+                                   ('%s%%20' % spec) if spec else '')
+        if skip is None:
+            skip = 0
+        while True:
+            cururl = '%s%d' % (url, skip)
+            if limit is not None:
+                cururl += '%%20limit:%d' % limit
+            req = self.db.open(cururl)
+            data = json.loads(req.read().decode())
+            if not data:
                 break
-            line = line.rstrip(b'\n,')
-            if line:
-                yield json.loads(line.decode())
+            if limit is None:
+                for rec in data:
+                    yield rec
+            else:
+                for rec in data:
+                    yield rec
+                    limit -= 1
+                    if limit == 0:
+                        break
+                if limit == 0:
+                    break
+            skip += len(data)
 
     def count(self, spec, **kargs):
         url = '%s/%s/count' % (self.baseurl, self.route)
