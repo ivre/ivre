@@ -335,8 +335,8 @@ class MaxMindDBData(DBData):
             self._db_country = EmptyMaxMindFile("Country")
             return self._db_country
 
-    def __init__(self, basepath):
-        self.basepath = basepath
+    def __init__(self, url):
+        self.basepath = url.path
         self.reload_files()
 
     def reload_files(self):

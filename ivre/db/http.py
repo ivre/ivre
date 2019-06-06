@@ -25,10 +25,8 @@ instance via an HTTP server.
 import json
 try:
     from urllib.request import URLopener
-    from urllib.parse import urlparse
 except ImportError:
     from urllib import URLopener
-    from urlparse import urlparse
 
 
 from ivre.db import DB, DBActive, DBNmap, DBView
@@ -38,9 +36,8 @@ class HttpDB(DB):
 
     flt_empty = ""
 
-    def __init__(self, url, **_):
+    def __init__(self, url):
         super(HttpDB, self).__init__()
-        url = urlparse(url)
         self.baseurl = url._replace(fragment="").geturl()
         self.db = urlop = URLopener()
         for hdr, val in (

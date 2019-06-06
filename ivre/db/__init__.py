@@ -34,10 +34,9 @@ import subprocess
 import sys
 import tempfile
 try:
-    from urllib.parse import urlparse, unquote
+    from urllib.parse import urlparse
 except ImportError:
     from urlparse import urlparse
-    from urllib import unquote
 import uuid
 import xml.sax
 
@@ -2404,63 +2403,8 @@ class DBFlow(DB):
     """Backend-independent code to handle flows"""
 
 
-def _mongodb_url2dbinfos(url):
-    userinfo = {}
-    if '@' in url.netloc:
-        username = url.netloc[:url.netloc.index('@')]
-        if ':' in username:
-            userinfo = dict(zip(["username", "password"],
-                                [unquote(val) for val in
-                                 username.split(':', 1)]))
-        else:
-            username = unquote(username)
-            if username == 'GSSAPI':
-                import krbV
-                userinfo = {
-                    'username': (krbV
-                                 .default_context()
-                                 .default_ccache()
-                                 .principal().name),
-                    'mechanism': 'GSSAPI'}
-            elif '@' in username:
-                userinfo = {'username': username,
-                            'mechanism': 'GSSAPI'}
-            else:
-                userinfo = {'username': username}
-        hostname = url.netloc[url.netloc.index('@') + 1:]
-    else:
-        hostname = url.netloc
-    if not hostname:
-        hostname = None
-    dbname = url.path.lstrip('/')
-    if not dbname:
-        dbname = 'ivre'
-    params = dict(x.split('=', 1) if '=' in x else [x, None]
-                  for x in url.query.split('&') if x)
-    params.update(userinfo)
-    return (url.scheme,
-            (hostname, dbname),
-            params)
-
-
-def _neo4j_url2dbinfos(url):
-    return (url.scheme, (url._replace(scheme='http').geturl(),), {})
-
-
-def _maxmind_url2dbinfos(url):
-    return (url.scheme, (url.path,), {})
-
-
-def _sqlite_url2dbinfos(url):
-    # url.geturl() would remove two necessary '/' from url.
-    return (url.scheme, ("%s://%s" % (url.scheme, url.path),), {})
-
-
-def _http_url2dbinfos(url):
-    return (url.scheme, (url.geturl(),), {})
-
-
 class MetaDB(object):
+
     db_types = {
         "nmap": {},
         "passive": {},
@@ -2474,20 +2418,6 @@ class MetaDB(object):
     data = None
     agent = None
     view = None
-    extract_dbinfos = {
-        "mongodb": _mongodb_url2dbinfos,
-        "neo4j": _neo4j_url2dbinfos,
-        "maxmind": _maxmind_url2dbinfos,
-        "sqlite": _sqlite_url2dbinfos,
-        "http": _http_url2dbinfos,
-    }
-
-    @classmethod
-    def url2dbinfos(cls, url):
-        url = urlparse(url)
-        if url.scheme in cls.extract_dbinfos:
-            return cls.extract_dbinfos[url.scheme](url)
-        return url.scheme, (url.geturl(),), {}
 
     def __init__(self, url=None, urls=None):
         try:
@@ -2541,14 +2471,12 @@ class MetaDB(object):
         for datatype, dbtypes in viewitems(self.db_types):
             specificurl = urls.get(datatype, url)
             if specificurl is not None:
-                (spurlscheme,
-                 spurlargs,
-                 spurlkargs) = self.url2dbinfos(specificurl)
-                if spurlscheme in dbtypes:
+                specificurl = urlparse(specificurl)
+                if specificurl.scheme in dbtypes:
                     setattr(
                         self,
                         datatype,
-                        dbtypes[spurlscheme](*spurlargs, **spurlkargs))
+                        dbtypes[specificurl.scheme](specificurl))
                     getattr(self, datatype).globaldb = self
 
 
