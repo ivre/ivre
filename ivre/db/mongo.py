@@ -98,6 +98,7 @@ class MongoDB(DB):
     no_limit = 0
 
     def __init__(self, url):
+        super(MongoDB, self).__init__()
         self.username = None
         self.password = None
         self.mechanism = None
@@ -905,8 +906,7 @@ class MongoDBActive(MongoDB, DBActive):
     ]
 
     def __init__(self, url):
-        MongoDB.__init__(self, url)
-        DBActive.__init__(self)
+        super(MongoDBActive, self).__init__(url)
         self.schema_migrations = [
             # hosts
             {
@@ -3398,8 +3398,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
     column_scans = 1
 
     def __init__(self, url):
-        MongoDBActive.__init__(self, url)
-        DBNmap.__init__(self)
+        super(MongoDBNmap, self).__init__(url)
         self.columns = [self.params.pop('colname_hosts', 'hosts'),
                         self.params.pop('colname_scans', 'scans')]
         self.schema_migrations.append({})  # scans
@@ -3457,8 +3456,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
 class MongoDBView(MongoDBActive, DBView):
 
     def __init__(self, url):
-        MongoDBActive.__init__(self, url)
-        DBView.__init__(self)
+        super(MongoDBView, self).__init__(url)
         self.columns = [self.params.pop('colname_hosts', 'views')]
 
     def store_or_merge_host(self, host):
@@ -3569,8 +3567,7 @@ class MongoDBPassive(MongoDB, DBPassive):
     ]
 
     def __init__(self, url):
-        MongoDB.__init__(self, url)
-        DBPassive.__init__(self)
+        super(MongoDBPassive, self).__init__(url)
         self.columns = [self.params.pop('colname_passive', 'passive')]
         self.schema_migrations = [
             # passive
@@ -4309,8 +4306,7 @@ class MongoDBAgent(MongoDB, DBAgent):
     ]
 
     def __init__(self, url):
-        MongoDB.__init__(self, url)
-        DBAgent.__init__(self)
+        super(MongoDBAgent, self).__init__(url)
         self.columns = [self.params.pop('colname_agents', 'agents'),
                         self.params.pop('colname_scans', 'runningscans'),
                         self.params.pop('colname_masters', 'masters')]

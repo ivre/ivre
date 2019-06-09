@@ -2405,79 +2405,124 @@ class DBFlow(DB):
 
 class MetaDB(object):
 
+    # Backend-specific purpose-specific sub-classes (e.g.,
+    # MongoDBNmap) must be "registered" in this dict.
+    #
+    # The keys are the purposes ("nmap", "view", "passive", etc.), and
+    # the values are dict objects which, in turn, associate a backend
+    # name (as used as the scheme of the URLs in the configuration DB*
+    # values, such as "mongodb", "http", "postgresql", etc.) to
+    # tuples; the first element of those tuples is the sub-module name
+    # ("mongo" for "ivre.db.mongo"), and the second is the class name.
+    #
+    # {"purpose": {"scheme": ("module_name", "ClassName"),
+    #              [...]},
+    #  [...]}
     db_types = {
-        "nmap": {},
-        "passive": {},
-        "data": {},
-        "agent": {},
-        "flow": {},
-        "view": {},
+        "nmap": {"http": ("http", "HttpDBNmap"),
+                 "mongodb": ("mongo", "MongoDBNmap"),
+                 "postgresql": ("sql.postgres", "PostgresDBNmap")},
+        "passive": {"mongodb": ("mongo", "MongoDBPassive"),
+                    "postgresql": ("sql.postgres", "PostgresDBPassive"),
+                    "sqlite": ("sql.sqlite", "SqliteDBPassive")},
+        "data": {"maxmind": ("maxmind", "MaxMindDBData")},
+        "agent": {"mongodb": ("mongo", "MongoDBAgent")},
+        "flow": {"neo4j": ("neo4j", "Neo4jDBFlow"),
+                 "postgresql": ("sql.postgres", "PostgresDBFlow")},
+        "view": {"http": ("http", "HttpDBView"),
+                 "mongodb": ("mongo", "MongoDBView"),
+                 "postgresql": ("sql.postgres", "PostgresDBView")},
     }
-    nmap = None
-    passive = None
-    data = None
-    agent = None
-    view = None
 
     def __init__(self, url=None, urls=None):
+        self.url = url
+        self.urls = urls
+
+    @property
+    def nmap(self):
         try:
-            from ivre.db.mongo import (MongoDBNmap, MongoDBPassive,
-                                       MongoDBAgent, MongoDBView)
-        except ImportError:
+            return self._nmap
+        except AttributeError:
             pass
-        else:
-            self.db_types["nmap"]["mongodb"] = MongoDBNmap
-            self.db_types["passive"]["mongodb"] = MongoDBPassive
-            self.db_types["agent"]["mongodb"] = MongoDBAgent
-            self.db_types["view"]["mongodb"] = MongoDBView
+        self._nmap = self.get_class("nmap")
+        return self._nmap
+
+    @property
+    def passive(self):
         try:
-            from ivre.db.neo4j import Neo4jDBFlow
-        except ImportError:
+            return self._passive
+        except AttributeError:
             pass
-        else:
-            self.db_types["flow"]["neo4j"] = Neo4jDBFlow
+        self._passive = self.get_class("passive")
+        return self._passive
+
+    @property
+    def data(self):
         try:
-            from ivre.db.sql.postgres import (PostgresDBFlow, PostgresDBNmap,
-                                              PostgresDBPassive,
-                                              PostgresDBView)
-        except ImportError:
+            return self._data
+        except AttributeError:
             pass
-        else:
-            self.db_types["flow"]["postgresql"] = PostgresDBFlow
-            self.db_types["nmap"]["postgresql"] = PostgresDBNmap
-            self.db_types["passive"]["postgresql"] = PostgresDBPassive
-            self.db_types["view"]["postgresql"] = PostgresDBView
+        self._data = self.get_class("data")
+        return self._data
+
+    @property
+    def agent(self):
         try:
-            from ivre.db.sql.sqlite import SqliteDBPassive
-        except ImportError:
+            return self._agent
+        except AttributeError:
             pass
-        else:
-            self.db_types["passive"]["sqlite"] = SqliteDBPassive
-        if urls is None:
-            urls = {}
+        self._agent = self.get_class("agent")
+        return self._agent
+
+    @property
+    def flow(self):
         try:
-            from ivre.db.maxmind import MaxMindDBData
-        except ImportError:
+            return self._flow
+        except AttributeError:
             pass
-        else:
-            self.db_types["data"]["maxmind"] = MaxMindDBData
+        self._flow = self.get_class("flow")
+        return self._flow
+
+    @property
+    def view(self):
         try:
-            from ivre.db.http import HttpDBNmap, HttpDBView
-        except ImportError:
+            return self._view
+        except AttributeError:
             pass
-        else:
-            self.db_types["nmap"]["http"] = HttpDBNmap
-            self.db_types["view"]["http"] = HttpDBView
-        for datatype, dbtypes in viewitems(self.db_types):
-            specificurl = urls.get(datatype, url)
-            if specificurl is not None:
-                specificurl = urlparse(specificurl)
-                if specificurl.scheme in dbtypes:
-                    setattr(
-                        self,
-                        datatype,
-                        dbtypes[specificurl.scheme](specificurl))
-                    getattr(self, datatype).globaldb = self
+        self._view = self.get_class("view")
+        return self._view
+
+    def get_class(self, purpose):
+        url = self.urls.get(purpose, self.url)
+        if url is not None:
+            url = urlparse(url)
+            try:
+                modulename, classname = self.db_types[purpose][url.scheme]
+            except (KeyError, TypeError):
+                utils.LOGGER.error(
+                    'Cannot get database for %s from %s',
+                    purpose,
+                    url.geturl(),
+                    exc_info=True,
+                )
+                return None
+            try:
+                # we should use importlib.import_module, but it is an
+                # external module in Python 2.6.
+                module = __import__('ivre.db.%s' % modulename).db
+            except ImportError:
+                utils.LOGGER.error(
+                    'Cannot import ivre.db.%s for %s',
+                    modulename,
+                    url.geturl(),
+                    exc_info=True,
+                )
+                return None
+            for submod in modulename.split('.'):
+                module = getattr(module, submod)
+            result = getattr(module, classname)(url)
+            result.globaldb = self
+            return result
 
 
 db = MetaDB(
