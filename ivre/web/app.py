@@ -514,7 +514,9 @@ def get_flow():
         if count:
             res = db.flow.count(cquery)
         else:
-            res = db.flow.to_graph(cquery)
+            res = db.flow.to_graph(cquery, limit=limit, skip=skip,
+                                   orderby=orderby, mode=mode,
+                                   timeline=timeline)
     yield json.dumps(res, default=utils.serialize)
     if callback is not None:
         yield ");\n"

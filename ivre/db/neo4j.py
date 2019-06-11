@@ -220,7 +220,7 @@ class Neo4jDB(DBFlow):
 
     @staticmethod
     def query(*args, **kargs):
-        return Query(*args, **kargs)
+        return Neo4jFlowQuery(*args, **kargs)
 
     def run(self, query):
         if config.DEBUG_DB:
@@ -661,7 +661,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @staticmethod
     def query(*args, **kargs):
-        return Query(*args, src="Host", dst="Host", **kargs)
+        return Neo4jFlowQuery(*args, src="Host", dst="Host", **kargs)
 
     def query_flow(self, flt=None, project=None, action=None):
         query = self.query(
@@ -1240,11 +1240,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                                             timeline=timeline)
         return cypher_query
 
-    def to_graph(self, query):
+    def to_graph(self, query, mode=None):
         res = self.cursor2json_graph(self.run(query))
         return res
 
-    def to_iter(self, query):
+    def to_iter(self, query, limit=None, skip=None, orderby=None):
         return self.cursor2json_iter(self.run(query))
 
     def count(self, query):

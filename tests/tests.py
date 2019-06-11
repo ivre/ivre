@@ -2281,45 +2281,41 @@ which `predicate()` is True, given `webflt`.
             self.assertEqual(res, 0)
             self.assertTrue(not out)
             ivre.utils.cleandir(tmpdir)
-        total = self.check_flow_count_value("flow_count", ivre.db.db.flow.flt_empty, [], None)
+        total = self.check_flow_count_value("flow_count", {}, [], None)
         self.check_flow_count_value("flow_count_192.168.122.214", {"nodes": ["addr = 192.168.122.214"]}, ["--node-filters", "addr = 192.168.122.214"], {"nodes": ["addr = 192.168.122.214"]})
         self.check_flow_count_value("flow_count_src_95.136.242.99", {"nodes": ["src.addr = 95.136.242.99"]}, ["--node-filters", "src.addr = 95.136.242.99"], {"nodes": ["src.addr = 95.136.242.99"]})
         self.check_flow_count_value("flow_count_dst_95.136.242.99", {"nodes": ["dst.addr = 95.136.242.99"]}, ["--node-filters", "dst.addr = 95.136.242.99"], {"nodes": ["dst.addr = 95.136.242.99"]})
 
-        
-        tcp = self.check_flow_count_value("flow_count_tcp", {"nodes": ["proto = tcp"]}, ["--node-filters", "proto = tcp"], {"nodes": ["proto = tcp"]})
-        udp = self.check_flow_count_value("flow_count_udp", {"nodes": ["proto : udp"]}, ["--node-filters", "proto : udp"], {"nodes": ["proto : udp"]})
-        icmp = self.check_flow_count_value("flow_count_icmp", {"nodes": ["proto == icmp"]}, ["--node-filters", "proto == icmp"], {"nodes": ["proto == icmp"]})
-        self.assertEqual(total['flows'], tcp['flows'] + udp['flows'] + icmp['flows'])
-        
-        dport_443 = self.check_flow_count_value("flow_count_dport_443", {"nodes": ['dst_port = 443']}, ["--node-filters", "dst_port=443"], {"nodes": ["dst_port = 443"]})
-        tcp_dport_443 = self.check_flow_count_value("flow_count_tcp_dport_443", {"nodes": ['dst_port = 443', 'proto = tcp']}, ["--node-filters", "dst_port = 443", "proto = tcp"], {"nodes": ["dst_port = 443", "proto = tcp"]})
-        udp_dport_443 = self.check_flow_count_value("flow_count_ucp_dport_443", {"nodes": ['dst_port = 443', 'proto = udp']}, ["--node-filters", "dst_port = 443", "proto = udp"], {"nodes": ["dst_port = 443", "proto = udp"]})
+        tcp = self.check_flow_count_value("flow_count_tcp", {"edges": ["proto = tcp"]}, ["--flow-filters", "proto = tcp"], {"edges": ["proto = tcp"]})
+        udp = self.check_flow_count_value("flow_count_udp", {"edges": ["proto : udp"]}, ["--flow-filters", "proto : udp"], {"edges": ["proto : udp"]})
+        icmp = self.check_flow_count_value("flow_count_icmp", {"edges": ["proto == icmp"]}, ["--flow-filters", "proto == icmp"], {"edges": ["proto == icmp"]})
+        sip = self.check_flow_count_value("flow_count_sip", {"edges": ["proto == sip"]}, ["--flow-filters", "proto == sip"], {"edges": ["proto == sip"]})
+
+        dport_443 = self.check_flow_count_value("flow_count_dport_443", {"edges": ['dport = 443']}, ["--flow-filters", "dport=443"], {"edges": ["dport = 443"]})
+        tcp_dport_443 = self.check_flow_count_value("flow_count_tcp_dport_443", {"edges": ['dport = 443', 'proto = tcp']}, ["--flow-filters", "dport = 443", "proto = tcp"], {"edges": ["dport = 443", "proto = tcp"]})
+        udp_dport_443 = self.check_flow_count_value("flow_count_ucp_dport_443", {"edges": ['dport = 443', 'proto = udp']}, ["--flow-filters", "dport = 443", "proto = udp"], {"edges": ["dport = 443", "proto = udp"]})
         self.assertEqual(dport_443["flows"], tcp_dport_443["flows"] + udp_dport_443["flows"])
 
-        sport = self.check_flow_count_value("flow_count_sport", {"nodes": ['src_ports']}, ["--node-filters", "src_ports"], {"nodes": ["src_ports"]})
-        not_sport = self.check_flow_count_value("flow_count_not_sport", {"nodes": ['!src_ports']}, ["--node-filters", '!src_ports'], {"nodes": ["!src_ports"]})
+        sport = self.check_flow_count_value("flow_count_sport", {"edges": ['sports']}, ["--flow-filters", "sports"], {"edges": ["sports"]})
+        not_sport = self.check_flow_count_value("flow_count_not_sport", {"edges": ['!sports']}, ["--flow-filters", '!sports'], {"edges": ["!sports"]})
         self.assertEqual(total["flows"], sport["flows"] + not_sport["flows"])
 
-        sport_68 = self.check_flow_count_value("flow_count_sport_68", {"nodes": ['src_ports = 68']}, ["--node-filters", 'src_ports=68'], {"nodes": ["src_ports = 68"]})        
-        sport_not_68 = self.check_flow_count_value("flow_count_sport_not_68", {"nodes": ['src_ports != 68']}, ["--node-filters", 'src_ports != 68'], {"nodes": ['src_ports != 68']})
+        sport_68 = self.check_flow_count_value("flow_count_sport_68", {"edges": ['ANY sports = 68']}, ["--flow-filters", 'ANY sports=68'], {"edges": ["ANY sports = 68"]})
+        sport_not_68 = self.check_flow_count_value("flow_count_sport_not_68", {"edges": ['!ANY sports = 68']}, ["--flow-filters", '!ANY sports = 68'], {"edges": ['!ANY sports = 68']})
         self.assertEqual(total["flows"], sport_68["flows"] + sport_not_68["flows"])
 
-        sport_gt_68 = self.check_flow_count_value("flow_count_sport_gt_68", {"nodes": ['src_ports > 68']}, ["--node-filters", "src_ports > 68"], {"nodes": ["src_ports > 68"]})
-        sport_lt_68 = self.check_flow_count_value("flow_count_sport_lt_68", {"nodes": ['src_ports < 68']}, ["--node-filters", "src_ports < 68"], {"nodes": ["src_ports < 68"]})
+        sport_gt_68 = self.check_flow_count_value("flow_count_sport_gt_68", {"edges": ['ANY sports > 68']}, ["--flow-filters", "ANY sports > 68"], {"edges": ["ANY sports > 68"]})
+        sport_lt_68 = self.check_flow_count_value("flow_count_sport_lt_68", {"edges": ['ANY sports < 68']}, ["--flow-filters", "ANY sports < 68"], {"edges": ["ANY sports < 68"]})
         self.assertEqual(sport["flows"], sport_68["flows"] + sport_gt_68["flows"] + sport_lt_68["flows"])
         
-        sport_gte_68 = self.check_flow_count_value("flow_count_sport_gte_68", {"nodes": ['src_ports >= 68']}, ["--node-filters", "src_ports >= 68"], {"nodes": ["src_ports >= 68"]})
-        sport_lte_68 = self.check_flow_count_value("flow_count_sport_lte_68", {"nodes": ['src_ports <= 68']}, ["--node-filters", "src_ports <= 68"], {"nodes": ["src_ports <= 68"]})
+        sport_gte_68 = self.check_flow_count_value("flow_count_sport_gte_68", {"edges": ['ANY sports >= 68']}, ["--flow-filters", "ANY sports >= 68"], {"edges": ["ANY sports >= 68"]})
+        sport_lte_68 = self.check_flow_count_value("flow_count_sport_lte_68", {"edges": ['ANY sports <= 68']}, ["--flow-filters", "ANY sports <= 68"], {"edges": ["ANY sports <= 68"]})
         self.assertEqual(sport["flows"], sport_gte_68["flows"] + sport_lt_68["flows"])
         self.assertEqual(sport["flows"], sport_lte_68["flows"] + sport_gt_68["flows"])
-        
-        meta_http = self.check_flow_count_value("flow_count_http", {"nodes": ['meta.http']}, ['--node-filters', "meta.http"], {"nodes": ["meta.http"]})
-
-        self.check_flow_count_value("flow_count_meta_dns_query_neuf_fr", {"nodes": ['meta.dns.query =~ .*neuf\.fr.*']}, ['--node-filters', "meta.dns.query =~ .*neuf\.fr.*"], {"nodes": ["meta.dns.query =~ .*neuf\.fr.*"]})
-        
-        self.check_flow_count_value("flow_count_10.0.0.0/8", {"nodes": ['addr =~ 10.0.0.0/8']}, ['--node-filters', "addr =~ 10.0.0.0/8"], {"nodes": ["addr =~ 10.0.0.0/8"]})
-        
+        if DATABASE == 'mongo':
+            meta_http = self.check_flow_count_value("flow_count_http", {"edges": ['meta.http']}, ['--flow-filters', "meta.http"], {"edges": ["meta.http"]})
+            self.check_flow_count_value("flow_count_meta_dns_query_neuf_fr", {"edges": ['meta.dns.query =~ .*neuf\.fr.*']}, ['--flow-filters', "meta.dns.query =~ .*neuf\.fr.*"], {"edges": ["meta.dns.query =~ .*neuf\.fr.*"]})
+            self.check_flow_count_value("flow_count_10.0.0.0/8", {"nodes": ['addr =~ 10.0.0.0/8']}, ['--node-filters', "addr =~ 10.0.0.0/8"], {"nodes": ["addr =~ 10.0.0.0/8"]})
 
     # This test have to be done first.
     def test_10_data(self):

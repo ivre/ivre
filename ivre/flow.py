@@ -55,6 +55,15 @@ META_DESC = {
         'client': None, 'server': None, 'cipher_alg': None, 'mac_alg': None,
         'compression_alg': None, 'kex_alg': None, 'host_key_alg': None,
         'host_key': None
+    },
+    'sip': {
+        'dport': None, 'method': None, "uri": None,
+        "request_from": None, "request_to": None, "response_from": None,
+        "response_to": None, "reply_to": None, "user_agent": None,
+        "status_code": None, "status_msg": None, "warning": None
+    },
+    'modbus': {
+        'name': 'func', 'exception': None
     }
 }
 
@@ -116,6 +125,9 @@ class Query(object):
                   'attr': None, 'operator': None, 'value': None}
         if not flt:
             return None
+        # Ignore labels (neo4j compatibility)
+        if flt[0] == '#':
+            return None
         if flt[0] in "-!~":
             clause['neg'] = True
             flt = flt[1:]
@@ -151,7 +163,8 @@ class Query(object):
         for subflt in self._split_filter_or(flt):
             if subflt:
                 subclause = self._add_clause_from_filter(subflt)
-                clauses.append(subclause)
+                if subclause is not None:
+                    clauses.append(subclause)
         return self.add_clause(clauses)
 
     def add_clause(self, clause):

@@ -541,6 +541,9 @@ ivreWebUi
             }
             var dr_w = 1000, dr_h = 10;
             var timerange = d3.extent(data.edges.reduce(function(dates, flow) {
+                if (!flow.data.meta || !flow.data.meta.times) {
+                    return [];
+                }
                 return dates.concat(flow.data.meta.times.map(function(date) {
                     date = new Date(date.replace(" ", "T"));
                     date = new Date(date - (date % config.flow_time_precision));
@@ -564,20 +567,22 @@ ivreWebUi
             $scope.date_to_flow = {};
             $scope.flow_to_date = {};
             data.edges.forEach(function(flow) {
-                flow.data.meta.times.forEach(function(date) {
-                    date = new Date(date.replace(" ", "T"));
-                    date = new Date(date - (date % time_prec));
-                    if ($scope.date_to_flow[date] === undefined) {
-                        dates.push(date);
-                        $scope.date_to_flow[date] = {};
-                    }
-                    $scope.date_to_flow[date][flow.id] = true;
+                if (flow.data.meta && flow.data.meta.times) {
+                    flow.data.meta.times.forEach(function(date) {
+                        date = new Date(date.replace(" ", "T"));
+                        date = new Date(date - (date % time_prec));
+                        if ($scope.date_to_flow[date] === undefined) {
+                            dates.push(date);
+                            $scope.date_to_flow[date] = {};
+                        }
+                        $scope.date_to_flow[date][flow.id] = true;
 
-                    if ($scope.flow_to_date[flow.id] === undefined) {
-                        $scope.flow_to_date[flow.id] = {};
-                    }
-                    $scope.flow_to_date[flow.id][date] = true;
-                });
+                        if ($scope.flow_to_date[flow.id] === undefined) {
+                            $scope.flow_to_date[flow.id] = {};
+                        }
+                        $scope.flow_to_date[flow.id][date] = true;
+                    });
+                }
             });
 
             for (date in $scope.date_to_flow) {
@@ -750,7 +755,7 @@ ivreWebUi
 
         $scope.query_attr = function(elt, attr, val, bool) {
             var element_type = elt.source === undefined ? "nodes" : "edges";
-            q = "@" + attr + " = " + val
+            q = attr + " = " + val
             if (!bool) {
                 q = "!" + q;
             }

@@ -50,11 +50,18 @@ def ssh2flow(bulk, rec):
     rec['proto'] = 'tcp'
     db.flow.any2flow(bulk, 'ssh', rec)
 
+
+def sip2flow(bulk, rec):
+    rec['proto'] = 'tcp'
+    db.flow.any2flow(bulk, 'sip', rec)
+
+
 FUNCTIONS = {
     "conn": db.flow.conn2flow,
     "http": http2flow,
     "ssh": ssh2flow,
     "dns": db.flow.dns2flow,
+    "sip": sip2flow
 }
 
 
@@ -105,3 +112,5 @@ def main():
                     continue
                 func(bulk, _bro2flow(line))
             db.flow.bulk_commit(bulk)
+            if brof.path == "conn" and not args.no_cleanup:
+                db.flow.cleanup_flows()

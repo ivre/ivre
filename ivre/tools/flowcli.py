@@ -174,7 +174,8 @@ def main():
         fmt = '%%s%s%%s%s%%s' % (sep, sep)
         node_width = len('XXXX:XXXX:XXXX:XXXX:XXXX:XXXX')
         flow_width = len('tcp/XXXXX')
-        for res in db.flow.to_iter(query):
+        for res in db.flow.to_iter(query, limit=args.limit, skip=args.skip,
+                                 orderby=args.orderby):
             if args.json:
                 out.write('%s\n' % res)
             else:

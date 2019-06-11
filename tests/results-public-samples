@@ -6,7 +6,6 @@
 # data. It is intended for use within the Travis CI platform with
 # files downloaded during the "before_script" phase.
 
-flow_count = b'26 clients\n95 servers\n108 flows\n'
 nmap_10-100_ports = 118
 nmap_20_ports = 1
 nmap_80_443_count = 108
@@ -342,3 +341,25 @@ view_count_ja3_client_raw = 1
 view_count_ja3_server_clt_fd22 = 5
 view_count_http_user_agent = 6
 view_count_http_user_agent_URL_7_3 = 3
+flow_count = {'clients': 26, 'flows': 110, 'servers': 95}
+flow_count_192.168.122.214 = {'clients': 1, 'flows': 29, 'servers': 29}
+flow_count_src_95.136.242.99 = {'clients': 1, 'flows': 10, 'servers': 9}
+flow_count_dst_95.136.242.99 = {'clients': 1, 'flows': 1, 'servers': 1}
+flow_count_tcp = {'clients': 14, 'flows': 64, 'servers': 62}
+flow_count_udp = {'clients': 17, 'flows': 39, 'servers': 32}
+flow_count_icmp = {'clients': 7, 'flows': 7, 'servers': 7}
+flow_count_sip = {'clients': 0, 'flows': 0, 'servers': 0}
+flow_count_dport_443 = {'clients': 2, 'flows': 6, 'servers': 6}
+flow_count_tcp_dport_443 = {'clients': 2, 'flows': 6, 'servers': 6}
+flow_count_ucp_dport_443 = {'clients': 0, 'flows': 0, 'servers': 0}
+flow_count_sport = {'clients': 22, 'flows': 101, 'servers': 92}
+flow_count_not_sport = {'clients': 9, 'flows': 9, 'servers': 7}
+flow_count_sport_68 = {'clients': 2, 'flows': 2, 'servers': 2}
+flow_count_sport_not_68 = {'clients': 25, 'flows': 108, 'servers': 93}
+flow_count_sport_gt_68 = {'clients': 21, 'flows': 99, 'servers': 90}
+flow_count_sport_lt_68 = {'clients': 0, 'flows': 0, 'servers': 0}
+flow_count_sport_gte_68 = {'clients': 22, 'flows': 101, 'servers': 92}
+flow_count_sport_lte_68 = {'clients': 2, 'flows': 2, 'servers': 2}
+flow_count_http = {'clients': 7, 'flows': 21, 'servers': 21}
+flow_count_meta_dns_query_neuf_fr = {'clients': 3, 'flows': 3, 'servers': 1}
+flow_count_10.0.0.0/8 = {'clients': 7, 'flows': 34, 'servers': 28}
