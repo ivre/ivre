@@ -687,14 +687,22 @@ want to do something special here, e.g., mix with other records.
                 {"$exists": False} if version is None else version}
 
     @classmethod
-    def searchhost(cls, addr, neg=False, prefix=''):
+    def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
 
         """
+        return cls._searchhost(addr, neg=neg)
+
+    @classmethod
+    def _searchhost(cls, addr, neg=False, fieldname='addr'):
+        """Filters (if `neg` == True, filters out) one particular host
+        (IP address).
+        fieldname is the internal name of the addr field
+        """
         addr = cls.ip2internal(addr)
-        addr_0 = "%saddr_0" % prefix
-        addr_1 = "%saddr_1" % prefix
+        addr_0 = "%s_0" % fieldname
+        addr_1 = "%s_1" % fieldname
         if neg:
             return {'$or': [{addr_0: {'$ne': addr[0]}},
                             {addr_1: {'$ne': addr[1]}}]}
@@ -706,15 +714,28 @@ want to do something special here, e.g., mix with other records.
                 [cls.searchhost(host, neg=neg) for host in hosts]}
 
     @classmethod
-    def searchrange(cls, start, stop, neg=False, prefix=''):
+    def searchnet(cls, net, neg=False):
+        return cls._searchnet(net, neg=neg)
+
+    @classmethod
+    def _searchnet(cls, net, neg=False, fieldname='addr'):
+        return cls._searchrange(*utils.net2range(net), neg=neg,
+                                fieldname=fieldname)
+
+    @classmethod
+    def searchrange(cls, start, stop, neg=False):
+        return cls._searchrange(start, stop, neg=neg)
+
+    @classmethod
+    def _searchrange(cls, start, stop, neg=False, fieldname='addr'):
         """Filters (if `neg` == True, filters out) one particular IP
         address range.
 
         """
         start = cls.ip2internal(start)
         stop = cls.ip2internal(stop)
-        addr_0 = "%saddr_0" % prefix
-        addr_1 = "%saddr_1" % prefix
+        addr_0 = "%s_0" % fieldname
+        addr_1 = "%s_1" % fieldname
         if neg:
             return {'$or': [
                 {addr_0: start[0], addr_1: {'$lt': start[1]}},
@@ -4561,20 +4582,28 @@ class MongoDBFlow(MongoDB, DBFlow):
                 .initialize_unordered_bulk_op()
         ]
 
-    def _get_flow_key(self, rec):
+    @staticmethod
+    def _get_flow_key(rec):
+        """
+        Return a dict which represents the given flow in Flows.
+        """
         key = {
             'src_addr_0': rec['src_addr_0'],
             'src_addr_1': rec['src_addr_1'],
             'dst_addr_0': rec['dst_addr_0'],
             'dst_addr_1': rec['dst_addr_1'],
             'proto': rec['proto'],
-            # 'sensor': rec['sensor']
         }
         if rec['proto'] in ['udp', 'tcp']:
             key['dport'] = rec['dport']
         return key
 
-    def _get_passive_keys(self, rec, recontype=None):
+    @staticmethod
+    def _get_passive_keys(rec, recontype=None):
+        """
+        Return an array of dicts [src, dst], which represents hosts involved
+        in the given flow in Passive.
+        """
         keys = [
             {'addr_0': rec['src_addr_0'], 'addr_1': rec['src_addr_1']},
             {'addr_0': rec['dst_addr_0'], 'addr_1': rec['dst_addr_1']}
@@ -4585,13 +4614,17 @@ class MongoDBFlow(MongoDB, DBFlow):
             key['schema_version'] = passive.SCHEMA_VERSION
         return keys
 
-    def _add_or_update_dict_in_dict(self, main_dict, main_key, key, value):
+    @staticmethod
+    def _add_or_update_dict_in_dict(main_dict, main_key, key, value):
         if main_key not in main_dict:
             main_dict[main_key] = {}
         main_dict[main_key].update({key: value})
 
     @classmethod
     def _get_timeslots(cls, start_time, end_time):
+        """
+        Return an array of timeslots included between start_time and end_time
+        """
         times = []
         time = cls.date_round(start_time)
         while time <= cls.date_round(end_time):
@@ -4646,7 +4679,6 @@ class MongoDBFlow(MongoDB, DBFlow):
             '$max': {'lastseen': rec['end_time']},
             # TODO : should be optionnal
             '$addToSet': {'meta.%s' % name: meta_dict},
-            '$inc': {'count': 1}
         }
 
         flow_bulk.find(findspec).upsert().update(updatespec)
@@ -4657,15 +4689,14 @@ class MongoDBFlow(MongoDB, DBFlow):
         Take a parsed conn.log line entry and add it to passive bulk
         """
         added_passive = []
-        # Try to use MongoDBPassive later
 
         updatespec = {
             '$inc': {'count': 1},
             '$min': {'firstseen': rec['start_time']},
             '$max': {'lastseen': rec['end_time']},
-            # '$set': {'sensor': rec['sensor']}
         }
 
+        # TODO
         # Add heuristic to determine which one of the src/dst is the server
         # and store srvport accordingly
 
@@ -4756,7 +4787,8 @@ class MongoDBFlow(MongoDB, DBFlow):
             passive_bulk.find(findspec).upsert().update(updatespec)
 
         # Insert queries/answers hosts
-        # TODO : Manage CNAME, NS and MX queries
+        # TODO : Manage CNAME, NS and MX queries. This is currently hard
+        # because of the lack of available information in dns.log
         updatespec = {}
         query = rec.get("query", "") or ""
         # dns.log don't store the answer type, so we need guess it
@@ -4791,7 +4823,7 @@ class MongoDBFlow(MongoDB, DBFlow):
             # A query response
             addrs = [addr for addr in (rec["answers"] or [])
                      if utils.IP_RE.match(addr)]
-            # Upsert hosts found in the answer
+            # Add hosts found in the answer
             for addr in addrs:
                 addr_0, addr_1 = self.ip2internal(addr)
                 server_host, server_port = [rec['dst'], rec['dport']]
@@ -4841,7 +4873,6 @@ class MongoDBFlow(MongoDB, DBFlow):
             '$inc': {'count': 1},
             '$min': {'firstseen': rec['start_time']},
             '$max': {'lastseen': rec['end_time']},
-            # '$set': {'sensor': rec['sensor']}
         }
         [srcspec, dstspec] = self._get_passive_keys(rec)
         added_passive.extend(
@@ -4855,6 +4886,10 @@ class MongoDBFlow(MongoDB, DBFlow):
         return added_passive
 
     def dns2flow(self, bulks, rec):
+        """
+        Take a parsed dns.log line entry and add it to insert bulks.
+        This must be a separate method because it is for neo4j backend.
+        """
         return self.any2flow(bulks, 'dns', rec)
 
     def any2flow(self, bulks, name, rec):
@@ -4862,12 +4897,12 @@ class MongoDBFlow(MongoDB, DBFlow):
         rec['src_addr_0'], rec['src_addr_1'] = self.ip2internal(rec['src'])
         rec['dst_addr_0'], rec['dst_addr_1'] = self.ip2internal(rec['dst'])
         # Insert in flows
-        added_flows = self._any2flow(
+        self._any2flow(
             bulks[self.column_flow], rec, name)
-        # Insert in passive
+        # Insert in passive if an inserter is available
         passive_inserter = self.passive_inserters.get(name, None)
         if passive_inserter is not None:
-            added_passive = passive_inserter(bulks[self.column_passive], rec)
+            passive_inserter(bulks[self.column_passive], rec)
 
     def conn2flow(self, bulks, rec):
         """
@@ -4875,10 +4910,11 @@ class MongoDBFlow(MongoDB, DBFlow):
         """
         rec['src_addr_0'], rec['src_addr_1'] = self.ip2internal(rec['src'])
         rec['dst_addr_0'], rec['dst_addr_1'] = self.ip2internal(rec['dst'])
-        added_flows = self._conn2flow(bulks[self.column_flow], rec)
-        added_passive = self._conn2passive(bulks[self.column_passive], rec)
+        self._conn2flow(bulks[self.column_flow], rec)
+        self._conn2passive(bulks[self.column_passive], rec)
 
-    def bulk_commit(self, bulks):
+    @staticmethod
+    def bulk_commit(bulks):
         for bulk in bulks:
             try:
                 start_time = time.time()
@@ -4896,11 +4932,9 @@ class MongoDBFlow(MongoDB, DBFlow):
             except pymongo.errors.InvalidOperation:
                 pass
 
-
     def init(self):
         """Initializes the "flows" columns, i.e., drops those columns and
         creates the default indexes.
-
         """
         self.db[self.columns[self.column_flow]].drop()
 
@@ -4917,9 +4951,9 @@ class MongoDBFlow(MongoDB, DBFlow):
                     ('proto', pymongo.ASCENDING)]
         elif orderby:
             raise ValueError(
-                    "Unsupported orderby (should be 'src', 'dst' or 'flow')")
+                "Unsupported orderby (should be 'src', 'dst' or 'flow')")
         for f in self.find(self.columns[self.column_flow], flt,
-                limit=limit or 0, skip=skip or 0, sort=sort):
+                           limit=limit or 0, skip=skip or 0, sort=sort):
             try:
                 f['src_addr'] = self.internal2ip([f.pop('src_addr_0'),
                                                   f.pop('src_addr_1')])
@@ -4930,6 +4964,10 @@ class MongoDBFlow(MongoDB, DBFlow):
             yield f
 
     def get_flows_count(self, flt):
+        """
+        Return a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter
+        """
         sources = 0
         destinations = 0
         flows = self.db[self.columns[self.column_flow]].count(flt)
@@ -4987,27 +5025,24 @@ class MongoDBFlow(MongoDB, DBFlow):
         occurences.
         Return format:
             {
-                fields: {
-                    field1: value,
-                    field2: value
-                },
+                fields: (field_1_value, field_2_value, ...),
                 count: count,
                 collected: [
-                    {'collect1': value, 'collect2': value},
+                    (collect_1_value, collect_2_value, ...),
                     ...
                 ]
             }
+        Collected fields are unique.
         """
         pipeline = []
 
         # Translation dictionnary for special fields
         special_fields = {'src.addr': ['src_addr_0', 'src_addr_1'],
                           'dst.addr': ['dst_addr_0', 'dst_addr_1'],
-                          'dport': ['dport'],
                           'sport': ['sports']}
         # special fields that are not addresses will be translated again at
         # the end
-        reverse_special_fields = {'dport': 'dport', 'sports': 'sport'}
+        reverse_special_fields = {'sports': 'sport'}
 
         # Compute the internal fields
         # internal_fields = [aggr fields, collect_fields, sum_fields]
@@ -5069,7 +5104,7 @@ class MongoDBFlow(MongoDB, DBFlow):
         # Add sum projection if sum_fields are provided
         if len(sum_fields) > 0:
             project_fields['_sum'] = {
-                '$sum': ['$%s' % field for field in internal_fields[2]]}
+                '$add': ['$%s' % field for field in internal_fields[2]]}
 
         pipeline.append({'$project': project_fields})
 
@@ -5086,7 +5121,6 @@ class MongoDBFlow(MongoDB, DBFlow):
         if limit is not None:
             pipeline.append({"$limit": limit})
 
-        utils.LOGGER.debug(str(pipeline))
         res = self.db[self.columns[self.column_flow]].aggregate(pipeline)
         for entry in res:
             # Translate again the collected fields
@@ -5130,26 +5164,30 @@ class MongoDBFlow(MongoDB, DBFlow):
                 if key in reverse_special_fields:
                     ext_entry['_id'][reverse_special_fields[key]] = value
                     del ext_entry['_id'][key]
+            # Format fields in a tuple ordered accordingly to fields argument
+            res_fields_dict = ext_entry.pop('_id')
+            res_fields = []
+            for key in fields:
+                res_fields.append(res_fields_dict.get(key))
+            res_fields = tuple(res_fields)
 
-            # Format results
-            res_fields = ext_entry.pop('_id')
             res_count = ext_entry.pop('_count')
-            # Format collected results
-            res_collected = []
+            # Format collected results in a set of tuples to avoid duplicates
+            res_collected = set()
             if len(ext_entry) > 0:
                 number = 0
                 for key in ext_entry:
                     number = len(ext_entry[key])
                     break
                 for i in range(number):
-                    rec = {}
+                    rec = []
                     for key in collect_fields:
                         ext_entry_value = ext_entry.get(key, [])
                         # If the given collected field does not exist,
                         # ext_entry_value will be [].
-                        rec[key] = (ext_entry_value[i]
-                                    if len(ext_entry_value) > 0 else None)
-                    res_collected.append(rec)
+                        rec.append(ext_entry_value[i]
+                                   if len(ext_entry_value) > 0 else None)
+                    res_collected.add(tuple(rec))
             yield {
                 'fields': res_fields,
                 'collected': res_collected,
@@ -5160,8 +5198,13 @@ class MongoDBFlow(MongoDB, DBFlow):
         flt = self.flt_from_query(query)
         return self.get_flows_count(flt)
 
-    @classmethod
-    def _flow2host(cls, row, prefix):
+    @staticmethod
+    def _flow2host(row, prefix):
+        """
+        Return a dict which represents one of the two host of the given flow.
+        prefix should be 'dst' or 'src' to get the source or the destination
+        host.
+        """
         res = {}
         if prefix == 'src':
             res['addr'] = row.get('src_addr')
@@ -5173,8 +5216,12 @@ class MongoDBFlow(MongoDB, DBFlow):
         res['lastseen'] = row.get('lastseen')
         return res
 
-    @classmethod
-    def _node2json(cls, row):
+    @staticmethod
+    def _node2json(row):
+        """
+        Return a dict representing a node in graph output.
+        row must be the representation of an host, see _flow2host.
+        """
         return {
             "id": row.get('addr'),
             "label": row.get('addr'),
@@ -5184,8 +5231,12 @@ class MongoDBFlow(MongoDB, DBFlow):
             "data": row
         }
 
-    @classmethod
-    def _edge2json_default(cls, row, timeline=False):
+    @staticmethod
+    def _edge2json_default(row, timeline=False):
+        """
+        Return a dict representing an edge in default graph output.
+        row must be a flow entry.
+        """
         label = (row.get('proto') + '/' + str(row.get('dport'))
                  if row.get('proto') in ['tcp', 'udp']
                  else row.get('proto') + '/' + str(row.get('type')))
@@ -5219,8 +5270,12 @@ class MongoDBFlow(MongoDB, DBFlow):
             res['data']['type'] = row.get('type')
         return res
 
-    @classmethod
-    def _edge2json_flow_map(cls, row):
+    @staticmethod
+    def _edge2json_flow_map(row):
+        """
+        Return a dict representing an edge in flow map graph output.
+        row must be a flow entry.
+        """
         flow = ()
         if row.get('proto') in ['udp', 'tcp']:
             flow = (row.get('proto'), row.get('dport'))
@@ -5239,8 +5294,12 @@ class MongoDBFlow(MongoDB, DBFlow):
         }
         return res
 
-    @classmethod
-    def _edge2json_talk_map(cls, row):
+    @staticmethod
+    def _edge2json_talk_map(row):
+        """
+        Return a dict representing an edge in talk map graph output.
+        row must be a flow entry.
+        """
         res = {
             "id": str(row.get('_id')),
             "label": "TALK",
@@ -5254,30 +5313,46 @@ class MongoDBFlow(MongoDB, DBFlow):
         }
         return res
 
-    def cursor2json_iter(self, cursor, mode=None, timeline=False):
+    @classmethod
+    def cursor2json_iter(cls, cursor, mode=None, timeline=False):
+        """
+        Take a MongoDB cursor on flows collection and for each entry
+        yield a dict {src: src_node, dst: dst_node, flow: flow_edge}.
+        """
         random.seed()
         for row in cursor:
-            src_node = self._node2json(self._flow2host(row, 'src'))
-            dst_node = self._node2json(self._flow2host(row, 'dst'))
+            src_node = cls._node2json(cls._flow2host(row, 'src'))
+            dst_node = cls._node2json(cls._flow2host(row, 'dst'))
             flow_node = []
             if mode == "flow_map":
-                flow_node = self._edge2json_flow_map(row)
+                flow_node = cls._edge2json_flow_map(row)
             elif mode == "talk_map":
-                flow_node = self._edge2json_talk_map(row)
+                flow_node = cls._edge2json_talk_map(row)
             else:
-                flow_node = self._edge2json_default(row, timeline=timeline)
+                flow_node = cls._edge2json_default(row, timeline=timeline)
             yield {"src": src_node, "dst": dst_node, "flow": flow_node}
 
-    def cursor2json_graph(self, cursor, mode, timeline):
+    @classmethod
+    def cursor2json_graph(cls, cursor, mode, timeline):
+        """
+        Returns a dict {"nodes": [], "edges": []} representing the output
+        graph.
+        Nodes are unique hosts. Edges are flows, formatted according to the
+        given mode.
+        """
         g = {"nodes": [], "edges": []}
+        # Store unique hosts
         hosts = {}
+        # Store tuples (source, dest) for flow and talk map modes.
         edges = {}
-        for row in self.cursor2json_iter(cursor, mode=mode, timeline=timeline):
+        for row in cls.cursor2json_iter(cursor, mode=mode, timeline=timeline):
             if mode in ["flow_map", "talk_map"]:
                 flw = row["flow"]
+                # If this edge already exists
                 if (flw["source"], flw["target"]) in edges:
                     edge = edges[(flw["source"], flw["target"])]
                     if mode == "flow_map":
+                        # In flow map mode, store flows data in each edge
                         flows = flw["data"]["flows"]
                         if flows[0] not in edge["data"]["flows"]:
                             edge["data"]["flows"].append(flows[0])
@@ -5303,7 +5378,7 @@ class MongoDBFlow(MongoDB, DBFlow):
 
     def _flt_from_clause_addr(self, clause):
         """
-        Return a filter direct from the given clause which deals
+        Returns a filter direct from the given clause which deals
         with addresses. clause['attr'] should be addr, src.addr or dst.addr
         """
         flt = None
@@ -5317,8 +5392,8 @@ class MongoDBFlow(MongoDB, DBFlow):
                                             clause['attr']))
         elif clause['operator'] == '$regex':
             flt = self.search_flow_net(clause['value'],
-                                       clause['neg'],
-                                       self.get_clause_attr_type(
+                                       neg=clause['neg'],
+                                       fieldname=self.get_clause_attr_type(
                                            clause['attr']))
         return flt
 
@@ -5537,30 +5612,40 @@ class MongoDBFlow(MongoDB, DBFlow):
             flt = and_clauses[0]
         return flt
 
-    def to_graph(self, query, limit, skip, orderby, mode, timeline):
+    def to_graph(self, query, limit=None, skip=None, orderby=None, mode=None,
+                 timeline=False):
+        """
+        Returns a dict {"nodes": [], "edges": []}
+        """
         flt = self.flt_from_query(query)
-        return self.cursor2json_graph(self.get_flows(flt, skip, limit, orderby),
-                                      mode, timeline)
+        return self.cursor2json_graph(
+            self.get_flows(flt, skip, limit, orderby),
+            mode,
+            timeline)
 
-    def to_iter(self, query, limit, skip, orderby):
+    def to_iter(self, query, limit=None, skip=None, orderby=None):
+        """
+        Returns an iterator which yields dict {"src": src, "dst": dst,
+        "flow": flow}
+        """
         flt = self.flt_from_query(query)
         return self.cursor2json_iter(self.get_flows(flt, skip, limit, orderby))
 
     @classmethod
-    def search_flow_net(cls, net, neg=False, prefix=''):
+    def search_flow_net(cls, net, neg=False, fieldname=''):
         """
         Return a MongoDB filter matching the given CIDR notation.
         If prefix is {src,dst}, it matches only the {src,dst} addr
         """
-        if prefix not in ['src', 'dst']:
+        if fieldname not in ['src', 'dst']:
             res = [
-                cls.searchnet(net, neg=neg, prefix='src_'),
-                cls.searchnet(net, neg=neg, prefix='dst_')
+                cls._searchnet(net, neg=neg, fieldname='src_addr'),
+                cls._searchnet(net, neg=neg, fieldname='dst_addr')
             ]
             op = '$and' if neg else '$or'
             return {op: res}
         else:
-            return cls.searchnet(net, neg=neg, prefix=prefix + '_')
+            return cls._searchnet(net, neg=neg, fieldname=fieldname + '_addr')
 
     @classmethod
     def search_flow_host(cls, addr, neg=False, prefix=''):
@@ -5571,15 +5656,25 @@ class MongoDBFlow(MongoDB, DBFlow):
         addr = cls.ip2internal(addr)  # compute internal addr once and for all
         if prefix not in ['src', 'dst']:
             res = [
-                cls.searchhost(addr, neg=neg, prefix='src_'),
-                cls.searchhost(addr, neg=neg, prefix='dst_')
+                cls._searchhost(addr, neg=neg, fieldname='src_addr'),
+                cls._searchhost(addr, neg=neg, fieldname='dst_addr')
             ]
             op = '$and' if neg else '$or'
             return {op: res}
         else:
-            return cls.searchhost(addr, neg=neg, prefix=prefix + '_')
+            return cls._searchhost(addr, neg=neg, fieldname=prefix + '_addr')
 
     def host_details(self, addr):
+        """
+        Returns details about an host with the given address
+        Details means a dict : {
+            in_flows: set() => incoming flows (proto, dport),
+            out_flows: set() => outcoming flows (proto, dport),
+            elt: {} => data about the host
+            clients: set() => hosts which talked to this host
+            servers: set() => hosts which this host talked to
+        }
+        """
         g = {'in_flows': set(), 'elt': {}, 'out_flows': set(),
              'clients': set(), 'servers': set()}
         g['elt']['addr'] = addr
@@ -5613,6 +5708,13 @@ class MongoDBFlow(MongoDB, DBFlow):
         return g
 
     def flow_details(self, flow_id):
+        """
+        Returns details about a flow with the given ObjectId
+        Details mean : {
+            elt: {} => basic data about the flow,
+            meta: [] => meta entries corresponding to the flow
+        }
+        """
         g = {'elt': {}}
         res = self.db[self.columns[self.column_flow]].find(
             {'_id': bson.ObjectId(flow_id)})
@@ -5627,4 +5729,5 @@ class MongoDBFlow(MongoDB, DBFlow):
         return g
 
     def cleanup_flows(self):
+        # TODO Add cleanup steps like in neo4j
         pass

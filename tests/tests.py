@@ -1,4 +1,3 @@
-
 #! /usr/bin/env python
 
 # This file is part of IVRE.
@@ -23,7 +22,7 @@ from __future__ import print_function
 
 from ast import literal_eval
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from distutils.spawn import find_executable as which
 import errno
 from functools import reduce
@@ -45,10 +44,10 @@ import tempfile
 import time
 try:
     from urllib.request import HTTPError, Request, urlopen
-    from urllib.parse import quote, urlencode
+    from urllib.parse import quote
 except ImportError:
     from urllib2 import HTTPError, Request, urlopen
-    from urllib import quote, urlencode
+    from urllib import quote
 
 
 from future.builtins import int as int_types, range
@@ -441,12 +440,22 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(name_or_value, count)
         return count
 
+    def check_flow_top_values(self, name, cmd):
+        res, out, err = RUN(cmd)
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        result = out.decode().rsplit('|', 1)[0]
+        self.check_value(name, result)
+
     def check_flow_count_value_cli(self, name_or_value, cliflt, command="",
                                    **kwargs):
         res, out, _ = RUN(["ivre", command, "--count"] + cliflt)
         self.assertEqual(res, 0)
-        m = re.search("(\d+) clients\n(\d+) servers\n(\d+) flows", out)
-        count = {'clients': int(m.group(1)), 'servers': int(m.group(2)), 'flows': int(m.group(3))}
+        m = re.search('(\\d+) clients\n(\\d+) servers\n(\\d+) flows',
+                      out.decode())
+        count = {'clients': int(m.group(1)),
+                 'servers': int(m.group(2)),
+                 'flows': int(m.group(3))}
         if name_or_value is None:
             pass
         else:
@@ -530,18 +539,39 @@ class IvreTests(unittest.TestCase):
 
     def check_flow_count_value_api(self, name_or_value, flt, database):
         flt = database.from_filters(flt)
-        return self.check_count_value_api(name_or_value, flt, database=database)
+        return self.check_count_value_api(name_or_value,
+                                          flt,
+                                          database=database)
 
     def check_flow_count_value(self, name_or_value, flt, cliflt, webflt):
         cnt1 = self.check_flow_count_value_api(name_or_value, flt,
-                                          database=ivre.db.db.flow)
+                                               database=ivre.db.db.flow)
         cnt2 = self.check_flow_count_value_cli(name_or_value, cliflt,
-                                          command="flowcli")
+                                               command="flowcli")
         cnt3 = self.check_flow_count_value_cgi(name_or_value, webflt,
-                                          webroute="flows")
+                                               webroute="flows")
         self.assertEqual(cnt1, cnt2)
         self.assertEqual(cnt2, cnt3)
         return cnt1
+
+    @classmethod
+    def get_timezone_fmt_date(cls, date_fmt):
+        """ Convert the given string formatted UTC date into a
+        string formatted local timezone date"""
+        now = time.time()
+        utc_offset = (datetime.fromtimestamp(now) -
+                      datetime.utcfromtimestamp(now))
+        try:
+            utc_offset_sec = int(utc_offset.total_seconds())
+        except AttributeError:
+            utc_offset_sec = (utc_offset.microseconds +
+                              (utc_offset.seconds +
+                               utc_offset.days * 24 * 3600)* 10**6) / 10**6
+        tz_delta = timedelta(seconds=utc_offset_sec)
+
+        date = datetime.strptime(date_fmt, "%Y-%m-%d %H:%M:%S.%f")
+        date += tz_delta
+        return date.strftime("%Y-%m-%d %H:%M:%S.%f")
 
     def find_record_cgi(self, predicate, webroute="", webflt=None):
         """Browse the results from the JSON interface to find a record for
@@ -2246,8 +2276,9 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
-        # Start a Web server to test CGI
-        self.start_web_server()
+        if DATABASE != "mongo":
+            # Start a Web server to test CGI
+            self.start_web_server()
 
         # Init DB
         res, out, err = RUN(["ivre", "flowcli", "--init"],
@@ -2277,45 +2308,233 @@ which `predicate()` is True, given `webflt`.
                 for fname in fnames
                 if fname.endswith('.log')
             ])
-
             self.assertEqual(res, 0)
             self.assertTrue(not out)
             ivre.utils.cleandir(tmpdir)
         total = self.check_flow_count_value("flow_count", {}, [], None)
-        self.check_flow_count_value("flow_count_192.168.122.214", {"nodes": ["addr = 192.168.122.214"]}, ["--node-filters", "addr = 192.168.122.214"], {"nodes": ["addr = 192.168.122.214"]})
-        self.check_flow_count_value("flow_count_src_95.136.242.99", {"nodes": ["src.addr = 95.136.242.99"]}, ["--node-filters", "src.addr = 95.136.242.99"], {"nodes": ["src.addr = 95.136.242.99"]})
-        self.check_flow_count_value("flow_count_dst_95.136.242.99", {"nodes": ["dst.addr = 95.136.242.99"]}, ["--node-filters", "dst.addr = 95.136.242.99"], {"nodes": ["dst.addr = 95.136.242.99"]})
 
-        tcp = self.check_flow_count_value("flow_count_tcp", {"edges": ["proto = tcp"]}, ["--flow-filters", "proto = tcp"], {"edges": ["proto = tcp"]})
-        udp = self.check_flow_count_value("flow_count_udp", {"edges": ["proto : udp"]}, ["--flow-filters", "proto : udp"], {"edges": ["proto : udp"]})
-        icmp = self.check_flow_count_value("flow_count_icmp", {"edges": ["proto == icmp"]}, ["--flow-filters", "proto == icmp"], {"edges": ["proto == icmp"]})
-        sip = self.check_flow_count_value("flow_count_sip", {"edges": ["proto == sip"]}, ["--flow-filters", "proto == sip"], {"edges": ["proto == sip"]})
+        # Test basic filters
+        self.check_flow_count_value(
+            "flow_count_192.168.122.214",
+            {"nodes": ["addr = 192.168.122.214"]},
+            ["--node-filters", "addr = 192.168.122.214"],
+            {"nodes": ["addr = 192.168.122.214"]})
+        self.check_flow_count_value(
+            "flow_count_src_95.136.242.99",
+            {"nodes": ["src.addr = 95.136.242.99"]},
+            ["--node-filters", "src.addr = 95.136.242.99"],
+            {"nodes": ["src.addr = 95.136.242.99"]})
+        self.check_flow_count_value(
+            "flow_count_dst_95.136.242.99",
+            {"nodes": ["dst.addr = 95.136.242.99"]},
+            ["--node-filters", "dst.addr = 95.136.242.99"],
+            {"nodes": ["dst.addr = 95.136.242.99"]})
 
-        dport_443 = self.check_flow_count_value("flow_count_dport_443", {"edges": ['dport = 443']}, ["--flow-filters", "dport=443"], {"edges": ["dport = 443"]})
-        tcp_dport_443 = self.check_flow_count_value("flow_count_tcp_dport_443", {"edges": ['dport = 443', 'proto = tcp']}, ["--flow-filters", "dport = 443", "proto = tcp"], {"edges": ["dport = 443", "proto = tcp"]})
-        udp_dport_443 = self.check_flow_count_value("flow_count_ucp_dport_443", {"edges": ['dport = 443', 'proto = udp']}, ["--flow-filters", "dport = 443", "proto = udp"], {"edges": ["dport = 443", "proto = udp"]})
-        self.assertEqual(dport_443["flows"], tcp_dport_443["flows"] + udp_dport_443["flows"])
+        self.check_flow_count_value(
+            "flow_count_count_2",
+            {"edges": ["count = 2"]},
+            ["--flow-filters", "count = 2"],
+            {"edges": ["count = 2"]})
+        self.check_flow_count_value(
+            "flow_count_csbytes_278",
+            {"edges": ["csbytes = 278"]},
+            ["--flow-filters", "csbytes = 278"],
+            {"edges": ["csbytes = 278"]})
+        self.check_flow_count_value(
+            "flow_count_scbytes_92",
+            {"edges": ["scbytes = 92"]},
+            ["--flow-filters", "scbytes = 92"],
+            {"edges": ["scbytes = 92"]})
+        self.check_flow_count_value(
+            "flow_count_cspkts_3",
+            {"edges": ["cspkts = 3"]},
+            ["--flow-filters", "cspkts = 3"],
+            {"edges": ["cspkts = 3"]})
+        self.check_flow_count_value(
+            "flow_count_scpkts_2",
+            {"edges": ["scpkts = 2"]},
+            ["--flow-filters", "scpkts = 2"],
+            {"edges": ["scpkts = 2"]})
+        self.check_flow_count_value(
+            "flow_count_dport_80",
+            {"edges": ["dport = 80"]},
+            ["--flow-filters", "dport = 80"],
+            {"edges": ["dport = 80"]})
+        self.check_flow_count_value(
+            "flow_count_sport_49268",
+            {"edges": ["sport = 49268"]},
+            ["--flow-filters", "sport = 49268"],
+            {"edges": ["sport = 49268"]})
 
-        sport = self.check_flow_count_value("flow_count_sport", {"edges": ['sports']}, ["--flow-filters", "sports"], {"edges": ["sports"]})
-        not_sport = self.check_flow_count_value("flow_count_not_sport", {"edges": ['!sports']}, ["--flow-filters", '!sports'], {"edges": ["!sports"]})
+        # Time precision in mongo is millisecond, whereas it is microsecond in
+        # Neo4j. Thus, we can't have the same results.
+        firstseen_date = self.get_timezone_fmt_date(
+            "2015-09-18 14:15:19.830319")
+        self.check_flow_count_value(
+            "flow_count_firstseen_%s" % DATABASE,
+            {"edges": ["firstseen = %s" % firstseen_date]},
+            ["--flow-filters", "firstseen = %s" % firstseen_date],
+            {"edges": ["firstseen = %s" % firstseen_date]})
+        lastseen_date = self.get_timezone_fmt_date(
+            "2015-09-18 14:15:19.949904")
+        self.check_flow_count_value(
+            "flow_count_lastseen_%s" % DATABASE,
+            {"edges": ["lastseen = %s" % lastseen_date]},
+            ["--flow-filters", "lastseen = %s" % lastseen_date],
+            {"edges": ["lastseen = %s" % lastseen_date]})
+        self.check_flow_count_value(
+            "flow_count_gt_lastseen_%s" % DATABASE,
+            {"edges": ["lastseen > %s" % lastseen_date]},
+            ["--flow-filters", "lastseen > %s" % lastseen_date],
+            {"edges": ["lastseen > %s" % lastseen_date]})
+
+        # There are multiple syntaxes available for equality test
+        self.check_flow_count_value(
+            "flow_count_tcp",
+            {"edges": ["proto = tcp"]},
+            ["--flow-filters", "proto = tcp"],
+            {"edges": ["proto = tcp"]})
+        self.check_flow_count_value(
+            "flow_count_udp",
+            {"edges": ["proto : udp"]},
+            ["--flow-filters", "proto : udp"],
+            {"edges": ["proto : udp"]})
+        self.check_flow_count_value(
+            "flow_count_icmp",
+            {"edges": ["proto == icmp"]},
+            ["--flow-filters", "proto == icmp"],
+            {"edges": ["proto == icmp"]})
+
+        # Test AND and OR
+        dport_443 = self.check_flow_count_value(
+            "flow_count_dport_443",
+            {"edges": ['dport = 443']},
+            ["--flow-filters", "dport=443"],
+            {"edges": ["dport = 443"]})
+        tcp_dport_443 = self.check_flow_count_value(
+            "flow_count_tcp_dport_443",
+            {"edges": ['dport = 443', 'proto = tcp']},
+            ["--flow-filters", "dport = 443", "proto = tcp"],
+            {"edges": ["dport = 443", "proto = tcp"]})
+        udp_dport_443 = self.check_flow_count_value(
+            "flow_count_ucp_dport_443",
+            {"edges": ['dport = 443', 'proto = udp']},
+            ["--flow-filters", "dport = 443", "proto = udp"],
+            {"edges": ["dport = 443", "proto = udp"]})
+
+        self.assertEqual(
+            dport_443["flows"],
+            tcp_dport_443["flows"] + udp_dport_443["flows"])
+
+        union = self.check_flow_count_value(
+            "flow_count_tcp_udp_icmp",
+            {"edges": ['proto = tcp OR proto = udp OR proto = icmp']},
+            ["--flow-filters", "proto = tcp OR proto = udp OR proto = icmp"],
+            {"edges": ["proto = tcp OR proto = udp OR proto = icmp"]})
+        self.assertEqual(union, total)
+
+        # Test operators
+        sport = self.check_flow_count_value(
+            "flow_count_sport",
+            {"edges": ['sports']},
+            ["--flow-filters", "sports"],
+            {"edges": ["sports"]})
+        not_sport = self.check_flow_count_value(
+            "flow_count_not_sport",
+            {"edges": ['!sports']},
+            ["--flow-filters", '!sports'],
+            {"edges": ["!sports"]})
         self.assertEqual(total["flows"], sport["flows"] + not_sport["flows"])
 
-        sport_68 = self.check_flow_count_value("flow_count_sport_68", {"edges": ['ANY sports = 68']}, ["--flow-filters", 'ANY sports=68'], {"edges": ["ANY sports = 68"]})
-        sport_not_68 = self.check_flow_count_value("flow_count_sport_not_68", {"edges": ['!ANY sports = 68']}, ["--flow-filters", '!ANY sports = 68'], {"edges": ['!ANY sports = 68']})
-        self.assertEqual(total["flows"], sport_68["flows"] + sport_not_68["flows"])
+        sport_68 = self.check_flow_count_value(
+            "flow_count_sport_68",
+            {"edges": ['ANY sports = 68']},
+            ["--flow-filters", 'ANY sports=68'],
+            {"edges": ["ANY sports = 68"]})
+        sport_not_68 = self.check_flow_count_value(
+            "flow_count_sport_not_68",
+            {"edges": ['!ANY sports = 68']},
+            ["--flow-filters", '!ANY sports = 68'],
+            {"edges": ['!ANY sports = 68']})
+        self.assertEqual(
+            total["flows"],
+            sport_68["flows"] + sport_not_68["flows"])
 
-        sport_gt_68 = self.check_flow_count_value("flow_count_sport_gt_68", {"edges": ['ANY sports > 68']}, ["--flow-filters", "ANY sports > 68"], {"edges": ["ANY sports > 68"]})
-        sport_lt_68 = self.check_flow_count_value("flow_count_sport_lt_68", {"edges": ['ANY sports < 68']}, ["--flow-filters", "ANY sports < 68"], {"edges": ["ANY sports < 68"]})
-        self.assertEqual(sport["flows"], sport_68["flows"] + sport_gt_68["flows"] + sport_lt_68["flows"])
-        
-        sport_gte_68 = self.check_flow_count_value("flow_count_sport_gte_68", {"edges": ['ANY sports >= 68']}, ["--flow-filters", "ANY sports >= 68"], {"edges": ["ANY sports >= 68"]})
-        sport_lte_68 = self.check_flow_count_value("flow_count_sport_lte_68", {"edges": ['ANY sports <= 68']}, ["--flow-filters", "ANY sports <= 68"], {"edges": ["ANY sports <= 68"]})
-        self.assertEqual(sport["flows"], sport_gte_68["flows"] + sport_lt_68["flows"])
-        self.assertEqual(sport["flows"], sport_lte_68["flows"] + sport_gt_68["flows"])
+        sport_gt_68 = self.check_flow_count_value(
+            "flow_count_sport_gt_68",
+            {"edges": ['ANY sports > 68']},
+            ["--flow-filters", "ANY sports > 68"],
+            {"edges": ["ANY sports > 68"]})
+        sport_lt_68 = self.check_flow_count_value(
+            "flow_count_sport_lt_68",
+            {"edges": ['ANY sports < 68']},
+            ["--flow-filters", "ANY sports < 68"],
+            {"edges": ["ANY sports < 68"]})
+        self.assertEqual(
+            sport["flows"],
+            sport_68["flows"] + sport_gt_68["flows"] + sport_lt_68["flows"])
+
+        sport_gte_68 = self.check_flow_count_value(
+            "flow_count_sport_gte_68",
+            {"edges": ['ANY sports >= 68']},
+            ["--flow-filters", "ANY sports >= 68"],
+            {"edges": ["ANY sports >= 68"]})
+        sport_lte_68 = self.check_flow_count_value(
+            "flow_count_sport_lte_68",
+            {"edges": ['ANY sports <= 68']},
+            ["--flow-filters", "ANY sports <= 68"],
+            {"edges": ["ANY sports <= 68"]})
+        self.assertEqual(
+            sport["flows"],
+            sport_gte_68["flows"] + sport_lt_68["flows"])
+        self.assertEqual(
+            sport["flows"],
+            sport_lte_68["flows"] + sport_gt_68["flows"])
+
+        # MongoDB stores a unlimited number of source ports,
+        # whereas neo4j stores only 5
+        self.check_flow_count_value(
+            "flow_count_len_sports_%s" % DATABASE,
+            {"edges": ['LEN sports = 5']},
+            ["--flow-filters", "LEN sports = 5"],
+            {"edges": ["LEN sports = 5"]})
+        self.check_flow_count_value(
+            "flow_count_all_sports_%s" % DATABASE,
+            {"edges": ['ALL sports > 50000']},
+            ["--flow-filters", "ALL sports > 50000"],
+            {"edges": ["ALL sports > 50000"]})
+
         if DATABASE == 'mongo':
-            meta_http = self.check_flow_count_value("flow_count_http", {"edges": ['meta.http']}, ['--flow-filters', "meta.http"], {"edges": ["meta.http"]})
-            self.check_flow_count_value("flow_count_meta_dns_query_neuf_fr", {"edges": ['meta.dns.query =~ .*neuf\.fr.*']}, ['--flow-filters', "meta.dns.query =~ .*neuf\.fr.*"], {"edges": ["meta.dns.query =~ .*neuf\.fr.*"]})
-            self.check_flow_count_value("flow_count_10.0.0.0/8", {"nodes": ['addr =~ 10.0.0.0/8']}, ['--node-filters', "addr =~ 10.0.0.0/8"], {"nodes": ["addr =~ 10.0.0.0/8"]})
+            self.check_flow_count_value(
+                "flow_count_http",
+                {"edges": ['meta.http']},
+                ['--flow-filters', "meta.http"],
+                {"edges": ["meta.http"]})
+            # Test regex syntax
+            self.check_flow_count_value(
+                "flow_count_meta_dns_query_neuf_fr",
+                {"edges": ['meta.dns.query =~ .*neuf\\.fr.*']},
+                ['--flow-filters', "meta.dns.query =~ .*neuf\\.fr.*"],
+                {"edges": ["meta.dns.query =~ .*neuf\\.fr.*"]})
+            # Test CIDR notation
+            self.check_flow_count_value(
+                "flow_count_10.0.0.0/8",
+                {"nodes": ['addr =~ 10.0.0.0/8']},
+                ['--node-filters', "addr =~ 10.0.0.0/8"],
+                {"nodes": ["addr =~ 10.0.0.0/8"]})
+
+        # Test top values
+        self.check_flow_top_values(
+            "flow_top_flows",
+            ["ivre", "flowcli", "--top", "src.addr", "dst.addr", "proto",
+             "dport", "--limit", "1", "--sum", "count", "--collect",
+             "firstseen", "lastseen"])
+
+        self.check_flow_top_values(
+            "flow_top_pair",
+            ['ivre', 'flowcli', '--top', 'src.addr', 'dst.addr', '--sum',
+             'scbytes', 'csbytes', '--limit', '1', '--collect', 'proto',
+             'dport'])
 
     # This test have to be done first.
     def test_10_data(self):
