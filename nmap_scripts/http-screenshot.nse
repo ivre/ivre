@@ -16,6 +16,8 @@
 
 local shortport = require "shortport"
 local stdnse = require "stdnse"
+local have_stringaux, stringaux = pcall(require, "stringaux")
+local strsplit = (have_stringaux and stringaux or stdnse).strsplit
 
 description = [[
 
@@ -77,7 +79,7 @@ action = function(host, port)
   else
     strport = (":%d"):format(port)
   end
-  width, height = table.unpack(stdnse.strsplit("x", geom))
+  width, height = table.unpack(strsplit("x", geom))
   width = tonumber(width)
   height = tonumber(height)
   local tmpfname = os.tmpname()
