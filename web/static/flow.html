@@ -98,7 +98,7 @@
                         Limit
                       </label>
                       <div class="col-md-8">
-                        <input type="number" class="form-control" id="query_limit"
+                        <input type="number" class="form-control" id="query_limit" min=0
                                ng-model="query.limit"/>
                       </div>
                     </div>
@@ -108,13 +108,13 @@
                       </label>
                       <div class="col-md-8">
                         <div class="input-group">
-                          <input type="number" class="form-control" id="query_skip"
+                          <input type="number" class="form-control" id="query_skip" min=0
                                  ng-model="query.skip"/>
                           <span class="input-group-addon clickable"
                                 ng-click="query.skip = query.skip + query.limit; update_graph_data()">
                             <i class="glyphicon glyphicon-plus"></i></span>
                           <span class="input-group-addon clickable"
-                                ng-click="query.skip = query.skip - query.limit; update_graph_data()">
+                                ng-click="query.skip = (query.skip - query.limit < 0) ? 0 : query.skip - query.limit; update_graph_data()">
                             <i class="glyphicon glyphicon-minus"></i></span>
                         </div>
                       </div>
