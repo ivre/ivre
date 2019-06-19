@@ -30,13 +30,13 @@
     <title>IVRE Web UI</title>
   </head>
 
-  <body ng-controller="IvreFlowCtrl">
+  <body ng-controller="IvreFlowCtrl" ng-init="update_theme()"> 
 
     <div ng-controller="IvreMenuCtrl" ivre-menu="flow"> </div>
     <div class="container-fluid nomargin" style="overflow-x: hidden;">
 
       <!-- Sidebar -->
-      <div class="col-xs-12 col-md-3">
+      <div class="col-xs-12 col-md-3" id="sidebar" ng-hide="!show_sidebar">
         <div class="row">
           <ul class="nav nav-tabs" id="menu-tab" role="tablist">
             <li role="presentation" class="active">
@@ -49,7 +49,7 @@
         </div>
 
         <!-- Tab panes -->
-        <div class="row">
+        <div class="row" style="margin-top: 10px;">
           <div id="control-pane" class="col-xs-12">
             <div class="tab-content">
               <div role="tabpanel" class="tab-pane active" id="menu-tab-explore">
@@ -239,6 +239,23 @@
                       </div>
                     </form>
                   </form>
+                  <form class="form-horizontal">
+                      <li class="sidebox-header">
+                          <i class="glyphicon glyphicon-resize-full black"></i>
+                          Theme
+                      </li>
+                      <div class="form-group">
+                          <div class="col-sm-offset-4 col-sm-8">
+                              <div class="checkbox">
+                                  <label>
+                                      <input type="checkbox" ng-model="light_theme"
+                                        ng-change="update_theme()">
+                                      Light theme
+                                  </label>
+                              </div>
+                          </div>
+                      </div>
+                  </form>
                 </ul>
               </div>
 
@@ -254,12 +271,15 @@
         </div>
       </div>
 
-      <div class="col-xs-12 col-md-9 fill">
+      <div class="col-xs-12 fill" id="main-graph-container" ng-class="{'col-md-9': show_sidebar}">
         <div class="row main">
           <div class="col-xs-12 fill">
           <sigma-graph id="graph-container" sigma="sigma"
                        on-load="init_flow();"/>
           </div>
+          <button id="fullscreen-btn" ng-click="toggle_sidebar()" ng-class="{'active': !show_sidebar}">
+               <i class="glyphicon glyphicon-fullscreen"></i>
+            </button>
         </div>
         <div class="row status">
           <div id="timeline" class="fill">

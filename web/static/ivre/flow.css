@@ -41,6 +41,11 @@
   background-color: #000;
 }
 
+#graph-container:focus {
+    outline: none;
+    border-color: black; /* to avoid codefactor accessibility warning */
+}
+
 #timeline {
   background-color: #000;
 }
@@ -52,4 +57,145 @@
 #control-pane {
   overflow: auto;
   height: 95%;
+}
+
+#fullscreen-btn {
+    position: absolute;
+    bottom: 56px;
+    left: 10px;
+    background: transparent;
+    border: none;
+    width: 40px;
+    height: 40px;
+}
+
+#fullscreen-btn:hover {
+    opacity: 0.7;
+}
+
+#fullscreen-btn:focus {
+    outline: none;
+    opacity: 0.5;
+}
+
+#fullscreen-btn.active {
+    background-color: #f3f3f3;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+}
+
+/*
+ * THEMES
+*/
+
+.light {
+    background-color: #f3f3f3;
+}
+
+.dark {
+    background-color: #333;
+    color: #eee;
+}
+
+.dark input, .dark select {
+    background-color: #111;
+    color: #eee;
+    border-color: black;
+}
+
+.dark .input-group-addon {
+    background-color: #555;
+    color: #eee;
+    border-color: black;
+}
+
+.dark .btn-default {
+    color: #eee;
+    background-color: #555;
+    border-color: black;
+}
+
+.dark .sidebox-header {
+    color: white;
+}
+
+.dark .sidebox-header i {
+    color: white !important;
+}
+
+.dark .nav-tabs {
+    border-color: black;
+}
+
+.dark .nav-tabs > li.active > a, 
+.dark .nav-tabs > li.active > a:hover, 
+.dark .nav-tabs > li.active > a:focus {
+    color: #eee;
+    background-color: black;
+    border-color: #333;
+    border-bottom-color: transparent;
+}
+
+.dark .nav > li > a:hover, 
+.dark .nav > li > a:focus {
+    background-color: #111;
+}
+
+.dark .nav-tabs > li > a:hover {
+    border-color: #333 #333 black;
+}
+
+.dark a {
+    color: #ccc;
+}
+
+.dark .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: #4c4c4c;
+}
+
+.dark .table > thead > tr > th,
+.dark .table > tbody > tr > th,
+.dark .table > tfoot > tr > th,
+.dark .table > thead > tr > td,
+.dark .table > tbody > tr > td,
+.dark .table > tfoot > tr > td {
+    border-color: #555;
+}
+
+
+.dark .popover {
+    background-color: #555;
+}
+
+.dark .popover-title {
+    background-color: #333;
+    border-bottom: #111;
+}
+
+.dark .nav .open > a, 
+.dark .nav .open > a:hover, 
+.dark .nav .open > a:focus {
+    background-color: black;
+}
+
+.dark .dropdown-menu {
+    background-color: #333;
+    color: #eee;
+}
+
+.dark .dropdown-menu > li > a {
+    color: #eee;
+}
+
+.dark .dropdown-menu > li > a:hover, 
+.dark .dropdown-menu > li > a:focus {
+    color: #ddd;
+    background-color: #111;
+}
+
+.dark #fullscreen-btn.active {
+    background-color: #555;
+    color: #ccc;
+    border-radius: 50%;
+    border: 1px solid #333;
 }

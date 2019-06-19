@@ -5,7 +5,7 @@
 </h4>
 
 <div ng-if="cur_elt">
-  <table class="table table-hover table-striped table-condensed">
+  <table class="table table-striped table-condensed">
     <tbody>
       <tr ng-repeat="(key, value) in cur_elt.data"
           ng-if="!key.startsWith('__') && key != 'meta'">
@@ -35,7 +35,7 @@
 
   <div ng-if="cur_elt.details">
     <div ng-repeat="(meta, data) in cur_elt.details.meta">
-      <table class="table table-hover table-striped table-condensed">
+      <table class="table table-striped table-condensed">
         <thead>
           <tr><th colspan=2>{{meta}}</th></tr>
         </thead>
@@ -63,7 +63,7 @@
       </table>
     </div>
 
-    <table class="table table-hover table-striped table-condensed"
+    <table class="table table-striped table-condensed"
            ng-if="cur_elt.details.in_flows">
       <thead>
         <tr><th colspan=2>Incoming flows</th></tr>
@@ -76,7 +76,7 @@
       </tbody>
     </table>
 
-    <table class="table table-hover table-striped table-condensed"
+    <table class="table table-striped table-condensed"
            ng-if="cur_elt.details.out_flows">
       <thead>
         <tr><th colspan=2>Outgoing flows</th></tr>
@@ -89,7 +89,7 @@
       </tbody>
     </table>
 
-    <table class="table table-hover table-striped table-condensed"
+    <table class="table table-striped table-condensed"
            ng-if="cur_elt.details.servers">
       <thead>
         <tr><th>Servers</th></tr>
@@ -101,7 +101,7 @@
       </tbody>
     </table>
 
-    <table class="table table-hover table-striped table-condensed"
+    <table class="table table-striped table-condensed"
            ng-if="cur_elt.details.clients">
       <thead>
         <tr><th>Clients</th></tr>

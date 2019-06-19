@@ -26,17 +26,12 @@ ivreWebUi.directive("sigmaGraph", function () {
         //labelAlignment: "inside",
         singleHover: true,
 
-        defaultLabelColor: "#ccc",
         labelColor: "default",
         labelThreshold: 8,
 
-        defaultNodeColor: '#666',
-        defaultNodeHoverColor: '#c00',
         nodeHoverColor: 'default',
         //borderSize: 10,
 
-        defaultEdgeColor: '#ccc',
-        defaultEdgeHoverColor: '#c00',
         edgeColor: 'default',
         edgeHoverColor: 'default',
 
@@ -54,11 +49,15 @@ ivreWebUi.directive("sigmaGraph", function () {
         drawEdgeLabels: false,
         animationsTime: 5000,
 
-        nodeHaloColor: '#444444',
-        edgeHaloColor: '#444444',
         nodeHaloSize: 10,
         edgeHaloSize: 5,
     };
+
+
+    function get_sigma_settings(scope) {
+        // default_sigma_settings are overwritten by theme sigma settings
+        return Object.assign(default_sigma_settings, scope.theme.sigma);
+    }
 
     return {
         restrict: "E",
@@ -70,7 +69,7 @@ ivreWebUi.directive("sigmaGraph", function () {
                     container: element[0].id,
                     type: 'canvas'
                 },
-                settings: default_sigma_settings,
+                settings: get_sigma_settings(scope)
             });
 
             // Instantiate the ActiveState plugin:
@@ -111,10 +110,15 @@ ivreWebUi.directive("eltDetails", function () {
 });
 
 ivreWebUi.factory("graphService", function () {
-    node_colors = {
-        // [client, server, hidden_client, hidden_server]
-        "Host": ["#666", "#ddd", "#111", "#333"],
+    var node_colors = {
+        // Default dark colors
+        // [client, server, hidden client, hidden server]
+        "Host": ["#666", "#ddd", "#111", "#333"]
     };
+
+    function set_node_colors(colors) {
+        node_colors["Host"] = colors; 
+    }
 
     // http://stackoverflow.com/questions/7616461
     function hashCode(s){
@@ -359,13 +363,14 @@ ivreWebUi.factory("graphService", function () {
         set_visible: set_visible,
         has_details: has_details,
         add_details: add_details,
+        set_node_colors: set_node_colors
     };
 });
 
 
 ivreWebUi
     .controller('IvreFlowCtrl', function ($scope, $http, $compile, $timeout,
-                                          graphService, hashSync) {
+                                          $location, graphService, hashSync) {
         // Menu things
         $scope.enable_tab = function (tab_id) {
             $('.nav-tabs a[href="#' + tab_id + '"]').tab('show');
@@ -398,7 +403,9 @@ ivreWebUi
         };
 
         $scope.click_elt = function (elt, type, force) {
-            $scope.enable_tab("menu-tab-details");
+            if (elt) {
+                $scope.enable_tab("menu-tab-details");
+            }
             $scope.$apply(function (){
                 $scope.clicked_elt = elt;
                 $scope.cur_elt = elt;
@@ -849,4 +856,66 @@ ivreWebUi
         };
 
         $scope.is_array = angular.isArray;
+        
+        var themes = {
+            light: {
+                // [client, server, hidden_client, hidden_server]
+                node_colors: ["#000", "#888", "#bbb", "#ccc"],
+                sigma: {
+                    defaultLabelColor: "#333",
+                    defaultNodeColor: '#aaa',
+                    defaultNodeHoverColor: '#c44',
+                    defaultEdgeColor: '#000',
+                    defaultEdgeHoverColor: '#c00',
+                    nodeHaloColor: '#bbb',
+                    edgeHaloColor: '#bbb',
+                }
+            },
+            dark: {
+                node_colors: ["#666", "#ddd", "#111", "#333"],
+                sigma: {
+                    defaultLabelColor: "#ccc",
+                    defaultNodeColor: '#666',
+                    defaultNodeHoverColor: '#c00',
+                    defaultEdgeColor: '#ccc',
+                    defaultEdgeHoverColor: '#c00',
+                    nodeHaloColor: '#444444',
+                    edgeHaloColor: '#444444',
+                }
+            }
+        };
+
+        // Get light_theme from query parameters
+        $scope.light_theme = angular.fromJson($location.search()['light_theme']);
+        $scope.theme_name = $scope.light_theme ? 'light': 'dark';
+        $scope.theme = themes[$scope.theme_name];
+        
+        // Set up current theme
+        d3.select('body').classed($scope.theme_name, true);
+        d3.select('.table').classed('table-dark', $scope.theme_name == 'dark');
+        
+        // Synchronize light_theme var with corresponding query parameter
+        hashSync.sync($scope, 'light_theme', 'light_theme');
+
+        $scope.update_theme = function() {
+            old_theme = $scope.theme_name;
+            $scope.theme_name = $scope.light_theme ? 'light': 'dark';
+            $scope.theme = themes[$scope.theme_name];
+            d3.select('body').classed(old_theme, false);
+            d3.select('body').classed($scope.theme_name, true);
+            d3.select('.table').classed('table-dark', $scope.theme_name == 'dark');
+            graphService.set_node_colors($scope.theme.node_colors);   
+            if ($scope.sigma) {
+                Object.keys($scope.theme.sigma).forEach(function (key) {
+                    $scope.sigma.settings(key, $scope.theme.sigma[key]);
+                });
+                graphService.update_display($scope.sigma, $scope.graph_formatters);
+            }
+        } 
+        
+        // Manage sidebar removal
+        $scope.show_sidebar = true;
+        $scope.toggle_sidebar = function() {
+            $scope.show_sidebar = !$scope.show_sidebar; 
+        };
 });
