@@ -1039,6 +1039,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             dst_node = cls._node2json(dst_ref, dst_labels, dst_props)
 
             flow_props = cls._get_props(flow["elt"], flow.get("meta"))
+            flow_props["addr_src"] = src_props.get('addr', None)
+            flow_props["addr_dst"] = dst_props.get('addr', None)
             flow_ref = cls._get_ref(flow["elt"], flow_props)
             flow_labels = cls._get_labels(flow["elt"], flow_props)
             flow_node = cls._edge2json(flow_ref, src_ref, dst_ref, flow_labels,

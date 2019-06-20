@@ -38,7 +38,7 @@
   height: 100%;
   width: 100%;
   position: absolute;
-  background-color: #000;
+  background-color: white;
 }
 
 #graph-container:focus {
@@ -47,7 +47,7 @@
 }
 
 #timeline {
-  background-color: #000;
+  background-color: white;
 }
 
 #wrapper {
@@ -95,6 +95,10 @@
 .dark {
     background-color: #333;
     color: #eee;
+}
+
+.dark #graph-container, .dark  #timeline {
+    background-color: black;
 }
 
 .dark input, .dark select {
