@@ -2714,6 +2714,87 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(res, 0)
         self.assertEqual(out, b'8.8.8.8\n')
 
+        # IPADDR regexp, based on
+        # <https://gist.github.com/dfee/6ed3a4b05cfe7a6faf40a2102408d5d8>
+        addr_tests_ipv6 = [
+            '1::',
+            '1:2:3:4:5:6:7::',
+            '1::8',
+            '1:2:3:4:5:6::8',
+            '1:2:3:4:5:6::8',
+            '1::7:8',
+            '1:2:3:4:5::7:8',
+            '1:2:3:4:5::8',
+            '1::6:7:8',
+            '1:2:3:4::6:7:8',
+            '1:2:3:4::8',
+            '1::5:6:7:8',
+            '1:2:3::5:6:7:8',
+            '1:2:3::8',
+            '1::4:5:6:7:8',
+            '1:2::4:5:6:7:8',
+            '1:2::8',
+            '1::3:4:5:6:7:8',
+            '1::3:4:5:6:7:8',
+            '1::8',
+            '::2:3:4:5:6:7:8',
+            '::2:3:4:5:6:7:8',
+            '::8',
+            '::',
+            'fe80::7:8%eth0',
+            'fe80::7:8%1',
+            '::255.255.255.255',
+            '::0.0.0.0',
+            '::ffff:255.255.255.255',
+            '::ffff:0.0.0.0',
+            '::ffff:0:255.255.255.255',
+            '::ffff:0:0.0.0.0',
+            '2001:db8:3:4::192.0.2.33',
+            '2001:db8:3:4::0.0.2.33',
+            '64:ff9b::192.0.2.33',
+            '64:ff9b::0.0.2.33',
+        ]
+        addr_tests_ipv4 = [
+            '0.0.0.0',
+            '0.0.2.33',
+            '10.0.2.33',
+            '10.10.2.33',
+            '192.0.2.33',
+            '255.255.255.255',
+        ]
+        for test in [addr_tests_ipv4, addr_tests_ipv6]:
+            for addr in addr_tests_ipv6:
+                match = ivre.utils.IPADDR.search(addr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 1)
+                self.assertEqual(match.groups()[0], addr)
+                if '%' not in addr:
+                    self.assertIsNone(ivre.utils.IPADDR.search('x%s' % addr))
+                    self.assertIsNone(ivre.utils.IPADDR.search('%sx' % addr))
+                addr = addr.swapcase()
+                match = ivre.utils.IPADDR.search(addr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 1)
+                self.assertEqual(match.groups()[0], addr)
+                if '%' not in addr:
+                    self.assertIsNone(ivre.utils.IPADDR.search('X%s' % addr))
+                    self.assertIsNone(ivre.utils.IPADDR.search('%sX' % addr))
+        for addr in addr_tests_ipv4:
+            for netmask in ['0', '7', '24', '32', '0.0.0.0', '255.0.0.0',
+                            '255.255.255.255']:
+                naddr = '%s/%s' % (addr, netmask)
+                match = ivre.utils.NETADDR.search(naddr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 2)
+                self.assertEqual(match.groups(), tuple(naddr.split('/')))
+        for addr in addr_tests_ipv6:
+            for netmask in [0, 7, 24, 32, 64, 127, 128]:
+                naddr = '%s/%d' % (addr, netmask)
+                match = ivre.utils.NETADDR.search(naddr)
+                self.assertTrue(match)
+                self.assertEqual(len(match.groups()), 2)
+                self.assertEqual(match.groups(), tuple(naddr.split('/')))
+
     def test_scans(self):
         "Run scans, with and without agents"
 

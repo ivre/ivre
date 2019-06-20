@@ -22,7 +22,6 @@
 
 from __future__ import print_function
 import getopt
-import re
 import sys
 try:
     reload(sys)
@@ -34,9 +33,6 @@ else:
 
 from ivre.db import db
 from ivre import utils
-
-
-IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
 
 
 def disp_rec(r):
@@ -120,7 +116,7 @@ def main():
             first = False
         else:
             print()
-        if IPADDR.match(a) or a.isdigit():
+        if utils.IPADDR.search(a) or a.isdigit():
             flts.append(db.passive.flt_and(baseflt, db.passive.searchhost(a)))
         else:
             flts += [
