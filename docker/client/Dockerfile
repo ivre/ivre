@@ -25,14 +25,13 @@ RUN apt-get -q update
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
 RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
     libfreetype6 libfontconfig1 fonts-dejavu imagemagick ffmpeg s3270 \
-    patch bash-completion bzip2 bro python-pil
+    patch bash-completion bzip2 bro python-pil nfdump
 
-# Install Nmap. Use included libpcap because to use the workaround for
-# Nmap issue #34 (https://github.com/nmap/nmap/issues/34) since we do
-# not know which kernel version will be used
+# Install Nmap. Use included libpcap as a workaround for Nmap issue
+# #34 (https://github.com/nmap/nmap/issues/34) since we do not know
+# which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-# Use 7.25BETA2 to have Lua 5.3
-ADD https://nmap.org/dist/nmap-7.40.tgz ./nmap.tar.gz
+ADD https://nmap.org/dist/nmap-7.70.tgz ./nmap.tar.gz
 RUN apt-get -qy install build-essential libssl-dev && \
     tar zxf nmap.tar.gz && \
     mv nmap-* nmap && \
