@@ -44,11 +44,6 @@ from ivre import config, utils
 from ivre.db import db
 
 
-IPADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+$')
-NETADDR = re.compile('^\\d+\\.\\d+\\.\\d+\\.\\d+'
-                     '/\\d+(\\.\\d+\\.\\d+\\.\\d+)?$')
-
-
 def js_alert(ident, level, message):
     """This function returns a string containing JS code to
     generate an alert message.
@@ -659,9 +654,9 @@ def flt_from_query(dbase, query, base_flt=None):
                     dbase.searchports([int(val) for val in param.split(',')],
                                       neg=neg)
                 )
-            elif IPADDR.match(param):
+            elif utils.IPADDR.search(param):
                 flt = dbase.flt_and(flt, dbase.searchhost(param, neg=neg))
-            elif NETADDR.match(param):
+            elif utils.NETADDR.search(param):
                 flt = dbase.flt_and(flt, dbase.searchnet(param, neg=neg))
             elif get_notepad_pages is not None and param == 'notes':
                 flt = dbase.flt_and(flt, dbase.searchhosts(

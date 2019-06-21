@@ -57,6 +57,9 @@ based on the Referer: header.
 
     """
 
+    if config.WEB_ALLOWED_REFERERS is False:
+        return func
+
     def _die(referer):
         utils.LOGGER.critical("Invalid Referer header [%r]", referer)
         response.set_header('Content-Type', 'application/javascript')
@@ -68,8 +71,6 @@ based on the Referer: header.
 
     @wraps(func)
     def _newfunc(*args, **kargs):
-        if config.WEB_ALLOWED_REFERERS is False:
-            return func(*args, **kargs)
         referer = request.headers.get('Referer')
         if not referer:
             return _die(referer)
@@ -522,6 +523,7 @@ def get_flow():
 #
 
 @application.get('/ipdata/<addr>')
+@check_referer
 def get_ipdata(addr):
     callback = request.params.get("callback")
     result = json.dumps(db.data.infos_byip(addr))

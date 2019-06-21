@@ -519,7 +519,7 @@ class BulkInsert(object):
         self._commit_transaction()
         newtime = time.time()
         rate = self.size / (newtime - self.start_time)
-        utils.LOGGER.debug("%d inserts, %f/sec (total %d)\n",
+        utils.LOGGER.debug("%d inserts, %f/sec (total %d)",
                            self.count, rate, self.commited_count + self.count)
         if renew:
             self.start_time = newtime

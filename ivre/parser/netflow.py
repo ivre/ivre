@@ -66,7 +66,7 @@ class NetFlow(CmdParser):
         cmd = ["nfdump", "-aq", "-o", self.fmt]
         cmdkargs = {}
         if isinstance(fdesc, basestring):
-            with open(fdesc) as fde:
+            with open(fdesc, 'rb') as fde:
                 if fde.read(2) not in utils.FileOpener.FILE_OPENERS_MAGIC:
                     cmd.extend(["-r", fdesc])
                 else:
@@ -87,7 +87,8 @@ class NetFlow(CmdParser):
     @classmethod
     def parse_line(cls, line):
         fields = dict((name[0], val.strip())
-                      for name, val in zip(cls.fields, line.split(",")))
+                      for name, val in zip(cls.fields,
+                                           line.decode().split(",")))
         fields["proto"] = fields["proto"].lower()
         srv_idx = None
         if fields["proto"] == "icmp":
