@@ -178,7 +178,7 @@ before_script:
   - wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/dnsbl.pcap.bz2 | bunzip2 > tests/samples/dnsbl.pcap
   ## PCAP files from the Wireshark project
   - for file in dns.cap imap.cap http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap Teredo.pcap sr-header.pcap; do wget -q "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file"; done
-  - for file in SSHv2.cap; do wget -q "http://packetlife.net/captures/$file" -O "tests/samples/$file"; done
+  - for file in SSHv2.cap; do wget -q "http://packetlife.net/media/captures/$file" -O "tests/samples/$file"; done
   - wget -q 'https://www.cloudshark.org/captures/616566f75f0c/download' -O tests/samples/gre-sample.pcap
   # 2015-09-18-Nuclear-EK-traffic comes from https://www.malware-traffic-analysis.net/2015/09/18/2015-09-18-Nuclear-EK-traffic.pcap.zip
   - for file in banners.pcap 2015-09-18-Nuclear-EK-traffic.pcap; do wget -q --no-check-certificate -O tests/samples/$file https://ivre.rocks/data/tests/$file; done

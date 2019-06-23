@@ -4265,17 +4265,17 @@ setting values according to the keyword arguments.
         return {'recontype': 'TCP_SERVER_BANNER', 'value': banner}
 
     @staticmethod
-    def searchtimeago(delta, neg=False, new=False):
+    def searchtimeago(delta, neg=False, new=True):
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
-        return {'lastseen' if new else 'firstseen':
+        return {'firstseen' if new else 'lastseen':
                 {'$lt' if neg else '$gte': datetime.datetime.now() - delta}}
 
     @staticmethod
-    def searchnewer(timestamp, neg=False, new=False):
+    def searchnewer(timestamp, neg=False, new=True):
         if not isinstance(timestamp, datetime.datetime):
             timestamp = datetime.datetime.fromtimestamp(timestamp)
-        return {'lastseen' if new else 'firstseen':
+        return {'firstseen' if new else 'lastseen':
                 {'$lte' if neg else '$gt': timestamp}}
 
 

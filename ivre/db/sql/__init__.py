@@ -2330,9 +2330,9 @@ passive table."""
         )
 
     @classmethod
-    def searchtimeago(cls, delta, neg=False, new=False):
-        field = cls.tables.passive.lastseen if new else \
-            cls.tables.passive.firstseen
+    def searchtimeago(cls, delta, neg=False, new=True):
+        field = cls.tables.passive.firstseen if new else \
+            cls.tables.passive.lastseen
         if not isinstance(delta, datetime.timedelta):
             delta = datetime.timedelta(seconds=delta)
         now = datetime.datetime.now()
@@ -2341,9 +2341,9 @@ passive table."""
                                    field >= timestamp))
 
     @classmethod
-    def searchnewer(cls, timestamp, neg=False, new=False):
-        field = cls.tables.passive.lastseen if new else \
-            cls.tables.passive.firstseen
+    def searchnewer(cls, timestamp, neg=False, new=True):
+        field = cls.tables.passive.firstseen if new else \
+            cls.tables.passive.lastseen
         timestamp = utils.all2datetime(timestamp)
         return PassiveFilter(main=(field <= timestamp if neg else
                                    field > timestamp))
