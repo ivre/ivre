@@ -210,7 +210,7 @@ def _disp_recs_tailf(flt, field):
                     db.passive.flt_and(
                         baseflt,
                         db.passive.searchnewer(prevtime,
-                                               new=field == 'lastseen'),
+                                               new=field == 'firstseen'),
                     ),
                     sort=[(field, 1)]):
                 if 'addr' in r:
