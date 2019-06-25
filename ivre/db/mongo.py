@@ -4560,6 +4560,29 @@ class MongoDBFlow(MongoDB, DBFlow):
         'lastseen'
     ]
 
+    indexes = [
+        # flows
+        [
+            ([
+                ('src_addr_0', pymongo.ASCENDING),
+                ('src_addr_1', pymongo.ASCENDING),
+                ('dst_addr_0', pymongo.ASCENDING),
+                ('dst_addr_1', pymongo.ASCENDING),
+                ('dport', pymongo.ASCENDING),
+                ('proto', pymongo.ASCENDING),
+            ], {}),
+            ([('schema_version', pymongo.ASCENDING)], {}),
+            ([('firstseen', pymongo.ASCENDING)], {}),
+            ([('lastseen', pymongo.ASCENDING)], {}),
+            ([('times', pymongo.ASCENDING)], {}),
+            ([('count', pymongo.ASCENDING)], {}),
+            ([('cspkts', pymongo.ASCENDING)], {}),
+            ([('scpkts', pymongo.ASCENDING)], {}),
+            ([('scbytes', pymongo.ASCENDING)], {}),
+            ([('scbytes', pymongo.ASCENDING)], {}),
+        ],
+    ]
+
     def __init__(self, url):
         super(MongoDBFlow, self).__init__(url)
         self.columns = ["flows", "passive"]
@@ -4593,6 +4616,7 @@ class MongoDBFlow(MongoDB, DBFlow):
             'dst_addr_0': rec['dst_addr_0'],
             'dst_addr_1': rec['dst_addr_1'],
             'proto': rec['proto'],
+            'schema_version': flow.SCHEMA_VERSION
         }
         if rec['proto'] in ['udp', 'tcp']:
             key['dport'] = rec['dport']
@@ -4937,6 +4961,7 @@ class MongoDBFlow(MongoDB, DBFlow):
         creates the default indexes.
         """
         self.db[self.columns[self.column_flow]].drop()
+        self.create_indexes()
 
     def get_flows(self, flt, skip, limit, orderby):
         sort = None

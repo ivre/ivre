@@ -27,6 +27,7 @@ This sub-module contains functions used for flow.
 import re
 from ivre import utils
 
+SCHEMA_VERSION = 1
 
 HTTP_PASSIVE_RECONTYPES_SERVER = {
     'HTTP_CLIENT_HEADER_SERVER': {
