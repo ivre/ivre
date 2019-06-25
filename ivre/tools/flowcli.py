@@ -36,6 +36,7 @@ else:
 from builtins import input
 from future.utils import viewitems
 try:
+    import matplotlib
     import matplotlib.pyplot as plt
 except ImportError:
     plt = None
@@ -152,30 +153,36 @@ def main():
             ))
 
     elif args.flow_daily:
-        # FIXME? fully in-memory
-        if args.plot:
-            plot_data = {}
+        plot_data = {}
         for rec in db.flow.flow_daily(query):
-            out.write(sep.join([rec["flow"],
-                                rec["time_in_day"].strftime("%T.%f"),
-                                str(rec["count"])]))
+            out.write(
+                sep.join([
+                    rec["time_in_day"].strftime("%T.%f"),
+                    " ; ".join(['(' + x[0] + ', ' + str(x[1]) + ')'
+                                for x in rec["flows"]])]))
             out.write("\n")
 
             if args.plot:
-                plot_data.setdefault(rec["flow"], [[], []])
-                plot_data[rec["flow"]][0].append(rec["time_in_day"])
-                plot_data[rec["flow"]][1].append(rec["count"])
-        for flow, points in viewitems(plot_data):
-            plt.plot(points[0], points[1], label=flow)
-        plt.legend(loc='best')
-        plt.show()
+                for flw in rec["flows"]:
+                    plot_data.setdefault(flw[0], [[], []])
+                    plot_data[flw[0]][0].append(rec["time_in_day"])
+                    plot_data[flw[0]][1].append(flw[1])
+        if args.plot:
+            fig, ax = plt.subplots()
+            fmt = matplotlib.dates.DateFormatter('%H:%M:%S')
+            for flow, points in viewitems(plot_data):
+                plt.plot(points[0], points[1], label=flow, marker='o')
+            plt.legend(loc='best')
+            ax.xaxis.set_major_formatter(fmt)
+            plt.show()
 
     else:
         fmt = '%%s%s%%s%s%%s' % (sep, sep)
         node_width = len('XXXX:XXXX:XXXX:XXXX:XXXX:XXXX')
         flow_width = len('tcp/XXXXX')
         for res in db.flow.to_iter(query, limit=args.limit, skip=args.skip,
-                                   orderby=args.orderby):
+                                   orderby=args.orderby, mode=args.mode,
+                                   timeline=args.timeline):
             if args.json:
                 out.write('%s\n' % res)
             else:
@@ -200,9 +207,15 @@ def main():
                 out.write(fmt % (src, flow, dst))
                 if args.timeline:
                     out.write(sep)
-                    out.write(coma.join(
-                        str(elt) for elt in sorted(
-                            res['flow']['data']['meta']['times']
-                        )
-                    ))
+                    # FIXME Since sip TCP flows does not exist in conn.log,
+                    # they have no times. For now, print '?' instead of
+                    # failing if meta.times is invalid.
+                    try:
+                        out.write(coma.join(
+                            str(elt) for elt in sorted(
+                                res['flow']['data']['meta']['times']
+                            )
+                        ))
+                    except KeyError:
+                        out.write("?")
                 out.write('\n')

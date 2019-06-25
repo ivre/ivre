@@ -1392,6 +1392,19 @@ datetime.datetime instance `dtm`"""
         return time.mktime(dtm.timetuple()) + dtm.microsecond / (1000000.)
 
 
+def current_tz_offset():
+    now = time.time()
+    utc_offset = (datetime.datetime.fromtimestamp(now) -
+                  datetime.datetime.utcfromtimestamp(now))
+    try:
+        utc_offset_sec = int(utc_offset.total_seconds())
+    except AttributeError:
+        utc_offset_sec = (utc_offset.microseconds +
+                          (utc_offset.seconds +
+                           utc_offset.days * 24 * 3600) * 10**6) / 10**6
+    return utc_offset_sec
+
+
 _UNITS = ['']
 _UNITS.extend('kMGTPEZY')
 

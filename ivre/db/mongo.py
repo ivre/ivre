@@ -4656,6 +4656,21 @@ class MongoDBFlow(MongoDB, DBFlow):
             time += datetime.timedelta(seconds=config.FLOW_TIME_PRECISION)
         return times
 
+    @classmethod
+    def _update_timeslots(cls, updatespec, rec):
+        if config.FLOW_TIME:
+            if config.FLOW_TIME_FULL_RANGE:
+                cls._add_or_update_dict_in_dict(updatespec,
+                    "$addToSet",
+                    "times",
+                    {"$each": cls._get_timeslots(
+                        rec['start_time'], rec['end_time'])})
+            else:
+                cls._add_or_update_dict_in_dict(updatespec,
+                        "$addToSet",
+                        "times",
+                        cls.date_round(rec['start_time']))
+
     def _conn2flow(self, flow_bulk, rec):
         """
         Take a parsed conn.log line entry and add it to flow bulk
@@ -4672,9 +4687,9 @@ class MongoDBFlow(MongoDB, DBFlow):
                 'scbytes': rec['resp_ip_bytes'],
                 'count': 1
             },
-            "$addToSet": {'times': {"$each": self._get_timeslots(
-                rec['start_time'], rec['end_time'])}}
         }
+
+        self._update_timeslots(updatespec, rec)
 
         if rec['proto'] in ['udp', 'tcp']:
             self._add_or_update_dict_in_dict(updatespec, '$setOnInsert',
@@ -4704,6 +4719,8 @@ class MongoDBFlow(MongoDB, DBFlow):
             # TODO : should be optionnal
             '$addToSet': {'meta.%s' % name: meta_dict},
         }
+
+        self._update_timeslots(updatespec, rec)
 
         flow_bulk.find(findspec).upsert().update(updatespec)
         return [findspec]
@@ -5648,13 +5665,17 @@ class MongoDBFlow(MongoDB, DBFlow):
             mode,
             timeline)
 
-    def to_iter(self, query, limit=None, skip=None, orderby=None):
+    def to_iter(self, query, limit=None, skip=None, orderby=None, mode=None,
+                timeline=False):
         """
         Returns an iterator which yields dict {"src": src, "dst": dst,
         "flow": flow}
         """
         flt = self.flt_from_query(query)
-        return self.cursor2json_iter(self.get_flows(flt, skip, limit, orderby))
+        return self.cursor2json_iter(
+            self.get_flows(flt, skip, limit, orderby),
+            mode=mode,
+            timeline=timeline)
 
     @classmethod
     def search_flow_net(cls, net, neg=False, fieldname=''):
@@ -5756,3 +5777,78 @@ class MongoDBFlow(MongoDB, DBFlow):
     def cleanup_flows(self):
         # TODO Add cleanup steps like in neo4j
         pass
+
+    def flow_daily(self, query):
+        """
+        Returns a generator within each element is a dict
+        {
+            flows: [("proto/dport", count), ...]
+            time_in_day: time
+        }
+        """
+        pipeline = []
+
+        flt = self.flt_from_query(query)
+        if flt:
+            pipeline.append({'$match': flt})
+
+        # Unwind timeslots
+        pipeline.append({'$unwind': '$times'})
+
+        # Project time in hours, minutes, seconds
+        pipeline.append({
+            '$project': {
+                'hour': {'$hour': '$times'},
+                'minute': {'$minute': '$times'},
+                'second': {'$second': '$times'},
+                'proto': 1,
+                'dport': 1,
+                'count': 1,
+                'type': 1,
+            }
+        })
+
+        # Group by (hour, minutes, seconds), push proto/dport
+        pipeline.append({
+            '$group': {
+                '_id': {
+                    'hour': '$hour',
+                    'minute': '$minute',
+                    'second': '$second',
+                },
+                'fields': {'$push': {
+                    'proto': '$proto',
+                    'dport': '$dport',
+                    'type': '$type',
+                }},
+            }
+        })
+
+        # Sort by time ascending
+        pipeline.append({"$sort": {
+            '_id.hour': 1,
+            '_id.minute': 1,
+            '_id.second': 1
+        }})
+
+        res = self.db[self.columns[self.column_flow]].aggregate(pipeline)
+
+        for entry in res:
+            flows = {}
+            for fields in entry['fields']:
+                if fields.get('proto') in ['tcp', 'udp']:
+                    number = fields.get('dport')
+                else:
+                    number = fields.get('type')
+                entry_name = "%s/%s" % (fields.get('proto'), number)
+                flows.setdefault(entry_name, 0)
+                flows[entry_name] += 1
+            res = {
+                'flows': [(name, count) for name, count in viewitems(flows)],
+                'time_in_day': datetime.datetime(
+                    1970, 1, 1,
+                    hour=entry['_id']['hour'],
+                    minute=entry['_id']['minute'],
+                    second=entry['_id']['second'])
+            }
+            yield res

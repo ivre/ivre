@@ -23,7 +23,7 @@ databases.
 """
 
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import operator
 import random
 import re
@@ -1213,10 +1213,23 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @classmethod
     def _cursor2flow_daily(cls, cursor):
+        d = {}
+        # Group by "time" using a dictionnary
         for row in cursor:
-            yield {"flow": "%s/%s" % tuple(row["flow"]),
-                   "time_in_day": datetime.fromtimestamp(row["time_in_day"]),
-                   "count": row["count"]}
+            delta = timedelta(seconds=(row["time_in_day"] +
+                                       utils.current_tz_offset()))
+            time_str = datetime(1970, 1, 1) + delta
+            flw = ("%s/%s" % tuple(row["flow"]), row["count"])
+            if time_str in d:
+                d[time_str].append(flw)
+            else:
+                d[time_str] = [flw]
+        # Results should be sorted by time
+        for (time_in_day, flows) in sorted(d.items(), key=lambda x: x[0]):
+            yield {
+                "flows": flows,
+                "time_in_day": time_in_day
+            }
 
     @classmethod
     def _cursor2top(cls, cursor, fields, collected):
@@ -1249,7 +1262,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         res = self.cursor2json_graph(self.run(query))
         return res
 
-    def to_iter(self, query, limit=None, skip=None, orderby=None):
+    def to_iter(self, query, limit=None, skip=None, orderby=None, mode=None,
+                timeline=False):
         return self.cursor2json_iter(self.run(query))
 
     def count(self, query):
@@ -1273,8 +1287,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return counts
 
     def flow_daily(self, query):
-        """Returns a dict of {flow: {time_in_day: count}}
-
+        """Returns a generator within each element is a dict
+        {
+            flows: [("proto/dport", count), ...]
+            time_in_day: time
+        }
         WARNING/FIXME: this mutates the query
         """
         query.add_clause(

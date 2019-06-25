@@ -566,7 +566,7 @@ class IvreTests(unittest.TestCase):
         except AttributeError:
             utc_offset_sec = (utc_offset.microseconds +
                               (utc_offset.seconds +
-                               utc_offset.days * 24 * 3600)* 10**6) / 10**6
+                               utc_offset.days * 24 * 3600) * 10**6) / 10**6
         tz_delta = timedelta(seconds=utc_offset_sec)
 
         date = datetime.strptime(date_fmt, "%Y-%m-%d %H:%M:%S.%f")
@@ -2503,6 +2503,20 @@ which `predicate()` is True, given `webflt`.
             {"edges": ['ALL sports > 50000']},
             ["--flow-filters", "ALL sports > 50000"],
             {"edges": ["ALL sports > 50000"]})
+
+        # Test flow daily
+        res, out, err = RUN(['ivre', 'flowcli', '--flow-daily'])
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        lines = out.decode().split('\n')[:-1]
+        for i, line in enumerate(lines):
+            data = line.split('|')
+            self.check_value("flow_daily_%d" % i, data[0].strip())
+            flows_array = data[1].strip().split(' ; ')
+            for flw in flows_array:
+                flw = flw[1:-1].split(', ')
+                self.check_value("flow_daily_%d_flows_%s"
+                                 % (i, flw[0]), flw[1])
 
         if DATABASE == 'mongo':
             self.check_flow_count_value(
