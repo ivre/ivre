@@ -66,6 +66,7 @@ ivre/xmlnmap.py
 ivre/analyzer/__init__.py
 ivre/analyzer/ike.py
 ivre/db/__init__.py
+ivre/db/http.py
 ivre/db/maxmind.py
 ivre/db/mongo.py
 ivre/db/neo4j.py
@@ -88,6 +89,7 @@ ivre/tools/flow2db.py
 ivre/tools/flowcli.py
 ivre/tools/getmoduli.py
 ivre/tools/httpd.py
+ivre/tools/ipcalc.py
 ivre/tools/ipdata.py
 ivre/tools/iphost.py
 ivre/tools/ipinfo.py
