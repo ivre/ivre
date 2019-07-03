@@ -168,7 +168,7 @@ def main():
                     plot_data[flw[0]][0].append(rec["time_in_day"])
                     plot_data[flw[0]][1].append(flw[1])
         if args.plot:
-            fig, ax = plt.subplots()
+            ax = plt.subplots()[1]
             fmt = matplotlib.dates.DateFormatter('%H:%M:%S')
             for flow, points in viewitems(plot_data):
                 plt.plot(points[0], points[1], label=flow, marker='o')
@@ -207,9 +207,7 @@ def main():
                 out.write(fmt % (src, flow, dst))
                 if args.timeline:
                     out.write(sep)
-                    # FIXME Since sip TCP flows does not exist in conn.log,
-                    # they have no times. For now, print '?' instead of
-                    # failing if meta.times is invalid.
+                    # Print '?' instead of failing if meta.times does not exist
                     try:
                         out.write(coma.join(
                             str(elt) for elt in sorted(

@@ -1484,7 +1484,7 @@ DETACH DELETE old_f
             # rec["names"] =  [rec["query"]] + [addr for addr in rec["answers"]
             #                                   if not IP_RE.match(addr)]
             rec["addrs"] = [addr for addr in rec.get("answers", []) or []
-                            if utils.IP_RE.match(addr)]
+                            if utils.IPADDR.match(addr)]
 
         self.any2flow(bulk, "dns", rec)
         # TODO: loop in neo

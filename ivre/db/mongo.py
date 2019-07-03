@@ -23,6 +23,7 @@ databases.
 """
 
 
+import bson
 try:
     from collections import OrderedDict
 except ImportError:
@@ -33,23 +34,21 @@ import datetime
 import hashlib
 import json
 import os
+import pymongo
 import random
 import re
 import socket
 import struct
+import time
 try:
     from urllib.parse import unquote
 except ImportError:
     from urllib import unquote
 import uuid
-import time
-
 
 from future.builtins import bytes, range
 from future.utils import viewitems
 from past.builtins import basestring
-import bson
-import pymongo
 
 from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBFlow, \
     LockError
@@ -4620,6 +4619,9 @@ class MongoDBFlow(MongoDB, DBFlow):
         }
         if rec['proto'] in ['udp', 'tcp']:
             key['dport'] = rec['dport']
+        elif rec['proto'] == 'icmp':
+            key['type'] = rec['type']
+
         return key
 
     @staticmethod
@@ -4638,12 +4640,6 @@ class MongoDBFlow(MongoDB, DBFlow):
             key['schema_version'] = passive.SCHEMA_VERSION
         return keys
 
-    @staticmethod
-    def _add_or_update_dict_in_dict(main_dict, main_key, key, value):
-        if main_key not in main_dict:
-            main_dict[main_key] = {}
-        main_dict[main_key].update({key: value})
-
     @classmethod
     def _get_timeslots(cls, start_time, end_time):
         """
@@ -4651,7 +4647,8 @@ class MongoDBFlow(MongoDB, DBFlow):
         """
         times = []
         time = cls.date_round(start_time)
-        while time <= cls.date_round(end_time):
+        end_timeslot = cls.date_round(end_time)
+        while time <= end_timeslot:
             times.append(time)
             time += datetime.timedelta(seconds=config.FLOW_TIME_PRECISION)
         return times
@@ -4660,16 +4657,12 @@ class MongoDBFlow(MongoDB, DBFlow):
     def _update_timeslots(cls, updatespec, rec):
         if config.FLOW_TIME:
             if config.FLOW_TIME_FULL_RANGE:
-                cls._add_or_update_dict_in_dict(updatespec,
-                    "$addToSet",
-                    "times",
-                    {"$each": cls._get_timeslots(
-                        rec['start_time'], rec['end_time'])})
+                updatespec.setdefault("$addToSet", {})["times"] = {
+                    "$each": cls._get_timeslots(
+                        rec['start_time'], rec['end_time'])}
             else:
-                cls._add_or_update_dict_in_dict(updatespec,
-                        "$addToSet",
-                        "times",
-                        cls.date_round(rec['start_time']))
+                updatespec.setdefault("$addToSet", {})["times"] = (
+                    cls.date_round(rec['start_time']))
 
     def _conn2flow(self, flow_bulk, rec):
         """
@@ -4692,14 +4685,10 @@ class MongoDBFlow(MongoDB, DBFlow):
         self._update_timeslots(updatespec, rec)
 
         if rec['proto'] in ['udp', 'tcp']:
-            self._add_or_update_dict_in_dict(updatespec, '$setOnInsert',
-                                             'dport', rec['dport'])
-            self._add_or_update_dict_in_dict(updatespec, '$addToSet',
-                                             'sports', rec['sport'])
+            updatespec.setdefault("$addToSet", {})["sports"] = rec["sport"]
         elif rec['proto'] == 'icmp':
-            findspec['type'] = rec['type']
-            self._add_or_update_dict_in_dict(updatespec, '$addToSet',
-                                             'codes', rec['code'])
+            updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
+
         flow_bulk.find(findspec).upsert().update(updatespec)
         return [findspec]
 
@@ -4832,7 +4821,7 @@ class MongoDBFlow(MongoDB, DBFlow):
         # because of the lack of available information in dns.log
         updatespec = {}
         query = rec.get("query", "") or ""
-        # dns.log don't store the answer type, so we need guess it
+        # dns.log does not store the answer type, so we need to guess it
         if utils.is_ptr(query):  # PTR query
             addr = utils.ptr2addr(query)
             try:
@@ -4863,12 +4852,12 @@ class MongoDBFlow(MongoDB, DBFlow):
         else:
             # A query response
             addrs = [addr for addr in (rec["answers"] or [])
-                     if utils.IP_RE.match(addr)]
+                     if utils.IPADDR.match(addr)]
             # Add hosts found in the answer
             for addr in addrs:
                 addr_0, addr_1 = self.ip2internal(addr)
                 server_host, server_port = [rec['dst'], rec['dport']]
-                a_type = "A" if utils.IPv4_RE.match(addr) else "AAAA"
+                a_type = "A" if utils.IPV4ADDR.match(addr) else "AAAA"
                 findspec = {
                     "addr_0": addr_0,
                     "addr_1": addr_1,
@@ -5144,7 +5133,7 @@ class MongoDBFlow(MongoDB, DBFlow):
                     group_fields[i][field_name] = {'$push': new_field_name}
                 index += 1
         # Add sum projection if sum_fields are provided
-        if len(sum_fields) > 0:
+        if sum_fields:
             project_fields['_sum'] = {
                 '$add': ['$%s' % field for field in internal_fields[2]]}
 
@@ -5153,7 +5142,7 @@ class MongoDBFlow(MongoDB, DBFlow):
         # Group stage
         group = group_fields[1]
         group['_id'] = group_fields[0]
-        group['_count'] = {'$sum': '$_sum' if len(sum_fields) > 0 else 1}
+        group['_count'] = {'$sum': '$_sum' if sum_fields else 1}
         pipeline.append({'$group': group})
 
         pipeline.append({"$sort": {"_count": 1 if least else -1}})
@@ -5216,7 +5205,7 @@ class MongoDBFlow(MongoDB, DBFlow):
             res_count = ext_entry.pop('_count')
             # Format collected results in a set of tuples to avoid duplicates
             res_collected = set()
-            if len(ext_entry) > 0:
+            if ext_entry:
                 number = 0
                 for key in ext_entry:
                     number = len(ext_entry[key])
@@ -5228,7 +5217,7 @@ class MongoDBFlow(MongoDB, DBFlow):
                         # If the given collected field does not exist,
                         # ext_entry_value will be [].
                         rec.append(ext_entry_value[i]
-                                   if len(ext_entry_value) > 0 else None)
+                                   if ext_entry_value else None)
                     res_collected.add(tuple(rec))
             yield {
                 'fields': res_fields,
@@ -5302,7 +5291,7 @@ class MongoDBFlow(MongoDB, DBFlow):
                 "addr_dst": row.get('dst_addr')
             }
         }
-        if timeline and len(row.get('times', [])) > 0:
+        if timeline and row.get('times', []):
             res["data"]["meta"] = {"times": row.get('times')}
         if row.get('proto') in ['tcp', 'udp']:
             res['data']["sports"] = row.get('sports')

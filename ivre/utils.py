@@ -147,6 +147,7 @@ NETADDR = re.compile(
     ')$',
     re.I,
 )
+IPV4ADDR = re.compile(_IPV4ADDR, re.I)
 
 NMAP_FINGERPRINT_IVRE_KEY = {
     # TODO: cpe
@@ -157,12 +158,6 @@ NMAP_FINGERPRINT_IVRE_KEY = {
     'p': 'service_product',
     'v': 'service_version',
 }
-
-# VERY simplistic IPv4/v6 re
-IP_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$|'
-                   '^[a-f0-9:]*:[a-f0-9]{0,4}$')
-
-IPv4_RE = re.compile(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$')
 
 logging.basicConfig()
 
@@ -1399,9 +1394,8 @@ def current_tz_offset():
     try:
         utc_offset_sec = int(utc_offset.total_seconds())
     except AttributeError:
-        utc_offset_sec = (utc_offset.microseconds +
-                          (utc_offset.seconds +
-                           utc_offset.days * 24 * 3600) * 10**6) / 10**6
+        # total_seconds does not exist in Python 2.6
+        utc_offset_sec = utc_offset.seconds + utc_offset.days * 24 * 3600
     return utc_offset_sec
 
 

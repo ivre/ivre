@@ -432,12 +432,11 @@ class IvreTests(unittest.TestCase):
     def check_count_value_api(self, name_or_value, flt, database=None,
                               **kwargs):
         count = database.count(flt)
-        if name_or_value is None:
-            pass
-        elif isinstance(name_or_value, str):
-            self.check_value(name_or_value, count)
-        else:
-            self.assertEqual(name_or_value, count)
+        if name_or_value is not None:
+            if isinstance(name_or_value, str):
+                self.check_value(name_or_value, count)
+            else:
+                self.assertEqual(name_or_value, count)
         return count
 
     def check_flow_top_values(self, name, cmd):
@@ -456,9 +455,7 @@ class IvreTests(unittest.TestCase):
         count = {'clients': int(m.group(1)),
                  'servers': int(m.group(2)),
                  'flows': int(m.group(3))}
-        if name_or_value is None:
-            pass
-        else:
+        if name_or_value is not None:
             self.check_value(name_or_value, count)
         return count
 
@@ -467,12 +464,11 @@ class IvreTests(unittest.TestCase):
         res, out, _ = RUN(["ivre", command, "--count"] + cliflt)
         self.assertEqual(res, 0)
         count = int(out)
-        if name_or_value is None:
-            pass
-        elif isinstance(name_or_value, str):
-            self.check_value(name_or_value, count)
-        else:
-            self.assertEqual(name_or_value, count)
+        if name_or_value is not None:
+            if isinstance(name_or_value, str):
+                self.check_value(name_or_value, count)
+            else:
+                self.assertEqual(name_or_value, count)
         return count
 
     def check_count_value_cgi(self, name_or_value, webflt, webroute=""):
@@ -485,12 +481,11 @@ class IvreTests(unittest.TestCase):
         udesc = urlopen(req)
         self.assertEqual(udesc.getcode(), 200)
         count = json.loads(udesc.read().decode())
-        if name_or_value is None:
-            pass
-        elif isinstance(name_or_value, str):
-            self.check_value(name_or_value, count)
-        else:
-            self.assertEqual(name_or_value, count)
+        if name_or_value is not None:
+            if isinstance(name_or_value, str):
+                self.check_value(name_or_value, count)
+            else:
+                self.assertEqual(name_or_value, count)
         return count
 
     def check_nmap_count_value(self, name_or_value, flt, cliflt, webflt):
@@ -529,12 +524,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(udesc.getcode(), 200)
         res = udesc.read().decode()
         count = json.loads(res)
-        if name_or_value is None:
-            pass
-        elif isinstance(name_or_value, str):
-            self.check_value(name_or_value, count)
-        else:
-            self.assertEqual(name_or_value, count)
+        if name_or_value is not None:
+            if isinstance(name_or_value, str):
+                self.check_value(name_or_value, count)
+            else:
+                self.assertEqual(name_or_value, count)
         return count
 
     def check_flow_count_value_api(self, name_or_value, flt, database):
@@ -558,17 +552,8 @@ class IvreTests(unittest.TestCase):
     def get_timezone_fmt_date(cls, date_fmt):
         """ Convert the given string formatted UTC date into a
         string formatted local timezone date"""
-        now = time.time()
-        utc_offset = (datetime.fromtimestamp(now) -
-                      datetime.utcfromtimestamp(now))
-        try:
-            utc_offset_sec = int(utc_offset.total_seconds())
-        except AttributeError:
-            utc_offset_sec = (utc_offset.microseconds +
-                              (utc_offset.seconds +
-                               utc_offset.days * 24 * 3600) * 10**6) / 10**6
+        utc_offset_sec = ivre.utils.current_tz_offset()
         tz_delta = timedelta(seconds=utc_offset_sec)
-
         date = datetime.strptime(date_fmt, "%Y-%m-%d %H:%M:%S.%f")
         date += tz_delta
         return date.strftime("%Y-%m-%d %H:%M:%S.%f")
