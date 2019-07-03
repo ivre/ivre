@@ -65,6 +65,23 @@ META_DESC = {
     },
     'modbus': {
         'name': 'func', 'exception': None
+    },
+    'snmp': {
+        'version': None, 'community': None, 'get_requests': None,
+        'get_bulk_requests': None, 'get_responses': None,
+        'set_requests': None
+    },
+    'ssl': {
+        'version': None, 'cipher': None, 'curve': None, 'server_name': None,
+        'last_alert': None, 'next_protocol': None, 'subject': None,
+        'issuer': None, 'client_subject': None, 'client_issuer': None
+    },
+    'rdp': {
+        'cookie': None, 'result': None, 'security_protocol': None,
+        'keyboard_layout': None, 'client_build': None, 'client_name': None,
+        'client_dig_product_id': None, 'cert_type': None, 'cert_count': None,
+        'cert_permanent': None, 'encryption_level': None,
+        'encryption_method': None
     }
 }
 

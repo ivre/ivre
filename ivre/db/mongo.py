@@ -4943,6 +4943,42 @@ class MongoDBFlow(MongoDB, DBFlow):
         self._conn2flow(bulks[self.column_flow], rec)
         self._conn2passive(bulks[self.column_passive], rec)
 
+    def _flow2flow(self, flow_bulk, rec):
+        """
+        Take a line coming from Netflow or Argus and add it to flow bulk
+        """
+        findspec = self._get_flow_key(rec)
+
+        updatespec = {
+            '$min': {'firstseen': rec['start_time']},
+            '$max': {'lastseen': rec['end_time']},
+            '$inc': {
+                'cspkts': rec['cspkts'],
+                'scpkts': rec['scpkts'],
+                'csbytes': rec['csbytes'],
+                'scbytes': rec['scbytes'],
+                'count': 1
+            },
+        }
+
+        self._update_timeslots(updatespec, rec)
+
+        if rec['proto'] in ['udp', 'tcp']:
+            updatespec.setdefault("$addToSet", {})["sports"] = rec["sport"]
+        elif rec['proto'] == 'icmp':
+            updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
+
+        flow_bulk.find(findspec).upsert().update(updatespec)
+        return [findspec]
+
+    def flow2flow(self, bulks, rec):
+        """
+        Take a line coming from Netflow or Argus and add it to bulks
+        """
+        rec['src_addr_0'], rec['src_addr_1'] = self.ip2internal(rec['src'])
+        rec['dst_addr_0'], rec['dst_addr_1'] = self.ip2internal(rec['dst'])
+        self._flow2flow(bulks[self.column_flow], rec)
+
     @staticmethod
     def bulk_commit(bulks):
         for bulk in bulks:

@@ -159,6 +159,15 @@ ALL_DESCS = {
 }
 
 
+# Associates a list of fields that must be present to the
+# link attributes and the accumulators
+FIELD_REQUEST_EXT = [
+    (('sport', 'dport'), ('proto', 'dport'), {'sports': ('{sport}', 5)}),
+    (('type', 'code'), ('proto', 'type'), {'codes': ('{code}', None)}),
+    (('type'), ('proto', 'type'), {}),
+]
+
+
 class Neo4jDB(DBFlow):
     values = re.compile('{([^}]+)}')
 
@@ -1511,6 +1520,23 @@ DETACH DELETE old_f
             "scpkts": "{resp_pkts}",
             "scbytes": "{resp_ip_bytes}",
         }
+        if linkattrs not in query_cache:
+            query_cache[linkattrs] = self.add_flow(
+                ["Flow"], linkattrs, counters=counters,
+                accumulators=accumulators)
+        bulk.append(query_cache[linkattrs], rec)
+
+    def flow2flow(self, bulk, rec):
+        query_cache = self.query_cache
+        linkattrs = ('proto',)
+        accumulators = {}
+        for (fields, sp_linkattrs,
+             sp_accumulators) in FIELD_REQUEST_EXT:
+            if all(field in rec for field in fields):
+                linkattrs = sp_linkattrs
+                accumulators = sp_accumulators
+                break
+        counters = ["cspkts", "scpkts", "csbytes", "scbytes"]
         if linkattrs not in query_cache:
             query_cache[linkattrs] = self.add_flow(
                 ["Flow"], linkattrs, counters=counters,

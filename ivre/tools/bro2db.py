@@ -58,12 +58,30 @@ def sip2flow(bulk, rec):
     db.flow.any2flow(bulk, 'sip', rec)
 
 
+def snmp2flow(bulk, rec):
+    rec['proto'] = 'udp'
+    db.flow.any2flow(bulk, 'snmp', rec)
+
+
+def ssl2flow(bulk, rec):
+    rec['proto'] = 'tcp'  # FIXME Is it always true?
+    db.flow.any2flow(bulk, 'ssl', rec)
+
+
+def rdp2flow(bulk, rec):
+    rec['proto'] = 'tcp'  # FIXME Is it always true?
+    db.flow.any2flow(bulk, 'rdp', rec)
+
+
 FUNCTIONS = {
     "conn": db.flow.conn2flow,
     "http": http2flow,
     "ssh": ssh2flow,
     "dns": db.flow.dns2flow,
-    "sip": sip2flow
+    "sip": sip2flow,
+    "snmp": snmp2flow,
+    "ssl": ssl2flow,
+    "rdp": rdp2flow,
 }
 
 
