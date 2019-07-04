@@ -186,7 +186,7 @@ before_script:
   - export BRO_SAMPLES=`pwd`/usr/local/bro/testing
   - ivre --version; echo; bro --version; echo; nmap --version
 
-script: (test "$DB" != "maxmind" || test "$TRAVIS_PYTHON_VERSION" = 2.6 || test "$TRAVIS_PYTHON_VERSION" = 3.3 || (flake8 --ignore=F401,E402 doc/conf.py && flake8 --ignore= setup.py bin/ivre && flake8 --ignore=E402,W504 tests/tests.py && flake8 --ignore=W504 ivre/ && echo "flake8 OK (except W504)")) && (test "$DB" != "maxmind" || test "$TRAVIS_PYTHON_VERSION" != 3.7 || (codespell  --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(an|bs|d3|jq|lk)/|^data/|\.(png|gif)$'` && echo "codespell OK")) && cd tests/ && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report
+script: (test "$DB" != "maxmind" || test "$TRAVIS_PYTHON_VERSION" = 2.6 || test "$TRAVIS_PYTHON_VERSION" = 3.3 || (flake8 --ignore=F401,E402 doc/conf.py && flake8 --ignore= setup.py bin/ivre && flake8 --ignore=E402,W504 tests/tests.py && flake8 --ignore=W504 ivre/ && echo "flake8 OK (except W504)")) && (test "$DB" != "maxmind" || test "$TRAVIS_PYTHON_VERSION" != 3.7 || (codespell  --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif)$'` && echo "codespell OK")) && cd tests/ && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report
 
 after_success:
   - codecov

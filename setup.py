@@ -201,6 +201,47 @@ specialized scripts.
           'web/static/templates/subview-ports-summary.html',
           'web/static/templates/subview-service-summary.html',
           'web/static/templates/topvalues.html']),
+        # Doc (Web)
+        ('share/ivre/web/static/doc',
+         [os.path.join('web/static/doc', x)
+          for x in os.listdir('web/static/doc')
+          if x.endswith('.html') or x.endswith('.js')]),
+        ('share/ivre/web/static/doc/dev',
+         [os.path.join('web/static/doc/dev', x)
+          for x in os.listdir('web/static/doc/dev')
+          if x.endswith('.html')]),
+        ('share/ivre/web/static/doc/install',
+         [os.path.join('web/static/doc/install', x)
+          for x in os.listdir('web/static/doc/install')
+          if x.endswith('.html')]),
+        ('share/ivre/web/static/doc/usage',
+         [os.path.join('web/static/doc/usage', x)
+          for x in os.listdir('web/static/doc/usage')
+          if x.endswith('.html')]),
+        ('share/ivre/web/static/doc/_images',
+         [os.path.join('web/static/doc/_images', x)
+          for x in os.listdir('web/static/doc/_images')
+          if x.endswith('.png') or x.endswith('.png.map')]),
+        ('share/ivre/web/static/doc/_static',
+         [os.path.join('web/static/doc/_static', x)
+          for x in os.listdir('web/static/doc/_static')
+          if x.endswith('.css') or x.endswith('.js') or x.endswith('.png')]),
+        ('share/ivre/web/static/doc/_sources',
+         [os.path.join('web/static/doc/_sources', x)
+          for x in os.listdir('web/static/doc/_sources')
+          if x.endswith('.rst.txt')]),
+        ('share/ivre/web/static/doc/_sources/dev',
+         [os.path.join('web/static/doc/_sources/dev', x)
+          for x in os.listdir('web/static/doc/_sources/dev')
+          if x.endswith('.rst.txt')]),
+        ('share/ivre/web/static/doc/_sources/install',
+         [os.path.join('web/static/doc/_sources/install', x)
+          for x in os.listdir('web/static/doc/_sources/install')
+          if x.endswith('.rst.txt')]),
+        ('share/ivre/web/static/doc/_sources/usage',
+         [os.path.join('web/static/doc/_sources/usage', x)
+          for x in os.listdir('web/static/doc/_sources/usage')
+          if x.endswith('.rst.txt')]),
         # IVRE
         ('share/ivre/web/static/ivre',
          ['web/static/ivre/flow.css',
@@ -254,24 +295,8 @@ specialized scripts.
         # Dokuwiki
         ('share/ivre/dokuwiki',
          ['web/dokuwiki/backlinks.patch']),
-        ('share/ivre/dokuwiki/doc',
-         ['web/dokuwiki/doc/agent.txt',
-          'web/dokuwiki/doc/docker.txt',
-          'web/dokuwiki/doc/faq.txt',
-          'web/dokuwiki/doc/fast-install-and-first-run.txt',
-          'web/dokuwiki/doc/flow.txt',
-          'web/dokuwiki/doc/install.txt',
-          'web/dokuwiki/doc/license-external.txt',
-          'web/dokuwiki/doc/license.txt',
-          'web/dokuwiki/doc/readme.txt',
-          'web/dokuwiki/doc/screenshots.txt',
-          'web/dokuwiki/doc/tests.txt',
-          'web/dokuwiki/doc/webui.txt']),
         ('share/ivre/dokuwiki/media',
          ['web/dokuwiki/media/logo.png']),
-        ('share/ivre/dokuwiki/media/doc/screenshots',
-         [os.path.join('doc/screenshots', x)
-          for x in os.listdir('doc/screenshots')]),
         ('share/ivre/nmap_scripts',
          ['nmap_scripts/http-screenshot.nse',
           'nmap_scripts/mainframe-banner.nse',
@@ -281,20 +306,19 @@ specialized scripts.
           'nmap_scripts/x11-screenshot.nse']),
         ('share/ivre/nmap_scripts/patches',
          ['nmap_scripts/patches/rtsp-url-brute.patch']),
-        ('share/doc/ivre',
-         ['doc/AGENT.md',
-          'doc/DOCKER.md',
-          'doc/FAQ.md',
-          'doc/FAST-INSTALL-AND-FIRST-RUN.md',
-          'doc/FLOW.md',
-          'doc/INSTALL.md',
-          'doc/LICENSE-EXTERNAL.md',
-          'doc/LICENSE.md',
-          'doc/README.md',
-          'doc/SCREENSHOTS.md',
-          'doc/TESTS.md',
-          'doc/WEBUI.md']),
-        ('share/doc/ivre/screenshots',
+        ('share/doc/ivre/rst',
+         [os.path.join('doc/', x) for x in os.listdir('doc/')
+          if x.endswith('.rst')]),
+        ('share/doc/ivre/rst/dev',
+         [os.path.join('doc/dev', x) for x in os.listdir('doc/dev')
+          if x.endswith('.rst')]),
+        ('share/doc/ivre/rst/install',
+         [os.path.join('doc/install', x) for x in os.listdir('doc/install')
+          if x.endswith('.rst')]),
+        ('share/doc/ivre/rst/usage',
+         [os.path.join('doc/usage', x) for x in os.listdir('doc/usage')
+          if x.endswith('.rst')]),
+        ('share/doc/ivre/rst/screenshots',
          ['doc/screenshots/webui-details-heatmapzoom.png',
           'doc/screenshots/webui-flow-details-flow.png',
           'doc/screenshots/webui-flow-details-host.png',

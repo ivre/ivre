@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Some use cases &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Active recon" href="active-recon.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="some-use-cases">
+<h1>Some use cases<a class="headerlink" href="#some-use-cases" title="Permalink to this headline">¶</a></h1>
+<p>As a <em>framework</em>, IVRE has several possible use cases. Of course, you
+probably want to use only parts of what IVRE can do.</p>
+<div class="section" id="your-own-shodan-zoomeye-censys-binaryedgeio-whatever">
+<h2>Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever<a class="headerlink" href="#your-own-shodan-zoomeye-censys-binaryedgeio-whatever" title="Permalink to this headline">¶</a></h2>
+<p>You can use IVRE as a private (or even public, if you want)
+alternative to Shodan (or any other similar service).</p>
+<p>The main difference with public services is that you will have the
+control of your data. You can scan whatever you want (your private
+networks, public networks, a specific country or Autonomous System,
+the whole Internet, etc.), for any port or protocol. You can run any
+query on your data; no-one has to know what you are really looking
+for.</p>
+<p>Of course, this require more work than just using an existing public
+service, but the benefits are huge!</p>
+<p>IVRE does not come with a scanner, and takes advantage of <a class="reference external" href="https://nmap.org/">Nmap</a> and <a class="reference external" href="https://github.com/robertdavidgraham/masscan">Masscan</a>. Depending on your
+use case, you can choose one or use both (IVRE will happily merge the
+results for you). Remember to use the <code class="docutils literal notranslate"><span class="pre">-oX</span></code> option (which works with
+both Nmap and Masscan), as IVRE needs the XML output file.</p>
+<p>You can use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runcsans</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code> to run Nmap scans against wide targets (more)
+easily.</p>
+<p>You will then store the results from the XML output files into IVRE
+database using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>.</p>
+<p>Finally, use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> to create a <code class="docutils literal notranslate"><span class="pre">view</span></code> (see
+<a class="reference internal" href="../principles.html#purposes"><span class="std std-ref">Purposes</span></a>) that you can explore with the
+<a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p>
+</div>
+<div class="section" id="your-own-passive-dns-service">
+<h2>Your own Passive DNS service<a class="headerlink" href="#your-own-passive-dns-service" title="Permalink to this headline">¶</a></h2>
+<p>Passive DNS services log DNS answers into a database and let you run
+queries against them.</p>
+<p>IVRE uses its <a class="reference external" href="https://www.zeek.org/">Zeek</a> script <code class="docutils literal notranslate"><span class="pre">passiverecon</span></code>
+to, among others, log DNS answers. They are stored in the <code class="docutils literal notranslate"><span class="pre">passive</span></code>
+purpose (see <a class="reference internal" href="../principles.html#purposes"><span class="std std-ref">Purposes</span></a>) via <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">passiverecon2db</span></code>
+CLI tool as <code class="docutils literal notranslate"><span class="pre">DNS_ANSWER</span></code> records.</p>
+<p>They can be queried using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">iphost</span></code> CLI tool, as in the
+following example (the results come from a PCAP file used in IVRE’s
+<a class="reference internal" href="../dev/tests.html#tests"><span class="std std-ref">Tests</span></a>):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre iphost ipv4.icanhazip.com
+ipv4.icanhazip.com A 216.69.252.101 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
+ipv4.icanhazip.com A 216.69.252.100 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
+ipv4.icanhazip.com A 216.69.252.100 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
+ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
+
+$ ivre iphost 216.69.252.101
+ipv4.icanhazip.com A 216.69.252.101 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
+ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
+</pre></div>
+</div>
+</div>
+<div class="section" id="blog-posts-and-other-resources">
+<h2>Blog posts and other resources<a class="headerlink" href="#blog-posts-and-other-resources" title="Permalink to this headline">¶</a></h2>
+<p>The author’s blog has some <a class="reference external" href="http://pierre.droids-corp.org/blog/html/tags/ivre.html">IVRE-related blog posts</a> that might be useful.</p>
+<p>Here is a list of other blog posts about or around IVRE:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Scan the hosts that hit your honeypots, and exploit the results!</p>
+<ul>
+<li><p><a class="reference external" href="https://isc.sans.edu/forums/diary/Whos+Attacking+Me/21933/">Who’s Attacking Me?</a></p></li>
+<li><p><a class="reference external" href="https://www.serializing.me/2019/01/27/three-honeypots-and-a-month-after/">Three Honeypots and a Month After</a></p></li>
+</ul>
+</li>
+<li><p>Scanning SAP Services:</p>
+<ul>
+<li><p><a class="reference external" href="https://github.com/gelim/nmap-erpscan">gelim/nmap-erpscan</a> on Github</p></li>
+<li><p><a class="reference external" href="https://erpscan.io/press-center/blog/sap-services-detection-via-nmap-probes/">SAP Services detection via nmap probes</a></p></li>
+<li><p><a class="reference external" href="https://erpscan.io/press-center/blog/sap-dispatcher-security/">SAP Dispatcher Security</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="https://blog.cybsec.xyz/re-discover-your-company-network-with-ivre/">Re-discover your company network with Ivre</a></p></li>
+<li><p>IVRE tests &amp; reviews:</p>
+<ul>
+<li><p><a class="reference external" href="https://security-bits.de/posts/2018/12/07/ivre.html">IVRE</a></p></li>
+<li><p><a class="reference external" href="https://mstajbakhsh.ir/ivre-drunk-frenchman-port-scanner-framework/">IVRE! Drunk Frenchman Port Scanner Framework!</a></p></li>
+<li><p><a class="reference external" href="https://bestestredteam.com/2019/02/10/visualizing-scans-part-1-ivre/">Visualizing Scans Part 1: IVRE</a></p></li>
+</ul>
+</li>
+<li><p>Spanish:</p>
+<ul>
+<li><p><a class="reference external" href="https://www.welivesecurity.com/la-es/2015/08/11/reconocimiento-de-redes-con-ivre/">Reconocimiento de redes con IVRE</a></p></li>
+</ul>
+</li>
+</ul>
+</div></blockquote>
+<p>You have found (or written) a document that might help other use IVRE
+or decide if they need it? Please let us know: <a class="reference external" href="https://github.com/cea-sec/ivre/issues/new">open an issue</a> or <a class="reference internal" href="../index.html#contact"><span class="std std-ref">Contact</span></a>
+us so that we can add a link here!</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Some use cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#your-own-shodan-zoomeye-censys-binaryedgeio-whatever">Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#your-own-passive-dns-service">Your own Passive DNS service</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#blog-posts-and-other-resources">Blog posts and other resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">&lt;no title&gt;</a></li>
+      <li>Next: <a href="active-recon.html" title="next chapter">Active recon</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/usage/use-cases.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

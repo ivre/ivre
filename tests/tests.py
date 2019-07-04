@@ -3058,13 +3058,12 @@ which `predicate()` is True, given `webflt`.
         self.assertTrue(result)
 
         # Test dokuwiki pages
-        req = Request('http://%s:%d/dokuwiki/doc:readme' % (HTTPD_HOSTNAME,
-                                                            HTTPD_PORT))
+        req = Request('http://%s:%d/doc' % (HTTPD_HOSTNAME, HTTPD_PORT))
         udesc = urlopen(req)
         self.assertEqual(udesc.getcode(), 200)
         result = False
         for line in udesc:
-            if b'is a network recon framework' in line:
+            if b'<title>Welcome to IVRE' in line:
                 result = True
                 break
         self.assertTrue(result)

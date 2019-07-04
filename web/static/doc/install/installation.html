@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Installation &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Fast install &amp; first run" href="fast-install-and-first-run.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="database">
+<h2>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h2>
+<p>Depending on the backends you wan to use, install a database
+server. Please keep in mind that currently, MongoDB is the only
+supported backend for <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes, and
+Neo4j is the only supported backend for <code class="docutils literal notranslate"><span class="pre">flow</span></code>. To learn more about
+the different purposes, read the <a class="reference internal" href="../principles.html#principles"><span class="std std-ref">Principles</span></a>.</p>
+<p>The database servers installation and setup is not covered here, and
+depends on your platform and needs. Please refer to the server
+documentation on how to install it. For MongoDB you can read <a class="reference external" href="http://docs.mongodb.org/manual/installation/">the
+installation section</a>
+of their documentation.</p>
+</div>
+<div class="section" id="dependencies">
+<h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="external-programs">
+<h3>External programs<a class="headerlink" href="#external-programs" title="Permalink to this headline">¶</a></h3>
+<p>If you plan to run scans from a machine, install <a class="reference external" href="https://nmap.org/">Nmap</a> and <a class="reference external" href="https://github.com/robertdavidgraham/masscan">Masscan</a>. If you want to
+integrate screenshots, install <a class="reference external" href="https://github.com/tesseract-ocr/tesseract">Tesseract</a>, <a class="reference external" href="https://www.imagemagick.org/">ImageMagick</a>, <a class="reference external" href="http://ffmpeg.org/">FFmpeg</a> and
+<a class="reference external" href="http://phantomjs.org/">PhantomJS</a>.</p>
+<p>If you plan to analyze PCAP file on a machine, install, depending on
+your needs:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.zeek.org/">Zeek</a> (previously known as Bro, version 2.5 minimum).</p></li>
+<li><p><a class="reference external" href="http://lcamtuf.coredump.cx/p0f/">p0f</a> (version 2, will not work with version 3).</p></li>
+<li><p><a class="reference external" href="http://qosient.com/argus/">Argus</a>.</p></li>
+<li><p><a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a>.</p></li>
+</ul>
+</div>
+<div class="section" id="python">
+<h3>Python<a class="headerlink" href="#python" title="Permalink to this headline">¶</a></h3>
+<p>To install IVRE, you’ll need <a class="reference external" href="http://www.python.org/">Python</a> 2
+(version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum, prefer
+3.4 or newer), with the following modules:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://bottlepy.org/">Bottle</a>.</p></li>
+<li><p><a class="reference external" href="http://www.pycrypto.org/">Crypto</a>.</p></li>
+<li><p><a class="reference external" href="https://python-future.org/">Future</a>.</p></li>
+<li><p><a class="reference external" href="http://api.mongodb.org/python/">pymongo</a> version 2.7.2 minimum.</p></li>
+<li><p><a class="reference external" href="http://py2neo.org/v3/">py2neo</a> version 3, optional, to use the flow purpose.</p></li>
+<li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the experimental PostgreSQL backend.</p></li>
+<li><p><a class="reference external" href="http://www.pythonware.com/products/pil/">PIL</a> optional, to trim screenshots.</p></li>
+</ul>
+</div>
+<div class="section" id="databases">
+<h3>Databases<a class="headerlink" href="#databases" title="Permalink to this headline">¶</a></h3>
+<p>IVRE’s reference backend service is <a class="reference external" href="https://www.mongodb.org/">MongoDB</a>, version 2.6 minimum. It is highly
+suggested that you use the latest stable release (the performances
+have improved quite a lot since version 2.6), or at least 3.2 (IVRE
+uses a hack for some operations when it connects to a server older
+than 3.2).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose relies, for now, on <a class="reference external" href="https://neo4j.com/">Neo4j</a>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes have an experimental
+PostgreSQL backend that can be used in lieu of MongoDB.</p>
+<p>Please refer to the database servers (or your distribution)
+documentation on how to install and configure them.</p>
+</div>
+<div class="section" id="web">
+<h3>Web<a class="headerlink" href="#web" title="Permalink to this headline">¶</a></h3>
+<p>For production services, it is recommended to install either <a class="reference external" href="https://httpd.apache.org/">Apache</a> with the <a class="reference external" href="https://modwsgi.readthedocs.io/en/develop/">WSGI module</a>, or <a class="reference external" href="https://www.nginx.com/">Nginx</a> with <a class="reference external" href="https://uwsgi-docs.readthedocs.io/en/latest/">uWSGI</a>.</p>
+<p>IVRE can use <a class="reference external" href="https://www.dokuwiki.org/dokuwiki">Dokuwiki</a> as its
+notepad, it is also recommended to install it.</p>
+<p>Please refer to the servers (or your distribution) documentation on
+how to install and configure them.</p>
+<p>Configuration file samples are provided in IVRE’s source repository,
+under <code class="docutils literal notranslate"><span class="pre">pkg/apache</span></code> and <code class="docutils literal notranslate"><span class="pre">pkg/nginx</span></code>. Also, the
+<a class="reference internal" href="docker.html#docker"><span class="std std-ref">Docker</span></a> creation files in <code class="docutils literal notranslate"><span class="pre">docker/web</span></code> and
+<code class="docutils literal notranslate"><span class="pre">docker/web-apache</span></code> can provide useful examples.</p>
+<p>If you do not want (or cannot) to install a Web server, you can try
+IVRE’s integrated server, suited for tests or tiny installations. Just
+run <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">httpd</span></code>!</p>
+</div>
+</div>
+<div class="section" id="ivre">
+<h2>IVRE<a class="headerlink" href="#ivre" title="Permalink to this headline">¶</a></h2>
+<p>The installation of IVRE itself can be done:</p>
+<ul>
+<li><p>On <a class="reference external" href="https://getfedora.org/fr/">Fedora</a>, you can use the <a class="reference external" href="https://copr.fedorainfracloud.org/coprs/">Copr
+package</a>; follow the
+<a class="reference external" href="https://copr.fedorainfracloud.org/coprs/pessoft/IVRE/">instructions</a>.</p></li>
+<li><p>On other RPM-based Linux distributions, you can easily build RPM
+packages (using the provided <code class="docutils literal notranslate"><span class="pre">pkg/buildrpm</span></code> script, or use the
+<code class="docutils literal notranslate"><span class="pre">setup.py</span></code> script with your own options).</p></li>
+<li><p>On <a class="reference external" href="https://www.archlinux.org/">Arch Linux</a>, there are <a class="reference external" href="https://aur.archlinux.org/">AUR</a> packages that can be installed using
+<a class="reference external" href="https://aur.archlinux.org/packages/yay/">yay</a> for example. The
+packages are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ivre</span></code>: the main package, which depends on <code class="docutils literal notranslate"><span class="pre">python-ivre</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">python-ivre</span></code> and <code class="docutils literal notranslate"><span class="pre">python2-ivre</span></code>: the Python 3 and Python 2
+libraries. You don’t need <code class="docutils literal notranslate"><span class="pre">python2-ivre</span></code> unless you have Python
+2 only code relying on IVRE.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ivre-web</span></code>: the Web application</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ivre-docs</span></code>: the documentation</p></li>
+</ul>
+<p>These packages are based on the latest stable version; they all have
+a <code class="docutils literal notranslate"><span class="pre">-git</span></code> version, based on the current development code from the
+<a class="reference external" href="https://github.com/cea-sec/ivre">Github repository</a>. You can
+install for example <code class="docutils literal notranslate"><span class="pre">ivre-git</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre-web-git</span></code> if you want to
+test the latest developments.</p>
+<p>All the packages are based on the same bases: <a class="reference external" href="https://aur.archlinux.org/pkgbase/ivre/">ivre</a> and <a class="reference external" href="https://aur.archlinux.org/pkgbase/ivre-git/">ivre-git</a>.</p>
+</li>
+<li><p>On <a class="reference external" href="https://blackarch.org/">BlackArch Linux</a> (an Arch Linux-based
+penetration testing distribution) IVRE is packaged (and installed in
+the Live ISO).</p></li>
+<li><p>Using <a class="reference external" href="https://pypi.org/project/pip">pip</a>: run <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span>
+<span class="pre">ivre</span></code> (this will download and install for you <a class="reference external" href="https://pypi.org/project/ivre">the IVRE package</a> and its Python dependencies from
+PyPI, the Python Package Index).</p></li>
+<li><p>From the source code, using the <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> (classical <code class="docutils literal notranslate"><span class="pre">./setup.py</span>
+<span class="pre">build;</span> <span class="pre">sudo</span> <span class="pre">./setup.py</span> <span class="pre">install</span></code>) script.</p></li>
+<li><p>Using <a class="reference internal" href="docker.html#docker"><span class="std std-ref">Docker</span></a> (in this case you do not need to
+follow the instructions in
+<a class="reference internal" href="#configuration"><span class="std std-ref">Configuration</span></a>, as the Docker containers
+are already configured).</p></li>
+</ul>
+</div>
+<div class="section" id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>Default configuration values are hard-coded in <code class="docutils literal notranslate"><span class="pre">ivre/config.py</span></code>. You
+should not change this file, unless you are modifying IVRE and you
+want to change the default configuration. You do not need to do this
+if you want to install IVRE with a non-default configuration, you just
+need to distribute a proper configuration file.</p>
+<p>You can override default values in configuration files:</p>
+<ul class="simple">
+<li><p>system-wide: <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> in the following directories: <code class="docutils literal notranslate"><span class="pre">/etc/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/etc/ivre</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc/ivre</span></code>.</p></li>
+<li><p>user-specific:</p>
+<ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code> (read after the system-wide configuration files,</dt><dd><p>so highest priority).</p>
+</dd>
+</dl>
+</li>
+</ul>
+</li>
+<li><p>another configuration file can be specified using the <code class="docutils literal notranslate"><span class="pre">$IVRE_CONF</span></code>
+environment variable.</p></li>
+</ul>
+<p>The configuration files are Python files. They may set, for example,
+the variable <code class="docutils literal notranslate"><span class="pre">DB</span></code> to use a different database than the default one.</p>
+</div>
+<div class="section" id="initialization">
+<h2>Initialization<a class="headerlink" href="#initialization" title="Permalink to this headline">¶</a></h2>
+<p>Once IVRE has been properly configured, it’s time to initialize its
+databases.</p>
+<p>For that, the command-line tools (namely <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">scancli</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">runscansagentdb</span></code>, respectively for information about IP addresses,
+passive information, active information and running scans through
+agents) have a <code class="docutils literal notranslate"><span class="pre">--init</span></code> option.</p>
+<p>So you can run, with a user or from a host where the configuration has a
+write access to the database (add <code class="docutils literal notranslate"><span class="pre">&lt;</span> <span class="pre">/dev/null</span></code> to skip the
+confirmation):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ yes | ivre ipinfo --init
+$ yes | ivre scancli --init
+$ yes | ivre view --init
+$ yes | ivre flowcli --init
+$ yes | sudo ivre runscansagentdb --init
+</pre></div>
+</div>
+</div>
+<div class="section" id="getting-ip-data">
+<h2>Getting IP data<a class="headerlink" href="#getting-ip-data" title="Permalink to this headline">¶</a></h2>
+<p>To fetch the IP address data files (mainly from <a class="reference external" href="https://www.maxmind.com/">Maxmind</a>) and parse them (required if you want to
+scan or list all IP addresses from a country or an AS), just run the
+following command (it takes a long time, usually more than 40 minutes
+on a decent server):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre ipdata --download --import-all
+</pre></div>
+</div>
+<p>It is advised to run this command on a regular basis (e.g.,
+weekly). If you use IVRE on several machines, you may want to run the
+command on one machine and create an <code class="docutils literal notranslate"><span class="pre">ivre-data</span></code> package containing
+the files under the <code class="docutils literal notranslate"><span class="pre">/usr/share/ivre/geoip</span></code> directory (or distribute
+those files somehow).</p>
+</div>
+<div class="section" id="using-agents">
+<h2>Using Agents<a class="headerlink" href="#using-agents" title="Permalink to this headline">¶</a></h2>
+<p>If you do not plan to run active scans with remote agents (where IVRE
+will not be installed), you can skip this section.</p>
+<p>The agent does not require IVRE to be installed. It is a script that
+needs to be adapted to each situation.</p>
+<p>The agent is only needed when you cannot install IVRE on the machine
+used to scan or when you want to use several machines to run one scan.</p>
+<p>It requires a POSIX environment, and the commands <code class="docutils literal notranslate"><span class="pre">screen</span></code>,
+<code class="docutils literal notranslate"><span class="pre">rsync</span></code> and <code class="docutils literal notranslate"><span class="pre">nmap</span></code> (of course). See the
+<a class="reference internal" href="agents.html#agents"><span class="std std-ref">Agents</span></a> documentation for more information about
+that.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#database">Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#dependencies">Dependencies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#external-programs">External programs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#python">Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#databases">Databases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#web">Web</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#ivre">IVRE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#initialization">Initialization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-ip-data">Getting IP data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-agents">Using Agents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">&lt;no title&gt;</a></li>
+      <li>Next: <a href="fast-install-and-first-run.html" title="next chapter">Fast install &amp; first run</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/install/installation.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

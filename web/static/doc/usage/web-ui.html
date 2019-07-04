@@ -1,0 +1,400 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Web User Interface &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="../dev/index.html" />
+    <link rel="prev" title="Flow" href="flow.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="web-user-interface">
+<h1>Web User Interface<a class="headerlink" href="#web-user-interface" title="Permalink to this headline">¶</a></h1>
+<p>This web interface presents results of the <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see
+<a class="reference internal" href="../principles.html#purposes"><span class="std std-ref">Purposes</span></a>) that can be filtered with keywords (for
+some of them, shortcuts are available in the menus).</p>
+<p>Keep in mind that the information available in this interface highly
+depends on the options used to run Nmap.</p>
+<div class="section" id="the-interface">
+<h2>The interface<a class="headerlink" href="#the-interface" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="the-top-navigation-bar">
+<h3>The top navigation bar<a class="headerlink" href="#the-top-navigation-bar" title="Permalink to this headline">¶</a></h3>
+<p>It contains several elements; from left to right:</p>
+<ul class="simple">
+<li><p>A shortcut to the start page, that cleans every keyword.</p></li>
+<li><p>A button to display this help page.</p></li>
+<li><p>Some menus with shortcuts to add filtering, sort or display commands.</p></li>
+<li><p>Some links to “share” (export) the current page.</p></li>
+</ul>
+</div>
+<div class="section" id="the-left-side-bar">
+<h3>The left side bar<a class="headerlink" href="#the-left-side-bar" title="Permalink to this headline">¶</a></h3>
+<p>The first part allows to navigate within the results. Be careful with
+the last button that goes to the last result page, as it can be very
+slow when a lot of results are available.</p>
+<p>The progress bar shows where the currently displayed results are within
+the whole results set.</p>
+<p>The second part allows to add, modify or remove filter, sort or display
+commands.</p>
+<p>The third part allows to explore the results by generating graphs
+displayed in the rightmost part of the screen.</p>
+<ul class="simple">
+<li><p>The first field displays a graph with the 15 most common values of a
+variable in the filtered results. This can be slow when the number of
+results to scan is important. Here is a list of (sometimes)
+interesting values to try here:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">category</span></code>, <code class="docutils literal notranslate"><span class="pre">source</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">country</span></code>, <code class="docutils literal notranslate"><span class="pre">city</span></code>, <code class="docutils literal notranslate"><span class="pre">as</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">domains</span></code>, <code class="docutils literal notranslate"><span class="pre">domains:[level]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">hop</span></code>, <code class="docutils literal notranslate"><span class="pre">hop:[number]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">port</span></code>, <code class="docutils literal notranslate"><span class="pre">port:[open/closed/filtered]</span></code>, <code class="docutils literal notranslate"><span class="pre">port:[service]</span></code>
+<code class="docutils literal notranslate"><span class="pre">portlist:[open/closed/filtered]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">service</span></code>, <code class="docutils literal notranslate"><span class="pre">service:[port]</span></code>, <code class="docutils literal notranslate"><span class="pre">product</span></code>, <code class="docutils literal notranslate"><span class="pre">product:[port]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">version</span></code>, <code class="docutils literal notranslate"><span class="pre">version:[port]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cpe</span></code>, <code class="docutils literal notranslate"><span class="pre">cpe.[type/vendor/product/version]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">cpe:[cpe</span> <span class="pre">spec]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">cpe.[type/vendor/product/version]:[cpe</span> <span class="pre">spec]</span></code> (examples:
+<code class="docutils literal notranslate"><span class="pre">cpe.product:a:microsoft</span></code> will show top product names in CPEs
+from vendor <code class="docutils literal notranslate"><span class="pre">microsoft</span></code>, <code class="docutils literal notranslate"><span class="pre">cpe.vendor:o:/^m/</span></code> will show top
+vendor names in CPEs that start with an <code class="docutils literal notranslate"><span class="pre">m</span></code>)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">devicetype</span></code>, <code class="docutils literal notranslate"><span class="pre">devicetype:[port]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">script</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">script:[scriptname]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">file</span></code> (or <code class="docutils literal notranslate"><span class="pre">file.filename</span></code>), <code class="docutils literal notranslate"><span class="pre">file.time</span></code>, <code class="docutils literal notranslate"><span class="pre">file.size</span></code>,
+<code class="docutils literal notranslate"><span class="pre">file.uid</span></code>, <code class="docutils literal notranslate"><span class="pre">file.gid</span></code>, <code class="docutils literal notranslate"><span class="pre">file.permission</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.os</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.lanmanager</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.domain</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.dnsdomain</span></code>,
+<code class="docutils literal notranslate"><span class="pre">smb.forest</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.workgroup</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cert.issuer</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.subject</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">modbus.deviceid</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.vendor</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.product</span></code>,
+<code class="docutils literal notranslate"><span class="pre">enip.serial</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.devtype</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.prodcode</span></code>,
+<code class="docutils literal notranslate"><span class="pre">enip.rev</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.ip</span></code></p></li>
+</ul>
+</li>
+<li><p>The <em>Address space</em> button displays a graphical representation of the
+filtered addresses. The abscissa axis represents the two high bytes
+(or the three when the results belong to the same /16 network), and
+the ordinate axis represents the two low bytes (or the low byte).</p></li>
+<li><p>The <em>Map</em> button displays the locations of the results on a world
+map.</p></li>
+<li><p>The <em>Timeline</em> and <em>Timeline 24h</em> buttons display time-lines where
+the abscissa axis represents the time and the ordinate axis
+represents the IP addresses.</p></li>
+</ul>
+</div>
+<div class="section" id="scan-results">
+<h3>Scan results<a class="headerlink" href="#scan-results" title="Permalink to this headline">¶</a></h3>
+<p>Ten results (maximum) are displayed per page by default.</p>
+<p>Each result has its own frame. In the default display mode, it displays
+a summary for the host. Long-clicking a result frame toggles between the
+summary display and the full display for the result.</p>
+<p>The pencil icon in the upper-right corner opens the notepad page for the
+current host (see below) in the rightmost part of the screen.</p>
+<p>Each blue element in the results can be clicked to add a filter.</p>
+</div>
+</div>
+<div class="section" id="available-commands">
+<h2>Available commands<a class="headerlink" href="#available-commands" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="command-specification">
+<h3>Command specification<a class="headerlink" href="#command-specification" title="Permalink to this headline">¶</a></h3>
+<p>The commands might require a parameter, provided after the colon sign
+<code class="docutils literal notranslate"><span class="pre">:</span></code>. Some commands can be used negatively, by prefixing them with
+<code class="docutils literal notranslate"><span class="pre">!</span></code> or <code class="docutils literal notranslate"><span class="pre">-</span></code>.</p>
+<p>The commands can be entered in the input boxes in the second part of the
+left side bar or added by clicking on a shortcut in the top bar menus.</p>
+<p>In the following list, a <code class="docutils literal notranslate"><span class="pre">[!]</span></code> before the command shows it can be used
+negatively, and a <code class="docutils literal notranslate"><span class="pre">:</span></code> after the command indicates it requires a
+parameter.</p>
+<p>When a parameter is required the full value must be specified, or when
+appropriate, a regular expression can be used, with the
+<code class="docutils literal notranslate"><span class="pre">/[expression]/[flags]</span></code> syntax (e.g.:
+<code class="docutils literal notranslate"><span class="pre">script:smb-enum-shares:/WRITE/</span></code>).</p>
+<p>If your command includes spaces, you need to protect it by using single
+or double quotes.</p>
+</div>
+<div class="section" id="commands-list">
+<h3>Commands list<a class="headerlink" href="#commands-list" title="Permalink to this headline">¶</a></h3>
+</div>
+</div>
+<div class="section" id="filters">
+<h2>Filters<a class="headerlink" href="#filters" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]host:[IP</span> <span class="pre">address]</span></code> filter a specific IP address. Using the IP
+address directly (without <code class="docutils literal notranslate"><span class="pre">host:</span></code>) is equivalent.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]net:[IP</span> <span class="pre">address/netmask]</span></code> filter a specific network (CIDR
+notation). Using the CIDR notation directly (without <code class="docutils literal notranslate"><span class="pre">net:</span></code>) is
+equivalent.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]range:[IP</span> <span class="pre">address]-[IP</span> <span class="pre">address]</span></code> filter a specific IP address
+range</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]hostname:[FQDN]</span></code> look for results with a matching hostname.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]domain:[FQDN]</span></code> look for results with a hostname within a
+matching domain name.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]category:</span></code> filter a category.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]country:[two</span> <span class="pre">letters</span> <span class="pre">code]</span></code> filter a country.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]city:</span></code> filter a city (use with <code class="docutils literal notranslate"><span class="pre">country:</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]asnum:</span></code> filter by AS number (lists allowed).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]asname:</span></code> filter by AS name (regular expressions allowed).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]source:</span></code> filter a source (specify the source name).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]timerange:[timestamp]-[timestamp]</span></code> filter results within a
+specific time range.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]timeago:</span></code> filter recent enough results; the value can be
+specified in seconds or with the appropriate suffix in minutes
+(<code class="docutils literal notranslate"><span class="pre">m</span></code>), hours (<code class="docutils literal notranslate"><span class="pre">h</span></code>), days (<code class="docutils literal notranslate"><span class="pre">d</span></code>) or years (<code class="docutils literal notranslate"><span class="pre">y</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">service:[expression]</span></code>, <code class="docutils literal notranslate"><span class="pre">service:[expression]:[port</span> <span class="pre">number]</span></code> look
+for an expression in the name of a service.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">product:[service]:[product]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">product:[service]:[product]:[port</span> <span class="pre">number]</span></code> look for a product.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">version:[service]:[product]:[version]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">product:[service]:[product]:[version]:[port</span> <span class="pre">number]</span></code> look for a
+specific version of a product.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">script:[scriptid]</span></code>, <code class="docutils literal notranslate"><span class="pre">script:[scriptid]:[output]</span></code> look for a
+specific script.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">anonftp</span></code> filter results with anonymous FTP allowed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">anonldap</span></code> look for LDAP servers with anonymous bind working.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">authbypassvnc</span></code> look for VNC servers with authentication that can
+be bypassed.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">authhttp</span></code> look for HTTP servers with authentication and a default
+(e.g., <code class="docutils literal notranslate"><span class="pre">admin</span></code>/<code class="docutils literal notranslate"><span class="pre">admin</span></code>) login/password working. The Nmap script
+seems to get a lot a false positives.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">banner:</span></code> look for a specific banner of a service.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cookie:</span></code> look for HTTP servers setting a specific cookie.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">file</span></code>, <code class="docutils literal notranslate"><span class="pre">file:[pattern]</span></code>, <code class="docutils literal notranslate"><span class="pre">file:[scriptid]:[pattern]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">file:[scriptid],[scriptid],...:[pattern]</span></code> look for a pattern in
+the shared files (FTP, SMB, …).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">geovision</span></code> look for GeoVision web-cams.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">httptitle:</span></code> look for a specific HTML title value of the homepage
+of a web site.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nfs</span></code> look for NFS servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nis</span></code>, <code class="docutils literal notranslate"><span class="pre">yp</span></code> look for NIS servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mssqlemptypwd</span></code> look for MS-SQL servers with an empty password for
+the <code class="docutils literal notranslate"><span class="pre">sa</span></code> account.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mysqlemptypwd</span></code> look for MySQL servers with an empty password for
+the <code class="docutils literal notranslate"><span class="pre">root</span></code> account.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">httphdr</span></code>, <code class="docutils literal notranslate"><span class="pre">httphdr:[header]</span></code>, <code class="docutils literal notranslate"><span class="pre">httphdr:[header]:[value]</span></code> look
+for HTTP headers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">owa</span></code> look for OWA (Outlook Web App) servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">phpmyadmin</span></code> look for phpMyAdmin servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.dnsdomain:[FQDN]</span></code> search results with SMB service in a
+specific DNS domain.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.domain:[NetBIOS]</span></code> search results with SMB service in a
+specific NetBIOS domain.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.fqdn:[NetBIOS]</span></code> search results with SMB service in a specific
+host name (FQDN).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.forest:[FQDN]</span></code> search results with SMB service in a specific
+forest (DNS name).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.lanmanager:[LAN</span> <span class="pre">Manager]</span></code> search results with SMB service with
+a specific LAN Manager.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.os:[OS]</span></code> search results with SMB service with a specific OS.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.server:[NetBIOS]</span></code> search results with SMB service in a
+specific host name (NetBIOS).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smb.workgroup:[NetBIOS]</span></code> search results with SMB service in a
+specific workgroup (NetBIOS).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smbshare</span></code>, <code class="docutils literal notranslate"><span class="pre">smbshare:[access</span> <span class="pre">mode]</span></code> search results with SMB
+shares with anonymous access. Access can be ‘r’, ‘w’ or ‘rw’ (default
+is read or write).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sshkey:</span></code> look for a particular SSH key.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">torcert</span></code> look for Tor certificates.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">webfiles</span></code> look for “typical” web files in the shared folders.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">webmin</span></code> look for Webmin servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x11open</span></code> look for open X11 servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">x11srv</span></code> look for X11 servers.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">xp445</span></code> look for Windows XP machines with TCP/445 port open.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]ssl-ja3-client[:JA3]</span></code> look for hosts with a JA3 client or with
+the given JA3 client.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]ssl-ja3-server[:[JA3S][:JA3C]]</span></code> look for hosts with a JA3
+server, with the given JA3 server (optionally corresponding to the
+given JA3 client).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]useragent[:USERAGENT]</span></code> look for hosts with a User-Agent.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">os:</span></code> look for a specific value in the OS discovery results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">devtype:</span></code>, <code class="docutils literal notranslate"><span class="pre">devicetype:</span></code> look for a type of devices.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">netdev</span></code>, <code class="docutils literal notranslate"><span class="pre">networkdevice</span></code> look for network devices (firewalls,
+routers, …).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">phonedev</span></code> look for telephony devices.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cpe(:[type](:[vendor](:[product](:[version]))))</span></code> look for a given
+cpe. Each field can be a /regex/.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]hop:[IP]</span></code>, <code class="docutils literal notranslate"><span class="pre">[!]hop:[IP]:[TTL]</span></code> look for a particular IP
+address in the traceroute results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]hopname:</span></code> look for a matching hostname in the traceroute
+results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]hopdomain:</span></code> look for a hostname within a matching domain name
+in the traceroute results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]tcp/[port</span> <span class="pre">number]</span></code>, <code class="docutils literal notranslate"><span class="pre">[!]udp/[port</span> <span class="pre">number]</span></code>, look for an open
+TCP or UDP port (using <code class="docutils literal notranslate"><span class="pre">[!][port</span> <span class="pre">number]</span></code> directly is equivalent to
+<code class="docutils literal notranslate"><span class="pre">[!]tcp/[port</span> <span class="pre">number]</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]openport</span></code> look for hosts with at least one open port.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">otheropenport:[port</span> <span class="pre">number]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">otheropenport:[port</span> <span class="pre">number],[port</span> <span class="pre">number],...</span></code> look for hosts with
+at least one open port other than those specified.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">notes</span></code> search results with an associated note.</p></li>
+</ul>
+</div>
+<div class="section" id="sort">
+<h2>Sort<a class="headerlink" href="#sort" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">skip:[count]</span></code> skip <code class="docutils literal notranslate"><span class="pre">count</span></code> first results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">limit:[count]</span></code> only display <code class="docutils literal notranslate"><span class="pre">count</span></code> results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">[!]sortby:[field</span> <span class="pre">name]</span></code> sort according to a field value. Be
+careful with this setting as consequences on the performances can be
+terrible.</p></li>
+</ul>
+</div>
+<div class="section" id="display">
+<h2>Display<a class="headerlink" href="#display" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">display:host</span></code> set the default display mode.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">display:cpe</span></code> only display CPEs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">display:script:</span></code>, <code class="docutils literal notranslate"><span class="pre">display:script:[script</span> <span class="pre">id]</span></code> or
+<code class="docutils literal notranslate"><span class="pre">display:script:[script</span> <span class="pre">id],[script</span> <span class="pre">id],...</span></code> only display (a
+particular) script outputs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">display:screenshot</span></code> only display screenshots.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">display:vulnerability</span></code> only display vulnerabilities.</p></li>
+</ul>
+<hr class="docutils" />
+<p>This file is part of IVRE. Copyright 2011 - 2018 <a class="reference external" href="mailto:pierre&#46;lalet&#37;&#52;&#48;cea&#46;fr">Pierre
+LALET</a></p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Web User Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-interface">The interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#the-top-navigation-bar">The top navigation bar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-left-side-bar">The left side bar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#scan-results">Scan results</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#available-commands">Available commands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#command-specification">Command specification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#commands-list">Commands list</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#filters">Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sort">Sort</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#display">Display</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="flow.html" title="previous chapter">Flow</a></li>
+      <li>Next: <a href="../dev/index.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/usage/web-ui.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -73,16 +73,18 @@ ivreWebUi
 	$scope.notes_display = "none";
 	$scope.shared = {};
 	$scope.togglenotes = function (page) {
+            if(page.substr(0, 4) !== "doc/") {
+                page = config.notesbase.replace(/#IP#/g, page);
+            }
 	    if($scope.notes_display === "none") {
 		hideall();
 		$scope.notes_display = "inline";
-		$scope.notes_page = config.notesbase.replace(/#IP#/g, page);
+		$scope.notes_page = page;
 	    }
-	    else if($scope.notes_page.indexOf(
-		config.notesbase.replace(/#IP#/g, page)) !== -1)
+	    else if($scope.notes_page.indexOf(page) !== -1)
 		$scope.notes_display = "none";
 	    else
-		$scope.notes_page = config.notesbase.replace(/#IP#/g, page);
+		$scope.notes_page = page;
 	};
 	// graphs:here because the buttons are located w/ the filters
 	$scope.build_ip_plane = function() {
