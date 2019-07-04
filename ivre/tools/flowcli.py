@@ -98,7 +98,7 @@ def main():
     if args.init:
         if os.isatty(sys.stdin.fileno()):
             out.write(
-                'This will remove any scan result in your database. '
+                'This will remove any flow result in your database. '
                 'Process ? [y/N] ')
             ans = input()
             if ans.lower() != 'y':
