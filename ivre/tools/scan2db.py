@@ -72,22 +72,26 @@ def main():
                         ' renewal (only useful with JSON format)')
     parser.add_argument('-r', '--recursive', action='store_true',
                         help='Import all files from given directories.')
+    parser.add_argument('--update-view', action='store_true',
+                        help='Merge hosts in current view')
     parser.add_argument('--no-update-view', action='store_true',
-                        help='Do not merge hosts in current view')
+                        help='Do not merge hosts in current view (default)')
     args = parser.parse_args()
     database = ivre.db.db.nmap
     categories = args.categories.split(',') if args.categories else []
     if args.test:
+        args.update_view = False
         args.no_update_view = True
         database = ivre.db.DBNmap()
     if args.test_normal:
+        args.update_view = False
         args.no_update_view = True
         database = ivre.db.DBNmap(output_mode="normal")
     if args.recursive:
         scans = recursive_filelisting(args.scan)
     else:
         scans = args.scan
-    if args.no_update_view:
+    if not args.update_view or args.no_update_view:
         callback = None
     else:
         def callback(x):

@@ -576,8 +576,8 @@ which `predicate()` is True, given `webflt`.
                                     b"Database", re.M)
         for fname in self.nmap_files:
             # Insertion in DB
-            options = ["ivre", "scan2db", "--no-update-view", "--port", "-c",
-                       "TEST", "-s", "SOURCE"]
+            options = ["ivre", "scan2db", "--port", "-c", "TEST", "-s",
+                       "SOURCE"]
             if "-probe-" in fname:
                 options.extend(["--masscan-probes", fname.split('-probe-')[1]])
             options.extend(["--", fname])
@@ -595,8 +595,8 @@ which `predicate()` is True, given `webflt`.
             host_counter_test += sum(host_stored_test(line)
                                      for line in out.splitlines())
             # Duplicate insertion
-            res, _, err = RUN(["ivre", "scan2db", "--no-update-view", "--port",
-                               "-c", "TEST", "-s", "SOURCE", fname])
+            res, _, err = RUN(["ivre", "scan2db", "--port", "-c", "TEST", "-s",
+                               "SOURCE", fname])
             self.assertEqual(res, 0)
             scan_warning += sum(
                 1 for _ in scan_duplicate.finditer(err)
