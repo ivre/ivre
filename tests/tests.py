@@ -315,12 +315,13 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.check_value(name, int(out))
 
-    def start_web_server(self):
+    @classmethod
+    def start_web_server(cls):
         pid = os.fork()
         if pid == -1:
             raise OSError("Cannot fork()")
         if pid:
-            self.children.append(pid)
+            cls.children.append(pid)
             time.sleep(2)
         else:
             def terminate(signum, _):
@@ -601,6 +602,8 @@ which `predicate()` is True, given `webflt`.
             if fname.endswith('.pcap')
         ]
         cls.children = []
+        # Start a Web server
+        cls.start_web_server()
 
     @classmethod
     def tearDownClass(cls):
@@ -613,9 +616,6 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
     def test_30_nmap(self):
-
-        # Start a Web server to test CGI
-        self.start_web_server()
 
         #
         # Database tests
@@ -2261,9 +2261,6 @@ which `predicate()` is True, given `webflt`.
         self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
-        if DATABASE != "mongo":
-            # Start a Web server to test CGI
-            self.start_web_server()
 
         # Init DB
         res, out, err = RUN(["ivre", "flowcli", "--init"],
@@ -2657,8 +2654,7 @@ which `predicate()` is True, given `webflt`.
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
         self.assertItemsEqual(out1, out2)
-        # Start a Web server to test CGI
-        self.start_web_server()
+
         # Web API (JSON) vs Python API
         for addr in ['8.8.8.8', '2003::1']:
             req = Request('http://%s:%d/cgi/ipdata/%s' % (HTTPD_HOSTNAME,

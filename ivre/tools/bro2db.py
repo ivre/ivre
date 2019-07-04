@@ -51,10 +51,23 @@ def ssh2flow(bulk, rec):
     db.flow.any2flow(bulk, 'ssh', rec)
 
 
+def _sip_paths_search_tcp(paths):
+    """
+    Fills the given proto_dict with transport protocol info found in path
+    """
+    for elt in paths:
+        info = elt.split(' ')[0].split('/')
+        if len(info) != 3:
+            continue
+        if info[2].lower() in ["tcp", "tls"]:
+            return True
+    return False
+
+
 def sip2flow(bulk, rec):
-    # FIXME SIP can be used over TCP or UDP, so we should not always mark it
-    # as TCP. This is here only for being compatible with neo4j backend.
-    rec['proto'] = 'tcp'
+    found_tcp = (_sip_paths_search_tcp(rec['response_path']) or
+                 _sip_paths_search_tcp(rec['request_path']))
+    rec["proto"] = "tcp" if found_tcp else "udp"
     db.flow.any2flow(bulk, 'sip', rec)
 
 
@@ -73,11 +86,18 @@ def rdp2flow(bulk, rec):
     db.flow.any2flow(bulk, 'rdp', rec)
 
 
+def dns2flow(bulk, rec):
+    rec['answers'] = [elt.lower() for elt in
+                      (rec['answers'] if rec['answers'] else [])]
+    rec['query'] = rec['query'].lower() if rec['query'] else None
+    db.flow.dns2flow(bulk, rec)
+
+
 FUNCTIONS = {
     "conn": db.flow.conn2flow,
     "http": http2flow,
     "ssh": ssh2flow,
-    "dns": db.flow.dns2flow,
+    "dns": dns2flow,
     "sip": sip2flow,
     "snmp": snmp2flow,
     "ssl": ssl2flow,

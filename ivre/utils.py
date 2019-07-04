@@ -1362,16 +1362,24 @@ def nmap_svc_fp_format_data(data, match):
     return data
 
 
-def normalize_props(props):
+def normalize_props(props, braces=True):
     """Returns a normalized property list/dict so that (roughly):
-        - a list gives {k: "{k}"}
-        - a dict gives {k: v if v is not None else "{%s}" % v}
+        - a list gives {k: "{k}"} if braces=True, {k: "k"} otherwise
+        - a dict gives {k: v if v is not None else "{%s}" % v} if braces=True,
+                       {k: v if v is not Node else "%s" % v} otherwise
     """
     if not isinstance(props, dict):
         props = dict.fromkeys(props)
+    # Remove braces if necessary
+    if not braces:
+        for key, value in viewitems(props):
+            if (isinstance(value, basestring) and value.startswith('{') and
+                    value.endswith('}')):
+                props[key] = value[1:-1]
+    form = "{%s}" if braces else "%s"
     props = dict(
         (key, (value if isinstance(value, basestring) else
-               ("{%s}" % key) if value is None else
+               (form % key) if value is None else
                str(value))) for key, value in viewitems(props)
     )
     return props
@@ -1807,13 +1815,7 @@ def ptr2addr(ptr):
     if ptr.endswith(".in-addr.arpa"):
         return '.'.join(reversed(ptr.split(".")[:4]))
     elif ptr.endswith(".ip6.arpa"):
-        splitted = ptr.split(".")[:-2]
-        reversed_ptr = list(reversed(splitted))
-        addr_t = []
-        for i in range(0, len(splitted), 4):
-            addr_t.append(reversed_ptr[i] + reversed_ptr[i + 1] +
-                          reversed_ptr[i + 2] + reversed_ptr[i + 3])
-        return ":".join(addr_t)
+        return int2ip6(int(ptr[:-9].replace('.', '')[::-1], 16))
     return None
 
 

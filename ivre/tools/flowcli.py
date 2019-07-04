@@ -136,9 +136,9 @@ def main():
                   '%(flows)d flows\n' % count)
 
     elif args.top:
-        top = db.flow.top(query, args.top, collect_fields=args.collect,
-                          sum_fields=args.sum, limit=args.limit,
-                          skip=args.skip, least=args.least)
+        top = db.flow.topvalues(query, args.top, collect_fields=args.collect,
+                                sum_fields=args.sum, topnbr=args.limit,
+                                skip=args.skip, least=args.least)
         for rec in top:
             sys.stdout.write("%s%s%s%s%s\n" % (
                 '(' + coma2.join(str(val) for val in rec["fields"]) + ')',

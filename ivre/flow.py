@@ -41,74 +41,57 @@ HTTP_PASSIVE_RECONTYPES_CLIENT = {
     }
 }
 
+META_DESC_ARRAYS = ["dns.keys.answers"]
+
 META_DESC = {
-    'http': {
-        'method': None, 'host': None, 'user_agent': None, 'status_msg': None,
-        'info_code': None, 'info_msg': None, 'request_body_len': None,
-        'response_body_len': None
+    "dns": {
+        "keys": {"query": None, "class": "{qclass_name}",
+                 "type": "{qtype_name}", "rcode": "{rcode_name}",
+                 "answers": None},
     },
-    'dns': {
-        'query': None, 'answers': None, 'class': 'qclass_name',
-        'rcode': 'rcode_name', 'type': 'qtype_name'
+
+    "http": {
+        "keys": ["method", "host", "user_agent", "status_code", "status_msg",
+                 "info_code", "info_msg", "username", "password", "proxied"],
+        "counters": ["request_body_len", "response_body_len"],
     },
-    'ssh': {
-        'version': None, 'auth_success': None,
-        'client': None, 'server': None, 'cipher_alg': None, 'mac_alg': None,
-        'compression_alg': None, 'kex_alg': None, 'host_key_alg': None,
-        'host_key': None
+
+    "ssl": {
+        "keys": ["version", "cipher", "curve", "server_name", "last_alert",
+                 "next_protocol", "subject", "issuer", "client_subject",
+                 "client_issuer"],
     },
-    'sip': {
-        'dport': None, 'method': None, "uri": None,
-        "request_from": None, "request_to": None, "response_from": None,
-        "response_to": None, "reply_to": None, "user_agent": None,
-        "status_code": None, "status_msg": None, "warning": None
+
+    "ssh": {
+        "keys": ["version", "auth_success", "client", "server", "cipher_alg",
+                 "mac_alg", "compression_alg", "kex_alg", "host_key_alg",
+                 "host_key"],
     },
-    'modbus': {
-        'name': 'func', 'exception': None
+
+    "sip": {
+        "keys": ["method", "uri", "request_from", "request_to",
+                 "response_from", "response_to", "reply_to", "user_agent",
+                 "status_code", "status_msg", "warning"],
+        "counters": ["request_body_len", "response_body_len"],
     },
-    'snmp': {
-        'version': None, 'community': None, 'get_requests': None,
-        'get_bulk_requests': None, 'get_responses': None,
-        'set_requests': None
+
+    "snmp": {
+        "keys": ["version", "community"],
+        "counters": ["get_requests", "get_bulk_requests", "get_responses",
+                     "set_requests"],
     },
-    'ssl': {
-        'version': None, 'cipher': None, 'curve': None, 'server_name': None,
-        'last_alert': None, 'next_protocol': None, 'subject': None,
-        'issuer': None, 'client_subject': None, 'client_issuer': None
+
+    "modbus": {
+        "keys": {"name": "{func}", "exception": None},
     },
-    'rdp': {
-        'cookie': None, 'result': None, 'security_protocol': None,
-        'keyboard_layout': None, 'client_build': None, 'client_name': None,
-        'client_dig_product_id': None, 'cert_type': None, 'cert_count': None,
-        'cert_permanent': None, 'encryption_level': None,
-        'encryption_method': None
-    }
+
+    "rdp": {
+        "keys": ["cookie", "result", "security_protocol", "keyboard_layout",
+                 "client_build", "client_name", "client_dig_product_id",
+                 "cert_type", "cert_count", "cert_permanent",
+                 "encryption_level", "encryption_method"],
+    },
 }
-
-
-def ssh2passive_keys(rec, is_server):
-    return [
-        {
-            'recontype': ('SSH_SERVER_ALGOS' if is_server
-                          else 'SSH_CLIENT_ALGOS'),
-            'entries': [
-                {
-                    'source': 'encryption_algorithms',
-                    'value': rec.get('cipher_alg')
-                },
-                {'source': 'kex_algorithms', 'value': rec.get('kex_alg')},
-                {'source': 'mac_algorithms', 'value': rec.get('mac_alg')},
-                {
-                    'source': 'compression_algorithms',
-                    'value': rec.get('compression_alg')
-                },
-                {
-                    'source': 'server_host_key_algorithms',
-                    'value': rec.get('host_key_alg')
-                }
-            ]
-        }
-    ]
 
 
 class Query(object):

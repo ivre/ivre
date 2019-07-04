@@ -23,7 +23,7 @@ databases.
 """
 
 
-from datetime import datetime, timedelta
+from datetime import datetime, time as dtime
 import operator
 import random
 import re
@@ -62,99 +62,35 @@ ALL_DESCS = {
     "dns": {
         "labels": ["DNS"],
         "flow_keys": {"dport": "{dport}", "proto": '{proto}'},
-        "keys": {"query": None, "class": "{qclass_name}",
-                 "type": "{qtype_name}", "rcode": "{rcode_name}",
-                 "answers": None},
     },
 
     "http": {
         "labels": ["HTTP"],
-        "keys": {"dport": "{dport}", "method": None,
-                 "host": None, "user_agent": None,
-                 "status_code": None, "status_msg": None,
-                 "info_code": None, "info_msg": None,
-                 "username": None, "password": None,
-                 "proxied": None},
-        "counters": ["request_body_len", "response_body_len"],
-    },
-
-    "known_devices__name": {
-        "labels": ["Name"],
-        "host_keys": {"addr": "{host}"},
-        "keys": ["name"],
-        "accumulators": {"source": ("{source}", 5)},
-    },
-
-    "known_devices__mac": {
-        "labels": ["Mac"],
-        "host_keys": {"addr": "{host}"},
-        "keys": ["mac"],
-        "accumulators": {"source": ("{source}", 5)},
-    },
-
-    "software": {
-        "labels": ["Software"],
-        "host_keys": {"addr": "{host}"},
-        "keys": ["software_type", "name", "version_major", "version_minor",
-                 "version_minor2", "version_minor3", "version_addl"],
-        "accumulators": {"unparsed_version": ("{unparsed_version}", 5)},
-        "kind": "host",
     },
 
     "ssl": {
         "labels": ["SSL"],
-        "keys": {"dport": "{dport}", "version": None,
-                 "cipher": None, "curve": None,
-                 "server_name": None, "last_alert": None,
-                 "next_protocol": None, "subject": None,
-                 "issuer": None, "client_subject": None,
-                 "client_issuer": None},
     },
 
     "ssh": {
         "labels": ["SSH"],
-        "keys": {"dport": "{dport}", "version": None,
-                 "auth_success": None, "client": None,
-                 "server": None, "cipher_alg": None,
-                 "mac_alg": None, "compression_alg": None,
-                 "kex_alg": None, "host_key_alg": None,
-                 "host_key": None},
     },
 
     "sip": {
         "labels": ["SIP"],
-        "keys": {"dport": "{dport}", "method": None,
-                 "uri": None, "request_from": None,
-                 "request_to": None, "response_from": None,
-                 "response_to": None, "reply_to": None,
-                 "user_agent": None, "status_code": None,
-                 "status_msg": None, "warning": None},
-        "counters": ["request_body_len", "response_body_len"],
     },
 
     "snmp": {
         "labels": ["SNMP"],
-        "keys": ["version", "community"],
         "flow_keys": FLOW_KEYS_UDP,
-        "counters": {
-            "get_requests": None,
-            "get_bulk_requests": None,
-            "get_responses": None,
-            "set_requests": None,
-        },
     },
 
     "modbus": {
         "labels": ["Modbus"],
-        "keys": {"name": "{func}", "exception": None},
     },
 
     "rdp": {
         "labels": ["RDP"],
-        "keys": ["cookie", "result", "security_protocol", "keyboard_layout",
-                 "client_build", "client_name", "client_dig_product_id",
-                 "cert_type", "cert_count", "cert_permanent",
-                 "encryption_level", "encryption_method"],
     },
 }
 
@@ -658,9 +594,28 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     LABEL2NAME = {}
     query_cache = {}
 
+    meta_desc = {}
+    initialized = False
+
+    @classmethod
+    def compute_meta_desc(cls):
+        """
+        Computes meta_desc from flow.META_DESC and ALL_DESCS
+        """
+        for proto, configs in viewitems(flow.META_DESC):
+            cls.meta_desc[proto] = {}
+            for kind, values in viewitems(configs):
+                cls.meta_desc[proto][kind] = (
+                    utils.normalize_props(values, braces=True))
+            for kind, values in viewitems(ALL_DESCS.get(proto, {})):
+                cls.meta_desc[proto][kind] = values
+
     def __init__(self, url):
         Neo4jDB.__init__(self, url)
         DBFlow.__init__(self)
+        if not Neo4jDBFlow.initialized:
+            Neo4jDBFlow.initialized = True
+            Neo4jDBFlow.compute_meta_desc()
 
     @staticmethod
     def query(*args, **kargs):
@@ -841,13 +796,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     def any2flow(self, bulk, name, rec):
         kind = "flow"  # FIXME
-        desc = ALL_DESCS[name]
+        desc = self.meta_desc[name]
         keys = desc["keys"]
         link_type = desc.get("link", "INTEL")
-        counters = desc.get("counters", [])
+        counters = desc.get("counters", {})
         accumulators = desc.get("accumulators", {})
-        keys = utils.normalize_props(keys)
-        counters = utils.normalize_props(counters)
         for props in (keys, counters, accumulators):
             for k, v in list(viewitems(props)):
                 if v[0] == '{' and v[-1] == '}':
@@ -857,7 +810,13 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                 if (prop not in rec or rec[prop] is None) and k in props:
                     del(props[k])
         if kind == "flow":
-            flow_keys = desc.get("flow_keys", DEFAULT_FLOW_KEYS)
+            flow_keys = desc.get("flow_keys")
+            if not flow_keys:
+                if rec.get("proto") and rec["proto"] in ['tcp', 'udp']:
+                    flow_keys = (FLOW_KEYS_TCP if rec["proto"] == 'tcp'
+                                 else FLOW_KEYS_UDP)
+                else:
+                    flow_keys = DEFAULT_FLOW_KEYS
             bulk.append(
                 self.add_flow_metadata(
                     desc["labels"], link_type, keys, flow_keys,
@@ -897,7 +856,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         query = [self._add_flow(flow_labels, flow_keys)]
         keys = utils.normalize_props(keys)
         key = self._key_from_attrs(keys, src=None, dst=None)
-
         query.extend([
             "MERGE (%s)" % (
                 self._gen_merge_elt("meta", labels, {"__key__": key})),
@@ -1223,11 +1181,14 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     @classmethod
     def _cursor2flow_daily(cls, cursor):
         d = {}
-        # Group by "time" using a dictionnary
+        # Group by "time" using a dictionary
         for row in cursor:
-            delta = timedelta(seconds=(row["time_in_day"] +
-                                       utils.current_tz_offset()))
-            time_str = datetime(1970, 1, 1) + delta
+            seconds = int(row["time_in_day"])
+            hour = seconds // 3600
+            seconds = seconds % 3600
+            minute = seconds // 60
+            second = seconds % 60
+            time_str = dtime(hour, minute, second)
             flw = ("%s/%s" % tuple(row["flow"]), row["count"])
             if time_str in d:
                 d[time_str].append(flw)
@@ -1315,19 +1276,18 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         counts = self._cursor2flow_daily(self.run(query))
         return counts
 
-    def top(self, query, fields, collect_fields=None, sum_fields=None,
-            limit=None, skip=None, least=False):
+    def topvalues(self, query, fields, collect_fields=None, sum_fields=None,
+                  limit=None, skip=None, least=False, topnbr=10):
         """Returns an iterator of:
         {fields: <fields>, count: <number of occurrence or sum of sumfields>,
          collected: <collected fields>}.
 
         WARNING/FIXME: this mutates the query
         """
-        collect_fields = collect_fields if collect_fields is not None else []
-        sum_fields = sum_fields if sum_fields is not None else []
+        collect_fields = collect_fields or []
+        sumfields = sum_fields or []
         original_fields = list(fields)
         collect = list(collect_fields)
-        sumfields = sum_fields
         for flist in fields, collect, sumfields:
             for i in range(len(flist)):
                 if flist[i].startswith("link."):
