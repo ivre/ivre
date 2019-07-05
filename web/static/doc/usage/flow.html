@@ -1,0 +1,345 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Flow &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Web User Interface" href="web-ui.html" />
+    <link rel="prev" title="Passive" href="passive.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="flow">
+<h1>Flow<a class="headerlink" href="#flow" title="Permalink to this headline">¶</a></h1>
+<p>IVRE flow is a beta feature meant to analyze network flows between
+hosts. It can be seen as:</p>
+<ul class="simple">
+<li><p>a recon tool for the case of an unknown network (hence its apparition
+in IVRE/DRUNK)</p></li>
+<li><p>a cartography tool to get a better understanding of a supposedly
+known network (but there is no such thing as a “known network”)</p></li>
+<li><p>a monitoring tool to spot unwanted flows in your network</p></li>
+</ul>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>Start by following the standard ivre installation.</p>
+<p>In addition, install <code class="docutils literal notranslate"><span class="pre">neo4j</span></code> and set a user/password (for example
+through the default admin interface on <code class="docutils literal notranslate"><span class="pre">http://localhost:7474</span></code>).
+Default user/password is <code class="docutils literal notranslate"><span class="pre">neo4j</span></code>/<code class="docutils literal notranslate"><span class="pre">neo4j</span></code>. Set the relevant URL in
+you <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DB_FLOW</span> <span class="o">=</span> <span class="s2">&quot;neo4j://&lt;user&gt;:&lt;password&gt;@localhost:7474/&quot;</span>
+</pre></div>
+</div>
+<p>Run <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span> <span class="pre">--init</span></code> to initialize the database (<strong>WARNING:</strong>
+this will <strong>REMOVE</strong> everything in the db).</p>
+<p>And that should be it. The Web UI is available at
+<code class="docutils literal notranslate"><span class="pre">&lt;ivre-web-root&gt;/flow.html</span></code>.</p>
+<p>As the Web UI is super-beta, no error will show up in it, check the logs
+of the webserver for debugging.</p>
+</div>
+<div class="section" id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="data-insertion">
+<h3>Data insertion<a class="headerlink" href="#data-insertion" title="Permalink to this headline">¶</a></h3>
+<p>There are two tools for data insertion, the first is bro-based:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ bro -r capture_file.pcap
+$ ivre bro2db ./*.log
+$ ivre flowcli
+</pre></div>
+</div>
+<p>The second can take either argus logs or netflow logs:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ argus -m -r capture_file.pcap -w flows.argus
+$ ivre flow2db flows.argus
+</pre></div>
+</div>
+<p>Or:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ivre flow2db flows.nfdump
+</pre></div>
+</div>
+<p>Or:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ivre flow2db -t iptables iptables-from-syslog.log
+</pre></div>
+</div>
+<p>Any of these tools can be called with ‘–init’ to reinitialize the DB.</p>
+</div>
+<div class="section" id="data-exploration">
+<h3>Data exploration<a class="headerlink" href="#data-exploration" title="Permalink to this headline">¶</a></h3>
+<p>The main exploration tool are the CLI (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>) and the Web UI
+(<code class="docutils literal notranslate"><span class="pre">&lt;ivre-web-root&gt;/flow.html</span></code>).</p>
+<div class="section" id="cli">
+<h4>CLI<a class="headerlink" href="#cli" title="Permalink to this headline">¶</a></h4>
+<p>You can access the CLI through <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code>. Features include:</p>
+<ul class="simple">
+<li><p>Searching for flows and nodes with filters (see the Flow Filters
+section of this document)</p></li>
+<li><p>Producing top values for given criteria</p></li>
+<li><p>Plotting flows amounts over hours of days, on average.</p></li>
+</ul>
+<p>See <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span> <span class="pre">-h</span></code> for usage details.</p>
+</div>
+<div class="section" id="web-ui">
+<h4>Web UI<a class="headerlink" href="#web-ui" title="Permalink to this headline">¶</a></h4>
+<div class="section" id="overview">
+<h5>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h5>
+<p>The central view is a graph representing the network:</p>
+<ul class="simple">
+<li><p>nodes represent hosts; white ones represent hosts that have incoming
+network flows, grey ones those who do not have any</p></li>
+<li><p>edges represent network flows; same [proto, dport] couple will have
+the same color</p></li>
+</ul>
+<p>Flows are aggregated by destination port (or code, for icmp), two
+different connection from the same source to the same destination on the
+same destination port (so called <code class="docutils literal notranslate"><span class="pre">dport</span></code>) but with different source
+ports will be aggregated on the same edge.</p>
+<p>On the bottom of the graph, there is a timeline, representing the amount
+of different flows during some time ranges. This timeline can be played
+by going to the <strong>Display</strong> pane.</p>
+<p>On the left, there is a control pane with 3 tabs:</p>
+<ul class="simple">
+<li><p><strong>Explore:</strong> Allows to explore and reduce the dataset to display with
+node-based or edge-based queries. See the next section for more
+details. It also allows to navigate through the data (limit/skip) and
+change the query mode. At the top of this pane, there is a count of
+the flows, servers and clients matching the current query. Note that
+servers can also be counted as clients if they have outgoing flows.</p></li>
+<li><p><strong>Display:</strong> Allows to change the way data is displayed (size of
+nodes and edges, timeline precision).</p></li>
+<li><p><strong>Details:</strong> Details on the currently selected item.</p></li>
+</ul>
+</div>
+<div class="section" id="interaction">
+<h5>Interaction<a class="headerlink" href="#interaction" title="Permalink to this headline">¶</a></h5>
+<p>Hover nodes and edges to display their basic properties in the
+<strong>Details</strong> tab. Click on an edge or a node to query the database for
+more information, including any associated metadata (for example DNS
+queries happening on a network flow).</p>
+<p>There are two ways of filtering the data:</p>
+<ul class="simple">
+<li><p>Right click on a node or edge and <code class="docutils literal notranslate"><span class="pre">Filter</span> <span class="pre">by</span></code>/<code class="docutils literal notranslate"><span class="pre">Filter</span> <span class="pre">out</span></code> by
+attribute</p></li>
+<li><p>Write filters yourself</p></li>
+</ul>
+<p>See the Flow Filter section of this document for more information on the
+filter syntax.</p>
+<p>The <strong>Display</strong> pane allows to change the size of nodes and edges based
+on some criteria:</p>
+<ul class="simple">
+<li><p>On nodes, available keywords are <code class="docutils literal notranslate"><span class="pre">$in</span></code> and <code class="docutils literal notranslate"><span class="pre">$out</span></code>, to make the
+size proportional to the number of incoming or outgoing flows of a
+node.</p></li>
+<li><p>On edges, a property can be specified (for example <code class="docutils literal notranslate"><span class="pre">scbytes</span></code>, the
+number of bytes from the server to the client).</p></li>
+</ul>
+<p>Do not forget to increase the <code class="docutils literal notranslate"><span class="pre">Size</span> <span class="pre">scale</span></code> to make the result more
+visible.</p>
+<p>The <strong>Display</strong> pane also allows to change the amount of time slots to
+represent on the timeline (capped by the actual time precision set in
+<code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>). The timeline can also be played on the graph by clicking
+the ‘Play timeline’ button.</p>
+</div>
+</div>
+<div class="section" id="raw-database-queries">
+<h4>Raw Database queries<a class="headerlink" href="#raw-database-queries" title="Permalink to this headline">¶</a></h4>
+<p>Ivre flow module is currently built on top of neo4j. The query language
+of this database is quite intuitive and the user is encouraged to
+execute his own custom queries. The model is as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>(:Host)-[:SEND]-&gt;(:Flow)-[:TO]-&gt;(:Host)
+   |                |
+   \                /
+    `--&gt;(:Intel)&lt;--&#39;
+</pre></div>
+</div>
+<p>As an example, the following query returns the most common (proto,
+dport):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">MATCH</span> <span class="p">(</span><span class="n">f</span><span class="p">:</span><span class="n">Flow</span><span class="p">)</span>
+<span class="n">RETURN</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">proto</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">dport</span><span class="p">],</span> <span class="n">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="n">AS</span> <span class="n">cnt</span>
+<span class="n">ORDER</span> <span class="n">BY</span> <span class="n">cnt</span> <span class="n">DESC</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="flow-filters">
+<h4>Flow Filters<a class="headerlink" href="#flow-filters" title="Permalink to this headline">¶</a></h4>
+<p>To write filters, the syntax is as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>[!][ANY|ALL|ONE|LEN ][src.|dst.][meta.]&lt;attribute&gt; [&lt;operator&gt; &lt;value&gt;]
+[OR &lt;other filter&gt;]
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">[src.|dst.]</span></code> part is only available for node filters.</p>
+<p>The special keywords <code class="docutils literal notranslate"><span class="pre">ANY</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL</span></code>, <code class="docutils literal notranslate"><span class="pre">ONE</span></code> and <code class="docutils literal notranslate"><span class="pre">LEN</span></code> are for
+working with array attributes:</p>
+<ul class="simple">
+<li><p>ALL: matches if all the elements of the array fullfil the predicate</p></li>
+<li><p>ANY: the same if any of the elements match</p></li>
+<li><p>ONE: the same if exactly one of the elements match</p></li>
+<li><p>LEN: the predicate will use the len of the array</p></li>
+</ul>
+<p>Some examples:</p>
+<ul class="simple">
+<li><p>Node filter <code class="docutils literal notranslate"><span class="pre">dst.addr</span> <span class="pre">=</span> <span class="pre">192.168.1.1</span></code> will match all the flows whose
+destination is a host with address <code class="docutils literal notranslate"><span class="pre">192.168.1.1</span></code>.</p></li>
+<li><p>Node filter <code class="docutils literal notranslate"><span class="pre">addr</span> <span class="pre">=~</span> <span class="pre">192\.168\.1\..*</span></code> will match all the flows that
+come from or go to a host whose address matches the
+<code class="docutils literal notranslate"><span class="pre">192\.168\.1\..*</span></code> regex (sorry, CIDR masks are on their way to be
+implemented).</p></li>
+<li><p>Edge filter <code class="docutils literal notranslate"><span class="pre">dport</span> <span class="pre">&gt;</span> <span class="pre">10000</span></code> will match all the flows with a
+<code class="docutils literal notranslate"><span class="pre">dport</span></code> (destination port) above 10000. <code class="docutils literal notranslate"><span class="pre">!dport</span> <span class="pre">&lt;=</span> <span class="pre">10000</span></code> will
+match the same flows plus the ones that do not have any destination
+port.</p></li>
+<li><p>Edge filter <code class="docutils literal notranslate"><span class="pre">meta.query</span> <span class="pre">=~</span> <span class="pre">.*google.*</span></code> will match all the flows
+that have an associated metadata which have a <code class="docutils literal notranslate"><span class="pre">query</span></code> attribute
+that match the <code class="docutils literal notranslate"><span class="pre">.*google.*</span></code> regex.</p></li>
+<li><p>Edge filter <code class="docutils literal notranslate"><span class="pre">ANY</span> <span class="pre">sports</span> <span class="pre">&lt;</span> <span class="pre">1024</span></code> will match flows with at least one
+source port &lt; 1024.</p></li>
+<li><p>Edge filter <code class="docutils literal notranslate"><span class="pre">LEN</span> <span class="pre">sports</span> <span class="pre">=</span> <span class="pre">1</span></code> will match flows with only one known
+source port.</p></li>
+<li><p>Filter <code class="docutils literal notranslate"><span class="pre">ANY</span> <span class="pre">meta.answers</span> <span class="pre">=~</span> <span class="pre">.*example.com</span></code> will match any metadata
+that contain an array attribute <code class="docutils literal notranslate"><span class="pre">answers</span></code> where at least one entry
+matches <code class="docutils literal notranslate"><span class="pre">'.*example.com'</span></code>.</p></li>
+</ul>
+<p>Available operators are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">=</span></code> or <code class="docutils literal notranslate"><span class="pre">:</span></code> (equality)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">!=</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;</span></code>, <code class="docutils literal notranslate"><span class="pre">&gt;=</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">=~</span></code></p></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Flow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#data-insertion">Data insertion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-exploration">Data exploration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="passive.html" title="previous chapter">Passive</a></li>
+      <li>Next: <a href="web-ui.html" title="next chapter">Web User Interface</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/usage/flow.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

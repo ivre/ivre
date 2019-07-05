@@ -1,0 +1,291 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Agents &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="../usage/index.html" />
+    <link rel="prev" title="Docker" href="docker.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="agents">
+<h1>Agents<a class="headerlink" href="#agents" title="Permalink to this headline">¶</a></h1>
+<p>IVRE agent may be run in an environment not totally controlled (e.g.,
+during a pentest, on a machine you have just owned and want to use to
+do some network recon without installing IVRE), since it has a reduced
+number of dependencies.</p>
+<p>IVRE agent only requires <code class="docutils literal notranslate"><span class="pre">nmap</span></code> (of course), <code class="docutils literal notranslate"><span class="pre">screen</span></code> and
+<code class="docutils literal notranslate"><span class="pre">rsync</span></code> (plus <code class="docutils literal notranslate"><span class="pre">/bin/sh</span></code> and basic shell utils, including
+<code class="docutils literal notranslate"><span class="pre">grep</span></code>).</p>
+<div class="section" id="set-up">
+<h2>Set-up<a class="headerlink" href="#set-up" title="Permalink to this headline">¶</a></h2>
+<p>On the “master”, install IVRE following the instructions from
+<a class="reference internal" href="installation.html#installation"><span class="std std-ref">Installation</span></a>. Install also <code class="docutils literal notranslate"><span class="pre">screen</span></code>, <code class="docutils literal notranslate"><span class="pre">tmux</span></code> or
+<code class="docutils literal notranslate"><span class="pre">nohup</span></code> if you want to be able to “detach” from the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script
+(which is not a daemon).</p>
+<p>On the “slave(s)”, the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script must be deployed, together with
+<code class="docutils literal notranslate"><span class="pre">nmap</span></code>, and <code class="docutils literal notranslate"><span class="pre">rsync</span></code>.</p>
+</div>
+<div class="section" id="run-the-slave-s">
+<h2>Run the slave(s)<a class="headerlink" href="#run-the-slave-s" title="Permalink to this headline">¶</a></h2>
+<p>The computer running IVRE (the “master”) needs to be able to access via
+<code class="docutils literal notranslate"><span class="pre">rsync</span></code> the data directory of the agents (to add targets and to
+retrieve results): this is not an issue if you are running the agent and
+IVRE itself on the same machine. If you are running IVRE and the agent
+on two different hosts (and, except for simple or testing
+configurations, you should do that), you have to run <code class="docutils literal notranslate"><span class="pre">sshd</span></code> or
+<code class="docutils literal notranslate"><span class="pre">rsyncd</span></code> on the agent host, or share the agent files (using NFS, SMB
+or whatever the IVRE side can mount).</p>
+<p>First, <code class="docutils literal notranslate"><span class="pre">mkdir</span></code> &amp; <code class="docutils literal notranslate"><span class="pre">cd</span></code> to the directory you want to use as your agent
+data directory.</p>
+<p>Make sure the needed binaries are in the <code class="docutils literal notranslate"><span class="pre">PATH</span></code> environment variable
+(including <code class="docutils literal notranslate"><span class="pre">nmap</span></code>). Generate the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script, on a computer with
+IVRE installed, by running
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span> <span class="pre">--output</span> <span class="pre">Agent</span> <span class="pre">&gt;</span> <span class="pre">agent;</span> <span class="pre">chmod</span> <span class="pre">+x</span> <span class="pre">agent</span></code> , adapt if
+needed the variables at the beginning of the script, particularly
+<code class="docutils literal notranslate"><span class="pre">THREADS</span></code>.</p>
+<p>By default, the <code class="docutils literal notranslate"><span class="pre">default</span></code> template is used. You can generate agents
+using other scan templates using <code class="docutils literal notranslate"><span class="pre">--nmap-template</span> <span class="pre">[template</span> <span class="pre">name]</span></code>.</p>
+<p>Then just run the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script.</p>
+<p>When the scan is over, to stop the agent, type <code class="docutils literal notranslate"><span class="pre">C-c</span></code> or kill the
+parent <code class="docutils literal notranslate"><span class="pre">agent</span></code> process.</p>
+</div>
+<div class="section" id="run-the-master">
+<h2>Run the master<a class="headerlink" href="#run-the-master" title="Permalink to this headline">¶</a></h2>
+<p>You need to make sure the user running <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code> on the “master” can access (without password)
+to the agents data directories.</p>
+<p>When the agents are all ready, you have two options, using
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>. In both cases, scan
+options are the same than with <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span></code>.</p>
+<p>The first one (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code>) is the “old-school” version: it
+will not allow to dynamically add or remove agents, and will fetch the
+results under <code class="docutils literal notranslate"><span class="pre">./agentsdata/output</span></code> directory, you have to import the
+results by yourself.</p>
+<p>On the other hand, the second one (<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>) will use
+the DB to manage the agents, but is still experimental.</p>
+<div class="section" id="runscansagent-the-old-school-one">
+<h3><strong>runscansagent</strong>, the “old-school” one<a class="headerlink" href="#runscansagent-the-old-school-one" title="Permalink to this headline">¶</a></h3>
+<p>You have to specify the agent(s) data directory. For example, run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagent --routable --limit 1000 \
+&gt;     agenthost1:/path/to/agent/dir      \
+&gt;     agenthost2:/path/to/agent/dir      \
+</pre></div>
+</div>
+<p>You can now import the results as if you had run the “regular” <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">runscans</span></code> program to scan locally. The results are stored under
+<code class="docutils literal notranslate"><span class="pre">agentsdata/output/</span></code></p>
+</div>
+<div class="section" id="runscansagentdb-the-modern-but-probably-broken-one">
+<h3><strong>runscansagentdb</strong>, the “modern” (but probably broken) one<a class="headerlink" href="#runscansagentdb-the-modern-but-probably-broken-one" title="Permalink to this headline">¶</a></h3>
+<p>Please note that it is important to run all the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code>
+from the same host (the “master”, which does not need to be the same
+host than the database server), since it relies on local directories.</p>
+<p>First, let’s create a master and add the agent(s):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagentdb --add-local-master
+$ ivre runscansagentdb --source MySource --add-agent \
+&gt;     agenthost1:/path/to/agent/dir \
+&gt;     agenthost2:/path/to/agent/dir
+</pre></div>
+</div>
+<p>Let’s check it’s OK:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagentdb --list-agents
+agent:
+  - id: 543bfc8a312f915728f1709b
+  - source name: MySource
+  - remote host: agenthost1
+  - remote path: /path/to/agent/dir/
+  - local path: /var/lib/ivre/master/sbOist
+  - rsync command: rsync
+  - current scan: None
+  - currently synced: True
+  - max waiting targets: 60
+  - waiting targets: 0
+  - can receive: 60
+agent:
+  - id: 543bfc8a312f915728f1709c
+  - source name: MySource
+  - remote host: agenthost2
+  - remote path: /path/to/agent/dir/
+  - local path: /var/lib/ivre/master/m2584z
+  - rsync command: rsync
+  - current scan: None
+  - currently synced: True
+  - max waiting targets: 60
+  - waiting targets: 0
+  - can receive: 60
+</pre></div>
+</div>
+<p>Now we can add a scan, and assign the (available) agents to that scan:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagentdb --assign-free-agents --routable --limit 1000
+</pre></div>
+</div>
+<p>And see if it works:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagentdb --list-scans
+scan:
+  - id: 543bfcbf312f9158d6caeadf
+  - categories:
+    - ROUTABLE
+  - targets added: 0
+  - results fetched: 0
+  - total targets to add: 1000
+  - available targets: 2712693508
+  - internal state: (2174385484, 551641673, 387527645, 0)
+  - agents:
+    - 543bfc8a312f915728f1709b
+    - 543bfc8a312f915728f1709c
+</pre></div>
+</div>
+<p>For now, nothing has been sent to the agents. To really start the
+process, run:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscansagentdb --daemon
+</pre></div>
+</div>
+<p>After some time, the first results get imported in the database
+(<code class="docutils literal notranslate"><span class="pre">READING</span> <span class="pre">[...]</span></code>, <code class="docutils literal notranslate"><span class="pre">HOST</span> <span class="pre">STORED:</span> <span class="pre">[...]</span></code>, <code class="docutils literal notranslate"><span class="pre">SCAN</span> <span class="pre">STORED:</span> <span class="pre">[...]</span></code>). You
+can stop the daemon at any time by <code class="docutils literal notranslate"><span class="pre">(p)kill</span></code>-ing it (using <code class="docutils literal notranslate"><span class="pre">CTRL+c</span></code>
+will do).</p>
+<p>When all the targets have been sent to an agent, the agents get
+disassociated from the scan so that another scan can use them. You can
+check the scan evolution by issuing
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span> <span class="pre">--list-scans</span></code>.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Docker</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Agents</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#set-up">Set-up</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-the-slave-s">Run the slave(s)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-the-master">Run the master</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#runscansagent-the-old-school-one"><strong>runscansagent</strong>, the “old-school” one</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#runscansagentdb-the-modern-but-probably-broken-one"><strong>runscansagentdb</strong>, the “modern” (but probably broken) one</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="docker.html" title="previous chapter">Docker</a></li>
+      <li>Next: <a href="../usage/index.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/install/agents.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

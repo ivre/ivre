@@ -1,0 +1,363 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Welcome to IVRE’s documentation! &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Principles" href="principles.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-ivre-s-documentation">
+<h1>Welcome to IVRE’s documentation!<a class="headerlink" href="#welcome-to-ivre-s-documentation" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference external" href="https://ivre.rocks/">IVRE</a> (French: <em>Instrument de veille sur les
+réseaux extérieurs</em>) or DRUNK (Dynamic Recon of UNKnown networks) is
+an open-source framework for network recon, written in Python. It
+relies on powerful open-source tools to gather intelligence from the
+network, actively or passively.</p>
+<p>It aims at leveraging network captures and scans to let you understand
+how a network works. It is useful for pentests &amp; red-teaming, incident
+response, monitoring, etc.</p>
+<ul class="simple">
+<li><p>Web site: <a class="reference external" href="https://ivre.rocks/">https://ivre.rocks/</a></p></li>
+<li><p>Twitter: <a class="reference external" href="https://twitter.com/IvreRocks">&#64;IvreRocks</a></p></li>
+<li><p>Github: <a class="reference external" href="https://github.com/cea-sec/ivre/">cea-sec/ivre</a></p></li>
+</ul>
+<div class="section" id="features">
+<h2>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h2>
+<p>IVRE can aggregate <a class="reference external" href="http://nmap.org/">Nmap</a> &amp; <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> scan results as well
+as intelligence from network captures using <a class="reference external" href="https://www.zeek.org/">Zeek</a> (formerly known as Bro), <a class="reference external" href="http://qosient.com/argus/">Argus</a> and <a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a></p>
+</div>
+<div class="section" id="use-cases">
+<h2>Use-cases<a class="headerlink" href="#use-cases" title="Permalink to this headline">¶</a></h2>
+<p>IVRE can prove useful in several different scenarios (you may want to
+have a look at the <a class="reference internal" href="screenshots.html#screenshots-gallery"><span class="std std-ref">Screenshots gallery</span></a>). Here are
+some examples:</p>
+<ul class="simple">
+<li><p>Create your own Shodan-like service, using Nmap and/or Masscan,
+against the whole Internet or your own networks, (private or not).</p></li>
+<li><p>Store each X509 certificate seen in SSL/TLS connections, SSH public
+keys and algorithms, DNS answers, HTTP headers (<code class="docutils literal notranslate"><span class="pre">Server</span></code>,
+<code class="docutils literal notranslate"><span class="pre">Host</span></code>, <code class="docutils literal notranslate"><span class="pre">User-Agent</span></code>, etc.), and more… This can be useful to:</p>
+<ul>
+<li><p>Validate X509 certificates independently from the clients.</p></li>
+<li><p>Monitor phishing domains (based on DNS answers, HTTP <code class="docutils literal notranslate"><span class="pre">Host</span></code>
+headers, X509 certificates) hit from your corporate network.</p></li>
+<li><p>Run your own, private (or not) <a class="reference external" href="http://www.enyo.de/fw/software/dnslogger/first2005-paper.pdf">passive DNS</a>
+service.</p></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="getting-started">
+<h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<p>If You want to learn more about the different purposes of IVRE, you
+should start reading the <a class="reference internal" href="principles.html#principles"><span class="std std-ref">Principles</span></a>.</p>
+<p>After that, you can start the <a class="reference internal" href="install/installation.html#installation"><span class="std std-ref">Installation</span></a>
+process.</p>
+<p>Once you are ready, dive into the “Usage” section!</p>
+</div>
+<div class="section" id="contributing">
+<h2>Contributing<a class="headerlink" href="#contributing" title="Permalink to this headline">¶</a></h2>
+<p>Code contributions (pull-requests) are of course welcome!</p>
+<p>The project needs scan results and capture files that can be provided as
+examples. If you can contribute some samples, or if you want to
+contribute some samples and would need some help to do so, or if you can
+provide a server to run scans, please contact the author.</p>
+</div>
+<div class="section" id="contact">
+<h2>Contact<a class="headerlink" href="#contact" title="Permalink to this headline">¶</a></h2>
+<p>For both support and contribution, the <a class="reference external" href="https://github.com/cea-sec/ivre">repository</a> on Github should be used: feel
+free to create a new issue or a pull request!</p>
+<p>You can also join the <a class="reference external" href="https://gitter.im/cea-sec/ivre">Gitter conversation</a> (that is the preferred way to get
+in touch for questions), or use the e-mail <code class="docutils literal notranslate"><span class="pre">dev</span></code> on the domain
+<code class="docutils literal notranslate"><span class="pre">ivre.rocks</span></code>.</p>
+<p>On Twitter, you can follow and/or mention <a class="reference external" href="https://twitter.com/IvreRocks">&#64;IvreRocks</a>.</p>
+</div>
+<div class="section" id="content">
+<h2>Content<a class="headerlink" href="#content" title="Permalink to this headline">¶</a></h2>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="principles.html">Principles</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="principles.html#purposes">Purposes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="principles.html#storing-data">Storing data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="principles.html#accessing-data">Accessing data</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="screenshots.html">Screenshots gallery</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="screenshots.html#nmap-results">Nmap results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="screenshots.html#flow-analysis">Flow analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#web-interface">Web interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#can-ivre-be-used-to-look-for-xxx">Can IVRE be used to look for XXX?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-can-i-configure-iptables-to-get-logs-used-by-flow2db-tool">How can I configure iptables to get logs used by flow2db tool</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install/installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#database">Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#dependencies">Dependencies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="install/installation.html#external-programs">External programs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install/installation.html#python">Python</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install/installation.html#databases">Databases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install/installation.html#web">Web</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#ivre">IVRE</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#configuration">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#initialization">Initialization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#getting-ip-data">Getting IP data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/installation.html#using-agents">Using Agents</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="install/fast-install-and-first-run.html">Fast install &amp; first run</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install/fast-install-and-first-run.html#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/fast-install-and-first-run.html#setup">Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/fast-install-and-first-run.html#database-init-data-download-importation">Database init, data download &amp; importation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/fast-install-and-first-run.html#run-a-first-scan">Run a first scan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/fast-install-and-first-run.html#some-remarks">Some remarks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="install/docker.html">Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install/docker.html#using-vagrant">Using Vagrant</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/docker.html#without-vagrant">Without Vagrant</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="install/docker.html#getting-the-images">Getting the images</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install/docker.html#running">Running</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="install/agents.html">Agents</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install/agents.html#set-up">Set-up</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/agents.html#run-the-slave-s">Run the slave(s)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install/agents.html#run-the-master">Run the master</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="install/agents.html#runscansagent-the-old-school-one"><strong>runscansagent</strong>, the “old-school” one</a></li>
+<li class="toctree-l3"><a class="reference internal" href="install/agents.html#runscansagentdb-the-modern-but-probably-broken-one"><strong>runscansagentdb</strong>, the “modern” (but probably broken) one</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/use-cases.html">Some use cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/use-cases.html#your-own-shodan-zoomeye-censys-binaryedgeio-whatever">Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/use-cases.html#your-own-passive-dns-service">Your own Passive DNS service</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/use-cases.html#blog-posts-and-other-resources">Blog posts and other resources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage/active-recon.html">Active recon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/active-recon.html#scanning">Scanning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage/active-recon.html#with-nmap-or-masscan">With Nmap or Masscan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/active-recon.html#with-ivre">With IVRE</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage/active-recon.html#enjoying-the-results">Enjoying the results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage/active-recon.html#cli">CLI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/active-recon.html#python-module">Python module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage/passive.html">Passive</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/passive.html#with-zeek">With Zeek</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/passive.html#with-p0f">With p0f</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/passive.html#enjoying-the-results">Enjoying the results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage/passive.html#cli">CLI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/passive.html#python-module">Python module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage/flow.html">Flow</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/flow.html#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/flow.html#usage">Usage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage/flow.html#data-insertion">Data insertion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/flow.html#data-exploration">Data exploration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage/web-ui.html">Web User Interface</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage/web-ui.html#the-interface">The interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage/web-ui.html#the-top-navigation-bar">The top navigation bar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/web-ui.html#the-left-side-bar">The left side bar</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/web-ui.html#scan-results">Scan results</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage/web-ui.html#available-commands">Available commands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="usage/web-ui.html#command-specification">Command specification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="usage/web-ui.html#commands-list">Commands list</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="usage/web-ui.html#filters">Filters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/web-ui.html#sort">Sort</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage/web-ui.html#display">Display</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dev/tests.html">Tests</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="dev/tests.html#dependencies">Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/tests.html#test-case">Test case</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/tests.html#first-run">First run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/tests.html#improving-the-test-case">Improving the test case</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dev/tests.html#failures">Failures</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license-external.html">Licenses for external files</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="#">
+              <img class="logo" src="_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="#">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="principles.html" title="next chapter">Principles</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

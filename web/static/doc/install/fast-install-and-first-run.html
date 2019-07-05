@@ -1,0 +1,267 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fast install &amp; first run &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Docker" href="docker.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="fast-install-first-run">
+<h1>Fast install &amp; first run<a class="headerlink" href="#fast-install-first-run" title="Permalink to this headline">¶</a></h1>
+<p>This file describes the steps to install IVRE, run the first scans and
+add the results to the database with all components (scanner, web
+server, database server) on the same (Debian or Ubuntu) machine.</p>
+<p>Please note that, depending on your distribution, the versions of some
+software packages might not be recent enough, particularly for MongoDB
+(version 2.6 minimum) and pymongo (version 2.7.2 minimum). If that’s
+the case, you will have to install those programs on you own,
+referring to their documentation (see <a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/">MongoDB on Debian</a>
+or <a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/">MongoDB on Ubuntu</a>
+and <a class="reference external" href="https://pypi.python.org/pypi/pymongo/">pymongo</a>), instead of
+<code class="docutils literal notranslate"><span class="pre">apt-get</span></code>-ting them.</p>
+<p>You might also want to adapt it to your needs, architecture, etc.</p>
+<p><strong>For another way to run IVRE easily (probably more easily), see
+:ref`Docker`:.</strong></p>
+<div class="section" id="install">
+<h2>Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt-get -y install mongodb python-pymongo python-crypto \
+&gt;   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
+$ git clone https://github.com/cea-sec/ivre
+$ cd ivre
+$ python setup.py build
+$ sudo python setup.py install
+</pre></div>
+</div>
+<p>NB: if you are running Debian stable, the dokuwiki package has been
+removed (no idea why: it exists in both oldstable and testing). Run the
+following commands (or similar) if you cannot install dokuwiki, and try
+again:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ echo &#39;APT::Default-Release &quot;stable&quot;;&#39; | \
+&gt;   sudo tee /etc/apt/apt.conf.d/99defaultrelease
+$ echo &#39;deb http://deb.debian.org/debian testing main&#39; | \
+&gt;   sudo tee -a /etc/apt/sources.list
+$ sudo apt-get update
+</pre></div>
+</div>
+</div>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo -s
+# cd /var/www/html ## or depending on your version /var/www
+# rm index.html
+# ln -s /usr/local/share/ivre/web/static/* .
+# cd /var/lib/dokuwiki/data/pages
+# ln -s /usr/local/share/ivre/dokuwiki/doc
+# cd /var/lib/dokuwiki/data/media
+# ln -s /usr/local/share/ivre/dokuwiki/media/logo.png
+# ln -s /usr/local/share/ivre/dokuwiki/media/doc
+# cd /usr/share/dokuwiki
+# patch -p0 &lt; /usr/local/share/ivre/dokuwiki/backlinks.patch
+# cd /etc/apache2/mods-enabled
+# for m in rewrite.load wsgi.conf wsgi.load ; do
+&gt;   [ -L $m ] || ln -s ../mods-available/$m ; done
+# cd ../
+# echo &#39;Alias /cgi &quot;/usr/local/share/ivre/web/wsgi/app.wsgi&quot;&#39; &gt; conf-enabled/ivre.conf
+# echo &#39;&lt;Location /cgi&gt;&#39; &gt;&gt; conf-enabled/ivre.conf
+# echo &#39;SetHandler wsgi-script&#39; &gt;&gt; conf-enabled/ivre.conf
+# echo &#39;Options +ExecCGI&#39; &gt;&gt; conf-enabled/ivre.conf
+# echo &#39;Require all granted&#39; &gt;&gt; conf-enabled/ivre.conf
+# echo &#39;&lt;/Location&gt;&#39; &gt;&gt; conf-enabled/ivre.conf
+# sed -i &#39;s/^\(\s*\)#Rewrite/\1Rewrite/&#39; /etc/dokuwiki/apache.conf
+# echo &#39;WEB_GET_NOTEPAD_PAGES = &quot;localdokuwiki&quot;&#39; &gt;&gt; /etc/ivre.conf
+# service apache2 reload  ## or start
+# exit
+</pre></div>
+</div>
+<p>Open a web browser and visit <a class="reference external" href="http://localhost/">http://localhost/</a>.
+IVRE Web UI should show up, with no result of course. Click the HELP
+button to check if everything works.</p>
+</div>
+<div class="section" id="database-init-data-download-importation">
+<h2>Database init, data download &amp; importation<a class="headerlink" href="#database-init-data-download-importation" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ yes | ivre ipinfo --init
+$ yes | ivre scancli --init
+$ yes | ivre view --init
+$ yes | ivre flowcli --init
+$ yes | sudo ivre runscansagentdb --init
+$ sudo ivre ipdata --download --import-all
+</pre></div>
+</div>
+<p>The two last step may take a long time to run (40 minutes on a decent
+server), nothing to worry about.</p>
+</div>
+<div class="section" id="run-a-first-scan">
+<h2>Run a first scan<a class="headerlink" href="#run-a-first-scan" title="Permalink to this headline">¶</a></h2>
+<p>Against 1k (routable) IP addresses, with a single nmap process:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre runscans --routable --limit 1000
+</pre></div>
+</div>
+<p>Go have some coffees and/or beers (remember that according to the
+traveler’s theorem, for any time of the day, there exists a time zone in
+which it is OK to drink).</p>
+<p>When the command has terminated, import the results:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
+&gt;              scans/ROUTABLE/up
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">-c</span></code> argument adds categories to the scan results. Categories are
+arbitrary names used to filter results. In this example, the values are
+<code class="docutils literal notranslate"><span class="pre">ROUTABLE</span></code>, meaning the results came out while scanning the entire
+reachable address space (as opposed to while scanning a specific
+network, AS or country, for example), and <code class="docutils literal notranslate"><span class="pre">ROUTABLE-CAMPAIGN-001</span></code>,
+which is the name I have chosen to mark this particular scan campaign.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">-s</span></code> argument adds a name for the source of the scan. Here again,
+it is an arbitrary name you can use to unambiguously specify the network
+access used to run the scan. This can be used later to highlight result
+differences depending on where the scans are run from.</p>
+<p>Go back to the Web UI and browse your first scan results!</p>
+</div>
+<div class="section" id="some-remarks">
+<h2>Some remarks<a class="headerlink" href="#some-remarks" title="Permalink to this headline">¶</a></h2>
+<p>There is no tool (for now) to automatically import scan results to the
+database. It is your job to do so, according to your settings.</p>
+<p>If you run very large scans (particularly against random hosts on the
+Internet), do NOT use the default <code class="docutils literal notranslate"><span class="pre">--output=XML</span></code> option. Rather, go
+for the <code class="docutils literal notranslate"><span class="pre">--output=XMLFork</span></code>. This will fork one nmap process per IP to
+scan, and is (sadly) much more reliable.</p>
+<p>Another way to run scans efficiently is to use an <a class="reference external" href="AGENT.md">agent</a>
+and the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> command.</p>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Fast install &amp; first run</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#install">Install</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#setup">Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#database-init-data-download-importation">Database init, data download &amp; importation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#run-a-first-scan">Run a first scan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#some-remarks">Some remarks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">Installation</a></li>
+      <li>Next: <a href="docker.html" title="next chapter">Docker</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/install/fast-install-and-first-run.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

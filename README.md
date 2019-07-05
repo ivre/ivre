@@ -28,7 +28,7 @@ Taullier".
 ## Overview ##
 
 You can have a look at the [project homepage](https://ivre.rocks/),
-the **[screenshot gallery](doc/SCREENSHOTS.md)**, and the
+the **[screenshot gallery](doc/screenshots.rst)**, and the
 [quick video introduction](https://www.youtube.com/watch?v=GBu5QMq6ewY)
 for an overview of the Web interface.
 
@@ -41,13 +41,12 @@ have been written to show some features of IVRE.
 
 ## Documentation ##
 
-See [doc/README](doc/README.md) (and `doc/*` files) for more
+See [doc/index](doc/index.rst) (and `doc/*` files) for more
 information.
 
-On a server with the IVRE web server properly installed with a
-Dokuwiki notepad, the `doc/*` files are available under the `doc:`
-namespace (e.g., `doc:readme` for the [doc/README](doc/README.md)
-file).
+On an IVRE web server properly installed, the `doc/*` files are
+available, rendered, under `/doc/` (e.g., `doc/index.html` for the
+[doc/index](doc/index.rst) file).
 
 On a client with IVRE installed, you can use a `--help` option with
 most IVRE CLI tools, and use `help(ivre.module)` with most IVRE Python
@@ -66,15 +65,15 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-[along with IVRE](doc/LICENSE.md). If not, see [the gnu.org web
-site](http://www.gnu.org/licenses/).
+[along with IVRE](doc/license.rst). If not, see
+[the gnu.org web site](http://www.gnu.org/licenses/).
 
 ## Support ##
 
 Try `--help` for the CLI tools, `help()` under Python and the "HELP"
 button in the web interface.
 
-Have a look at the [FAQ](doc/FAQ.md)!
+Have a look at the [FAQ](doc/faq.rst)!
 
 Feel free to contact the author and offer him a beer if you need help!
 

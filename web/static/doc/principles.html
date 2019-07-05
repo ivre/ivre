@@ -1,0 +1,271 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Principles &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Screenshots gallery" href="screenshots.html" />
+    <link rel="prev" title="Welcome to IVRE’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="principles">
+<h1>Principles<a class="headerlink" href="#principles" title="Permalink to this headline">¶</a></h1>
+<p>IVRE is a network cartography (or network recon) framework.</p>
+<div class="section" id="purposes">
+<h2>Purposes<a class="headerlink" href="#purposes" title="Permalink to this headline">¶</a></h2>
+<p>IVRE has five <strong>purposes</strong> (we use this word to refer to the different
+types of data IVRE handles), which can be stored by one or more
+<strong>back-end</strong> databases:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">data</span></code>: associates IP ranges to Autonomous Systems (AS numbers and
+names), and geographical information (country, region, city), based
+on data from <a class="reference external" href="https://www.maxmind.com/en/geoip2-services-and-databases">Maxmind GeoIP</a>. It can
+be queried using:</p>
+<ul>
+<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.data</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipdata</span></code> tool.</p></li>
+<li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/cgi/ipdata/&lt;address&gt;</span></code> URL.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a> and <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> scan results. Each
+record represents one host seen during one network scan. It can be
+queried using:</p>
+<ul>
+<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.nmap</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span></code> tool.</p></li>
+<li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/cgi/scans</span></code> and <code class="docutils literal notranslate"><span class="pre">/cgi/scans/*</span></code> URLs.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">passive</span></code>: contains host intelligence captured from the network
+using a <a class="reference external" href="https://www.zeek.org/">Zeek</a> dedicated module called
+<code class="docutils literal notranslate"><span class="pre">passiverecon</span></code>. Each record represents one piece of information
+(<em>e.g.</em>, the HTTP <code class="docutils literal notranslate"><span class="pre">Server:</span></code> header value <code class="docutils literal notranslate"><span class="pre">Apache</span></code> has been seen
+10 times on port 80 of host 1.2.3.4). It can be queried using:</p>
+<ul>
+<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.passive</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code> tool.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">view</span></code>: contains a consolidated view of hosts based on data from
+<code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">passive</span></code>. The structure of the records is similar to
+<code class="docutils literal notranslate"><span class="pre">nmap</span></code>, but each record represents a host, seen during one or more
+network scans and/or seen from network captures. It can be queried using:</p>
+<ul>
+<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.view</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> tool.</p></li>
+<li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/cgi/view</span></code> and <code class="docutils literal notranslate"><span class="pre">/cgi/view/*</span></code> URLs.</p></li>
+<li><p>Web UI: the <code class="docutils literal notranslate"><span class="pre">/</span></code> or <code class="docutils literal notranslate"><span class="pre">/index.html</span></code> Web page.</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">flow</span></code>: contains aggregated network flows, as seen by <a class="reference external" href="https://www.zeek.org/">Zeek</a>, <a class="reference external" href="http://qosient.com/argus/">Argus</a> or
+Netflows (using <a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a>). It can
+be queried using:</p>
+<ul>
+<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.flow</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code> tool.</p></li>
+<li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/flows</span></code> URL.</p></li>
+<li><p>Web UI: the <code class="docutils literal notranslate"><span class="pre">/flow.html</span></code> Web page.</p></li>
+</ul>
+</li>
+</ul>
+<p>The following (non-exhaustive) figure shows how the data gets from
+your favorite open-source tools to IVRE’s databases.</p>
+</div>
+<div class="section" id="storing-data">
+<h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline">¶</a></h2>
+<div class="graphviz"><img src="_images/graphviz-afd241aa5456bddaaf0173331043c69948ee52b6.png" alt="digraph {
+   &quot;maxmind.com&quot;;
+   FLOWS [label=&quot;flow files&quot;];
+   FLOW_LOG [label=&quot;.log files&quot;];
+   PASS_LOG [label=&quot;passive_recon.log&quot;];
+   XML [label=&quot;XML scan result&quot;];
+   db_data [label=&quot;db.data&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   db_flow [label=&quot;db.flow&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   db_passive [label=&quot;db.passive&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   db_nmap [label=&quot;db.nmap&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   db_view [label=&quot;db.view&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+   &quot;maxmind.com&quot; -&gt; db_data [label=&quot;ivre\nipdata&quot;];
+   &quot;Argus&quot; -&gt; FLOWS;
+   &quot;Nfdump&quot; -&gt; FLOWS;
+   &quot;Zeek&quot; -&gt; FLOW_LOG;
+   &quot;Zeek&quot; -&gt; PASS_LOG [label=&quot;passiverecon&quot;];
+   FLOWS -&gt; db_flow [label=&quot;ivre\nflow2db&quot;];
+   &quot;Nmap&quot; -&gt; XML [label=&quot;-oX&quot;];
+   &quot;Masscan&quot; -&gt; XML [label=&quot;-oX&quot;];
+   FLOW_LOG -&gt; db_flow [label=&quot;ivre\nbro2db&quot;];
+   PASS_LOG -&gt; db_passive [label=&quot;ivre\npassiverecon2db&quot;];
+   XML -&gt; db_nmap [label=&quot;ivre\nscan2db&quot;];
+   db_passive -&gt; db_view [label=&quot;ivre\ndb2view&quot;];
+   db_nmap -&gt; db_view [label=&quot;ivre\ndb2view&quot;];
+}" class="graphviz" /></div>
+</div>
+<div class="section" id="accessing-data">
+<h2>Accessing data<a class="headerlink" href="#accessing-data" title="Permalink to this headline">¶</a></h2>
+<p>The following (also non-exhaustive) figures show how the data gets
+from IVRE’s databases back into your hands.</p>
+<div class="graphviz"><img src="_images/graphviz-d83a3bc3105b8f4e9930bd6796a9b9910ba1d155.png" alt="digraph {
+    db_data [label=&quot;db.data&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+    db_flow [label=&quot;db.flow&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+    db_passive [label=&quot;db.passive&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+    web_api_data [label=&quot;Web API\n/ipdata&quot;];
+    web_api_flows [label=&quot;Web API\n/flows&quot;];
+    web_ui_flow [label=&quot;Web UI\n/flow.html&quot;];
+    cli_ipdata [label=&quot;CLI\nipdata&quot;];
+    cli_flow [label=&quot;CLI\nflowcli&quot;];
+    cli_ipinfo [label=&quot;CLI\nipinfo&quot;];
+    cli_iphost [label=&quot;CLI\niphost&quot;];
+    db_data -&gt; web_api_data;
+    db_flow -&gt; web_api_flows;
+    db_flow -&gt; cli_flow;
+    db_passive -&gt; cli_ipinfo;
+    db_passive -&gt; cli_iphost;
+    web_api_flows -&gt; web_ui_flow;
+    db_data -&gt; cli_ipdata;
+}" class="graphviz" /></div>
+<div class="graphviz"><img src="_images/graphviz-0b4c518e46984ce1f3d363c6f31c137e82745464.png" alt="digraph {
+    db_nmap [label=&quot;db.nmap&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+    db_view [label=&quot;db.view&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
+    web_api_scans [label=&quot;Web API\n/scans&quot;];
+    web_api_view [label=&quot;Web API\n/view&quot;];
+    web_ui_view [label=&quot;Web UI /&quot;];
+    cli_scancli [label=&quot;CLI\nscancli&quot;];
+    cli_view [label=&quot;CLI\nview&quot;];
+    db_nmap -&gt; web_api_scans;
+    db_view -&gt; web_api_view;
+    web_api_view -&gt; web_ui_view;
+    db_nmap -&gt; cli_scancli;
+    db_view -&gt; cli_view;
+}" class="graphviz" /></div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Principles</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#purposes">Purposes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#storing-data">Storing data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#accessing-data">Accessing data</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to IVRE’s documentation!</a></li>
+      <li>Next: <a href="screenshots.html" title="next chapter">Screenshots gallery</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/principles.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

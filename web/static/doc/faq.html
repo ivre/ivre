@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>FAQ &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="install/index.html" />
+    <link rel="prev" title="Screenshots gallery" href="screenshots.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="faq">
+<h1>FAQ<a class="headerlink" href="#faq" title="Permalink to this headline">¶</a></h1>
+<p>If you cannot find the answer to your question, either here or in this
+documentation, feel free to <a class="reference external" href="https://github.com/cea-sec/ivre/issues/new">open an issue</a> and use the label
+“question”.</p>
+<div class="section" id="web-interface">
+<h2>Web interface<a class="headerlink" href="#web-interface" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="help-notebook-shows-forbidden">
+<h3>Help / Notebook shows “Forbidden”<a class="headerlink" href="#help-notebook-shows-forbidden" title="Permalink to this headline">¶</a></h3>
+<p><strong>I cannot access the help pages or the notepad (the Dokuwiki content),
+and get a “Forbidden” message.</strong></p>
+<p>You need to configure your web server to allow access from other hosts
+on the network to the Dokuwiki content. It is often restricted, by
+default, to local users only. If you are using Apache, you can look
+for an ACL like <code class="docutils literal notranslate"><span class="pre">Allow</span> <span class="pre">from</span> <span class="pre">localhost</span> <span class="pre">127.0.0.1</span> <span class="pre">::1</span></code> and adapt it to
+your network.</p>
+</div>
+<div class="section" id="how-can-i-restrict-access-to-ivre-s-web-interface">
+<h3>How can I restrict access to IVRE’s Web interface<a class="headerlink" href="#how-can-i-restrict-access-to-ivre-s-web-interface" title="Permalink to this headline">¶</a></h3>
+<p><strong>I want to prevent unauthorized access to IVRE’s results.</strong></p>
+<p>First, you have to configure your web server to authenticate remote
+users. The most important, of course, is to protect access to CGI files
+(the static files are publicly available and do not contain any result).</p>
+<p>In an AD or Kerberos environment for example, Apache can be configured
+to provide SSO authentication.</p>
+<p>Then, if you want to restrict access to the results based on the user
+login or domain, you can add the following lines to <code class="docutils literal notranslate"><span class="pre">/etc/ivre.conf</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
+<span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;admin@SUBNETWORK.NETWORK.AD&#39;</span><span class="p">:</span> <span class="s1">&#39;category:SubNetwork&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;@ADMIN.NETWORK.AD&#39;</span><span class="p">:</span> <span class="s1">&#39;full&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>By default, users won’t have access to any result. The user
+<code class="docutils literal notranslate"><span class="pre">admin&#64;SUBNETWORK.NETWORK.AD</span></code> will have access to the results in the
+category <code class="docutils literal notranslate"><span class="pre">SubNetwork</span></code>. The users in the <code class="docutils literal notranslate"><span class="pre">ADMIN.NETWORK.AD</span></code> realm
+will have access to all the results.</p>
+</div>
+</div>
+<div class="section" id="can-ivre-be-used-to-look-for-xxx">
+<h2>Can IVRE be used to look for XXX?<a class="headerlink" href="#can-ivre-be-used-to-look-for-xxx" title="Permalink to this headline">¶</a></h2>
+<p>IVRE is not a scanner or a network traffic analyzer. It relies on
+tools like Nmap, Masscan, Zeek and p0f, parses their results and
+stores them in a database.</p>
+<p>So when you are asking, for example, “can IVRE scan a network for
+hosts with the <a class="reference external" href="https://en.wikipedia.org/wiki/Heartbleed">Heartbleed</a> vulnerability?”, in
+reality you are asking two different questions:</p>
+<ul class="simple">
+<li><p>“Can Nmap or Masscan detect when a scanned hosts is vulnerable to the
+Heartbleed vulnerability?”</p></li>
+<li><p>“How can IVRE list the hosts that have been found vulnerable to
+Heartbleed by Nmap or Masscan?”</p></li>
+</ul>
+<p>The first question is not related to IVRE (and should probably be asked
+to Nmap or Masscan developers), but the second question is (and may be
+asked as a “question” labeled issue).</p>
+<p>For that particular Heartbleed example, both Nmap and Masscan can
+(reliably) report hosts with the Heartbleed vulnerability, and IVRE
+can be used to find such hosts.</p>
+</div>
+<div class="section" id="how-can-i-configure-iptables-to-get-logs-used-by-flow2db-tool">
+<h2>How can I configure iptables to get logs used by flow2db tool<a class="headerlink" href="#how-can-i-configure-iptables-to-get-logs-used-by-flow2db-tool" title="Permalink to this headline">¶</a></h2>
+<p>When you don’t have access to low level network data, an easy way to
+discover a part of network traffic is to use netfilter logs collected
+via syslog.</p>
+<p>To be efficient, all the systems must have iptables activated and
+configured to send logs.</p>
+<p>For example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">A</span> <span class="n">INPUT</span>   <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">&quot;IPTABLES/INPUT: &quot;</span>
+<span class="o">-</span><span class="n">A</span> <span class="n">OUTPUT</span>  <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">&quot;IPTABLES/OUTPUT: &quot;</span>
+<span class="o">-</span><span class="n">A</span> <span class="n">FORWARD</span> <span class="o">-</span><span class="n">j</span> <span class="n">LOG</span> <span class="o">--</span><span class="n">log</span><span class="o">-</span><span class="n">prefix</span> <span class="s2">&quot;IPTABLES/FORWARD: &quot;</span>
+</pre></div>
+</div>
+<p>To log all traffic, the rules can be set at the top of all rules. Be
+careful with the OUTPUT rule if the logs are sent over the network!</p>
+<p>On the syslog server or on each host, just run grep to collect the
+data needed for the iptables flow2db parser:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ grep -l <span class="s1">&#39;IPTABLES/&#39;</span> /var/log/syslog /var/log/kernel.log ... &gt; syslog-iptables.log
+</pre></div>
+</div>
+<p>Then import data to ivredb using flow2db tool:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ivre flow2db -t iptables syslog-iptables.log
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="index.html">
+              <img class="logo" src="_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#web-interface">Web interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#can-ivre-be-used-to-look-for-xxx">Can IVRE be used to look for XXX?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-can-i-configure-iptables-to-get-logs-used-by-flow2db-tool">How can I configure iptables to get logs used by flow2db tool</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="usage/use-cases.html">Some use cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/active-recon.html">Active recon</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage/web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="screenshots.html" title="previous chapter">Screenshots gallery</a></li>
+      <li>Next: <a href="install/index.html" title="next chapter">&lt;no title&gt;</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/faq.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

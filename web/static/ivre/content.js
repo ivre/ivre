@@ -1017,7 +1017,7 @@ var MENU_MAIN = {
     share_report: true,
     items: [
 	{title: "HELP",
-	 action: "$scope.togglenotes('doc:webui');",
+	 action: "$scope.togglenotes('doc/usage/web-ui.html');",
 	 icon: "question-sign",
 	},
     ]
@@ -1031,7 +1031,7 @@ var MENU_MAIN = {
     share_jsonexport: true,
     items: [
 	{title: "HELP",
-	 action: "$scope.togglenotes('doc:webui');",
+	 action: "$scope.togglenotes('doc/usage/web-ui.html');",
 	 icon: "question-sign",
 	},
     ]

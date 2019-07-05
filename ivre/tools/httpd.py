@@ -48,6 +48,25 @@ def server_index():
     return redirect('index.html')
 
 
+@get('/doc')
+def server_doc_index():
+    """Needed to redirect / to index.html"""
+    return redirect('doc/index.html')
+
+
+@get('/doc/<subdir:re:dev|install|usage>')
+def server_doc_subindex(subdir):
+    """Needed to redirect / to index.html"""
+    return redirect('%s/index.html' % subdir)
+
+
+@get('/doc/')
+@get('/doc/<:re:dev|install|usage>/')
+def server_doc_subindex2():
+    """Needed to redirect / to index.html"""
+    return redirect('index.html')
+
+
 #
 # Static files
 #

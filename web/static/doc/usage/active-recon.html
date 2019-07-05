@@ -1,0 +1,225 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Active recon &#8212; IVRE  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Passive" href="passive.html" />
+    <link rel="prev" title="Some use cases" href="use-cases.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="active-recon">
+<h1>Active recon<a class="headerlink" href="#active-recon" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="scanning">
+<h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="with-nmap-or-masscan">
+<h3>With Nmap or Masscan<a class="headerlink" href="#with-nmap-or-masscan" title="Permalink to this headline">¶</a></h3>
+<p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a> or <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> to run the scans. In
+both cases, use <code class="docutils literal notranslate"><span class="pre">-oX</span></code> to produce an XML output.</p>
+<p>Then, provide that output to the command line tool <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>, and you’re good!</p>
+</div>
+<div class="section" id="with-ivre">
+<h3>With IVRE<a class="headerlink" href="#with-ivre" title="Permalink to this headline">¶</a></h3>
+<p>Masscan does not provide results as complete as Nmap, when using the
+“interesting” options (for example, <code class="docutils literal notranslate"><span class="pre">-vv</span> <span class="pre">-A</span></code>) or scripts. That being
+said, Nmap (with such “interesting” options) cannot run efficiently
+against huge networks.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span></code> tool can run one Nmap process per target (option
+<code class="docutils literal notranslate"><span class="pre">--output=XMLFork</span></code>). This should be less efficient in theory,
+because Nmap supposedly knows better how to handle the host and
+network resources, but in practice it is much more efficient. You can
+adjust how many Nmap processes you want to run in parallel using the
+<code class="docutils literal notranslate"><span class="pre">--processes</span> <span class="pre">N</span></code> option.</p>
+<p>Another advantage of using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span> <span class="pre">--output=XMLFork</span></code> over
+using Nmap directly is that <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscans</span></code> produces output files as
+soon as each host has been scanned (in the <code class="docutils literal notranslate"><span class="pre">scans/*/up</span></code> directory).</p>
+<p>Here is a simple example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre runscans --routable --limit 1000 --output=XMLFork
+</pre></div>
+</div>
+<p>This will run a standard scan against 1000 random hosts on the Internet
+by running 30 nmap processes in parallel. See the output of
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">runscans</span></code> if you want to do something else.</p>
+<p>When it’s over, to import the results in the database, run
+(<code class="docutils literal notranslate"><span class="pre">ROUTABLE-001</span></code> is the category name, and <code class="docutils literal notranslate"><span class="pre">MySource</span></code> is the source
+name, usually referencing the machine used to run the scan):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/ROUTABLE/up
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="enjoying-the-results">
+<h2>Enjoying the results<a class="headerlink" href="#enjoying-the-results" title="Permalink to this headline">¶</a></h2>
+<p>You have several options, depending on what you want to do:</p>
+<ul class="simple">
+<li><p>Command line interfaces: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span></code> tool.</p></li>
+<li><p>Python API: use the <code class="docutils literal notranslate"><span class="pre">db.nmap</span></code> object of the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<li><p>Web interface:</p>
+<ul>
+<li><p>Using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span></code>, you can create or update a view from the
+scan data, that can then be accessed by the <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose (see
+<a class="reference internal" href="../principles.html#purposes"><span class="std std-ref">Purposes</span></a>), which includes the
+<a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p></li>
+</ul>
+</li>
+</ul>
+<div class="section" id="cli">
+<h3>CLI<a class="headerlink" href="#cli" title="Permalink to this headline">¶</a></h3>
+<p>To get all the hosts with the port 22 open:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scancli --port 22
+</pre></div>
+</div>
+<p>See the output of <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">scancli</span></code>.</p>
+</div>
+<div class="section" id="python-module">
+<h3>Python module<a class="headerlink" href="#python-module" title="Permalink to this headline">¶</a></h3>
+<p>To use the Python module, run for example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python
+&gt;&gt;&gt; from ivre.db import db
+&gt;&gt;&gt; db.nmap.get(db.nmap.flt_empty)[0]
+</pre></div>
+</div>
+<p>For more, run <code class="docutils literal notranslate"><span class="pre">help(db.nmap)</span></code> from the Python shell.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+            <p class="logo"><a href="../index.html">
+              <img class="logo" src="../_static/logo.png" alt="Logo"/>
+            </a></p>
+<h1 class="logo"><a href="../index.html">IVRE</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption"><span class="caption-text">Overview:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/docker.html">Docker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/agents.html">Agents</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Usage:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Active recon</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#scanning">Scanning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#with-nmap-or-masscan">With Nmap or Masscan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#with-ivre">With IVRE</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#enjoying-the-results">Enjoying the results</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#cli">CLI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#python-module">Python module</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l1"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l1"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">&lt;no title&gt;</a><ul>
+      <li>Previous: <a href="use-cases.html" title="previous chapter">Some use cases</a></li>
+      <li>Next: <a href="passive.html" title="next chapter">Passive</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2011 - 2019, Pierre LALET.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/usage/active-recon.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

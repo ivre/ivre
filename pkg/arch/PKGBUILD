@@ -3,7 +3,7 @@
 # Arch Linux package file
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 pkgbase='ivre'
 # ivre-data must be the last one as it changes $pkgver
 pkgname=('ivre' 'ivre-docs' 'ivre-web' 'python-ivre' 'python2-ivre' 'ivre-data')
-pkgver=0.9.12
+pkgver=0.9.13
 pkgrel=1
 pkgdesc='Network recon framework'
 arch=('any')
@@ -70,7 +70,7 @@ package_ivre() {
      "${pkgdir}/usr/share/doc" \
      "${pkgdir}/usr/share/ivre/dokuwiki" \
      "${pkgdir}/usr/share/ivre/web"
-  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/LICENSE*
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
 }
 
 package_ivre-data() {
@@ -87,6 +87,7 @@ package_ivre-docs() {
   pkgdesc+=' (documentation)'
   cd "$srcdir/$pkgbase"
   python setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1
+  mv "${pkgdir}/usr/share/ivre/web/static/doc" "${pkgdir}/usr/share/doc/ivre/html"
   rm -r "${pkgdir}/usr/bin" "${pkgdir}/usr/lib" \
      "${pkgdir}/usr/share/ivre" \
      "${pkgdir}/etc/bash_completion.d"
@@ -110,7 +111,7 @@ package_ivre-web() {
      "${pkgdir}/usr/share/ivre/honeyd" \
      "${pkgdir}/usr/share/ivre/nmap_scripts" \
      "${pkgdir}/etc/bash_completion.d"
-  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/LICENSE*
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   install -Dm0644 "pkg/apache/ivre.conf" "$pkgdir/etc/httpd/conf/extra/ivre.conf"
 }
 
@@ -134,7 +135,7 @@ package_python-ivre() {
   rm -r "${pkgdir}/usr/bin" \
      "${pkgdir}/usr/share" \
      "${pkgdir}/etc/bash_completion.d"
-  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/LICENSE*
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   sed -i "s/\.dev/.dev_${branch//-/_}_/" \
       "${pkgdir}"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
 }
@@ -159,7 +160,7 @@ package_python2-ivre() {
   rm -r "${pkgdir}/usr/bin" \
      "${pkgdir}/usr/share" \
      "${pkgdir}/etc/bash_completion.d"
-  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/LICENSE*
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   sed -i "s/\.dev/.dev_${branch//-/_}_/" \
       "${pkgdir}"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
 }
