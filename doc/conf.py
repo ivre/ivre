@@ -11,6 +11,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import re
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
@@ -24,6 +25,9 @@ html_logo = '../web/static/logo.png'
 master_doc = 'index'
 
 from ivre import __version__ as version
+version = version.split('dev')[0]
+if version.endswith('.'):
+    version += 'dev'
 
 # -- General configuration ---------------------------------------------------
 

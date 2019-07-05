@@ -65,6 +65,19 @@ following example (the results come from a PCAP file used in IVRE's
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
 
+YETI plugin
+-----------
+
+`Yeti <https://yeti-platform.github.io/>`_ is a platform meant to
+organize observables, indicators of compromise, TTPs, and knowledge on
+threats in a single, unified repository.
+
+It comes with an "analytics" plugin that uses IVRE's data to create
+links between IP addresses, hostnames, certificates, etc.
+
+To learn more about this plugin, have a look at `its documentation
+<https://github.com/yeti-platform/yeti/tree/master/contrib/analytics/ivre_api>`_.
+
 Blog posts and other resources
 ------------------------------
 
