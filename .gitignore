@@ -3,6 +3,7 @@
 *~
 build/
 dist/
+doc/_build
 docker/base-local/ivre.tar
 ivre/VERSION
 tests/samples*
