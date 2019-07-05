@@ -17,5 +17,5 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 cd `dirname $0`/../doc
-make html && rm -rf ../web/doc && mv _build/html ../web/static/doc && rm -rf _build/
+make html && rm -rf ../web/static/doc && mv _build/html ../web/static/doc && rm -rf _build/
 
