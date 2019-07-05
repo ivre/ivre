@@ -18,8 +18,8 @@ and `pymongo <https://pypi.python.org/pypi/pymongo/>`__), instead of
 
 You might also want to adapt it to your needs, architecture, etc.
 
-**For another way to run IVRE easily (probably more easily), see
-:ref`Docker`:.**
+For another way to run IVRE easily (probably even more easily), see
+:ref:`install/docker:Docker`.
 
 Install
 -------

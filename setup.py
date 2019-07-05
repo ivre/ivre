@@ -226,6 +226,26 @@ specialized scripts.
          [os.path.join('web/static/doc/_static', x)
           for x in os.listdir('web/static/doc/_static')
           if x.endswith('.css') or x.endswith('.js') or x.endswith('.png')]),
+        ('share/ivre/web/static/doc/_static/css',
+         [os.path.join('web/static/doc/_static/css', x)
+          for x in os.listdir('web/static/doc/_static/css')
+          if x.endswith('.css')]),
+        ('share/ivre/web/static/doc/_static/fonts',
+         [os.path.join('web/static/doc/_static/fonts', x)
+          for x in os.listdir('web/static/doc/_static/fonts')
+          if x.startswith('fontawesome-webfont.')]),
+        ('share/ivre/web/static/doc/_static/fonts/Lato',
+         [os.path.join('web/static/doc/_static/fonts/Lato', x)
+          for x in os.listdir('web/static/doc/_static/fonts/Lato')
+          if x.startswith('lato-')]),
+        ('share/ivre/web/static/doc/_static/fonts/RobotoSlab',
+         [os.path.join('web/static/doc/_static/fonts/RobotoSlab', x)
+          for x in os.listdir('web/static/doc/_static/fonts/RobotoSlab')
+          if x.startswith('roboto-slab-v7-')]),
+        ('share/ivre/web/static/doc/_static/js',
+         [os.path.join('web/static/doc/_static/js', x)
+          for x in os.listdir('web/static/doc/_static/js')
+          if x.endswith('.js')]),
         ('share/ivre/web/static/doc/_sources',
          [os.path.join('web/static/doc/_sources', x)
           for x in os.listdir('web/static/doc/_sources')
