@@ -44,6 +44,17 @@ Flows with details for a specific flow
 
 Flow map
 
+Passive network analysis
+------------------------
+
+|animation_passive|
+
+A simple passive analysis demonstration
+
+|animation_passive_view|
+
+The data from the previous scene used to create an Nmap-like result
+
 .. |screenshot_heatmap| image:: screenshots/webui-home-heatmap.png
 .. |screenshot_heatmap_zoom| image:: screenshots/webui-details-heatmapzoom.png
 .. |screenshot_solar_map| image:: screenshots/webui-screenshots-solar-world.png
@@ -53,4 +64,5 @@ Flow map
 .. |screenshot_flow_host_details| image:: screenshots/webui-flow-details-host.png
 .. |screenshot_flow_flow_details| image:: screenshots/webui-flow-details-flow.png
 .. |screenshot_map| image:: screenshots/webui-flow-flow-map.png
-
+.. |animation_passive| image:: screenshots/passive-cli.svg
+.. |animation_passive_view| image:: screenshots/passive-view-cli.svg

@@ -221,7 +221,8 @@ specialized scripts.
         ('share/ivre/web/static/doc/_images',
          [os.path.join('web/static/doc/_images', x)
           for x in os.listdir('web/static/doc/_images')
-          if x.endswith('.png') or x.endswith('.png.map')]),
+          if x.endswith('.png') or x.endswith('.png.map') or
+          x.endswith('.svg')]),
         ('share/ivre/web/static/doc/_static',
          [os.path.join('web/static/doc/_static', x)
           for x in os.listdir('web/static/doc/_static')
@@ -339,7 +340,11 @@ specialized scripts.
          [os.path.join('doc/usage', x) for x in os.listdir('doc/usage')
           if x.endswith('.rst')]),
         ('share/doc/ivre/rst/screenshots',
-         ['doc/screenshots/webui-details-heatmapzoom.png',
+         ['doc/screenshots/passive-cli.cast',
+          'doc/screenshots/passive-cli.svg',
+          'doc/screenshots/passive-view-cli.cast',
+          'doc/screenshots/passive-view-cli.svg',
+          'doc/screenshots/webui-details-heatmapzoom.png',
           'doc/screenshots/webui-flow-details-flow.png',
           'doc/screenshots/webui-flow-details-host.png',
           'doc/screenshots/webui-flow-dns-halo.png',
