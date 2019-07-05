@@ -9,11 +9,11 @@ documentation, feel free to `open an issue
 Web interface
 -------------
 
-Help / Notebook shows "Forbidden"
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Notebook shows "Forbidden"
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-**I cannot access the help pages or the notepad (the Dokuwiki content),
-and get a "Forbidden" message.**
+**I cannot access the notepad (the Dokuwiki content), and get a
+"Forbidden" message.**
 
 You need to configure your web server to allow access from other hosts
 on the network to the Dokuwiki content. It is often restricted, by

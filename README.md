@@ -41,15 +41,15 @@ have been written to show some features of IVRE.
 
 ## Documentation ##
 
-See [doc/index](doc/index.rst) (and `doc/*` files) for more
-information.
+[IVRE's documentation](https://doc.ivre.rocks/) is hosted by Read The
+Docs, based on files from the [doc/](doc/) directory of the
+repository.
 
-On an IVRE web server properly installed, the `doc/*` files are
-available, rendered, under `/doc/` (e.g., `doc/index.html` for the
-[doc/index](doc/index.rst) file).
+On an IVRE web server, the `doc/*` files are available, rendered,
+under `/doc/`.
 
-On a client with IVRE installed, you can use a `--help` option with
-most IVRE CLI tools, and use `help(ivre.module)` with most IVRE Python
+On a system with IVRE installed, you can use a `--help` option with
+most IVRE CLI tools, and `help(ivre.module)` with most IVRE Python
 sub-modules.
 
 ## License ##
