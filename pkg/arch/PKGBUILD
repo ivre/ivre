@@ -23,7 +23,7 @@ pkgbase='ivre'
 pkgname=('ivre' 'ivre-docs' 'ivre-web' 'python-ivre' 'python2-ivre' 'ivre-data')
 pkgver=0.9.13
 pkgrel=1
-pkgdesc='Network recon framework'
+pkgdesc='Network recon framework based on Nmap, Masscan, Zeek (Bro), Argus, Netflow,...'
 arch=('any')
 url='https://ivre.rocks/'
 license=('GPL3')
@@ -55,10 +55,11 @@ build() {
 package_ivre() {
   depends=('python-ivre')
   optdepends=('ivre-docs: Documentation'
+              'ivre-web: Web server'
               'nmap: Network scan'
               'masscan: Network scan'
               'zmap: Network scan'
-              'bro: Network traffic analysis'
+              'zeek: Network traffic analysis'
               'argus: Network traffic analysis'
               'nfdump: Netflow analysis'
               'imagemagick: Screenshots via Nmap scripts'
