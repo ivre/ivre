@@ -21,6 +21,7 @@ project = 'IVRE'
 copyright = '2011 - 2019, Pierre LALET'
 author = 'Pierre LALET'
 html_logo = '../web/static/logo.png'
+master_doc = 'index'
 
 from ivre import __version__ as version
 
