@@ -65,6 +65,10 @@ following example (the results come from a PCAP file used in IVRE's
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.10:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
 
+To see an interactive session of IVRE using passive data (including
+DNS answers), have a look at :ref:`screenshots:Passive network
+analysis`.
+
 YETI plugin
 -----------
 
