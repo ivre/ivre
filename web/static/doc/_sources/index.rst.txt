@@ -29,7 +29,7 @@ Use-cases
 ---------
 
 IVRE can prove useful in several different scenarios (you may want to
-have a look at the :ref:`screenshots:screenshots gallery`). Here are
+have a look at the :ref:`overview/screenshots:screenshots gallery`). Here are
 some examples:
 
 - Create your own Shodan-like service, using Nmap and/or Masscan,
@@ -50,9 +50,9 @@ Getting started
 ---------------
 
 If You want to learn more about the different purposes of IVRE, you
-should start reading the :ref:`principles:principles`.
+should start reading the :ref:`overview/principles:principles`.
 
-After that, you can start the :ref:`install/installation:installation`
+After that, you can start the :ref:`install/index:installation`
 process.
 
 Once you are ready, dive into the "Usage" section!
@@ -86,30 +86,25 @@ Content
 -------
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Overview:
+   :maxdepth: 3
+   :glob:
 
-   principles
-   screenshots
-   faq
+   overview/index.rst
 
 .. toctree::
    :maxdepth: 3
-   :caption: Installation & configuration:
    :glob:
 
    install/index.rst
 
 .. toctree::
    :maxdepth: 3
-   :caption: Usage:
    :glob:
 
    usage/index.rst
 
 .. toctree::
    :maxdepth: 3
-   :caption: Development:
    :glob:
 
    dev/index.rst

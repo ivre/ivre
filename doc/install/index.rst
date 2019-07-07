@@ -1,5 +1,8 @@
 .. Installation
 
+Installation
+############
+
 .. toctree::
    
   installation
