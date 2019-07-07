@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="&lt;no title&gt;" href="../usage/index.html" />
+    <link rel="next" title="Usage" href="../usage/index.html" />
     <link rel="prev" title="Docker" href="docker.html" /> 
 </head>
 
@@ -88,40 +88,32 @@
               
             
             
-              <p class="caption"><span class="caption-text">Overview:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
-<li class="toctree-l1"><a class="reference internal" href="docker.html">Docker</a></li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Agents</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#set-up">Set-up</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#run-the-slave-s">Run the slave(s)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#run-the-master">Run the master</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#runscansagent-the-old-school-one"><strong>runscansagent</strong>, the “old-school” one</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#runscansagentdb-the-modern-but-probably-broken-one"><strong>runscansagentdb</strong>, the “modern” (but probably broken) one</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Installation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation guidelines</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Agents</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#set-up">Set-up</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#run-the-slave-s">Run the slave(s)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#run-the-master">Run the master</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#runscansagent-the-old-school-one"><strong>runscansagent</strong>, the “old-school” one</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#runscansagentdb-the-modern-but-probably-broken-one"><strong>runscansagentdb</strong>, the “modern” (but probably broken) one</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
-<p class="caption"><span class="caption-text">Usage:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../usage/use-cases.html">Some use cases</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage/active-recon.html">Active recon</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage/passive.html">Passive</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage/flow.html">Flow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../usage/web-ui.html">Web User Interface</a></li>
+</li>
 </ul>
-<p class="caption"><span class="caption-text">Development:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
 </ul>
 <p class="caption"><span class="caption-text">Licenses:</span></p>
 <ul>
@@ -172,7 +164,7 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="index.html">&lt;no title&gt;</a> &raquo;</li>
+          <li><a href="index.html">Installation</a> &raquo;</li>
         
       <li>Agents</li>
     
@@ -204,10 +196,10 @@ number of dependencies.</p>
 <code class="docutils literal notranslate"><span class="pre">grep</span></code>).</p>
 <div class="section" id="set-up">
 <h2>Set-up<a class="headerlink" href="#set-up" title="Permalink to this headline">¶</a></h2>
-<p>On the “master”, install IVRE following the instructions from
-<a class="reference internal" href="installation.html#installation"><span class="std std-ref">Installation</span></a>. Install also <code class="docutils literal notranslate"><span class="pre">screen</span></code>, <code class="docutils literal notranslate"><span class="pre">tmux</span></code> or
-<code class="docutils literal notranslate"><span class="pre">nohup</span></code> if you want to be able to “detach” from the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script
-(which is not a daemon).</p>
+<p>On the “master”, install IVRE following the
+<a class="reference internal" href="installation.html#installation-guidelines"><span class="std std-ref">Installation guidelines</span></a>. Install also
+<code class="docutils literal notranslate"><span class="pre">screen</span></code>, <code class="docutils literal notranslate"><span class="pre">tmux</span></code> or <code class="docutils literal notranslate"><span class="pre">nohup</span></code> if you want to be able to “detach”
+from the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script (which is not a daemon).</p>
 <p>On the “slave(s)”, the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script must be deployed, together with
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, and <code class="docutils literal notranslate"><span class="pre">rsync</span></code>.</p>
 </div>
@@ -346,7 +338,7 @@ check the scan evolution by issuing
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../usage/index.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="../usage/index.html" class="btn btn-neutral float-right" title="Usage" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="docker.html" class="btn btn-neutral float-left" title="Docker" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>

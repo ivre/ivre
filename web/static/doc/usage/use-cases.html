@@ -37,7 +37,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Active recon" href="active-recon.html" />
-    <link rel="prev" title="&lt;no title&gt;" href="index.html" /> 
+    <link rel="prev" title="Usage" href="index.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -88,37 +88,30 @@
               
             
             
-              <p class="caption"><span class="caption-text">Overview:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="../principles.html">Principles</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../screenshots.html">Screenshots gallery</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../faq.html">FAQ</a></li>
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Installation &amp; configuration:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../install/installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../install/fast-install-and-first-run.html">Fast install &amp; first run</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../install/docker.html">Docker</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../install/agents.html">Agents</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Usage:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Some use cases</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="#your-own-shodan-zoomeye-censys-binaryedgeio-whatever">Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#your-own-passive-dns-service">Your own Passive DNS service</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#yeti-plugin">YETI plugin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#blog-posts-and-other-resources">Blog posts and other resources</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Some use cases</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#your-own-shodan-zoomeye-censys-binaryedgeio-whatever">Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#your-own-passive-dns-service">Your own Passive DNS service</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#yeti-plugin">YETI plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#blog-posts-and-other-resources">Blog posts and other resources</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="active-recon.html">Active recon</a></li>
-<li class="toctree-l1"><a class="reference internal" href="passive.html">Passive</a></li>
-<li class="toctree-l1"><a class="reference internal" href="flow.html">Flow</a></li>
-<li class="toctree-l1"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+<li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
 </ul>
-<p class="caption"><span class="caption-text">Development:</span></p>
+</li>
+</ul>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../dev/web-api.html">Web API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../dev/tests.html">Tests</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
 </ul>
 <p class="caption"><span class="caption-text">Licenses:</span></p>
 <ul>
@@ -169,7 +162,7 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="index.html">&lt;no title&gt;</a> &raquo;</li>
+          <li><a href="index.html">Usage</a> &raquo;</li>
         
       <li>Some use cases</li>
     
@@ -216,7 +209,7 @@ easily.</p>
 <p>You will then store the results from the XML output files into IVRE
 database using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>.</p>
 <p>Finally, use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> to create a <code class="docutils literal notranslate"><span class="pre">view</span></code> (see
-<a class="reference internal" href="../principles.html#purposes"><span class="std std-ref">Purposes</span></a>) that you can explore with the
+<a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>) that you can explore with the
 <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p>
 </div>
 <div class="section" id="your-own-passive-dns-service">
@@ -225,8 +218,8 @@ database using <code class="docutils literal notranslate"><span class="pre">ivre
 queries against them.</p>
 <p>IVRE uses its <a class="reference external" href="https://www.zeek.org/">Zeek</a> script <code class="docutils literal notranslate"><span class="pre">passiverecon</span></code>
 to, among others, log DNS answers. They are stored in the <code class="docutils literal notranslate"><span class="pre">passive</span></code>
-purpose (see <a class="reference internal" href="../principles.html#purposes"><span class="std std-ref">Purposes</span></a>) via <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">passiverecon2db</span></code>
-CLI tool as <code class="docutils literal notranslate"><span class="pre">DNS_ANSWER</span></code> records.</p>
+purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>) via <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">passiverecon2db</span></code> CLI tool as <code class="docutils literal notranslate"><span class="pre">DNS_ANSWER</span></code> records.</p>
 <p>They can be queried using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">iphost</span></code> CLI tool, as in the
 following example (the results come from a PCAP file used in IVRE’s
 <a class="reference internal" href="../dev/tests.html#tests"><span class="std std-ref">Tests</span></a>):</p>
@@ -242,7 +235,7 @@ ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57
 </pre></div>
 </div>
 <p>To see an interactive session of IVRE using passive data (including
-DNS answers), have a look at <a class="reference internal" href="../screenshots.html#passive-network-analysis"><span class="std std-ref">Passive network analysis</span></a>.</p>
+DNS answers), have a look at <a class="reference internal" href="../overview/screenshots.html#passive-network-analysis"><span class="std std-ref">Passive network analysis</span></a>.</p>
 </div>
 <div class="section" id="yeti-plugin">
 <h2>YETI plugin<a class="headerlink" href="#yeti-plugin" title="Permalink to this headline">¶</a></h2>
@@ -304,7 +297,7 @@ us so that we can add a link here!</p>
         <a href="active-recon.html" class="btn btn-neutral float-right" title="Active recon" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="index.html" class="btn btn-neutral float-left" title="&lt;no title&gt;" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Usage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

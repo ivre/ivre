@@ -2,8 +2,8 @@ Web User Interface
 ==================
 
 This web interface presents results of the ``view`` purpose (see
-:ref:`principles:Purposes`) that can be filtered with keywords (for
-some of them, shortcuts are available in the menus).
+:ref:`overview/principles:Purposes`) that can be filtered with
+keywords (for some of them, shortcuts are available in the menus).
 
 Keep in mind that the information available in this interface highly
 depends on the options used to run Nmap.

@@ -214,6 +214,10 @@ specialized scripts.
          [os.path.join('web/static/doc/install', x)
           for x in os.listdir('web/static/doc/install')
           if x.endswith('.html')]),
+        ('share/ivre/web/static/doc/overview',
+         [os.path.join('web/static/doc/overview', x)
+          for x in os.listdir('web/static/doc/overview')
+          if x.endswith('.html')]),
         ('share/ivre/web/static/doc/usage',
          [os.path.join('web/static/doc/usage', x)
           for x in os.listdir('web/static/doc/usage')
@@ -258,6 +262,10 @@ specialized scripts.
         ('share/ivre/web/static/doc/_sources/install',
          [os.path.join('web/static/doc/_sources/install', x)
           for x in os.listdir('web/static/doc/_sources/install')
+          if x.endswith('.rst.txt')]),
+        ('share/ivre/web/static/doc/_sources/overview',
+         [os.path.join('web/static/doc/_sources/overview', x)
+          for x in os.listdir('web/static/doc/_sources/overview')
           if x.endswith('.rst.txt')]),
         ('share/ivre/web/static/doc/_sources/usage',
          [os.path.join('web/static/doc/_sources/usage', x)
@@ -335,6 +343,9 @@ specialized scripts.
           if x.endswith('.rst')]),
         ('share/doc/ivre/rst/install',
          [os.path.join('doc/install', x) for x in os.listdir('doc/install')
+          if x.endswith('.rst')]),
+        ('share/doc/ivre/rst/overview',
+         [os.path.join('doc/overview', x) for x in os.listdir('doc/overview')
           if x.endswith('.rst')]),
         ('share/doc/ivre/rst/usage',
          [os.path.join('doc/usage', x) for x in os.listdir('doc/usage')

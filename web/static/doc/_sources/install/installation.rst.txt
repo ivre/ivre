@@ -1,5 +1,5 @@
-Installation
-============
+Installation guidelines
+=======================
 
 Database
 --------
@@ -8,7 +8,7 @@ Depending on the backends you wan to use, install a database
 server. Please keep in mind that currently, MongoDB is the only
 supported backend for ``passive``, ``nmap`` and ``view`` purposes, and
 Neo4j is the only supported backend for ``flow``. To learn more about
-the different purposes, read the :ref:`principles:principles`.
+the different purposes, read the :ref:`overview/principles:principles`.
 
 The database servers installation and setup is not covered here, and
 depends on your platform and needs. Please refer to the server

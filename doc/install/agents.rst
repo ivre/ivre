@@ -13,10 +13,10 @@ IVRE agent only requires ``nmap`` (of course), ``screen`` and
 Set-up
 ------
 
-On the "master", install IVRE following the instructions from
-:ref:`install/installation:Installation`. Install also ``screen``, ``tmux`` or
-``nohup`` if you want to be able to "detach" from the ``agent`` script
-(which is not a daemon).
+On the "master", install IVRE following the
+:ref:`install/installation:Installation guidelines`. Install also
+``screen``, ``tmux`` or ``nohup`` if you want to be able to "detach"
+from the ``agent`` script (which is not a daemon).
 
 On the "slave(s)", the ``agent`` script must be deployed, together with
 ``nmap``, and ``rsync``.

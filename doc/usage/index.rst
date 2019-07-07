@@ -1,5 +1,8 @@
 .. Usage
 
+Usage
+#####
+
 .. toctree::
 
   use-cases

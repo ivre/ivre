@@ -63,7 +63,7 @@ You have several options, depending on what you want to do:
 
   - Using ``ivre db2view``, you can create or update a view from the
     scan data, that can then be accessed by the ``view`` purpose (see
-    :ref:`principles:Purposes`), which includes the
+    :ref:`overview/principles:Purposes`), which includes the
     :ref:`usage/web-ui:Web User Interface`.
 
 CLI

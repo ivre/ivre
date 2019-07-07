@@ -35,7 +35,7 @@ You will then store the results from the XML output files into IVRE
 database using ``ivre scan2db``.
 
 Finally, use ``ivre db2view nmap`` to create a ``view`` (see
-:ref:`principles:Purposes`) that you can explore with the
+:ref:`overview/principles:Purposes`) that you can explore with the
 :ref:`usage/web-ui:Web User Interface`.
 
 Your own Passive DNS service
@@ -46,8 +46,8 @@ queries against them.
 
 IVRE uses its `Zeek <https://www.zeek.org/>`_ script ``passiverecon``
 to, among others, log DNS answers. They are stored in the ``passive``
-purpose (see :ref:`principles:Purposes`) via ``ivre passiverecon2db``
-CLI tool as ``DNS_ANSWER`` records.
+purpose (see :ref:`overview/principles:Purposes`) via ``ivre
+passiverecon2db`` CLI tool as ``DNS_ANSWER`` records.
 
 They can be queried using ``ivre iphost`` CLI tool, as in the
 following example (the results come from a PCAP file used in IVRE's
@@ -66,8 +66,8 @@ following example (the results come from a PCAP file used in IVRE's
    ipv4.icanhazip.com A 216.69.252.101 (109.0.66.20:53, 1 time, 2014-01-02 09:37:57.197000 - 2014-01-02 09:37:57.197000)
 
 To see an interactive session of IVRE using passive data (including
-DNS answers), have a look at :ref:`screenshots:Passive network
-analysis`.
+DNS answers), have a look at :ref:`overview/screenshots:Passive
+network analysis`.
 
 YETI plugin
 -----------

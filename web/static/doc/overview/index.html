@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Web API &mdash; IVRE  documentation</title>
+  <title>Overview &mdash; IVRE  documentation</title>
   
 
   
@@ -36,8 +36,8 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Tests" href="tests.html" />
-    <link rel="prev" title="Development" href="index.html" /> 
+    <link rel="next" title="Principles" href="principles.html" />
+    <link rel="prev" title="Welcome to IVRE’s documentation!" href="../index.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -88,8 +88,13 @@
               
             
             
-              <ul>
-<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="principles.html">Principles</a></li>
+<li class="toctree-l2"><a class="reference internal" href="screenshots.html">Screenshots gallery</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html">FAQ</a></li>
+</ul>
+</li>
 </ul>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
@@ -97,12 +102,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
 </ul>
-<ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Web API</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tests.html">Tests</a></li>
-</ul>
-</li>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
 </ul>
 <p class="caption"><span class="caption-text">Licenses:</span></p>
 <ul>
@@ -153,15 +154,13 @@
     
       <li><a href="../index.html">Docs</a> &raquo;</li>
         
-          <li><a href="index.html">Development</a> &raquo;</li>
-        
-      <li>Web API</li>
+      <li>Overview</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="../_sources/dev/web-api.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/overview/index.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -174,50 +173,34 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="web-api">
-<h1>Web API<a class="headerlink" href="#web-api" title="Permalink to this headline">¶</a></h1>
-<p><strong>TODO</strong>: this needs to be documented!</p>
-<dl class="get">
-<dt id="get--config">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/config</code><a class="headerlink" href="#get--config" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function returns JS code to set client-side config values.</p>
-</dd></dl>
-
-<dl class="get">
-<dt id="get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/(action:re:onlyips|ipsports|timeline|coordinates|countopenports|diffcats)</code><a class="headerlink" href="#get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="get">
-<dt id="get--(subdb-re-scans|view)-count">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/count</code><a class="headerlink" href="#get--(subdb-re-scans|view)-count" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="get">
-<dt id="get--(subdb-re-scans|view)-top-(field-path)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/top/</code><span class="sig-paren">(</span><em class="property">field: </em><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view)-top-(field-path)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="get">
-<dt id="get--(subdb-re-scans|view)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)</code><a class="headerlink" href="#get--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="post">
-<dt id="post--(subdb-re-scans|view)">
-<code class="sig-name descname">POST </code><code class="sig-name descname">/(subdb:re:scans|view)</code><a class="headerlink" href="#post--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="get">
-<dt id="get--flows">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/flows</code><a class="headerlink" href="#get--flows" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="get">
-<dt id="get--ipdata-(addr)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/ipdata/</code><span class="sig-paren">(</span><em class="sig-param">addr</em><span class="sig-paren">)</span><a class="headerlink" href="#get--ipdata-(addr)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
+  <div class="section" id="overview">
+<h1>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="principles.html">Principles</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="principles.html#purposes">Purposes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="principles.html#storing-data">Storing data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="principles.html#accessing-data">Accessing data</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="screenshots.html">Screenshots gallery</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="screenshots.html#nmap-results">Nmap results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="screenshots.html#flow-analysis">Flow analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="screenshots.html#passive-network-analysis">Passive network analysis</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="faq.html">FAQ</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#web-interface">Web interface</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#notebook-shows-forbidden">Notebook shows “Forbidden”</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#how-can-i-restrict-access-to-ivre-s-web-interface">How can I restrict access to IVRE’s Web interface</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#can-ivre-be-used-to-look-for-xxx">Can IVRE be used to look for XXX?</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html#how-can-i-configure-iptables-to-get-logs-used-by-flow2db-tool">How can I configure iptables to get logs used by flow2db tool</a></li>
+</ul>
+</li>
+</ul>
+</div>
 </div>
 
 
@@ -228,10 +211,10 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="tests.html" class="btn btn-neutral float-right" title="Tests" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="principles.html" class="btn btn-neutral float-right" title="Principles" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="index.html" class="btn btn-neutral float-left" title="Development" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="../index.html" class="btn btn-neutral float-left" title="Welcome to IVRE’s documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   
