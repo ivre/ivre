@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
+[![Documentation Status](https://readthedocs.org/projects/ivre/badge/?version=latest)](https://doc.ivre.rocks/en/latest/?badge=latest)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/0116170aaaa54915a72aad286029250b)](https://app.codacy.com/app/p-l-/ivre)
 [![Join the chat at Gitter](https://badges.gitter.im/cea-sec/ivre.svg)](https://gitter.im/cea-sec/ivre)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/IvreRocks.svg?logo=twitter)](https://twitter.com/IvreRocks)
@@ -28,7 +29,9 @@ Taullier".
 ## Overview ##
 
 You can have a look at the [project homepage](https://ivre.rocks/),
-the **[screenshot gallery](doc/screenshots.rst)**, and the
+the
+**[screenshot gallery](https://doc.ivre.rocks/en/latest/overview/screenshots.html)**,
+and the
 [quick video introduction](https://www.youtube.com/watch?v=GBu5QMq6ewY)
 for an overview of the Web interface.
 
@@ -73,7 +76,8 @@ You should have received a copy of the GNU General Public License
 Try `--help` for the CLI tools, `help()` under Python and the "HELP"
 button in the web interface.
 
-Have a look at the [FAQ](doc/faq.rst)!
+Have a look at the
+[FAQ](https://doc.ivre.rocks/en/latest/overview/faq.html)!
 
 Feel free to contact the author and offer him a beer if you need help!
 
@@ -100,10 +104,6 @@ You can also join the
 [Gitter conversation](https://gitter.im/cea-sec/ivre) (that is the
 preferred way to get in touch for questions), or use the e-mail `dev`
 on the domain `ivre.rocks`.
-
-You can try to join the IRC chan
-[#ivre](irc://irc.freenode.net/%23ivre) on
-[Freenode](https://freenode.net/).
 
 ## Talking about IVRE ##
 
