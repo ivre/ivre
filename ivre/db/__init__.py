@@ -603,6 +603,7 @@ class DBActive(DB):
                 8: (9, self.__migrate_schema_hosts_8_9),
                 9: (10, self.__migrate_schema_hosts_9_10),
                 10: (11, self.__migrate_schema_hosts_10_11),
+                11: (12, self.__migrate_schema_hosts_11_12),
             },
         }
         self.argparser.add_argument(
@@ -957,6 +958,28 @@ they are stored as canonical string representations.
                         hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
                     except ValueError:
                         pass
+        return doc
+
+    @staticmethod
+    def __migrate_schema_hosts_11_12(doc):
+        """Converts a record from version 11 to version 12. Version 12 changes
+the structured output for fcrdns and rpcinfo script.
+
+        """
+        assert doc["schema_version"] == 11
+        doc["schema_version"] = 12
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "fcrdns":
+                    if "fcrdns" in script:
+                        script["fcrdns"] = xmlnmap.change_fcrdns_migrate(
+                            script["fcrdns"]
+                        )
+                elif script['id'] == "rpcinfo":
+                    if "rpcinfo" in script:
+                        script["rpcinfo"] = xmlnmap.change_rpcinfo(
+                            script["rpcinfo"]
+                        )
         return doc
 
     @staticmethod
