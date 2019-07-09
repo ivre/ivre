@@ -340,26 +340,26 @@ want to do something special here, e.g., mix with other records.
                 utils.LOGGER.info(
                     "Creating new indexes...",
                 )
-            if self.mongodb_32_more:
-                try:
-                    self.db[self.columns[colnum]].create_indexes(
-                        [
-                            pymongo.IndexModel(idx[0], **idx[1])
-                            for idx in new_indexes
-                        ]
-                    )
-                except pymongo.errors.OperationFailure:
-                    utils.LOGGER.debug("Cannot create indexes %r",
-                                       new_indexes, exc_info=True)
-            else:
-                for idx in new_indexes:
+                if self.mongodb_32_more:
                     try:
-                        self.db[self.columns[colnum]].create_index(idx[0],
-                                                                   **idx[1])
+                        self.db[self.columns[colnum]].create_indexes(
+                            [
+                                pymongo.IndexModel(idx[0], **idx[1])
+                                for idx in new_indexes
+                            ]
+                        )
                     except pymongo.errors.OperationFailure:
-                        utils.LOGGER.debug("Cannot create index %s", idx,
-                                           exc_info=True)
-            if new_indexes:
+                        utils.LOGGER.debug("Cannot create indexes %r",
+                                           new_indexes, exc_info=True)
+                else:
+                    for idx in new_indexes:
+                        try:
+                            self.db[self.columns[colnum]].create_index(
+                                idx[0], **idx[1]
+                            )
+                        except pymongo.errors.OperationFailure:
+                            utils.LOGGER.debug("Cannot create index %s", idx,
+                                               exc_info=True)
                 utils.LOGGER.info(
                     "  ... Done.",
                 )
