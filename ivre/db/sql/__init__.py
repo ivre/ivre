@@ -721,14 +721,14 @@ class SQLDBActive(SQLDB, DBActive):
         """
         failed = 0
         if (version or 0) < 9:
-            failed += self.__migrate_schema_8_9()
+            failed += self._migrate_schema_8_9()
         if (version or 0) < 10:
-            failed += self.__migrate_schema_9_10()
+            failed += self._migrate_schema_9_10()
         if (version or 0) < 11:
-            failed += self.__migrate_schema_10_11()
+            failed += self._migrate_schema_10_11()
         return failed
 
-    def __migrate_schema_8_9(self):
+    def _migrate_schema_8_9(self):
         """Converts records from version 8 to version 9. Version 9 creates a
 structured output for http-headers script.
 
@@ -771,7 +771,7 @@ structured output for http-headers script.
         )
         return len(failed)
 
-    def __migrate_schema_9_10(self):
+    def _migrate_schema_9_10(self):
         """Converts a record from version 9 to version 10. Version 10 changes
 the field names of the structured output for s7-info script.
 
@@ -809,7 +809,7 @@ the field names of the structured output for s7-info script.
         )
         return len(failed)
 
-    def __migrate_schema_10_11(self):
+    def _migrate_schema_10_11(self):
         """Converts a record from version 10 to version 11. Version 11 changes
 the way IP addresses are stored.
 
