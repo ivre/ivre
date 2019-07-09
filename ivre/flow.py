@@ -41,8 +41,23 @@ HTTP_PASSIVE_RECONTYPES_CLIENT = {
     }
 }
 
+# This list contains the meta desc keys containing a list of values.
 META_DESC_ARRAYS = ["dns.keys.answers"]
 
+# This dictionary describes the handling of high level protocols during
+# flow metadata insertion.
+# The first level keys represent a Zeek protocol file
+# The first level values are dictionaries, containing the following keys:
+# - keys: represents fields that must be stored as unique
+# - counters (optional): represents fields that must be stored as counters,
+#       i.e. their values should be incremented.
+# The final value can be a dictionary or a list.
+# If the final value is a dictionary, then its keys are the
+# internal names of the fields and its values are the name of corresponding
+# fields of the parsed Zeek file. If the value is None, then the internal
+# field name equals the parsed Zeek file field name.
+# If its associated value is a list, each internal field name equals its
+# corresponding parsed Zeek file field name.
 META_DESC = {
     "dns": {
         "keys": {"query": None, "class": "{qclass_name}",

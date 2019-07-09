@@ -32,7 +32,7 @@ import warnings
 
 
 from builtins import range
-from future.utils import viewitems, viewvalues
+from future.utils import viewitems, viewvalues, with_metaclass
 from past.builtins import basestring
 from py2neo import Graph, Node, Relationship, GraphError
 from py2neo import http
@@ -571,7 +571,32 @@ class BulkInsert(object):
         self.commit(renew=False)
 
 
-class Neo4jDBFlow(Neo4jDB, DBFlow):
+class Neo4jDBFlowMeta(type):
+    """
+    This metaclass aims to compute 'meta_desc' once for all instances of
+    Neo4jDBFlow
+    """
+    def __new__(cls, name, bases, attrs):
+        attrs['meta_desc'] = Neo4jDBFlowMeta.compute_meta_desc()
+        return type.__new__(cls, name, bases, attrs)
+
+    @staticmethod
+    def compute_meta_desc():
+        """
+        Computes meta_desc from flow.META_DESC and ALL_DESCS
+        """
+        meta_desc = {}
+        for proto, configs in viewitems(flow.META_DESC):
+            meta_desc[proto] = {}
+            for kind, values in viewitems(configs):
+                meta_desc[proto][kind] = (
+                    utils.normalize_props(values, braces=True))
+            for kind, values in viewitems(ALL_DESCS.get(proto, {})):
+                meta_desc[proto][kind] = values
+        return meta_desc
+
+
+class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
     indexes = {
         "Host": ["addr"],
         "Mac": ["addr"],
@@ -594,28 +619,9 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
     LABEL2NAME = {}
     query_cache = {}
 
-    meta_desc = {}
-    initialized = False
-
-    @classmethod
-    def compute_meta_desc(cls):
-        """
-        Computes meta_desc from flow.META_DESC and ALL_DESCS
-        """
-        for proto, configs in viewitems(flow.META_DESC):
-            cls.meta_desc[proto] = {}
-            for kind, values in viewitems(configs):
-                cls.meta_desc[proto][kind] = (
-                    utils.normalize_props(values, braces=True))
-            for kind, values in viewitems(ALL_DESCS.get(proto, {})):
-                cls.meta_desc[proto][kind] = values
-
     def __init__(self, url):
         Neo4jDB.__init__(self, url)
         DBFlow.__init__(self)
-        if not Neo4jDBFlow.initialized:
-            Neo4jDBFlow.initialized = True
-            Neo4jDBFlow.compute_meta_desc()
 
     @staticmethod
     def query(*args, **kargs):

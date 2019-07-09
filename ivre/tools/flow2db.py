@@ -72,7 +72,6 @@ def main():
     if args.verbose:
         config.DEBUG = True
 
-    query_cache = {}
     for fname in args.files:
         try:
             fileparser = PARSERS_CHOICE[args.type]

@@ -46,7 +46,7 @@ import uuid
 
 import bson
 from future.builtins import bytes, range
-from future.utils import viewitems
+from future.utils import viewitems, with_metaclass
 from past.builtins import basestring
 from pymongo.errors import BulkWriteError
 import pymongo
@@ -4538,13 +4538,48 @@ scan object on success, and raises a LockError on failure.
                               fields=["_id"])))
 
 
-class MongoDBFlow(MongoDB, DBFlow):
-    column_flow = 0
+class MongoDBFlowMeta(type):
+    """
+    This metaclass aims to compute 'meta_desc' and 'needunwind' once for all
+    instances of MongoDBFlow
+    """
+    def __new__(cls, name, bases, attrs):
+        attrs['meta_desc'] = MongoDBFlowMeta.compute_meta_desc()
+        attrs['needunwind'] = MongoDBFlowMeta.compute_needunwind(
+            attrs['meta_desc'])
+        return type.__new__(cls, name, bases, attrs)
 
-    needunwind = [
-        'sports',
-        'codes',
-    ]
+    @staticmethod
+    def compute_meta_desc():
+        """
+        Computes meta_desc from flow.META_DESC
+        meta_desc is a "usable" version of flow.META_DESC. It is computed only
+        once at class initialization.
+        """
+        meta_desc = {}
+        for proto, configs in viewitems(flow.META_DESC):
+            meta_desc[proto] = {}
+            for kind, values in viewitems(configs):
+                meta_desc[proto][kind] = (
+                    utils.normalize_props(values, braces=False))
+        return meta_desc
+
+    @staticmethod
+    def compute_needunwind(meta_desc):
+        """
+        Computes needunwind from meta_desc
+        """
+        needunwind = ['sports', 'codes']
+        for proto, kinds in viewitems(meta_desc):
+            for kind, values in viewitems(kinds):
+                if kind == 'keys':
+                    for name in values:
+                        needunwind.append('meta.%s.%s' % (proto, name))
+        return needunwind
+
+
+class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
+    column_flow = 0
 
     datefields = [
         'firstseen',
@@ -4558,13 +4593,6 @@ class MongoDBFlow(MongoDB, DBFlow):
         'keys': '$addToSet',
         'counters': '$inc'
     }
-
-    # meta_desc is a "usable" version of flow.META_DESC. It is computed only
-    # once at class initialization.
-    meta_desc = {}
-
-    # initialized ensures class attributes get initialized only once.
-    initialized = False
 
     indexes = [
         # flows
@@ -4589,38 +4617,9 @@ class MongoDBFlow(MongoDB, DBFlow):
         ],
     ]
 
-    @classmethod
-    def compute_meta_desc(cls):
-        """
-        Computes meta_desc from flow.META_DESC
-        """
-        for proto, configs in viewitems(flow.META_DESC):
-            cls.meta_desc[proto] = {}
-            for kind, values in viewitems(configs):
-                cls.meta_desc[proto][kind] = (
-                    utils.normalize_props(values, braces=False))
-
-    @classmethod
-    def compute_needunwind(cls):
-        """
-        Computes needunwind from cls.meta_desc
-        """
-        for proto, kinds in viewitems(cls.meta_desc):
-            for kind, values in viewitems(kinds):
-                if kind == 'keys':
-                    for name in values:
-                        cls.needunwind.append('meta.%s.%s' % (proto, name))
-
     def __init__(self, url):
         super(MongoDBFlow, self).__init__(url)
         self.columns = ["flows"]
-        # Computes class attributes meta_desc and needunwind at first
-        # instanciation
-        if not MongoDBFlow.initialized:
-            MongoDBFlow.initialized = True
-            self.compute_meta_desc()
-            # This must be called AFTER compute_meta_desc
-            self.compute_needunwind()
 
     def start_bulk_insert(self):
         """
@@ -5033,7 +5032,7 @@ class MongoDBFlow(MongoDB, DBFlow):
             for key in list(ext_entry['_id']):
                 if key in reverse_special_fields:
                     ext_entry['_id'][reverse_special_fields[key]] = \
-                            ext_entry['id'].pop(key)
+                        ext_entry['id'].pop(key)
             # Format fields in a tuple ordered accordingly to fields argument
             res_fields_dict = ext_entry.pop('_id')
             res_fields = tuple(res_fields_dict.get(key) for key in fields)
