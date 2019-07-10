@@ -398,6 +398,7 @@ class N_Script(Base, _Script):
         ForeignKeyConstraint(['port'], ['n_port.id'], ondelete='CASCADE'),
         Index('ix_n_script_data', 'data', postgresql_using='gin'),
         Index('ix_n_script_name', 'name'),
+        Index('ix_n_script_port_name', 'port', 'name', unique=True),
     )
 
 
@@ -475,6 +476,7 @@ class V_Script(Base, _Script):
         ForeignKeyConstraint(['port'], ['v_port.id'], ondelete='CASCADE'),
         Index('ix_v_script_data', 'data', postgresql_using='gin'),
         Index('ix_v_script_name', 'name'),
+        Index('ix_v_script_port_name', 'port', 'name', unique=True),
     )
 
 

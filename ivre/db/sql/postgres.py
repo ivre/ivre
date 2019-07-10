@@ -155,7 +155,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
     def __init__(self, url):
         super(PostgresDBActive, self).__init__(url)
 
-    def __migrate_schema_10_11(self):
+    def _migrate_schema_10_11(self):
         """Converts a record from version 10 to version 11.
 
 The PostgreSQL backend is only conerned by a limited subset of

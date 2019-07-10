@@ -340,26 +340,26 @@ want to do something special here, e.g., mix with other records.
                 utils.LOGGER.info(
                     "Creating new indexes...",
                 )
-            if self.mongodb_32_more:
-                try:
-                    self.db[self.columns[colnum]].create_indexes(
-                        [
-                            pymongo.IndexModel(idx[0], **idx[1])
-                            for idx in new_indexes
-                        ]
-                    )
-                except pymongo.errors.OperationFailure:
-                    utils.LOGGER.debug("Cannot create indexes %r",
-                                       new_indexes, exc_info=True)
-            else:
-                for idx in new_indexes:
+                if self.mongodb_32_more:
                     try:
-                        self.db[self.columns[colnum]].create_index(idx[0],
-                                                                   **idx[1])
+                        self.db[self.columns[colnum]].create_indexes(
+                            [
+                                pymongo.IndexModel(idx[0], **idx[1])
+                                for idx in new_indexes
+                            ]
+                        )
                     except pymongo.errors.OperationFailure:
-                        utils.LOGGER.debug("Cannot create index %s", idx,
-                                           exc_info=True)
-            if new_indexes:
+                        utils.LOGGER.debug("Cannot create indexes %r",
+                                           new_indexes, exc_info=True)
+                else:
+                    for idx in new_indexes:
+                        try:
+                            self.db[self.columns[colnum]].create_index(
+                                idx[0], **idx[1]
+                            )
+                        except pymongo.errors.OperationFailure:
+                            utils.LOGGER.debug("Cannot create index %s", idx,
+                                               exc_info=True)
                 utils.LOGGER.info(
                     "  ... Done.",
                 )
@@ -753,6 +753,8 @@ class MongoDBActive(MongoDB, DBActive):
         "ports",
         "ports.screenwords",
         "ports.scripts",
+        "ports.scripts.fcrdns",
+        "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-headers",
         "ports.scripts.http-user-agent",
         "ports.scripts.ike-info.transforms",
@@ -761,6 +763,8 @@ class MongoDBActive(MongoDB, DBActive):
         "ports.scripts.ls.volumes.files",
         "ports.scripts.mongodb-databases.databases",
         "ports.scripts.mongodb-databases.databases.shards",
+        "ports.scripts.rpcinfo",
+        "ports.scripts.rpcinfo.version",
         "ports.scripts.smb-enum-shares.shares",
         "ports.scripts.ssh-hostkey",
         "ports.scripts.ssl-ja3-client",
@@ -921,6 +925,7 @@ class MongoDBActive(MongoDB, DBActive):
                 8: (9, self.migrate_schema_hosts_8_9),
                 9: (10, self.migrate_schema_hosts_9_10),
                 10: (11, self.migrate_schema_hosts_10_11),
+                11: (12, self.migrate_schema_hosts_11_12),
             },
         ]
 
@@ -1285,6 +1290,33 @@ index) unsigned 128-bit integers in MongoDB.
                         updated = True
         if updated:
             update["$set"]["traces"] = doc['traces']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_11_12(doc):
+        """Converts a record from version 11 to version 12. Version 12 changes
+the structured output for fcrdns and rpcinfo script.
+
+        """
+        assert doc["schema_version"] == 11
+        update = {"$set": {"schema_version": 12}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "fcrdns":
+                    if "fcrdns" in script:
+                        script["fcrdns"] = xmlnmap.change_fcrdns_migrate(
+                            script["fcrdns"]
+                        )
+                        updated = True
+                elif script['id'] == "rpcinfo":
+                    if "rpcinfo" in script:
+                        script["rpcinfo"] = xmlnmap.change_rpcinfo(
+                            script["rpcinfo"]
+                        )
+                        updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
         return update
 
     def _get(self, flt, **kargs):
