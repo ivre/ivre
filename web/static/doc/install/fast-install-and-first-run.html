@@ -276,9 +276,10 @@ server), nothing to worry about.</p>
 <p>Go have some coffees and/or beers (remember that according to the
 traveler’s theorem, for any time of the day, there exists a time zone in
 which it is OK to drink).</p>
-<p>When the command has terminated, import the results:</p>
+<p>When the command has terminated, import the results and create a view:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
 &gt;              scans/ROUTABLE/up
+$ ivre db2view nmap
 </pre></div>
 </div>
 <p>The <code class="docutils literal notranslate"><span class="pre">-c</span></code> argument adds categories to the scan results. Categories are
