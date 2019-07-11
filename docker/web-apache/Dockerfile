@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,10 +18,6 @@ FROM ivre/base
 LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
 
 # Install Apache2 & Dokuwiki
-## Dokuwiki does not exist in stable, but does in testing
-RUN echo 'APT::Default-Release "stable";' > /etc/apt/apt.conf.d/99defaultrelease
-RUN echo 'deb http://deb.debian.org/debian testing main' >> /etc/apt/sources.list
-RUN apt-get -q update
 RUN apt-get -qy install apache2 libapache2-mod-wsgi dokuwiki
 
 # Add links for IVRE Web UI
