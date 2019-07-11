@@ -197,7 +197,9 @@
 <h3>With Nmap or Masscan<a class="headerlink" href="#with-nmap-or-masscan" title="Permalink to this headline">¶</a></h3>
 <p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a> or <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> to run the scans. In
 both cases, use <code class="docutils literal notranslate"><span class="pre">-oX</span></code> to produce an XML output.</p>
-<p>Then, provide that output to the command line tool <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>, and you’re good!</p>
+<p>Then, provide that output to the command line tool <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>;
+if you want to use the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>, use
+<code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> and you’re good!</p>
 </div>
 <div class="section" id="with-ivre">
 <h3>With IVRE<a class="headerlink" href="#with-ivre" title="Permalink to this headline">¶</a></h3>
@@ -221,10 +223,12 @@ soon as each host has been scanned (in the <code class="docutils literal notrans
 <p>This will run a standard scan against 1000 random hosts on the Internet
 by running 30 nmap processes in parallel. See the output of
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">help</span> <span class="pre">runscans</span></code> if you want to do something else.</p>
-<p>When it’s over, to import the results in the database, run
-(<code class="docutils literal notranslate"><span class="pre">ROUTABLE-001</span></code> is the category name, and <code class="docutils literal notranslate"><span class="pre">MySource</span></code> is the source
-name, usually referencing the machine used to run the scan):</p>
+<p>When it’s over, to import the results in the database and create a
+view from them, run (<code class="docutils literal notranslate"><span class="pre">ROUTABLE-001</span></code> is the category name, and
+<code class="docutils literal notranslate"><span class="pre">MySource</span></code> is the source name, usually referencing the machine used
+to run the scan):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/ROUTABLE/up
+$ ivre db2view nmap
 </pre></div>
 </div>
 </div>

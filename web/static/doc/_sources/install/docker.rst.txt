@@ -221,11 +221,13 @@ initialize the database:
    root@ivreclient:/# ivre ipdata --download --import-all
 
 The latest command will take a long time (about 40 minutes on a decent
-server). Then we can integrate the Nmap results to the database:
+server). Then we can integrate the Nmap results to the database
+``nmap`` database and create a ``view`` from it:
 
 ::
 
    root@ivreclient:/# ivre scan2db -r -s MySource -c MyCategory /ivre-share
+   root@ivreclient:/# ivre db2view nmap
 
 You can then exit the shell (``C-d``), this will stop the container.
 

@@ -11,7 +11,9 @@ You can use directly `Nmap <http://nmap.org/>`_ or `Masscan
 <https://github.com/robertdavidgraham/masscan/>`_ to run the scans. In
 both cases, use ``-oX`` to produce an XML output.
 
-Then, provide that output to the command line tool ``ivre scan2db``, and you're good!
+Then, provide that output to the command line tool ``ivre scan2db``;
+if you want to use the :ref:`usage/web-ui:Web User Interface`, use
+``ivre db2view nmap`` and you're good!
 
 With IVRE
 ~~~~~~~~~
@@ -42,13 +44,15 @@ This will run a standard scan against 1000 random hosts on the Internet
 by running 30 nmap processes in parallel. See the output of
 ``ivre help runscans`` if you want to do something else.
 
-When it's over, to import the results in the database, run
-(``ROUTABLE-001`` is the category name, and ``MySource`` is the source
-name, usually referencing the machine used to run the scan):
+When it's over, to import the results in the database and create a
+view from them, run (``ROUTABLE-001`` is the category name, and
+``MySource`` is the source name, usually referencing the machine used
+to run the scan):
 
 ::
 
    $ ivre scan2db -c ROUTABLE-001 -s MySource -r scans/ROUTABLE/up
+   $ ivre db2view nmap
 
 Enjoying the results
 --------------------

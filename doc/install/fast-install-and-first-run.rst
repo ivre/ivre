@@ -109,12 +109,13 @@ Go have some coffees and/or beers (remember that according to the
 traveler's theorem, for any time of the day, there exists a time zone in
 which it is OK to drink).
 
-When the command has terminated, import the results:
+When the command has terminated, import the results and create a view:
 
 ::
 
    $ ivre scan2db -c ROUTABLE,ROUTABLE-CAMPAIGN-001 -s MySource -r \
    >              scans/ROUTABLE/up
+   $ ivre db2view nmap
 
 The ``-c`` argument adds categories to the scan results. Categories are
 arbitrary names used to filter results. In this example, the values are

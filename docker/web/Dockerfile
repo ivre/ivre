@@ -50,7 +50,7 @@ RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/
 RUN mkdir /var/www/.neo4j && chown www-data:www-data /var/www/.neo4j
 
 EXPOSE 80
-CMD service php7.0-fpm start && \
+CMD service php7.3-fpm start && \
     service fcgiwrap start && \
     for d in "" /local; do if [ -f "/usr$d/share/ivre/web/wsgi/app.wsgi" ]; \
       then APP="/usr$d/share/ivre/web/wsgi/app.wsgi"; break; fi; done && \
