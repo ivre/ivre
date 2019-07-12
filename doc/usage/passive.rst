@@ -67,21 +67,23 @@ Enjoying the results
 
 You have several options, depending on what you want to do:
 
-- Command line interfaces:
+- Command line interfaces (see also :ref:`overview/screenshots:Passive
+  network analysis` in the screenshots gallery):
 
-  - ``ivre ipinfo`` tool, for any passive data.
+   - ``ivre ipinfo`` tool, for any passive data.
 
-  - ``ivre iphost`` tool, for Passive DNS data (see
-    :ref:`usage/use-cases:Your own Passive DNS service`).
+   - ``ivre iphost`` tool, for Passive DNS data (see
+     :ref:`usage/use-cases:Your own Passive DNS service`).
+
 
 - Python API: use the ``db.passive`` object of the ``ivre.db`` module.
 
 - Web interface:
 
-  - Using ``ivre db2view``, you can create or update a view with
-    passive data, that can then be accessed by the ``view`` purpose
-    (see :ref:`overview/principles:Purposes`), which includes the
-    :ref:`usage/web-ui:Web User Interface`.
+   - Using ``ivre db2view``, you can create or update a view with
+     passive data, that can then be accessed by the ``view`` purpose
+     (see :ref:`overview/principles:Purposes`), which includes the
+     :ref:`usage/web-ui:Web User Interface`.
 
 CLI
 ~~~

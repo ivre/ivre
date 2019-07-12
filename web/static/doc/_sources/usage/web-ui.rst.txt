@@ -250,8 +250,3 @@ Display
    particular) script outputs.
 -  ``display:screenshot`` only display screenshots.
 -  ``display:vulnerability`` only display vulnerabilities.
-
---------------
-
-This file is part of IVRE. Copyright 2011 - 2018 `Pierre
-LALET <mailto:pierre.lalet@cea.fr>`__

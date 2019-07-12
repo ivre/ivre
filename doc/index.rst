@@ -39,12 +39,12 @@ some examples:
   keys and algorithms, DNS answers, HTTP headers (``Server``,
   ``Host``, ``User-Agent``, etc.), and more... This can be useful to:
 
-  - Validate X509 certificates independently from the clients.
-  - Monitor phishing domains (based on DNS answers, HTTP ``Host``
-    headers, X509 certificates) hit from your corporate network.
-  - Run your own, private (or not) `passive DNS
-    <http://www.enyo.de/fw/software/dnslogger/first2005-paper.pdf>`_
-    service.
+   - Validate X509 certificates independently from the clients.
+   - Monitor phishing domains (based on DNS answers, HTTP ``Host``
+     headers, X509 certificates) hit from your corporate network.
+   - Run your own, private (or not) `passive DNS
+     <http://www.enyo.de/fw/software/dnslogger/first2005-paper.pdf>`_
+     service.
 
 Getting started
 ---------------
@@ -80,7 +80,7 @@ in touch for questions), or use the e-mail ``dev`` on the domain
 ``ivre.rocks``.
 
 On Twitter, you can follow and/or mention `@IvreRocks
-<https://twitter.com/IvreRocks>`_.
+<https://twitter.com/IvreRocks>`__.
 
 Content
 -------

@@ -16,9 +16,9 @@ types of data IVRE handles), which can be stored by one or more
   <https://www.maxmind.com/en/geoip2-services-and-databases>`_. It can
   be queried using:
 
-  - Python API: the ``db.data`` object from the ``ivre.db`` module.
-  - Command line: the ``ivre ipdata`` tool.
-  - Web (JSON) API: the ``/cgi/ipdata/<address>`` URL.
+   - Python API: the ``db.data`` object from the ``ivre.db`` module.
+   - Command line: the ``ivre ipdata`` tool.
+   - Web (JSON) API: the ``/cgi/ipdata/<address>`` URL.
 
 - ``nmap`` (sometimes also referred to as ``scans``): contains `Nmap
   <http://nmap.org/>`_ and `Masscan
@@ -26,9 +26,9 @@ types of data IVRE handles), which can be stored by one or more
   record represents one host seen during one network scan. It can be
   queried using:
 
-  - Python API: the ``db.nmap`` object from the ``ivre.db`` module.
-  - Command line: the ``ivre scancli`` tool.
-  - Web (JSON) API: the ``/cgi/scans`` and ``/cgi/scans/*`` URLs.
+   - Python API: the ``db.nmap`` object from the ``ivre.db`` module.
+   - Command line: the ``ivre scancli`` tool.
+   - Web (JSON) API: the ``/cgi/scans`` and ``/cgi/scans/*`` URLs.
 
 - ``passive``: contains host intelligence captured from the network
   using a `Zeek <https://www.zeek.org/>`_ dedicated module called
@@ -36,28 +36,29 @@ types of data IVRE handles), which can be stored by one or more
   (*e.g.*, the HTTP ``Server:`` header value ``Apache`` has been seen
   10 times on port 80 of host 1.2.3.4). It can be queried using:
 
-  - Python API: the ``db.passive`` object from the ``ivre.db`` module.
-  - Command line: the ``ivre ipinfo`` tool.
+   - Python API: the ``db.passive`` object from the ``ivre.db``
+     module.
+   - Command line: the ``ivre ipinfo`` tool.
 
 - ``view``: contains a consolidated view of hosts based on data from
   ``nmap`` and ``passive``. The structure of the records is similar to
   ``nmap``, but each record represents a host, seen during one or more
   network scans and/or seen from network captures. It can be queried using:
 
-  - Python API: the ``db.view`` object from the ``ivre.db`` module.
-  - Command line: the ``ivre view`` tool.
-  - Web (JSON) API: the ``/cgi/view`` and ``/cgi/view/*`` URLs.
-  - Web UI: the ``/`` or ``/index.html`` Web page.
+   - Python API: the ``db.view`` object from the ``ivre.db`` module.
+   - Command line: the ``ivre view`` tool.
+   - Web (JSON) API: the ``/cgi/view`` and ``/cgi/view/*`` URLs.
+   - Web UI: the ``/`` or ``/index.html`` Web page.
 
 - ``flow``: contains aggregated network flows, as seen by `Zeek
-  <https://www.zeek.org/>`_, `Argus <http://qosient.com/argus/>`_ or
+  <https://www.zeek.org/>`__, `Argus <http://qosient.com/argus/>`_ or
   Netflows (using `Nfdump <http://nfdump.sourceforge.net/>`_). It can
   be queried using:
 
-  - Python API: the ``db.flow`` object from the ``ivre.db`` module.
-  - Command line: the ``ivre flowcli`` tool.
-  - Web (JSON) API: the ``/flows`` URL.
-  - Web UI: the ``/flow.html`` Web page.
+   - Python API: the ``db.flow`` object from the ``ivre.db`` module.
+   - Command line: the ``ivre flowcli`` tool.
+   - Web (JSON) API: the ``/flows`` URL.
+   - Web UI: the ``/flow.html`` Web page.
 
 The following (non-exhaustive) figure shows how the data gets from
 your favorite open-source tools to IVRE's databases.

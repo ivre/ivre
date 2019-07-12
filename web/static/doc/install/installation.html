@@ -216,8 +216,10 @@ integrate screenshots, install <a class="reference external" href="https://githu
 <p>If you plan to analyze PCAP file on a machine, install, depending on
 your needs:</p>
 <ul class="simple">
-<li><p><a class="reference external" href="https://www.zeek.org/">Zeek</a> (previously known as Bro, version 2.5 minimum).</p></li>
-<li><p><a class="reference external" href="http://lcamtuf.coredump.cx/p0f/">p0f</a> (version 2, will not work with version 3).</p></li>
+<li><p><a class="reference external" href="https://www.zeek.org/">Zeek</a> (previously known as Bro, version
+2.5 minimum).</p></li>
+<li><p><a class="reference external" href="http://lcamtuf.coredump.cx/p0f/">p0f</a> (version 2, will not work
+with version 3).</p></li>
 <li><p><a class="reference external" href="http://qosient.com/argus/">Argus</a>.</p></li>
 <li><p><a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a>.</p></li>
 </ul>
@@ -232,9 +234,12 @@ your needs:</p>
 <li><p><a class="reference external" href="http://www.pycrypto.org/">Crypto</a>.</p></li>
 <li><p><a class="reference external" href="https://python-future.org/">Future</a>.</p></li>
 <li><p><a class="reference external" href="http://api.mongodb.org/python/">pymongo</a> version 2.7.2 minimum.</p></li>
-<li><p><a class="reference external" href="http://py2neo.org/v3/">py2neo</a> version 3, optional, to use the flow purpose.</p></li>
-<li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the experimental PostgreSQL backend.</p></li>
-<li><p><a class="reference external" href="http://www.pythonware.com/products/pil/">PIL</a> optional, to trim screenshots.</p></li>
+<li><p><a class="reference external" href="http://py2neo.org/v3/">py2neo</a> version 3, optional, to use the
+flow purpose.</p></li>
+<li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the experimental PostgreSQL
+backend.</p></li>
+<li><p><a class="reference external" href="http://www.pythonware.com/products/pil/">PIL</a> optional, to trim
+screenshots.</p></li>
 </ul>
 </div>
 <div class="section" id="databases">
@@ -279,7 +284,8 @@ packages (using the provided <code class="docutils literal notranslate"><span cl
 <li><p>On <a class="reference external" href="https://www.archlinux.org/">Arch Linux</a>, there are <a class="reference external" href="https://aur.archlinux.org/">AUR</a> packages that can be installed using
 <a class="reference external" href="https://aur.archlinux.org/packages/yay/">yay</a> for example. The
 packages are:</p>
-<ul class="simple">
+<blockquote>
+<div><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">ivre</span></code>: the main package, which depends on <code class="docutils literal notranslate"><span class="pre">python-ivre</span></code>.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">python-ivre</span></code> and <code class="docutils literal notranslate"><span class="pre">python2-ivre</span></code>: the Python 3 and Python 2
 libraries. You don’t need <code class="docutils literal notranslate"><span class="pre">python2-ivre</span></code> unless you have Python
@@ -287,6 +293,7 @@ libraries. You don’t need <code class="docutils literal notranslate"><span cla
 <li><p><code class="docutils literal notranslate"><span class="pre">ivre-web</span></code>: the Web application</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">ivre-docs</span></code>: the documentation</p></li>
 </ul>
+</div></blockquote>
 <p>These packages are based on the latest stable version; they all have
 a <code class="docutils literal notranslate"><span class="pre">-git</span></code> version, based on the current development code from the
 <a class="reference external" href="https://github.com/cea-sec/ivre">Github repository</a>. You can
@@ -319,15 +326,8 @@ need to distribute a proper configuration file.</p>
 <ul class="simple">
 <li><p>system-wide: <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> in the following directories: <code class="docutils literal notranslate"><span class="pre">/etc/</span></code>,
 <code class="docutils literal notranslate"><span class="pre">/etc/ivre</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc/ivre</span></code>.</p></li>
-<li><p>user-specific:</p>
-<ul>
-<li><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code> (read after the system-wide configuration files,</dt><dd><p>so highest priority).</p>
-</dd>
-</dl>
-</li>
-</ul>
-</li>
+<li><p>user-specific: <code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code> (read after the system-wide
+configuration files, so highest priority).</p></li>
 <li><p>another configuration file can be specified using the <code class="docutils literal notranslate"><span class="pre">$IVRE_CONF</span></code>
 environment variable.</p></li>
 </ul>
