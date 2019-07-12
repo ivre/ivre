@@ -21,7 +21,11 @@
 database backends.
 """
 
-
+try:
+    from collections import OrderedDict
+except ImportError:
+    # fallback to dict for Python 2.6
+    OrderedDict = dict
 from functools import reduce
 import json
 import os
@@ -2469,7 +2473,10 @@ class DBFlow(DB):
         time = cls.date_round(start_time)
         end_timeslot = cls.date_round(end_time)
         while time <= end_timeslot:
-            times.append(time)
+            d = OrderedDict()
+            d['start'] = time
+            d['duration'] = config.FLOW_TIME_PRECISION
+            times.append(d)
             time += timedelta(seconds=config.FLOW_TIME_PRECISION)
         return times
 

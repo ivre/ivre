@@ -2535,11 +2535,24 @@ which `predicate()` is True, given `webflt`.
             # Format timeslots in ISO format
             for i, t in enumerate(elt.get('times', [])):
                 elt['times'][i] = ivre.utils.datetime2utcdatetime(
-                    t).isoformat()
+                    t['start']).isoformat()
 
             # Sort lists (except nested lists)
             ivre.utils.deep_sort_dict_list(elt)
             self.check_value("flow_elt_sip", elt)
+
+            # Test number of timeslots
+            for i in range(1, 3):
+                self.check_flow_count_value(
+                    "flow_count_timeslots_%d" % i,
+                    {"edges": ['LEN times = %d' % i]},
+                    ['--flow-filters', 'LEN times = %d' % i],
+                    {"edges": ['LEN times = %d' % i]})
+            self.check_flow_count_value(
+                "flow_count_timeslots_gt_2",
+                {"edges": ['LEN times > 2']},
+                ['--flow-filters', 'LEN times > 2'],
+                {"edges": ['LEN times > 2']})
 
         # Test top values
         self.check_flow_top_values(
