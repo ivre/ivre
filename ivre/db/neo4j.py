@@ -1235,6 +1235,11 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
 
     def to_graph(self, query, mode=None, limit=None, skip=None, orderby=None,
                  timeline=False):
+        """
+        mode, limit, skip, orderby and timeline arguments are unused.
+        They are only needed because of API compatibility between flow
+        backends.
+        """
         res = self.cursor2json_graph(self.run(query))
         return res
 

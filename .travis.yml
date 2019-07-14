@@ -152,12 +152,12 @@ before_script:
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
-  - BRO_VERSION="2.$((RANDOM % 2 + 5))"; echo "BRO_VERSION $BRO_VERSION"; for archive in tools-travis-ivre bro-${BRO_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
+  - BRO_VERSION="2.$((RANDOM % 2 + 5))"; echo "BRO_VERSION $BRO_VERSION"; for archive in tools-travis-ivre bro-${BRO_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise nfdump-1.6.17; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   # get GeoIP CSV files -- we are supposed to build them, but that's
   # disabled in Travis since that's too slow
   - wget -q --no-check-certificate -P `python -c 'from ivre import config; print(config.GEOIP_PATH)'` https://ivre.rocks/data/tests/db/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
-  - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:`pwd`/usr/local/nmap/bin:$PATH"
-  - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib"
+  - export PATH="`pwd`/tools/bin:`pwd`/usr/local/bro/bin:`pwd`/usr/local/nmap/bin:`pwd`/usr/local/nfdump/bin:$PATH"
+  - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/bro/lib:`pwd`/usr/local/nfdump/lib"
   - export BROPATH=".:`pwd`/usr/local/bro/share/bro:`pwd`/usr/local/bro/share/bro/policy:`pwd`/usr/local/bro/share/bro/site"
   - cp tools/etc/p0f/* tests/
   # install IVRE's Nmap scripts.
@@ -176,6 +176,8 @@ before_script:
   - wget -q https://raw.githubusercontent.com/logstash-plugins/logstash-codec-nmap/master/spec/fixtures/ipv6_all.xml -O "tests/samples/ipv6_all.xml"
   ## PCAP files from ivre.rocks
   - wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/dnsbl.pcap.bz2 | bunzip2 > tests/samples/dnsbl.pcap
+  ## nfcapd files from ivre.rocks
+  - wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/nfcapd > tests/samples/nfcapd
   ## PCAP files from the Wireshark project
   - for file in dns.cap imap.cap http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap Teredo.pcap sr-header.pcap; do wget -q "https://wiki.wireshark.org/SampleCaptures?action=AttachFile&do=get&target=$file" -O "tests/samples/$file"; done
   - for file in SSHv2.cap; do wget -q "http://packetlife.net/media/captures/$file" -O "tests/samples/$file"; done

@@ -45,7 +45,7 @@ except ImportError:
 import uuid
 
 import bson
-from future.builtins import bytes, range
+from future.builtins import bytes, range, zip
 from future.utils import viewitems, with_metaclass
 from past.builtins import basestring
 from pymongo.errors import BulkWriteError
@@ -4541,7 +4541,7 @@ scan object on success, and raises a LockError on failure.
 class MongoDBFlowMeta(type):
     """
     This metaclass aims to compute 'meta_desc' and 'needunwind' once for all
-    instances of MongoDBFlow
+    instances of MongoDBFlow.
     """
     def __new__(cls, name, bases, attrs):
         attrs['meta_desc'] = MongoDBFlowMeta.compute_meta_desc()
@@ -4561,13 +4561,14 @@ class MongoDBFlowMeta(type):
             meta_desc[proto] = {}
             for kind, values in viewitems(configs):
                 meta_desc[proto][kind] = (
-                    utils.normalize_props(values, braces=False))
+                    utils.normalize_props(values, braces=False)
+                )
         return meta_desc
 
     @staticmethod
     def compute_needunwind(meta_desc):
         """
-        Computes needunwind from meta_desc
+        Computes needunwind from meta_desc.
         """
         needunwind = ['sports', 'codes']
         for proto, kinds in viewitems(meta_desc):
@@ -4633,7 +4634,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @staticmethod
     def _get_flow_key(rec):
         """
-        Return a dict which represents the given flow in Flows.
+        Returns a dict which represents the given flow in Flows.
         """
         key = {
             'src_addr_0': rec['src_addr_0'],
@@ -4684,7 +4685,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def any2flow(cls, bulk, name, rec):
         """
         Takes a parsed *.log line entry and adds it to insert bulk.
-        It is responsible for metadata processing (all but conn.log files)
+        It is responsible for metadata processing (all but conn.log files).
         """
         # Convert addr
         rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
@@ -4716,7 +4717,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def conn2flow(cls, bulk, rec):
         """
-        Takes a parsed conn.log line entry and adds it to flow bulk
+        Takes a parsed conn.log line entry and adds it to flow bulk.
         """
         rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
         rec['dst_addr_0'], rec['dst_addr_1'] = cls.ip2internal(rec['dst'])
@@ -4746,7 +4747,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def flow2flow(cls, bulk, rec):
         """
-        Takes an entry coming from Netflow or Argus and adds it to bulk
+        Takes an entry coming from Netflow or Argus and adds it to bulk.
         """
         rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
         rec['dst_addr_0'], rec['dst_addr_1'] = cls.ip2internal(rec['dst'])
@@ -4831,8 +4832,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     def count(self, flt):
         """
-        Return a dict {'client': nb_clients, 'servers': nb_servers',
-        'flows': nb_flows} according to the given filter
+        Returns a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter.
         """
         sources = 0
         destinations = 0
@@ -4878,7 +4879,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def topvalues(self, flt, fields, collect_fields=None, sum_fields=None,
                   limit=None, skip=None, least=False, topnbr=10):
         """
-        Return the top values honoring the given `query` for the given
+        Returns the top values honoring the given `query` for the given
         fields list `fields`, counting and sorting the aggregated records
         by `sum_fields` sum and storing the `collect_fields` fields of
         each original entry in aggregated records as a list.
@@ -4930,7 +4931,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         if flt:
             pipeline.append({'$match': flt})
 
-        # Remove entries with non existing agggr or collected field
+        # Remove entries with non existing aggr or collected field
         match = {}
         for field in must_exist_fields_set:
             match[field] = {"$exists": True}
@@ -4977,7 +4978,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # Add sum projection if sum_fields are provided
         if sum_fields:
             project_fields['_sum'] = {
-                '$add': ['$%s' % field for field in internal_fields[2]]}
+                '$add': ['$%s' % field for field in internal_fields[2]]
+            }
 
         pipeline.append({'$project': project_fields})
 
@@ -5019,13 +5021,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 if addr0 in ext_entry['_id'] and addr1 in ext_entry['_id']:
                     ext_entry['_id'][addr] = self.internal2ip(
                         (ext_entry['_id'].pop(addr0),
-                         ext_entry['_id'].pop(addr1)))
+                         ext_entry['_id'].pop(addr1))
+                    )
                 # Apply in collected fields
                 if addr0 in ext_entry and addr1 in ext_entry:
-                    ext_entry[addr] = []
-                    for i in range(len(ext_entry[addr0])):
-                        ext_entry[addr].append(self.internal2ip(
-                            [ext_entry[addr0][i], ext_entry[addr1][i]]))
+                    ext_entry[addr] = [
+                        self.internal2ip((a, b)) for a, b in
+                        zip(ext_entry[addr0], ext_entry[addr1])
+                    ]
                     del ext_entry[addr0]
                     del ext_entry[addr1]
             # reverse special fields
@@ -5055,7 +5058,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @staticmethod
     def _flow2host(row, prefix):
         """
-        Return a dict which represents one of the two host of the given flow.
+        Returns a dict which represents one of the two host of the given flow.
         prefix should be 'dst' or 'src' to get the source or the destination
         host.
         """
@@ -5073,7 +5076,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @staticmethod
     def _node2json(row):
         """
-        Return a dict representing a node in graph output.
+        Returns a dict representing a node in graph output.
         row must be the representation of an host, see _flow2host.
         """
         return {
@@ -5088,7 +5091,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @staticmethod
     def _edge2json_default(row, timeline=False):
         """
-        Return a dict representing an edge in default graph output.
+        Returns a dict representing an edge in default graph output.
         row must be a flow entry.
         """
         label = (row.get('proto') + '/' + str(row.get('dport'))
@@ -5129,7 +5132,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @staticmethod
     def _edge2json_flow_map(row):
         """
-        Return a dict representing an edge in flow map graph output.
+        Returns a dict representing an edge in flow map graph output.
         row must be a flow entry.
         """
         flow = ()
@@ -5153,7 +5156,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @staticmethod
     def _edge2json_talk_map(row):
         """
-        Return a dict representing an edge in talk map graph output.
+        Returns a dict representing an edge in talk map graph output.
         row must be a flow entry.
         """
         res = {
@@ -5172,7 +5175,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def cursor2json_iter(cls, cursor, mode=None, timeline=False):
         """
-        Take a MongoDB cursor on flows collection and for each entry
+        Takes a MongoDB cursor on flows collection and for each entry
         yield a dict {src: src_node, dst: dst_node, flow: flow_edge}.
         """
         random.seed()
@@ -5235,8 +5238,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def search_flow_net(cls, net, neg=False, fieldname=''):
         """
-        Return a MongoDB filter matching the given CIDR notation.
-        If prefix is {src,dst}, it matches only the {src,dst} addr
+        Returns a MongoDB filter matching the given CIDR notation.
+        If prefix is {src,dst}, it matches only the {src,dst} addr.
         """
         if fieldname not in ['src', 'dst']:
             res = [
@@ -5250,7 +5253,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def search_flow_host(cls, addr, neg=False, prefix=''):
         """
-        Return a MongoDB filter matching the given IP address.
+        Returns a MongoDB filter matching the given IP address.
         If prefix is {src,dst}, it matches only the {src,dst} address.
         """
         addr = cls.ip2internal(addr)  # compute internal addr once and for all
@@ -5267,7 +5270,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def _flt_from_clause_addr(cls, clause):
         """
         Returns a filter direct from the given clause which deals
-        with addresses. clause['attr'] should be addr, src.addr or dst.addr
+        with addresses. clause['attr'] should be addr, src.addr or dst.addr.
         """
         flt = None
         if clause['operator'] == '$ne':
@@ -5295,7 +5298,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         If no array attribute can be found, returns (None, attr)
         Example: a.b.c matches with a.b.c, a.b and a
         If cls.needunwind = ['a', 'a.b'], then get_longest_array_attr('a.b.c')
-        returns ('a.b', 'c')
+        returns ('a.b', 'c').
         """
         for i in range(attr.count('.') + 1):
             subfield = attr.rsplit('.', i)
@@ -5307,7 +5310,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def _flt_neg_op(op):
         """
         Returns the opposite of the given operator if it exists,
-        None otherwise
+        None otherwise.
         """
         return {
             '$eq': '$ne',
@@ -5322,7 +5325,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def _flt_from_clause_any(cls, clause):
         """
         Returns a filter dict from the given clause that does not deal
-        with addresses (see _flt_from_clause_addr)
+        with addresses (see _flt_from_clause_addr).
         """
         add_operator = True
         # If the value is a regex, we need to compile it
@@ -5366,7 +5369,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def flt_from_clause(cls, clause):
         """
-        Returns a MongoDB filter from a clause
+        Returns a MongoDB filter from a clause.
         """
         operators = {
             ":": "$eq",
@@ -5460,7 +5463,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # Assign to each operator a couple (value offset, existance)
         op_values = {
             '$lt': (-1, False), '$lte': (0, False),
-            '$gt': (0, True), '$gte': (-1, True)}
+            '$gt': (0, True), '$gte': (-1, True)
+        }
         return {
             "%s.%d" % (clause['attr'], clause['value'] + op_values[op][0]):
                 {'$exists': op_values[op][1]},
@@ -5469,7 +5473,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     @classmethod
     def flt_from_query(cls, query):
         """
-        Returns a MongoDB filter from the given query object
+        Returns a MongoDB filter from the given query object.
         """
         clauses = query.clauses
         flt = {}
@@ -5492,9 +5496,9 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
                      timeline=False):
         """
-        Overload from_filters method from MongoDB
+        Overloads from_filters method from MongoDB.
         It transforms flow.Query object returned by super().from_filters
-        in MongoDB filter and returns it
+        in MongoDB filter and returns it.
         """
         query = (super(MongoDBFlow, cls)
                  .from_filters(filters, limit=limit, skip=skip,
@@ -5504,7 +5508,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
                  timeline=False):
         """
-        Returns a dict {"nodes": [], "edges": []}
+        Returns a dict {"nodes": [], "edges": []}.
         """
         return self.cursor2json_graph(
             self.get(flt, skip, limit, orderby),
@@ -5515,7 +5519,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 timeline=False):
         """
         Returns an iterator which yields dict {"src": src, "dst": dst,
-        "flow": flow}
+        "flow": flow}.
         """
         return self.cursor2json_iter(
             self.get(flt, skip, limit, orderby),
@@ -5524,7 +5528,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     def host_details(self, addr):
         """
-        Returns details about an host with the given address
+        Returns details about an host with the given address.
         Details means a dict : {
             in_flows: set() => incoming flows (proto, dport),
             out_flows: set() => outcoming flows (proto, dport),
@@ -5569,7 +5573,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     def flow_details(self, flow_id):
         """
-        Returns details about a flow with the given ObjectId
+        Returns details about a flow with the given ObjectId.
         Details mean : {
             elt: {} => basic data about the flow,
             meta: [] => meta entries corresponding to the flow
@@ -5598,7 +5602,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         {
             flows: [("proto/dport", count), ...]
             time_in_day: time
-        }
+        }.
         """
         pipeline = []
 

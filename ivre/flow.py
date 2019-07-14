@@ -115,7 +115,8 @@ class Query(object):
     operators_re = re.compile('|'.join(re.escape(x) for x in operators_chars))
     identifier = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
     or_re = re.compile('^OR|\\|\\|$')
-    # matches '"test" test' in 2 groups "test" and test
+    # Used to split filter in tokens (attributes, operators, values)
+    # Example: '"test" test' is divided in 2 groups "test" and test
     splitter_re = re.compile('(?:[^\\s"]|"(?:\\\\.|[^"])*")+')
     clauses = []
 

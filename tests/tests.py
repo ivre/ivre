@@ -2567,6 +2567,23 @@ which `predicate()` is True, given `webflt`.
              'scbytes', 'csbytes', '--limit', '1', '--collect', 'proto',
              'dport'])
 
+        self.check_flow_top_values(
+            "flow_top_transport",
+            ['ivre', 'flowcli', '--top', 'proto', 'dport', '--sum',
+             'scbytes', 'csbytes', '--limit', '1', '--collect', 'src.addr',
+             'dst.addr'])
+
+        # Test netflow capture insertion
+        res, out, err = RUN(["ivre", "flowcli", "--init"],
+                            stdin=open(os.devnull))
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+
+        res, out, err = RUN(['ivre', 'flow2db',
+                             os.path.join(os.getcwd(), "samples", "nfcapd")])
+        self.assertEqual(res, 0)
+        self.check_flow_count_value("flow_count_netflow", {}, [], None)
+
     # This test have to be done first.
     def test_10_data(self):
         """ipdata (Maxmind, thyme.apnic.net) functions"""
