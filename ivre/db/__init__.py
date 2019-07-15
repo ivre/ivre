@@ -2477,6 +2477,29 @@ class DBFlow(DB):
             time += timedelta(seconds=config.FLOW_TIME_PRECISION)
         return times
 
+    @staticmethod
+    def _get_new_timeslot(time, precision, base):
+        ts = utils.datetime2timestamp(time)
+        ts += utils.tz_offset(ts)
+        new_ts = ts - (((ts % precision) - base) % precision)
+        new_ts -= utils.tz_offset(new_ts)
+        return {
+            "start": datetime.fromtimestamp(new_ts),
+            "duration": precision
+        }
+
+    def reduce_precision(self, current_duration, new_duration, flt=None,
+                         base=0):
+        """
+        Changes precision of timeslots with <current_duration> precision
+        to <new_duration> precision of flows honoring the given filter.
+        <base> represents the timestamp of the base point.
+        <base> must be a multiple of <current_precision>.
+        <new_duration> must be a multiple of <current_duration>.
+        <new_duration> must be greater than <current_duration>.
+        """
+        raise NotImplementedError("Only available with MongoDB backend.")
+
 
 class MetaDB(object):
 

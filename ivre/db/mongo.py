@@ -5672,3 +5672,57 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     second=entry['_id']['second'])
             }
             yield res
+
+    def reduce_precision(self, current_duration, new_duration, flt=None,
+                         base=0):
+        # validate base
+        if base % current_duration != 0:
+            raise ValueError("Base must be a multiple of current precision.")
+        base %= new_duration
+
+        # validate new duration
+        if new_duration <= current_duration:
+            raise ValueError("New precision value must be greater than "
+                             "current one.")
+        if new_duration % current_duration != 0:
+            raise ValueError("New precision must be a multiple of current "
+                             "precision.")
+
+        # Create the update bulk
+        bulk = self.db[
+            self.columns[self.column_flow]
+        ].initialize_unordered_bulk_op()
+
+        if flt is None:
+            flt = self.flt_empty
+
+        flt = self.flt_and(flt, {"times.duration": current_duration})
+        for flw in self._get_cursor(self.columns[self.column_flow], flt):
+            # We must ensure the unicity of timeslots in a flow
+            new_times = set()
+            for timeslot in flw["times"]:
+                # This timeslot does not need to be changed
+                if timeslot['duration'] != current_duration:
+                    new_times.add((timeslot["start"], timeslot["duration"]))
+                    continue
+                # Compute new timeslot
+                new_tslt = self._get_new_timeslot(timeslot['start'],
+                                                  new_duration, base)
+                new_times.add((new_tslt["start"], new_tslt["duration"]))
+            # Build a list of timeslot dicts from new timeslots set
+            timeslots = [{"start": timeslot[0], "duration": timeslot[1]}
+                         for timeslot in new_times]
+
+            bulk.find({"_id": flw["_id"]}).update(
+                {"$set": {"times": timeslots}}
+            )
+        # Execute bulk
+        try:
+            start_time = time.time()
+            result = bulk.execute()
+            newtime = time.time()
+            update_rate = result.get('nModified') / (newtime - start_time)
+            utils.LOGGER.debug("%d updates, %f/sec",
+                               result.get('nModified'), update_rate)
+        except pymongo.errors.InvalidOperation:
+            utils.LOGGER.debug("No operations to execute.")

@@ -91,6 +91,14 @@ def main():
                         help="Plot data when possible (requires matplotlib).")
     parser.add_argument('--fields', nargs='+',
                         help="Display these fields for each entry.")
+    parser.add_argument('--reduce-precision', nargs=2, type=int,
+                        metavar=("CURRENT_PRECISION", "NEW_PRECISION"),
+                        help="Only with MongoDB backend. "
+                        "Reduce precision to NEW_PRECISION for flows "
+                        "timeslots stored with CURRENT_PRECISION. "
+                        "Takes account of filters.")
+    parser.add_argument("--base", type=int, help="When using "
+                        "--update-precision, set timeslots base.", default=0)
     args = parser.parse_args()
 
     out = sys.stdout
@@ -127,6 +135,20 @@ def main():
     query = db.flow.from_filters(filters, limit=args.limit, skip=args.skip,
                                  orderby=args.orderby, mode=args.mode,
                                  timeline=args.timeline)
+
+    if args.reduce_precision:
+        if os.isatty(sys.stdin.fileno()):
+            out.write(
+                'This will permanently reduce the precision of your '
+                'database. Process ? [y/N] ')
+            ans = input()
+            if ans.lower() != 'y':
+                sys.exit(-1)
+        current_duration, new_duration = args.reduce_precision
+        db.flow.reduce_precision(current_duration, new_duration, flt=query,
+                                 base=args.base)
+        sys.exit(0)
+
     sep = args.separator or ' | '
     coma = ' ;' if args.separator else ' ; '
     coma2 = ',' if args.separator else ', '
