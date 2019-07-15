@@ -90,40 +90,40 @@ The author's blog has some `IVRE-related blog posts
 
 Here is a list of other blog posts about or around IVRE:
 
-  - Scan the hosts that hit your honeypots, and exploit the results!
+- Scan the hosts that hit your honeypots, and exploit the results!
 
-    - `Who's Attacking Me?
-      <https://isc.sans.edu/forums/diary/Whos+Attacking+Me/21933/>`_
+   - `Who's Attacking Me?
+     <https://isc.sans.edu/forums/diary/Whos+Attacking+Me/21933/>`_
       
-    - `Three Honeypots and a Month After
-      <https://www.serializing.me/2019/01/27/three-honeypots-and-a-month-after/>`_
+   - `Three Honeypots and a Month After
+     <https://www.serializing.me/2019/01/27/three-honeypots-and-a-month-after/>`_
 
-  - Scanning SAP Services:
+- Scanning SAP Services:
 
-    - `gelim/nmap-erpscan <https://github.com/gelim/nmap-erpscan>`_ on Github
+   - `gelim/nmap-erpscan <https://github.com/gelim/nmap-erpscan>`_ on Github
 
-    - `SAP Services detection via nmap probes
-      <https://erpscan.io/press-center/blog/sap-services-detection-via-nmap-probes/>`_
+   - `SAP Services detection via nmap probes
+     <https://erpscan.io/press-center/blog/sap-services-detection-via-nmap-probes/>`_
 
-    - `SAP Dispatcher Security <https://erpscan.io/press-center/blog/sap-dispatcher-security/>`_
+   - `SAP Dispatcher Security <https://erpscan.io/press-center/blog/sap-dispatcher-security/>`_
 
-  - `Re-discover your company network with Ivre
-    <https://blog.cybsec.xyz/re-discover-your-company-network-with-ivre/>`_
+- `Re-discover your company network with Ivre
+  <https://blog.cybsec.xyz/re-discover-your-company-network-with-ivre/>`_
 
-  - IVRE tests & reviews:
+- IVRE tests & reviews:
 
-    - `IVRE <https://security-bits.de/posts/2018/12/07/ivre.html>`_
+   - `IVRE <https://security-bits.de/posts/2018/12/07/ivre.html>`_
 
-    - `IVRE! Drunk Frenchman Port Scanner Framework!
-      <https://mstajbakhsh.ir/ivre-drunk-frenchman-port-scanner-framework/>`_
+   - `IVRE! Drunk Frenchman Port Scanner Framework!
+     <https://mstajbakhsh.ir/ivre-drunk-frenchman-port-scanner-framework/>`_
 
-    - `Visualizing Scans Part 1: IVRE
-      <https://bestestredteam.com/2019/02/10/visualizing-scans-part-1-ivre/>`_
+   - `Visualizing Scans Part 1: IVRE
+     <https://bestestredteam.com/2019/02/10/visualizing-scans-part-1-ivre/>`_
 
-  - Spanish:
+- Spanish:
 
-    - `Reconocimiento de redes con IVRE
-      <https://www.welivesecurity.com/la-es/2015/08/11/reconocimiento-de-redes-con-ivre/>`_
+   - `Reconocimiento de redes con IVRE
+     <https://www.welivesecurity.com/la-es/2015/08/11/reconocimiento-de-redes-con-ivre/>`_
 
 You have found (or written) a document that might help other use IVRE
 or decide if they need it? Please let us know: `open an issue

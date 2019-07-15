@@ -35,8 +35,6 @@ Files under the ``web/static/jq`` directory come from the
 They are licensed under `MIT
 license <https://en.wikipedia.org/wiki/MIT_License>`__.
 
-.. _d3js:
-
 D3.js
 -----
 
@@ -97,11 +95,6 @@ public domain.
 CEA Logo
 --------
 
-The file ``web/static/cea.png`` and ``web/static/cea-white.png`` are the
-logo of the French Alternative Energies and Atomic Energy Commission. It
-is not covered by IVRE license.
-
---------------
-
-This file is part of IVRE. Copyright 2011 - 2018 `Pierre
-LALET <mailto:pierre.lalet@cea.fr>`__
+The files ``web/static/cea.png`` and ``web/static/cea-white.png`` are
+the logo of the French Alternative Energies and Atomic Energy
+Commission. It is not covered by IVRE license.

@@ -188,56 +188,67 @@
 <p>IVRE has five <strong>purposes</strong> (we use this word to refer to the different
 types of data IVRE handles), which can be stored by one or more
 <strong>back-end</strong> databases:</p>
-<ul class="simple">
+<ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">data</span></code>: associates IP ranges to Autonomous Systems (AS numbers and
 names), and geographical information (country, region, city), based
 on data from <a class="reference external" href="https://www.maxmind.com/en/geoip2-services-and-databases">Maxmind GeoIP</a>. It can
 be queried using:</p>
-<ul>
+<blockquote>
+<div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.data</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
 <li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipdata</span></code> tool.</p></li>
 <li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/cgi/ipdata/&lt;address&gt;</span></code> URL.</p></li>
 </ul>
+</div></blockquote>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a> and <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> scan results. Each
 record represents one host seen during one network scan. It can be
 queried using:</p>
-<ul>
+<blockquote>
+<div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.nmap</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
 <li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span></code> tool.</p></li>
 <li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/cgi/scans</span></code> and <code class="docutils literal notranslate"><span class="pre">/cgi/scans/*</span></code> URLs.</p></li>
 </ul>
+</div></blockquote>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">passive</span></code>: contains host intelligence captured from the network
 using a <a class="reference external" href="https://www.zeek.org/">Zeek</a> dedicated module called
 <code class="docutils literal notranslate"><span class="pre">passiverecon</span></code>. Each record represents one piece of information
 (<em>e.g.</em>, the HTTP <code class="docutils literal notranslate"><span class="pre">Server:</span></code> header value <code class="docutils literal notranslate"><span class="pre">Apache</span></code> has been seen
 10 times on port 80 of host 1.2.3.4). It can be queried using:</p>
-<ul>
-<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.passive</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
+<blockquote>
+<div><ul class="simple">
+<li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.passive</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code>
+module.</p></li>
 <li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">ipinfo</span></code> tool.</p></li>
 </ul>
+</div></blockquote>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">view</span></code>: contains a consolidated view of hosts based on data from
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">passive</span></code>. The structure of the records is similar to
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, but each record represents a host, seen during one or more
 network scans and/or seen from network captures. It can be queried using:</p>
-<ul>
+<blockquote>
+<div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.view</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
 <li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">view</span></code> tool.</p></li>
 <li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/cgi/view</span></code> and <code class="docutils literal notranslate"><span class="pre">/cgi/view/*</span></code> URLs.</p></li>
 <li><p>Web UI: the <code class="docutils literal notranslate"><span class="pre">/</span></code> or <code class="docutils literal notranslate"><span class="pre">/index.html</span></code> Web page.</p></li>
 </ul>
+</div></blockquote>
 </li>
 <li><p><code class="docutils literal notranslate"><span class="pre">flow</span></code>: contains aggregated network flows, as seen by <a class="reference external" href="https://www.zeek.org/">Zeek</a>, <a class="reference external" href="http://qosient.com/argus/">Argus</a> or
 Netflows (using <a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a>). It can
 be queried using:</p>
-<ul>
+<blockquote>
+<div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.flow</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
 <li><p>Command line: the <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span></code> tool.</p></li>
 <li><p>Web (JSON) API: the <code class="docutils literal notranslate"><span class="pre">/flows</span></code> URL.</p></li>
 <li><p>Web UI: the <code class="docutils literal notranslate"><span class="pre">/flow.html</span></code> Web page.</p></li>
 </ul>
+</div></blockquote>
 </li>
 </ul>
 <p>The following (non-exhaustive) figure shows how the data gets from

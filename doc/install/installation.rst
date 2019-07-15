@@ -33,8 +33,10 @@ integrate screenshots, install `Tesseract
 If you plan to analyze PCAP file on a machine, install, depending on
 your needs:
 
-- `Zeek <https://www.zeek.org/>`_ (previously known as Bro, version 2.5 minimum).
-- `p0f <http://lcamtuf.coredump.cx/p0f/>`_ (version 2, will not work with version 3).
+- `Zeek <https://www.zeek.org/>`_ (previously known as Bro, version
+  2.5 minimum).
+- `p0f <http://lcamtuf.coredump.cx/p0f/>`_ (version 2, will not work
+  with version 3).
 - `Argus <http://qosient.com/argus/>`_.
 - `Nfdump <http://nfdump.sourceforge.net/>`_.
 
@@ -49,9 +51,13 @@ To install IVRE, you'll need `Python <http://www.python.org/>`__ 2
 - `Crypto <http://www.pycrypto.org/>`_.
 - `Future <https://python-future.org/>`_.
 - `pymongo <http://api.mongodb.org/python/>`_ version 2.7.2 minimum.
-- `py2neo <http://py2neo.org/v3/>`__ version 3, optional, to use the flow purpose.
-- `sqlalchemy <http://www.sqlalchemy.org/>`_ and `psycopg2 <http://initd.org/psycopg/>`_ to use the experimental PostgreSQL backend.
-- `PIL <http://www.pythonware.com/products/pil/>`_ optional, to trim screenshots.
+- `py2neo <http://py2neo.org/v3/>`__ version 3, optional, to use the
+  flow purpose.
+- `sqlalchemy <http://www.sqlalchemy.org/>`_ and `psycopg2
+  <http://initd.org/psycopg/>`_ to use the experimental PostgreSQL
+  backend.
+- `PIL <http://www.pythonware.com/products/pil/>`_ optional, to trim
+  screenshots.
 
 Databases
 ~~~~~~~~~
@@ -115,15 +121,15 @@ The installation of IVRE itself can be done:
   `yay <https://aur.archlinux.org/packages/yay/>`_ for example. The
   packages are:
 
-  - ``ivre``: the main package, which depends on ``python-ivre``.
+   - ``ivre``: the main package, which depends on ``python-ivre``.
 
-  - ``python-ivre`` and ``python2-ivre``: the Python 3 and Python 2
-    libraries. You don't need ``python2-ivre`` unless you have Python
-    2 only code relying on IVRE.
+   - ``python-ivre`` and ``python2-ivre``: the Python 3 and Python 2
+     libraries. You don't need ``python2-ivre`` unless you have Python
+     2 only code relying on IVRE.
 
-  - ``ivre-web``: the Web application
+   - ``ivre-web``: the Web application
 
-  - ``ivre-docs``: the documentation
+   - ``ivre-docs``: the documentation
 
   These packages are based on the latest stable version; they all have
   a ``-git`` version, based on the current development code from the
@@ -132,7 +138,7 @@ The installation of IVRE itself can be done:
   test the latest developments.
 
   All the packages are based on the same bases: `ivre
-  <https://aur.archlinux.org/pkgbase/ivre/>`_ and `ivre-git
+  <https://aur.archlinux.org/pkgbase/ivre/>`__ and `ivre-git
   <https://aur.archlinux.org/pkgbase/ivre-git/>`_.
 
 - On `BlackArch Linux <https://blackarch.org/>`_ (an Arch Linux-based
@@ -166,10 +172,8 @@ You can override default values in configuration files:
 - system-wide: ``ivre.conf`` in the following directories: ``/etc/``,
   ``/etc/ivre``, ``/usr/local/etc``, ``/usr/local/etc/ivre``.
 
-- user-specific:
-
-  - ``~/.ivre.conf`` (read after the system-wide configuration files,
-     so highest priority).
+- user-specific: ``~/.ivre.conf`` (read after the system-wide
+  configuration files, so highest priority).
 
 - another configuration file can be specified using the ``$IVRE_CONF``
   environment variable.
