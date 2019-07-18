@@ -23,16 +23,6 @@ For another way to run IVRE easily (probably even more easily), see
 
 Install
 -------
-
-::
-
-   $ sudo apt-get -y install mongodb python-pymongo python-crypto \
-   >   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
-   $ git clone https://github.com/cea-sec/ivre
-   $ cd ivre
-   $ python setup.py build
-   $ sudo python setup.py install
-
 NB: if you are running Debian stable, the dokuwiki package has been
 removed (no idea why: it exists in both oldstable and testing). Run the
 following commands (or similar) if you cannot install dokuwiki, and try
@@ -46,8 +36,35 @@ again:
    >   sudo tee -a /etc/apt/sources.list
    $ sudo apt-get update
 
-Setup
------
+Python 2 build (apt)
+~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   $ sudo apt-get -y install mongodb python-pymongo python-crypto \
+   >   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
+   $ git clone https://github.com/cea-sec/ivre
+   $ cd ivre
+   $ python setup.py build
+   $ sudo python setup.py install
+   $ echo 'DB_FLOW = "neo4j://neo4j:<new password>@localhost:7474/"' | sudo tee /etc/ivre.conf
+
+
+Python 3 build (pip)
+~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   $ sudo apt install -y python3-pip python3-dev mongodb apache2 libapache2-mod-wsgi-py3 dokuwiki
+   $ sudo -H pip3 install bottle pycrypto future pymongo py2neo==3.1.2
+   $ git clone https://github.com/cea-sec/ivre
+   $ cd ivre
+   $ python3 setup.py build
+   $ sudo python3 setup.py install
+   $ echo 'DB_FLOW = "neo4j://neo4j:<new password>@localhost:7474/"' | sudo tee /etc/ivre.conf
+
+Setup Apache webserver
+----------------------
 
 ::
 
@@ -74,6 +91,7 @@ Setup
    # echo '</Location>' >> conf-enabled/ivre.conf
    # sed -i 's/^\(\s*\)#Rewrite/\1Rewrite/' /etc/dokuwiki/apache.conf
    # echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
+   # chmod o+r /usr/local/share/ivre/web/wsgi/app.wsgi
    # service apache2 reload  ## or start
    # exit
 
@@ -94,7 +112,58 @@ Database init, data download & importation
    $ sudo ivre ipdata --download --import-all
 
 The two last step may take a long time to run (40 minutes on a decent
-server), nothing to worry about.
+server), nothing to worry about. To initiate flowcli, Neo4j default 
+password must be changed through its web interface. Connect to Neo4j
+IP address on port 7474 and enter neo4j:neo4j credentials to login
+then change the password. Don't forget to modify ``/etc/ivre.conf``
+accordingly.
+
+
+External programs
+-----------------
+
+- MongoDB Community Edition (latest version)
+- Nmap
+- Zeek/Bro
+- Argus
+- Nfdump
+- Neo4j
+
+::
+
+   $ sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9DA31620334BD75D9DCB49F368818C72E52529D4
+   $ echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.0.list
+   $ wget -O- "http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/Release.key" | sudo apt-key add -
+   $ echo 'deb http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/ /' | sudo tee '/etc/apt/sources.list.d/bro.list'
+   $ wget -O - https://debian.neo4j.org/neotechnology.gpg.key | sudo apt-key add -
+   $ echo 'deb https://debian.neo4j.org/repo stable/' | sudo tee /etc/apt/sources.list.d/neo4j.list
+   $ sudo apt update
+   $ sudo apt install mongodb-org nmap bro argus-server nfdump neo4j gcc make libpcap-dev -y
+   $ sudo sed -i 's/#dbms.connectors.default_listen_address=0.0.0.0/dbms.connectors.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
+   $ sudo systemctl enable mongod
+   $ sudo systemctl start mongod
+   $ sudo systemctl enable neo4j
+   $ sudo systemctl start neo4j
+   $ export PATH="$PATH:/opt/bro/bin"
+
+Append ``/opt/bro/bin`` to PATH variable in ``/etc/environment``.
+Append ``/opt/bro/bin`` to secure_path variable in ``/etc/sudoers`` using visudo.
+  
+- Masscan
+- P0f
+  
+::
+
+   $ git clone https://github.com/robertdavidgraham/masscan.git
+   $ cd masscan
+   $ make
+   $ sudo cp bin/masscan /usr/local/bin
+   $ cd ..
+   $ wget http://lcamtuf.coredump.cx/p0f3/releases/old/2.x/p0f-2.0.8.tgz
+   $ tar -xvf p0f-2.0.8.tgz
+   $ cd p0f
+   $ make
+   $ sudo make install
 
 Run a first scan
 ----------------
