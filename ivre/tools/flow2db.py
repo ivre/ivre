@@ -67,6 +67,11 @@ def main():
     parser.add_argument("-C", "--no-cleanup",
                         help="avoid port cleanup heuristics",
                         action="store_true")
+    parser.add_argument("-s", "--sensor", type=str, help="Sensor name")
+    parser.add_argument("-p", "--passive",
+                        help="Store data in passive database in addition to "
+                        "flow database. Supported with MongoDB backend only.",
+                        action="store_true")
     args = parser.parse_args()
 
     if args.verbose:
@@ -85,13 +90,13 @@ def main():
                         fname,
                     )
                     continue
-        bulk = db.flow.start_bulk_insert()
+        bulk = db.flow.start_bulk_insert(args.sensor, passive=args.passive)
         with fileparser(fname, args.pcap_filter) as fdesc:
             for rec in fdesc:
                 if not rec:
                     continue
                 db.flow.flow2flow(bulk, rec)
-        db.flow.bulk_commit(bulk)
+            bulk.commit()
 
     if not args.no_cleanup:
         db.flow.cleanup_flows()

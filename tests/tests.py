@@ -2444,10 +2444,12 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
         self.assertTrue(not err)
+        tmpdirs = []
         for pcapfname in self.pcap_files:
             # Only Python 3.2+
             # with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = tempfile.mkdtemp()
+            tmpdirs.append(tmpdir)
             broprocess = subprocess.Popen(
                 ['bro', '-C', '-r', os.path.join(os.getcwd(), pcapfname),
                  os.path.join(ivre.config.guess_prefix('bro'), 'ivre'),
@@ -2464,7 +2466,6 @@ purposes to feed Elasticsearch view.
             ])
             self.assertEqual(res, 0)
             self.assertTrue(not out)
-            ivre.utils.cleandir(tmpdir)
         total = self.check_flow_count_value("flow_count", {}, [], None)
 
         # Test basic filters
@@ -2809,6 +2810,29 @@ purposes to feed Elasticsearch view.
                 {'clients': 0, 'flows': 0, 'servers': 0}
             )
 
+            # Test insertion in passive
+            RUN(["ivre", "flowcli", "--init"], stdin=open(os.devnull))
+            RUN(["ivre", "ipinfo", "--init"], stdin=open(os.devnull))
+            for tmpdir in tmpdirs:
+                res, out, __ = RUN(['ivre', 'bro2db', '--passive'] + [
+                    os.path.join(dirname, fname)
+                    for dirname, __, fnames in os.walk(tmpdir)
+                    for fname in fnames
+                    if fname.endswith('.log')
+                ])
+                self.assertEqual(res, 0)
+                self.assertTrue(not out)
+            # It should not change flows number
+            self.check_flow_count_value("flow_count", {}, [], None)
+
+            res, out, err = RUN(["ivre", "ipinfo",
+                                 "--timeago", "10000000000",
+                                 "--count"])
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+            self.assertNotEqual(out, b'')
+            self.check_value("flow_passive_count", int(out))
+
         # Test netflow capture insertion
         res, out, err = RUN(["ivre", "flowcli", "--init"],
                             stdin=open(os.devnull))
@@ -2819,6 +2843,33 @@ purposes to feed Elasticsearch view.
                              os.path.join(os.getcwd(), "samples", "nfcapd")])
         self.assertEqual(res, 0)
         self.check_flow_count_value("flow_count_netflow", {}, [], None)
+
+        if DATABASE == 'mongo':
+            # Test netflow capture data insertion in passive
+            res, out, err = RUN(["ivre", "flowcli", "--init"],
+                                stdin=open(os.devnull))
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+
+            res, out, err = RUN(
+                ['ivre', 'flow2db', '--passive',
+                 os.path.join(os.getcwd(), "samples", "nfcapd")]
+            )
+            self.assertEqual(res, 0)
+            # It should not change flows number
+            self.check_flow_count_value("flow_count_netflow", {}, [], None)
+            # Check insertion in passive
+            res, out, err = RUN(["ivre", "ipinfo",
+                                 "--timeago", "10000000000",
+                                 "--count"])
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+            self.assertNotEqual(out, b'')
+            self.check_value("flow_passive_netflow_count", int(out))
+
+        # Clean tmpdirs
+        for tmpdir in tmpdirs:
+            ivre.utils.cleandir(tmpdir)
 
     # This test have to be done first.
     def test_10_data(self):

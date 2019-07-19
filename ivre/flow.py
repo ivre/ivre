@@ -109,6 +109,29 @@ META_DESC = {
 }
 
 
+def ssh2passive_keys(rec, is_server):
+    return {
+        'recontype': ('SSH_SERVER_ALGOS' if is_server
+                      else 'SSH_CLIENT_ALGOS'),
+        'entries': [
+            {
+                'source': 'encryption_algorithms',
+                'value': rec.get('cipher_alg')
+            },
+            {'source': 'kex_algorithms', 'value': rec.get('kex_alg')},
+            {'source': 'mac_algorithms', 'value': rec.get('mac_alg')},
+            {
+                'source': 'compression_algorithms',
+                'value': rec.get('compression_alg')
+            },
+            {
+                'source': 'server_host_key_algorithms',
+                'value': rec.get('host_key_alg')
+            }
+        ]
+    }
+
+
 class Query(object):
     # The order matters because regex pipe is ungreedy
     operators_chars = [':', '==', '=~', '=', '!=', '<=', '<', '>=', '>']

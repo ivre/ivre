@@ -4616,6 +4616,72 @@ scan object on success, and raises a LockError on failure.
                               fields=["_id"])))
 
 
+class MongoDBFlowBulk():
+    """
+    Bulk to insert flows data in databases.
+    """
+
+    passive_fields = ['ts', 'uid', 'host', 'srvport', 'recon_type', 'source',
+                      'value', 'targetval']
+
+    def __init__(self, sensor, globaldb, db_flow, passive):
+        self.db_flow = db_flow
+        self.passive = passive
+        self.sensor = sensor
+        self.globaldb = globaldb
+
+        self.flow_bulk = self.db_flow.initialize_unordered_bulk_op()
+        if self.passive:
+            self.passive_bulk = []
+
+    def add_flow(self, findspec, updatespec):
+        self.flow_bulk.find(findspec).upsert().update(updatespec)
+
+    def add_passive(self, entry):
+        if self.passive:
+            # To avoid mutability issues, copy relevant entry fields
+            # in a new dictionnary
+            new_entry = {}
+            for field in self.passive_fields:
+                new_entry[field] = entry.get(field, None)
+            self.passive_bulk.append(new_entry)
+
+    def _handle_passive_rec(self):
+        for entry in self.passive_bulk:
+            entry["timestamp"] = entry.pop("ts")
+            yield passive.handle_rec(
+                self.sensor,
+                {},  # IGNORENETS
+                {},  # NEVERIGNORE
+                **entry
+            )
+
+    def commit(self):
+        # Commit flow bulk
+        try:
+            start_time = time.time()
+            result = self.flow_bulk.execute()
+            newtime = time.time()
+            insert_rate = result.get('nInserted') / (newtime - start_time)
+            upsert_rate = result.get('nUpserted') / (newtime - start_time)
+            utils.LOGGER.debug("%d flows inserted, %f/sec",
+                               result.get('nInserted'), insert_rate)
+            utils.LOGGER.debug("%d flows upserted, %f/sec",
+                               result.get('nUpserted'), upsert_rate)
+
+        except BulkWriteError:
+            utils.LOGGER.error("Bulk Write Error", exc_info=True)
+        except pymongo.errors.InvalidOperation:
+            # Raised when executing an empty bulk
+            pass
+        # Commit passive "bulk"
+        if self.passive:
+            self.globaldb.passive.insert_or_update_bulk(
+                self._handle_passive_rec(),
+                getinfos=passive.getinfos
+            )
+
+
 class MongoDBFlowMeta(type):
     """
     This metaclass aims to compute 'meta_desc' and 'needunwind' once for all
@@ -4700,15 +4766,21 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
     def __init__(self, url):
         super(MongoDBFlow, self).__init__(url)
         self.columns = ["flows"]
+        MongoDBFlow.passive_inserters = {
+            'http': self.http2passive,
+            'dns': self.dns2passive,
+            'ssh': self.ssh2passive
+        }
 
-    def start_bulk_insert(self):
+    def start_bulk_insert(self, sensor, passive=False):
         """
         Initialize bulks for inserting data in MongoDB.
         Returns flow_bulk
         """
         utils.LOGGER.debug("start_bulk_insert called")
-        return (self.db[self.columns[self.column_flow]]
-                .initialize_unordered_bulk_op())
+        return MongoDBFlowBulk(sensor, self.globaldb,
+                               self.db[self.columns[self.column_flow]],
+                               passive)
 
     @staticmethod
     def _get_flow_key(rec):
@@ -4765,6 +4837,10 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         Takes a parsed *.log line entry and adds it to insert bulk.
         It is responsible for metadata processing (all but conn.log files).
         """
+        # Store in passive database
+        if name in cls.passive_inserters:
+            cls.passive_inserters[name](bulk, rec)
+
         # Convert addr
         rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
         rec['dst_addr_0'], rec['dst_addr_1'] = cls.ip2internal(rec['dst'])
@@ -4787,10 +4863,129 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                         rec[value] = {'$each': rec[value]}
                     updatespec.setdefault(
                         op, {})['meta.%s.%s' % (name, key)] = rec[value]
-
         cls._update_timeslots(updatespec, rec)
+        bulk.add_flow(findspec, updatespec)
 
-        bulk.find(findspec).upsert().update(updatespec)
+    @staticmethod
+    def ssh2passive(bulk, rec):
+        """
+        Takes a parsed ssh.log line entry and addts it to passive bulk.
+        """
+        for field in ('src', 'dst'):
+            is_server = (field == 'dst')
+            # Insert software
+            entry = {}
+            entry['ts'] = rec['start_time']
+            entry['host'] = rec[field]
+            entry['recon_type'] = ('SSH_SERVER' if is_server
+                                   else 'SSH_CLIENT')
+            entry['value'] = (rec['server'] if is_server
+                              else rec['client'])
+            if field == 'dst':
+                entry['srvport'] = rec['dport']
+            bulk.add_passive(entry)
+            # Insert algos
+            keys = flow.ssh2passive_keys(rec, is_server)
+            for key in keys['entries']:
+                if key['value'] is None:
+                    continue
+                entry = {}
+                if field == 'dst':
+                    entry['srvport'] = rec['dport']
+                entry['ts'] = rec['start_time']
+                entry['host'] = rec[field]
+                entry['recon_type'] = keys['recontype']
+                entry['source'] = key['source']
+                entry['value'] = key['value']
+                bulk.add_passive(entry)
+
+    @staticmethod
+    def dns2passive(bulk, rec):
+        """
+        Takes a parsed dns.log line entry and adds it to passive bulk
+        It inserts queries/answers related hosts with DNS additional
+        information.
+        """
+        query = rec['query']
+        qtype = rec['qtype_name']
+        server_host = rec['dst']
+        server_port = rec['dport']
+        if qtype in ('A', 'AAAA', '*'):
+            for answer in rec.get('answers', []):
+                entry = {}
+                entry['ts'] = rec['start_time']
+                entry['value'] = query
+                entry['recon_type'] = 'DNS_ANSWER'
+                if utils.IPADDR.match(answer):
+                    # Answer type is A or AAAA
+                    a_type = "A" if utils.IPV4ADDR.match(answer) else "AAAA"
+                    entry['source'] = "%s-%s-%s" % (a_type, server_host,
+                                                    server_port)
+                    entry['host'] = answer
+                else:
+                    # Answer type is very likely CNAME
+                    entry['targetval'] = answer
+                    entry['source'] = "CNAME-%s-%s" % (server_host,
+                                                       server_port)
+                bulk.add_passive(entry)
+        elif qtype == 'PTR':
+            addr = utils.ptr2addr(query)
+            for answer in rec.get('answers', []):
+                entry = {}
+                entry['ts'] = rec['start_time']
+                entry['recon_type'] = 'DNS_ANSWER'
+                entry['source'] = 'PTR-%s-%s' % (server_host, server_port)
+                entry['value'] = answer
+                entry['host'] = addr
+                bulk.add_passive(entry)
+        elif qtype in ('CNAME', 'MX', 'NS'):
+            for answer in rec.get('answers', []):
+                entry = {}
+                entry['ts'] = rec['start_time']
+                entry['recon_type'] = 'DNS_ANSWER'
+                entry['targetval'] = answer
+                entry['value'] = query
+                entry['source'] = "%s-%s-%s" % (qtype, server_host,
+                                                server_port)
+                bulk.add_passive(entry)
+
+    @staticmethod
+    def http2passive(bulk, rec):
+        """
+        Takes a parsed http.log line entry and adds it to passive bulk.
+        """
+        for field in ('src', 'dst'):
+            recontypes = (flow.HTTP_PASSIVE_RECONTYPES_CLIENT if field == 'src'
+                          else flow.HTTP_PASSIVE_RECONTYPES_SERVER)
+            for key, headers in viewitems(recontypes):
+                for header, rec_key in viewitems(headers):
+                    if rec[rec_key] is None:
+                        continue
+                    entry = {}
+                    entry['ts'] = rec['start_time']
+                    entry['host'] = rec[field]
+                    entry['recon_type'] = key
+                    entry['source'] = header
+                    entry['value'] = rec[rec_key]
+                    if field == 'dst':
+                        entry['srvport'] = rec['dport']
+                    bulk.add_passive(entry)
+
+    @staticmethod
+    def conn2passive(bulk, rec):
+        """
+        Takes a parsed conn.log line entry and adds it to passive bulk
+        """
+        for addr in ('src', 'dst'):
+            entry = {}
+            entry['ts'] = rec['start_time']
+            entry['host'] = rec[addr]
+            entry['recon_type'] = "FLOW"
+            entry['value'] = (rec['src'] if addr == 'dst'
+                              else rec['dst'])
+            if addr == 'dst' and rec['proto'] in ('tcp', 'udp'):
+                entry['srvport'] = rec['dport']
+            bulk.add_passive(entry)
 
     @classmethod
     def conn2flow(cls, bulk, rec):
@@ -4820,7 +5015,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         elif rec['proto'] == 'icmp':
             updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
 
-        bulk.find(findspec).upsert().update(updatespec)
+        bulk.add_flow(findspec, updatespec)
+        cls.conn2passive(bulk, rec)
 
     @classmethod
     def flow2flow(cls, bulk, rec):
@@ -4850,26 +5046,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         elif rec['proto'] == 'icmp':
             updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
 
-        bulk.find(findspec).upsert().update(updatespec)
-
-    @staticmethod
-    def bulk_commit(bulk):
-        try:
-            start_time = time.time()
-            result = bulk.execute()
-            newtime = time.time()
-            insert_rate = result.get('nInserted') / (newtime - start_time)
-            upsert_rate = result.get('nUpserted') / (newtime - start_time)
-            utils.LOGGER.debug("%d inserts, %f/sec",
-                               result.get('nInserted'), insert_rate)
-            utils.LOGGER.debug("%d upserts, %f/sec",
-                               result.get('nUpserted'), upsert_rate)
-
-        except BulkWriteError:
-            utils.LOGGER.error("Bulk Write Error", exc_info=True)
-        except pymongo.errors.InvalidOperation:
-            # Raised when executing an empty bulk
-            pass
+        bulk.add_flow(findspec, updatespec)
+        cls.conn2passive(bulk, rec)
 
     def init(self):
         """Initializes the "flows" columns, i.e., drops those columns and

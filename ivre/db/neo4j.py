@@ -161,7 +161,9 @@ class Neo4jDB(DBFlow):
                 if attr not in cur_indexes:
                     self.db.schema.create_index(label, attr)
 
-    def start_bulk_insert(self, size=None, retries=0):
+    def start_bulk_insert(self, sensor, size=None, retries=0, passive=False):
+        if passive:
+            raise NotImplementedError
         return BulkInsert(self.db, size=size, retries=retries)
 
     @staticmethod
@@ -1536,10 +1538,6 @@ DETACH DELETE old_f
                 ["Flow"], linkattrs, counters=counters,
                 accumulators=accumulators)
         bulk.append(query_cache[linkattrs], rec)
-
-    @staticmethod
-    def bulk_commit(bulk):
-        bulk.commit()
 
 
 Neo4jDBFlow.LABEL2NAME.update({

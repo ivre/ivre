@@ -123,6 +123,11 @@ def main():
     parser.add_argument("-C", "--no-cleanup",
                         help="avoid port cleanup heuristics",
                         action="store_true")
+    parser.add_argument("-s", "--sensor", type=str, help="Sensor name")
+    parser.add_argument("-p", "--passive",
+                        help="Store data in passive database in addition to "
+                        "flow database. Supported with MongoDB backend only.",
+                        action="store_true")
     args = parser.parse_args()
 
     if args.verbose:
@@ -133,7 +138,7 @@ def main():
             utils.LOGGER.error("File %r does not exist", fname)
             continue
         with BroFile(fname) as brof:
-            bulk = db.flow.start_bulk_insert()
+            bulk = db.flow.start_bulk_insert(args.sensor, passive=args.passive)
             utils.LOGGER.debug("Parsing %s\n\t%s", fname,
                                "Fields:\n%s\n" % "\n".join(
                                    "%s: %s" % (f, t)
@@ -151,6 +156,6 @@ def main():
                 if not line:
                     continue
                 func(bulk, _bro2flow(line))
-            db.flow.bulk_commit(bulk)
+            bulk.commit()
             if brof.path == "conn" and not args.no_cleanup:
                 db.flow.cleanup_flows()
