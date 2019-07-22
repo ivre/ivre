@@ -23,7 +23,7 @@ databases.
 """
 
 
-from datetime import datetime
+from datetime import datetime, time as dtime
 import operator
 import random
 import re
@@ -32,7 +32,7 @@ import warnings
 
 
 from builtins import range
-from future.utils import viewitems, viewvalues
+from future.utils import viewitems, viewvalues, with_metaclass
 from past.builtins import basestring
 from py2neo import Graph, Node, Relationship, GraphError
 from py2neo import http
@@ -41,10 +41,10 @@ from py2neo.database.status import TransientError
 from py2neo.types import remote
 
 
-from ivre.db import DB, DBFlow
+from ivre.db import DBFlow
 from ivre import config
 from ivre import utils
-
+from ivre import flow
 
 http.socket_timeout = 3600
 # We are aware of that, let's just ignore it for now
@@ -54,8 +54,57 @@ warnings.filterwarnings(
     module="py2neo.database",
 )
 
+FLOW_KEYS_TCP = {"dport": "{dport}", "proto": '"tcp"'}
+FLOW_KEYS_UDP = {"dport": "{dport}", "proto": '"udp"'}
+DEFAULT_FLOW_KEYS = FLOW_KEYS_TCP
+DEFAULT_HOST_KEYS = {"addr": "{addr}"}
+ALL_DESCS = {
+    "dns": {
+        "labels": ["DNS"],
+        "flow_keys": {"dport": "{dport}", "proto": '{proto}'},
+    },
 
-class Neo4jDB(DB):
+    "http": {
+        "labels": ["HTTP"],
+    },
+
+    "ssl": {
+        "labels": ["SSL"],
+    },
+
+    "ssh": {
+        "labels": ["SSH"],
+    },
+
+    "sip": {
+        "labels": ["SIP"],
+    },
+
+    "snmp": {
+        "labels": ["SNMP"],
+        "flow_keys": FLOW_KEYS_UDP,
+    },
+
+    "modbus": {
+        "labels": ["Modbus"],
+    },
+
+    "rdp": {
+        "labels": ["RDP"],
+    },
+}
+
+
+# Associates a list of fields that must be present to the
+# link attributes and the accumulators
+FIELD_REQUEST_EXT = [
+    (('sport', 'dport'), ('proto', 'dport'), {'sports': ('{sport}', 5)}),
+    (('type', 'code'), ('proto', 'type'), {'codes': ('{code}', None)}),
+    (('type'), ('proto', 'type'), {}),
+]
+
+
+class Neo4jDB(DBFlow):
     values = re.compile('{([^}]+)}')
 
     DATE_FIELDS = ['firstseen', 'lastseen']
@@ -116,7 +165,7 @@ class Neo4jDB(DB):
 
     @staticmethod
     def query(*args, **kargs):
-        return Query(*args, **kargs)
+        return Neo4jFlowQuery(*args, **kargs)
 
     def run(self, query):
         if config.DEBUG_DB:
@@ -153,7 +202,7 @@ class Neo4jDB(DB):
             d[k] = cls.to_dbprop(k, d[k])
         seen_time = d.get("start_time", d.get("end_time", None))
         if seen_time and "seen_time" not in d:
-            d["seen_time"] = cls._date_round(seen_time)
+            d["seen_time"] = cls.date_round(seen_time)
 
     @classmethod
     def to_dbprop(cls, prop, val):
@@ -164,20 +213,10 @@ class Neo4jDB(DB):
             val = utils.datetime2timestamp(val)
         return val
 
-    @classmethod
-    def _date_round(cls, date):
-        if isinstance(date, datetime):
-            ts = utils.datetime2timestamp(date)
-        else:
-            ts = date
-        ts = ts - (ts % config.FLOW_TIME_PRECISION)
-        if isinstance(date, datetime):
-            return datetime.fromtimestamp(ts)
-        else:
-            return ts
 
-
-class Query(object):
+# FIXME this class is a little hack to keep the logic of the Neo4j backend
+# unchanged. It should be updated to use flow.Query.
+class Neo4jFlowQuery(flow.Query):
     operators = {
         ":": "=",
         "=": "=",
@@ -189,9 +228,6 @@ class Query(object):
         ">=": ">=",
         "=~": "=~",
     }
-    operators_re = re.compile('|'.join(re.escape(x) for x in operators))
-    identifier = re.compile('^[a-zA-Z][a-zA-Z0-9_]*$')
-    or_re = re.compile('^OR|\\|\\|$')
 
     def __init__(self, src=None, link=None, dst=None, ret=None,
                  limit=None, skip=None, **params):
@@ -268,6 +304,8 @@ class Query(object):
             self.clauses.extend(clause)
         return self
 
+    # In future, this should be removed and flow.Query._add_clause_from_filter
+    # should be used instead.
     def _add_clause_from_filter(self, flt, mode="node"):
         """Returns a WHERE clause (tuple (query, parameters)) from a single
         filter (no OR).
@@ -422,6 +460,8 @@ class Query(object):
                 current.append(subflt)
         yield " ".join(current)
 
+    # FIXME This should be removed and flow.Query.add_clause_from_filter
+    # should be used instead.
     def add_clause_from_filter(self, flt, mode="node"):
         """ADD a WHERE clause from a node filter.
 
@@ -531,7 +571,32 @@ class BulkInsert(object):
         self.commit(renew=False)
 
 
-class Neo4jDBFlow(Neo4jDB, DBFlow):
+class Neo4jDBFlowMeta(type):
+    """
+    This metaclass aims to compute 'meta_desc' once for all instances of
+    Neo4jDBFlow
+    """
+    def __new__(cls, name, bases, attrs):
+        attrs['meta_desc'] = Neo4jDBFlowMeta.compute_meta_desc()
+        return type.__new__(cls, name, bases, attrs)
+
+    @staticmethod
+    def compute_meta_desc():
+        """
+        Computes meta_desc from flow.META_DESC and ALL_DESCS
+        """
+        meta_desc = {}
+        for proto, configs in viewitems(flow.META_DESC):
+            meta_desc[proto] = {}
+            for kind, values in viewitems(configs):
+                meta_desc[proto][kind] = (
+                    utils.normalize_props(values, braces=True))
+            for kind, values in viewitems(ALL_DESCS.get(proto, {})):
+                meta_desc[proto][kind] = values
+        return meta_desc
+
+
+class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
     indexes = {
         "Host": ["addr"],
         "Mac": ["addr"],
@@ -552,6 +617,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                    "SIP", "Modbus", "SNMP", "Time", "Name", "Software"]
 
     LABEL2NAME = {}
+    query_cache = {}
 
     def __init__(self, url):
         Neo4jDB.__init__(self, url)
@@ -559,7 +625,7 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @staticmethod
     def query(*args, **kargs):
-        return Query(*args, src="Host", dst="Host", **kargs)
+        return Neo4jFlowQuery(*args, src="Host", dst="Host", **kargs)
 
     def query_flow(self, flt=None, project=None, action=None):
         query = self.query(
@@ -734,6 +800,46 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         # utils.LOGGER.debug("DB:%s", query)
         return query
 
+    def any2flow(self, bulk, name, rec):
+        kind = "flow"  # FIXME
+        desc = self.meta_desc[name]
+        keys = desc["keys"]
+        link_type = desc.get("link", "INTEL")
+        counters = desc.get("counters", {})
+        accumulators = desc.get("accumulators", {})
+        for props in (keys, counters, accumulators):
+            for k, v in list(viewitems(props)):
+                if v[0] == '{' and v[-1] == '}':
+                    prop = v[1:-1]
+                else:
+                    prop = k
+                if (prop not in rec or rec[prop] is None) and k in props:
+                    del(props[k])
+        if kind == "flow":
+            flow_keys = desc.get("flow_keys")
+            if not flow_keys:
+                if rec.get("proto") and rec["proto"] in ['tcp', 'udp']:
+                    flow_keys = (FLOW_KEYS_TCP if rec["proto"] == 'tcp'
+                                 else FLOW_KEYS_UDP)
+                else:
+                    flow_keys = DEFAULT_FLOW_KEYS
+            bulk.append(
+                self.add_flow_metadata(
+                    desc["labels"], link_type, keys, flow_keys,
+                    counters=counters, accumulators=accumulators),
+                rec
+            )
+        elif kind == "host":
+            host_keys = desc.get("host_keys", DEFAULT_HOST_KEYS)
+            bulk.append(
+                self.add_host_metadata(
+                    desc["labels"], link_type, keys, host_keys=host_keys,
+                    counters=counters, accumulators=accumulators),
+                rec
+            )
+        else:
+            raise ValueError("Unrecognized kind")
+
     @classmethod
     def add_host(cls, elt="h", labels=None, keys=None, time=True):
         if keys is None:
@@ -756,7 +862,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         query = [self._add_flow(flow_labels, flow_keys)]
         keys = utils.normalize_props(keys)
         key = self._key_from_attrs(keys, src=None, dst=None)
-
         query.extend([
             "MERGE (%s)" % (
                 self._gen_merge_elt("meta", labels, {"__key__": key})),
@@ -884,7 +989,6 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         for flt_type in ["node", "edge"]:
             for flt in queries.get("%ss" % flt_type, []):
                 query.add_clause_from_filter(flt, mode=flt_type)
-
         if mode == "talk_map":
             query.add_clause('WITH src, dst, COUNT(link) AS t, '
                              'COLLECT(DISTINCT LABELS(link)) AS labels, '
@@ -1025,8 +1129,8 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         """Transforms a neo4j returned by executing a query into an iterator of
         {src: <dict>, flow: <dict>, dst: <dict>}.
         """
-        for src, flow, dst in cursor:
-            for rec in [src, flow, dst]:
+        for src, flw, dst in cursor:
+            for rec in [src, flw, dst]:
                 cls._cleanup_record(rec)
             src_props = cls._get_props(src["elt"], src.get("meta"))
             src_ref = cls._get_ref(src["elt"], src_props)
@@ -1038,11 +1142,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
             dst_labels = cls._get_labels(dst["elt"], dst_props)
             dst_node = cls._node2json(dst_ref, dst_labels, dst_props)
 
-            flow_props = cls._get_props(flow["elt"], flow.get("meta"))
+            flow_props = cls._get_props(flw["elt"], flw.get("meta"))
             flow_props["addr_src"] = src_props.get('addr', None)
             flow_props["addr_dst"] = dst_props.get('addr', None)
-            flow_ref = cls._get_ref(flow["elt"], flow_props)
-            flow_labels = cls._get_labels(flow["elt"], flow_props)
+            flow_ref = cls._get_ref(flw["elt"], flow_props)
+            flow_labels = cls._get_labels(flw["elt"], flow_props)
             flow_node = cls._edge2json(flow_ref, src_ref, dst_ref, flow_labels,
                                        flow_props)
             yield {"src": src_node, "dst": dst_node, "flow": flow_node}
@@ -1082,14 +1186,40 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
 
     @classmethod
     def _cursor2flow_daily(cls, cursor):
+        d = {}
+        # Group by "time" using a dictionary
         for row in cursor:
-            yield {"flow": "%s/%s" % tuple(row["flow"]),
-                   "time_in_day": datetime.fromtimestamp(row["time_in_day"]),
-                   "count": row["count"]}
+            seconds = int(row["time_in_day"])
+            hour = seconds // 3600
+            seconds = seconds % 3600
+            minute = seconds // 60
+            second = seconds % 60
+            time_str = dtime(hour, minute, second)
+            flw = ("%s/%s" % tuple(row["flow"]), row["count"])
+            if time_str in d:
+                d[time_str].append(flw)
+            else:
+                d[time_str] = [flw]
+        # Results should be sorted by time
+        for (time_in_day, flows) in sorted(d.items(), key=lambda x: x[0]):
+            yield {
+                "flows": flows,
+                "time_in_day": time_in_day
+            }
 
     @classmethod
-    def _cursor2top(cls, cursor):
+    def _cursor2top(cls, cursor, fields, collected):
         for row in cursor:
+            # Format any date field correctly
+            for index, field in enumerate(fields):
+                if field in cls.DATE_FIELDS:
+                    row["fields"][index] = datetime.fromtimestamp(
+                        row["fields"][index])
+            for index, field in enumerate(collected):
+                if field in cls.DATE_FIELDS:
+                    for collect in row["collected"]:
+                        collect[index] = datetime.fromtimestamp(
+                            collect[index])
             yield {
                 "fields": row["fields"],
                 "count": row["count"],
@@ -1103,11 +1233,18 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
                                             timeline=timeline)
         return cypher_query
 
-    def to_graph(self, query):
+    def to_graph(self, query, mode=None, limit=None, skip=None, orderby=None,
+                 timeline=False):
+        """
+        mode, limit, skip, orderby and timeline arguments are unused.
+        They are only needed because of API compatibility between flow
+        backends.
+        """
         res = self.cursor2json_graph(self.run(query))
         return res
 
-    def to_iter(self, query):
+    def to_iter(self, query, limit=None, skip=None, orderby=None, mode=None,
+                timeline=False):
         return self.cursor2json_iter(self.run(query))
 
     def count(self, query):
@@ -1131,8 +1268,11 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         return counts
 
     def flow_daily(self, query):
-        """Returns a dict of {flow: {time_in_day: count}}
-
+        """Returns a generator within each element is a dict
+        {
+            flows: [("proto/dport", count), ...]
+            time_in_day: time
+        }
         WARNING/FIXME: this mutates the query
         """
         query.add_clause(
@@ -1147,15 +1287,18 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         counts = self._cursor2flow_daily(self.run(query))
         return counts
 
-    def top(self, query, fields, collect=None, sumfields=None):
+    def topvalues(self, query, fields, collect_fields=None, sum_fields=None,
+                  limit=None, skip=None, least=False, topnbr=10):
         """Returns an iterator of:
         {fields: <fields>, count: <number of occurrence or sum of sumfields>,
          collected: <collected fields>}.
 
         WARNING/FIXME: this mutates the query
         """
-        collect = collect or []
-        sumfields = sumfields or []
+        collect_fields = collect_fields or []
+        sumfields = sum_fields or []
+        original_fields = list(fields)
+        collect = list(collect_fields)
         for flist in fields, collect, sumfields:
             for i in range(len(flist)):
                 if flist[i].startswith("link."):
@@ -1177,7 +1320,10 @@ class Neo4jDBFlow(Neo4jDB, DBFlow):
         )
         query.ret = "RETURN fields, count, collected"
         query.orderby = "ORDER BY count DESC"
-        top = self._cursor2top(self.run(query))
+        top = self._cursor2top(
+            self.run(query),
+            original_fields,
+            collect_fields)
         return top
 
     def cleanup_flows(self):
@@ -1302,6 +1448,75 @@ DETACH DELETE old_f
         self.db.run(q)
         if config.DEBUG_DB:
             utils.LOGGER.debug("DB:Took %f secs", time.time() - tstamp)
+
+    def dns2flow(self, bulk, rec):
+        # FIXME
+        if self.db_version[0] >= 3:
+            rec["answers"] = ', '.join(rec.get("answers") or [])
+
+        if (rec.get("query", "") or "").endswith(".in-addr.arpa"):
+            # Reverse DNS
+            # rec["names"] = rec["answers"]
+            rec["addrs"] = ['.'.join(reversed(rec["query"].split(".")[:4]))]
+        else:
+            # Forward DNS
+            # Name to resolve + aliases
+            # rec["names"] =  [rec["query"]] + [addr for addr in rec["answers"]
+            #                                   if not IP_RE.match(addr)]
+            rec["addrs"] = [addr for addr in rec.get("answers", []) or []
+                            if utils.IPADDR.match(addr)]
+
+        self.any2flow(bulk, "dns", rec)
+        # TODO: loop in neo
+        for addr in rec["addrs"]:
+            tmp_rec = rec.copy()
+            tmp_rec["addr"] = addr
+            self.any2flow(bulk, "dns", tmp_rec)
+
+    def conn2flow(self, bulk, rec):
+        """Returns a statement inserting a CONN flow from a Bro log"""
+        query_cache = self.query_cache
+        linkattrs = ('proto',)
+        accumulators = {}
+        if rec['proto'] == 'icmp':
+            accumulators = {'codes': ('{code}', None)}
+            linkattrs = linkattrs + ('type',)
+        elif 'sport' in rec and 'dport' in rec:
+            accumulators = {'sports': ('{sport}', 5)}
+            linkattrs = linkattrs + ('dport',)
+
+        counters = {
+            "cspkts": "{orig_pkts}",
+            "csbytes": "{orig_ip_bytes}",
+            "scpkts": "{resp_pkts}",
+            "scbytes": "{resp_ip_bytes}",
+        }
+        if linkattrs not in query_cache:
+            query_cache[linkattrs] = self.add_flow(
+                ["Flow"], linkattrs, counters=counters,
+                accumulators=accumulators)
+        bulk.append(query_cache[linkattrs], rec)
+
+    def flow2flow(self, bulk, rec):
+        query_cache = self.query_cache
+        linkattrs = ('proto',)
+        accumulators = {}
+        for (fields, sp_linkattrs,
+             sp_accumulators) in FIELD_REQUEST_EXT:
+            if all(field in rec for field in fields):
+                linkattrs = sp_linkattrs
+                accumulators = sp_accumulators
+                break
+        counters = ["cspkts", "scpkts", "csbytes", "scbytes"]
+        if linkattrs not in query_cache:
+            query_cache[linkattrs] = self.add_flow(
+                ["Flow"], linkattrs, counters=counters,
+                accumulators=accumulators)
+        bulk.append(query_cache[linkattrs], rec)
+
+    @staticmethod
+    def bulk_commit(bulk):
+        bulk.commit()
 
 
 Neo4jDBFlow.LABEL2NAME.update({

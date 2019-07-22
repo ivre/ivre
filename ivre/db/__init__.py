@@ -21,7 +21,11 @@
 database backends.
 """
 
-
+try:
+    from collections import OrderedDict
+except ImportError:
+    # fallback to dict for Python 2.6
+    OrderedDict = dict
 from functools import reduce
 import json
 import os
@@ -51,7 +55,8 @@ except ImportError:
     USE_CLUSTER = False
 
 
-from ivre import config, geoiputils, nmapout, utils, xmlnmap
+from ivre import config, geoiputils, nmapout, utils, xmlnmap, flow
+from datetime import datetime, timedelta
 
 
 class DB(object):
@@ -2433,6 +2438,48 @@ LockError on failure.
 class DBFlow(DB):
     """Backend-independent code to handle flows"""
 
+    @classmethod
+    def date_round(cls, date):
+        if isinstance(date, datetime):
+            ts = utils.datetime2timestamp(date)
+        else:
+            ts = date
+        ts = ts - (ts % config.FLOW_TIME_PRECISION)
+        if isinstance(date, datetime):
+            return datetime.fromtimestamp(ts)
+        return ts
+
+    @classmethod
+    def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
+                     timeline=False):
+        """
+        Returns a flow.Query object representing the given filters
+        Note: limit, skip, orderby, mode and timeline are IGNORED. They are
+        present only for compatibility reasons with neo4j backend.
+        This should be inherited by backend specific classes
+        """
+        query = flow.Query()
+        for flt_type in ["node", "edge"]:
+            for flt in filters.get("%ss" % flt_type, []):
+                query.add_clause_from_filter(flt, mode=flt_type)
+        return query
+
+    @classmethod
+    def _get_timeslots(cls, start_time, end_time):
+        """
+        Returns an array of timeslots included between start_time and end_time
+        """
+        times = []
+        time = cls.date_round(start_time)
+        end_timeslot = cls.date_round(end_time)
+        while time <= end_timeslot:
+            d = OrderedDict()
+            d['start'] = time
+            d['duration'] = config.FLOW_TIME_PRECISION
+            times.append(d)
+            time += timedelta(seconds=config.FLOW_TIME_PRECISION)
+        return times
+
 
 class MetaDB(object):
 
@@ -2459,6 +2506,7 @@ class MetaDB(object):
         "data": {"maxmind": ("maxmind", "MaxMindDBData")},
         "agent": {"mongodb": ("mongo", "MongoDBAgent")},
         "flow": {"neo4j": ("neo4j", "Neo4jDBFlow"),
+                 "mongodb": ("mongo", "MongoDBFlow"),
                  "postgresql": ("sql.postgres", "PostgresDBFlow")},
         "view": {"http": ("http", "HttpDBView"),
                  "mongodb": ("mongo", "MongoDBView"),

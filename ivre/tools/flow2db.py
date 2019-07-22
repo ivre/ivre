@@ -28,19 +28,6 @@ from ivre.parser.argus import Argus
 from ivre.parser.netflow import NetFlow
 from ivre.parser.iptables import Iptables
 
-
-# Associates a list of fields that must be present to the
-# link attributes and the accumulators
-FIELD_REQUEST_EXT = [
-    (('sport', 'dport'), ('proto', 'dport'), {'sports': ('{sport}', 5)}),
-    (('type', 'code'), ('proto', 'type'), {'codes': ('{code}', None)}),
-    (('type'), ('proto', 'type'), {}),
-]
-
-
-COUNTERS = ["cspkts", "scpkts", "csbytes", "scbytes"]
-
-
 PARSERS_CHOICE = {
     # 'airodump': Airodump,
     'argus': Argus,
@@ -85,7 +72,6 @@ def main():
     if args.verbose:
         config.DEBUG = True
 
-    query_cache = {}
     for fname in args.files:
         try:
             fileparser = PARSERS_CHOICE[args.type]
@@ -104,20 +90,8 @@ def main():
             for rec in fdesc:
                 if not rec:
                     continue
-                linkattrs = ('proto',)
-                accumulators = {}
-                for (fields, sp_linkattrs,
-                     sp_accumulators) in FIELD_REQUEST_EXT:
-                    if all(field in rec for field in fields):
-                        linkattrs = sp_linkattrs
-                        accumulators = sp_accumulators
-                        break
-                if linkattrs not in query_cache:
-                    query_cache[linkattrs] = db.flow.add_flow(
-                        ["Flow"], linkattrs, counters=COUNTERS,
-                        accumulators=accumulators)
-                bulk.append(query_cache[linkattrs], rec)
-        bulk.close()
+                db.flow.flow2flow(bulk, rec)
+        db.flow.bulk_commit(bulk)
 
     if not args.no_cleanup:
         db.flow.cleanup_flows()

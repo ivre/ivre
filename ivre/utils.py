@@ -59,7 +59,7 @@ except ImportError:
 
 
 from builtins import bytes, int as int_types, object, range, str
-from future.utils import PY3, viewitems
+from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 
 
@@ -85,30 +85,30 @@ HEX = re.compile('^[a-f0-9]+$', re.IGNORECASE)
 # IP address regexp, based on
 # https://gist.github.com/dfee/6ed3a4b05cfe7a6faf40a2102408d5d8
 
-_IPV4SEG = r'(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])'
-_IPV4ADDR = r'(?:(?:%s\.){3,3}%s)' % (_IPV4SEG, _IPV4SEG)
-_IPV6SEG = r'(?:(?:[0-9a-fA-F]){1,4})'
-_IPV6GROUPS = (
-    r'(?:%s:){7,7}%s' % (_IPV6SEG, _IPV6SEG),
-    r'(?:%s:){1,7}:' % (_IPV6SEG, ),
-    r'(?:%s:){1,6}:%s' % (_IPV6SEG, _IPV6SEG),
-    r'(?:%s:){1,5}(?::%s){1,2}' % (_IPV6SEG, _IPV6SEG),
-    r'(?:%s:){1,4}(?::%s){1,3}' % (_IPV6SEG, _IPV6SEG),
-    r'(?:%s:){1,3}(?::%s){1,4}' % (_IPV6SEG, _IPV6SEG),
-    r'(?:%s:){1,2}(?::%s){1,5}' % (_IPV6SEG, _IPV6SEG),
-    r'%s:(?:(?::%s){1,6})' % (_IPV6SEG, _IPV6SEG),
-    r':(?:(?::%s){1,7}|:)' % (_IPV6SEG, ),
-    r'fe80:(?::%s){0,4}%%[0-9a-zA-Z]{1,}' % (_IPV6SEG, ),
-    r'::(?:ffff(?::0{1,4}){0,1}:){0,1}%s' % (_IPV4ADDR, ),
-    r'(?:%s:){1,4}:%s' % (_IPV6SEG, _IPV4ADDR),
-)
-_IPV6ADDR = '|'.join(
-    # Reverse rows for greedy match
-    '(?:%s)' % g for g in _IPV6GROUPS[::-1]
-)
-_IPADDR = '^(%s|%s)$' % (_IPV4ADDR, _IPV6ADDR)
-_NETMASK = r'(?:12[0-8]|1[0-1][0-9]|0?[0-9]{1,2})'
-_NETADDR = '^(%s|%s)/(%s|%s)$' % (_IPV4ADDR, _IPV6ADDR, _NETMASK, _IPV4ADDR)
+# _IPV4SEG = r'(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])'
+# _IPV4ADDR = r'(?:(?:%s\.){3,3}%s)' % (_IPV4SEG, _IPV4SEG)
+# _IPV6SEG = r'(?:(?:[0-9a-fA-F]){1,4})'
+# _IPV6GROUPS = (
+#     r'(?:%s:){7,7}%s' % (_IPV6SEG, _IPV6SEG),
+#     r'(?:%s:){1,7}:' % (_IPV6SEG, ),
+#     r'(?:%s:){1,6}:%s' % (_IPV6SEG, _IPV6SEG),
+#     r'(?:%s:){1,5}(?::%s){1,2}' % (_IPV6SEG, _IPV6SEG),
+#     r'(?:%s:){1,4}(?::%s){1,3}' % (_IPV6SEG, _IPV6SEG),
+#     r'(?:%s:){1,3}(?::%s){1,4}' % (_IPV6SEG, _IPV6SEG),
+#     r'(?:%s:){1,2}(?::%s){1,5}' % (_IPV6SEG, _IPV6SEG),
+#     r'%s:(?:(?::%s){1,6})' % (_IPV6SEG, _IPV6SEG),
+#     r':(?:(?::%s){1,7}|:)' % (_IPV6SEG, ),
+#     r'fe80:(?::%s){0,4}%%[0-9a-zA-Z]{1,}' % (_IPV6SEG, ),
+#     r'::(?:ffff(?::0{1,4}){0,1}:){0,1}%s' % (_IPV4ADDR, ),
+#     r'(?:%s:){1,4}:%s' % (_IPV6SEG, _IPV4ADDR),
+# )
+# _IPV6ADDR = '|'.join(
+#     # Reverse rows for greedy match
+#     '(?:%s)' % g for g in _IPV6GROUPS[::-1]
+# )
+# _IPADDR = '^(%s|%s)$' % (_IPV4ADDR, _IPV6ADDR)
+# _NETMASK = r'(?:12[0-8]|1[0-1][0-9]|0?[0-9]{1,2})'
+# _NETADDR = '^(%s|%s)/(%s|%s)$' % (_IPV4ADDR, _IPV6ADDR, _NETMASK, _IPV4ADDR)
 IPADDR = re.compile(
     '^((?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|('
     '?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){1,4}:('
@@ -147,6 +147,11 @@ NETADDR = re.compile(
     ')$',
     re.I,
 )
+IPV4ADDR = re.compile(
+    '^(?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?'
+    ':2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$',
+    re.I
+)
 
 NMAP_FINGERPRINT_IVRE_KEY = {
     # TODO: cpe
@@ -157,7 +162,6 @@ NMAP_FINGERPRINT_IVRE_KEY = {
     'p': 'service_product',
     'v': 'service_version',
 }
-
 
 logging.basicConfig()
 
@@ -1362,16 +1366,24 @@ def nmap_svc_fp_format_data(data, match):
     return data
 
 
-def normalize_props(props):
+def normalize_props(props, braces=True):
     """Returns a normalized property list/dict so that (roughly):
-        - a list gives {k: "{k}"}
-        - a dict gives {k: v if v is not None else "{%s}" % v}
+        - a list gives {k: "{k}"} if braces=True, {k: "k"} otherwise
+        - a dict gives {k: v if v is not None else "{%s}" % v} if braces=True,
+                       {k: v if v is not Node else "%s" % v} otherwise
     """
     if not isinstance(props, dict):
         props = dict.fromkeys(props)
+    # Remove braces if necessary
+    if not braces:
+        for key, value in viewitems(props):
+            if (isinstance(value, basestring) and value.startswith('{') and
+                    value.endswith('}')):
+                props[key] = value[1:-1]
+    form = "{%s}" if braces else "%s"
     props = dict(
         (key, (value if isinstance(value, basestring) else
-               ("{%s}" % key) if value is None else
+               (form % key) if value is None else
                str(value))) for key, value in viewitems(props)
     )
     return props
@@ -1385,6 +1397,31 @@ datetime.datetime instance `dtm`"""
         return dtm.timestamp()
     except AttributeError:
         return time.mktime(dtm.timetuple()) + dtm.microsecond / (1000000.)
+
+
+def tz_offset(timestamp=None):
+    """
+    Returns the offset between UTC and local time at "timestamp".
+    """
+    if timestamp is None:
+        timestamp = time.time()
+    utc_offset = (datetime.datetime.fromtimestamp(timestamp) -
+                  datetime.datetime.utcfromtimestamp(timestamp))
+    try:
+        return int(utc_offset.total_seconds())
+    except AttributeError:
+        # total_seconds does not exist in Python 2.6
+        return utc_offset.seconds + utc_offset.days * 24 * 3600
+
+
+def datetime2utcdatetime(dtm):
+    """
+    Returns the given datetime in UTC. dtm is expected to be in local
+    timezone.
+    """
+    offset = tz_offset(timestamp=datetime2timestamp(dtm))
+    delta = datetime.timedelta(seconds=offset)
+    return dtm - delta
 
 
 _UNITS = ['']
@@ -1785,3 +1822,35 @@ have nothing to do here.
 
         """
         return value
+
+
+def ptr2addr(ptr):
+    """
+    Returns the IP address (v4 or v6) represented by the given PTR,
+    None if the string does not seem to be a PTR
+    """
+    if ptr.endswith(".in-addr.arpa"):
+        return '.'.join(reversed(ptr.split(".")[:4]))
+    elif ptr.endswith(".ip6.arpa"):
+        return int2ip6(int(ptr[:-9].replace('.', '')[::-1], 16))
+    return None
+
+
+def is_ptr(ptr):
+    """
+    Check whether the given string is a PTR
+    """
+    return ptr.endswith(".in-addr.arpa") or ptr.endswith(".ip6.arpa")
+
+
+def deep_sort_dict_list(elt):
+    """
+    Deep sort the list values inside a dictionary.
+    elt must be a dictionary
+    Notice: It does not sort nested lists.
+    """
+    for value in viewvalues(elt):
+        if isinstance(value, list):
+            value.sort()
+        elif isinstance(value, dict):
+            deep_sort_dict_list(value)

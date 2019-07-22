@@ -37,22 +37,23 @@ import random
 import re
 import socket
 import struct
+import time
 try:
     from urllib.parse import unquote
 except ImportError:
     from urllib import unquote
 import uuid
 
-
-from future.builtins import bytes, range
-from future.utils import viewitems
-from past.builtins import basestring
 import bson
+from future.builtins import bytes, range, zip
+from future.utils import viewitems, with_metaclass
+from past.builtins import basestring
+from pymongo.errors import BulkWriteError
 import pymongo
 
-
-from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, LockError
-from ivre import config, passive, utils, xmlnmap
+from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBFlow, \
+    LockError
+from ivre import config, passive, utils, xmlnmap, flow
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -690,11 +691,21 @@ want to do something special here, e.g., mix with other records.
         (IP address).
 
         """
+        return cls._searchhost(addr, neg=neg)
+
+    @classmethod
+    def _searchhost(cls, addr, neg=False, fieldname='addr'):
+        """Filters (if `neg` == True, filters out) one particular host
+        (IP address).
+        fieldname is the internal name of the addr field
+        """
         addr = cls.ip2internal(addr)
+        addr_0 = "%s_0" % fieldname
+        addr_1 = "%s_1" % fieldname
         if neg:
-            return {'$or': [{'addr_0': {'$ne': addr[0]}},
-                            {'addr_1': {'$ne': addr[1]}}]}
-        return {'addr_0': addr[0], 'addr_1': addr[1]}
+            return {'$or': [{addr_0: {'$ne': addr[0]}},
+                            {addr_1: {'$ne': addr[1]}}]}
+        return {addr_0: addr[0], addr_1: addr[1]}
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
@@ -702,28 +713,43 @@ want to do something special here, e.g., mix with other records.
                 [cls.searchhost(host, neg=neg) for host in hosts]}
 
     @classmethod
+    def searchnet(cls, net, neg=False):
+        return cls._searchnet(net, neg=neg)
+
+    @classmethod
+    def _searchnet(cls, net, neg=False, fieldname='addr'):
+        return cls._searchrange(*utils.net2range(net), neg=neg,
+                                fieldname=fieldname)
+
+    @classmethod
     def searchrange(cls, start, stop, neg=False):
+        return cls._searchrange(start, stop, neg=neg)
+
+    @classmethod
+    def _searchrange(cls, start, stop, neg=False, fieldname='addr'):
         """Filters (if `neg` == True, filters out) one particular IP
         address range.
 
         """
         start = cls.ip2internal(start)
         stop = cls.ip2internal(stop)
+        addr_0 = "%s_0" % fieldname
+        addr_1 = "%s_1" % fieldname
         if neg:
             return {'$or': [
-                {'addr_0': start[0], 'addr_1': {'$lt': start[1]}},
-                {'addr_0': {'$lt': start[0]}},
-                {'addr_0': stop[0], 'addr_1': {'$gt': stop[1]}},
-                {'addr_0': {'$gt': stop[0]}},
+                {addr_0: start[0], addr_1: {'$lt': start[1]}},
+                {addr_0: {'$lt': start[0]}},
+                {addr_0: stop[0], addr_1: {'$gt': stop[1]}},
+                {addr_0: {'$gt': stop[0]}},
             ]}
         if start[0] == stop[0]:
-            return {'addr_0': start[0], 'addr_1': {'$gte': start[1],
-                                                   '$lte': stop[1]}}
+            return {addr_0: start[0], addr_1: {'$gte': start[1],
+                                               '$lte': stop[1]}}
         return {'$and': [
-            {'$or': [{'addr_0': start[0], 'addr_1': {'$gte': start[1]}},
-                     {'addr_0': {'$gt': start[0]}}]},
-            {'$or': [{'addr_0': stop[0], 'addr_1': {'$lte': stop[1]}},
-                     {'addr_0': {'$lt': stop[0]}}]},
+            {'$or': [{addr_0: start[0], addr_1: {'$gte': start[1]}},
+                     {addr_0: {'$gt': start[0]}}]},
+            {'$or': [{addr_0: stop[0], addr_1: {'$lte': stop[1]}},
+                     {addr_0: {'$lt': stop[0]}}]},
         ]}
 
     @staticmethod
@@ -4510,3 +4536,1136 @@ scan object on success, and raises a LockError on failure.
                 self.set_limits(
                     self.find(self.columns[self.column_masters],
                               fields=["_id"])))
+
+
+class MongoDBFlowMeta(type):
+    """
+    This metaclass aims to compute 'meta_desc' and 'needunwind' once for all
+    instances of MongoDBFlow.
+    """
+    def __new__(cls, name, bases, attrs):
+        attrs['meta_desc'] = MongoDBFlowMeta.compute_meta_desc()
+        attrs['needunwind'] = MongoDBFlowMeta.compute_needunwind(
+            attrs['meta_desc'])
+        return type.__new__(cls, name, bases, attrs)
+
+    @staticmethod
+    def compute_meta_desc():
+        """
+        Computes meta_desc from flow.META_DESC
+        meta_desc is a "usable" version of flow.META_DESC. It is computed only
+        once at class initialization.
+        """
+        meta_desc = {}
+        for proto, configs in viewitems(flow.META_DESC):
+            meta_desc[proto] = {}
+            for kind, values in viewitems(configs):
+                meta_desc[proto][kind] = (
+                    utils.normalize_props(values, braces=False)
+                )
+        return meta_desc
+
+    @staticmethod
+    def compute_needunwind(meta_desc):
+        """
+        Computes needunwind from meta_desc.
+        """
+        needunwind = ['sports', 'codes']
+        for proto, kinds in viewitems(meta_desc):
+            for kind, values in viewitems(kinds):
+                if kind == 'keys':
+                    for name in values:
+                        needunwind.append('meta.%s.%s' % (proto, name))
+        return needunwind
+
+
+class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
+    column_flow = 0
+
+    datefields = [
+        'firstseen',
+        'lastseen'
+    ]
+
+    # This represents the kinds of metadata that are defined in flow.META_DESC
+    # Each kind is associated with an aggregation operator used for
+    # insertion in db.
+    meta_kinds = {
+        'keys': '$addToSet',
+        'counters': '$inc'
+    }
+
+    indexes = [
+        # flows
+        [
+            ([
+                ('src_addr_0', pymongo.ASCENDING),
+                ('src_addr_1', pymongo.ASCENDING),
+                ('dst_addr_0', pymongo.ASCENDING),
+                ('dst_addr_1', pymongo.ASCENDING),
+                ('dport', pymongo.ASCENDING),
+                ('proto', pymongo.ASCENDING),
+            ], {}),
+            ([('schema_version', pymongo.ASCENDING)], {}),
+            ([('firstseen', pymongo.ASCENDING)], {}),
+            ([('lastseen', pymongo.ASCENDING)], {}),
+            ([('times', pymongo.ASCENDING)], {}),
+            ([('count', pymongo.ASCENDING)], {}),
+            ([('cspkts', pymongo.ASCENDING)], {}),
+            ([('scpkts', pymongo.ASCENDING)], {}),
+            ([('scbytes', pymongo.ASCENDING)], {}),
+            ([('scbytes', pymongo.ASCENDING)], {}),
+        ],
+    ]
+
+    def __init__(self, url):
+        super(MongoDBFlow, self).__init__(url)
+        self.columns = ["flows"]
+
+    def start_bulk_insert(self):
+        """
+        Initialize bulks for inserting data in MongoDB.
+        Returns flow_bulk
+        """
+        utils.LOGGER.debug("start_bulk_insert called")
+        return (self.db[self.columns[self.column_flow]]
+                .initialize_unordered_bulk_op())
+
+    @staticmethod
+    def _get_flow_key(rec):
+        """
+        Returns a dict which represents the given flow in Flows.
+        """
+        key = {
+            'src_addr_0': rec['src_addr_0'],
+            'src_addr_1': rec['src_addr_1'],
+            'dst_addr_0': rec['dst_addr_0'],
+            'dst_addr_1': rec['dst_addr_1'],
+            'proto': rec['proto'],
+            'schema_version': flow.SCHEMA_VERSION
+        }
+        if rec['proto'] in ['udp', 'tcp']:
+            key['dport'] = rec['dport']
+        elif rec['proto'] == 'icmp':
+            key['type'] = rec['type']
+
+        return key
+
+    @classmethod
+    def _update_timeslots(cls, updatespec, rec):
+        """
+        If configured, adds timeslots in `updatespec`.
+        config.FLOW_TIME enables timeslots.
+        if config.FLOW_TIME_FULL_RANGE is set, a flow is linked to every
+        timeslots between its start_time and end_time.
+        Otherwise, it is only linked to the timeslot corresponding to its
+        start_time.
+        """
+        if config.FLOW_TIME:
+            if config.FLOW_TIME_FULL_RANGE:
+                updatespec.setdefault("$addToSet", {})["times"] = {
+                    "$each": cls._get_timeslots(
+                        rec['start_time'], rec['end_time'])}
+            else:
+                d = OrderedDict()
+                d['start'] = cls.date_round(rec['start_time'])
+                d['duration'] = config.FLOW_TIME_PRECISION
+
+                updatespec.setdefault("$addToSet", {})["times"] = d
+
+    @classmethod
+    def dns2flow(cls, bulk, rec):
+        """
+        Takes a parsed dns.log line entry and adds it to insert bulk.
+        It must be a separate method because of neo4j compatibility.
+        """
+        return cls.any2flow(bulk, 'dns', rec)
+
+    @classmethod
+    def any2flow(cls, bulk, name, rec):
+        """
+        Takes a parsed *.log line entry and adds it to insert bulk.
+        It is responsible for metadata processing (all but conn.log files).
+        """
+        # Convert addr
+        rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
+        rec['dst_addr_0'], rec['dst_addr_1'] = cls.ip2internal(rec['dst'])
+        # Insert in flows
+        findspec = cls._get_flow_key(rec)
+        updatespec = {
+            '$min': {'firstseen': rec['start_time']},
+            '$max': {'lastseen': rec['end_time']},
+            '$inc': {'meta.%s.count' % name: 1}
+        }
+
+        # metadata storage can be disabled.
+        if config.FLOW_STORE_METADATA:
+            for kind, op in viewitems(cls.meta_kinds):
+                for key, value in viewitems(cls.meta_desc[name].get(kind, {})):
+                    if not rec[value]:
+                        continue
+                    if ("%s.%s.%s" % (name, kind, key)
+                            in flow.META_DESC_ARRAYS):
+                        rec[value] = {'$each': rec[value]}
+                    updatespec.setdefault(
+                        op, {})['meta.%s.%s' % (name, key)] = rec[value]
+
+        cls._update_timeslots(updatespec, rec)
+
+        bulk.find(findspec).upsert().update(updatespec)
+
+    @classmethod
+    def conn2flow(cls, bulk, rec):
+        """
+        Takes a parsed conn.log line entry and adds it to flow bulk.
+        """
+        rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
+        rec['dst_addr_0'], rec['dst_addr_1'] = cls.ip2internal(rec['dst'])
+        findspec = cls._get_flow_key(rec)
+
+        updatespec = {
+            '$min': {'firstseen': rec['start_time']},
+            '$max': {'lastseen': rec['end_time']},
+            '$inc': {
+                'cspkts': rec['orig_pkts'],
+                'scpkts': rec['resp_pkts'],
+                'csbytes': rec['orig_ip_bytes'],
+                'scbytes': rec['resp_ip_bytes'],
+                'count': 1
+            },
+        }
+
+        cls._update_timeslots(updatespec, rec)
+
+        if rec['proto'] in ['udp', 'tcp']:
+            updatespec.setdefault("$addToSet", {})["sports"] = rec["sport"]
+        elif rec['proto'] == 'icmp':
+            updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
+
+        bulk.find(findspec).upsert().update(updatespec)
+
+    @classmethod
+    def flow2flow(cls, bulk, rec):
+        """
+        Takes an entry coming from Netflow or Argus and adds it to bulk.
+        """
+        rec['src_addr_0'], rec['src_addr_1'] = cls.ip2internal(rec['src'])
+        rec['dst_addr_0'], rec['dst_addr_1'] = cls.ip2internal(rec['dst'])
+        findspec = cls._get_flow_key(rec)
+
+        updatespec = {
+            '$min': {'firstseen': rec['start_time']},
+            '$max': {'lastseen': rec['end_time']},
+            '$inc': {
+                'cspkts': rec['cspkts'],
+                'scpkts': rec['scpkts'],
+                'csbytes': rec['csbytes'],
+                'scbytes': rec['scbytes'],
+                'count': 1
+            },
+        }
+
+        cls._update_timeslots(updatespec, rec)
+
+        if rec['proto'] in ['udp', 'tcp']:
+            updatespec.setdefault("$addToSet", {})["sports"] = rec["sport"]
+        elif rec['proto'] == 'icmp':
+            updatespec.setdefault("$addToSet", {})["codes"] = rec["code"]
+
+        bulk.find(findspec).upsert().update(updatespec)
+
+    @staticmethod
+    def bulk_commit(bulk):
+        try:
+            start_time = time.time()
+            result = bulk.execute()
+            newtime = time.time()
+            insert_rate = result.get('nInserted') / (newtime - start_time)
+            upsert_rate = result.get('nUpserted') / (newtime - start_time)
+            utils.LOGGER.debug("%d inserts, %f/sec",
+                               result.get('nInserted'), insert_rate)
+            utils.LOGGER.debug("%d upserts, %f/sec",
+                               result.get('nUpserted'), upsert_rate)
+
+        except BulkWriteError:
+            utils.LOGGER.error("Bulk Write Error", exc_info=True)
+        except pymongo.errors.InvalidOperation:
+            # Raised when executing an empty bulk
+            pass
+
+    def init(self):
+        """Initializes the "flows" columns, i.e., drops those columns and
+        creates the default indexes.
+        """
+        self.db[self.columns[self.column_flow]].drop()
+        self.create_indexes()
+
+    def get(self, flt, skip=None, limit=None, orderby=None):
+        """
+        Returns an iterator over flows honoring the given filter
+        with the given options.
+        """
+        sort = None
+        if orderby == 'dst':
+            sort = [('dst_addr_0', pymongo.ASCENDING),
+                    ('dst_addr_1', pymongo.ASCENDING)]
+        elif orderby == 'src':
+            sort = [('src_addr_0', pymongo.ASCENDING),
+                    ('src_addr_1', pymongo.ASCENDING)]
+        elif orderby == 'flow':
+            sort = [('dport', pymongo.ASCENDING),
+                    ('proto', pymongo.ASCENDING)]
+        elif orderby:
+            raise ValueError(
+                "Unsupported orderby (should be 'src', 'dst' or 'flow')")
+        for f in self._get_cursor(self.columns[self.column_flow], flt,
+                                  limit=(limit or 0), skip=(skip or 0),
+                                  sort=sort):
+            try:
+                f['src_addr'] = self.internal2ip([f.pop('src_addr_0'),
+                                                  f.pop('src_addr_1')])
+                f['dst_addr'] = self.internal2ip([f.pop('dst_addr_0'),
+                                                  f.pop('dst_addr_1')])
+            except KeyError:
+                pass
+            yield f
+
+    def count(self, flt):
+        """
+        Returns a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter.
+        """
+        sources = 0
+        destinations = 0
+        flows = self.db[self.columns[self.column_flow]].count(flt)
+        if flows > 0:
+            sources = self.db[self.columns[self.column_flow]].aggregate([
+                {'$match': flt},
+                {
+                    '$group': {
+                        '_id': {
+                            'src_addr_0': '$src_addr_0',
+                            'src_addr_1': '$src_addr_1'
+                        },
+                    }
+                },
+                # This has the same behavior as '$count', which is only
+                # available in Mongo >= 3.4. See
+                # https://docs.mongodb.com/manual/reference/operator/aggregation/count/#behavior
+                {'$group': {
+                    '_id': None,
+                    'count': {'$sum': 1}
+                }}
+            ]).next()['count']
+
+            destinations = self.db[self.columns[self.column_flow]].aggregate([
+                {'$match': flt},
+                {
+                    '$group': {
+                        '_id': {
+                            'dst_addr_0': '$dst_addr_0',
+                            'dst_addr_1': '$dst_addr_1'
+                        },
+                    }
+                },
+                {'$group': {
+                    '_id': None,
+                    'count': {'$sum': 1}
+                }}
+            ]).next()['count']
+
+        return {'clients': sources, 'servers': destinations, 'flows': flows}
+
+    def topvalues(self, flt, fields, collect_fields=None, sum_fields=None,
+                  limit=None, skip=None, least=False, topnbr=10):
+        """
+        Returns the top values honoring the given `query` for the given
+        fields list `fields`, counting and sorting the aggregated records
+        by `sum_fields` sum and storing the `collect_fields` fields of
+        each original entry in aggregated records as a list.
+        By default, the aggregated records are sorted by their number of
+        occurences.
+        Return format:
+            {
+                fields: (field_1_value, field_2_value, ...),
+                count: count,
+                collected: [
+                    (collect_1_value, collect_2_value, ...),
+                    ...
+                ]
+            }
+        Collected fields are unique.
+        """
+        collect_fields = collect_fields or []
+        sum_fields = sum_fields or []
+
+        pipeline = []
+
+        # Translation dictionary for special fields
+        special_fields = {'src.addr': ['src_addr_0', 'src_addr_1'],
+                          'dst.addr': ['dst_addr_0', 'dst_addr_1'],
+                          'sport': ['sports']}
+        # special fields that are not addresses will be translated again at
+        # the end
+        reverse_special_fields = {'sports': 'sport'}
+
+        # Compute the internal fields
+        # internal_fields = [aggr fields, collect_fields, sum_fields]
+        internal_fields = [[], [], []]
+        external_fields = [fields, collect_fields, sum_fields]
+        for i in range(len(external_fields)):
+            for field in external_fields[i]:
+                if field in special_fields:
+                    internal_fields[i].extend(special_fields[field])
+                else:
+                    internal_fields[i].append(field)
+
+        internal_fields_set = set(internal_fields[0])
+        must_exist_fields_set = set(internal_fields[0] + internal_fields[1])
+
+        # Reduce the amount of processed data
+        if limit:
+            pipeline.append({"$limit": limit})
+
+        # Match the given query
+        if flt:
+            pipeline.append({'$match': flt})
+
+        # Remove entries with non existing aggr or collected field
+        match = {}
+        for field in must_exist_fields_set:
+            match[field] = {"$exists": True}
+        pipeline.append({"$match": match})
+
+        # Unwind aggregate array fields
+        for field in internal_fields_set:
+            for i in range(field.count('.'), -1, -1):
+                subfield = field.rsplit('.', i)[0]
+                if subfield in self.needunwind:
+                    pipeline += [{"$unwind": "$" + subfield}]
+
+        # It is important to match the query after the unwind stages
+        # because the query could target one of the aggregated fields
+        # FIXME We should remove all 'non-aggregated' fields from the
+        # filter
+        if flt:
+            pipeline.append({'$match': flt})
+
+        # Create a projection for every fields retrieved
+        # In the same time, prepare a group objects for the group stage
+        project_fields = {}  # represents the projection {new_field: old_field}
+        reverse_project_fields = {}
+        group_fields = [{}, {}]
+        index = 0  # each new field will be indexed
+        for i, elt in enumerate(group_fields):
+            for field in internal_fields[i]:
+                cur_field = "$%s" % field
+                field_name = None
+                if cur_field in reverse_project_fields:
+                    field_name = reverse_project_fields[cur_field]
+                else:
+                    field_name = "field%s" % index
+                    project_fields[field_name] = cur_field
+                    reverse_project_fields[cur_field] = field_name
+                new_field_name = "$%s" % field_name
+                # _id group
+                if i == 0:
+                    elt[field_name] = new_field_name
+                # collect group
+                else:
+                    elt[field_name] = {'$push': new_field_name}
+                index += 1
+        # Add sum projection if sum_fields are provided
+        if sum_fields:
+            project_fields['_sum'] = {
+                '$add': ['$%s' % field for field in internal_fields[2]]
+            }
+
+        pipeline.append({'$project': project_fields})
+
+        # Group stage
+        group = group_fields[1]
+        group['_id'] = group_fields[0]
+        group['_count'] = {'$sum': '$_sum' if sum_fields else 1}
+        pipeline.append({'$group': group})
+
+        pipeline.append({"$sort": {"_count": 1 if least else -1}})
+
+        if skip is not None:
+            pipeline.append({"$skip": skip})
+        if topnbr is not None:
+            pipeline.append({"$limit": topnbr})
+
+        res = self.db[self.columns[self.column_flow]].aggregate(pipeline,
+                                                                cursor={})
+        for entry in res:
+            # Translate again the collected fields
+            ext_entry = {}
+            for key, value in entry.items():
+                if key in project_fields:
+                    ext_entry[project_fields[key][1:]] = value
+                else:
+                    ext_entry[key] = value
+            # Translate again the aggr fields
+            ext_entry['_id'] = {}
+            for key, value in entry['_id'].items():
+                if key in project_fields:
+                    ext_entry['_id'][project_fields[key][1:]] = value
+                else:
+                    ext_entry['_id'][key] = value
+            # apply internal2ip to addr results
+            for addr_field in ['src_addr', 'dst_addr']:
+                addr0, addr1 = (addr_field + '_0', addr_field + '_1')
+                addr = addr_field[:3] + '.addr'
+                # Apply in aggregate fields
+                if addr0 in ext_entry['_id'] and addr1 in ext_entry['_id']:
+                    ext_entry['_id'][addr] = self.internal2ip(
+                        (ext_entry['_id'].pop(addr0),
+                         ext_entry['_id'].pop(addr1))
+                    )
+                # Apply in collected fields
+                if addr0 in ext_entry and addr1 in ext_entry:
+                    ext_entry[addr] = [
+                        self.internal2ip((a, b)) for a, b in
+                        zip(ext_entry[addr0], ext_entry[addr1])
+                    ]
+                    del ext_entry[addr0]
+                    del ext_entry[addr1]
+            # reverse special fields
+            for key in list(ext_entry):
+                if key in reverse_special_fields:
+                    ext_entry[reverse_special_fields[key]] = ext_entry.pop(key)
+            for key in list(ext_entry['_id']):
+                if key in reverse_special_fields:
+                    ext_entry['_id'][reverse_special_fields[key]] = \
+                        ext_entry['id'].pop(key)
+            # Format fields in a tuple ordered accordingly to fields argument
+            res_fields_dict = ext_entry.pop('_id')
+            res_fields = tuple(res_fields_dict.get(key) for key in fields)
+
+            res_count = ext_entry.pop('_count')
+            # Format collected results in a set of tuples to avoid duplicates
+            if ext_entry:
+                # This keeps the order of collected fields
+                res_collected = set(zip(*(ext_entry[key]
+                                          for key in collect_fields)))
+            yield {
+                'fields': res_fields,
+                'collected': res_collected,
+                'count': res_count
+            }
+
+    @staticmethod
+    def _flow2host(row, prefix):
+        """
+        Returns a dict which represents one of the two host of the given flow.
+        prefix should be 'dst' or 'src' to get the source or the destination
+        host.
+        """
+        res = {}
+        if prefix == 'src':
+            res['addr'] = row.get('src_addr')
+        elif prefix == 'dst':
+            res['addr'] = row.get('dst_addr')
+        else:
+            raise Exception("prefix must be 'dst' or 'src'")
+        res['firstseen'] = row.get('firstseen')
+        res['lastseen'] = row.get('lastseen')
+        return res
+
+    @staticmethod
+    def _node2json(row):
+        """
+        Returns a dict representing a node in graph output.
+        row must be the representation of an host, see _flow2host.
+        """
+        return {
+            "id": row.get('addr'),
+            "label": row.get('addr'),
+            "labels": ["Host"],
+            "x": random.random(),
+            "y": random.random(),
+            "data": row
+        }
+
+    @staticmethod
+    def _edge2json_default(row, timeline=False):
+        """
+        Returns a dict representing an edge in default graph output.
+        row must be a flow entry.
+        """
+        label = (row.get('proto') + '/' + str(row.get('dport'))
+                 if row.get('proto') in ['tcp', 'udp']
+                 else row.get('proto') + '/' + str(row.get('type')))
+        res = {
+            "id": str(row.get('_id')),
+            "label": label,
+            "labels": ["Flow"],
+            "source": row.get('src_addr'),
+            "target": row.get('dst_addr'),
+            "data": {
+                "cspkts": row.get('cspkts'),
+                "csbytes": row.get('csbytes'),
+                "count": row.get('count'),
+                "scpkts": row.get('scpkts'),
+                "scbytes": row.get('scbytes'),
+                "proto": row.get('proto'),
+                "firstseen": row.get('firstseen'),
+                "lastseen": row.get('lastseen'),
+                "__key__": str(row.get('_id')),
+                "addr_src": row.get('src_addr'),
+                "addr_dst": row.get('dst_addr')
+            }
+        }
+        if timeline and row.get('times'):
+            res["data"]["meta"] = {
+                "times": [t.get('start') for t in row.get('times')]
+            }
+        if row.get('proto') in ['tcp', 'udp']:
+            res['data']["sports"] = row.get('sports')
+            res['data']["dport"] = row.get('dport')
+        elif row.get('proto') == 'icmp':
+            res['data']['codes'] = row.get('codes')
+            res['data']['type'] = row.get('type')
+        return res
+
+    @staticmethod
+    def _edge2json_flow_map(row):
+        """
+        Returns a dict representing an edge in flow map graph output.
+        row must be a flow entry.
+        """
+        flow = ()
+        if row.get('proto') in ['udp', 'tcp']:
+            flow = (row.get('proto'), row.get('dport'))
+        else:
+            flow = (row.get('proto'), None)
+        res = {
+            "id": str(row.get('_id')),
+            "label": "MERGED_FLOWS",
+            "labels": ["MERGED_FLOWS"],
+            "source": row.get('src_addr'),
+            "target": row.get('dst_addr'),
+            "data": {
+                "count": 1,
+                "flows": [flow]
+            }
+        }
+        return res
+
+    @staticmethod
+    def _edge2json_talk_map(row):
+        """
+        Returns a dict representing an edge in talk map graph output.
+        row must be a flow entry.
+        """
+        res = {
+            "id": str(row.get('_id')),
+            "label": "TALK",
+            "labels": ["TALK"],
+            "source": row.get('src_addr'),
+            "target": row.get('dst_addr'),
+            "data": {
+                "count": 1,
+                "flows": ["TALK"]
+            }
+        }
+        return res
+
+    @classmethod
+    def cursor2json_iter(cls, cursor, mode=None, timeline=False):
+        """
+        Takes a MongoDB cursor on flows collection and for each entry
+        yield a dict {src: src_node, dst: dst_node, flow: flow_edge}.
+        """
+        random.seed()
+        for row in cursor:
+            src_node = cls._node2json(cls._flow2host(row, 'src'))
+            dst_node = cls._node2json(cls._flow2host(row, 'dst'))
+            flow_node = []
+            if mode == "flow_map":
+                flow_node = cls._edge2json_flow_map(row)
+            elif mode == "talk_map":
+                flow_node = cls._edge2json_talk_map(row)
+            else:
+                flow_node = cls._edge2json_default(row, timeline=timeline)
+            yield {"src": src_node, "dst": dst_node, "flow": flow_node}
+
+    @classmethod
+    def cursor2json_graph(cls, cursor, mode, timeline):
+        """
+        Returns a dict {"nodes": [], "edges": []} representing the output
+        graph.
+        Nodes are unique hosts. Edges are flows, formatted according to the
+        given mode.
+        """
+        g = {"nodes": [], "edges": []}
+        # Store unique hosts
+        hosts = {}
+        # Store tuples (source, dest) for flow and talk map modes.
+        edges = {}
+        for row in cls.cursor2json_iter(cursor, mode=mode, timeline=timeline):
+            if mode in ["flow_map", "talk_map"]:
+                flw = row["flow"]
+                # If this edge already exists
+                if (flw["source"], flw["target"]) in edges:
+                    edge = edges[(flw["source"], flw["target"])]
+                    if mode == "flow_map":
+                        # In flow map mode, store flows data in each edge
+                        flows = flw["data"]["flows"]
+                        if flows[0] not in edge["data"]["flows"]:
+                            edge["data"]["flows"].append(flows[0])
+                            edge["data"]["count"] += 1
+                else:
+                    edges[(flw["source"], flw["target"])] = flw
+            else:
+                g["edges"].append(row["flow"])
+            for host in (row["src"], row["dst"]):
+                if host["id"] in hosts:
+                    hosts[host["id"]]["data"]["firstseen"] = min(
+                        hosts[host["id"]]["data"]["firstseen"],
+                        host["data"]["firstseen"])
+                    hosts[host["id"]]["data"]["lastseen"] = max(
+                        hosts[host["id"]]["data"]["lastseen"],
+                        host["data"]["lastseen"])
+                else:
+                    hosts[host["id"]] = host
+        g["nodes"] = hosts.values()
+        if mode in ["flow_map", "talk_map"]:
+            g["edges"] = edges.values()
+        return g
+
+    @classmethod
+    def search_flow_net(cls, net, neg=False, fieldname=''):
+        """
+        Returns a MongoDB filter matching the given CIDR notation.
+        If prefix is {src,dst}, it matches only the {src,dst} addr.
+        """
+        if fieldname not in ['src', 'dst']:
+            res = [
+                cls._searchnet(net, neg=neg, fieldname='src_addr'),
+                cls._searchnet(net, neg=neg, fieldname='dst_addr')
+            ]
+            op = '$and' if neg else '$or'
+            return {op: res}
+        return cls._searchnet(net, neg=neg, fieldname=fieldname + '_addr')
+
+    @classmethod
+    def search_flow_host(cls, addr, neg=False, prefix=''):
+        """
+        Returns a MongoDB filter matching the given IP address.
+        If prefix is {src,dst}, it matches only the {src,dst} address.
+        """
+        addr = cls.ip2internal(addr)  # compute internal addr once and for all
+        if prefix not in ['src', 'dst']:
+            res = [
+                cls._searchhost(addr, neg=neg, fieldname='src_addr'),
+                cls._searchhost(addr, neg=neg, fieldname='dst_addr')
+            ]
+            op = '$and' if neg else '$or'
+            return {op: res}
+        return cls._searchhost(addr, neg=neg, fieldname=prefix + '_addr')
+
+    @classmethod
+    def _flt_from_clause_addr(cls, clause):
+        """
+        Returns a filter direct from the given clause which deals
+        with addresses. clause['attr'] should be addr, src.addr or dst.addr.
+        """
+        flt = None
+        if clause['operator'] == '$ne':
+            clause['operator'] = '$eq'
+            clause['neg'] = not clause['neg']
+        if clause['operator'] == '$eq':
+            flt = cls.search_flow_host(clause['value'],
+                                       clause['neg'],
+                                       cls.get_clause_attr_type(
+                                           clause['attr']))
+        elif clause['operator'] == '$regex':
+            flt = cls.search_flow_net(clause['value'],
+                                      neg=clause['neg'],
+                                      fieldname=cls.get_clause_attr_type(
+                                          clause['attr']))
+        return flt
+
+    @classmethod
+    def get_longest_array_attr(cls, attr):
+        """
+        Returns (longest array attribute, remaining attributes) where the
+        longest array attribute is the longest attribute stored in
+        cls.needunwind which matches the given attr. Two attributes match
+        each other if they share the same root.
+        If no array attribute can be found, returns (None, attr)
+        Example: a.b.c matches with a.b.c, a.b and a
+        If cls.needunwind = ['a', 'a.b'], then get_longest_array_attr('a.b.c')
+        returns ('a.b', 'c').
+        """
+        for i in range(attr.count('.') + 1):
+            subfield = attr.rsplit('.', i)
+            if subfield[0] in cls.needunwind:
+                return (subfield[0], '.'.join(subfield[1:]))
+        return (None, attr)
+
+    @staticmethod
+    def _flt_neg_op(op):
+        """
+        Returns the opposite of the given operator if it exists,
+        None otherwise.
+        """
+        return {
+            '$eq': '$ne',
+            '$ne': '$eq',
+            '$lt': '$gte',
+            '$gte': '$lt',
+            '$lte': '$gt',
+            '$gt': '$lte'
+        }.get(op, None)
+
+    @classmethod
+    def _flt_from_clause_any(cls, clause):
+        """
+        Returns a filter dict from the given clause that does not deal
+        with addresses (see _flt_from_clause_addr).
+        """
+        add_operator = True
+        # If the value is a regex, we need to compile it
+        # This is compulsory to enable regex negation
+        if clause['operator'] == '$regex':
+            clause['value'] = re.compile(clause['value'])
+            add_operator = False
+        add_not = False
+        # When neg is True, use the opposite operator
+        # if it exists, add a $not prefix otherwise
+        if clause['neg']:
+            neg_op = cls._flt_neg_op(clause['operator'])
+            if neg_op is not None:
+                clause['operator'] = neg_op
+            else:
+                add_not = True
+        res = clause['value']
+        if clause['attr'] in cls.datefields:
+            res = datetime.datetime.strptime(res, "%Y-%m-%d %H:%M:%S.%f")
+        if add_operator:
+            res = {clause['operator']: res}
+        if add_not:
+            res = {'$not': res}
+        return {clause['attr']: res} if clause['attr'] is not None else res
+
+    @staticmethod
+    def get_clause_attr_type(attr):
+        """
+        Returns the first prefix of the given attr or None if there is only
+        one branch.
+        Examples:
+        src.addr -> src
+        dst.addr.port.babar -> dst
+        addr -> None
+        """
+        splt = attr.split('.', 1)
+        if len(splt) <= 1:
+            return None
+        return splt[0]
+
+    @classmethod
+    def flt_from_clause(cls, clause):
+        """
+        Returns a MongoDB filter from a clause.
+        """
+        operators = {
+            ":": "$eq",
+            "=": "$eq",
+            "==": "$eq",
+            "!=": "$ne",
+            "<": "$lt",
+            "<=": "$lte",
+            ">": "$gt",
+            ">=": "$gte",
+            "=~": "$regex",
+        }
+
+        if clause['array_mode'] is None and clause['len_mode'] is False:
+            if clause['operator'] is None:
+                return {clause['attr']: {'$exists': not clause['neg']}}
+            clause['operator'] = operators[clause['operator']]
+            if clause['attr'] in ['addr', 'src.addr', 'dst.addr']:
+                res = cls._flt_from_clause_addr(clause)
+            else:
+                res = cls._flt_from_clause_any(clause)
+            return res
+
+        if clause['array_mode'] is not None:
+            if clause['operator'] is None:
+                raise ValueError("Queries must have an operator in array mode")
+            if clause['array_mode'] == 'ANY':
+                # Mongo performs the "ANY" operation by default
+                clause['array_mode'] = None
+                return cls.flt_from_clause(clause)
+            if clause['array_mode'] == 'ALL':
+                # Getting entries where every elements of array A match the
+                # predicate P is equivalent to get entries where there are NO
+                # element of array A which do NOT match the predicate P
+                # Remarks:
+                # 1. We need make sure that the attribute exists in every
+                # entries that we get.
+                # 2. In case the criteria is not directly linked to the array
+                # values (in other words when array values are dictionaries),
+                # we must use $elemMatch on the array attribute.
+                attr = clause['attr']
+                array_attr, value_attr = cls.get_longest_array_attr(
+                    clause['attr'])
+                if array_attr is None:
+                    raise ValueError("%s is not a valid array attribute"
+                                     % clause['attr'])
+                clause['operator'] = operators[clause['operator']]
+                clause['neg'] = not clause['neg']
+                clause['attr'] = value_attr if value_attr != '' else array_attr
+                res = cls._flt_from_clause_any(clause)
+                if value_attr != '':
+                    # Array values are dictionaries
+                    return {"$nor": [
+                        {array_attr: {"$elemMatch": res}},
+                        {attr: {"$exists": False}}
+                    ]}
+                return {"$nor": [
+                    res,
+                    {attr: {'$exists': False}}
+                ]}
+            if clause['array_mode'] == 'NONE':
+                # it is equivalent to NOT(ANY)
+                clause['neg'] = not clause['neg']
+                clause['array_mode'] = 'ANY'
+                return cls.flt_from_clause(clause)
+            raise NotImplementedError
+
+        # len_mode = True
+        if clause['operator'] is None:
+            raise ValueError("Queries must have an operator in len mode")
+
+        clause['operator'] = operators[clause['operator']]
+        clause['value'] = int(clause['value'])
+        if clause['operator'] == '$regex':
+            raise ValueError("Regex are not supported in length mode")
+
+        op = (clause['operator'] if not clause['neg']
+              else cls._flt_neg_op(clause['operator']))
+        if op in ['$eq', '$ne']:
+            res = {'$size': clause['value']}
+            if op == '$ne':
+                res = {'$not': res}
+            return {clause['attr']: res}
+
+        # MongoDB does not allow to add a comparison operator with $size
+        # We can use the $exists operator on the n-th element of an array
+        # to determine if it has at least n elements.
+        # In case of '<' or '<=' comparison, we need to enforce the
+        # existance of the attribute.
+
+        # Assign to each operator a couple (value offset, existance)
+        op_values = {
+            '$lt': (-1, False), '$lte': (0, False),
+            '$gt': (0, True), '$gte': (-1, True)
+        }
+        return {
+            "%s.%d" % (clause['attr'], clause['value'] + op_values[op][0]):
+                {'$exists': op_values[op][1]},
+            clause['attr']: {'$exists': True}}
+
+    @classmethod
+    def flt_from_query(cls, query):
+        """
+        Returns a MongoDB filter from the given query object.
+        """
+        clauses = query.clauses
+        flt = {}
+        and_clauses = []
+        for and_clause in clauses:
+            or_clauses = []
+            for or_clause in and_clause:
+                or_clauses.append(cls.flt_from_clause(or_clause))
+            if len(or_clauses) > 1:
+                and_clauses.append({'$or': or_clauses})
+            elif len(or_clauses) == 1:
+                and_clauses.append(or_clauses[0])
+        if len(and_clauses) > 1:
+            flt = {'$and': and_clauses}
+        elif len(and_clauses) == 1:
+            flt = and_clauses[0]
+        return flt
+
+    @classmethod
+    def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
+                     timeline=False):
+        """
+        Overloads from_filters method from MongoDB.
+        It transforms flow.Query object returned by super().from_filters
+        in MongoDB filter and returns it.
+        """
+        query = (super(MongoDBFlow, cls)
+                 .from_filters(filters, limit=limit, skip=skip,
+                               orderby=orderby, mode=mode, timeline=timeline))
+        return cls.flt_from_query(query)
+
+    def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
+                 timeline=False):
+        """
+        Returns a dict {"nodes": [], "edges": []}.
+        """
+        return self.cursor2json_graph(
+            self.get(flt, skip, limit, orderby),
+            mode,
+            timeline)
+
+    def to_iter(self, flt, limit=None, skip=None, orderby=None, mode=None,
+                timeline=False):
+        """
+        Returns an iterator which yields dict {"src": src, "dst": dst,
+        "flow": flow}.
+        """
+        return self.cursor2json_iter(
+            self.get(flt, skip, limit, orderby),
+            mode=mode,
+            timeline=timeline)
+
+    def host_details(self, addr):
+        """
+        Returns details about an host with the given address.
+        Details means a dict : {
+            in_flows: set() => incoming flows (proto, dport),
+            out_flows: set() => outcoming flows (proto, dport),
+            elt: {} => data about the host
+            clients: set() => hosts which talked to this host
+            servers: set() => hosts which this host talked to
+        }
+        It is currently done in memory. It should be done using the
+        aggregation framework.
+        """
+        g = {'in_flows': set(), 'elt': {}, 'out_flows': set(),
+             'clients': set(), 'servers': set()}
+        g['elt']['addr'] = addr
+        flt = self.search_flow_host(addr)
+        res = self.db[self.columns[self.column_flow]].find(flt)
+        for row in res:
+            internal_addr = self.ip2internal(addr)
+            if (g['elt'].get('firstseen', None) is None or
+                    g['elt'].get('firstseen') > row.get('firstseen')):
+                g['elt']['firstseen'] = row.get('firstseen')
+            if (g['elt'].get('lastseen', None) is None or
+                    g['elt'].get('lastseen') < row.get('lastseen')):
+                g['elt']['lastseen'] = row.get('lastseen')
+            # if it is an outcoming flow
+            if (row.get('src_addr_0') == internal_addr[0] and
+                    row.get('src_addr_1') == internal_addr[1]):
+                g['out_flows'].add((row.get('proto'),
+                                    row.get('dport', None)))
+                g['servers'].add(self.internal2ip(
+                    [row.get('dst_addr_0'), row.get('dst_addr_1')]))
+            else:
+                # if it is an incoming flow
+                g['in_flows'].add((row.get('proto'),
+                                   row.get('dport', None)))
+                g['clients'].add(self.internal2ip(
+                    [row.get('src_addr_0'), row.get('src_addr_1')]))
+        g['clients'] = list(g['clients'])
+        g['servers'] = list(g['servers'])
+        g['in_flows'] = list(g['in_flows'])
+        g['out_flows'] = list(g['out_flows'])
+        return g
+
+    def flow_details(self, flow_id):
+        """
+        Returns details about a flow with the given ObjectId.
+        Details mean : {
+            elt: {} => basic data about the flow,
+            meta: [] => meta entries corresponding to the flow
+        }
+        """
+        g = {'elt': {}}
+        res = self.db[self.columns[self.column_flow]].find(
+            {'_id': bson.ObjectId(flow_id)})
+        if res.count() != 1:
+            return None
+        row = res[0]
+        g['elt'] = self._edge2json_default(row)['data']
+        g['elt']['firstseen'] = row.get('firstseen')
+        g['elt']['lastseen'] = row.get('lastseen')
+        if row.get('meta', None):
+            g['meta'] = row.get('meta')
+        return g
+
+    def cleanup_flows(self):
+        # TODO Add cleanup steps like in neo4j
+        pass
+
+    def flow_daily(self, flt=None):
+        """
+        Returns a generator within each element is a dict
+        {
+            flows: [("proto/dport", count), ...]
+            time_in_day: time
+        }.
+        """
+        pipeline = []
+
+        if flt:
+            pipeline.append({'$match': flt})
+
+        # Unwind timeslots
+        pipeline.append({'$unwind': '$times'})
+
+        # Project time in hours, minutes, seconds
+        pipeline.append({
+            '$project': {
+                'hour': {'$hour': '$times.start'},
+                'minute': {'$minute': '$times.start'},
+                'second': {'$second': '$times.start'},
+                'proto': 1,
+                'dport': 1,
+                'count': 1,
+                'type': 1,
+            }
+        })
+
+        # Group by (hour, minutes, seconds), push proto/dport
+        pipeline.append({
+            '$group': {
+                '_id': {
+                    'hour': '$hour',
+                    'minute': '$minute',
+                    'second': '$second',
+                },
+                'fields': {'$push': {
+                    'proto': '$proto',
+                    'dport': '$dport',
+                    'type': '$type',
+                }},
+            }
+        })
+
+        # Sort by time ascending
+        pipeline.append({"$sort": {
+            '_id.hour': 1,
+            '_id.minute': 1,
+            '_id.second': 1
+        }})
+
+        res = self.db[self.columns[self.column_flow]].aggregate(pipeline,
+                                                                cursor={})
+
+        for entry in res:
+            flows = {}
+            for fields in entry['fields']:
+                if fields.get('proto') in ['tcp', 'udp']:
+                    number = fields.get('dport')
+                else:
+                    number = fields.get('type')
+                entry_name = "%s/%s" % (fields.get('proto'), number)
+                flows.setdefault(entry_name, 0)
+                flows[entry_name] += 1
+            res = {
+                'flows': [(name, count) for name, count in viewitems(flows)],
+                'time_in_day': datetime.time(
+                    hour=entry['_id']['hour'],
+                    minute=entry['_id']['minute'],
+                    second=entry['_id']['second'])
+            }
+            yield res

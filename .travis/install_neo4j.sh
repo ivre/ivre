@@ -33,3 +33,6 @@ neo4j start
 
 # Wait for Neo4j (again)
 until nc -z localhost 7474 ; do echo Waiting for Neo4j; sleep 1; done
+
+
+echo 'DB_FLOW = "neo4j://neo4j:neo4j@localhost:7474/"' >> ~/.ivre.conf
