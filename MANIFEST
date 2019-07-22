@@ -48,7 +48,6 @@ doc/usage/web-ui.rst
 docker/Vagrantfile
 docker/agent/Dockerfile
 docker/base/Dockerfile
-docker/base/ivre.conf
 docker/client/Dockerfile
 docker/db/Dockerfile
 docker/web/Dockerfile
@@ -64,6 +63,7 @@ ivre/__init__.py
 ivre/activecli.py
 ivre/agent.py
 ivre/config.py
+ivre/flow.py
 ivre/geoiputils.py
 ivre/graphroute.py
 ivre/keys.py

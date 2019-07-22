@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,10 +21,6 @@ services:
     volumes:
       - ./var_lib_mongodb:/var/lib/mongodb
       - ./var_log_mongodb:/var/log/mongodb
-      - ./var_lib_neo4j:/var/lib/neo4j/data
-      # v3
-      #- ./var_lib_neo4j:/var/lib/neo4j
-      - ./var_log_neo4j:/var/log/neo4j
     restart: always
   ivreweb:
     image: ivre/web

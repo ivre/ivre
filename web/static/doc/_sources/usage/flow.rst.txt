@@ -10,29 +10,6 @@ hosts. It can be seen as:
    known network (but there is no such thing as a "known network")
 -  a monitoring tool to spot unwanted flows in your network
 
-Installation
-------------
-
-Start by following the standard ivre installation.
-
-In addition, install ``neo4j`` and set a user/password (for example
-through the default admin interface on ``http://localhost:7474``).
-Default user/password is ``neo4j``/``neo4j``. Set the relevant URL in
-you ``ivre.conf``:
-
-.. code:: python
-
-   DB_FLOW = "neo4j://<user>:<password>@localhost:7474/"
-
-Run ``ivre flowcli --init`` to initialize the database (**WARNING:**
-this will **REMOVE** everything in the db).
-
-And that should be it. The Web UI is available at
-``<ivre-web-root>/flow.html``.
-
-As the Web UI is super-beta, no error will show up in it, check the logs
-of the webserver for debugging.
-
 Usage
 -----
 
