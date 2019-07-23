@@ -5,10 +5,9 @@ Database
 --------
 
 Depending on the backends you wan to use, install a database
-server. Please keep in mind that currently, MongoDB is the only
-supported backend for ``passive``, ``nmap`` and ``view`` purposes, and
-Neo4j is the only supported backend for ``flow``. To learn more about
-the different purposes, read the :ref:`overview/principles:principles`.
+server. Please keep in mind that currently, MongoDB is currently the
+only supported backend for all the purposes. To learn more about the
+different purposes, read the :ref:`overview/principles:principles`.
 
 The database servers installation and setup is not covered here, and
 depends on your platform and needs. Please refer to the server
@@ -52,9 +51,9 @@ To install IVRE, you'll need `Python <http://www.python.org/>`__ 2
 - `Future <https://python-future.org/>`_.
 - `pymongo <http://api.mongodb.org/python/>`_ version 2.7.2 minimum.
 - `py2neo <http://py2neo.org/v3/>`__ version 3, optional, to use the
-  flow purpose.
+  flow purpose with the Neo4j backend (**deprecated**).
 - `sqlalchemy <http://www.sqlalchemy.org/>`_ and `psycopg2
-  <http://initd.org/psycopg/>`_ to use the experimental PostgreSQL
+  <http://initd.org/psycopg/>`_ to use the **experimental** PostgreSQL
   backend.
 - `PIL <http://www.pythonware.com/products/pil/>`_ optional, to trim
   screenshots.
@@ -69,11 +68,12 @@ have improved quite a lot since version 2.6), or at least 3.2 (IVRE
 uses a hack for some operations when it connects to a server older
 than 3.2).
 
-The ``flow`` purpose relies, for now, on `Neo4j
-<https://neo4j.com/>`_.
+The ``passive``, ``nmap`` and ``view`` purposes have an
+**experimental** PostgreSQL backend that can be used in lieu of
+MongoDB.
 
-The ``passive``, ``nmap`` and ``view`` purposes have an experimental
-PostgreSQL backend that can be used in lieu of MongoDB.
+The ``flow`` purpose can be used with Neo4j instead of MongoDB for
+historical reasons. This is **deprecated**.
 
 Please refer to the database servers (or your distribution)
 documentation on how to install and configure them.
