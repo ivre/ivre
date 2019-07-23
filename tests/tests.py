@@ -68,6 +68,7 @@ import ivre.passive
 import ivre.utils
 import ivre.web.utils
 import ivre.flow
+import ivre.xmlnmap
 
 HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
@@ -749,6 +750,89 @@ which `predicate()` is True, given `webflt`.
                           for word in port.get('screenwords', []))
         self.assertTrue('IVRE' in screenwords)
         shutil.rmtree('output')
+
+        # Test various structured results for smb-enum-shares
+        # before commit 79d25c5c6e4e2c3298f4f0771a183e82d06bfabe
+        json_12_smb_enum_shares_old = {
+            'note': 'ERROR: Enumerating shares failed, guessing at common ones'
+            ' (NT_STATUS_ACCESS_DENIED)',
+            'account_used': '<blank>',
+            '\\\\10_0_0_1\\C$': {
+                'warning': "Couldn't get details for share: "
+                "NT_STATUS_ACCESS_DENIED",
+                'Anonymous access': '<none>',
+            },
+            '\\\\10_0_0_1\\IPC$': {
+                'warning': "Couldn't get details for share: "
+                "NT_STATUS_ACCESS_DENIED",
+                'Anonymous access': 'READ',
+            },
+            '\\\\10_0_0_1\\ADMIN$': {
+                'warning': "Couldn't get details for share: "
+                "NT_STATUS_ACCESS_DENIED",
+                'Anonymous access': '<none>',
+            },
+            '\\\\10_0_0_1\\ADMIN_SOFTWARE': {
+                'warning': "Couldn't get details for share: "
+                "NT_STATUS_ACCESS_DENIED",
+                'Anonymous access': '<none>',
+            },
+        }
+        # after commit 79d25c5c6e4e2c3298f4f0771a183e82d06bfabe
+        json_12_smb_enum_shares_new = {
+            'note': 'ERROR: Enumerating shares failed, guessing at common ones'
+            ' (NT_STATUS_ACCESS_DENIED)',
+            'account_used': '<blank>',
+            'shares': [
+                {'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED",
+                 'Share': '\\\\10_0_0_1\\C$',
+                 'Anonymous access': '<none>'},
+                {'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED",
+                 'Share': '\\\\10_0_0_1\\IPC$',
+                 'Anonymous access': 'READ'},
+                {'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED",
+                 'Share': '\\\\10_0_0_1\\ADMIN$',
+                 'Anonymous access': '<none>'},
+                {'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED",
+                 'Share': '\\\\10_0_0_1\\ADMIN_SOFTWARE',
+                 'Anonymous access': '<none>'},
+            ]
+        }
+        json_13_expect_output = {
+            'account_used': '<blank>',
+            'note': 'ERROR: Enumerating shares failed, guessing at common ones'
+            ' (NT_STATUS_ACCESS_DENIED)',
+            'shares': [
+                {'Anonymous access': '<none>',
+                 'Share': '\\\\10.0.0.1\\ADMIN$',
+                 'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED"},
+                {'Anonymous access': '<none>',
+                 'Share': '\\\\10.0.0.1\\ADMIN_SOFTWARE',
+                 'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED"},
+                {'Anonymous access': '<none>',
+                 'Share': '\\\\10.0.0.1\\C$',
+                 'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED"},
+                {'Anonymous access': 'READ',
+                 'Share': '\\\\10.0.0.1\\IPC$',
+                 'warning': "Couldn't get details for share: "
+                 "NT_STATUS_ACCESS_DENIED"},
+            ]
+        }
+        self.assertEqual(
+            json_13_expect_output,
+            ivre.xmlnmap.change_smb_enum_shares(json_12_smb_enum_shares_old),
+        )
+        self.assertEqual(
+            json_13_expect_output,
+            ivre.xmlnmap.change_smb_enum_shares(json_12_smb_enum_shares_new),
+        )
 
         RUN(["ivre", "scancli", "--update-schema"])
 
