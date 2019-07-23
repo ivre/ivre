@@ -22,7 +22,7 @@ Access and query the flows database.
 See doc/FLOW.md for more information.
 """
 from __future__ import print_function
-
+import datetime
 import os
 import sys
 try:
@@ -96,9 +96,15 @@ def main():
                         help="Only with MongoDB backend. "
                         "Reduce precision to NEW_PRECISION for flows "
                         "timeslots stored with CURRENT_PRECISION. "
-                        "Takes account of filters.")
+                        "Takes account of before, after, filters.")
     parser.add_argument("--base", type=int, help="When using "
                         "--update-precision, set timeslots base.", default=0)
+    parser.add_argument("--after", "-a", type=str, help="Get only flows "
+                        "seen after this date. Format: YEAR-MONTH-DAY "
+                        "HOUR:MINUTE. Based on timeslots precision.")
+    parser.add_argument("--before", "-b", type=str, help="Get only flows "
+                        "seen before this date. Format: YEAR-MONTH-DAY "
+                        "HOUR:MINUTE. Based on timeslots precision.")
     args = parser.parse_args()
 
     out = sys.stdout
@@ -132,9 +138,18 @@ def main():
     filters = {"nodes": args.node_filters or [],
                "edges": args.flow_filters or []}
 
+    before = (datetime.datetime.strptime(args.before, "%Y-%m-%d %H:%M")
+              if args.before is not None
+              else None)
+
+    after = (datetime.datetime.strptime(args.after, "%Y-%m-%d %H:%M")
+             if args.after is not None
+             else None)
+
     query = db.flow.from_filters(filters, limit=args.limit, skip=args.skip,
                                  orderby=args.orderby, mode=args.mode,
-                                 timeline=args.timeline)
+                                 timeline=args.timeline, after=after,
+                                 before=before)
 
     if args.reduce_precision:
         if os.isatty(sys.stdin.fileno()):
@@ -146,7 +161,7 @@ def main():
                 sys.exit(-1)
         current_duration, new_duration = args.reduce_precision
         db.flow.reduce_precision(current_duration, new_duration, flt=query,
-                                 base=args.base)
+                                 base=args.base, before=before, after=after)
         sys.exit(0)
 
     sep = args.separator or ' | '

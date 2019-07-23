@@ -540,39 +540,39 @@ ivreWebUi
                 return;
             }
             var dr_w = 1000, dr_h = 10;
-            var timerange = d3.extent(data.edges.reduce(function(dates, flow) {
+            var times = data.edges.reduce(function(dates, flow) {
                 if (!flow.data.meta || !flow.data.meta.times) {
                     return [];
                 }
-                return dates.concat(flow.data.meta.times.map(function(date) {
-                    date = new Date(date.replace(" ", "T"));
-                    date = new Date(date - (date % config.flow_time_precision));
-                    return date;
+                return dates.concat(flow.data.meta.times.map(function(time) {
+                    return [new Date(time.start.replace(" ", "T")), time.duration];
                 }));
-            }, [])).reduce(function(x, y) {return y - x});
+            }, []);
+	    var timerange = d3.extent(times, function(x) { return x[0]; })
+		    .reduce(function(x, y) {return y - x});
+	    var min_duration = d3.min(times, function(x) { return x[1]; });
             var time_prec = $scope.time_prec = (
                 this.max_time_slots > 1 ?
                     Math.max(timerange / (this.max_time_slots - 1),
-                             config.flow_time_precision * 1000) :
-                    config.flow_time_precision * 1000
+                             min_duration * 1000) :
+                    min_duration * 1000
             );
+	    
             var vis = d3.select("#timeline")
                 .append("svg:svg")
                 .attr("viewBox", [0, 0, dr_w, dr_h])
                 .attr("class", "fulfill")
                 .attr("preserveAspectRatio", "none")
                 .append("svg:g");
-
             var dates = [], counts = {};
             $scope.date_to_flow = {};
             $scope.flow_to_date = {};
             data.edges.forEach(function(flow) {
                 if (flow.data.meta && flow.data.meta.times) {
-                    flow.data.meta.times.forEach(function(date) {
-                        date = new Date(date.replace(" ", "T"));
-                        date = new Date(date - (date % time_prec));
+                    flow.data.meta.times.forEach(function(time) {
+                        date = new Date(time.start.replace(" ", "T"));
                         if ($scope.date_to_flow[date] === undefined) {
-                            dates.push(date);
+                            dates.push([date, time.duration]);
                             $scope.date_to_flow[date] = {};
                         }
                         $scope.date_to_flow[date][flow.id] = true;
@@ -584,12 +584,10 @@ ivreWebUi
                     });
                 }
             });
-
             for (date in $scope.date_to_flow) {
                 counts[date] = Object.keys($scope.date_to_flow[date]).length;
             }
-
-            var dateextent = d3.extent(dates);
+            var dateextent = d3.extent(dates, function(x) { return x[0]; });
             var alldates = Array.apply(
                     0,
                     Array(Math.ceil((dateextent[1] - dateextent[0]) / time_prec)
@@ -597,6 +595,27 @@ ivreWebUi
                 ).map(function(_, i) {
                     return new Date(dateextent[0].getTime() + time_prec * i);
                 });
+            var durations = [];
+            var index = alldates.length - 1;
+            while (index >= 0) {
+                var date = dates.find(function(elt, i) { 
+                    return alldates[index].getTime() == elt[0].getTime(); });
+                if (date) {
+                    var nb = date[1] / min_duration;
+                    durations[alldates[index]] = nb;
+                    if (nb > 1) {
+                        alldates.splice(index + 1, nb - 1);
+                    }    
+                }
+                else {
+                    durations[alldates[index]] = 1;
+                }
+
+                index -= 1;
+            }
+            dates = dates.map(function(elt) {
+                return elt[0];
+            });
             var width = Math.max((time_prec * dr_w / (
                 (dateextent[1] - dateextent[0] + time_prec)
                     || time_prec)) - 1, 1);
@@ -618,7 +637,7 @@ ivreWebUi
                 })
                 .append("svg:rect")
                 .attr("fill", "steelblue")
-                .attr("width", width)
+                .attr("width", function(d, i) { return width * durations[d]; })
                 .attr("height", function(d, i) {return y(counts[d]);})
 
             vis.append("g")
@@ -632,7 +651,7 @@ ivreWebUi
                 .append("svg:rect")
                 .attr("fill", "white")
                 .attr("fill-opacity", 0)
-                .attr("width", width)
+                .attr("width", function(d, i) { return width * durations[d]; })
                 .attr("height", dr_h)
                 .attr("class", "timeline-highlight")
                 .on("mouseover", function(d) {
@@ -640,7 +659,7 @@ ivreWebUi
                     rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
                     rect.attr("fill-opacity", 0.4);
                     // Highlight related flows
-                    $scope.set_visible_from_date(d);
+                    $scope.set_visible_from_date(d, time_prec, durations[d]);
                 })
                 .on("mouseout", function(d) {
                     var rect = d3.select(this);
@@ -649,9 +668,9 @@ ivreWebUi
                 })
                 .append("svg:title")
                 .text(function(d, i) {
-                    var date = new Date(d - (d % time_prec));
-                    var count = (counts[date] || 0);
-                    return (date + ": " + count + " flow" +
+                    var count = (counts[d] || 0);
+                    var duration = duration_humanize(durations[d] * time_prec);
+                    return (d + ' (' + duration  + "): " + count + " flow" +
                             (count > 1 ? "s" : ""));
                 })
 
@@ -659,7 +678,6 @@ ivreWebUi
 
         $scope.set_visible_from_date = function(date) {
             if (date !== undefined) {
-                var date = new Date(date - (date % $scope.time_prec));
                 var to_highlight = Object.keys($scope.date_to_flow[date] || {});
                 to_highlight = $scope.sigma.graph.edges(to_highlight);
                 graphService.set_visible($scope.sigma, [], to_highlight, 0.2);

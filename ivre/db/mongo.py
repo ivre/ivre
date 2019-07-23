@@ -4585,7 +4585,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     datefields = [
         'firstseen',
-        'lastseen'
+        'lastseen',
+        'times.start',
     ]
 
     # This represents the kinds of metadata that are defined in flow.META_DESC
@@ -5122,7 +5123,10 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         }
         if timeline and row.get('times'):
             res["data"]["meta"] = {
-                "times": [t.get('start') for t in row.get('times')]
+                "times": [{
+                    "duration": t.get('duration'),
+                    "start": t.get('start')
+                } for t in row.get('times')]
             }
         if row.get('proto') in ['tcp', 'udp']:
             res['data']["sports"] = row.get('sports')
@@ -5497,7 +5501,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     @classmethod
     def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
-                     timeline=False):
+                     timeline=False, after=None, before=None):
         """
         Overloads from_filters method from MongoDB.
         It transforms flow.Query object returned by super().from_filters
@@ -5506,7 +5510,12 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         query = (super(MongoDBFlow, cls)
                  .from_filters(filters, limit=limit, skip=skip,
                                orderby=orderby, mode=mode, timeline=timeline))
-        return cls.flt_from_query(query)
+        flt = cls.flt_from_query(query)
+        if after:
+            flt = cls.flt_and(flt, {"times.start": {'$gte': after}})
+        if before:
+            flt = cls.flt_and(flt, {"times.start": {'$lt': before}})
+        return flt
 
     def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
                  timeline=False):
@@ -5674,7 +5683,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             yield res
 
     def reduce_precision(self, current_duration, new_duration, flt=None,
-                         base=0):
+                         base=0, before=None, after=None):
         # validate base
         if base % current_duration != 0:
             raise ValueError("Base must be a multiple of current precision.")
@@ -5697,12 +5706,15 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             flt = self.flt_empty
 
         flt = self.flt_and(flt, {"times.duration": current_duration})
+        utils.LOGGER.debug("flt : %s" % flt)
         for flw in self._get_cursor(self.columns[self.column_flow], flt):
             # We must ensure the unicity of timeslots in a flow
             new_times = set()
             for timeslot in flw["times"]:
                 # This timeslot does not need to be changed
-                if timeslot['duration'] != current_duration:
+                if (timeslot['duration'] != current_duration or
+                        (before is not None and timeslot['start'] >= before) or
+                        (after is not None and timeslot['start'] < after)):
                     new_times.add((timeslot["start"], timeslot["duration"]))
                     continue
                 # Compute new timeslot
@@ -5712,7 +5724,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             # Build a list of timeslot dicts from new timeslots set
             timeslots = [{"start": timeslot[0], "duration": timeslot[1]}
                          for timeslot in new_times]
-
             bulk.find({"_id": flw["_id"]}).update(
                 {"$set": {"times": timeslots}}
             )
