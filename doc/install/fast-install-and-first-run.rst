@@ -5,17 +5,6 @@ This file describes the steps to install IVRE, run the first scans and
 add the results to the database with all components (scanner, web
 server, database server) on the same (Debian or Ubuntu) machine.
 
-Please note that, depending on your distribution, the versions of some
-software packages might not be recent enough, particularly for MongoDB
-(version 2.6 minimum) and pymongo (version 2.7.2 minimum). If that's
-the case, you will have to install those programs on you own,
-referring to their documentation (see `MongoDB on Debian
-<http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/>`__
-or `MongoDB on Ubuntu
-<http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/>`__
-and `pymongo <https://pypi.python.org/pypi/pymongo/>`__), instead of
-``apt-get``-ting them.
-
 You might also want to adapt it to your needs, architecture, etc.
 
 For another way to run IVRE easily (probably even more easily), see
@@ -23,49 +12,69 @@ For another way to run IVRE easily (probably even more easily), see
 
 Install
 -------
-NB: if you are running Debian stable, the dokuwiki package has been
-removed (no idea why: it exists in both oldstable and testing). Run the
-following commands (or similar) if you cannot install dokuwiki, and try
-again:
+External programs
+~~~~~~~~~~~~~~~~~
+
+- MongoDB Community Edition (latest version)
+- Nmap
+- Zeek/Bro (optionnal)
+- Argus (optionnal)
+- Nfdump (optionnal)
 
 ::
 
-   $ echo 'APT::Default-Release "stable";' | \
-   >   sudo tee /etc/apt/apt.conf.d/99defaultrelease
-   $ echo 'deb http://deb.debian.org/debian testing main' | \
-   >   sudo tee -a /etc/apt/sources.list
-   $ sudo apt-get update
+   $ sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9DA31620334BD75D9DCB49F368818C72E52529D4
+   $ echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.0.list
+   $ wget -O- "http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/Release.key" | sudo apt-key add -
+   $ echo 'deb http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/ /' | sudo tee '/etc/apt/sources.list.d/bro.list'
+   $ sudo apt update
+   $ sudo apt install mongodb-org nmap bro argus-server nfdump gcc make libpcap-dev -y
+   $ sudo systemctl enable mongod
+   $ sudo systemctl start mongod
+   $ export PATH="$PATH:/opt/bro/bin"
+
+Append ``/opt/bro/bin`` to PATH variable in ``/etc/environment``.
+Append ``/opt/bro/bin`` to secure_path variable in ``/etc/sudoers`` using visudo.
+  
+- Masscan (optionnal)
+- P0f (optionnal)
+  
+::
+
+   $ git clone https://github.com/robertdavidgraham/masscan.git
+   $ cd masscan
+   $ make
+   $ sudo cp bin/masscan /usr/local/bin
+   $ cd ..
+   $ wget http://lcamtuf.coredump.cx/p0f3/releases/old/2.x/p0f-2.0.8.tgz
+   $ tar -xvf p0f-2.0.8.tgz
+   $ cd p0f
+   $ make
+   $ sudo make install
 
 Python 2 build (apt)
 ~~~~~~~~~~~~~~~~~~~~
-
 ::
 
-   $ sudo apt-get -y install mongodb python-pymongo python-crypto \
-   >   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
+   $ sudo apt-get -y install python-pymongo python-crypto python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
    $ git clone https://github.com/cea-sec/ivre
    $ cd ivre
    $ python setup.py build
    $ sudo python setup.py install
-   $ echo 'DB_FLOW = "neo4j://neo4j:<new password>@localhost:7474/"' | sudo tee /etc/ivre.conf
-
 
 Python 3 build (pip)
 ~~~~~~~~~~~~~~~~~~~~
-
 ::
 
-   $ sudo apt install -y python3-pip python3-dev mongodb apache2 libapache2-mod-wsgi-py3 dokuwiki
-   $ sudo -H pip3 install bottle pycrypto future pymongo py2neo==3.1.2
+   $ sudo apt install -y python3-pip python3-dev apache2 libapache2-mod-wsgi-py3 dokuwiki
+   $ sudo -H pip3 install bottle pycrypto future pymongo
    $ git clone https://github.com/cea-sec/ivre
    $ cd ivre
    $ python3 setup.py build
    $ sudo python3 setup.py install
-   $ echo 'DB_FLOW = "neo4j://neo4j:<new password>@localhost:7474/"' | sudo tee /etc/ivre.conf
 
 Setup Apache webserver
 ----------------------
-
 ::
 
    $ sudo -s
@@ -101,7 +110,6 @@ button to check if everything works.
 
 Database init, data download & importation
 ------------------------------------------
-
 ::
 
    $ yes | ivre ipinfo --init
@@ -112,58 +120,8 @@ Database init, data download & importation
    $ sudo ivre ipdata --download --import-all
 
 The two last step may take a long time to run (40 minutes on a decent
-server), nothing to worry about. To initiate flowcli, Neo4j default 
-password must be changed through its web interface. Connect to Neo4j
-IP address on port 7474 and enter neo4j:neo4j credentials to login
-then change the password. Don't forget to modify ``/etc/ivre.conf``
-accordingly.
+server), nothing to worry about.
 
-
-External programs
------------------
-
-- MongoDB Community Edition (latest version)
-- Nmap
-- Zeek/Bro
-- Argus
-- Nfdump
-- Neo4j
-
-::
-
-   $ sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9DA31620334BD75D9DCB49F368818C72E52529D4
-   $ echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.0.list
-   $ wget -O- "http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/Release.key" | sudo apt-key add -
-   $ echo 'deb http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/ /' | sudo tee '/etc/apt/sources.list.d/bro.list'
-   $ wget -O - https://debian.neo4j.org/neotechnology.gpg.key | sudo apt-key add -
-   $ echo 'deb https://debian.neo4j.org/repo stable/' | sudo tee /etc/apt/sources.list.d/neo4j.list
-   $ sudo apt update
-   $ sudo apt install mongodb-org nmap bro argus-server nfdump neo4j gcc make libpcap-dev -y
-   $ sudo sed -i 's/#dbms.connectors.default_listen_address=0.0.0.0/dbms.connectors.default_listen_address=0.0.0.0/g' /etc/neo4j/neo4j.conf
-   $ sudo systemctl enable mongod
-   $ sudo systemctl start mongod
-   $ sudo systemctl enable neo4j
-   $ sudo systemctl start neo4j
-   $ export PATH="$PATH:/opt/bro/bin"
-
-Append ``/opt/bro/bin`` to PATH variable in ``/etc/environment``.
-Append ``/opt/bro/bin`` to secure_path variable in ``/etc/sudoers`` using visudo.
-  
-- Masscan
-- P0f
-  
-::
-
-   $ git clone https://github.com/robertdavidgraham/masscan.git
-   $ cd masscan
-   $ make
-   $ sudo cp bin/masscan /usr/local/bin
-   $ cd ..
-   $ wget http://lcamtuf.coredump.cx/p0f3/releases/old/2.x/p0f-2.0.8.tgz
-   $ tar -xvf p0f-2.0.8.tgz
-   $ cd p0f
-   $ make
-   $ sudo make install
 
 Run a first scan
 ----------------
