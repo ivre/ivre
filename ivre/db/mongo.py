@@ -4802,7 +4802,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         self.db[self.columns[self.column_flow]].drop()
         self.create_indexes()
 
-    def get(self, flt, skip=None, limit=None, orderby=None):
+    def get(self, flt, skip=None, limit=None, orderby=None, after=None,
+            before=None, fields=None, precision=None):
         """
         Returns an iterator over flows honoring the given filter
         with the given options.
@@ -4822,7 +4823,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 "Unsupported orderby (should be 'src', 'dst' or 'flow')")
         for f in self._get_cursor(self.columns[self.column_flow], flt,
                                   limit=(limit or 0), skip=(skip or 0),
-                                  sort=sort):
+                                  sort=sort, fields=fields):
             try:
                 f['src_addr'] = self.internal2ip([f.pop('src_addr_0'),
                                                   f.pop('src_addr_1')])
@@ -4830,13 +4831,38 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                                                   f.pop('dst_addr_1')])
             except KeyError:
                 pass
+            # Apply after and before filter on times
+            f['times'] = [
+                t for t in f.get('times')
+                if ((after is None or t.get('start') >= after) and
+                    (before is None or
+                     t.get('start') + datetime.timedelta(
+                         seconds=t.get('duration')) <= before) and
+                    (precision is None or t.get('duration') == precision))
+            ]
+            # In some cases, the flow must be rejected
+            if not f['times']:
+                continue
             yield f
 
-    def count(self, flt):
-        """
-        Returns a dict {'client': nb_clients, 'servers': nb_servers',
-        'flows': nb_flows} according to the given filter.
-        """
+    def _count_local(self, flt, after, before, precision):
+        destinations_set = set()
+        sources_set = set()
+        sources = destinations = flows = 0
+        fields = ['src_addr_0', 'src_addr_1', 'dst_addr_0', 'dst_addr_1',
+                  'times']
+        for row in self.get(flt, after=after, before=before, fields=fields,
+                            precision=precision):
+            if not row['src_addr'] in sources_set:
+                sources += 1
+                sources_set.add(row['src_addr'])
+            if not row['dst_addr'] in destinations_set:
+                destinations += 1
+                destinations_set.add(row['dst_addr'])
+            flows += 1
+        return sources, destinations, flows
+
+    def _count(self, flt):
         sources = 0
         destinations = 0
         flows = self.db[self.columns[self.column_flow]].count(flt)
@@ -4877,8 +4903,20 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     }}
                 ])
             )['count']
+        return (sources, destinations, flows)
 
-        return {'clients': sources, 'servers': destinations, 'flows': flows}
+    def count(self, flt, after=None, before=None, precision=None):
+        """
+        Returns a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter.
+        """
+        # Queries containing after or before must be handled separatly
+        if after or before or precision:
+            clients, servers, flows = self._count_local(flt, after, before,
+                                                        precision)
+        else:
+            clients, servers, flows = self._count(flt)
+        return {'clients': clients, 'servers': servers, 'flows': flows}
 
     def topvalues(self, flt, fields, collect_fields=None, sum_fields=None,
                   limit=None, skip=None, least=False, topnbr=10):
@@ -5121,13 +5159,13 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 "addr_dst": row.get('dst_addr')
             }
         }
+
+        # Fill timeline field if necessary
         if timeline and row.get('times'):
             res["data"]["meta"] = {
-                "times": [{
-                    "duration": t.get('duration'),
-                    "start": t.get('start')
-                } for t in row.get('times')]
+                "times": row['times']
             }
+
         if row.get('proto') in ['tcp', 'udp']:
             res['data']["sports"] = row.get('sports')
             res['data']["dport"] = row.get('dport')
@@ -5501,7 +5539,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     @classmethod
     def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
-                     timeline=False, after=None, before=None):
+                     timeline=False, after=None, before=None, precision=None):
         """
         Overloads from_filters method from MongoDB.
         It transforms flow.Query object returned by super().from_filters
@@ -5515,28 +5553,33 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             flt = cls.flt_and(flt, {"times.start": {'$gte': after}})
         if before:
             flt = cls.flt_and(flt, {"times.start": {'$lt': before}})
+        if precision:
+            flt = cls.flt_and(flt, {"times.duration": precision})
         return flt
 
     def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
-                 timeline=False):
+                 timeline=False, after=None, before=None):
         """
         Returns a dict {"nodes": [], "edges": []}.
         """
         return self.cursor2json_graph(
-            self.get(flt, skip, limit, orderby),
+            self.get(flt, skip, limit, orderby, after=after, before=before),
             mode,
-            timeline)
+            timeline
+        )
 
     def to_iter(self, flt, limit=None, skip=None, orderby=None, mode=None,
-                timeline=False):
+                timeline=False, after=None, before=None, precision=None):
         """
         Returns an iterator which yields dict {"src": src, "dst": dst,
         "flow": flow}.
         """
         return self.cursor2json_iter(
-            self.get(flt, skip, limit, orderby),
+            self.get(flt, skip, limit, orderby, after=after, before=before,
+                     precision=precision),
             mode=mode,
-            timeline=timeline)
+            timeline=timeline
+        )
 
     def host_details(self, addr):
         """
@@ -5608,7 +5651,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # TODO Add cleanup steps like in neo4j
         pass
 
-    def flow_daily(self, flt=None):
+    def flow_daily(self, precision, flt=None):
         """
         Returns a generator within each element is a dict
         {
@@ -5624,6 +5667,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # Unwind timeslots
         pipeline.append({'$unwind': '$times'})
 
+        pipeline.append({'$match': {'times.duration': precision}})
         # Project time in hours, minutes, seconds
         pipeline.append({
             '$project': {
@@ -5682,20 +5726,26 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             }
             yield res
 
-    def reduce_precision(self, current_duration, new_duration, flt=None,
-                         base=0, before=None, after=None):
+    def reduce_precision(self, new_duration, flt=None,
+                         base=None, before=None, after=None, precision=None):
+        # FIXME In this function, after and before must be "non strict".
         # validate base
-        if base % current_duration != 0:
-            raise ValueError("Base must be a multiple of current precision.")
-        base %= new_duration
+        if base is None:
+            base = config.FLOW_DEFAULT_BASE
 
-        # validate new duration
-        if new_duration <= current_duration:
-            raise ValueError("New precision value must be greater than "
-                             "current one.")
-        if new_duration % current_duration != 0:
-            raise ValueError("New precision must be a multiple of current "
-                             "precision.")
+        current_duration = precision
+        if current_duration is not None:
+            if base % current_duration != 0:
+                raise ValueError("Base must be a multiple of current "
+                                 "precision.")
+            base %= new_duration
+            # validate new duration
+            if new_duration <= current_duration:
+                raise ValueError("New precision value must be greater than "
+                                 "current one.")
+            if new_duration % current_duration != 0:
+                raise ValueError("New precision must be a multiple of current "
+                                 "precision.")
 
         # Create the update bulk
         bulk = self.db[
@@ -5705,14 +5755,17 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         if flt is None:
             flt = self.flt_empty
 
-        flt = self.flt_and(flt, {"times.duration": current_duration})
         utils.LOGGER.debug("flt : %s" % flt)
         for flw in self._get_cursor(self.columns[self.column_flow], flt):
             # We must ensure the unicity of timeslots in a flow
             new_times = set()
             for timeslot in flw["times"]:
-                # This timeslot does not need to be changed
-                if (timeslot['duration'] != current_duration or
+                # This timeslot may not need to be changed
+                if ((current_duration is not None and
+                     timeslot['duration'] != current_duration) or
+                        (current_duration is None and
+                         new_duration <= timeslot['duration'] and
+                         new_duration % timeslot['duration'] != 0) or
                         (before is not None and timeslot['start'] >= before) or
                         (after is not None and timeslot['start'] < after)):
                     new_times.add((timeslot["start"], timeslot["duration"]))
@@ -5737,3 +5790,21 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                                result.get('nModified'), update_rate)
         except pymongo.errors.InvalidOperation:
             utils.LOGGER.debug("No operations to execute.")
+
+    def list_precisions(self):
+        pipeline = []
+
+        pipeline.append({'$unwind': '$times'})
+
+        pipeline.append({
+            '$group': {
+                '_id': '$times.duration'
+            }
+        })
+
+        pipeline.append({"$sort": {"_id": 1}})
+
+        res = self.db[self.columns[self.column_flow]].aggregate(pipeline,
+                                                                cursor={})
+        for entry in res:
+            yield entry['_id']

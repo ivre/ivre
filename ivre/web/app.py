@@ -27,6 +27,7 @@ application.
 
 
 from collections import namedtuple
+import datetime
 from functools import wraps
 import json
 import os
@@ -582,6 +583,15 @@ def get_flow():
     count = query.get("count", False)
     orderby = query.get("orderby", None)
     timeline = query.get("timeline", False)
+    try:
+        before = datetime.datetime.strptime(query.get("before", None), "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        before = None
+    try:
+        after = datetime.datetime.strptime(query.get("after", None), "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        after = None
+
     utils.LOGGER.debug("Action: %r, Query: %r", action, query)
     if action == "details":
         # TODO: error
@@ -594,13 +604,15 @@ def get_flow():
     else:
         cquery = db.flow.from_filters(query, limit=limit, skip=skip,
                                       orderby=orderby, mode=mode,
-                                      timeline=timeline)
+                                      timeline=timeline, after=after,
+                                      before=before)
         if count:
-            res = db.flow.count(cquery)
+            res = db.flow.count(cquery, after=after, before=before)
         else:
             res = db.flow.to_graph(cquery, limit=limit, skip=skip,
                                    orderby=orderby, mode=mode,
-                                   timeline=timeline)
+                                   timeline=timeline, after=after,
+                                   before=before)
     yield json.dumps(res, default=utils.serialize)
     if callback is not None:
         yield ");\n"

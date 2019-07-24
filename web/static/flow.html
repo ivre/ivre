@@ -65,6 +65,41 @@
                                on-load="query_ready.edges = true; update_graph_data()">
                 </query-builder>
                 <ul class="nav">
+                    <li class="sidebox-header">
+                      <i class="glyphicon glyphicon-resize-full black"></i>
+                   	Time query
+                    </li>
+		    <form class="form-horizontal"> 
+			    <div class="form-group">
+				    <label for="node_after" class="col-md-4 control-label">
+					    After
+				    </label>
+				    <div class="col-md-8">
+					    <input id="node_after"
+						   placeholder="YYYY-MM-DD HH:mm"
+						   class="form-control"
+						   title="Format: YYYY-MM-DD HH:mm"
+						   pattern="^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$"
+						   ng-trim="true"
+						   ng-model="query.after"
+						   />
+				    </div>
+			    </div>
+			    <div class="form-group">
+				    <label for="node_before" class="col-md-4 control-label">
+					    Before
+				    </label>
+				    <div class="col-md-8">
+					    <input id="node_before"
+						   placeholder="YYYY-MM-DD HH:mm"
+						   class="form-control"
+						   pattern="^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$"
+						   title="Format: YYYY-MM-DD HH:mm"
+						   ng-trim="true"
+						   ng-model="query.before"/>
+				    </div>
+			    </div>
+		    </form>
                   <li class="sidebox-header">
                     <i class="glyphicon glyphicon-resize-full black"></i>
                     Options
@@ -199,17 +234,7 @@
                       Timeline
                     </li>
                     <input type="submit" tabindex="-1"
-                           style="position: absolute; left: -1000px; width: 1px; height: 1px;"/>
-                    <div class="form-group">
-                      <label for="max_time_slots" class="col-md-4 control-label">
-                        Max time slots
-                      </label>
-                      <div class="col-md-8">
-                        <input type="number" id="max_time_slots"
-                               class="form-control"
-                               ng-model="max_time_slots"/>
-                      </div>
-                    </div>
+                           style="position: absolute; left: -1000px; width: 1px; height: 1px;"/
                     <form class="form-horizontal">
                       <div class="form-group">
                         <label for="play_frame_duration" class="col-md-4 control-label">

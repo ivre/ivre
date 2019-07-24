@@ -540,39 +540,63 @@ ivreWebUi
                 return;
             }
             var dr_w = 1000, dr_h = 10;
-            var times = data.edges.reduce(function(dates, flow) {
-                if (!flow.data.meta || !flow.data.meta.times) {
-                    return [];
-                }
-                return dates.concat(flow.data.meta.times.map(function(time) {
-                    return [new Date(time.start.replace(" ", "T")), time.duration];
-                }));
-            }, []);
-	    var timerange = d3.extent(times, function(x) { return x[0]; })
-		    .reduce(function(x, y) {return y - x});
-	    var min_duration = d3.min(times, function(x) { return x[1]; });
-            var time_prec = $scope.time_prec = (
-                this.max_time_slots > 1 ?
-                    Math.max(timerange / (this.max_time_slots - 1),
-                             min_duration * 1000) :
-                    min_duration * 1000
-            );
-	    
-            var vis = d3.select("#timeline")
-                .append("svg:svg")
-                .attr("viewBox", [0, 0, dr_w, dr_h])
-                .attr("class", "fulfill")
-                .attr("preserveAspectRatio", "none")
-                .append("svg:g");
-            var dates = [], counts = {};
-            $scope.date_to_flow = {};
-            $scope.flow_to_date = {};
+            // Get unique timeslots from data
+            // Some of these timeslots can wrapped others.
+            var times = [];
             data.edges.forEach(function(flow) {
                 if (flow.data.meta && flow.data.meta.times) {
                     flow.data.meta.times.forEach(function(time) {
-                        date = new Date(time.start.replace(" ", "T"));
+                        var date = new Date(time.start.replace(" ", "T"));
+                        if (!times.find((elt) => 
+                            (elt[0].getTime() == date.getTime() &&
+                            elt[1] == time.duration))) {
+                            times.push([date, time.duration]);
+                        }
+                    });
+                }
+            });
+            // Detangle timeslots.
+            // Rules:
+            // - A small timeslot included in a larger one is deleted.
+            // - A small timeslot that is tangled with a larger one is
+            //      deleted, where has the larger one is extended to
+            //      contain the whole time.
+            var new_times = [];
+            // Sort times by start dates ascending.
+            times.sort((a,b) => a[0] - b[0]);
+            new_times.push(times[0]);
+            for (var i = 1; i < times.length; i++) {
+                var last = new_times[new_times.length - 1];
+                var last_end = new Date(last[0].getTime() + last[1] * 1000);
+                var time = times[i];
+                var time_start = time[0];
+                var time_end = new Date(time[0].getTime() + time[1] * 1000);
+                if (time_start < last_end && time_end > last_end) {
+                    last[1] += (time_end - last_end) / 1000;
+                }
+                else if(time_start >= last_end) {
+                    new_times.push(time);
+                }
+            }
+            times = new_times;
+
+            // Fill date_to_flow, flow_to_date and counts objects
+            $scope.date_to_flow = {};
+            $scope.flow_to_date = {};
+            var counts = {};
+            data.edges.forEach(function(flow) {
+                if (flow.data.meta && flow.data.meta.times) {
+                    flow.data.meta.times.forEach(function(time) {
+                        var date = new Date(time.start.replace(" ", "T"));
+                        // Get the appropriate timeslot for this date
+                        for (var i = 0; i < times.length; i++) {
+                            if (times[i][0] > date) {
+                                date = times[i-1][0];
+                                break;
+                            }
+                        }
+
                         if ($scope.date_to_flow[date] === undefined) {
-                            dates.push([date, time.duration]);
                             $scope.date_to_flow[date] = {};
                         }
                         $scope.date_to_flow[date][flow.id] = true;
@@ -581,44 +605,67 @@ ivreWebUi
                             $scope.flow_to_date[flow.id] = {};
                         }
                         $scope.flow_to_date[flow.id][date] = true;
+
+                        if (counts[date] === undefined) {
+                            counts[date] = 0;
+                        }
+                        counts[date] += 1;
                     });
                 }
             });
-            for (date in $scope.date_to_flow) {
-                counts[date] = Object.keys($scope.date_to_flow[date]).length;
-            }
-            var dateextent = d3.extent(dates, function(x) { return x[0]; });
+
+            var dateextent = d3.extent(times, function(x) { return x[0]; });
+
+            // Smallest timeslot duration, i.e. biggest precision
+            var min_duration = d3.min(times, function(x) { return x[1]; });
+
+            var time_prec = $scope.time_prec = min_duration * 1000;
+            var vis = d3.select("#timeline")
+                .append("svg:svg")
+                .attr("viewBox", [0, 0, dr_w, dr_h])
+                .attr("class", "fulfill")
+                .attr("preserveAspectRatio", "none")
+                .append("svg:g");
+
+            // alldates contains every timeslots start date between first
+            // and last start dates with `time_prec` precision.
             var alldates = Array.apply(
-                    0,
-                    Array(Math.ceil((dateextent[1] - dateextent[0]) / time_prec)
-                          + 1)
-                ).map(function(_, i) {
-                    return new Date(dateextent[0].getTime() + time_prec * i);
-                });
+                0,
+                Array(Math.ceil((dateextent[1] - dateextent[0]) / time_prec)
+                    + 1)
+            ).map(function(_, i) {
+                return new Date(dateextent[0].getTime() + time_prec * i);
+            });
+            // Timeslots that are too precise comparing to `times` must
+            // be deleted. For each timeslot, `durations` contains the number
+            // of `time_prec` period that the timeslot last.
+            // Because some elements of alldates are going to be deleted,
+            // we loop starting from the end.
             var durations = [];
-            var index = alldates.length - 1;
-            while (index >= 0) {
-                var date = dates.find(function(elt, i) { 
-                    return alldates[index].getTime() == elt[0].getTime(); });
+            for (var index = alldates.length - 1; index >= 0; index--) {
+                var date = times.find((elt, i) =>
+                    alldates[index].getTime() == elt[0].getTime());
                 if (date) {
+                    // The timeslot exists in `times`. Store its duration and
+                    // delete other timeslots included in this one.
                     var nb = date[1] / min_duration;
                     durations[alldates[index]] = nb;
                     if (nb > 1) {
                         alldates.splice(index + 1, nb - 1);
-                    }    
+                    }
                 }
                 else {
                     durations[alldates[index]] = 1;
                 }
-
-                index -= 1;
             }
-            dates = dates.map(function(elt) {
+            // dates contains only timeslots start date.
+            dates = times.map(function(elt) {
                 return elt[0];
             });
+            // Width of a `time_prec` duration timeslot
             var width = Math.max((time_prec * dr_w / (
                 (dateextent[1] - dateextent[0] + time_prec)
-                    || time_prec)) - 1, 1);
+                || time_prec)) - 1, 1);
             var x = d3.time.scale()
                 .domain(dateextent)
                 .range([0, dr_w - width]);
@@ -626,6 +673,9 @@ ivreWebUi
                 .domain([0, d3.max(dates, function(x) {return counts[x];})])
                 .range([0, dr_h]);
 
+            // Append blue rectangles
+            // Their height depends on flows count.
+            // Their width depends on their duration.
             vis.append("g")
                 .selectAll("g.bar")
                 .data(dates)
@@ -640,6 +690,8 @@ ivreWebUi
                 .attr("width", function(d, i) { return width * durations[d]; })
                 .attr("height", function(d, i) {return y(counts[d]);})
 
+            // Append 'light' rectangles on top of blue rectangles
+            // Their width depends on their duration.
             vis.append("g")
                 .selectAll("g.bar")
                 .data(alldates)
@@ -671,7 +723,7 @@ ivreWebUi
                     var count = (counts[d] || 0);
                     var duration = duration_humanize(durations[d] * time_prec);
                     return (d + ' (' + duration  + "): " + count + " flow" +
-                            (count > 1 ? "s" : ""));
+                        (count > 1 ? "s" : ""));
                 })
 
         };
@@ -700,7 +752,7 @@ ivreWebUi
             }
             d3.selectAll(".timeline-highlight")
                 .each(function (d, i) {
-                    var date = new Date(d - (d % time_prec)),
+                    var date = d,
                         highlight = false;
                     for(var i = 0; i < elts.length; i++) {
                         var fl_to_date = $scope.flow_to_date[elts[i].id];
@@ -864,7 +916,6 @@ ivreWebUi
 
         $scope.edge_size_scaling = 0;
         $scope.node_size_scaling = 2;
-        $scope.max_time_slots = 100;
         hashSync.sync($scope, 'node_size_scaling', 'node_size_scaling');
         hashSync.sync($scope, 'edge_size_scaling', 'edge_size_scaling');
         $scope.update_graph_display = function () {
