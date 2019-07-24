@@ -25,8 +25,10 @@ External programs
 
    $ sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 9DA31620334BD75D9DCB49F368818C72E52529D4
    $ echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.0.list
-   $ wget -O- "http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/Release.key" | sudo apt-key add -
-   $ echo 'deb http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/ /' | sudo tee '/etc/apt/sources.list.d/bro.list'
+   $ wget -O- "http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/Release.key" | sudo apt-key add - # If you use Ubuntu 18.04 LTS.
+   $ echo 'deb http://download.opensuse.org/repositories/network:/bro/xUbuntu_18.04/ /' | sudo tee '/etc/apt/sources.list.d/bro.list' 
+   $ wget -O- "http://download.opensuse.org/repositories/network:/bro/Debian_10/Release.key" | sudo apt-key add - # If you use Debian 10.
+   $ echo 'deb http://download.opensuse.org/repositories/network:/bro/Debian_10/ /' | sudo tee '/etc/apt/sources.list.d/bro.list' 
    $ sudo apt update
    $ sudo apt install mongodb-org nmap bro argus-server nfdump gcc make libpcap-dev -y
    $ sudo systemctl enable mongod
