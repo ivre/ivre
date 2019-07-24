@@ -128,7 +128,7 @@ specialized scripts.
         'bottle',
     ],
     extras_require={
-        'Flow': ["py2neo>=3,<4"],
+        'Flow with Neo4j': ["py2neo>=3,<4"],
         'PostgreSQL': ["sqlalchemy", "psycopg2"],
         'GSSAPI authentication': ["python-krbV"],
         'Screenshots': ["PIL"],
@@ -154,8 +154,7 @@ specialized scripts.
         ('share/ivre/data/honeyd', ['data/honeyd/sshd']),
         ('share/ivre/docker', ['docker/Vagrantfile']),
         ('share/ivre/docker/agent', ['docker/agent/Dockerfile']),
-        ('share/ivre/docker/base', ['docker/base/Dockerfile',
-                                    'docker/base/ivre.conf']),
+        ('share/ivre/docker/base', ['docker/base/Dockerfile']),
         ('share/ivre/docker/client', ['docker/client/Dockerfile']),
         ('share/ivre/docker/db', ['docker/db/Dockerfile']),
         ('share/ivre/docker/web', ['docker/web/Dockerfile',

@@ -100,7 +100,6 @@
 <li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
 <li class="toctree-l2"><a class="reference internal" href="passive.html">Passive</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Flow</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#installation">Installation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#usage">Usage</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#data-insertion">Data insertion</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#data-exploration">Data exploration</a></li>
@@ -196,23 +195,6 @@ in IVRE/DRUNK)</p></li>
 known network (but there is no such thing as a “known network”)</p></li>
 <li><p>a monitoring tool to spot unwanted flows in your network</p></li>
 </ul>
-<div class="section" id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
-<p>Start by following the standard ivre installation.</p>
-<p>In addition, install <code class="docutils literal notranslate"><span class="pre">neo4j</span></code> and set a user/password (for example
-through the default admin interface on <code class="docutils literal notranslate"><span class="pre">http://localhost:7474</span></code>).
-Default user/password is <code class="docutils literal notranslate"><span class="pre">neo4j</span></code>/<code class="docutils literal notranslate"><span class="pre">neo4j</span></code>. Set the relevant URL in
-you <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DB_FLOW</span> <span class="o">=</span> <span class="s2">&quot;neo4j://&lt;user&gt;:&lt;password&gt;@localhost:7474/&quot;</span>
-</pre></div>
-</div>
-<p>Run <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">flowcli</span> <span class="pre">--init</span></code> to initialize the database (<strong>WARNING:</strong>
-this will <strong>REMOVE</strong> everything in the db).</p>
-<p>And that should be it. The Web UI is available at
-<code class="docutils literal notranslate"><span class="pre">&lt;ivre-web-root&gt;/flow.html</span></code>.</p>
-<p>As the Web UI is super-beta, no error will show up in it, check the logs
-of the webserver for debugging.</p>
-</div>
 <div class="section" id="usage">
 <h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="data-insertion">

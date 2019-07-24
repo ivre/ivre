@@ -46,9 +46,6 @@ COPY doku-conf-acl.auth.php var/www/dokuwiki/conf/acl.auth.php
 COPY doku-conf-users.auth.php var/www/dokuwiki/conf/users.auth.php
 RUN chown -Rh www-data:www-data var/www/dokuwiki/data var/www/dokuwiki/conf var/www/dokuwiki/lib/plugins
 
-# Needed by Neo4j
-RUN mkdir /var/www/.neo4j && chown www-data:www-data /var/www/.neo4j
-
 # Use a version-independent service name
 RUN ln -s /etc/init.d/php?*-fpm /etc/init.d/php-fpm
 

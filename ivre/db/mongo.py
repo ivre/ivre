@@ -4884,7 +4884,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         by `sum_fields` sum and storing the `collect_fields` fields of
         each original entry in aggregated records as a list.
         By default, the aggregated records are sorted by their number of
-        occurences.
+        occurrences.
         Return format:
             {
                 fields: (field_1_value, field_2_value, ...),
@@ -5458,9 +5458,9 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # We can use the $exists operator on the n-th element of an array
         # to determine if it has at least n elements.
         # In case of '<' or '<=' comparison, we need to enforce the
-        # existance of the attribute.
+        # existence of the attribute.
 
-        # Assign to each operator a couple (value offset, existance)
+        # Assign to each operator a couple (value offset, existence)
         op_values = {
             '$lt': (-1, False), '$lte': (0, False),
             '$gt': (0, True), '$gte': (-1, True)

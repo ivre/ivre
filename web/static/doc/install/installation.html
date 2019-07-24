@@ -196,10 +196,9 @@
 <div class="section" id="database">
 <h2>Database<a class="headerlink" href="#database" title="Permalink to this headline">¶</a></h2>
 <p>Depending on the backends you wan to use, install a database
-server. Please keep in mind that currently, MongoDB is the only
-supported backend for <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes, and
-Neo4j is the only supported backend for <code class="docutils literal notranslate"><span class="pre">flow</span></code>. To learn more about
-the different purposes, read the <a class="reference internal" href="../overview/principles.html#principles"><span class="std std-ref">Principles</span></a>.</p>
+server. Please keep in mind that currently, MongoDB is currently the
+only supported backend for all the purposes. To learn more about the
+different purposes, read the <a class="reference internal" href="../overview/principles.html#principles"><span class="std std-ref">Principles</span></a>.</p>
 <p>The database servers installation and setup is not covered here, and
 depends on your platform and needs. Please refer to the server
 documentation on how to install it. For MongoDB you can read <a class="reference external" href="http://docs.mongodb.org/manual/installation/">the
@@ -235,8 +234,8 @@ with version 3).</p></li>
 <li><p><a class="reference external" href="https://python-future.org/">Future</a>.</p></li>
 <li><p><a class="reference external" href="http://api.mongodb.org/python/">pymongo</a> version 2.7.2 minimum.</p></li>
 <li><p><a class="reference external" href="http://py2neo.org/v3/">py2neo</a> version 3, optional, to use the
-flow purpose.</p></li>
-<li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the experimental PostgreSQL
+flow purpose with the Neo4j backend (<strong>deprecated</strong>).</p></li>
+<li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the <strong>experimental</strong> PostgreSQL
 backend.</p></li>
 <li><p><a class="reference external" href="http://www.pythonware.com/products/pil/">PIL</a> optional, to trim
 screenshots.</p></li>
@@ -249,9 +248,11 @@ suggested that you use the latest stable release (the performances
 have improved quite a lot since version 2.6), or at least 3.2 (IVRE
 uses a hack for some operations when it connects to a server older
 than 3.2).</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose relies, for now, on <a class="reference external" href="https://neo4j.com/">Neo4j</a>.</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes have an experimental
-PostgreSQL backend that can be used in lieu of MongoDB.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes have an
+<strong>experimental</strong> PostgreSQL backend that can be used in lieu of
+MongoDB.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose can be used with Neo4j instead of MongoDB for
+historical reasons. This is <strong>deprecated</strong>.</p>
 <p>Please refer to the database servers (or your distribution)
 documentation on how to install and configure them.</p>
 </div>
