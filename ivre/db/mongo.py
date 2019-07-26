@@ -5544,6 +5544,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         Overloads from_filters method from MongoDB.
         It transforms flow.Query object returned by super().from_filters
         in MongoDB filter and returns it.
+        Note: limit, skip, orderby, mode, timeline are IGNORED. They are
+        present only for compatibility reasons.
         """
         query = (super(MongoDBFlow, cls)
                  .from_filters(filters, limit=limit, skip=skip,
@@ -5728,7 +5730,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
     def reduce_precision(self, new_duration, flt=None,
                          base=None, before=None, after=None, precision=None):
-        # FIXME In this function, after and before must be "non strict".
         # validate base
         if base is None:
             base = config.FLOW_DEFAULT_BASE
@@ -5755,7 +5756,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         if flt is None:
             flt = self.flt_empty
 
-        utils.LOGGER.debug("flt : %s" % flt)
         for flw in self._get_cursor(self.columns[self.column_flow], flt):
             # We must ensure the unicity of timeslots in a flow
             new_times = set()
@@ -5763,9 +5763,10 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 # This timeslot may not need to be changed
                 if ((current_duration is not None and
                      timeslot['duration'] != current_duration) or
-                        (current_duration is None and
-                         new_duration <= timeslot['duration'] and
-                         new_duration % timeslot['duration'] != 0) or
+                        (current_duration is None and (
+                         new_duration <= timeslot['duration'] or
+                         new_duration % timeslot['duration'] != 0 or
+                         base % timeslot['duration'] != 0)) or
                         (before is not None and timeslot['start'] >= before) or
                         (after is not None and timeslot['start'] < after)):
                     new_times.add((timeslot["start"], timeslot["duration"]))

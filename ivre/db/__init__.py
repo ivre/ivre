@@ -2448,11 +2448,9 @@ class DBFlow(DB):
 
     @classmethod
     def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
-                     timeline=False):
+                     timeline=False, after=None, before=None, precision=None):
         """
         Returns a flow.Query object representing the given filters
-        Note: limit, skip, orderby, mode and timeline are IGNORED. They are
-        present only for compatibility reasons with neo4j backend.
         This should be inherited by backend specific classes
         """
         query = flow.Query()
@@ -2488,17 +2486,107 @@ class DBFlow(DB):
             "duration": precision
         }
 
-    def reduce_precision(self, current_duration, new_duration, flt=None,
-                         base=0):
+    def reduce_precision(self, new_duration, flt=None,
+                         base=None, before=None, after=None, precision=None):
         """
-        Changes precision of timeslots with <current_duration> precision
-        to <new_duration> precision of flows honoring the given filter.
+        Changes precision of timeslots to <new_duration> precision of flows
+        honoring:
+            - the given filter <flt> if specified
+            - that have been seen before <before> if specified
+            - that have been seen after <after> if specified
+            - timeslots changed must currently have <precision> precision if
+                specified
         <base> represents the timestamp of the base point.
-        <base> must be a multiple of <current_precision>.
-        <new_duration> must be a multiple of <current_duration>.
-        <new_duration> must be greater than <current_duration>.
+        If <precision> is specified:
+            <new_duration> must be a multiple of <precision>
+            <new_duration> must be greater than <precision>
+            <base> must be a multiple of current precision
+        Otherwise, timeslots that do not respect these rules won't be updated.
         """
         raise NotImplementedError("Only available with MongoDB backend.")
+
+    def list_precisions(self):
+        """
+        Retrieves the list of timeslots precisions in the database.
+        """
+        raise NotImplementedError("Only available with MongoDB backend.")
+
+    def count(self, flt, after=None, before=None, precision=None):
+        """
+        Returns a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter.
+        """
+        raise NotImplementedError
+
+    def flow_daily(self, precision, flt=None):
+        """
+        Returns a generator within each element is a dict
+        {
+            flows: [("proto/dport", count), ...]
+            time_in_day: time
+        }
+        """
+        raise NotImplementedError
+
+    def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
+                 timeline=False, after=None, before=None):
+        """
+        Returns a dict {"nodes": [], "edges": []}.
+        """
+        raise NotImplementedError
+
+    def to_iter(self, flt, limit=None, skip=None, orderby=None, mode=None,
+                timeline=False, after=None, before=None, precision=None):
+        """
+        Returns a generator which yields dict {"src": src, "dst": dst,
+        "flow": flow}.
+        """
+        raise NotImplementedError
+
+    def host_details(self, node_id):
+        """
+        Returns details about an host with the given address
+        Details means a dict : {
+            in_flows: set() => incoming flows (proto, dport),
+            out_flows: set() => outcoming flows (proto, dport),
+            elt: {} => data about the host
+            clients: set() => hosts which talked to this host
+            servers: set() => hosts which this host talked to
+        }
+        """
+        raise NotImplementedError
+
+    def flow_details(self, flow_id):
+        """
+        Returns details about a flow with the given ObjectId.
+        Details mean : {
+            elt: {} => basic data about the flow,
+            meta: [] => meta entries corresponding to the flow
+        }
+        """
+        raise NotImplementedError
+
+    def topvalues(self, flt, fields, collect_fields=None, sum_fields=None,
+                  limit=None, skip=None, least=False, topnbr=10):
+        """
+        Returns the top values honoring the given `query` for the given
+        fields list `fields`, counting and sorting the aggregated records
+        by `sum_fields` sum and storing the `collect_fields` fields of
+        each original entry in aggregated records as a list.
+        By default, the aggregated records are sorted by their number of
+        occurences.
+        Return format:
+            {
+                fields: (field_1_value, field_2_value, ...),
+                count: count,
+                collected: [
+                    (collect_1_value, collect_2_value, ...),
+                    ...
+                ]
+            }
+        Collected fields are unique.
+        """
+        raise NotImplementedError
 
 
 class MetaDB(object):

@@ -527,6 +527,8 @@ ivreWebUi
         $scope.flow_to_date = {};
         $scope.date_to_flow = {};
         $scope.draw_timeline = function(data) {
+            // FIXME There are known issues caused by "time anomalies"
+            // such as DST or leap years...
             if(data === undefined) {
                 data = $scope.timeline_data;
             }
@@ -547,7 +549,7 @@ ivreWebUi
                 if (flow.data.meta && flow.data.meta.times) {
                     flow.data.meta.times.forEach(function(time) {
                         var date = new Date(time.start.replace(" ", "T"));
-                        if (!times.find((elt) => 
+                        if (!times.find((elt) =>
                             (elt[0].getTime() == date.getTime() &&
                             elt[1] == time.duration))) {
                             times.push([date, time.duration]);
@@ -639,29 +641,33 @@ ivreWebUi
             // Timeslots that are too precise comparing to `times` must
             // be deleted. For each timeslot, `durations` contains the number
             // of `time_prec` period that the timeslot last.
-            // Because some elements of alldates are going to be deleted,
-            // we loop starting from the end.
+            // For performance, we don't want to loop over `alldates` so we
+            // loop over `times`.
             var durations = [];
-            for (var index = alldates.length - 1; index >= 0; index--) {
-                var date = times.find((elt, i) =>
-                    alldates[index].getTime() == elt[0].getTime());
-                if (date) {
-                    // The timeslot exists in `times`. Store its duration and
-                    // delete other timeslots included in this one.
-                    var nb = date[1] / min_duration;
-                    durations[alldates[index]] = nb;
-                    if (nb > 1) {
-                        alldates.splice(index + 1, nb - 1);
-                    }
+            var to_delete_indexes = []
+            times.forEach((time) => {
+                var alldates_index = Math.round(((time[0].getTime() -
+                    dateextent[0].getTime()) / time_prec));
+                var size = time[1] / min_duration;
+                durations[alldates[alldates_index]] = size;
+                if (size > 1) {
+                    // We can't delete alldates elements now because we
+                    // use alldates_index which is based on the number
+                    // of alldates eleemnts.
+                    to_delete_indexes.push([alldates_index + 1, size -1]);
                 }
-                else {
-                    durations[alldates[index]] = 1;
-                }
-            }
+            });
+            // Sort in index reverse order
+            to_delete_indexes.sort((a,b) => b[0] - a[0]);
+            to_delete_indexes.forEach((to_delete) => {
+                alldates.splice(to_delete[0], to_delete[1]);
+            });
+
             // dates contains only timeslots start date.
             dates = times.map(function(elt) {
                 return elt[0];
             });
+
             // Width of a `time_prec` duration timeslot
             var width = Math.max((time_prec * dr_w / (
                 (dateextent[1] - dateextent[0] + time_prec)
@@ -672,7 +678,6 @@ ivreWebUi
             var y = d3.scale.linear()
                 .domain([0, d3.max(dates, function(x) {return counts[x];})])
                 .range([0, dr_h]);
-
             // Append blue rectangles
             // Their height depends on flows count.
             // Their width depends on their duration.
@@ -681,15 +686,18 @@ ivreWebUi
                 .data(dates)
                 .enter().append("svg:g")
                 .attr("class", "bar")
-                .attr("transform", function(d, i) {
+                .attr("transform", function(d) {
                     var ytr = dr_h - y(counts[d]);
                     return "translate(" + x(d) + ", " + ytr + ")";
                 })
                 .append("svg:rect")
                 .attr("fill", "steelblue")
-                .attr("width", function(d, i) { return width * durations[d]; })
-                .attr("height", function(d, i) {return y(counts[d]);})
-
+                .attr("width", function(d) {
+                    return width * (durations[d] || 1);
+                })
+                .attr("height", function(d) {
+                    return y(counts[d]);
+                })
             // Append 'light' rectangles on top of blue rectangles
             // Their width depends on their duration.
             vis.append("g")
@@ -697,13 +705,13 @@ ivreWebUi
                 .data(alldates)
                 .enter().append("svg:g")
                 .attr("class", "bar")
-                .attr("transform", function(d, i) {
+                .attr("transform", function(d) {
                     return "translate(" + x(d) + ")";
                 })
                 .append("svg:rect")
                 .attr("fill", "white")
                 .attr("fill-opacity", 0)
-                .attr("width", function(d, i) { return width * durations[d]; })
+                .attr("width", function(d) { return width * (durations[d] || 1); })
                 .attr("height", dr_h)
                 .attr("class", "timeline-highlight")
                 .on("mouseover", function(d) {
@@ -711,7 +719,7 @@ ivreWebUi
                     rect.attr("old-fill-opacity", rect.attr("fill-opacity"));
                     rect.attr("fill-opacity", 0.4);
                     // Highlight related flows
-                    $scope.set_visible_from_date(d, time_prec, durations[d]);
+                    $scope.set_visible_from_date(d, time_prec, durations[d] || 1);
                 })
                 .on("mouseout", function(d) {
                     var rect = d3.select(this);
@@ -719,9 +727,9 @@ ivreWebUi
                     $scope.set_visible_from_date();
                 })
                 .append("svg:title")
-                .text(function(d, i) {
+                .text(function(d) {
                     var count = (counts[d] || 0);
-                    var duration = duration_humanize(durations[d] * time_prec);
+                    var duration = duration_humanize((durations[d] || 1) * time_prec);
                     return (d + ' (' + duration  + "): " + count + " flow" +
                         (count > 1 ? "s" : ""));
                 })
@@ -740,7 +748,6 @@ ivreWebUi
         };
 
         $scope.timeline_highlight_flow = function (elt) {
-            var time_prec = $scope.time_prec;
             if (elt === undefined) {
                 elts = [];
             }

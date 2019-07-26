@@ -99,18 +99,22 @@ def main():
                         "Reduce precision to NEW_PRECISION for flows "
                         "timeslots. Takes account of precision, before, "
                         "after, filters.")
-    parser.add_argument("--base", type=int, help="When using "
-                        "--reduce-precision, set timeslots base. Defaults to "
-                        + str(config.FLOW_DEFAULT_BASE), default=None)
-    parser.add_argument("--after", "-a", type=str, help="Get only flows "
-                        "seen after this date. Format: YEAR-MONTH-DAY "
-                        "HOUR:MINUTE. Based on timeslots precision.")
-    parser.add_argument("--before", "-b", type=str, help="Get only flows "
-                        "seen before this date. Format: YEAR-MONTH-DAY "
-                        "HOUR:MINUTE. Based on timeslots precision.")
+    parser.add_argument("--base", "-B", type=int, help="Only with MongoDB "
+                        "backend. When using --reduce-precision, set timeslots"
+                        " base. Defaults to " + str(config.FLOW_DEFAULT_BASE),
+                        default=None)
+    parser.add_argument("--after", "-a", type=str, help="Only with MongoDB "
+                        "backend. Get only flows seen after this date. "
+                        "Date format: YEAR-MONTH-DAY HOUR:MINUTE. "
+                        "Based on timeslots precision.")
+    parser.add_argument("--before", "-b", type=str, help="Only with MongoDB "
+                        "backend. Get only flows seen before this date. "
+                        "Date format: YEAR-MONTH-DAY HOUR:MINUTE. "
+                        "Based on timeslots precision.")
     parser.add_argument('--precision', nargs='?', default=None, const=0,
-                        help="If PRECISION is present, get only flows stored "
-                        "with the given precision. Otherwise, list "
+                        help="Only With MongoDB backend. If PRECISION is "
+                        "specified, get only flows with one timeslot of"
+                        "the given precision. Otherwise, list "
                         "precisions.", type=int)
     args = parser.parse_args()
 

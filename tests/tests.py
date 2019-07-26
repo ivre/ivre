@@ -2651,10 +2651,36 @@ which `predicate()` is True, given `webflt`.
                 ['--flow-filters', 'LEN times > 2'],
                 {"edges": ['LEN times > 2']})
 
+            # Test after and before filters
+            self.check_flow_count_value_cli(
+                "flow_count_before_2015",
+                ['-b', "2015-01-01 00:00"],
+                "flowcli")
+            self.check_flow_count_value_cli(
+                "flow_count_after_2015",
+                ['-a', "2015-01-01 00:00"],
+                "flowcli")
+            self.check_flow_count_value_cli(
+                "flow_count_in_2015",
+                ["-a", "2015-01-01 00:00", "-b", "2016-01-01 00:00"],
+                "flowcli")
+
+            # Test precision
+            res, out, err = RUN(['ivre', 'flowcli', '--precision'])
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+            numbers = out.decode().split('\n')[:-1]
+            self.assertEqual(len(numbers), 1)
+            self.assertEqual(int(numbers[0]), ivre.config.FLOW_TIME_PRECISION)
+
+            self.check_flow_count_value_cli(
+                "flow_count",
+                ['--precision', str(ivre.config.FLOW_TIME_PRECISION)],
+                "flowcli")
+
             # Test to reduce precision
             new_precision = ivre.config.FLOW_TIME_PRECISION * 4
             res, out, err = RUN(['ivre', 'flowcli', '--reduce-precision',
-                                 str(ivre.config.FLOW_TIME_PRECISION),
                                  str(new_precision)],
                                 stdin=open(os.devnull))
             self.assertEqual(res, 0)

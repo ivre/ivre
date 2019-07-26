@@ -584,11 +584,13 @@ def get_flow():
     orderby = query.get("orderby", None)
     timeline = query.get("timeline", False)
     try:
-        before = datetime.datetime.strptime(query.get("before", None), "%Y-%m-%d %H:%M")
+        before = datetime.datetime.strptime(query.get("before", None),
+                                            "%Y-%m-%d %H:%M")
     except (TypeError, ValueError):
         before = None
     try:
-        after = datetime.datetime.strptime(query.get("after", None), "%Y-%m-%d %H:%M")
+        after = datetime.datetime.strptime(query.get("after", None),
+                                           "%Y-%m-%d %H:%M")
     except (TypeError, ValueError):
         after = None
 
