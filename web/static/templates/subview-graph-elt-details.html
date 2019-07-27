@@ -35,11 +35,24 @@
 
   <div ng-if="cur_elt.details">
     <div ng-repeat="(meta, data) in cur_elt.details.meta">
-      <table class="table table-striped table-condensed">
+      <table class="table table-striped table-condensed details">
         <thead>
           <tr><th colspan=2>{{meta}}</th></tr>
         </thead>
-        <tbody ng-repeat="elem in data track by $index">
+        <tbody ng-if="!is_array(data)" ng-repeat="(key, values) in data">
+          <tr>
+            <th>
+              {{ key }}
+            </th>
+          </tr>
+          <tr ng-if="is_array(values)" ng-repeat="value in values">
+            <td>{{ value }}</td>
+          </tr>
+          <tr ng-if="!is_array(values)">
+            <td> {{ values }}</td>
+          </tr>
+        </tbody>
+        <tbody ng-if="is_array(data)" ng-repeat="elem in data track by $index">
           <tr ng-repeat="(key, value) in elem"
               ng-if="!key.startsWith('__')"
               style="{{$index == 0?'border-top: 2px solid':''}}">
