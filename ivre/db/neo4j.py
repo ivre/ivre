@@ -1104,7 +1104,13 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
         else:
             props = elt.get("data", {})
         if meta:
+            if 'times' in meta:
+                for (i, t) in enumerate(meta['times']):
+                    meta['times'][i] = datetime.fromtimestamp(t)
             props["meta"] = meta
+        for field in ['firstseen', 'lastseen']:
+            if field in props:
+                props[field] = datetime.fromtimestamp(props[field])
         return props
 
     @staticmethod

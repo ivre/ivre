@@ -84,6 +84,11 @@
     border: 1px solid #ccc;
 }
 
+.table.details > thead > tr > th {
+    text-transform: uppercase;
+    padding-bottom: 10px;
+}
+
 /*
  * THEMES
 */
