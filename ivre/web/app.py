@@ -53,7 +53,7 @@ def check_referer(func):
     """"Wrapper for route functions to implement a basic anti-CSRF check
 based on the Referer: header.
 
-    It will abort if the referer is invalid.
+    It will abort (status code 400) if the referer is invalid.
 
     """
 
@@ -92,7 +92,13 @@ based on the Referer: header.
 @application.get('/config')
 @check_referer
 def get_config():
-    """This function returns JS code to set client-side config values."""
+    """Returns JavaScript code to set client-side configuration values
+
+    :status 200: no error
+    :status 400: invalid referer
+    :>json object config: the configuration values
+
+    """
     response.set_header('Content-Type', 'application/javascript')
     for key, value in [
             ("notesbase", config.WEB_NOTES_BASE),
@@ -140,6 +146,23 @@ def get_nmap_base(dbase):
 )
 @check_referer
 def get_nmap_action(subdb, action):
+    """Get special values from Nmap & View databases
+
+    :param str subdb: database to query (must be "scans" or "view")
+    :param str action: specific value to get (must be one of "onlyips",
+                      "ipsports", "timeline", "coordinates", "countopenports"
+                      or "diffcats")
+    :query str q: query (including limit/skip and sort)
+    :query str callback: callback to use for JSONP results
+    :query bool ipsasnumbers: to get IP addresses as numbers rather than as
+                             strings
+    :query bool datesasstrings: to get dates as strings rather than as
+                               timestamps
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr object: results
+
+    """
     subdb = db.view if subdb == 'view' else db.nmap
     flt_params = get_nmap_base(subdb)
     preamble = "[\n"
@@ -264,6 +287,16 @@ def get_nmap_action(subdb, action):
 @application.get('/<subdb:re:scans|view>/count')
 @check_referer
 def get_nmap_count(subdb):
+    """Get special values from Nmap & View databases
+
+    :param str subdb: database to query (must be "scans" or "view")
+    :query str q: query (including limit/skip and sort)
+    :query str callback: callback to use for JSONP results
+    :status 200: no error
+    :status 400: invalid referer
+    :>json int: count
+
+    """
     subdb = db.view if subdb == 'view' else db.nmap
     flt_params = get_nmap_base(subdb)
     count = subdb.count(flt_params.flt)
@@ -275,6 +308,22 @@ def get_nmap_count(subdb):
 @application.get('/<subdb:re:scans|view>/top/<field:path>')
 @check_referer
 def get_nmap_top(subdb, field):
+    """Get top values from Nmap & View databases
+
+    :param str subdb: database to query (must be "scans" or "view")
+    :param str field: (pseudo-)field to get top values (e.g., "service")
+    :query str q: query (including limit/skip and sort)
+    :query str callback: callback to use for JSONP results
+    :query bool ipsasnumbers: to get IP addresses as numbers rather than as
+                             strings
+    :query bool datesasstrings: to get dates as strings rather than as
+                               timestamps
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr str label: field value
+    :>jsonarr int value: count for this value
+
+    """
     subdb = db.view if subdb == 'view' else db.nmap
     flt_params = get_nmap_base(subdb)
     if field[0] in '-!':
@@ -316,6 +365,20 @@ def get_nmap_top(subdb, field):
 @application.get('/<subdb:re:scans|view>')
 @check_referer
 def get_nmap(subdb):
+    """Get records from Nmap & View databases
+
+    :param str subdb: database to query (must be "scans" or "view")
+    :query str q: query (including limit/skip and sort)
+    :query str callback: callback to use for JSONP results
+    :query bool ipsasnumbers: to get IP addresses as numbers rather than as
+                             strings
+    :query bool datesasstrings: to get dates as strings rather than as
+                               timestamps
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr object: results
+
+    """
     subdb = db.view if subdb == 'view' else db.nmap
     flt_params = get_nmap_base(subdb)
     # PostgreSQL: the query plan if affected by the limit and gives
@@ -460,6 +523,17 @@ def import_files(subdb, source, categories, files):
 @application.post('/<subdb:re:scans|view>')
 @check_referer
 def post_nmap(subdb):
+    """Add records to Nmap & View databases
+
+    :param str subdb: database to query (must be "scans" or "view")
+    :form categories: a coma-separated list of categories
+    :form source: the source of the scan results (mandatory)
+    :form result: scan results (as XML or JSON files)
+    :status 200: no error
+    :status 400: invalid referer, source or username missing
+    :>json int count: number of inserted results
+
+    """
     referer, source, categories, files = parse_form()
     count = import_files(db.view if subdb == 'view' else db.nmap, source,
                          categories, files)
@@ -483,6 +557,16 @@ def post_nmap(subdb):
 @application.get('/flows')
 @check_referer
 def get_flow():
+    """Get special values from Nmap & View databases
+
+    :query str q: query (including limit/skip, orderby, etc.)
+    :query str callback: callback to use for JSONP results
+    :query str action: can be set to "details"
+    :status 200: no error
+    :status 400: invalid referer
+    :>json object: results
+
+    """
     callback = request.params.get("callback")
     action = request.params.get("action", "")
     if callback is None:
@@ -529,6 +613,15 @@ def get_flow():
 @application.get('/ipdata/<addr>')
 @check_referer
 def get_ipdata(addr):
+    """Returns (estimated) geographical and AS data for a given IP address.
+
+    :param str addr: IP address to query
+    :query str callback: callback to use for JSONP results
+    :status 200: no error
+    :status 400: invalid referer
+    :>json object: the result values
+
+    """
     callback = request.params.get("callback")
     result = json.dumps(db.data.infos_byip(addr))
     if callback is None:
