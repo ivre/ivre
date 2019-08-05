@@ -176,47 +176,241 @@
             
   <div class="section" id="web-api">
 <h1>Web API<a class="headerlink" href="#web-api" title="Permalink to this headline">¶</a></h1>
-<p><strong>TODO</strong>: this needs to be documented!</p>
 <dl class="get">
 <dt id="get--config">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/config</code><a class="headerlink" href="#get--config" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function returns JS code to set client-side config values.</p>
+<dd><p>Returns JavaScript code to set client-side configuration values</p>
+<dl class="field-list simple">
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Object</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>config</strong> (<em>object</em>) – the configuration values</p></li>
+</ul>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="get">
 <dt id="get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/(action:re:onlyips|ipsports|timeline|coordinates|countopenports|diffcats)</code><a class="headerlink" href="#get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Get special values from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+<li><p><strong>action</strong> (<em>str</em>) – specific value to get (must be one of “onlyips”,
+“ipsports”, “timeline”, “coordinates”, “countopenports”
+or “diffcats”)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Query Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as strings</p></li>
+<li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as timestamps</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Array of Objects</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>object</strong> – results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="get">
 <dt id="get--(subdb-re-scans|view)-count">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/count</code><a class="headerlink" href="#get--(subdb-re-scans|view)-count" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Get special values from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Query Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Object</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>int</strong> – count</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="get">
 <dt id="get--(subdb-re-scans|view)-top-(field-path)">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/top/</code><span class="sig-paren">(</span><em class="property">field: </em><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view)-top-(field-path)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Get top values from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+<li><p><strong>field</strong> (<em>str</em>) – (pseudo-)field to get top values (e.g., “service”)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Query Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as strings</p></li>
+<li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as timestamps</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Array of Objects</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>label</strong> (<em>str</em>) – field value</p></li>
+<li><p><strong>value</strong> (<em>int</em>) – count for this value</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="get">
 <dt id="get--(subdb-re-scans|view)">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)</code><a class="headerlink" href="#get--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Get records from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Query Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as strings</p></li>
+<li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as timestamps</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Array of Objects</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>object</strong> – results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="post">
 <dt id="post--(subdb-re-scans|view)">
 <code class="sig-name descname">POST </code><code class="sig-name descname">/(subdb:re:scans|view)</code><a class="headerlink" href="#post--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Add records to Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Form Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>categories</strong> – a coma-separated list of categories</p></li>
+<li><p><strong>source</strong> – the source of the scan results (mandatory)</p></li>
+<li><p><strong>result</strong> – scan results (as XML or JSON files)</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer, source or username missing</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Object</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>count</strong> (<em>int</em>) – number of inserted results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="get">
 <dt id="get--flows">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/flows</code><a class="headerlink" href="#get--flows" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Get special values from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip, orderby, etc.)</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>action</strong> (<em>str</em>) – can be set to “details”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Object</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>object</strong> – results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="get">
 <dt id="get--ipdata-(addr)">
 <code class="sig-name descname">GET </code><code class="sig-name descname">/ipdata/</code><span class="sig-paren">(</span><em class="sig-param">addr</em><span class="sig-paren">)</span><a class="headerlink" href="#get--ipdata-(addr)" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Returns (estimated) geographical and AS data for a given IP address.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>addr</strong> (<em>str</em>) – IP address to query</p></li>
+</ul>
+</dd>
+<dt class="field-even">Query Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Object</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>object</strong> – the result values</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 </div>
 
