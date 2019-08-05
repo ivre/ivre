@@ -671,13 +671,11 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
                     "    MERGE (t:Time {time: stime})\n"
                     "    MERGE (%(elt)s)-[:SEEN]->(t))"
                 ) % {"elt": elt, "prec": config.FLOW_TIME_PRECISION}
-            else:
-                return (
-                    "MERGE (t:Time {time: {seen_time}})\n"
-                    "MERGE (%s)-[:SEEN]->(t)" % elt
-                )
-        else:
-            return ""
+            return (
+                "MERGE (t:Time {time: {seen_time}})\n"
+                "MERGE (%s)-[:SEEN]->(t)" % elt
+            )
+        return ""
 
     @classmethod
     def _set_props(cls, elt, props, set_list):
@@ -1117,18 +1115,16 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
     def _get_ref(elt, _):
         if isinstance(elt, Node):
             return int(remote(elt).ref.split('/', 1)[-1])
-        else:
-            return elt["metadata"]["id"]
+        return elt["metadata"]["id"]
 
     @staticmethod
     def _get_labels(elt, _):
         if isinstance(elt, Node):
             return list(elt.labels())
-        elif isinstance(elt, Relationship):
+        if isinstance(elt, Relationship):
             return [elt.type()]
-        else:
-            meta = elt["metadata"]
-            return meta["labels"] if "labels" in meta else [meta["type"]]
+        meta = elt["metadata"]
+        return meta["labels"] if "labels" in meta else [meta["type"]]
 
     @classmethod
     def cursor2json_iter(cls, cursor):

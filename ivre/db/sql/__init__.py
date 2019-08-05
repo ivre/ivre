@@ -343,8 +343,7 @@ class SQLDB(DB):
         ts = ts - (ts % config.FLOW_TIME_PRECISION)
         if isinstance(date, datetime.datetime):
             return datetime.datetime.fromtimestamp(ts)
-        else:
-            return ts
+        return ts
 
     @staticmethod
     def fmt_results(fields, result):
@@ -1470,10 +1469,9 @@ the structured output for fcrdns and rpcinfo script.
                 return cls.base_filter(
                     port=[(True, cls.tables.port.id.in_(base2))]
                 )
-            else:
-                req = cls.tables.script.data.op('@>')(json.dumps(
-                    {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
-                ))
+            req = cls.tables.script.data.op('@>')(json.dumps(
+                {"ls": {"volumes": [{"files": [{"filename": fname}]}]}}
+            ))
         if scripts is None:
             return cls.base_filter(script=[(True, req)])
         if isinstance(scripts, basestring):
@@ -2009,10 +2007,9 @@ passive table."""
         if not yieldall:
             req = req.order_by(*(nullsfirst(fld) for fld in fields))
             return self.db.execute(req)
-        else:
-            # results will be modified, we cannot keep a RowProxy
-            # instance, so we convert the results to lists
-            return (list(rec) for rec in self.db.execute(req))
+        # results will be modified, we cannot keep a RowProxy
+        # instance, so we convert the results to lists
+        return (list(rec) for rec in self.db.execute(req))
 
     @classmethod
     def searchnonexistent(cls):

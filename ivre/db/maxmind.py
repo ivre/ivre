@@ -62,7 +62,7 @@ class MaxMindFileIter(object):
             next_node_no = self.base.read_record(node_no, flag)
             if next_node_no == 0:
                 raise Exception('Invalid file format')
-            elif next_node_no >= self.base.node_count:
+            if next_node_no >= self.base.node_count:
                 pos = (next_node_no - self.base.node_count -
                        self.base.DATA_SECTION_SEPARATOR_SIZE)
                 curvalinf = int(''.join(str(p) for p in self.current) +
@@ -249,12 +249,11 @@ class MaxMindFile(object):
             next_node_no = self.read_record(node_no, flag)
             if next_node_no == 0:
                 raise Exception('Invalid file format')
-            elif next_node_no >= self.node_count:
+            if next_node_no >= self.node_count:
                 pos = (next_node_no - self.node_count -
                        self.DATA_SECTION_SEPARATOR_SIZE)
                 return self.decode(pos, self.data_section_start)[1]
-            else:
-                node_no = next_node_no
+            node_no = next_node_no
         raise Exception('Invalid file format')
 
     def __iter__(self):

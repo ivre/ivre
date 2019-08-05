@@ -408,26 +408,25 @@ To use this to create a pandas DataFrame, you can run:
                     )
                 )
             )
-        else:
-            return (
-                headers,
-                (
-                    self.features_addr_get(
-                        addr,
-                        use_asnum,
-                        use_ipv6,
-                        use_single_int
-                    ) + features
-                    for addr, features in self.features_port_get(
-                        features_port,
-                        flt,
-                        yieldall,
-                        use_service,
-                        use_product,
-                        use_version,
-                    )
+        return (
+            headers,
+            (
+                self.features_addr_get(
+                    addr,
+                    use_asnum,
+                    use_ipv6,
+                    use_single_int
+                ) + features
+                for addr, features in self.features_port_get(
+                    features_port,
+                    flt,
+                    yieldall,
+                    use_service,
+                    use_product,
+                    use_version,
                 )
             )
+        )
 
     @staticmethod
     def searchversion(version):
@@ -1586,7 +1585,7 @@ class DBView(DBActive):
     def merge_scripts(curscript, script, script_id):
         if script_id.startswith('ssl-ja3-'):
             return DBView.merge_ja3_scripts(curscript, script, script_id)
-        elif script_id == 'http-user-agent':
+        if script_id == 'http-user-agent':
             return DBView.merge_ua_scripts(curscript, script, script_id)
         return {}
 
