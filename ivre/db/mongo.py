@@ -4669,11 +4669,10 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     "$each": cls._get_timeslots(
                         rec['start_time'], rec['end_time'])}
             else:
-                d = OrderedDict()
-                d['start'] = cls.date_round(rec['start_time'])
-                d['duration'] = config.FLOW_TIME_PRECISION
-
-                updatespec.setdefault("$addToSet", {})["times"] = d
+                updatespec.setdefault("$addToSet", {})["times"] = (
+                    cls._get_timeslot(rec['start_time'],
+                                      config.FLOW_TIME_PRECISION,
+                                      config.FLOW_TIME_BASE))
 
     @classmethod
     def dns2flow(cls, bulk, rec):
@@ -4802,8 +4801,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         self.db[self.columns[self.column_flow]].drop()
         self.create_indexes()
 
-    def get(self, flt, skip=None, limit=None, orderby=None, after=None,
-            before=None, fields=None, precision=None):
+    def get(self, flt, skip=None, limit=None, orderby=None, fields=None):
         """
         Returns an iterator over flows honoring the given filter
         with the given options.
@@ -4831,38 +4829,13 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                                                   f.pop('dst_addr_1')])
             except KeyError:
                 pass
-            # Apply after and before filter on times
-            f['times'] = [
-                t for t in f.get('times')
-                if ((after is None or t.get('start') >= after) and
-                    (before is None or
-                     t.get('start') + datetime.timedelta(
-                         seconds=t.get('duration')) <= before) and
-                    (precision is None or t.get('duration') == precision))
-            ]
-            # In some cases, the flow must be rejected
-            if not f['times']:
-                continue
             yield f
 
-    def _count_local(self, flt, after, before, precision):
-        destinations_set = set()
-        sources_set = set()
-        sources = destinations = flows = 0
-        fields = ['src_addr_0', 'src_addr_1', 'dst_addr_0', 'dst_addr_1',
-                  'times']
-        for row in self.get(flt, after=after, before=before, fields=fields,
-                            precision=precision):
-            if not row['src_addr'] in sources_set:
-                sources += 1
-                sources_set.add(row['src_addr'])
-            if not row['dst_addr'] in destinations_set:
-                destinations += 1
-                destinations_set.add(row['dst_addr'])
-            flows += 1
-        return sources, destinations, flows
-
-    def _count(self, flt):
+    def count(self, flt):
+        """
+        Returns a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter.
+        """
         sources = 0
         destinations = 0
         flows = self.db[self.columns[self.column_flow]].count(flt)
@@ -4903,20 +4876,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     }}
                 ])
             )['count']
-        return (sources, destinations, flows)
-
-    def count(self, flt, after=None, before=None, precision=None):
-        """
-        Returns a dict {'client': nb_clients, 'servers': nb_servers',
-        'flows': nb_flows} according to the given filter.
-        """
-        # Queries containing after or before must be handled separatly
-        if after or before or precision:
-            clients, servers, flows = self._count_local(flt, after, before,
-                                                        precision)
-        else:
-            clients, servers, flows = self._count(flt)
-        return {'clients': clients, 'servers': servers, 'flows': flows}
+        return {'clients': sources, 'servers': destinations, 'flows': flows}
 
     def topvalues(self, flt, fields, collect_fields=None, sum_fields=None,
                   limit=None, skip=None, least=False, topnbr=10):
@@ -5091,6 +5051,9 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 # This keeps the order of collected fields
                 res_collected = set(zip(*(ext_entry[key]
                                           for key in collect_fields)))
+            else:
+                res_collected = set()
+
             yield {
                 'fields': res_fields,
                 'collected': res_collected,
@@ -5131,7 +5094,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         }
 
     @staticmethod
-    def _edge2json_default(row, timeline=False):
+    def _edge2json_default(row, timeline=False, after=None, before=None,
+                           precision=None):
         """
         Returns a dict representing an edge in default graph output.
         row must be a flow entry.
@@ -5162,8 +5126,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
 
         # Fill timeline field if necessary
         if timeline and row.get('times'):
+            # Remove timeslots that do not satisfy temporal filters
             res["data"]["meta"] = {
-                "times": row['times']
+                "times": [
+                    t for t in row.get('times')
+                    if ((after is None or t.get('start') >= after) and
+                        (before is None or t.get('start') < before) and
+                        (precision is None or t.get('duration') == precision))
+                ]
             }
 
         if row.get('proto') in ['tcp', 'udp']:
@@ -5218,7 +5188,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         return res
 
     @classmethod
-    def cursor2json_iter(cls, cursor, mode=None, timeline=False):
+    def cursor2json_iter(cls, cursor, mode=None, timeline=False, after=None,
+                         before=None, precision=None):
         """
         Takes a MongoDB cursor on flows collection and for each entry
         yield a dict {src: src_node, dst: dst_node, flow: flow_edge}.
@@ -5233,11 +5204,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             elif mode == "talk_map":
                 flow_node = cls._edge2json_talk_map(row)
             else:
-                flow_node = cls._edge2json_default(row, timeline=timeline)
+                flow_node = cls._edge2json_default(row, timeline=timeline,
+                                                   after=after, before=before,
+                                                   precision=precision)
             yield {"src": src_node, "dst": dst_node, "flow": flow_node}
 
     @classmethod
-    def cursor2json_graph(cls, cursor, mode, timeline):
+    def cursor2json_graph(cls, cursor, mode, timeline, after=None,
+                          before=None, precision=None):
         """
         Returns a dict {"nodes": [], "edges": []} representing the output
         graph.
@@ -5249,7 +5223,9 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         hosts = {}
         # Store tuples (source, dest) for flow and talk map modes.
         edges = {}
-        for row in cls.cursor2json_iter(cursor, mode=mode, timeline=timeline):
+        for row in cls.cursor2json_iter(cursor, mode=mode, timeline=timeline,
+                                        after=after, before=before,
+                                        precision=precision):
             if mode in ["flow_map", "talk_map"]:
                 flw = row["flow"]
                 # If this edge already exists
@@ -5551,12 +5527,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                  .from_filters(filters, limit=limit, skip=skip,
                                orderby=orderby, mode=mode, timeline=timeline))
         flt = cls.flt_from_query(query)
+        times_filter = {}
         if after:
-            flt = cls.flt_and(flt, {"times.start": {'$gte': after}})
+            times_filter.setdefault('start', {})['$gte'] = after
         if before:
-            flt = cls.flt_and(flt, {"times.start": {'$lt': before}})
+            times_filter.setdefault('start', {})['$lt'] = before
         if precision:
-            flt = cls.flt_and(flt, {"times.duration": precision})
+            times_filter['duration'] = precision
+        flt = cls.flt_and(flt, {'times': {'$elemMatch': times_filter}})
         return flt
 
     def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
@@ -5565,9 +5543,11 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         Returns a dict {"nodes": [], "edges": []}.
         """
         return self.cursor2json_graph(
-            self.get(flt, skip, limit, orderby, after=after, before=before),
+            self.get(flt, skip, limit, orderby),
             mode,
-            timeline
+            timeline,
+            after=after,
+            before=before
         )
 
     def to_iter(self, flt, limit=None, skip=None, orderby=None, mode=None,
@@ -5577,8 +5557,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         "flow": flow}.
         """
         return self.cursor2json_iter(
-            self.get(flt, skip, limit, orderby, after=after, before=before,
-                     precision=precision),
+            self.get(flt, skip, limit, orderby),
             mode=mode,
             timeline=timeline
         )
@@ -5653,7 +5632,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # TODO Add cleanup steps like in neo4j
         pass
 
-    def flow_daily(self, precision, flt=None):
+    def flow_daily(self, precision, flt=None, after=None, before=None):
         """
         Returns a generator within each element is a dict
         {
@@ -5669,7 +5648,17 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # Unwind timeslots
         pipeline.append({'$unwind': '$times'})
 
-        pipeline.append({'$match': {'times.duration': precision}})
+        match = {}
+        # Keep only timeslots with the given precision
+        match['times.duration'] = precision
+        # We need to ensure after and before filters after $unwind
+        if after:
+            match.setdefault('times.start', {})['$gte'] = after
+        if before:
+            match.setdefault('times.start', {})['$lt'] = before
+
+        pipeline.append({'$match': match})
+
         # Project time in hours, minutes, seconds
         pipeline.append({
             '$project': {
@@ -5729,16 +5718,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             yield res
 
     def reduce_precision(self, new_duration, flt=None,
-                         base=None, before=None, after=None, precision=None):
-        # validate base
-        if base is None:
-            base = config.FLOW_DEFAULT_BASE
+                         before=None, after=None, precision=None):
+        base = config.FLOW_TIME_BASE
 
         current_duration = precision
         if current_duration is not None:
             if base % current_duration != 0:
-                raise ValueError("Base must be a multiple of current "
-                                 "precision.")
+                raise ValueError("Base %d must be a multiple of current "
+                                 "precision." % config.FLOW_TIME_BASE)
             base %= new_duration
             # validate new duration
             if new_duration <= current_duration:
@@ -5772,8 +5759,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     new_times.add((timeslot["start"], timeslot["duration"]))
                     continue
                 # Compute new timeslot
-                new_tslt = self._get_new_timeslot(timeslot['start'],
-                                                  new_duration, base)
+                new_tslt = self._get_timeslot(timeslot['start'],
+                                              new_duration, base)
                 new_times.add((new_tslt["start"], new_tslt["duration"]))
             # Build a list of timeslot dicts from new timeslots set
             timeslots = [{"start": timeslot[0], "duration": timeslot[1]}

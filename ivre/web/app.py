@@ -609,7 +609,7 @@ def get_flow():
                                       timeline=timeline, after=after,
                                       before=before)
         if count:
-            res = db.flow.count(cquery, after=after, before=before)
+            res = db.flow.count(cquery)
         else:
             res = db.flow.to_graph(cquery, limit=limit, skip=skip,
                                    orderby=orderby, mode=mode,

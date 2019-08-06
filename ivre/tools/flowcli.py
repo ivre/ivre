@@ -99,21 +99,22 @@ def main():
                         "Reduce precision to NEW_PRECISION for flows "
                         "timeslots. Takes account of precision, before, "
                         "after, filters.")
-    parser.add_argument("--base", "-B", type=int, help="Only with MongoDB "
-                        "backend. When using --reduce-precision, set timeslots"
-                        " base. Defaults to " + str(config.FLOW_DEFAULT_BASE),
-                        default=None)
     parser.add_argument("--after", "-a", type=str, help="Only with MongoDB "
                         "backend. Get only flows seen after this date. "
                         "Date format: YEAR-MONTH-DAY HOUR:MINUTE. "
-                        "Based on timeslots precision.")
+                        "Based on timeslots precision. If the given date is "
+                        "in the middle of a period, flows start at the next "
+                        "coming period.")
     parser.add_argument("--before", "-b", type=str, help="Only with MongoDB "
                         "backend. Get only flows seen before this date. "
                         "Date format: YEAR-MONTH-DAY HOUR:MINUTE. "
-                        "Based on timeslots precision.")
+                        "Based on timeslots precision. If the given date is "
+                        "in the middle of a period, the whole period is kept "
+                        "even if theoretically some flows may have been seen "
+                        "after the given date.")
     parser.add_argument('--precision', nargs='?', default=None, const=0,
                         help="Only With MongoDB backend. If PRECISION is "
-                        "specified, get only flows with one timeslot of"
+                        "specified, get only flows with one timeslot of "
                         "the given precision. Otherwise, list "
                         "precisions.", type=int)
     args = parser.parse_args()
@@ -181,7 +182,7 @@ def main():
                 sys.exit(-1)
         new_duration = args.reduce_precision
         db.flow.reduce_precision(new_duration, flt=query,
-                                 base=args.base, before=time_values['before'],
+                                 before=time_values['before'],
                                  after=time_values['after'],
                                  precision=args.precision)
         sys.exit(0)
@@ -190,10 +191,7 @@ def main():
     coma = ' ;' if args.separator else ' ; '
     coma2 = ',' if args.separator else ', '
     if args.count:
-        count = db.flow.count(query,
-                              after=time_values['after'],
-                              before=time_values['before'],
-                              precision=args.precision)
+        count = db.flow.count(query)
         out.write('%(clients)d clients\n%(servers)d servers\n'
                   '%(flows)d flows\n' % count)
 
@@ -218,7 +216,9 @@ def main():
         precision = (args.precision if args.precision is not None
                      else config.FLOW_TIME_PRECISION)
         plot_data = {}
-        for rec in db.flow.flow_daily(precision, flt=query):
+        for rec in db.flow.flow_daily(precision, flt=query,
+                                      after=time_values['after'],
+                                      before=time_values['before']):
             out.write(
                 sep.join([
                     rec["time_in_day"].strftime("%T.%f"),
@@ -229,15 +229,22 @@ def main():
             if args.plot:
                 for flw in rec["flows"]:
                     plot_data.setdefault(flw[0], [[], []])
-                    plot_data[flw[0]][0].append(rec["time_in_day"])
+                    t = rec["time_in_day"]
+                    # pyplot needs datetime objects
+                    dt = datetime.datetime(1970, 1, 1,
+                                           hour=t.hour,
+                                           minute=t.minute,
+                                           second=t.second)
+                    plot_data[flw[0]][0].append(dt)
                     plot_data[flw[0]][1].append(flw[1])
-        if args.plot:
+        if args.plot and plot_data:
             ax = plt.subplots()[1]
             fmt = matplotlib.dates.DateFormatter('%H:%M:%S')
             for flow, points in viewitems(plot_data):
                 plt.plot(points[0], points[1], label=flow, marker='o')
             plt.legend(loc='best')
             ax.xaxis.set_major_formatter(fmt)
+            plt.gcf().autofmt_xdate()
             plt.show()
 
     else:

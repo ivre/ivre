@@ -2265,7 +2265,7 @@ which `predicate()` is True, given `webflt`.
 
         # Unit tests #
 
-        # Test _get_new_timeslots
+        # Test _get_timeslots
         for i in range(24):
             # Test both winter and summer times
             new_duration = 86400
@@ -2293,7 +2293,7 @@ which `predicate()` is True, given `webflt`.
             ]
             for test_timeslot in test_timeslots:
                 timeslot = test_timeslot["timeslot"]
-                new_timeslot = ivre.db.db.flow._get_new_timeslot(
+                new_timeslot = ivre.db.db.flow._get_timeslot(
                     timeslot["start"], new_duration, 0)
                 self.assertEqual(new_timeslot, test_timeslot["expected"])
         # Test on one week period, starting monday (changing base)
@@ -2335,7 +2335,7 @@ which `predicate()` is True, given `webflt`.
         base %= new_duration
         for test_timeslot in test_timeslots:
             timeslot = test_timeslot["timeslot"]
-            new_timeslot = ivre.db.db.flow._get_new_timeslot(
+            new_timeslot = ivre.db.db.flow._get_timeslot(
                 timeslot["start"], new_duration, base)
             self.assertEqual(new_timeslot, test_timeslot["expected"])
 
