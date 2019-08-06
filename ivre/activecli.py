@@ -70,7 +70,7 @@ def _getscript(port, sname):
 def _nmap_port2honeyd_action(port):
     if port['state_state'] == 'closed':
         return 'reset'
-    elif port['state_state'] != 'open':
+    if port['state_state'] != 'open':
         return 'block'
     # if 'service_tunnel' in port and port['service_tunnel'] == 'ssl':
     #     sslrelay = True
@@ -79,7 +79,7 @@ def _nmap_port2honeyd_action(port):
     if 'service_name' in port:
         if port['service_name'] == 'tcpwrapped':
             return '"true"'
-        elif port['service_name'] == 'ssh':
+        if port['service_name'] == 'ssh':
             s = _getscript(port, 'banner')
             if s is not None:
                 banner = s['output']

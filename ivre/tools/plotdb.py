@@ -23,8 +23,8 @@ import math
 import matplotlib
 import matplotlib.pyplot
 # from mpl_toolkits.mplot3d import Axes3D
-from mpl_toolkits.mplot3d import axes3d, Axes3D  # noqa: F401 (needed)
-
+# pylint: disable=unused-import
+from mpl_toolkits.mplot3d import axes3d, Axes3D  # noqa: F401
 
 from ivre import db
 

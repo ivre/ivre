@@ -453,8 +453,7 @@ def regexp2pattern(string):
         else:
             string += patterns[2]
         return string, flags
-    else:
-        return re.escape(string), re.UNICODE if isinstance(string, str) else 0
+    return re.escape(string), re.UNICODE if isinstance(string, str) else 0
 
 
 def str2list(string):
@@ -541,8 +540,7 @@ def all2datetime(arg):
             return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S.%f')
     if isinstance(arg, int_types) or isinstance(arg, float):
         return datetime.datetime.fromtimestamp(arg)
-    else:
-        raise TypeError("%s is of unknown type." % repr(arg))
+    raise TypeError("%s is of unknown type." % repr(arg))
 
 
 def makedirs(dirname):
@@ -1190,8 +1188,8 @@ def _read_nmap_probes():
     try:
         with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes'),
                   'rb') as fdesc:
-            for line in fdesc:
-                parse_line(line[:-1])
+            for l in fdesc:
+                parse_line(l[:-1])
     except (AttributeError, TypeError, IOError):
         LOGGER.warning('Cannot read Nmap service fingerprint file.',
                        exc_info=True)
@@ -1831,7 +1829,7 @@ def ptr2addr(ptr):
     """
     if ptr.endswith(".in-addr.arpa"):
         return '.'.join(reversed(ptr.split(".")[:4]))
-    elif ptr.endswith(".ip6.arpa"):
+    if ptr.endswith(".ip6.arpa"):
         return int2ip6(int(ptr[:-9].replace('.', '')[::-1], 16))
     return None
 

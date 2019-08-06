@@ -303,7 +303,7 @@ def get_ips_by_data(datafile, condition, skip=0, maxnbr=None):
             maxnbr -= len(curaddrs)
             if maxnbr < 0:
                 return res + curaddrs[:maxnbr]
-            elif maxnbr == 0:
+            if maxnbr == 0:
                 return res + curaddrs
         res += curaddrs
     return res

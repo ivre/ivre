@@ -760,11 +760,11 @@ want to do something special here, e.g., mix with other records.
     def searchcmp(key, val, cmpop):
         if cmpop == '<':
             return {key: {'$lt': val}}
-        elif cmpop == '<=':
+        if cmpop == '<=':
             return {key: {'$lte': val}}
-        elif cmpop == '>':
+        if cmpop == '>':
             return {key: {'$gt': val}}
-        elif cmpop == '>=':
+        if cmpop == '>=':
             return {key: {'$gte': val}}
 
 
@@ -1415,7 +1415,7 @@ it is not expected)."""
         if trim_result is False:
             # Image no longer exists after trim
             return
-        elif trim_result is not True:
+        if trim_result is not True:
             # Image has been trimmed
             data = trim_result
         port['screendata'] = bson.Binary(data)
@@ -1777,8 +1777,7 @@ it is not expected)."""
         if neg:
             if isinstance(asname, utils.REGEXP_T):
                 return {'infos.as_name': {'$not': asname}}
-            else:
-                return {'infos.as_name': {'$ne': asname}}
+            return {'infos.as_name': {'$ne': asname}}
         return {'infos.as_name': asname}
 
     @staticmethod
@@ -1931,12 +1930,10 @@ it is not expected)."""
             field, value = next(iter(viewitems(req)))
             if neg:
                 return {"ports.scripts.%s" % field: {"$ne": value}}
-            else:
-                return {"ports.scripts.%s" % field: value}
+            return {"ports.scripts.%s" % field: value}
         if neg:
             return {"ports.scripts": {"$not": {"$elemMatch": req}}}
-        else:
-            return {"ports.scripts": {"$elemMatch": req}}
+        return {"ports.scripts": {"$elemMatch": req}}
 
     @classmethod
     def searchcert(cls, keytype=None):
@@ -2223,11 +2220,10 @@ it is not expected)."""
         nflt = len(flt)
         if nflt == 0:
             return {"cpes": {"$exists": True}}
-        elif nflt == 1:
+        if nflt == 1:
             field, value = flt.popitem()
             return {"cpes.%s" % field: value}
-        else:
-            return {"cpes": {"$elemMatch": flt}}
+        return {"cpes": {"$elemMatch": flt}}
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, aggrflt=None,
@@ -3447,8 +3443,7 @@ it is not expected)."""
             )
         if include_both_open:
             return cursor
-        else:
-            return (result for result in cursor if result["value"])
+        return (result for result in cursor if result["value"])
 
 
 class MongoDBNmap(MongoDBActive, DBNmap):

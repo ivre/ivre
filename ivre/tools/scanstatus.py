@@ -46,7 +46,7 @@ def main():
         if curtask[0] != line['task']:
             raise Exception('curtask != task (%r != %r)' % (curtask,
                                                             line['task']))
-        elif line['status'] == 'progress':
+        if line['status'] == 'progress':
             progress = progressinfo.search(line['otherinfo'])
             if progress is None:
                 raise Exception(
