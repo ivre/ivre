@@ -18,6 +18,8 @@ sudo: required
 dist: xenial
 
 env:
+  # MaxMind (& utils)
+  - DB=maxmind
   # PostgreSQL 10.1, 9.6.6, 9.5.10
   - DB=postgres POSTGRES_VERSION=9.5.10
   - DB=postgres POSTGRES_VERSION=9.6.6
@@ -37,8 +39,6 @@ env:
   - DB=neo4j NEO4J_VERSION=3.5.1
   # Sqlite
   - DB=sqlite
-  # MaxMind (& utils)
-  - DB=maxmind
 
 language: python
 
