@@ -695,6 +695,7 @@ insert structures.
             return None
         if url == "field":
             return port.get('screendata')
+        return None
 
     def migrate_schema(self, version):
         """Implemented in backend-specific classes.
@@ -2024,6 +2025,7 @@ class DBData(DB):
             infos.update(infos_byip(addr) or {})
         if infos:
             return infos
+        return None
 
     def as_byip(self, addr):
         raise NotImplementedError
@@ -2349,6 +2351,7 @@ and raises a LockError on failure.
             )
         if scan['lock'] == lockid:
             return scan
+        return None
 
     def unlock_scan(self, scan):
         """Release lock for scanid. Returns True on success, and raises a
@@ -2601,6 +2604,7 @@ class MetaDB(object):
             result = getattr(module, classname)(url)
             result.globaldb = self
             return result
+        return None
 
 
 db = MetaDB(

@@ -38,7 +38,7 @@ def _get_version_from_file():
         with open(_VERSION_FILE) as fdesc:
             return fdesc.read()
     except IOError:
-        return
+        return None
 
 
 def _get_version_from_git():

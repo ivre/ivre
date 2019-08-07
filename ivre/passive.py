@@ -502,5 +502,4 @@ def getinfos(spec):
         function = function.get(spec.get('source'))
     if function is None:
         return {}
-    if hasattr(function, '__call__'):
-        return function(spec)
+    return function(spec)

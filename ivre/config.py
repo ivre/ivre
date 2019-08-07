@@ -227,6 +227,7 @@ def guess_prefix(directory=None):
                 return candidate
         except OSError:
             pass
+        return None
     if __file__.startswith('/'):
         path = '/'
         # absolute path
@@ -240,6 +241,7 @@ def guess_prefix(directory=None):
         candidate = check_candidate(path, directory=directory)
         if candidate is not None:
             return candidate
+    return None
 
 
 def guess_share(soft):
@@ -248,6 +250,7 @@ def guess_share(soft):
                  '/usr/share/%s' % soft]:
         if os.path.isdir(path):
             return path
+    return None
 
 
 if GEOIP_PATH is None:

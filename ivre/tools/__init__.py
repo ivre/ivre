@@ -63,6 +63,7 @@ def get_command(name):
     if name in ALIASES:
         name = ALIASES[name]
         return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
+    return None
 
 
 def guess_command(name):

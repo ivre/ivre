@@ -481,14 +481,14 @@ def displayfunction_graphroute(cur, arg, gr_include, gr_dont_reset):
             def cluster(ipaddr):
                 res = db.db.data.as_byip(ipaddr)
                 if res is None:
-                    return
+                    return None
                 return (res['as_num'],
                         "%(as_num)d\n[%(as_name)s]" % res)
         elif arg == "Country":
             def cluster(ipaddr):
                 res = db.db.data.country_byip(ipaddr)
                 if res is None:
-                    return
+                    return None
                 return (res['country_code'],
                         "%(country_code)s - %(country_name)s" % res)
         else:
