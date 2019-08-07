@@ -94,14 +94,14 @@ var HELP_FILTERS = {
 	},
 	"hostname:": {
 	    "title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
-	    "content": "Look for results with a matching hostname ([FQDN] can be specified as a string or a regexp).",
+	    "content": "Look for results with a matching hostname ([FQDN] can be specified as the exact value or a /regexp/).",
 	},
 	"domain:": {
 	    "title": "<b>(!)</b>domain:<b>[FQDN]</b>",
-	    "content": "Look for results with a hostname within a matching domain name ([FQDN] can be specified as a string or a regexp).",
+	    "content": "Look for results with a hostname within a matching domain name ([FQDN] can be specified as the exact value or a /regexp/).",
 	},
 	"category:": {
-	    "title": "<b>(!)</b>category:<b>[string or regexp]</b>",
+	    "title": "<b>(!)</b>category:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for results tagged with a matching category.",
 	},
 	"country:": {
@@ -109,7 +109,7 @@ var HELP_FILTERS = {
 	    "content": "Look for hosts located in a specific country.",
 	},
 	"city:": {
-	    "title": "<b>(!)</b>city:<b>[string or regexp]</b>",
+	    "title": "<b>(!)</b>city:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for hosts located in a specific city. <b>Use with a <code>country:</code> filter</b>.",
 	},
 	"asnum:": {
@@ -117,7 +117,7 @@ var HELP_FILTERS = {
 	    "content": "Look for hosts assigned to a specific AS given its number. Coma-separated multiple values can be used. See also <code>asname:</code>.",
 	},
 	"asname:": {
-	    "title": "<b>(!)</b>asname:<b>[string or regexp]</b>",
+	    "title": "<b>(!)</b>asname:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for hosts assigned to a specific AS given its name. See also <code>asnum:</code>.",
 	},
 	"source:": {
@@ -134,19 +134,19 @@ var HELP_FILTERS = {
 	},
 	"service:": {
 	    "title": "service:<b>[service name](:[port number])</b>",
-	    "content": "Look for a particular service, optionally on the specified port. [service name] can be either a string or a regular expression.",
+	    "content": "Look for a particular service, optionally on the specified port. [service name] can be either the exact value or a /regexp/.",
 	},
 	"product:": {
 	    "title": "product:<b>[service name]:[product name](:[port number])</b>",
-	    "content": "Look for a particular service and product, optionally on the specified port. [service name] and [product name] can be either strings or regular expressions.",
+	    "content": "Look for a particular service and product, optionally on the specified port. [service name] and [product name] can be either exact values or /regexps/.",
 	},
 	"version:": {
 	    "title": "version:<b>[service name]:[product name]:[version](:[port number])</b>",
-	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either strings or regular expressions.",
+	    "content": "Look for a particular service, product and version, optionally on the specified port. [service name], [product name] and [version] can be either exact values or /regexps/.",
 	},
 	"script:": {
 	    "title": "<b>(!)</b>script:<b>[script id](:[script output])</b>",
-	    "content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either strings or regular expressions.",
+	    "content": "Look for a port script, given its id, and optionally for a specific output. Both [script id] and [script output] can be either exact values or /regexps/.",
 	},
 	/* results of scripts or version scans */
 	"anonftp": {
@@ -166,7 +166,7 @@ var HELP_FILTERS = {
 	    "content": "Look for HTTP servers requiring authentication with default credentials working (the Nmap script seems to get a lot of false positives).",
 	},
 	"banner:": {
-	    "title": "banner:<b>[string or regexp]</b>",
+	    "title": "banner:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for content in service banners (as discovered by Nmap script &quot;banner&quot;).",
 	},
 	"cookie:": {
@@ -174,7 +174,7 @@ var HELP_FILTERS = {
 	    "content": "Look for HTTP servers setting a specific cookie.",
 	},
 	"file": {
-	    "title": "file<b>(:([scrtipt id](,[script id](,...)):)[pattern or regexp])</b>",
+	    "title": "file<b>(:([scrtipt id](,[script id](,...)):)[filename or /regexp/])</b>",
 	    "content": "Look for a pattern in the shared files (FTP, SMB, ...).",
 	},
 	"geovision": {
@@ -182,7 +182,7 @@ var HELP_FILTERS = {
 	    "content": "Look for Geovision webcams (see also <code>devtype:webcam</code>).",
 	},
 	"httptitle:": {
-	    "title": "httptitle:<b>[string or regexp]</b>",
+	    "title": "httptitle:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for results with a specific title on the root page of an HTTP server.",
 	},
 	"nfs": {
@@ -307,17 +307,17 @@ var HELP_FILTERS = {
 	    "content": "Look for hosts with a JA3S, with the given JA3S, with a JA3S corresponding to the given JA3 or with the given JA3S corresponding to the given JA3",
 	},
 	"useragent": {
-	    "title": "(!)useragent<b>[:[string or regexp]]</b>",
+	    "title": "(!)useragent<b>[:[exact_value or /regexp/]]</b>",
 	    "content": "Look for hosts using a User-Agent matching the argument."
 	},
 	/* OS fingerprint */
 	"os:": {
-	    "title": "os:<b>[string or regexp]</b>",
+	    "title": "os:<b>[exact_value or /regexp/]</b>",
 	    "content": "Look for a specific OS, according to Nmap's fingerprint.",
 	},
 	/* device types */
 	"devtype:": {
-	    "title": "<b>devtype:</b> or <b>devicetype:[string or regexp]</b>",
+	    "title": "<b>devtype:</b> or <b>devicetype:[exact_value or /regexp/]</b>",
 	    "content": "Look for a specific device type. See also <code>netdev</code>, <code>phonedev</code> and <code>geovision</code>.",
 	},
 	"netdev": {
@@ -331,7 +331,7 @@ var HELP_FILTERS = {
 	/* CPEs */
 	"cpe": {
 	    "title": "cpe<b>(:[type](:[vendor](:[product](:[version]))))</b>",
-	    "content": "Looks for CPEs matching an expression. Providing no value will match all the hosts that have CPE information. The fields <b>type</b>, <b>vendor</b>, <b>product</b> and <b>version</b> can be strings or /regexps/. <br/> <i>Ex:</i> o://:linux_kernel or a:apache:http_server:2.2.9",
+	    "content": "Looks for CPEs matching an expression. Providing no value will match all the hosts that have CPE information. The fields <b>type</b>, <b>vendor</b>, <b>product</b> and <b>version</b> can be exact values or /regexps/. <br/> <i>Ex:</i> o://:linux_kernel or a:apache:http_server:2.2.9",
 	},
 	/* traceroute */
 	"hop:": {
@@ -340,11 +340,11 @@ var HELP_FILTERS = {
 	},
 	"hopname:": {
 	    "title": "<b>(!)</b>hopname:<b>[FQDN]</b>",
-	    "content": "Look for results with a matching hostname in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
+	    "content": "Look for results with a matching hostname in the Traceroute result ([FQDN] can be specified as the exact value or a /regexp/).",
 	},
 	"hopdomain:": {
 	    "title": "<b>(!)</b>hopdomain:<b>[FQDN]</b>",
-	    "content": "Look for results with a hostname within a matching domain name in the Traceroute result ([FQDN] can be specified as a string or a regexp).",
+	    "content": "Look for results with a hostname within a matching domain name in the Traceroute result ([FQDN] can be specified as the exact value or a /regexp/).",
 	},
 	"tcp/": {
 	    "title": "<b>(!)[port number](,[port number](,...))</b> or <b>(!)</b>tcp/<b>[port number]</b>",
