@@ -544,13 +544,14 @@ def add_ftp_anon_data(script):
     if cur_vol["files"]:
         result["volumes"].append(cur_vol)
         return result
+    return None
 
 
 def add_http_headers_data(script):
     result = []
     output = script.get("output", "").splitlines()
     if not output:
-        return
+        return None
     if not output[0]:
         output = output[1:]
     for line in output:
@@ -562,6 +563,7 @@ def add_http_headers_data(script):
         except ValueError:
             field, value = line, None
         result.append({"name": field.lower(), "value": value})
+    return result
 
 
 ADD_TABLE_ELEMS = {
@@ -941,7 +943,7 @@ def masscan_parse_s7info(data):
                 "Masscan s7-info: invalid data [%r]",
                 data
             )
-            return
+            return None
         length = struct.unpack(">H", data[2:4])[0]
         curdata, data = data[4:length], data[length:]
         if len(curdata) < length - 4:
@@ -959,17 +961,17 @@ def masscan_parse_s7info(data):
                 "[%r]",
                 curdata,
             )
-            return
+            return None
         if datatype != b"\xf0":
             utils.LOGGER.warning(
                 "Masscan s7-info: invalid data type [%r]", curdata,
             )
-            return
+            return None
         if curdata[3:4] != b"2":
             utils.LOGGER.warning(
                 "Masscan s7-info: invalid magic [%r]", curdata,
             )
-            return
+            return None
         if state == 1:  # ROSCTR setup response
             state += 1
             continue
@@ -1232,18 +1234,15 @@ class NmapHandler(ContentHandler):
 
     def _addhost(self):
         """Subclasses may store self._curhost here."""
-        pass
 
     def _storescan(self):
         """Subclasses may store self._curscan here."""
-        pass
 
     def _addscaninfo(self, _):
         """Subclasses may add scan information (first argument) to
         self._curscan here.
 
         """
-        pass
 
     def startElement(self, name, attrs):
         if name == 'nmaprun':

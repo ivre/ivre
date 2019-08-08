@@ -155,6 +155,7 @@ class MongoDB(DB):
         for fieldname, hint in viewitems(cls.hint_indexes[cls.column_passive]):
             if fieldname in spec:
                 return hint
+        return None
 
     @property
     def db_client(self):
@@ -766,6 +767,8 @@ want to do something special here, e.g., mix with other records.
             return {key: {'$gt': val}}
         if cmpop == '>=':
             return {key: {'$gte': val}}
+        raise Exception('Unknown operator %r (for key %r and val %r)', cmpop,
+                        key, val)
 
 
 class MongoDBActive(MongoDB, DBActive):
@@ -3659,9 +3662,9 @@ want to do something special here, e.g., mix with other records.
             del update['_id']
             self.insert_or_update_mix(update, getinfos=passive.getinfos)
             self.remove(recid)
-        else:
-            return super(MongoDBPassive,
-                         self)._migrate_update_record(colname, recid, update)
+            return None
+        return super(MongoDBPassive,
+                     self)._migrate_update_record(colname, recid, update)
 
     @classmethod
     def migrate_schema_passive_0_1(cls, doc):

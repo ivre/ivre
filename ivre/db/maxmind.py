@@ -79,6 +79,8 @@ class MaxMindFileIter(object):
                 return (curvalinf, curvalsup,
                         self.base.decode(pos, self.base.data_section_start)[1])
             node_no = next_node_no
+        # We should never reach this point if the file is properly formatted.
+        raise StopIteration()
 
 
 class EmptyMaxMindFile(object):
@@ -401,6 +403,7 @@ class MaxMindDBData(DBData):
             result['coordinates_accuracy_radius'] = value
         if result:
             return result
+        return None
 
     def country_byip(self, addr):
         result = {}

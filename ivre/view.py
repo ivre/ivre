@@ -259,7 +259,7 @@ def passive_record_to_view(rec):
     """
     rec = dict(rec)
     if not rec.get('addr'):
-        return
+        return None
     outrec = {
         'addr': rec["addr"],
         'state_reason': 'passive',

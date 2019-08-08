@@ -538,7 +538,7 @@ def all2datetime(arg):
             return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
         except ValueError:
             return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S.%f')
-    if isinstance(arg, int_types) or isinstance(arg, float):
+    if isinstance(arg, (int_types, float)):
         return datetime.datetime.fromtimestamp(arg)
     raise TypeError("%s is of unknown type." % repr(arg))
 
@@ -877,10 +877,10 @@ def create_argparser(description, extraargs=None):
                 raise optparse.OptionError(
                     'unrecognized arguments', res[1]
                 )
-        else:
-            res = parser.parse_args_orig()
-            res[0].ensure_value(extraargs, res[1])
-            return res[0]
+            return None
+        res = parser.parse_args_orig()
+        res[0].ensure_value(extraargs, res[1])
+        return res[0]
 
     parser.parse_args = my_parse_args
     parser.add_argument = parser.add_option
@@ -993,6 +993,7 @@ def screenwords(imgdata):
                         break
         if result:
             return result
+    return None
 
 
 if USE_PIL:
@@ -1016,7 +1017,7 @@ if USE_PIL:
             bbox = diffbkg.getbbox()
             if not bbox:
                 # Image no longer exists after trim
-                return
+                return None
             if result is None:
                 result = bbox
             elif _img_size(bbox) < _img_size(result):
@@ -1269,6 +1270,7 @@ def find_ike_vendor_id(vendorid):
     for name, sig in get_ikescan_vendor_ids():
         if sig.search(vid):
             return name
+    return None
 
 
 # Nmap (and Bro) encoding & decoding
@@ -1358,7 +1360,7 @@ def nmap_svc_fp_format_data(data, match):
     for i, value in enumerate(match.groups()):
         if value is None:
             if '$%d' % (i + 1) in data:
-                return
+                return None
             continue
         data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
     return data

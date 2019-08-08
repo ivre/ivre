@@ -31,7 +31,6 @@ import time
 import warnings
 
 
-from builtins import range
 from future.utils import viewitems, viewvalues, with_metaclass
 from past.builtins import basestring
 from py2neo import Graph, Node, Relationship, GraphError
@@ -1097,7 +1096,7 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
 
     @staticmethod
     def _get_props(elt, meta=None):
-        if isinstance(elt, Node) or isinstance(elt, Relationship):
+        if isinstance(elt, (Node, Relationship)):
             props = elt.properties
         else:
             props = elt.get("data", {})
@@ -1302,13 +1301,13 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
         original_fields = list(fields)
         collect = list(collect_fields)
         for flist in fields, collect, sumfields:
-            for i in range(len(flist)):
-                if flist[i].startswith("link."):
-                    flist[i] = flist[i].replace("flow.", "link.")
-                if "." not in flist[i]:
-                    flist[i] = "link.%s" % flist[i]
-                flist[i] = '.'.join(cypher_escape(elt) for elt in
-                                    flist[i].split("."))
+            for i, elt in enumerate(flist):
+                if elt.startswith("link."):
+                    elt = elt.replace("flow.", "link.")
+                if "." not in elt:
+                    elt = "link.%s" % elt
+                flist[i] = '.'.join(cypher_escape(subelt) for subelt in
+                                    elt.split("."))
 
         cy_fields = "[%s]" % ', '.join(fields)
         cy_collect = "[%s]" % ', '.join(collect)

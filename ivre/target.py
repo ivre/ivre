@@ -382,6 +382,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
                 return utils.ip2int(addr.groups()[0])
             except utils.socket.error:
                 pass
+        return None
 
     def __init__(self, target, nmap='nmap', ports=None, nmap_opts=None):
         self.srctarget = target
