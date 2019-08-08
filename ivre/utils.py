@@ -538,7 +538,7 @@ def all2datetime(arg):
             return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
         except ValueError:
             return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S.%f')
-    if isinstance(arg, int_types) or isinstance(arg, float):
+    if isinstance(arg, (int_types, float)):
         return datetime.datetime.fromtimestamp(arg)
     raise TypeError("%s is of unknown type." % repr(arg))
 

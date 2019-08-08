@@ -57,10 +57,10 @@ def bgp_raw_to_csv(fname, out):
             if cur:
                 if start >= cur[0] and stop <= cur[1]:
                     continue
-                if start >= cur[0] and start <= cur[1]:
+                if cur[0] <= start <= cur[1]:
                     cur = (cur[0], stop)
                     continue
-                if stop >= cur[0] and stop <= cur[1]:
+                if cur[0] <= stop <= cur[1]:
                     cur = (start, cur[1])
                     continue
                 if start <= cur[0] and stop >= cur[1]:

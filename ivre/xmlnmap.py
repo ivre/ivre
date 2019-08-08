@@ -1234,18 +1234,15 @@ class NmapHandler(ContentHandler):
 
     def _addhost(self):
         """Subclasses may store self._curhost here."""
-        pass
 
     def _storescan(self):
         """Subclasses may store self._curscan here."""
-        pass
 
     def _addscaninfo(self, _):
         """Subclasses may add scan information (first argument) to
         self._curscan here.
 
         """
-        pass
 
     def startElement(self, name, attrs):
         if name == 'nmaprun':

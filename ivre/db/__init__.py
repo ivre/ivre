@@ -26,6 +26,7 @@ try:
 except ImportError:
     # fallback to dict for Python 2.6
     OrderedDict = dict
+from datetime import datetime, timedelta
 from functools import reduce
 import json
 import os
@@ -56,7 +57,6 @@ except ImportError:
 
 
 from ivre import config, geoiputils, nmapout, utils, xmlnmap, flow
-from datetime import datetime, timedelta
 
 
 class DB(object):
@@ -678,14 +678,12 @@ class DBActive(DB):
 insert structures.
 
         """
-        pass
 
     def stop_store_hosts(self):
         """Backend-specific subclasses may use this method to commit bulk
 insert structures.
 
         """
-        pass
 
     @staticmethod
     def getscreenshot(port):
@@ -701,7 +699,6 @@ insert structures.
         """Implemented in backend-specific classes.
 
         """
-        pass
 
     @classmethod
     def __migrate_schema_hosts_0_1(cls, doc):
@@ -2036,7 +2033,6 @@ class DBData(DB):
 
 class LockError(RuntimeError):
     """A runtime error used when a lock cannot be acquired or released."""
-    pass
 
 
 class DBAgent(DB):
