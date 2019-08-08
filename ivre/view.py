@@ -36,14 +36,14 @@ def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
     }]}
     # TODO: (?) handle Host: header for DNS
     # FIXME: catches ip addresses as domain name.
-    if 'source' in rec and rec['source'] == 'HOST':
-        values = rec['value'].split(".")
-        domains = [values.pop()]
-        while values:
-            domains.insert(0, values.pop() + "." + domains[0])
-        return {'hostnames': [{'domains': domains,
-                               'type': "?",
-                               'name': domains[0]}]}
+    # if 'source' in rec and rec['source'] == 'HOST':
+    #     values = rec['value'].split(".")
+    #     domains = [values.pop()]
+    #     while values:
+    #         domains.insert(0, values.pop() + "." + domains[0])
+    #     return {'hostnames': [{'domains': domains,
+    #                            'type': "?",
+    #                            'name': domains[0]}]}
 
 
 def _extract_passive_HTTP_SERVER_HEADER(rec):
@@ -311,7 +311,7 @@ def from_passive(flt):
     """Iterator over passive results, by address."""
     records = passive_to_view(flt)
     cur_addr = None
-    cur_rec = None
+    cur_rec = {}
     for rec in records:
         if cur_addr is None:
             cur_addr = rec['addr']
@@ -328,7 +328,7 @@ def from_passive(flt):
             cur_addr = rec['addr']
         else:
             cur_rec = db.view.merge_host_docs(cur_rec, rec)
-    if cur_rec is not None:
+    if cur_rec:
         yield cur_rec
 
 
