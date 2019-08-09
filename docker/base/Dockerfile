@@ -29,3 +29,5 @@ RUN apt-get -qy install python-pymongo python-crypto python-setuptools \
 RUN apt-get -qy install git && git clone https://github.com/cea-sec/ivre && \
     cd ivre/ && python setup.py build && python setup.py install && \
     apt-get -qy --purge autoremove git && cd ../ && rm -rf ivre/
+
+RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf

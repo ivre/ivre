@@ -30,7 +30,7 @@ VOLUME /var/lib/mongodb
 VOLUME /var/log/mongodb
 
 # Accept remote connections to DBs
-RUN sed -i 's/^  bindIp:/#bindIp:/' /etc/mongod.conf
+RUN sed -i 's/^  bindIp:/  bindIp: 0.0.0.0/' /etc/mongod.conf
 
 # MongoDB instance
 EXPOSE 27017
