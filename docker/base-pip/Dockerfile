@@ -24,3 +24,5 @@ RUN apt-get -q update
 RUN apt-get -qy install python python-dev python-pip && \
     pip install ivre && \
     apt-get -qy autoremove python-dev python-pip
+
+RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf

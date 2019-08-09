@@ -30,3 +30,5 @@ ADD ivre.tar ./
 RUN cd ivre/ && \
     python setup.py build && python setup.py install && \
     cd ../ && rm -rf ivre/
+
+RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf
