@@ -286,7 +286,10 @@ class MaxMindFile(object):
 
     def _get_ranges(self, fields):
         gen = iter(self)
-        start, stop, rec = next(gen)
+        try:
+            start, stop, rec = next(gen)
+        except StopIteration:
+            return
         rec = tuple(self._get_fields(rec, fields))
         for n_start, n_stop, n_rec in gen:
             n_rec = tuple(self._get_fields(n_rec, fields))

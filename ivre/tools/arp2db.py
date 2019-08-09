@@ -30,6 +30,7 @@ from ivre.db import db
 def reader(fname):
     proc = subprocess.Popen(['tcpdump', '-n', '-r', fname, '-w', '-', 'arp'],
                             stdout=subprocess.PIPE)
+    # pylint: disable=no-value-for-parameter
     return PcapReader(proc.stdout)
 
 

@@ -110,7 +110,7 @@ def extend_binary_expression(element, compiler, **kwargs):
         if opstring == '?':
             return compiler.process(func.HAS_KEY(element.left, element.right))
     # FIXME: Variant base type Comparator seems to be used here.
-    if element.operator == json_getitem_op:
+    if element.operator is json_getitem_op:
         return compiler.process(func.ACCESS(element.left, element.right))
     return compiler.visit_binary(element)
 

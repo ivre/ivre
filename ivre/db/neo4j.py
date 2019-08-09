@@ -811,7 +811,7 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
                 else:
                     prop = k
                 if (prop not in rec or rec[prop] is None) and k in props:
-                    del(props[k])
+                    del props[k]
         if kind == "flow":
             flow_keys = desc.get("flow_keys")
             if not flow_keys:

@@ -336,7 +336,7 @@ def main():
         sort = [(field[1:], -1) if field.startswith('~') else (field, 1)
                 for field in args.sort]
     if not args.ips:
-        if not baseflt and not args.limit and disp_recs == disp_recs_std:
+        if not baseflt and not args.limit and disp_recs is disp_recs_std:
             # default to tail -f mode
             disp_recs = disp_recs_tailfnew()
         disp_recs(baseflt, sort, args.limit or db.passive.no_limit,

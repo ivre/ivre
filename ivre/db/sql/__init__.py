@@ -360,7 +360,7 @@ class SQLDB(DB):
         if isinstance(oid, (int, basestring)):
             oid = [int(oid)]
         else:
-            oid = [int(oid) for oid in oid]
+            oid = [int(suboid) for suboid in oid]
         return cls._searchobjectid(oid, neg=neg)
 
     @staticmethod

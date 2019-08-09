@@ -767,8 +767,11 @@ want to do something special here, e.g., mix with other records.
             return {key: {'$gt': val}}
         if cmpop == '>=':
             return {key: {'$gte': val}}
-        raise Exception('Unknown operator %r (for key %r and val %r)', cmpop,
-                        key, val)
+        raise Exception('Unknown operator %r (for key %r and val %r)' % (
+            cmpop,
+            key,
+            val,
+        ))
 
 
 class MongoDBActive(MongoDB, DBActive):

@@ -26,7 +26,7 @@ ivre scan2db.
 from __future__ import print_function
 import atexit
 import fcntl
-from functools import reduce
+import functools
 import multiprocessing
 import os
 import re
@@ -50,7 +50,6 @@ import ivre.nmapopt
 
 
 if sys.version_info >= (2, 7):
-    import functools
     USE_PARTIAL = True
 else:
     # Python version <= 2.6:
@@ -419,7 +418,7 @@ def main():
         parser.error('one argument of --country/--region/--city/--asnum/'
                      '--range/--network/--routable/--file/--test is required')
     if args.again is not None:
-        accept_target_status = set(reduce(
+        accept_target_status = set(functools.reduce(
             lambda x, y: x + y, [{
                 'up': [STATUS_DONE_UP],
                 'down': [STATUS_DONE_DOWN],
