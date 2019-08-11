@@ -46,7 +46,7 @@ import uuid
 
 import bson
 from future.builtins import bytes, range, zip
-from future.utils import viewitems, with_metaclass
+from future.utils import viewitems, viewvalues, with_metaclass
 from past.builtins import basestring
 from pymongo.errors import BulkWriteError
 import pymongo
@@ -1458,12 +1458,12 @@ it is not expected)."""
                             p.get('port') == port and
                             p.get('protocol') == protocol)
         updated = False
-        for port in host.get('ports', []):
-            if not flt_cond(port):
+        for portdoc in host.get('ports', []):
+            if not flt_cond(portdoc):
                 continue
-            screenwords = utils.screenwords(self.getscreenshot(port))
+            screenwords = utils.screenwords(self.getscreenshot(portdoc))
             if screenwords is not None:
-                port['screenwords'] = screenwords
+                portdoc['screenwords'] = screenwords
                 updated = True
         if updated:
             self.db[self.columns[self.column_hosts]].update(
@@ -4840,7 +4840,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         destinations = 0
         flows = self.db[self.columns[self.column_flow]].count(flt)
         if flows > 0:
-            sources = self.db[self.columns[self.column_flow]].aggregate([
+            sources = next(self.db[self.columns[self.column_flow]].aggregate([
                 {'$match': flt},
                 {
                     '$group': {
@@ -4857,23 +4857,25 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     '_id': None,
                     'count': {'$sum': 1}
                 }}
-            ]).next()['count']
+            ]))['count']
 
-            destinations = self.db[self.columns[self.column_flow]].aggregate([
-                {'$match': flt},
-                {
-                    '$group': {
-                        '_id': {
-                            'dst_addr_0': '$dst_addr_0',
-                            'dst_addr_1': '$dst_addr_1'
-                        },
-                    }
-                },
-                {'$group': {
-                    '_id': None,
-                    'count': {'$sum': 1}
-                }}
-            ]).next()['count']
+            destinations = next(
+                self.db[self.columns[self.column_flow]].aggregate([
+                    {'$match': flt},
+                    {
+                        '$group': {
+                            '_id': {
+                                'dst_addr_0': '$dst_addr_0',
+                                'dst_addr_1': '$dst_addr_1'
+                            },
+                        }
+                    },
+                    {'$group': {
+                        '_id': None,
+                        'count': {'$sum': 1}
+                    }}
+                ])
+            )['count']
 
         return {'clients': sources, 'servers': destinations, 'flows': flows}
 
@@ -5231,9 +5233,9 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                         host["data"]["lastseen"])
                 else:
                     hosts[host["id"]] = host
-        g["nodes"] = hosts.values()
+        g["nodes"] = list(viewvalues(hosts))
         if mode in ["flow_map", "talk_map"]:
-            g["edges"] = edges.values()
+            g["edges"] = list(viewvalues(edges))
         return g
 
     @classmethod

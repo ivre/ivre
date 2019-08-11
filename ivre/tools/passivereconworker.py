@@ -135,9 +135,9 @@ def worker(progname, directory, sensor=None):
         else:
             utils.LOGGER.debug('  ... KO')
     # SHUTDOWN
-    for sensor in procs:
-        procs[sensor].stdin.close()
-        procs[sensor].wait()
+    for sensorjob in procs:
+        procs[sensorjob].stdin.close()
+        procs[sensorjob].wait()
 
 
 def main():

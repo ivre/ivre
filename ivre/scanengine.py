@@ -169,7 +169,7 @@ class Campaign(object):
                  visiblecategory=None, maxfeed=None, sleep=2,
                  storedown=True):
         self.targets = targets
-        self.targiter = targets.__iter__()
+        self.targiter = iter(targets)
         self.category = category
         for agent in agents:
             agent.campaigns.append(self)
