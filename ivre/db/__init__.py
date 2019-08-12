@@ -1438,9 +1438,8 @@ class DBNmap(DBActive):
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = self.json2dbrec(json.loads(line.decode()))
-                for fname in ["_id"]:
-                    if fname in host:
-                        del host[fname]
+                if "_id" in host:
+                    del host["_id"]
                 host["scanid"] = filehash
                 if categories:
                     host["categories"] = categories
@@ -2518,6 +2517,7 @@ class MetaDB(object):
     @property
     def nmap(self):
         try:
+            # pylint: disable=access-member-before-definition
             return self._nmap
         except AttributeError:
             pass
@@ -2527,6 +2527,7 @@ class MetaDB(object):
     @property
     def passive(self):
         try:
+            # pylint: disable=access-member-before-definition
             return self._passive
         except AttributeError:
             pass
@@ -2536,6 +2537,7 @@ class MetaDB(object):
     @property
     def data(self):
         try:
+            # pylint: disable=access-member-before-definition
             return self._data
         except AttributeError:
             pass
@@ -2545,6 +2547,7 @@ class MetaDB(object):
     @property
     def agent(self):
         try:
+            # pylint: disable=access-member-before-definition
             return self._agent
         except AttributeError:
             pass
@@ -2554,6 +2557,7 @@ class MetaDB(object):
     @property
     def flow(self):
         try:
+            # pylint: disable=access-member-before-definition
             return self._flow
         except AttributeError:
             pass
@@ -2563,6 +2567,7 @@ class MetaDB(object):
     @property
     def view(self):
         try:
+            # pylint: disable=access-member-before-definition
             return self._view
         except AttributeError:
             pass

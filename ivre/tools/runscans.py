@@ -214,7 +214,7 @@ def call_nmap(options, xmlprocess, targets,
     fcntl.fcntl(procout, fcntl.F_SETFL, procoutfl | os.O_NONBLOCK)
     toread = [proc.stdout]
     towrite = [proc.stdin]
-    targiter = targets.__iter__()
+    targiter = iter(targets)
     while toread:
         # print("ENTERING SELECT")
         rlist, wlist = select.select(toread, towrite, [])[:2]
@@ -467,7 +467,7 @@ def main():
                 pass
         exit(0)
     elif args.output == 'ListAllRand':
-        targiter = targets.__iter__()
+        targiter = iter(targets)
         try:
             for target in targiter:
                 print(ivre.utils.int2ip(target))

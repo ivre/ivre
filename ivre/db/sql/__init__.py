@@ -30,7 +30,7 @@ import json
 import re
 
 
-from builtins import int, range
+from builtins import int, object, range
 from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 from sqlalchemy import and_, cast, column, create_engine, delete, desc, func, \
@@ -453,9 +453,6 @@ class SQLDBFlow(SQLDB, DBFlow):
     table_layout = namedtuple("flow_layout", ['flow'])
     tables = table_layout(Flow)
 
-    def __init__(self, url):
-        super(SQLDBFlow, self).__init__(url)
-
     @staticmethod
     def query(*args, **kargs):
         raise NotImplementedError()
@@ -526,12 +523,13 @@ class Filter(object):
 class ActiveFilter(Filter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
-                 script=None, trace=None):
+                 script=None, tables=None, trace=None):
         self.main = main
         self.hostname = [] if hostname is None else hostname
         self.category = [] if category is None else category
         self.port = [] if port is None else port
         self.script = [] if script is None else script
+        self.tables = tables  # default value is handled in the subclasses
         self.trace = [] if trace is None else trace
 
     @property
@@ -670,20 +668,30 @@ class NmapFilter(ActiveFilter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
                  script=None, tables=None, trace=None):
-        super(NmapFilter, self).__init__(main=main, hostname=hostname,
-                                         category=category, port=port,
-                                         script=script, trace=trace)
-        self.tables = SQLDBNmap.tables if tables is None else tables
+        super(NmapFilter, self).__init__(
+            main=main,
+            hostname=hostname,
+            category=category,
+            port=port,
+            script=script,
+            tables=SQLDBNmap.tables if tables is None else tables,
+            trace=trace,
+        )
 
 
 class ViewFilter(ActiveFilter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
                  script=None, tables=None, trace=None):
-        super(ViewFilter, self).__init__(main=main, hostname=hostname,
-                                         category=category, port=port,
-                                         script=script, trace=trace)
-        self.tables = SQLDBView.tables if tables is None else tables
+        super(ViewFilter, self).__init__(
+            main=main,
+            hostname=hostname,
+            category=category,
+            port=port,
+            script=script,
+            tables=SQLDBView.tables if tables is None else tables,
+            trace=trace,
+        )
 
 
 class SQLDBActive(SQLDB, DBActive):
@@ -1681,9 +1689,6 @@ class SQLDBView(SQLDBActive, DBView):
 
     base_filter = ViewFilter
 
-    def __init__(self, url):
-        super(SQLDBView, self).__init__(url)
-
     def store_or_merge_host(self, host):
         # FIXME: may cause performance issues
         self.start_store_hosts()
@@ -1713,7 +1718,7 @@ class PassiveFilter(Filter):
             "tables": self.tables,
         }
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.main is not None
 
     def copy(self):
@@ -1792,9 +1797,6 @@ class SQLDBPassive(SQLDB, DBPassive):
     }
 
     base_filter = PassiveFilter
-
-    def __init__(self, url):
-        super(SQLDBPassive, self).__init__(url)
 
     def count(self, flt):
         return self.db.execute(
