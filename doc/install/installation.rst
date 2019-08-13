@@ -224,6 +224,26 @@ command on one machine and create an ``ivre-data`` package containing
 the files under the ``/usr/share/ivre/geoip`` directory (or distribute
 those files somehow).
 
+The URLs downloaded are stored in the configuration. By default, the
+following files are downloaded:
+
+::
+
+   $ python
+   >>> from ivre.config import IPDATA_URLS
+   >>> for fname, url in IPDATA_URLS.items():
+   ...     print("%s: %s" % (fname, url))
+   ...
+   GeoLite2-City.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz
+   GeoLite2-City-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip
+   GeoLite2-Country.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz
+   GeoLite2-Country-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip
+   GeoLite2-ASN.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz
+   GeoLite2-ASN-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip
+   iso3166.csv: https://dev.maxmind.com/static/csv/codes/iso3166.csv
+   BGP.raw: http://thyme.apnic.net/current/data-raw-table
+
+
 Using Agents
 ------------
 
