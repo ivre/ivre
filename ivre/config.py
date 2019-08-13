@@ -131,20 +131,21 @@ FLOW_STORE_METADATA = True
 
 IPDATA_URLS = {
     'GeoLite2-City.tar.gz':
-    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz',
+    'https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz',
     'GeoLite2-City-CSV.zip':
-    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip',
+    'https://geolite.maxmind.com/download/geoip/database/'
+    'GeoLite2-City-CSV.zip',
     'GeoLite2-Country.tar.gz':
-    'http://geolite.maxmind.com/download/geoip/database/'
+    'https://geolite.maxmind.com/download/geoip/database/'
     'GeoLite2-Country.tar.gz',
     'GeoLite2-Country-CSV.zip':
-    'http://geolite.maxmind.com/download/geoip/database/'
+    'https://geolite.maxmind.com/download/geoip/database/'
     'GeoLite2-Country-CSV.zip',
     'GeoLite2-ASN.tar.gz':
-    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz',
+    'https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz',
     'GeoLite2-ASN-CSV.zip':
-    'http://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip',
-    'iso3166.csv': 'http://dev.maxmind.com/static/csv/codes/iso3166.csv',
+    'https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip',
+    'iso3166.csv': 'https://dev.maxmind.com/static/csv/codes/iso3166.csv',
     # This one is not from maxmind -- see http://thyme.apnic.net/
     'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
 }
