@@ -369,6 +369,23 @@ weekly). If you use IVRE on several machines, you may want to run the
 command on one machine and create an <code class="docutils literal notranslate"><span class="pre">ivre-data</span></code> package containing
 the files under the <code class="docutils literal notranslate"><span class="pre">/usr/share/ivre/geoip</span></code> directory (or distribute
 those files somehow).</p>
+<p>The URLs downloaded are stored in the configuration. By default, the
+following files are downloaded:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ python
+&gt;&gt;&gt; from ivre.config import IPDATA_URLS
+&gt;&gt;&gt; for fname, url in IPDATA_URLS.items():
+...     print(&quot;%s: %s&quot; % (fname, url))
+...
+GeoLite2-City.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz
+GeoLite2-City-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip
+GeoLite2-Country.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz
+GeoLite2-Country-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip
+GeoLite2-ASN.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz
+GeoLite2-ASN-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip
+iso3166.csv: https://dev.maxmind.com/static/csv/codes/iso3166.csv
+BGP.raw: http://thyme.apnic.net/current/data-raw-table
+</pre></div>
+</div>
 </div>
 <div class="section" id="using-agents">
 <h2>Using Agents<a class="headerlink" href="#using-agents" title="Permalink to this headline">¶</a></h2>
