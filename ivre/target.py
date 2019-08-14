@@ -27,6 +27,10 @@ lists.
 
 
 from functools import reduce
+try:
+    from math import gcd
+except ImportError:
+    from fractions import gcd
 import os
 import random
 import re
@@ -91,7 +95,8 @@ class IterTarget(object):
             self.previous = random.randint(0, self.lcg_m - 1)
             # GCD(c, m) == 1
             self.lcg_c = random.randint(1, self.lcg_m - 1)
-            while mathutils.gcd(self.lcg_c, self.lcg_m) != 1:
+            # pylint: disable=deprecated-method
+            while gcd(self.lcg_c, self.lcg_m) != 1:
                 self.lcg_c = random.randint(1, self.lcg_m - 1)
             # a - 1 is divisible by all prime factors of m
             mfactors = reduce(lambda x, y: x * y,

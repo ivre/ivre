@@ -5138,11 +5138,10 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         Returns a dict representing an edge in flow map graph output.
         row must be a flow entry.
         """
-        flow = ()
         if row.get('proto') in ['udp', 'tcp']:
-            flow = (row.get('proto'), row.get('dport'))
+            flowkey = (row.get('proto'), row.get('dport'))
         else:
-            flow = (row.get('proto'), None)
+            flowkey = (row.get('proto'), None)
         res = {
             "id": str(row.get('_id')),
             "label": "MERGED_FLOWS",
@@ -5151,7 +5150,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             "target": row.get('dst_addr'),
             "data": {
                 "count": 1,
-                "flows": [flow]
+                "flows": [flowkey]
             }
         }
         return res

@@ -461,13 +461,13 @@ def displayfunction_gnmap(cur):
         _display_gnmap_host(h, out=sys.stdout)
 
 
-def displayfunction_explain(flt, db):
-    sys.stdout.write(db.explain(db._get(flt), indent=4) + '\n')
+def displayfunction_explain(flt, dbase):
+    sys.stdout.write(dbase.explain(dbase._get(flt), indent=4) + '\n')
 
 
-def displayfunction_remove(cur, db):
+def displayfunction_remove(cur, dbase):
     for h in cur:
-        db.remove(h)
+        dbase.remove(h)
 
 
 def displayfunction_graphroute(cur, arg, gr_include, gr_dont_reset):
@@ -548,7 +548,7 @@ def displayfunction_csv(cur, arg, csv_sep, csv_na_str, add_infos):
         _displayhost_csv(fields, csv_sep, csv_na_str, h, out=sys.stdout)
 
 
-def displayfunction_json(cur, db, no_screenshots=False):
+def displayfunction_json(cur, dbase, no_screenshots=False):
     if os.isatty(sys.stdout.fileno()):
         indent = 4
     else:
@@ -566,24 +566,24 @@ def displayfunction_json(cur, db, no_screenshots=False):
                         del port[fname]
             elif 'screendata' in port:
                 port['screendata'] = utils.encode_b64(
-                    db.from_binary(port['screendata'])
+                    dbase.from_binary(port['screendata'])
                 )
             for script in port.get('scripts', []):
                 if 'masscan' in script and 'raw' in script['masscan']:
                     script['masscan']['raw'] = utils.encode_b64(
-                        db.from_binary(
+                        dbase.from_binary(
                             script['masscan']['raw']
                         )
                     )
         print(json.dumps(h, indent=indent,
-                         default=db.serialize))
+                         default=dbase.serialize))
 
 
-def display_short(db, flt, srt, lmt, skp):
-    for val in db.distinct("addr", flt=flt, sort=srt, limit=lmt, skip=skp):
-        sys.stdout.write(db.internal2ip(val) + '\n')
+def display_short(dbase, flt, srt, lmt, skp):
+    for val in dbase.distinct("addr", flt=flt, sort=srt, limit=lmt, skip=skp):
+        sys.stdout.write(dbase.internal2ip(val) + '\n')
 
 
-def display_distinct(db, arg, flt, srt, lmt, skp):
-    for val in db.distinct(arg, flt=flt, sort=srt, limit=lmt, skip=skp):
+def display_distinct(dbase, arg, flt, srt, lmt, skp):
+    for val in dbase.distinct(arg, flt=flt, sort=srt, limit=lmt, skip=skp):
         sys.stdout.write(str(val) + '\n')

@@ -22,6 +22,8 @@ databases.
 
 """
 
+# This module should disappear soon
+# pylint: disable=redefined-outer-name
 
 from datetime import datetime, time as dtime
 import operator
