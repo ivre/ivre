@@ -76,6 +76,11 @@ class smart_install_lib(install_lib):
         return result
 
 
+with open(os.path.join(os.path.abspath(os.path.dirname('__file__')),
+                       'README.md')) as fdesc:
+    long_description = fdesc.read()
+
+
 setup(
     name='ivre',
     version=VERSION,
@@ -85,15 +90,10 @@ setup(
     download_url='https://github.com/cea-sec/ivre/tarball/master',
     license='GPLv3+',
     description='Network recon framework',
-    long_description="""
-IVRE is a set of tools aimed at gathering and exploiting network
-information.
-
-It consists of a Python library, a Web UI, CLI tools and several
-specialized scripts.
-""",
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     keywords=["network", "network recon", "network cartography",
-              "nmap", "bro", "p0f"],
+              "nmap", "masscan", "zmap", "bro", "zeek", "p0f"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",

@@ -6,7 +6,7 @@
 
 # IVRE #
 
-<img align="right" src="web/static/logo.png" alt="Logo"/> IVRE
+<img align="right" src="https://ivre.rocks/logo.png" alt="Logo"/> IVRE
 (Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic
 Recon of UNKnown networks) is a network recon framework, including
 tools for passive recon (flow analytics relying on
