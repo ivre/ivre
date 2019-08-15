@@ -73,7 +73,7 @@ class BroFile(Parser):
             if line.startswith(b'#separator '):
                 keyval = [b'separator', line[11:]]
             else:
-                LOGGER.warn("Invalid header line")
+                LOGGER.warning("Invalid header line")
                 return
 
         directive = keyval[0]

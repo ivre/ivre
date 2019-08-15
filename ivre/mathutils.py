@@ -26,9 +26,6 @@ module that might be useful to any other sub-module or script.
 """
 
 
-from fractions import gcd
-
-
 def genprimes():
     '''Yields the sequence of prime numbers via the Sieve of Eratosthenes.
 
@@ -59,8 +56,3 @@ def factors(n):
         if p * p > n:
             yield n
             break
-
-
-if __name__ == '__main__':
-    # Use gcd() here to avoid "unused import / variable" warnings
-    gcd(1, 2)
