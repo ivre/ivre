@@ -228,20 +228,26 @@ def main():
 
             if args.plot:
                 for flw in rec["flows"]:
-                    plot_data.setdefault(flw[0], [[], []])
                     t = rec["time_in_day"]
                     # pyplot needs datetime objects
                     dt = datetime.datetime(1970, 1, 1,
                                            hour=t.hour,
                                            minute=t.minute,
                                            second=t.second)
-                    plot_data[flw[0]][0].append(dt)
-                    plot_data[flw[0]][1].append(flw[1])
+                    plot_data.setdefault(flw[0], {})
+                    plot_data[flw[0]][dt] = flw[1]
         if args.plot and plot_data:
+            t = datetime.datetime(1970, 1, 1, 0, 0, 0)
+            t += datetime.timedelta(seconds=config.FLOW_TIME_BASE % precision)
+            times = []
+            while t < datetime.datetime(1970, 1, 2):
+                times.append(t)
+                t = t + datetime.timedelta(seconds=precision)
             ax = plt.subplots()[1]
             fmt = matplotlib.dates.DateFormatter('%H:%M:%S')
-            for flow, points in viewitems(plot_data):
-                plt.plot(points[0], points[1], label=flow, marker='o')
+            for flow, data in viewitems(plot_data):
+                values = [(data[t] if t in data else 0) for t in times]
+                plt.step(times, values, '.-', where='post', label=flow)
             plt.legend(loc='best')
             ax.xaxis.set_major_formatter(fmt)
             plt.gcf().autofmt_xdate()
