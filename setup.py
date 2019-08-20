@@ -48,6 +48,12 @@ class smart_install_data(install_data):
             self.data_files = [
                 ("/%s" % path if path.startswith('etc/') else path, files)
                 for path, files in self.data_files
+                if path  # skip README.md or any file with an empty path
+            ]
+        else:
+            self.data_files = [
+                (path, files) for path, files in self.data_files
+                if path  # skip README.md or any file with an empty path
             ]
         return install_data.run(self)
 
@@ -140,6 +146,7 @@ setup(
               'ivre/tools', 'ivre/web'],
     scripts=['bin/ivre'],
     data_files=[
+        ('', ['README.md']),  # needed for the package description
         ('share/ivre/bro',
          ['bro/passiverecon2db-ignore.example']),
         ('share/ivre/bro/ivre',
