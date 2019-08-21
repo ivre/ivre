@@ -2557,7 +2557,8 @@ class MetaDB(object):
         "flow": {"neo4j": ("neo4j", "Neo4jDBFlow"),
                  "mongodb": ("mongo", "MongoDBFlow"),
                  "postgresql": ("sql.postgres", "PostgresDBFlow")},
-        "view": {"http": ("http", "HttpDBView"),
+        "view": {"elastic": ("elastic", "ElasticDBView"),
+                 "http": ("http", "HttpDBView"),
                  "mongodb": ("mongo", "MongoDBView"),
                  "postgresql": ("sql.postgres", "PostgresDBView")},
     }

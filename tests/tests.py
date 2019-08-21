@@ -617,6 +617,15 @@ which `predicate()` is True, given `webflt`.
                              stdin=open(os.devnull))[0], 0)
         self.assertEqual(RUN(["ivre", "scancli", "--count"])[1], b"0\n")
 
+    def test_20_fake_nmap_passive(self):
+        """For Elasticsearch backend: insert results in MongoDB nmap & passive
+purposes to feed Elasticsearch view.
+
+        """
+        if DATABASE != "elastic":
+            return
+        subprocess.check_call(["mongorestore", "--db", "ivre", "../backup/"])
+
     def test_30_nmap(self):
 
         #
@@ -4078,6 +4087,8 @@ DATABASES = {
                "utils"],
     "neo4j": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
               "54_passive_delete", "90_cleanup", "scans", "utils"],
+    "elastic": ["30_nmap", "40_passive", "53_nmap_delete", "54_passive_delete",
+                "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
                 "54_passive_delete", "60_flow", "90_cleanup", "scans"],
 }
