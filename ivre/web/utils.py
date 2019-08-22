@@ -36,6 +36,7 @@ except ImportError:
     HAVE_MYSQL = False
 
 
+from bottle import request
 from future.utils import viewitems
 from past.builtins import basestring
 
@@ -151,7 +152,7 @@ def get_user():
     """Return the connected user.
 
     """
-    return os.getenv('REMOTE_USER')
+    return request.environ.get('REMOTE_USER')
 
 
 def get_anonymized_user():
