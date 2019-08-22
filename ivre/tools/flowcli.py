@@ -97,21 +97,21 @@ def main():
                         metavar="NEW_PRECISION",
                         help="Only with MongoDB backend. "
                         "Reduce precision to NEW_PRECISION for flows "
-                        "timeslots. Takes account of precision, before, "
-                        "after, filters.")
+                        "timeslots. Uses precision, before, after and "
+                        "filters.")
     parser.add_argument("--after", "-a", type=str, help="Only with MongoDB "
                         "backend. Get only flows seen after this date. "
                         "Date format: YEAR-MONTH-DAY HOUR:MINUTE. "
                         "Based on timeslots precision. If the given date is "
-                        "in the middle of a period, flows start at the next "
-                        "coming period.")
+                        "in the middle of a timeslot, flows start at the next "
+                        "timeslot.")
     parser.add_argument("--before", "-b", type=str, help="Only with MongoDB "
                         "backend. Get only flows seen before this date. "
                         "Date format: YEAR-MONTH-DAY HOUR:MINUTE. "
                         "Based on timeslots precision. If the given date is "
-                        "in the middle of a period, the whole period is kept "
-                        "even if theoretically some flows may have been seen "
-                        "after the given date.")
+                        "in the middle of a timeslot, the whole period is "
+                        "kept even if theoretically some flows may have been "
+                        "seen after the given date.")
     parser.add_argument('--precision', nargs='?', default=None, const=0,
                         help="Only With MongoDB backend. If PRECISION is "
                         "specified, get only flows with one timeslot of "
@@ -149,8 +149,8 @@ def main():
 
     if args.precision == 0:
         # Get precisions list
-        for precision in db.flow.list_precisions():
-            out.write('%d\n' % precision)
+        out.writelines('%d\n' % precision
+                       for precision in db.flow.list_precisions())
         sys.exit(0)
 
     filters = {"nodes": args.node_filters or [],
@@ -180,11 +180,11 @@ def main():
             ans = input()
             if ans.lower() != 'y':
                 sys.exit(-1)
-        new_duration = args.reduce_precision
-        db.flow.reduce_precision(new_duration, flt=query,
+        new_precision = args.reduce_precision
+        db.flow.reduce_precision(new_precision, flt=query,
                                  before=time_values['before'],
                                  after=time_values['after'],
-                                 precision=args.precision)
+                                 current_precision=args.precision)
         sys.exit(0)
 
     sep = args.separator or ' | '
@@ -216,7 +216,7 @@ def main():
         precision = (args.precision if args.precision is not None
                      else config.FLOW_TIME_PRECISION)
         plot_data = {}
-        for rec in db.flow.flow_daily(precision, flt=query,
+        for rec in db.flow.flow_daily(precision, query,
                                       after=time_values['after'],
                                       before=time_values['before']):
             out.write(
@@ -246,7 +246,7 @@ def main():
             ax = plt.subplots()[1]
             fmt = matplotlib.dates.DateFormatter('%H:%M:%S')
             for flow, data in viewitems(plot_data):
-                values = [(data[t] if t in data else 0) for t in times]
+                values = [(data[ti] if ti in data else 0) for ti in times]
                 plt.step(times, values, '.-', where='post', label=flow)
             plt.legend(loc='best')
             ax.xaxis.set_major_formatter(fmt)

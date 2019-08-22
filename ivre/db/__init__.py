@@ -2492,22 +2492,21 @@ class DBFlow(DB):
         d["duration"] = precision
         return d
 
-    def reduce_precision(self, new_duration, flt=None,
-                         base=None, before=None, after=None, precision=None):
+    def reduce_precision(self, new_precision, flt=None,
+                         before=None, after=None, current_precision=None):
         """
-        Changes precision of timeslots to <new_duration> precision of flows
+        Changes precision of timeslots to <new_precision> of flows
         honoring:
             - the given filter <flt> if specified
             - that have been seen before <before> if specified
             - that have been seen after <after> if specified
-            - timeslots changed must currently have <precision> precision if
+            - timeslots changed must currently have <current_precision> if
                 specified
         <base> represents the timestamp of the base point.
-        If <precision> is specified:
-            <new_duration> must be a multiple of <precision>
-            <new_duration> must be greater than <precision>
-            <base> must be a multiple of current precision
-        Otherwise, timeslots that do not respect these rules won't be updated.
+        If <current_precision> is specified:
+            - <new_precision> must be a multiple of <current_precision>
+            - <new_precision> must be greater than <current_precision>
+        Timeslots that do not respect these rules will not be updated.
         """
         raise NotImplementedError("Only available with MongoDB backend.")
 
@@ -2517,14 +2516,14 @@ class DBFlow(DB):
         """
         raise NotImplementedError("Only available with MongoDB backend.")
 
-    def count(self, flt, after=None, before=None, precision=None):
+    def count(self, flt):
         """
         Returns a dict {'client': nb_clients, 'servers': nb_servers',
         'flows': nb_flows} according to the given filter.
         """
         raise NotImplementedError
 
-    def flow_daily(self, precision, flt=None):
+    def flow_daily(self, precision, flt, after=None, before=None):
         """
         Returns a generator within each element is a dict
         {

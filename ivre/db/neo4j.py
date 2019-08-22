@@ -1285,7 +1285,7 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
         query.orderby = old_orderby
         return counts
 
-    def flow_daily(self, precision, flt=None, after=None, before=None):
+    def flow_daily(self, precision, flt, after=None, before=None):
         """
         Returns a generator within each element is a dict
         {

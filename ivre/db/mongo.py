@@ -5632,7 +5632,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         # TODO Add cleanup steps like in neo4j
         pass
 
-    def flow_daily(self, precision, flt=None, after=None, before=None):
+    def flow_daily(self, precision, flt, after=None, before=None):
         """
         Returns a generator within each element is a dict
         {
@@ -5717,11 +5717,12 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             }
             yield res
 
-    def reduce_precision(self, new_duration, flt=None,
-                         before=None, after=None, precision=None):
+    def reduce_precision(self, new_precision, flt=None,
+                         before=None, after=None, current_precision=None):
         base = config.FLOW_TIME_BASE
 
-        current_duration = precision
+        new_duration = new_precision
+        current_duration = current_precision
         if current_duration is not None:
             if base % current_duration != 0:
                 raise ValueError("Base %d must be a multiple of current "
@@ -5777,20 +5778,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             utils.LOGGER.debug("%d updates, %f/sec",
                                result.get('nModified'), update_rate)
         except pymongo.errors.InvalidOperation:
-            utils.LOGGER.debug("No operations to execute.")
+            utils.LOGGER.debug("No operation to execute.")
 
     def list_precisions(self):
-        pipeline = []
-
-        pipeline.append({'$unwind': '$times'})
-
-        pipeline.append({
-            '$group': {
-                '_id': '$times.duration'
-            }
-        })
-
-        pipeline.append({"$sort": {"_id": 1}})
+        pipeline = [
+            {'$unwind': '$times'},
+            {'$group': {'_id': '$times.duration'}},
+            {"$sort": {"_id": 1}}
+        ]
 
         res = self.db[self.columns[self.column_flow]].aggregate(pipeline,
                                                                 cursor={})
