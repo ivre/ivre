@@ -608,6 +608,7 @@ class DBActive(DB):
                 9: (10, self.__migrate_schema_hosts_9_10),
                 10: (11, self.__migrate_schema_hosts_10_11),
                 11: (12, self.__migrate_schema_hosts_11_12),
+                12: (13, self.__migrate_schema_hosts_12_13),
             },
         }
         self.argparser.add_argument(
@@ -981,6 +982,32 @@ the structured output for fcrdns and rpcinfo script.
                     if "rpcinfo" in script:
                         script["rpcinfo"] = xmlnmap.change_rpcinfo(
                             script["rpcinfo"]
+                        )
+        return doc
+
+    @staticmethod
+    def __migrate_schema_hosts_12_13(doc):
+        """Converts a record from version 12 to version 13. Version 13 changes
+the structured output for ms-sql-info and smb-enum-shares scripts.
+
+        """
+        assert doc["schema_version"] == 12
+        doc["schema_version"] = 13
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "ms-sql-info":
+                    if "ms-sql-info" in script:
+                        script[
+                            "ms-sql-info"
+                        ] = xmlnmap.change_ms_sql_info(
+                            script["ms-sql-info"]
+                        )
+                elif script['id'] == "smb-enum-shares":
+                    if "smb-enum-shares" in script:
+                        script[
+                            "smb-enum-shares"
+                        ] = xmlnmap.change_smb_enum_shares(
+                            script["smb-enum-shares"]
                         )
         return doc
 
