@@ -609,6 +609,7 @@ class DBActive(DB):
                 10: (11, self.__migrate_schema_hosts_10_11),
                 11: (12, self.__migrate_schema_hosts_11_12),
                 12: (13, self.__migrate_schema_hosts_12_13),
+                13: (14, self.__migrate_schema_hosts_13_14),
             },
         }
         self.argparser.add_argument(
@@ -1009,6 +1010,30 @@ the structured output for ms-sql-info and smb-enum-shares scripts.
                         ] = xmlnmap.change_smb_enum_shares(
                             script["smb-enum-shares"]
                         )
+        return doc
+
+    @staticmethod
+    def __migrate_schema_hosts_13_14(doc):
+        """Converts a record from version 13 to version 14. Version 14 changes
+the structured output for ssh-hostkey and ls scripts to prevent a same
+field from having different data types.
+
+        """
+        assert doc["schema_version"] == 13
+        doc["schema_version"] = 14
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "ssh-hostkey" and 'ssh-hostkey' in script:
+                    script['ssh-hostkey'] = xmlnmap.change_ssh_hostkey(
+                        script["ssh-hostkey"]
+                    )
+                elif (xmlnmap.ALIASES_TABLE_ELEMS.get(script['id']) == 'ls' and
+                      "ls" in script):
+                    script[
+                        "ls"
+                    ] = xmlnmap.change_ls_migrate(
+                        script["ls"]
+                    )
         return doc
 
     @staticmethod

@@ -960,6 +960,7 @@ class MongoDBActive(MongoDB, DBActive):
                 10: (11, self.migrate_schema_hosts_10_11),
                 11: (12, self.migrate_schema_hosts_11_12),
                 12: (13, self.migrate_schema_hosts_12_13),
+                13: (14, self.migrate_schema_hosts_13_14),
             },
         ]
 
@@ -1380,6 +1381,35 @@ the structured output for fcrdns and rpcinfo script.
                             script["smb-enum-shares"]
                         )
                         updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_13_14(doc):
+        """Converts a record from version 13 to version 14. Version 14 changes
+the structured output for ssh-hostkey and ls scripts to prevent a same
+field from having different data types.
+
+        """
+        assert doc["schema_version"] == 13
+        update = {"$set": {"schema_version": 13}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "ssh-hostkey" and 'ssh-hostkey' in script:
+                    script['ssh-hostkey'] = xmlnmap.change_ssh_hostkey(
+                        script["ssh-hostkey"]
+                    )
+                    updated = True
+                elif (xmlnmap.ALIASES_TABLE_ELEMS.get(script['id']) == 'ls' and
+                      "ls" in script):
+                    script[
+                        "ls"
+                    ] = xmlnmap.change_ls_migrate(
+                        script["ls"]
+                    )
+                    updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update
