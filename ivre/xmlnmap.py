@@ -602,8 +602,8 @@ def change_smb_enum_shares(table):
     for field in list(table):
         if field == 'shares':
             continue
-        if not (field.startswith('\\\\')
-                and isinstance(table[field], dict)):
+        if not (field.startswith('\\\\') and
+                isinstance(table[field], dict)):
             result[field] = table.pop(field)
     if 'shares' in table:
         # We just need to fix the share names
