@@ -737,6 +737,8 @@ class SQLDBActive(SQLDB, DBActive):
             failed += self._migrate_schema_11_12()
         if (version or 0) < 13:
             failed += self._migrate_schema_12_13()
+        if (version or 0) < 14:
+            failed += self._migrate_schema_13_14()
         return failed
 
     def _migrate_schema_8_9(self):
@@ -912,6 +914,57 @@ the structured output for ms-sql-info and smq-enum-shares scripts.
             .where(and_(self.tables.scan.schema_version == 12,
                         self.tables.scan.id.notin_(failed)))
             .values(schema_version=13)
+        )
+        return len(failed)
+
+    def _migrate_schema_13_14(self):
+        """Converts a record from version 13 to version 14. Version 14 changes
+the structured output for ssh-hostkey and ls scripts to prevent a same
+field from having different data types.
+
+        """
+        failed = set()
+        scripts = [
+            script_name
+            for script_name, alias in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
+            if alias == 'ls'
+        ]
+        scripts.append('ssh-hostkey')
+        req = (select([self.tables.scan.id,
+                       self.tables.script.name,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(self.tables.scan.schema_version == 13,
+                           self.tables.script.name.in_(scripts))))
+        for rec in self.db.execute(req):
+            if rec.name in rec.data:
+                migr_func = (
+                    xmlnmap.change_ssh_hostkey
+                    if rec.name == 'ssh-hostkey' else
+                    xmlnmap.change_ls_migrate
+                )
+                try:
+                    data = migr_func(rec.data[rec.name])
+                except Exception:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id,
+                                         exc_info=True)
+                    failed.add(rec.id)
+                else:
+                    if data:
+                        self.db.execute(
+                            update(self.tables.script)
+                            .where(and_(self.tables.script.port == rec.port,
+                                        self.tables.script.name == rec.name))
+                            .values(data={rec.name: data})
+                        )
+        self.db.execute(
+            update(self.tables.scan)
+            .where(and_(self.tables.scan.schema_version == 13,
+                        self.tables.scan.id.notin_(failed)))
+            .values(schema_version=14)
         )
         return len(failed)
 
