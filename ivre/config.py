@@ -126,6 +126,10 @@ FLOW_TIME_PRECISION = 3600
 # When recording flow times, record the whole range from start_time to end_time
 # This option is experimental and possibly useless in practice
 FLOW_TIME_FULL_RANGE = True
+# When recording flow times, represents the beginning of the first timeslot
+# as a Unix timestamp shifted to local time.
+# 0 means that the first timeslot starts at 1970-01-01 00:00 (Local time).
+FLOW_TIME_BASE = 0
 # Store high level protocols metadata in flows. It may take much more space.
 FLOW_STORE_METADATA = True
 

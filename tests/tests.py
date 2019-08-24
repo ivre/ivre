@@ -2347,6 +2347,84 @@ which `predicate()` is True, given `webflt`.
 
     def test_60_flow(self):
 
+        # Unit tests #
+
+        # Test _get_timeslots
+        for i in range(24):
+            # Test both winter and summer times
+            new_duration = 86400
+            test_timeslots = [
+                {
+                    "timeslot": {
+                        "start": datetime(2019, 1, 1, i),
+                        "duration": 3600
+                    },
+                    "expected": {
+                        "start": datetime(2019, 1, 1),
+                        "duration": new_duration
+                    }
+                },
+                {
+                    "timeslot": {
+                        "start": datetime(2019, 6, 1, i),
+                        "duration": 3600
+                    },
+                    "expected": {
+                        "start": datetime(2019, 6, 1),
+                        "duration": new_duration
+                    }
+                }
+            ]
+            for test_timeslot in test_timeslots:
+                timeslot = test_timeslot["timeslot"]
+                new_timeslot = ivre.db.db.flow._get_timeslot(
+                    timeslot["start"], new_duration, 0)
+                self.assertEqual(new_timeslot, test_timeslot["expected"])
+        # Test on one week period, starting monday (changing base)
+        new_duration = 86400 * 7
+        test_timeslots = [
+            {
+                "timeslot": {
+                    "start": datetime(1970, 1, 1),
+                    "duration": 86400
+                },
+                "expected": {
+                    "start": datetime(1969, 12, 29),
+                    "duration": new_duration
+                }
+            },
+            {
+                "timeslot": {
+                    "start": datetime(2019, 7, 15),
+                    "duration": 600
+                },
+                "expected": {
+                    "start": datetime(2019, 7, 15),
+                    "duration": new_duration
+                }
+            },
+            {
+                "timeslot": {
+                    "start": datetime(2019, 7, 21, 23, 50),
+                    "duration": 600,
+                },
+                "expected": {
+                    "start": datetime(2019, 7, 15),
+                    "duration": new_duration
+                }
+            }
+        ]
+        base = ivre.utils.datetime2timestamp(datetime(2019, 7, 15))
+        base += ivre.utils.tz_offset(base)
+        base %= new_duration
+        for test_timeslot in test_timeslots:
+            timeslot = test_timeslot["timeslot"]
+            new_timeslot = ivre.db.db.flow._get_timeslot(
+                timeslot["start"], new_duration, base)
+            self.assertEqual(new_timeslot, test_timeslot["expected"])
+
+        #  Functional tests #
+
         # Init DB
         res, out, err = RUN(["ivre", "flowcli", "--init"],
                             stdin=open(os.devnull))
@@ -2586,6 +2664,25 @@ which `predicate()` is True, given `webflt`.
                 self.check_value("flow_daily_%d_flows_%s"
                                  % (i, flw[0]), flw[1])
 
+        # Test top values
+        self.check_flow_top_values(
+            "flow_top_flows",
+            ["ivre", "flowcli", "--top", "src.addr", "dst.addr", "proto",
+             "dport", "--limit", "1", "--sum", "count", "--collect",
+             "firstseen", "lastseen"])
+
+        self.check_flow_top_values(
+            "flow_top_pair",
+            ['ivre', 'flowcli', '--top', 'src.addr', 'dst.addr', '--sum',
+             'scbytes', 'csbytes', '--limit', '1', '--collect', 'proto',
+             'dport'])
+
+        self.check_flow_top_values(
+            "flow_top_transport",
+            ['ivre', 'flowcli', '--top', 'proto', 'dport', '--sum',
+             'scbytes', 'csbytes', '--limit', '1', '--collect', 'src.addr',
+             'dst.addr'])
+
         if DATABASE == 'mongo':
             self.check_flow_count_value(
                 "flow_count_http",
@@ -2638,24 +2735,70 @@ which `predicate()` is True, given `webflt`.
                 ['--flow-filters', 'LEN times > 2'],
                 {"edges": ['LEN times > 2']})
 
-        # Test top values
-        self.check_flow_top_values(
-            "flow_top_flows",
-            ["ivre", "flowcli", "--top", "src.addr", "dst.addr", "proto",
-             "dport", "--limit", "1", "--sum", "count", "--collect",
-             "firstseen", "lastseen"])
+            # Test after and before filters
+            self.check_flow_count_value_cli(
+                "flow_count_before_2015",
+                ['-b', "2015-01-01 00:00"],
+                "flowcli")
+            self.check_flow_count_value_cli(
+                "flow_count_after_2015",
+                ['-a', "2015-01-01 00:00"],
+                "flowcli")
+            self.check_flow_count_value_cli(
+                "flow_count_in_2015",
+                ["-a", "2015-01-01 00:00", "-b", "2016-01-01 00:00"],
+                "flowcli")
 
-        self.check_flow_top_values(
-            "flow_top_pair",
-            ['ivre', 'flowcli', '--top', 'src.addr', 'dst.addr', '--sum',
-             'scbytes', 'csbytes', '--limit', '1', '--collect', 'proto',
-             'dport'])
+            # Test precision
+            res, out, err = RUN(['ivre', 'flowcli', '--precision'])
+            self.assertEqual(res, 0)
+            self.assertTrue(not err)
+            numbers = out.decode().split('\n')[:-1]
+            self.assertEqual(len(numbers), 1)
+            self.assertEqual(int(numbers[0]), ivre.config.FLOW_TIME_PRECISION)
 
-        self.check_flow_top_values(
-            "flow_top_transport",
-            ['ivre', 'flowcli', '--top', 'proto', 'dport', '--sum',
-             'scbytes', 'csbytes', '--limit', '1', '--collect', 'src.addr',
-             'dst.addr'])
+            self.check_flow_count_value_cli(
+                "flow_count",
+                ['--precision', str(ivre.config.FLOW_TIME_PRECISION)],
+                "flowcli")
+
+            # Test to reduce precision
+            new_precision = ivre.config.FLOW_TIME_PRECISION * 4
+            res, out, err = RUN(['ivre', 'flowcli', '--reduce-precision',
+                                 str(new_precision)],
+                                stdin=open(os.devnull))
+            self.assertEqual(res, 0)
+
+            for i in range(1, 3):
+                self.check_flow_count_value(
+                    "flow_count_timeslots_after_reducing_%d" % i,
+                    {"edges": ['LEN times = %d' % i]},
+                    ['--flow-filters', 'LEN times = %d' % i],
+                    {"edges": ['LEN times = %d' % i]})
+            self.check_flow_count_value(
+                "flow_count_timeslots_after_reducing_gt_2",
+                {"edges": ['LEN times > 2']},
+                ['--flow-filters', 'LEN times > 2'],
+                {"edges": ['LEN times > 2']})
+
+            flt_old = ivre.db.db.flow.from_filters({
+                'edges': [
+                    'times.duration = %d' % ivre.config.FLOW_TIME_PRECISION
+                ]
+            })
+            self.assertEqual(
+                ivre.db.db.flow.count(flt_old),
+                {'clients': 0, 'flows': 0, 'servers': 0}
+            )
+            flt_new = ivre.db.db.flow.from_filters({
+                'edges': [
+                    'times.duration = %d' % new_precision
+                ]
+            })
+            self.assertNotEqual(
+                ivre.db.db.flow.count(flt_new),
+                {'clients': 0, 'flows': 0, 'servers': 0}
+            )
 
         # Test netflow capture insertion
         res, out, err = RUN(["ivre", "flowcli", "--init"],

@@ -61,7 +61,7 @@
 
 #fullscreen-btn {
     position: absolute;
-    bottom: 56px;
+    bottom: 70px;
     left: 10px;
     background: transparent;
     border: none;
@@ -87,6 +87,11 @@
 .table.details > thead > tr > th {
     text-transform: uppercase;
     padding-bottom: 10px;
+}
+
+input.ng-invalid {
+    box-shadow: 0 0 5px darkred;
+    border: 1px solid darkred !important;
 }
 
 /*
