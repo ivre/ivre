@@ -151,7 +151,8 @@ class ElasticDBActive(ElasticDB, DBActive):
         return self.db_client.search(
             body={"query": flt},
             index=self.indexes[0],
-            size=0
+            size=0,
+            ignore_unavailable=True,
         )['hits']['total']['value']
 
     def get(self, spec, **kargs):
