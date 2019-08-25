@@ -1,0 +1,4 @@
+elasticsearch
+pycrypto
+future
+bottle

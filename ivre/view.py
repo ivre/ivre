@@ -336,6 +336,8 @@ def nmap_record_to_view(rec):
     """Convert an nmap result in view.
 
     """
+    if '_id' in rec:
+        del rec['_id']
     if 'scanid' in rec:
         del rec['scanid']
     if 'source' in rec:
@@ -343,6 +345,16 @@ def nmap_record_to_view(rec):
             rec['source'] = []
         elif not isinstance(rec['source'], list):
             rec['source'] = [rec['source']]
+    for port in rec.get('ports', []):
+        for script in port.get('scripts', []):
+            if 'masscan' in script and 'raw' in script['masscan']:
+                script['masscan']['raw'] = db.nmap.from_binary(
+                    script['masscan']['raw']
+                )
+            if 'screendata' in script:
+                script['screendata'] = db.nmap.from_binary(
+                    script['screendata']
+                )
     return rec
 
 
@@ -382,6 +394,20 @@ def to_view(itrs):
             return updt
         return db.view.merge_host_docs(rec, updt)
     next_recs = []
+
+    def prepare_record(rec):
+        for port in rec.get('ports', []):
+            for script in port.get('scripts', []):
+                if 'masscan' in script and 'raw' in script['masscan']:
+                    script['masscan']['raw'] = db.view.to_binary(
+                        script['masscan']['raw']
+                    )
+                if 'screendata' in script:
+                    script['screendata'] = db.view.to_binary(
+                        script['screendata']
+                    )
+        return rec
+
     # We cannot use a `for itr in itrs` loop here because itrs is
     # modified in the loop.
     i = 0
@@ -419,8 +445,8 @@ def to_view(itrs):
                 next_addrs[i] = next_recs[i]['addr']
             i += 1
         if next_addrs and cur_addr not in next_addrs:
-            yield cur_rec
+            yield prepare_record(cur_rec)
             cur_rec = None
             cur_addr = min(next_addrs)
     if cur_rec is not None:
-        yield cur_rec
+        yield prepare_record(cur_rec)

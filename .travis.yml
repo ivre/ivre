@@ -20,6 +20,8 @@ dist: xenial
 env:
   # MaxMind (& utils)
   - DB=maxmind
+  # Elasticsearch
+  - DB=elastic ELASTIC_VERSION=7.3.0
   # PostgreSQL 10.1, 9.6.6, 9.5.10
   - DB=postgres POSTGRES_VERSION=9.5.10
   - DB=postgres POSTGRES_VERSION=9.6.6
