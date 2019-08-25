@@ -2631,7 +2631,7 @@ class DBFlow(DB):
         by `sum_fields` sum and storing the `collect_fields` fields of
         each original entry in aggregated records as a list.
         By default, the aggregated records are sorted by their number of
-        occurences.
+        occurrences.
         Return format:
             {
                 fields: (field_1_value, field_2_value, ...),
