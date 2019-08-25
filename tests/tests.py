@@ -3711,18 +3711,17 @@ purposes to feed Elasticsearch view.
         self.assertTrue(not err)
         count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
         self.check_value("view_gnmap_up_count", count)
-
-        if DATABASE == "elastic":
-            # Support for Elasticsearch is experimental and lacks a
-            # lot of functionalities. The next test fails for lack of
-            # .distinct() method.
-            return
-
         # SHORT
         res, out, err = RUN(['ivre', 'view', '--short'])
         self.assertEqual(res, 0)
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
+
+        if DATABASE == "elastic":
+            # Support for Elasticsearch is experimental and lacks a
+            # lot of functionalities. The next tests will fail for
+            # lack of filters.
+            return
 
         # Filters
         self.check_view_top_value("view_ssh_top_port", "port:ssh")
