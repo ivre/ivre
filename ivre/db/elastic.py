@@ -108,6 +108,14 @@ class ElasticDB(DB):
         return utils.decode_b64(data.encode())
 
     @staticmethod
+    def ip2internal(addr):
+        return addr
+
+    @staticmethod
+    def internal2ip(addr):
+        return addr
+
+    @staticmethod
     def searchnonexistent():
         return {"match": {"_id": 0}}
 
