@@ -89,9 +89,9 @@ We try to comply with the some guidelines for new code:
 -   [Pylint](http://www.pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
     or even undesirable; human brain needed!).
--   [flake8](http://flake8.pycqa.org/) tests are run for each pull
-    request (see .travis.yml for the specific options). Pull requests
-    will not be accepted when the tests fail.
+-   [flake8](http://flake8.pycqa.org/) and Pylint tests are run for
+    each pull request (see .travis.yml for the specific options). Pull
+    requests will not be accepted when the tests fail.
 -   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
 -   Avoid creating `list` objects when generators can be used,
@@ -128,5 +128,5 @@ consistency, etc.
 
 ---
 
-This file is part of IVRE. Copyright 2011 - 2018
+This file is part of IVRE. Copyright 2011 - 2019
 [Pierre LALET](mailto:pierre.lalet@cea.fr)
