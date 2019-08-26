@@ -35,6 +35,9 @@ from ivre.db import DB, DBActive, DBView
 from ivre import utils
 
 
+PAGESIZE = 250
+
+
 class ElasticDB(DB):
 
     # filters
@@ -108,6 +111,14 @@ class ElasticDB(DB):
         return utils.decode_b64(data.encode())
 
     @staticmethod
+    def ip2internal(addr):
+        return addr
+
+    @staticmethod
+    def internal2ip(addr):
+        return addr
+
+    @staticmethod
     def searchnonexistent():
         return {"match": {"_id": 0}}
 
@@ -143,7 +154,8 @@ class ElasticDBActive(ElasticDB, DBActive):
         return self.db_client.search(
             body={"query": flt},
             index=self.indexes[0],
-            size=0
+            size=0,
+            ignore_unavailable=True,
         )['hits']['total']['value']
 
     def get(self, spec, **kargs):
@@ -152,6 +164,25 @@ class ElasticDBActive(ElasticDB, DBActive):
                                 index=self.indexes[0],
                                 ignore_unavailable=True):
             yield dict(rec['_source'], _id=rec['_id'])
+
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
+        if flt is None:
+            flt = self.flt_empty
+        # https://techoverflow.net/2019/03/17/how-to-query-distinct-field-values-in-elasticsearch/
+        query = {"size": 10, "sources": [{field: {"terms": {"field": field}}}]}
+        while True:
+            result = self.db_client.search(
+                body={"query": flt,
+                      "aggs": {"values": {"composite": query}}},
+                index=self.indexes[0],
+                ignore_unavailable=True,
+                size=0
+            )
+            for value in result["aggregations"]["values"]["buckets"]:
+                yield value['key'][field]
+            if 'after_key' not in result["aggregations"]["values"]:
+                break
+            query["after"] = result["aggregations"]["values"]["after_key"]
 
 
 class ElasticDBView(ElasticDBActive, DBView):

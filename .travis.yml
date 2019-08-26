@@ -21,7 +21,7 @@ env:
   # MaxMind (& utils)
   - DB=maxmind
   # Elasticsearch
-  - DB=elastic ELASTIC_VERSION=7.3.0
+  - DB=elastic ELASTIC_VERSION=7.3.1
   # PostgreSQL 10.1, 9.6.6, 9.5.10
   - DB=postgres POSTGRES_VERSION=9.5.10
   - DB=postgres POSTGRES_VERSION=9.6.6
@@ -149,7 +149,7 @@ before_script:
   - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
   - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
   - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre view --init < /dev/null || echo "ERROR failed to init view database."
-  - test "$DB" != "neo4j" || ivre flowcli --init < /dev/null || echo "ERROR failed to init flow database."
+  - test "$DB" != "neo4j" -a "$DB" != "mongo" || ivre flowcli --init < /dev/null || echo "ERROR failed to init flow database."
   - cat .travis/ivre.conf >> ~/.ivre.conf
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   # install p0f, Bro & Nmap (.tar files)
