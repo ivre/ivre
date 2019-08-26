@@ -45,6 +45,6 @@ issue.
 
 ### More
 
-Please include any other information that could help us. We will be
-able to help you faster if we don't have to ask questions and wait for
-your answers.
+Please include any other information that could help us, including
+scan results or PCAP samples. We will be able to help you faster if we
+don't have to ask questions and wait for your answers.

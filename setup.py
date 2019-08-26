@@ -134,8 +134,9 @@ setup(
         'bottle',
     ],
     extras_require={
-        'Flow with Neo4j': ["py2neo>=3,<4"],
-        'PostgreSQL': ["sqlalchemy", "psycopg2"],
+        'Flow with Neo4j (deprecated)': ["py2neo>=3,<4"],
+        'PostgreSQL (experimental)': ["sqlalchemy", "psycopg2"],
+        'Elasticsearch (experimental)': ["elasticsearch"],
         'GSSAPI authentication': ["python-krbV"],
         'Screenshots': ["PIL"],
         'MediaWiki integration': ["MySQL-python"],
