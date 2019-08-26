@@ -81,6 +81,7 @@ class DB(object):
 
     """
     globaldb = None
+    ipaddr_fields = []
 
     def __init__(self):
         self.argparser = utils.ArgparserParent()
@@ -592,6 +593,9 @@ To use this to create a pandas DataFrame, you can run:
 
 
 class DBActive(DB):
+
+    ipaddr_fields = ["addr", "traces.hops.ipaddr", "ports.state_reason_ip"]
+
     def __init__(self):
         super(DBActive, self).__init__()
         self._schema_migrations = {
@@ -1846,6 +1850,8 @@ class _RecInfo(object):
 
 
 class DBPassive(DB):
+
+    ipaddr_fields = ["addr"]
 
     def __init__(self):
         super(DBPassive, self).__init__()

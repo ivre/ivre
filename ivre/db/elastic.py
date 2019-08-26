@@ -137,9 +137,7 @@ class ElasticDB(DB):
 class ElasticDBActive(ElasticDB, DBActive):
 
     mappings = [
-        {
-            "addr": {"type": "ip"},
-        },
+        dict((field, {"type": "ip"}) for field in DBActive.ipaddr_fields),
     ]
     index_hosts = 0
 

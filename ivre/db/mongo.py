@@ -95,7 +95,6 @@ class MongoDB(DB):
     schema_latest_versions = []
     hint_indexes = []
     needunwind = []
-    ipaddr_fields = []
     no_limit = 0
 
     def __init__(self, url):
@@ -776,7 +775,6 @@ want to do something special here, e.g., mix with other records.
 
 class MongoDBActive(MongoDB, DBActive):
 
-    ipaddr_fields = ["addr", "traces.hops.ipaddr", "state_reason_ip"]
     needunwind = [
         "categories",
         "cpes",
@@ -3589,7 +3587,6 @@ class MongoDBView(MongoDBActive, DBView):
 class MongoDBPassive(MongoDB, DBPassive):
 
     needunwind = ["infos.san"]
-    ipaddr_fields = ["addr"]
     column_passive = 0
     _features_column = 0
     indexes = [
