@@ -89,6 +89,14 @@ MongoDB < 3.2.
     return {'$concat': result}
 
 
+def log_pipeline(pipeline):
+    """Simple function to log (when config.DEBUG_DB is set) a MongoDB
+pipeline for the aggregation framework.
+
+    """
+    utils.LOGGER.debug("DB: MongoDB aggregation pipeline: %r", pipeline)
+
+
 class MongoDB(DB):
 
     schema_migrations_indexes = []
@@ -537,12 +545,12 @@ want to do something special here, e.g., mix with other records.
 
         """
         is_ipfield = field in self.ipaddr_fields
+        pipeline = self._distinct_pipeline(field, flt=flt, sort=sort,
+                                           limit=limit, skip=skip,
+                                           is_ipfield=is_ipfield)
+        log_pipeline(pipeline)
         cursor = self.set_limits(
-            self.db[column].aggregate(
-                self._distinct_pipeline(field, flt=flt, sort=sort, limit=limit,
-                                        skip=skip, is_ipfield=is_ipfield),
-                cursor={}
-            )
+            self.db[column].aggregate(pipeline, cursor={})
         )
         if is_ipfield:
             if self.mongodb_32_more:
@@ -588,11 +596,13 @@ want to do something special here, e.g., mix with other records.
                 pipeline.append(
                     {'$sort': OrderedDict([("_id", 1)])}
                 )
+            log_pipeline(pipeline)
             for rec in self.db[
                     self.columns[self._features_column]
             ].aggregate(pipeline, cursor={}):
                 yield rec['_id']
         else:
+            log_pipeline(pipeline)
             for rec in self.db[
                     self.columns[self._features_column]
             ].aggregate(pipeline, cursor={}):
@@ -1559,6 +1569,7 @@ it is not expected)."""
             {"$project": {"_id": 0, "coords": "$infos.loc.coordinates"}},
             {"$group": {"_id": "$coords", "count": {"$sum": 1}}},
         ]
+        log_pipeline(pipeline)
         return ({'_id': tuple(rec['_id'][::-1]), 'count': rec['count']}
                 for rec in col.aggregate(pipeline, cursor={}))
 
@@ -1703,6 +1714,7 @@ it is not expected)."""
                           "id": "$_id",
                           "mean": {"$multiply": ["$count", "$ports"]}}},
         ]
+        log_pipeline(aggr)
         return self.db[self.columns[self.column_hosts]].aggregate(aggr,
                                                                   cursor={})
 
@@ -1733,6 +1745,7 @@ it is not expected)."""
             {"$group": {"_id": "$ports",
                         "ids": {"$addToSet": "$_id"}}},
         ]
+        log_pipeline(aggr)
         return self.db[self.columns[self.column_hosts]].aggregate(aggr,
                                                                   cursor={})
 
@@ -2420,8 +2433,8 @@ it is not expected)."""
         elif field == "addr":
             specialproj = {
                 "_id": 0,
-                '$addr_0': 1,
-                '$addr_1': 1,
+                'addr_0': 1,
+                'addr_1': 1,
             }
             if self.mongodb_32_more:
                 specialflt = [{"$project": {field: ['$addr_0', '$addr_1']}}]
@@ -3363,6 +3376,7 @@ it is not expected)."""
             skip=skip, least=least, aggrflt=aggrflt,
             specialproj=specialproj, specialflt=specialflt,
         )
+        log_pipeline(pipeline)
         cursor = self.set_limits(
             self.db[self.columns[self.column_hosts]].aggregate(pipeline,
                                                                cursor={})
@@ -3495,6 +3509,8 @@ it is not expected)."""
                                 "port": "$ports.port"},
                         "categories": {"$push": "$categories"}}},
         ]
+        log_pipeline(pipeline)
+
         cursor = self.db[self.columns[self.column_hosts]].aggregate(
             pipeline, cursor={}
         )
@@ -4120,6 +4136,7 @@ setting values according to the keyword arguments.
                 }
         pipeline = self._topvalues(field, flt=flt, specialproj=specialproj,
                                    **kargs)
+        log_pipeline(pipeline)
         cursor = self.set_limits(
             self.db[self.columns[self.column_passive]].aggregate(
                 pipeline, cursor={},
@@ -4903,7 +4920,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         destinations = 0
         flows = self.db[self.columns[self.column_flow]].count(flt)
         if flows > 0:
-            sources = next(self.db[self.columns[self.column_flow]].aggregate([
+            pipeline = [
                 {'$match': flt},
                 {
                     '$group': {
@@ -4920,24 +4937,30 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     '_id': None,
                     'count': {'$sum': 1}
                 }}
-            ]))['count']
+            ]
+            log_pipeline(pipeline)
+            sources = next(
+                self.db[self.columns[self.column_flow]].aggregate(pipeline)
+            )['count']
 
+            pipeline = [
+                {'$match': flt},
+                {
+                    '$group': {
+                        '_id': {
+                            'dst_addr_0': '$dst_addr_0',
+                            'dst_addr_1': '$dst_addr_1'
+                        },
+                    }
+                },
+                {'$group': {
+                    '_id': None,
+                    'count': {'$sum': 1}
+                }}
+            ]
+            log_pipeline(pipeline)
             destinations = next(
-                self.db[self.columns[self.column_flow]].aggregate([
-                    {'$match': flt},
-                    {
-                        '$group': {
-                            '_id': {
-                                'dst_addr_0': '$dst_addr_0',
-                                'dst_addr_1': '$dst_addr_1'
-                            },
-                        }
-                    },
-                    {'$group': {
-                        '_id': None,
-                        'count': {'$sum': 1}
-                    }}
-                ])
+                self.db[self.columns[self.column_flow]].aggregate(pipeline)
             )['count']
         return {'clients': sources, 'servers': destinations, 'flows': flows}
 
@@ -5061,6 +5084,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         if topnbr is not None:
             pipeline.append({"$limit": topnbr})
 
+        log_pipeline(pipeline)
         res = self.db[self.columns[self.column_flow]].aggregate(pipeline,
                                                                 cursor={})
         for entry in res:
@@ -5757,6 +5781,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             '_id.second': 1
         }})
 
+        log_pipeline(pipeline)
         res = self.db[self.columns[self.column_flow]].aggregate(pipeline,
                                                                 cursor={})
 
