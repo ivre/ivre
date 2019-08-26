@@ -137,9 +137,7 @@ class ElasticDB(DB):
 class ElasticDBActive(ElasticDB, DBActive):
 
     mappings = [
-        {
-            "addr": {"type": "ip"},
-        },
+        dict((field, {"type": "ip"}) for field in DBActive.ipaddr_fields),
     ]
     index_hosts = 0
 
@@ -190,7 +188,7 @@ class ElasticDBView(ElasticDBActive, DBView):
     def __init__(self, url):
         super(ElasticDBView, self).__init__(url)
         self.indexes = ['%s%s' % (self.index_prefix,
-                                  self.params.pop('indexname_hosts', 'hosts'))]
+                                  self.params.pop('indexname_hosts', 'views'))]
 
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
