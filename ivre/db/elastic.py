@@ -78,7 +78,6 @@ class ElasticDB(DB):
             self.db_client.indices.create(
                 index=idxname,
                 body={"mappings": {"properties": mapping}},
-                ignore=400,
             )
 
     @property
@@ -137,7 +136,8 @@ class ElasticDB(DB):
 class ElasticDBActive(ElasticDB, DBActive):
 
     mappings = [
-        dict((field, {"type": "ip"}) for field in DBActive.ipaddr_fields),
+        dict(((field, {"type": "ip"}) for field in DBActive.ipaddr_fields),
+             **{"infos.coordinates": {"type": "geo_point"}}),
     ]
     index_hosts = 0
 
@@ -145,6 +145,8 @@ class ElasticDBActive(ElasticDB, DBActive):
         raise NotImplementedError
 
     def store_host(self, host):
+        if 'coordinates' in host.get('infos', {}):
+            host['infos']['coordinates'] = host['infos']['coordinates'][::-1]
         self.db_client.index(index=self.indexes[0],
                              body=host)
 
@@ -161,7 +163,12 @@ class ElasticDBActive(ElasticDB, DBActive):
         for rec in helpers.scan(self.db_client, query={"query": spec},
                                 index=self.indexes[0],
                                 ignore_unavailable=True):
-            yield dict(rec['_source'], _id=rec['_id'])
+            host = dict(rec['_source'], _id=rec['_id'])
+            if 'coordinates' in host.get('infos', {}):
+                host['infos']['coordinates'] = host['infos'][
+                    'coordinates'
+                ][::-1]
+            yield host
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
