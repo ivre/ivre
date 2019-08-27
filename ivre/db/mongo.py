@@ -4977,6 +4977,11 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         Takes a parsed conn.log line entry and adds it to passive bulk
         """
         for addr in ('src', 'dst'):
+            if (addr == 'dst' and
+                    (rec['proto'] != 'tcp' or
+                        (rec['proto'] == 'tcp' and
+                            rec.get('conn_state') == 'S0'))):
+                continue
             entry = {}
             entry['ts'] = rec['start_time']
             entry['host'] = rec[addr]
