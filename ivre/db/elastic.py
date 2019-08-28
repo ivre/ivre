@@ -77,7 +77,21 @@ class ElasticDB(DB):
             )
             self.db_client.indices.create(
                 index=idxname,
-                body={"mappings": {"properties": mapping}},
+                body={
+                    "mappings": {
+                        "properties": mapping,
+                        # Since we do not need full text searches, use
+                        # type "keyword" for strings (unless otherwise
+                        # specified in mapping) instead of default
+                        # (text + keyword)
+                        "dynamic_templates": [
+                            {"strings": {
+                                "match_mapping_type": "string",
+                                "mapping": {"type": "keyword"},
+                            }},
+                        ],
+                    }
+                },
             )
 
     @property
