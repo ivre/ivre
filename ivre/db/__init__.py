@@ -1681,7 +1681,15 @@ class DBView(DBActive):
                 del rec[field]
         rec['source'] = list(set(rec1.get('source', []))
                              .union(set(rec2.get('source', []))))
-        rec["traces"] = rec1.get("traces", []) + rec2.get("traces", [])
+        rec["traces"] = rec2.get("traces", [])
+        for trace in rec1.get("traces", []):
+            # Skip this result (from rec1) if a more recent traceroute
+            # result exists using the same protocol and port in the
+            # most recent scan (rec2).
+            if any(other['protocol'] == trace['protocol'] and
+                   other.get('port') == trace.get('port')
+                   for other in rec['traces']):
+                continue
         rec["infos"] = {}
         for record in [rec1, rec2]:
             rec["infos"].update(record.get("infos", {}))
