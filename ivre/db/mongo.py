@@ -788,6 +788,8 @@ class MongoDBActive(MongoDB, DBActive):
     needunwind = [
         "categories",
         "cpes",
+        "openports.udp.ports",
+        "openports.tcp.ports",
         "os.osclass",
         "os.osmatch",
         "ports",
