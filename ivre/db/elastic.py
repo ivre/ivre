@@ -189,6 +189,16 @@ class ElasticDBActive(ElasticDB, DBActive):
                     host[field] = utils.all2datetime(host[field])
             yield host
 
+    def remove(self, host):
+        """Removes the host from the active column. `host` must be the record as
+        returned by Elasticsearch.
+
+        """
+        self.db_client.delete(
+            id=host['_id'],
+            index=self.indexes[0],
+        )
+
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
             flt = self.flt_empty
