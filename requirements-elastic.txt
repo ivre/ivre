@@ -1,4 +1,5 @@
 elasticsearch
+elasticsearch-dsl
 pycrypto
 future
 bottle

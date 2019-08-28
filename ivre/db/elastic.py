@@ -22,6 +22,7 @@ databases.
 
 """
 
+import re
 try:
     from urllib.parse import unquote
 except ImportError:
@@ -29,7 +30,8 @@ except ImportError:
 
 
 from elasticsearch import Elasticsearch, helpers
-
+from elasticsearch_dsl import Q
+from past.builtins import basestring
 
 from ivre.db import DB, DBActive, DBView
 from ivre import utils
@@ -41,7 +43,7 @@ PAGESIZE = 250
 class ElasticDB(DB):
 
     # filters
-    flt_empty = {'match_all': {}}
+    flt_empty = Q()
 
     def __init__(self, url):
         super(ElasticDB, self).__init__()
@@ -133,18 +135,43 @@ class ElasticDB(DB):
 
     @staticmethod
     def searchnonexistent():
-        return {"match": {"_id": 0}}
+        return Q('match', _id=0)
 
     @classmethod
     def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
         """
-        return {"match": {"addr": addr}}
+        return Q('match', addr=addr)
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         pass
+
+    @staticmethod
+    def _get_pattern(regexp):
+        # The equivalent to a MongoDB or PostgreSQL search for regexp
+        # /Test/ would be /.*Test.*/ in Elasticsearch, while /Test/ in
+        # Elasticsearch is equivalent to /^Test$/ in MongoDB or
+        # PostgreSQL.
+        pattern, flags = utils.regexp2pattern(regexp)
+        if flags & ~re.UNICODE:
+            # is a flag, other than re.UNICODE, is set, issue a
+            # warning as it will not be used
+            utils.LOGGER.warning(
+                'Elasticsearch does not support flags in regular '
+                'expressions [%r with flags=%r]',
+                pattern, flags
+            )
+        return pattern
+
+    @staticmethod
+    def _flt_and(cond1, cond2):
+        return cond1 & cond2
+
+    @staticmethod
+    def _flt_or(cond1, cond2):
+        return cond1 | cond2
 
 
 class ElasticDBActive(ElasticDB, DBActive):
@@ -168,7 +195,7 @@ class ElasticDBActive(ElasticDB, DBActive):
 
     def count(self, flt):
         return self.db_client.search(
-            body={"query": flt},
+            body={"query": flt.to_dict()},
             index=self.indexes[0],
             size=0,
             ignore_unavailable=True,
@@ -176,7 +203,8 @@ class ElasticDBActive(ElasticDB, DBActive):
 
     def get(self, spec, **kargs):
         """Queries the active index."""
-        for rec in helpers.scan(self.db_client, query={"query": spec},
+        for rec in helpers.scan(self.db_client,
+                                query={"query": spec.to_dict()},
                                 index=self.indexes[0],
                                 ignore_unavailable=True):
             host = dict(rec['_source'], _id=rec['_id'])
@@ -191,7 +219,7 @@ class ElasticDBActive(ElasticDB, DBActive):
 
     def remove(self, host):
         """Removes the host from the active column. `host` must be the record as
-        returned by Elasticsearch.
+        returned by .get().
 
         """
         self.db_client.delete(
@@ -202,21 +230,71 @@ class ElasticDBActive(ElasticDB, DBActive):
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
             flt = self.flt_empty
+        if field in self.datetime_fields:
+            def fix_result(value):
+                return utils.all2datetime(value / 1000)
+        else:
+            def fix_result(value):
+                return value
         # https://techoverflow.net/2019/03/17/how-to-query-distinct-field-values-in-elasticsearch/
-        query = {"size": 10, "sources": [{field: {"terms": {"field": field}}}]}
+        query = {"size": PAGESIZE,
+                 "sources": [{field: {"terms": {"field": field}}}]}
         while True:
             result = self.db_client.search(
-                body={"query": flt,
+                body={"query": flt.to_dict(),
                       "aggs": {"values": {"composite": query}}},
                 index=self.indexes[0],
                 ignore_unavailable=True,
                 size=0
             )
             for value in result["aggregations"]["values"]["buckets"]:
-                yield value['key'][field]
+                yield fix_result(value['key'][field])
             if 'after_key' not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            res = Q("terms", infos__country_code=country)
+        else:
+            res = Q("match", infos__country_code=country)
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchasnum(asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
+            res = Q("terms", infos__as_num=[int(val) for val in asnum])
+        else:
+            res = Q("match", infos__as_num=int(asnum))
+        if neg:
+            return ~res
+        return res
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        if isinstance(asname, utils.REGEXP_T):
+            res = Q("regexp", infos__as_name=cls._get_pattern(asname))
+        else:
+            res = Q("match", infos__as_name=asname)
+        if neg:
+            return ~res
+        return res
 
 
 class ElasticDBView(ElasticDBActive, DBView):
