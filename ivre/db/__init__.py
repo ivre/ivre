@@ -82,6 +82,7 @@ class DB(object):
     """
     globaldb = None
     ipaddr_fields = []
+    datetime_fields = []
 
     def __init__(self):
         self.argparser = utils.ArgparserParent()
@@ -595,6 +596,7 @@ To use this to create a pandas DataFrame, you can run:
 class DBActive(DB):
 
     ipaddr_fields = ["addr", "traces.hops.ipaddr", "ports.state_reason_ip"]
+    datetime_fields = ["starttime", "endtime"]
 
     def __init__(self):
         super(DBActive, self).__init__()

@@ -534,10 +534,13 @@ def all2datetime(arg):
     if isinstance(arg, datetime.datetime):
         return arg
     if isinstance(arg, basestring):
-        try:
-            return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            return datetime.datetime.strptime(arg, '%Y-%m-%d %H:%M:%S.%f')
+        for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f',
+                    '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f']:
+            try:
+                return datetime.datetime.strptime(arg, fmt)
+            except ValueError:
+                pass
+        raise ValueError('time data %r does not match standard formats' % arg)
     if isinstance(arg, (int_types, float)):
         return datetime.datetime.fromtimestamp(arg)
     raise TypeError("%s is of unknown type." % repr(arg))

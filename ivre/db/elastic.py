@@ -151,7 +151,9 @@ class ElasticDBActive(ElasticDB, DBActive):
 
     mappings = [
         dict(((field, {"type": "ip"}) for field in DBActive.ipaddr_fields),
-             **{"infos.coordinates": {"type": "geo_point"}}),
+             **dict(((field, {"type": "date"})
+                     for field in DBActive.datetime_fields),
+                    **{"infos.coordinates": {"type": "geo_point"}})),
     ]
     index_hosts = 0
 
@@ -182,6 +184,9 @@ class ElasticDBActive(ElasticDB, DBActive):
                 host['infos']['coordinates'] = host['infos'][
                     'coordinates'
                 ][::-1]
+            for field in self.datetime_fields:
+                if field in host:
+                    host[field] = utils.all2datetime(host[field])
             yield host
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
