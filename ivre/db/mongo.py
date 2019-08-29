@@ -788,6 +788,8 @@ class MongoDBActive(MongoDB, DBActive):
     needunwind = [
         "categories",
         "cpes",
+        "openports.udp.ports",
+        "openports.tcp.ports",
         "os.osclass",
         "os.osmatch",
         "ports",
@@ -1657,8 +1659,8 @@ it is not expected)."""
         return rec
 
     def remove(self, host):
-        """Removes the host "view" from the active column.
-        "view" must be the record as returned by MongoDB.
+        """Removes the host from the active column. `host` must be the record
+        as returned by `.get()`.
 
         """
         self.db[self.columns[self.column_hosts]].remove(spec_or_id=host['_id'])
@@ -3572,12 +3574,12 @@ class MongoDBNmap(MongoDBActive, DBNmap):
         return False
 
     def remove(self, host):
-        """Removes the host "host" from the active column.
-        "host" must be the host record as returned by MongoDB.
+        """Removes the host from the active column. `host` must be the host
+record as returned by `.get()`.
 
-        If "host" has a "scanid" attribute, and if it refers to a scan
-        that have no more host record after the deletion of "host",
-        then the scan record is also removed.
+If `host` has a `scanid` attribute, and if it refers to a scan that
+have no more host record after the deletion of `host`, then the scan
+record is also removed.
 
         """
         super(MongoDBNmap, self).remove(host)
