@@ -1,4 +1,4 @@
-# Maintainer: Pierre Lalet <pierre.lalet@cea.fr>
+# Maintainer: Pierre Lalet <pl@ivre.rocks>
 #
 # Arch Linux package file
 
@@ -18,7 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-pkgbase='ivre'
+pkgbase=ivre
 # ivre-data must be the last one as it changes $pkgver
 pkgname=('ivre' 'ivre-docs' 'ivre-web' 'python-ivre' 'python2-ivre' 'ivre-data')
 pkgver=0.9.13
@@ -27,18 +27,19 @@ pkgdesc='Network recon framework based on Nmap, Masscan, Zeek (Bro), Argus, Netf
 arch=('any')
 url='https://ivre.rocks/'
 license=('GPL3')
-makedepends=('git' 'python-setuptools')
+makedepends=('git')
 branch="`git branch | awk '/^*/ {print $2}'`"
 source=("git+file://`readlink -f ../../`#branch=$branch")
-sha256sums=('SKIP')
+sha512sums=('SKIP')
 
 pkgver() {
   cd "$srcdir/$pkgbase"
+
   python setup.py --version | sed "s/\.dev/.dev_${branch//-/_}_/"
 }
 
 prepare() {
-    cp -a ${srcdir}/${pkgbase}{,-py2}
+  cp -a $srcdir/$pkgbase{,-py2}
 }
 
 build() {
@@ -65,12 +66,16 @@ package_ivre() {
               'imagemagick: Screenshots via Nmap scripts'
               'phantomjs: HTTP screenshots via Nmap script'
               'ffmpeg: RTSP Screenshots via Nmap script')
+
   cd "$srcdir/$pkgbase"
-  python setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1
-  rm -r "${pkgdir}/usr/lib" \
-     "${pkgdir}/usr/share/doc" \
-     "${pkgdir}/usr/share/ivre/dokuwiki" \
-     "${pkgdir}/usr/share/ivre/web"
+
+  python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
+
+  rm -r "$pkgdir/usr/lib" \
+     "$pkgdir/usr/share/doc" \
+     "$pkgdir/usr/share/ivre/dokuwiki" \
+     "$pkgdir/usr/share/ivre/web"
+
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
 }
 
@@ -86,12 +91,16 @@ package_ivre-data() {
 
 package_ivre-docs() {
   pkgdesc+=' (documentation)'
+
   cd "$srcdir/$pkgbase"
-  python setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1
-  mv "${pkgdir}/usr/share/ivre/web/static/doc" "${pkgdir}/usr/share/doc/ivre/html"
-  rm -r "${pkgdir}/usr/bin" "${pkgdir}/usr/lib" \
-     "${pkgdir}/usr/share/ivre" \
-     "${pkgdir}/etc/bash_completion.d"
+
+  python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
+
+  cp README.md "$pkgdir/usr/share/doc/ivre/"
+  mv "$pkgdir/usr/share/ivre/web/static/doc" "$pkgdir/usr/share/doc/ivre/html"
+  rm -r "$pkgdir/usr/bin" "$pkgdir/usr/lib" \
+     "$pkgdir/usr/share/ivre" \
+     "$pkgdir/etc/bash_completion.d"
 }
 
 package_ivre-web() {
@@ -101,17 +110,21 @@ package_ivre-web() {
               'dokuwiki: Web server (notebook)')
   pkgdesc+=' (web application)'
   backup=('etc/httpd/conf/extra/ivre.conf')
+
   cd "$srcdir/$pkgbase"
-  python setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1
-  rm -r "${pkgdir}/usr/bin" "${pkgdir}/usr/lib" \
-     "${pkgdir}/usr/share/doc" \
-     "${pkgdir}/usr/share/ivre/bro" \
-     "${pkgdir}/usr/share/ivre/data" \
-     "${pkgdir}/usr/share/ivre/docker" \
-     "${pkgdir}/usr/share/ivre/geoip" \
-     "${pkgdir}/usr/share/ivre/honeyd" \
-     "${pkgdir}/usr/share/ivre/nmap_scripts" \
-     "${pkgdir}/etc/bash_completion.d"
+
+  python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
+
+  rm -r "$pkgdir/usr/bin" "$pkgdir/usr/lib" \
+     "$pkgdir/usr/share/doc" \
+     "$pkgdir/usr/share/ivre/bro" \
+     "$pkgdir/usr/share/ivre/data" \
+     "$pkgdir/usr/share/ivre/docker" \
+     "$pkgdir/usr/share/ivre/geoip" \
+     "$pkgdir/usr/share/ivre/honeyd" \
+     "$pkgdir/usr/share/ivre/nmap_scripts" \
+     "$pkgdir/etc/bash_completion.d"
+
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   install -Dm0644 "pkg/apache/ivre.conf" "$pkgdir/etc/httpd/conf/extra/ivre.conf"
 }
@@ -121,6 +134,8 @@ package_python-ivre() {
   optdepends=('python-py2neo: experimental flow analysis (Neo4j backend)'
               'python-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python-psycopg2: experimental PostgreSQL backend'
+              'python-elasticsearch: experimental Elasticsearch backend'
+              'python-elasticsearch-dsl: experimental Elasticsearch backend'
               'python-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
               'python-pycryptodome: extract data from public keys ("ivre getmoduli")'
@@ -131,14 +146,18 @@ package_python-ivre() {
               'postgresql: database server (experimental backend)'
               'neo4j-community: database server (experimental flow analysis)')
   pkgdesc+=' (library)'
+
   cd "$srcdir/$pkgbase"
-  python setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1
-  rm -r "${pkgdir}/usr/bin" \
-     "${pkgdir}/usr/share" \
-     "${pkgdir}/etc/bash_completion.d"
+
+  python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
+
+  rm -r "$pkgdir/usr/bin" \
+     "$pkgdir/usr/share" \
+     "$pkgdir/etc/bash_completion.d"
+
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   sed -i "s/\.dev/.dev_${branch//-/_}_/" \
-      "${pkgdir}"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
+      "$pkgdir"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
 }
 
 package_python2-ivre() {
@@ -146,6 +165,8 @@ package_python2-ivre() {
   optdepends=('python2-py2neo: experimental flow analysis (Neo4j backend)'
               'python2-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python2-psycopg2: experimental PostgreSQL backend'
+              'python2-elasticsearch: experimental Elasticsearch backend'
+              'python2-elasticsearch-dsl: experimental Elasticsearch backend'
               'python2-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
               'python2-pycryptodome: extract data from public keys ("ivre getmoduli")'
@@ -156,11 +177,15 @@ package_python2-ivre() {
               'postgresql: database server (experimental backend)'
               'neo4j-community: database server (experimental flow analysis)')
   pkgdesc+=' (library)'
+
   cd "$srcdir/$pkgbase-py2"
-  python2 setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1
-  rm -r "${pkgdir}/usr/bin" \
-     "${pkgdir}/usr/share" \
-     "${pkgdir}/etc/bash_completion.d"
+
+  python2 setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
+
+  rm -r "$pkgdir/usr/bin" \
+     "$pkgdir/usr/share" \
+     "$pkgdir/etc/bash_completion.d"
+
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   sed -i "s/\.dev/.dev_${branch//-/_}_/" \
       "${pkgdir}"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
