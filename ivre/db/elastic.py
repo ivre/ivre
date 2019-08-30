@@ -206,10 +206,13 @@ class ElasticDBActive(ElasticDB, DBActive):
             ignore_unavailable=True,
         )['hits']['total']['value']
 
-    def get(self, spec, **kargs):
+    def get(self, spec, fields=None, **kargs):
         """Queries the active index."""
+        query = {"query": spec.to_dict()}
+        if fields is not None:
+            query['_source'] = fields
         for rec in helpers.scan(self.db_client,
-                                query={"query": spec.to_dict()},
+                                query=query,
                                 index=self.indexes[0],
                                 ignore_unavailable=True):
             host = dict(rec['_source'], _id=rec['_id'])
