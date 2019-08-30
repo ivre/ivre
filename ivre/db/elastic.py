@@ -230,15 +230,25 @@ class ElasticDBActive(ElasticDB, DBActive):
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
             flt = self.flt_empty
-        if field in self.datetime_fields:
+        if field == 'infos.coordinates':
             def fix_result(value):
-                return utils.all2datetime(value / 1000)
+                return tuple(float(v) for v in value.split(', '))
+            base_query = {"script": {
+                "lang": "painless",
+                "source": "doc['infos.coordinates'].value",
+            }}
+            flt = self.flt_and(flt, self.searchhaslocation())
         else:
-            def fix_result(value):
-                return value
+            base_query = {"field": field}
+            if field in self.datetime_fields:
+                def fix_result(value):
+                    return utils.all2datetime(value / 1000)
+            else:
+                def fix_result(value):
+                    return value
         # https://techoverflow.net/2019/03/17/how-to-query-distinct-field-values-in-elasticsearch/
         query = {"size": PAGESIZE,
-                 "sources": [{field: {"terms": {"field": field}}}]}
+                 "sources": [{field: {"terms": base_query}}]}
         while True:
             result = self.db_client.search(
                 body={"query": flt.to_dict(),
@@ -252,6 +262,36 @@ class ElasticDBActive(ElasticDB, DBActive):
             if 'after_key' not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
+
+    def getlocations(self, flt):
+        query = {"size": PAGESIZE,
+                 "sources": [{"coords": {"terms": {"script": {
+                     "lang": "painless",
+                     "source": "doc['infos.coordinates'].value",
+                 }}}}]}
+        flt = self.flt_and(flt & self.searchhaslocation())
+        while True:
+            result = self.db_client.search(
+                body={"query": flt.to_dict(),
+                      "aggs": {"values": {"composite": query}}},
+                index=self.indexes[0],
+                ignore_unavailable=True,
+                size=0
+            )
+            for value in result["aggregations"]["values"]["buckets"]:
+                yield {'_id': tuple(float(v) for v in
+                                    value['key']["coords"].split(', ')),
+                       'count': value['doc_count']}
+            if 'after_key' not in result["aggregations"]["values"]:
+                break
+            query["after"] = result["aggregations"]["values"]["after_key"]
+
+    @staticmethod
+    def searchhaslocation(neg=False):
+        res = Q('exists', field='infos.coordinates')
+        if neg:
+            return ~res
+        return res
 
     @staticmethod
     def searchcountry(country, neg=False):
