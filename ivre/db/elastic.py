@@ -22,6 +22,7 @@ databases.
 
 """
 
+import json
 import re
 try:
     from urllib.parse import unquote
@@ -172,6 +173,10 @@ class ElasticDB(DB):
     @staticmethod
     def _flt_or(cond1, cond2):
         return cond1 | cond2
+
+    @staticmethod
+    def flt2str(flt):
+        return json.dumps(flt.to_dict())
 
 
 class ElasticDBActive(ElasticDB, DBActive):
