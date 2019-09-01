@@ -294,6 +294,107 @@ class ElasticDBActive(ElasticDB, DBActive):
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
 
+    def topvalues(self, field, flt=None, topnbr=10, sort=None, least=False):
+        """
+        This method uses an aggregation to produce top values for a given
+        field or pseudo-field. Pseudo-fields are:
+          - category / asnum / country / net[:mask]
+          - port
+          - port:open / :closed / :filtered / :<servicename>
+          - portlist:open / :closed / :filtered
+          - countports:open / :closed / :filtered
+          - service / service:<portnbr>
+          - product / product:<portnbr>
+          - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
+          - devicetype / devicetype:<portnbr>
+          - script:<scriptid> / script:<port>:<scriptid>
+            / script:host:<scriptid>
+          - cert.* / smb.* / sshkey.* / ike.*
+          - httphdr / httphdr.{name,value} / httphdr:<name>
+          - modbus.* / s7.* / enip.*
+          - mongo.dbs.*
+          - vulns.*
+          - screenwords
+          - file.* / file.*:scriptid
+          - hop
+
+        """
+        outputproc = None
+        if flt is None:
+            flt = self.flt_empty
+        if field == "asnum":
+            flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
+            field = {"field": "infos.as_num"}
+        elif field == "as":
+            def outputproc(value):
+                return tuple(val if i else int(val)
+                             for i, val in enumerate(value.split(', ', 1)))
+            flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
+            field = {"script": {
+                "lang": "painless",
+                "source":
+                "doc['infos.as_num'].value + ', ' + "
+                "doc['infos.as_name'].value",
+            }}
+        elif field == "port" or field.startswith("port:"):
+            def outputproc(value):
+                return tuple(int(val) if i else val
+                             for i, val in enumerate(value.split('/', 1)))
+            if field == "port":
+                flt = self.flt_and(flt, Q('exists', field="ports.port"))
+                field = {"script": {
+                    "lang": "painless",
+                    "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if(item.port != -1) {
+        result.add(item.protocol + '/' + item.port);
+    }
+}
+return result;
+""",
+                }}
+            else:
+                info = field[5:]
+                if info in ['open', 'filtered', 'closed']:
+                    flt = self.flt_and(flt, Q('match',
+                                              ports__state_state=info))
+                    matchfield = "state_state"
+                else:
+                    flt = self.flt_and(flt, Q('match',
+                                              ports__service_name=info))
+                    matchfield = "service_name"
+                field = {"script": {
+                    "lang": "painless",
+                    "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if(item[params.field] == params.value) {
+        result.add(item.protocol + '/' + item.port);
+    }
+}
+return result;
+""",
+                    "params": {
+                        "field": matchfield,
+                        "value": info,
+                    }
+                }}
+        else:
+            field = {"field": field}
+        result = self.db_client.search(
+            body={"query": flt.to_dict(),
+                  "aggs": {"patterns": {"terms": dict(field, size=topnbr)}}},
+            index=self.indexes[0],
+            ignore_unavailable=True,
+            size=0
+        )
+        if outputproc is None:
+            for res in result["aggregations"]["patterns"]["buckets"]:
+                yield {'_id': res['key'], 'count': res['doc_count']}
+        else:
+            for res in result["aggregations"]["patterns"]["buckets"]:
+                yield {'_id': outputproc(res['key']),
+                       'count': res['doc_count']}
+
     @staticmethod
     def searchhaslocation(neg=False):
         res = Q('exists', field='infos.coordinates')

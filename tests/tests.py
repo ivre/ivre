@@ -3717,14 +3717,15 @@ purposes to feed Elasticsearch view.
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
+        # Filters
+        self.check_view_top_value("view_ssh_top_port", "port:ssh")
+
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
             # lot of functionalities. The next tests will fail for
-            # lack of filters.
+            # lack of filters & topvalues.
             return
 
-        # Filters
-        self.check_view_top_value("view_ssh_top_port", "port:ssh")
         self.check_view_top_value("view_http_top_content_type",
                                   "httphdr:content-type")
         self.check_view_top_value("view_http_top_header", "httphdr.name")
