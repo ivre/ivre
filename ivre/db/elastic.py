@@ -22,6 +22,8 @@ databases.
 
 """
 
+import json
+import re
 try:
     from urllib.parse import unquote
 except ImportError:
@@ -29,7 +31,8 @@ except ImportError:
 
 
 from elasticsearch import Elasticsearch, helpers
-
+from elasticsearch_dsl import Q
+from past.builtins import basestring
 
 from ivre.db import DB, DBActive, DBView
 from ivre import utils
@@ -41,7 +44,7 @@ PAGESIZE = 250
 class ElasticDB(DB):
 
     # filters
-    flt_empty = {'match_all': {}}
+    flt_empty = Q()
 
     def __init__(self, url):
         super(ElasticDB, self).__init__()
@@ -133,18 +136,47 @@ class ElasticDB(DB):
 
     @staticmethod
     def searchnonexistent():
-        return {"match": {"_id": 0}}
+        return Q('match', _id=0)
 
     @classmethod
     def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
         """
-        return {"match": {"addr": addr}}
+        return Q('match', addr=addr)
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
         pass
+
+    @staticmethod
+    def _get_pattern(regexp):
+        # The equivalent to a MongoDB or PostgreSQL search for regexp
+        # /Test/ would be /.*Test.*/ in Elasticsearch, while /Test/ in
+        # Elasticsearch is equivalent to /^Test$/ in MongoDB or
+        # PostgreSQL.
+        pattern, flags = utils.regexp2pattern(regexp)
+        if flags & ~re.UNICODE:
+            # is a flag, other than re.UNICODE, is set, issue a
+            # warning as it will not be used
+            utils.LOGGER.warning(
+                'Elasticsearch does not support flags in regular '
+                'expressions [%r with flags=%r]',
+                pattern, flags
+            )
+        return pattern
+
+    @staticmethod
+    def _flt_and(cond1, cond2):
+        return cond1 & cond2
+
+    @staticmethod
+    def _flt_or(cond1, cond2):
+        return cond1 | cond2
+
+    @staticmethod
+    def flt2str(flt):
+        return json.dumps(flt.to_dict())
 
 
 class ElasticDBActive(ElasticDB, DBActive):
@@ -168,15 +200,19 @@ class ElasticDBActive(ElasticDB, DBActive):
 
     def count(self, flt):
         return self.db_client.search(
-            body={"query": flt},
+            body={"query": flt.to_dict()},
             index=self.indexes[0],
             size=0,
             ignore_unavailable=True,
         )['hits']['total']['value']
 
-    def get(self, spec, **kargs):
+    def get(self, spec, fields=None, **kargs):
         """Queries the active index."""
-        for rec in helpers.scan(self.db_client, query={"query": spec},
+        query = {"query": spec.to_dict()}
+        if fields is not None:
+            query['_source'] = fields
+        for rec in helpers.scan(self.db_client,
+                                query=query,
                                 index=self.indexes[0],
                                 ignore_unavailable=True):
             host = dict(rec['_source'], _id=rec['_id'])
@@ -191,7 +227,7 @@ class ElasticDBActive(ElasticDB, DBActive):
 
     def remove(self, host):
         """Removes the host from the active column. `host` must be the record as
-        returned by Elasticsearch.
+        returned by .get().
 
         """
         self.db_client.delete(
@@ -202,21 +238,212 @@ class ElasticDBActive(ElasticDB, DBActive):
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
             flt = self.flt_empty
+        if field == 'infos.coordinates':
+            def fix_result(value):
+                return tuple(float(v) for v in value.split(', '))
+            base_query = {"script": {
+                "lang": "painless",
+                "source": "doc['infos.coordinates'].value",
+            }}
+            flt = self.flt_and(flt, self.searchhaslocation())
+        else:
+            base_query = {"field": field}
+            if field in self.datetime_fields:
+                def fix_result(value):
+                    return utils.all2datetime(value / 1000)
+            else:
+                def fix_result(value):
+                    return value
         # https://techoverflow.net/2019/03/17/how-to-query-distinct-field-values-in-elasticsearch/
-        query = {"size": 10, "sources": [{field: {"terms": {"field": field}}}]}
+        query = {"size": PAGESIZE,
+                 "sources": [{field: {"terms": base_query}}]}
         while True:
             result = self.db_client.search(
-                body={"query": flt,
+                body={"query": flt.to_dict(),
                       "aggs": {"values": {"composite": query}}},
                 index=self.indexes[0],
                 ignore_unavailable=True,
                 size=0
             )
             for value in result["aggregations"]["values"]["buckets"]:
-                yield value['key'][field]
+                yield fix_result(value['key'][field])
             if 'after_key' not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
+
+    def getlocations(self, flt):
+        query = {"size": PAGESIZE,
+                 "sources": [{"coords": {"terms": {"script": {
+                     "lang": "painless",
+                     "source": "doc['infos.coordinates'].value",
+                 }}}}]}
+        flt = self.flt_and(flt & self.searchhaslocation())
+        while True:
+            result = self.db_client.search(
+                body={"query": flt.to_dict(),
+                      "aggs": {"values": {"composite": query}}},
+                index=self.indexes[0],
+                ignore_unavailable=True,
+                size=0
+            )
+            for value in result["aggregations"]["values"]["buckets"]:
+                yield {'_id': tuple(float(v) for v in
+                                    value['key']["coords"].split(', ')),
+                       'count': value['doc_count']}
+            if 'after_key' not in result["aggregations"]["values"]:
+                break
+            query["after"] = result["aggregations"]["values"]["after_key"]
+
+    def topvalues(self, field, flt=None, topnbr=10, sort=None, least=False):
+        """
+        This method uses an aggregation to produce top values for a given
+        field or pseudo-field. Pseudo-fields are:
+          - category / asnum / country / net[:mask]
+          - port
+          - port:open / :closed / :filtered / :<servicename>
+          - portlist:open / :closed / :filtered
+          - countports:open / :closed / :filtered
+          - service / service:<portnbr>
+          - product / product:<portnbr>
+          - cpe / cpe.<part> / cpe:<cpe_spec> / cpe.<part>:<cpe_spec>
+          - devicetype / devicetype:<portnbr>
+          - script:<scriptid> / script:<port>:<scriptid>
+            / script:host:<scriptid>
+          - cert.* / smb.* / sshkey.* / ike.*
+          - httphdr / httphdr.{name,value} / httphdr:<name>
+          - modbus.* / s7.* / enip.*
+          - mongo.dbs.*
+          - vulns.*
+          - screenwords
+          - file.* / file.*:scriptid
+          - hop
+
+        """
+        outputproc = None
+        if flt is None:
+            flt = self.flt_empty
+        if field == "asnum":
+            flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
+            field = {"field": "infos.as_num"}
+        elif field == "as":
+            def outputproc(value):
+                return tuple(val if i else int(val)
+                             for i, val in enumerate(value.split(', ', 1)))
+            flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
+            field = {"script": {
+                "lang": "painless",
+                "source":
+                "doc['infos.as_num'].value + ', ' + "
+                "doc['infos.as_name'].value",
+            }}
+        elif field == "port" or field.startswith("port:"):
+            def outputproc(value):
+                return tuple(int(val) if i else val
+                             for i, val in enumerate(value.split('/', 1)))
+            if field == "port":
+                flt = self.flt_and(flt, Q('exists', field="ports.port"))
+                field = {"script": {
+                    "lang": "painless",
+                    "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if(item.port != -1) {
+        result.add(item.protocol + '/' + item.port);
+    }
+}
+return result;
+""",
+                }}
+            else:
+                info = field[5:]
+                if info in ['open', 'filtered', 'closed']:
+                    flt = self.flt_and(flt, Q('match',
+                                              ports__state_state=info))
+                    matchfield = "state_state"
+                else:
+                    flt = self.flt_and(flt, Q('match',
+                                              ports__service_name=info))
+                    matchfield = "service_name"
+                field = {"script": {
+                    "lang": "painless",
+                    "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if(item[params.field] == params.value) {
+        result.add(item.protocol + '/' + item.port);
+    }
+}
+return result;
+""",
+                    "params": {
+                        "field": matchfield,
+                        "value": info,
+                    }
+                }}
+        else:
+            field = {"field": field}
+        result = self.db_client.search(
+            body={"query": flt.to_dict(),
+                  "aggs": {"patterns": {"terms": dict(field, size=topnbr)}}},
+            index=self.indexes[0],
+            ignore_unavailable=True,
+            size=0
+        )
+        if outputproc is None:
+            for res in result["aggregations"]["patterns"]["buckets"]:
+                yield {'_id': res['key'], 'count': res['doc_count']}
+        else:
+            for res in result["aggregations"]["patterns"]["buckets"]:
+                yield {'_id': outputproc(res['key']),
+                       'count': res['doc_count']}
+
+    @staticmethod
+    def searchhaslocation(neg=False):
+        res = Q('exists', field='infos.coordinates')
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchcountry(country, neg=False):
+        """Filters (if `neg` == True, filters out) one particular
+        country, or a list of countries.
+
+        """
+        country = utils.country_unalias(country)
+        if isinstance(country, list):
+            res = Q("terms", infos__country_code=country)
+        else:
+            res = Q("match", infos__country_code=country)
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchasnum(asnum, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS number(s).
+
+        """
+        if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
+            res = Q("terms", infos__as_num=[int(val) for val in asnum])
+        else:
+            res = Q("match", infos__as_num=int(asnum))
+        if neg:
+            return ~res
+        return res
+
+    @classmethod
+    def searchasname(cls, asname, neg=False):
+        """Filters (if `neg` == True, filters out) one or more
+        particular AS.
+
+        """
+        if isinstance(asname, utils.REGEXP_T):
+            res = Q("regexp", infos__as_name=cls._get_pattern(asname))
+        else:
+            res = Q("match", infos__as_name=asname)
+        if neg:
+            return ~res
+        return res
 
 
 class ElasticDBView(ElasticDBActive, DBView):

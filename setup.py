@@ -136,7 +136,7 @@ setup(
     extras_require={
         'Flow with Neo4j (deprecated)': ["py2neo>=3,<4"],
         'PostgreSQL (experimental)': ["sqlalchemy", "psycopg2"],
-        'Elasticsearch (experimental)': ["elasticsearch"],
+        'Elasticsearch (experimental)': ["elasticsearch", "elasticsearch-dsl"],
         'GSSAPI authentication': ["python-krbV"],
         'Screenshots': ["PIL"],
         'MediaWiki integration': ["MySQL-python"],
