@@ -174,7 +174,7 @@ def main():
             displayhosts(cursor, out=sys.stdout)
 
     if args.update_schema:
-        db.db.nmap.migrate_schema(args.version)
+        db.view.migrate_schema(args.version)
     elif args.count:
         sys.stdout.write(
             str(db.view.count(flt)) + '\n'

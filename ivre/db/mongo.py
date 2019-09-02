@@ -1403,7 +1403,7 @@ field from having different data types.
 
         """
         assert doc["schema_version"] == 13
-        update = {"$set": {"schema_version": 13}}
+        update = {"$set": {"schema_version": 14}}
         updated = False
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
