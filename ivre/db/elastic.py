@@ -32,6 +32,7 @@ except ImportError:
 
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Q
+from elasticsearch_dsl.query import Query
 from future.utils import viewitems
 from past.builtins import basestring
 
@@ -43,6 +44,8 @@ PAGESIZE = 250
 
 
 class ElasticDB(DB):
+
+    nested_fields = []
 
     # filters
     flt_empty = Q()
@@ -463,6 +466,32 @@ return result;
                     "aggs": {"patterns": {"terms": field}},
                 }},
             }
+        elif field.startswith('httphdr:'):
+            subfield = field[8:].lower()
+            flt = self.flt_and(flt,
+                               self.searchscript(name="http-headers",
+                                                 values={"name": subfield}))
+            field = {"script": {
+                "lang": "painless",
+                "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if (item.containsKey('scripts')) {
+        for(script in item.scripts) {
+            if(script.id == 'http-headers' &&
+               script.containsKey('http-headers')) {
+                for(hdr in script['http-headers']) {
+                    if (hdr.name == params.name) {
+                        result.add(hdr.value);
+                    }
+                }
+            }
+        }
+    }
+}
+return result;
+""",
+                "params": {"name": subfield}
+            }}
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}
@@ -559,10 +588,12 @@ return result;
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             subfield = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, basestring):
+            if isinstance(values, Query):
+                req.append(values)
+            elif isinstance(values, basestring):
                 req.append(("match", subfield, values))
             elif isinstance(values, utils.REGEXP_T):
-                req.append(("regexp", subfield, values))
+                req.append(("regexp", subfield, cls._get_pattern(values)))
             else:
                 for field, value in viewitems(values):
                     if isinstance(value, utils.REGEXP_T):
@@ -580,8 +611,11 @@ return result;
         else:
             query = Q()
             for subreq in req:
-                query &= Q(subreq[0],
-                           **{"ports.scripts.%s" % subreq[1]: subreq[2]})
+                if isinstance(subreq, Query):
+                    query &= subreq
+                else:
+                    query &= Q(subreq[0],
+                               **{"ports.scripts.%s" % subreq[1]: subreq[2]})
             res = Q("nested", path="ports",
                     query=Q("nested", path="ports.scripts", query=query))
         if neg:
