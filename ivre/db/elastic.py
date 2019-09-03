@@ -492,20 +492,34 @@ return result;
 """,
                 "params": {"name": subfield}
             }}
-        elif field == 'useragent':
+        elif field == 'useragent' or field.startswith('useragent:'):
+            terms = {"field": "ports.scripts.http-user-agent"}
             if field == 'useragent':
                 flt = self.flt_and(flt, self.searchuseragent())
-                field = {"field": "ports.scripts.http-user-agent"}
                 nested = {
                     "nested": {"path": "ports"},
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts"},
-                        "aggs": {"patterns": {"terms": field}},
+                        "aggs": {"patterns": {"terms": terms}},
                     }},
                 }
             else:
-                raise ValueError("Not implemented")
-            field = "ports.scripts.http-user-agent"
+                subfield = utils.str2regexp(field[10:])
+                flt = self.flt_and(flt,
+                                   self.searchuseragent(useragent=subfield))
+                if isinstance(subfield, utils.REGEXP_T):
+                    subfield = self._get_pattern(subfield)
+                else:
+                    subfield = re.escape(subfield)
+                nested = {
+                    "nested": {"path": "ports"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {"patterns": {
+                            "terms": dict(terms, include=subfield),
+                        }},
+                    }},
+                }
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}
@@ -623,9 +637,9 @@ return result;
                                         cls._get_pattern(value)}))
                     else:
                         req.append(Q("match",
-                                    **{"ports.scripts.%s.%s" % (subfield,
-                                                                field):
-                                       value}))
+                                     **{"ports.scripts.%s.%s" % (subfield,
+                                                                 field):
+                                        value}))
         if not req:
             res = Q('nested', path='ports',
                     query=Q('nested', path='ports.scripts',
