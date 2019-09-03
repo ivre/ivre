@@ -1992,7 +1992,7 @@ it is not expected)."""
 
         """
         req = {}
-        if name:
+        if name is not None:
             req['id'] = name
         if output is not None:
             req['output'] = output
