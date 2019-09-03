@@ -589,14 +589,17 @@ return result;
         req = []
         if name is not None:
             if isinstance(name, utils.REGEXP_T):
-                req.append(("regexp", "id", cls._get_pattern(name)))
+                req.append(Q("regexp",
+                             **{"ports.scripts.id": cls._get_pattern(name)}))
             else:
-                req.append(("match", "id", name))
+                req.append(Q("match", **{"ports.scripts.id": name}))
         if output is not None:
             if isinstance(output, utils.REGEXP_T):
-                req.append(("regexp", "output", cls._get_pattern(output)))
+                req.append(Q("regexp",
+                             **{"ports.scripts.output":
+                                cls._get_pattern(output)}))
             else:
-                req.append(("match", "output", output))
+                req.append(Q("match", **{"ports.scripts.output": output}))
         if values is not None:
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
@@ -605,31 +608,30 @@ return result;
             if isinstance(values, Query):
                 req.append(values)
             elif isinstance(values, basestring):
-                req.append(("match", subfield, values))
+                req.append(Q("match",
+                             **{"ports.scripts.%s" % subfield: values}))
             elif isinstance(values, utils.REGEXP_T):
-                req.append(("regexp", subfield, cls._get_pattern(values)))
+                req.append(Q("regexp",
+                             **{"ports.scripts.%s" % subfield:
+                                cls._get_pattern(values)}))
             else:
                 for field, value in viewitems(values):
                     if isinstance(value, utils.REGEXP_T):
-                        req.append(("regexp",
-                                    "%s.%s" % (subfield, field),
-                                    cls._get_pattern(value)))
+                        req.append(Q("regexp",
+                                     **{"ports.scripts.%s.%s" % (subfield,
+                                                                 field):
+                                        cls._get_pattern(value)}))
                     else:
-                        req.append(("match",
-                                    "%s.%s" % (subfield, field),
-                                    value))
+                        req.append(Q("match",
+                                    **{"ports.scripts.%s.%s" % (subfield,
+                                                                field):
+                                       value}))
         if not req:
             res = Q('nested', path='ports',
                     query=Q('nested', path='ports.scripts',
                             query=Q("exists", field="ports.scripts")))
         else:
-            query = Q()
-            for subreq in req:
-                if isinstance(subreq, Query):
-                    query &= subreq
-                else:
-                    query &= Q(subreq[0],
-                               **{"ports.scripts.%s" % subreq[1]: subreq[2]})
+            query = cls.flt_and(*req)
             res = Q("nested", path="ports",
                     query=Q("nested", path="ports.scripts", query=query))
         if neg:
