@@ -1992,7 +1992,7 @@ it is not expected)."""
 
         """
         req = {}
-        if name:
+        if name is not None:
             req['id'] = name
         if output is not None:
             req['output'] = output
@@ -3191,12 +3191,15 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             field = "ports.scripts.http-headers.%s" % field[8:]
         elif field.startswith('httphdr:'):
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            subfield = field[8:].lower()
+            flt = self.flt_and(flt,
+                               self.searchscript(name="http-headers",
+                                                 values={"name": subfield}))
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
             specialflt = [
                 {"$match": {"ports.scripts.http-headers.name":
-                            field[8:].lower()}}
+                            subfield}}
             ]
             field = "ports.scripts.http-headers.value"
         elif field.startswith('modbus.'):

@@ -45,10 +45,12 @@ prepare() {
 build() {
   (
     cd "$srcdir/$pkgbase"
+
     python setup.py build
   )
   (
     cd "$srcdir/$pkgbase-py2"
+
     python2 setup.py build
   )
 }

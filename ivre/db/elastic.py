@@ -32,16 +32,20 @@ except ImportError:
 
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Q
+from elasticsearch_dsl.query import Query
+from future.utils import viewitems
 from past.builtins import basestring
 
 from ivre.db import DB, DBActive, DBView
-from ivre import utils
+from ivre import utils, xmlnmap
 
 
 PAGESIZE = 250
 
 
 class ElasticDB(DB):
+
+    nested_fields = []
 
     # filters
     flt_empty = Q()
@@ -179,13 +183,58 @@ class ElasticDB(DB):
         return json.dumps(flt.to_dict())
 
 
+def _create_mappings(nested, all_mappings):
+    res = {}
+    for fld in nested:
+        cur = res
+        curkey = None
+        for subkey in fld.split('.')[:-1]:
+            if curkey is not None:
+                subkey = "%s.%s" % (curkey, subkey)
+            if cur.get(subkey, {}).get('type') == 'nested':
+                cur = cur[subkey].setdefault('properties', {})
+                curkey = None
+            else:
+                curkey = subkey
+        subkey = fld.rsplit('.', 1)[-1]
+        if curkey is not None:
+            subkey = "%s.%s" % (curkey, subkey)
+        cur[subkey] = {"type": 'nested'}
+    for fldtype, fldnames in all_mappings:
+        for fld in fldnames:
+            cur = res
+            curkey = None
+            for subkey in fld.split('.')[:-1]:
+                if curkey is not None:
+                    subkey = "%s.%s" % (curkey, subkey)
+                if cur.get(subkey, {}).get('type') == 'nested':
+                    cur = cur[subkey].setdefault('properties', {})
+                    curkey = None
+                else:
+                    curkey = subkey
+            subkey = fld.rsplit('.', 1)[-1]
+            if curkey is not None:
+                subkey = "%s.%s" % (curkey, subkey)
+            cur[subkey] = {"type": fldtype}
+    return res
+
+
 class ElasticDBActive(ElasticDB, DBActive):
 
+    nested_fields = [
+        "ports",
+        "ports.scripts",
+    ]
     mappings = [
-        dict(((field, {"type": "ip"}) for field in DBActive.ipaddr_fields),
-             **dict(((field, {"type": "date"})
-                     for field in DBActive.datetime_fields),
-                    **{"infos.coordinates": {"type": "geo_point"}})),
+        _create_mappings(
+            nested_fields,
+            [
+                ("nested", nested_fields),
+                ("ip", DBActive.ipaddr_fields),
+                ("date", DBActive.datetime_fields),
+                ("geo_point", ["infos.coordinates"]),
+            ]
+        ),
     ]
     index_hosts = 0
 
@@ -320,6 +369,7 @@ class ElasticDBActive(ElasticDB, DBActive):
 
         """
         outputproc = None
+        nested = None
         if flt is None:
             flt = self.flt_empty
         if field == "asnum":
@@ -341,7 +391,9 @@ class ElasticDBActive(ElasticDB, DBActive):
                 return tuple(int(val) if i else val
                              for i, val in enumerate(value.split('/', 1)))
             if field == "port":
-                flt = self.flt_and(flt, Q('exists', field="ports.port"))
+                flt = self.flt_and(flt,
+                                   Q('nested', path='ports',
+                                     query=Q('exists', field="ports.port")))
                 field = {"script": {
                     "lang": "painless",
                     "source": """List result = new ArrayList();
@@ -356,12 +408,16 @@ return result;
             else:
                 info = field[5:]
                 if info in ['open', 'filtered', 'closed']:
-                    flt = self.flt_and(flt, Q('match',
-                                              ports__state_state=info))
+                    flt = self.flt_and(flt,
+                                       Q('nested', path='ports',
+                                         query=Q('match',
+                                                 ports__state_state=info)))
                     matchfield = "state_state"
                 else:
-                    flt = self.flt_and(flt, Q('match',
-                                              ports__service_name=info))
+                    flt = self.flt_and(flt,
+                                       Q('nested', path='ports',
+                                         query=Q('match',
+                                                 ports__service_name=info)))
                     matchfield = "service_name"
                 field = {"script": {
                     "lang": "painless",
@@ -378,20 +434,100 @@ return result;
                         "value": info,
                     }
                 }}
+        elif field == 'httphdr':
+            def outputproc(value):
+                return tuple(value.split(':', 1))
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = {"script": {
+                "lang": "painless",
+                "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if (item.containsKey('scripts')) {
+        for(script in item.scripts) {
+            if(script.id == 'http-headers' &&
+               script.containsKey('http-headers')) {
+                for(hdr in script['http-headers']) {
+                    result.add(hdr.name + ':' + hdr.value);
+                }
+            }
+        }
+    }
+}
+return result;
+""",
+            }}
+        elif field.startswith('httphdr.'):
+            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            field = {"field": "ports.scripts.http-headers.%s" % field[8:]}
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {"terms": field}},
+                }},
+            }
+        elif field.startswith('httphdr:'):
+            subfield = field[8:].lower()
+            flt = self.flt_and(flt,
+                               self.searchscript(name="http-headers",
+                                                 values={"name": subfield}))
+            field = {"script": {
+                "lang": "painless",
+                "source": """List result = new ArrayList();
+for(item in params._source.ports) {
+    if (item.containsKey('scripts')) {
+        for(script in item.scripts) {
+            if(script.id == 'http-headers' &&
+               script.containsKey('http-headers')) {
+                for(hdr in script['http-headers']) {
+                    if (hdr.name == params.name) {
+                        result.add(hdr.value);
+                    }
+                }
+            }
+        }
+    }
+}
+return result;
+""",
+                "params": {"name": subfield}
+            }}
+        elif field == 'useragent':
+            if field == 'useragent':
+                flt = self.flt_and(flt, self.searchuseragent())
+                field = {"field": "ports.scripts.http-user-agent"}
+                nested = {
+                    "nested": {"path": "ports"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {"patterns": {"terms": field}},
+                    }},
+                }
+            else:
+                raise ValueError("Not implemented")
+            field = "ports.scripts.http-user-agent"
         else:
             field = {"field": field}
+        body = {"query": flt.to_dict()}
+        if nested is None:
+            body["aggs"] = {"patterns": {"terms": dict(field, size=topnbr)}}
+        else:
+            body["aggs"] = {"patterns": nested}
         result = self.db_client.search(
-            body={"query": flt.to_dict(),
-                  "aggs": {"patterns": {"terms": dict(field, size=topnbr)}}},
+            body=body,
             index=self.indexes[0],
             ignore_unavailable=True,
             size=0
         )
+        result = result["aggregations"]
+        while 'patterns' in result:
+            result = result['patterns']
+        result = result['buckets']
         if outputproc is None:
-            for res in result["aggregations"]["patterns"]["buckets"]:
+            for res in result:
                 yield {'_id': res['key'], 'count': res['doc_count']}
         else:
-            for res in result["aggregations"]["patterns"]["buckets"]:
+            for res in result:
                 yield {'_id': outputproc(res['key']),
                        'count': res['doc_count']}
 
@@ -441,6 +577,63 @@ return result;
             res = Q("regexp", infos__as_name=cls._get_pattern(asname))
         else:
             res = Q("match", infos__as_name=asname)
+        if neg:
+            return ~res
+        return res
+
+    @classmethod
+    def searchscript(cls, name=None, output=None, values=None, neg=False):
+        """Search a particular content in the scripts results.
+
+        """
+        req = []
+        if name is not None:
+            if isinstance(name, utils.REGEXP_T):
+                req.append(Q("regexp",
+                             **{"ports.scripts.id": cls._get_pattern(name)}))
+            else:
+                req.append(Q("match", **{"ports.scripts.id": name}))
+        if output is not None:
+            if isinstance(output, utils.REGEXP_T):
+                req.append(Q("regexp",
+                             **{"ports.scripts.output":
+                                cls._get_pattern(output)}))
+            else:
+                req.append(Q("match", **{"ports.scripts.output": output}))
+        if values is not None:
+            if name is None:
+                raise TypeError(".searchscript() needs a `name` arg "
+                                "when using a `values` arg")
+            subfield = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
+            if isinstance(values, Query):
+                req.append(values)
+            elif isinstance(values, basestring):
+                req.append(Q("match",
+                             **{"ports.scripts.%s" % subfield: values}))
+            elif isinstance(values, utils.REGEXP_T):
+                req.append(Q("regexp",
+                             **{"ports.scripts.%s" % subfield:
+                                cls._get_pattern(values)}))
+            else:
+                for field, value in viewitems(values):
+                    if isinstance(value, utils.REGEXP_T):
+                        req.append(Q("regexp",
+                                     **{"ports.scripts.%s.%s" % (subfield,
+                                                                 field):
+                                        cls._get_pattern(value)}))
+                    else:
+                        req.append(Q("match",
+                                    **{"ports.scripts.%s.%s" % (subfield,
+                                                                field):
+                                       value}))
+        if not req:
+            res = Q('nested', path='ports',
+                    query=Q('nested', path='ports.scripts',
+                            query=Q("exists", field="ports.scripts")))
+        else:
+            query = cls.flt_and(*req)
+            res = Q("nested", path="ports",
+                    query=Q("nested", path="ports.scripts", query=query))
         if neg:
             return ~res
         return res
