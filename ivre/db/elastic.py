@@ -492,6 +492,20 @@ return result;
 """,
                 "params": {"name": subfield}
             }}
+        elif field == 'useragent':
+            if field == 'useragent':
+                flt = self.flt_and(flt, self.searchuseragent())
+                field = {"field": "ports.scripts.http-user-agent"}
+                nested = {
+                    "nested": {"path": "ports"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {"patterns": {"terms": field}},
+                    }},
+                }
+            else:
+                raise ValueError("Not implemented")
+            field = "ports.scripts.http-user-agent"
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}

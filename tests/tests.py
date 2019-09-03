@@ -3724,6 +3724,7 @@ purposes to feed Elasticsearch view.
                                   "httphdr.value")
         self.check_view_top_value("view_http_top_content_type",
                                   "httphdr:content-type")
+        self.check_view_top_value("view_http_top_ua", "useragent")
 
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
@@ -3731,7 +3732,6 @@ purposes to feed Elasticsearch view.
             # lack of filters & topvalues.
             return
 
-        self.check_view_top_value("view_http_top_ua", "useragent")
         self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
 
         self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client")
