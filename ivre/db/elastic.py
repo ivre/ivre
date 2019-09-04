@@ -623,9 +623,9 @@ return result;
                                         cls._get_pattern(value)}))
                     else:
                         req.append(Q("match",
-                                    **{"ports.scripts.%s.%s" % (subfield,
-                                                                field):
-                                       value}))
+                                     **{"ports.scripts.%s.%s" % (subfield,
+                                                                 field):
+                                        value}))
         if not req:
             res = Q('nested', path='ports',
                     query=Q('nested', path='ports.scripts',

@@ -380,6 +380,7 @@ def get_nmap(subdb):
     :>jsonarr object: results
 
     """
+    subdb_tool = "view" if subdb == 'view' else "scancli"
     subdb = db.view if subdb == 'view' else db.nmap
     flt_params = get_nmap_base(subdb)
     # PostgreSQL: the query plan if affected by the limit and gives
@@ -459,10 +460,11 @@ def get_nmap(subdb):
 
     messages = {
         1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
-                          "the following command: 'ivre scancli "
+                          "the following command: 'ivre %s "
                           "--update-schema;" % (count,
                                                 's' if count > 1 else '',
-                                                'are' if count > 1 else 'is')),
+                                                'are' if count > 1 else 'is',
+                                                subdb_tool)),
         -1: lambda count: ('%d document%s displayed ha%s been inserted by '
                            'a more recent version of IVRE. Please update '
                            'IVRE!' % (count, 's' if count > 1 else '',
