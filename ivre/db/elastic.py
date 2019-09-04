@@ -199,7 +199,10 @@ def _create_mappings(nested, all_mappings):
         subkey = fld.rsplit('.', 1)[-1]
         if curkey is not None:
             subkey = "%s.%s" % (curkey, subkey)
-        cur[subkey] = {"type": 'nested'}
+        cur[subkey] = {"type": 'nested',
+                       # This is needed to use the nested fields in
+                       # Kibana:
+                       "include_in_parent": True}
     for fldtype, fldnames in all_mappings:
         for fld in fldnames:
             cur = res
@@ -215,7 +218,7 @@ def _create_mappings(nested, all_mappings):
             subkey = fld.rsplit('.', 1)[-1]
             if curkey is not None:
                 subkey = "%s.%s" % (curkey, subkey)
-            cur[subkey] = {"type": fldtype}
+            cur.setdefault(subkey, {})["type"] = fldtype
     return res
 
 
