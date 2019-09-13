@@ -102,7 +102,7 @@ if [ -z "$IVRE_WORKER" ]; then
     master_prompt="[master     ] "
 
     # clean children on exit
-    trap "trap - TERM INT EXIT; echo '${master_prompt}shuting down' >&2;\\
+    trap "trap - TERM INT EXIT; echo '${master_prompt}shutting down' >&2;\\
           pkill -g 0; exit" TERM INT EXIT
 
     echo "${master_prompt}spawning $THREADS workers" >&2
