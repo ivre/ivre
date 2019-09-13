@@ -533,8 +533,15 @@ return result;
                 subkey, value = self._ja3keyvalue(utils.str2regexp(value))
                 if isinstance(value, utils.REGEXP_T):
                     include_value = self._get_pattern(value)
+                    filter_value = {'regexp': {
+                        "ports.scripts.ssl-ja3-client.%s" % subkey:
+                        include_value,
+                    }}
                 else:
                     include_value = re.escape(value)
+                    filter_value = {'match': {
+                        "ports.scripts.ssl-ja3-client.%s" % subkey: value,
+                    }}
             else:
                 value = None
                 subkey = None
@@ -542,30 +549,32 @@ return result;
                 field, subfield = field.split('.', 1)
             else:
                 subfield = 'md5'
+            base = {
+                "terms": {
+                    "field":
+                    "ports.scripts.ssl-ja3-client.%s" % subfield,
+                    "size": topnbr,
+                },
+            }
+            if subkey is not None:
+                if subkey != subfield:
+                    base = {
+                        "filter": filter_value,
+                        "aggs": {"patterns": base}
+                    }
+                else:
+                    base["terms"]["include"] = include_value
+            flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
             nested = {
                 "nested": {"path": "ports"},
                 "aggs": {"patterns": {
                     "nested": {"path": "ports.scripts"},
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts.ssl-ja3-client"},
-                        "aggs": {"patterns": {
-                            "terms": {
-                                "field":
-                                "ports.scripts.ssl-ja3-client.%s" % subfield,
-                                "size": topnbr,
-                            },
-                        }},
+                        "aggs": {"patterns": base},
                     }},
                 }},
             }
-            if subkey is not None:
-                if subkey != subfield:
-                    # TODO
-                    raise ValueError('Not supported yet!')
-                nested["aggs"]["patterns"]["aggs"]["patterns"]["aggs"][
-                    "patterns"
-                ]["terms"]["include"] = include_value
-            flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}
