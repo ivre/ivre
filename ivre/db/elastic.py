@@ -227,6 +227,8 @@ class ElasticDBActive(ElasticDB, DBActive):
     nested_fields = [
         "ports",
         "ports.scripts",
+        "ports.scripts.ssl-ja3-client",
+        "ports.scripts.ssl-ja3-server",
     ]
     mappings = [
         _create_mappings(
@@ -523,6 +525,47 @@ return result;
                         }},
                     }},
                 }
+        elif field == 'ja3-client' or (
+                field.startswith('ja3-client') and field[10] in ':.'
+        ):
+            if ':' in field:
+                field, value = field.split(':', 1)
+                subkey, value = self._ja3keyvalue(utils.str2regexp(value))
+                if isinstance(value, utils.REGEXP_T):
+                    include_value = self._get_pattern(value)
+                else:
+                    include_value = re.escape(value)
+            else:
+                value = None
+                subkey = None
+            if '.' in field:
+                field, subfield = field.split('.', 1)
+            else:
+                subfield = 'md5'
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.ssl-ja3-client"},
+                        "aggs": {"patterns": {
+                            "terms": {
+                                "field":
+                                "ports.scripts.ssl-ja3-client.%s" % subfield,
+                                "size": topnbr,
+                            },
+                        }},
+                    }},
+                }},
+            }
+            if subkey is not None:
+                if subkey != subfield:
+                    # TODO
+                    raise ValueError('Not supported yet!')
+                nested["aggs"]["patterns"]["aggs"]["patterns"]["aggs"][
+                    "patterns"
+                ]["terms"]["include"] = include_value
+            flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}
@@ -530,6 +573,7 @@ return result;
             body["aggs"] = {"patterns": {"terms": dict(field, size=topnbr)}}
         else:
             body["aggs"] = {"patterns": nested}
+        utils.LOGGER.debug("DB: Elasticsearch aggregation: %r", body)
         result = self.db_client.search(
             body=body,
             index=self.indexes[0],

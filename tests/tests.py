@@ -2963,7 +2963,7 @@ purposes to feed Elasticsearch view.
         """Functions that have not yet been tested"""
 
         self.assertIsNotNone(ivre.config.guess_prefix())
-        self.assertIsNone(ivre.config.guess_prefix("inexistant"))
+        self.assertIsNone(ivre.config.guess_prefix("inexistent"))
 
         # Version / help
         res, out1, err = RUN(["ivre"])
@@ -2976,7 +2976,7 @@ purposes to feed Elasticsearch view.
         res, _, err = RUN(["ivre", "version"])
         self.assertEqual(res, 0)
         self.assertTrue(not err)
-        res, _, _ = RUN(["ivre", "inexistant"])
+        res, _, _ = RUN(["ivre", "inexistent"])
         self.assertTrue(res)
 
         # IP addresses manipulation utils
@@ -3726,13 +3726,6 @@ purposes to feed Elasticsearch view.
                                   "httphdr:content-type")
         self.check_view_top_value("view_http_top_ua", "useragent")
         self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
-
-        if DATABASE == "elastic":
-            # Support for Elasticsearch is experimental and lacks a
-            # lot of functionalities. The next tests will fail for
-            # lack of filters & topvalues.
-            return
-
         self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client")
         self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client.md5")
         self.check_view_top_value("view_ssl_top_ja3cli_sha1",
@@ -3740,6 +3733,15 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_ssl_top_ja3cli_sha256",
                                   "ja3-client.sha256")
         self.check_view_top_value("view_ssl_top_ja3cli_raw", "ja3-client.raw")
+        self.check_view_top_value("view_ssl_top_ja3cli_raw_771",
+                                  "ja3-client.raw:/^771/")
+
+        if DATABASE == "elastic":
+            # Support for Elasticsearch is experimental and lacks a
+            # lot of functionalities. The next tests will fail for
+            # lack of filters & topvalues.
+            return
+
         self.check_view_top_value("view_ssl_top_ja3cli_md5_771",
                                   "ja3-client:/^771/")
         self.check_view_top_value("view_ssl_top_ja3cli_md5_771",
@@ -3748,8 +3750,6 @@ purposes to feed Elasticsearch view.
                                   "ja3-client.sha1:/^771/")
         self.check_view_top_value("view_ssl_top_ja3cli_sha256_771",
                                   "ja3-client.sha256:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3cli_raw_771",
-                                  "ja3-client.raw:/^771/")
 
         self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server")
         self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server.md5")
