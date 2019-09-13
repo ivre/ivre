@@ -2963,7 +2963,7 @@ purposes to feed Elasticsearch view.
         """Functions that have not yet been tested"""
 
         self.assertIsNotNone(ivre.config.guess_prefix())
-        self.assertIsNone(ivre.config.guess_prefix("inexistant"))
+        self.assertIsNone(ivre.config.guess_prefix("inexistent"))
 
         # Version / help
         res, out1, err = RUN(["ivre"])
@@ -2976,7 +2976,7 @@ purposes to feed Elasticsearch view.
         res, _, err = RUN(["ivre", "version"])
         self.assertEqual(res, 0)
         self.assertTrue(not err)
-        res, _, _ = RUN(["ivre", "inexistant"])
+        res, _, _ = RUN(["ivre", "inexistent"])
         self.assertTrue(res)
 
         # IP addresses manipulation utils
