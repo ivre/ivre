@@ -560,7 +560,7 @@ return result;
                 if subkey != subfield:
                     base = {
                         "filter": filter_value,
-                        "aggs": {"patterns": base}
+                        "aggs": {"patterns": base},
                     }
                 else:
                     base["terms"]["include"] = include_value
@@ -571,6 +571,111 @@ return result;
                     "nested": {"path": "ports.scripts"},
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts.ssl-ja3-client"},
+                        "aggs": {"patterns": base},
+                    }},
+                }},
+            }
+        elif field == 'ja3-server' or (
+                field.startswith('ja3-server') and field[10] in ':.'
+        ):
+            def outputproc(value):
+                return tuple(value.split('/'))
+            if ':' in field:
+                field, values = field.split(':', 1)
+                if ':' in values:
+                    value1, value2 = values.split(':', 1)
+                    if value1:
+                        subkey1, value1 = self._ja3keyvalue(
+                            utils.str2regexp(value1)
+                        )
+                        if isinstance(value1, utils.REGEXP_T):
+                            filter_value1 = {'regexp': {
+                                "ports.scripts.ssl-ja3-server.%s" % subkey1:
+                                self._get_pattern(value1),
+                            }}
+                        else:
+                            filter_value1 = {'match': {
+                                "ports.scripts.ssl-ja3-server.%s" % subkey1:
+                                value1,
+                            }}
+                    else:
+                        subkey1, value1 = None, None
+                    if value2:
+                        subkey2, value2 = self._ja3keyvalue(
+                            utils.str2regexp(value2)
+                        )
+                        if isinstance(value2, utils.REGEXP_T):
+                            filter_value2 = {'regexp': {
+                                "ports.scripts.ssl-ja3-server.client.%s" %
+                                subkey2:
+                                self._get_pattern(value2),
+                            }}
+                        else:
+                            filter_value2 = {'match': {
+                                "ports.scripts.ssl-ja3-server.client.%s" %
+                                subkey2:
+                                value2,
+                            }}
+                    else:
+                        subkey2, value2 = None, None
+                else:
+                    subkey1, value1 = self._ja3keyvalue(
+                        utils.str2regexp(values)
+                    )
+                    if isinstance(value1, utils.REGEXP_T):
+                        filter_value1 = {'regexp': {
+                            "ports.scripts.ssl-ja3-server.%s" % subkey1:
+                            self._get_pattern(value1),
+                        }}
+                    else:
+                        filter_value1 = {'match': {
+                            "ports.scripts.ssl-ja3-server.%s" % subkey1:
+                            value1,
+                        }}
+                    subkey2, value2 = None, None
+            else:
+                subkey1, value1 = None, None
+                subkey2, value2 = None, None
+            if '.' in field:
+                field, subfield = field.split('.', 1)
+            else:
+                subfield = 'md5'
+            flt = self.flt_and(flt, self.searchja3server(
+                value_or_hash=value1,
+                client_value_or_hash=value2,
+            ))
+            base = {
+                "terms": {
+                    "script": {
+                        "lang": "painless",
+                        "source":
+                        "doc['ports.scripts.ssl-ja3-server.%s'].value + '/' + "
+                        "doc['ports.scripts.ssl-ja3-server.client.%s'].value" %
+                        (subfield, subfield),
+                    },
+                    "size": topnbr,
+                },
+            }
+            if value1 is not None:
+                base = {
+                    "filter": filter_value1,
+                    "aggs": {"patterns": base},
+                }
+            if value2 is not None:
+                base = {
+                    "filter": filter_value2,
+                    "aggs": {"patterns": base},
+                }
+            flt = self.flt_and(flt, self.searchja3server(
+                value_or_hash=value1,
+                client_value_or_hash=value2,
+            ))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.ssl-ja3-server"},
                         "aggs": {"patterns": base},
                     }},
                 }},

@@ -3744,13 +3744,6 @@ purposes to feed Elasticsearch view.
                                   "ja3-client.sha256:/^771/")
         self.check_view_top_value("view_ssl_top_ja3cli_raw_771",
                                   "ja3-client.raw:/^771/")
-
-        if DATABASE == "elastic":
-            # Support for Elasticsearch is experimental and lacks a
-            # lot of functionalities. The next tests will fail for
-            # lack of filters & topvalues.
-            return
-
         self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server")
         self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server.md5")
         self.check_view_top_value("view_ssl_top_ja3srv_sha1",
@@ -3788,6 +3781,12 @@ purposes to feed Elasticsearch view.
                                   "ja3-server.sha256:/^769/:/^771/")
         self.check_view_top_value("view_ssl_top_ja3srv_raw_769_771",
                                   "ja3-server.raw:/^769/:/^771/")
+
+        if DATABASE == "elastic":
+            # Support for Elasticsearch is experimental and lacks a
+            # lot of functionalities. The next tests will fail for
+            # lack of filters & topvalues.
+            return
 
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
