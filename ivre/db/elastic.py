@@ -680,6 +680,10 @@ return result;
                     }},
                 }},
             }
+        elif field.startswith('s7.'):
+            flt = self.flt_and(flt, self.searchscript(name="s7-info"))
+            subfield = field[3:]
+            field = {'field': 'ports.scripts.s7-info.' + subfield}
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}

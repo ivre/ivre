@@ -3782,14 +3782,15 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_ssl_top_ja3srv_raw_769_771",
                                   "ja3-server.raw:/^769/:/^771/")
 
+        self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
+        self.check_view_top_value("view_top_s7_plant", "s7.plant")
+
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
             # lot of functionalities. The next tests will fail for
             # lack of filters & topvalues.
             return
 
-        self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
-        self.check_view_top_value("view_top_s7_plant", "s7.plant")
         self.check_view_top_value("view_top_isotsap_product",
                                   "product:iso-tsap")
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
