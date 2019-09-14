@@ -439,6 +439,23 @@ return result;
                         "value": info,
                     }
                 }}
+        elif field == 'service':
+            def outputproc(value):
+                return value or None
+            flt = self.flt_and(flt, self.searchopenport())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"match": {"ports.state_state": "open"}},
+                    "aggs": {"patterns": {
+                        "terms": {
+                            "field": "ports.service_name",
+                            "missing": "",
+                            "size": topnbr,
+                        },
+                    }},
+                }},
+            }
         elif field == 'httphdr':
             def outputproc(value):
                 return tuple(value.split(':', 1))
@@ -756,6 +773,15 @@ return result;
             res = Q("regexp", infos__as_name=cls._get_pattern(asname))
         else:
             res = Q("match", infos__as_name=asname)
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchopenport(neg=False):
+        "Filters records with at least one open port."
+        res = Q("nested", path="ports",
+                query=Q("match", ports__state_state="open"))
         if neg:
             return ~res
         return res

@@ -1285,11 +1285,11 @@ purposes to feed Elasticsearch view.
         #     "nmap_isakmp_top_products",
         #     ["ivre", "scancli", "--top", "product", "--service", "isakmp"],
         # )
-        self.check_nmap_top_value("nmap_ssh_top_port", "port:ssh")
-        self.check_nmap_top_value("nmap_http_top_content_type",
+        self.check_nmap_top_value("nmap_top_ssh_port", "port:ssh")
+        self.check_nmap_top_value("nmap_top_http_content_type",
                                   "httphdr:content-type")
-        self.check_nmap_top_value("nmap_http_top_header", "httphdr.name")
-        self.check_nmap_top_value("nmap_http_top_header_value",
+        self.check_nmap_top_value("nmap_top_http_header", "httphdr.name")
+        self.check_nmap_top_value("nmap_top_http_header_value",
                                   "httphdr.value")
         self.check_lines_value_cmd(
             "nmap_domains_pttsh_tw",
@@ -1298,7 +1298,7 @@ purposes to feed Elasticsearch view.
         )
         self.check_nmap_top_value("nmap_top_s7_module_name", "s7.module_name")
         self.check_nmap_top_value("nmap_top_s7_plant", "s7.plant")
-        self.check_nmap_top_value("nmap_top_isotsap_product",
+        self.check_nmap_top_value("nmap_top_product_isotsap",
                                   "product:iso-tsap")
         self.check_nmap_top_value("nmap_top_cert_issuer", "cert.issuer")
         self.check_nmap_top_value("nmap_top_cert_subject", "cert.subject")
@@ -1316,7 +1316,7 @@ purposes to feed Elasticsearch view.
         self._check_top_value_cli("nmap_top_modbus_deviceids",
                                   "modbus.deviceid",
                                   command="scancli")
-        self._check_top_value_cli("nmap_top_services", "service",
+        self._check_top_value_cli("nmap_top_service", "service",
                                   command="scancli")
         self._check_top_value_cli("nmap_top_product", "product",
                                   command="scancli")
@@ -1335,25 +1335,21 @@ purposes to feed Elasticsearch view.
         self.assertEqual(category["count"], hosts_count)
         with self.assertRaises(StopIteration):
             next(categories)
-        self._check_top_value_api("nmap_topsrv", "service",
+        self._check_top_value_api("nmap_top_service_80", "service:80",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topsrv_80", "service:80",
+        self._check_top_value_api("nmap_top_product_80", "product:80",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topprod", "product",
+        self._check_top_value_api("nmap_top_devtype", "devicetype",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topprod_80", "product:80",
+        self._check_top_value_api("nmap_top_devtype_80", "devicetype:80",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topdevtype", "devicetype",
+        self._check_top_value_api("nmap_top_domain", "domains",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topdevtype_80", "devicetype:80",
+        self._check_top_value_api("nmap_top_domain_1", "domains:1",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topdomain", "domains",
+        self._check_top_value_api("nmap_top_hop", "hop",
                                   database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_topdomains_1", "domains:1",
-                                  database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_tophop", "hop",
-                                  database=ivre.db.db.nmap)
-        self._check_top_value_api("nmap_tophop_10+", "hop>10",
+        self._check_top_value_api("nmap_top_hop_10+", "hop>10",
                                   database=ivre.db.db.nmap)
         locations = list(ivre.db.db.nmap.getlocations(
             ivre.db.db.nmap.flt_empty
@@ -3718,72 +3714,73 @@ purposes to feed Elasticsearch view.
         self.assertEqual(len(out.splitlines()), view_count)
 
         # Filters
-        self.check_view_top_value("view_ssh_top_port", "port:ssh")
-        self.check_view_top_value("view_http_top_header", "httphdr.name")
-        self.check_view_top_value("view_http_top_header_value",
+        self.check_view_top_value("view_top_ssh_port", "port:ssh")
+        self.check_view_top_value("view_top_http_header", "httphdr.name")
+        self.check_view_top_value("view_top_http_header_value",
                                   "httphdr.value")
-        self.check_view_top_value("view_http_top_content_type",
+        self.check_view_top_value("view_top_http_content_type",
                                   "httphdr:content-type")
-        self.check_view_top_value("view_http_top_ua", "useragent")
-        self.check_view_top_value("view_http_top_ua_curl", "useragent:/^curl/")
+        self.check_view_top_value("view_top_http_ua", "useragent")
+        self.check_view_top_value("view_top_http_ua_curl", "useragent:/^curl/")
 
-        self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client")
-        self.check_view_top_value("view_ssl_top_ja3cli_md5", "ja3-client.md5")
-        self.check_view_top_value("view_ssl_top_ja3cli_sha1",
+        self.check_view_top_value("view_top_ssl_ja3cli_md5", "ja3-client")
+        self.check_view_top_value("view_top_ssl_ja3cli_md5", "ja3-client.md5")
+        self.check_view_top_value("view_top_ssl_ja3cli_sha1",
                                   "ja3-client.sha1")
-        self.check_view_top_value("view_ssl_top_ja3cli_sha256",
+        self.check_view_top_value("view_top_ssl_ja3cli_sha256",
                                   "ja3-client.sha256")
-        self.check_view_top_value("view_ssl_top_ja3cli_raw", "ja3-client.raw")
-        self.check_view_top_value("view_ssl_top_ja3cli_md5_771",
+        self.check_view_top_value("view_top_ssl_ja3cli_raw", "ja3-client.raw")
+        self.check_view_top_value("view_top_ssl_ja3cli_md5_771",
                                   "ja3-client:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3cli_md5_771",
+        self.check_view_top_value("view_top_ssl_ja3cli_md5_771",
                                   "ja3-client.md5:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3cli_sha1_771",
+        self.check_view_top_value("view_top_ssl_ja3cli_sha1_771",
                                   "ja3-client.sha1:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3cli_sha256_771",
+        self.check_view_top_value("view_top_ssl_ja3cli_sha256_771",
                                   "ja3-client.sha256:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3cli_raw_771",
+        self.check_view_top_value("view_top_ssl_ja3cli_raw_771",
                                   "ja3-client.raw:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5", "ja3-server.md5")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha1",
+        self.check_view_top_value("view_top_ssl_ja3srv_md5", "ja3-server")
+        self.check_view_top_value("view_top_ssl_ja3srv_md5", "ja3-server.md5")
+        self.check_view_top_value("view_top_ssl_ja3srv_sha1",
                                   "ja3-server.sha1")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha256",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha256",
                                   "ja3-server.sha256")
-        self.check_view_top_value("view_ssl_top_ja3srv_raw", "ja3-server.raw")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5_769",
+        self.check_view_top_value("view_top_ssl_ja3srv_raw", "ja3-server.raw")
+        self.check_view_top_value("view_top_ssl_ja3srv_md5_769",
                                   "ja3-server:/^769/")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5_769",
+        self.check_view_top_value("view_top_ssl_ja3srv_md5_769",
                                   "ja3-server.md5:/^769/")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha1_769",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha1_769",
                                   "ja3-server.sha1:/^769/")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha256_769",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha256_769",
                                   "ja3-server.sha256:/^769/")
-        self.check_view_top_value("view_ssl_top_ja3srv_raw_769",
+        self.check_view_top_value("view_top_ssl_ja3srv_raw_769",
                                   "ja3-server.raw:/^769/")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_md5_771",
                                   "ja3-server::/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_md5_771",
                                   "ja3-server.md5::/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha1_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha1_771",
                                   "ja3-server.sha1::/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha256_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha256_771",
                                   "ja3-server.sha256::/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_raw_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_raw_771",
                                   "ja3-server.raw::/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5_769_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_md5_769_771",
                                   "ja3-server:/^769/:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_md5_769_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_md5_769_771",
                                   "ja3-server.md5:/^769/:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha1_769_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha1_769_771",
                                   "ja3-server.sha1:/^769/:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_sha256_769_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_sha256_769_771",
                                   "ja3-server.sha256:/^769/:/^771/")
-        self.check_view_top_value("view_ssl_top_ja3srv_raw_769_771",
+        self.check_view_top_value("view_top_ssl_ja3srv_raw_769_771",
                                   "ja3-server.raw:/^769/:/^771/")
 
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
+        self.check_view_top_value("view_top_service", "service")
 
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
@@ -3791,8 +3788,14 @@ purposes to feed Elasticsearch view.
             # lack of filters & topvalues.
             return
 
-        self.check_view_top_value("view_top_isotsap_product",
+        self.check_view_top_value("view_top_product", "product")
+        self.check_view_top_value("view_top_product_http", "product:http")
+        self.check_view_top_value("view_top_product_isotsap",
                                   "product:iso-tsap")
+        self.check_view_top_value("view_top_version", "version")
+        self.check_view_top_value("view_top_version_http", "version:http")
+        self.check_view_top_value("view_top_version_http_apache",
+                                  "version:http:Apache httpd")
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
         self.check_view_top_value("view_top_cert_subject", "cert.subject")
         self.check_view_top_value("view_top_filename", "file")
@@ -3803,26 +3806,18 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_uids", "file.uid")
         self.check_view_top_value("view_top_modbus_deviceids",
                                   "modbus.deviceid")
-        self.check_view_top_value("view_top_services", "service")
-        self.check_view_top_value("view_top_product", "product")
-        self.check_view_top_value("view_top_product_http", "product:http")
-        self.check_view_top_value("view_top_version", "version")
-        self.check_view_top_value("view_top_version_http", "version:http")
-        self.check_view_top_value("view_top_version_http_apache",
-                                  "version:http:Apache httpd")
         categories = ivre.db.db.view.topvalues("category")
         category = next(categories)
         self.assertEqual(category["_id"], "TEST")
-        self.check_view_top_value("view_topsrv", "service")
-        self.check_view_top_value("view_topsrv_80", "service:80")
-        self.check_view_top_value("view_topprod", "product")
-        self.check_view_top_value("view_topprod_80", "product:80")
-        self.check_view_top_value("view_topdevtype", "devicetype")
-        self.check_view_top_value("view_topdevtype_80", "devicetype:80")
-        self.check_view_top_value("view_topdomain", "domains")
-        self.check_view_top_value("view_topdomains_1", "domains:1")
-        self.check_view_top_value("view_tophop", "hop")
-        self.check_view_top_value("view_tophop_10+", "hop>10")
+        self.check_view_top_value("view_top_service_80", "service:80")
+        self.check_view_top_value("view_top_product", "product")
+        self.check_view_top_value("view_top_product_80", "product:80")
+        self.check_view_top_value("view_top_devtype", "devicetype")
+        self.check_view_top_value("view_top_devtype_80", "devicetype:80")
+        self.check_view_top_value("view_top_domain", "domains")
+        self.check_view_top_value("view_top_domain_1", "domains:1")
+        self.check_view_top_value("view_top_hop", "hop")
+        self.check_view_top_value("view_top_hop_10+", "hop>10")
 
         # Check script search filter
         count = self.check_view_count_value(
