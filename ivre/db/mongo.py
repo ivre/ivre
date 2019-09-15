@@ -2017,13 +2017,6 @@ it is not expected)."""
             return {"ports.scripts": {"$not": {"$elemMatch": req}}}
         return {"ports.scripts": {"$elemMatch": req}}
 
-    @classmethod
-    def searchcert(cls, keytype=None):
-        if keytype is None:
-            return cls.searchscript(name="ssl-cert")
-        return cls.searchscript(name="ssl-cert",
-                                values={'pubkey.type': keytype})
-
     @staticmethod
     def searchsvchostname(hostname):
         return {'ports.service_hostname': hostname}

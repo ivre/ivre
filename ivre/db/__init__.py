@@ -1180,6 +1180,13 @@ field from having different data types.
         return self.searchscript(name='rpcinfo',
                                  output=re.compile('nfs', flags=0))
 
+    @classmethod
+    def searchcert(cls, keytype=None):
+        if keytype is None:
+            return cls.searchscript(name="ssl-cert")
+        return cls.searchscript(name="ssl-cert",
+                                values={'pubkey.type': keytype})
+
     def searchtorcert(self):
         expr = re.compile(
             '^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
