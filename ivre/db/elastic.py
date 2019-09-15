@@ -227,6 +227,7 @@ class ElasticDBActive(ElasticDB, DBActive):
     nested_fields = [
         "ports",
         "ports.scripts",
+        "ports.scripts.http-headers",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
     ]
@@ -383,33 +384,41 @@ class ElasticDBActive(ElasticDB, DBActive):
         elif field == "as":
             def outputproc(value):
                 return tuple(val if i else int(val)
-                             for i, val in enumerate(value.split(', ', 1)))
+                             for i, val in enumerate(value.split(',', 1)))
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
             field = {"script": {
                 "lang": "painless",
                 "source":
-                "doc['infos.as_num'].value + ', ' + "
+                "doc['infos.as_num'].value + ',' + "
                 "doc['infos.as_name'].value",
             }}
         elif field == "port" or field.startswith("port:"):
             def outputproc(value):
                 return tuple(int(val) if i else val
-                             for i, val in enumerate(value.split('/', 1)))
+                             for i, val in enumerate(value.rsplit('/', 1)))
             if field == "port":
                 flt = self.flt_and(flt,
                                    Q('nested', path='ports',
                                      query=Q('exists', field="ports.port")))
-                field = {"script": {
-                    "lang": "painless",
-                    "source": """List result = new ArrayList();
-for(item in params._source.ports) {
-    if(item.port != -1) {
-        result.add(item.protocol + '/' + item.port);
-    }
-}
-return result;
-""",
-                }}
+                nested = {
+                    "nested": {"path": "ports"},
+                    "aggs": {"patterns": {
+                        "filter": {'bool': {'must_not': [
+                            {'match': {'ports.port': -1}},
+                        ]}},
+                        "aggs": {"patterns": {
+                            "terms": {
+                                "script": {
+                                    "lang": "painless",
+                                    "source":
+                                    'doc["ports.protocol"].value + "/" + '
+                                    'doc["ports.port"].value',
+                                },
+                                "size": topnbr,
+                            }
+                        }},
+                    }},
+                }
             else:
                 info = field[5:]
                 if info in ['open', 'filtered', 'closed']:
@@ -424,21 +433,27 @@ return result;
                                          query=Q('match',
                                                  ports__service_name=info)))
                     matchfield = "service_name"
-                field = {"script": {
-                    "lang": "painless",
-                    "source": """List result = new ArrayList();
-for(item in params._source.ports) {
-    if(item[params.field] == params.value) {
-        result.add(item.protocol + '/' + item.port);
-    }
-}
-return result;
-""",
-                    "params": {
-                        "field": matchfield,
-                        "value": info,
-                    }
-                }}
+                nested = {
+                    "nested": {"path": "ports"},
+                    "aggs": {"patterns": {
+                        "filter": {'bool': {
+                            'must': [{'match': {'ports.%s' % matchfield:
+                                                info}}],
+                            'must_not': [{'match': {'ports.port': -1}}],
+                        }},
+                        "aggs": {"patterns": {
+                            "terms": {
+                                "script": {
+                                    "lang": "painless",
+                                    "source":
+                                    'doc["ports.protocol"].value + "/" + '
+                                    'doc["ports.port"].value',
+                                },
+                                "size": topnbr,
+                            }
+                        }},
+                    }},
+                }
         elif field == 'service':
             def outputproc(value):
                 return value or None
@@ -460,24 +475,27 @@ return result;
             def outputproc(value):
                 return tuple(value.split(':', 1))
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
-            field = {"script": {
-                "lang": "painless",
-                "source": """List result = new ArrayList();
-for(item in params._source.ports) {
-    if (item.containsKey('scripts')) {
-        for(script in item.scripts) {
-            if(script.id == 'http-headers' &&
-               script.containsKey('http-headers')) {
-                for(hdr in script['http-headers']) {
-                    result.add(hdr.name + ':' + hdr.value);
-                }
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.http-headers"},
+                        "aggs": {"patterns": {
+                            "terms": {
+                                "script": {
+                                    "lang": "painless",
+                                    "source":
+                                    "doc['ports.scripts.http-headers.name']."
+                                    "value + ':' + doc['ports.scripts.http-"
+                                    "headers.value'].value"
+                                },
+                                "size": topnbr,
+                            },
+                        }},
+                    }},
+                }},
             }
-        }
-    }
-}
-return result;
-""",
-            }}
         elif field.startswith('httphdr.'):
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
             field = {"field": "ports.scripts.http-headers.%s" % field[8:]}
@@ -485,7 +503,12 @@ return result;
                 "nested": {"path": "ports"},
                 "aggs": {"patterns": {
                     "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {"terms": field}},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.http-headers"},
+                        "aggs": {"patterns": {
+                            "terms": dict(field, size=topnbr),
+                        }},
+                    }},
                 }},
             }
         elif field.startswith('httphdr:'):
@@ -493,29 +516,29 @@ return result;
             flt = self.flt_and(flt,
                                self.searchscript(name="http-headers",
                                                  values={"name": subfield}))
-            field = {"script": {
-                "lang": "painless",
-                "source": """List result = new ArrayList();
-for(item in params._source.ports) {
-    if (item.containsKey('scripts')) {
-        for(script in item.scripts) {
-            if(script.id == 'http-headers' &&
-               script.containsKey('http-headers')) {
-                for(hdr in script['http-headers']) {
-                    if (hdr.name == params.name) {
-                        result.add(hdr.value);
-                    }
-                }
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.http-headers"},
+                        "aggs": {"patterns": {
+                            "filter": {"match": {
+                                "ports.scripts.http-headers.name": subfield,
+                            }},
+                            "aggs": {"patterns": {
+                                "terms": {
+                                    "field":
+                                    'ports.scripts.http-headers.value',
+                                    "size": topnbr,
+                                },
+                            }},
+                        }},
+                    }},
+                }},
             }
-        }
-    }
-}
-return result;
-""",
-                "params": {"name": subfield}
-            }}
         elif field == 'useragent' or field.startswith('useragent:'):
-            terms = {"field": "ports.scripts.http-user-agent"}
+            terms = {"field": "ports.scripts.http-user-agent", "size": topnbr}
             if field == 'useragent':
                 flt = self.flt_and(flt, self.searchuseragent())
                 nested = {
