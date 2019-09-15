@@ -118,6 +118,8 @@ flow_daily_9_flows_udp/1056 = u'1'
 flow_daily_9_flows_udp/1063 = u'1'
 flow_daily_9 = u'21:00:00.000000'
 flow_elt_sip = {u'count': 1, u'cspkts': 4, u'scbytes': 2060, 'src_addr': '172.22.75.71', u'scpkts': 3, u'proto': u'udp', u'schema_version': 1, u'sports': [5062], u'csbytes': 2636, u'meta': {u'sip': {u'count': 4, u'request_body_len': 831, u'status_code': [100, 183, 200], u'status_msg': [u'OK', u'Session Progress', u'Trying'], u'uri': [u'sip:147@ims.mnc010.mcc208.3gppnetwork.org;user=phone', u'sip:pcgw-0006.imsgroup0-005.ach4isc02.ims.sfr.net:5062'], u'response_from': [u'"0360653674" <sip:+33360653674@ims.mnc010.mcc208.3gppnetwork.org;user=phone>'], u'request_to': [u'<sip:147@ims.mnc010.mcc208.3gppnetwork.org;user=phone>', u'<sip:147@ims.mnc010.mcc208.3gppnetwork.org;user=phone>;tag=524b656f-138860423163019-gm-po-lucentPCSF-021676'], u'response_body_len': 444, u'user_agent': [u'neufbox6 - r13507'], u'request_from': [u'"0360653674" <sip:+33360653674@ims.mnc010.mcc208.3gppnetwork.org;user=phone>'], u'response_to': [u'<sip:147@ims.mnc010.mcc208.3gppnetwork.org;user=phone>', u'<sip:147@ims.mnc010.mcc208.3gppnetwork.org;user=phone>;tag=524b656f-138860423163019-gm-po-lucentPCSF-021676'], u'method': [u'BYE', u'INVITE']}}, u'lastseen': '2014-01-01T19:23:51.578000', u'dport': 5060, 'dst_addr': '10.251.23.139', u'firstseen': '2014-01-01T19:23:51.036000', u'times': ['2014-01-01T19:00:00']}
+flow_passive_count = 335
+flow_passive_netflow_count = 345
 flow_top_flows = u'(10.0.0.1, 66.102.1.27, tcp, 25) | 33 '
 flow_top_pair = u'(192.168.122.214, 217.12.199.190) | 1726518 '
 flow_top_transport = u'(tcp, 443) | 3365145 '
