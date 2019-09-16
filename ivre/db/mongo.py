@@ -2602,7 +2602,7 @@ it is not expected)."""
                 return {'count': x['count'],
                         '_id': x['_id'] if x['_id'] else None}
         elif field.startswith("service:"):
-            port = int(field.split(':', 1)[1])
+            port = int(field[8:])
             flt = self.flt_and(flt, self.searchport(port))
             specialproj = {"_id": 0, "ports.port": 1, "ports.service_name": 1}
             specialflt = [
@@ -2652,7 +2652,7 @@ it is not expected)."""
                     }
             field = "ports.service_product"
         elif field.startswith('product:'):
-            service = field.split(':', 1)[1]
+            service = field[8:]
             if service.isdigit():
                 port = int(service)
                 flt = self.flt_and(flt, self.searchport(port))
@@ -2742,7 +2742,7 @@ it is not expected)."""
                     }
             field = "ports.service_product"
         elif field.startswith('version:'):
-            service = field.split(':', 1)[1]
+            service = field[8:]
             if service.isdigit():
                 port = int(service)
                 flt = self.flt_and(flt, self.searchport(port))

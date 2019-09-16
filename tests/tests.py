@@ -3713,7 +3713,9 @@ purposes to feed Elasticsearch view.
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
-        # Filters
+        # Top values & filters
+        self.assertEqual(next(ivre.db.db.view.topvalues("category"))['_id'],
+                         "TEST")
         self.check_view_top_value("view_top_ssh_port", "port:ssh")
         self.check_view_top_value("view_top_http_header", "httphdr.name")
         self.check_view_top_value("view_top_http_header_value",
@@ -3781,6 +3783,16 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_s7_module_name", "s7.module_name")
         self.check_view_top_value("view_top_s7_plant", "s7.plant")
         self.check_view_top_value("view_top_service", "service")
+        self.check_view_top_value("view_top_service_80", "service:80")
+        self.check_view_top_value("view_top_product", "product")
+        self.check_view_top_value("view_top_product_http", "product:http")
+        self.check_view_top_value("view_top_product_isotsap",
+                                  "product:iso-tsap")
+        self.check_view_top_value("view_top_product_80", "product:80")
+        self.check_view_top_value("view_top_version", "version")
+        self.check_view_top_value("view_top_version_http", "version:http")
+        self.check_view_top_value("view_top_version_http_apache",
+                                  "version:http:Apache httpd")
 
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
@@ -3788,14 +3800,6 @@ purposes to feed Elasticsearch view.
             # lack of filters & topvalues.
             return
 
-        self.check_view_top_value("view_top_product", "product")
-        self.check_view_top_value("view_top_product_http", "product:http")
-        self.check_view_top_value("view_top_product_isotsap",
-                                  "product:iso-tsap")
-        self.check_view_top_value("view_top_version", "version")
-        self.check_view_top_value("view_top_version_http", "version:http")
-        self.check_view_top_value("view_top_version_http_apache",
-                                  "version:http:Apache httpd")
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
         self.check_view_top_value("view_top_cert_subject", "cert.subject")
         self.check_view_top_value("view_top_filename", "file")
@@ -3806,12 +3810,6 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_uids", "file.uid")
         self.check_view_top_value("view_top_modbus_deviceids",
                                   "modbus.deviceid")
-        categories = ivre.db.db.view.topvalues("category")
-        category = next(categories)
-        self.assertEqual(category["_id"], "TEST")
-        self.check_view_top_value("view_top_service_80", "service:80")
-        self.check_view_top_value("view_top_product", "product")
-        self.check_view_top_value("view_top_product_80", "product:80")
         self.check_view_top_value("view_top_devtype", "devicetype")
         self.check_view_top_value("view_top_devtype_80", "devicetype:80")
         self.check_view_top_value("view_top_domain", "domains")

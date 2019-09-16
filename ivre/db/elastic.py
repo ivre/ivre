@@ -374,11 +374,16 @@ class ElasticDBActive(ElasticDB, DBActive):
           - hop
 
         """
+        baseterms = {"size": topnbr}
+        if least:
+            baseterms["order"] = {"_count": "asc"}
         outputproc = None
         nested = None
         if flt is None:
             flt = self.flt_empty
-        if field == "asnum":
+        if field == "category":
+            field = {"field": "categories"}
+        elif field == "asnum":
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
             field = {"field": "infos.as_num"}
         elif field == "as":
@@ -407,15 +412,15 @@ class ElasticDBActive(ElasticDB, DBActive):
                             {'match': {'ports.port': -1}},
                         ]}},
                         "aggs": {"patterns": {
-                            "terms": {
-                                "script": {
+                            "terms": dict(
+                                baseterms,
+                                script={
                                     "lang": "painless",
                                     "source":
                                     'doc["ports.protocol"].value + "/" + '
                                     'doc["ports.port"].value',
                                 },
-                                "size": topnbr,
-                            }
+                            ),
                         }},
                     }},
                 }
@@ -442,15 +447,15 @@ class ElasticDBActive(ElasticDB, DBActive):
                             'must_not': [{'match': {'ports.port': -1}}],
                         }},
                         "aggs": {"patterns": {
-                            "terms": {
-                                "script": {
+                            "terms": dict(
+                                baseterms,
+                                script={
                                     "lang": "painless",
                                     "source":
                                     'doc["ports.protocol"].value + "/" + '
                                     'doc["ports.port"].value',
                                 },
-                                "size": topnbr,
-                            }
+                            ),
                         }},
                     }},
                 }
@@ -463,11 +468,172 @@ class ElasticDBActive(ElasticDB, DBActive):
                 "aggs": {"patterns": {
                     "filter": {"match": {"ports.state_state": "open"}},
                     "aggs": {"patterns": {
-                        "terms": {
-                            "field": "ports.service_name",
-                            "missing": "",
-                            "size": topnbr,
-                        },
+                        "terms": dict(
+                            baseterms,
+                            field="ports.service_name",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
+        elif field.startswith("service:"):
+            port = int(field[8:])
+            flt = self.flt_and(flt, self.searchport(port))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"bool": {"must": [
+                        {"match": {"ports.state_state": "open"}},
+                        {"match": {"ports.port": port}},
+                    ]}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            field="ports.service_name",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
+        elif field == 'product':
+            def outputproc(value):
+                return tuple(v or None for v in value.split('###', 1))
+            flt = self.flt_and(flt, self.searchopenport())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"match": {"ports.state_state": "open"}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "###";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+return result;
+""",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
+        elif field.startswith("product:"):
+            def outputproc(value):
+                return tuple(v or None for v in value.split('###', 1))
+            info = field[8:]
+            if info.isdigit():
+                info = int(info)
+                flt = self.flt_and(flt, self.searchport(info))
+                matchfield = "port"
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                matchfield = "service_name"
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"bool": {"must": [
+                        {"match": {"ports.state_state": "open"}},
+                        {"match": {"ports.%s" % matchfield: info}},
+                    ]}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "###";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+return result;
+""",
+                        ),
+                    }},
+                }},
+            }
+        elif field == 'version':
+            def outputproc(value):
+                return tuple(v or None for v in value.split('###', 2))
+            flt = self.flt_and(flt, self.searchopenport())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"match": {"ports.state_state": "open"}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "###";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+result += "###";
+if(doc['ports.service_version'].size() > 0) {
+    result += doc['ports.service_version'].value;
+}
+return result;
+""",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
+        elif field.startswith('version:'):
+            def outputproc(value):
+                return tuple(v or None for v in value.split('###', 2))
+            info = field[8:]
+            if info.isdigit():
+                port = int(info)
+                flt = self.flt_and(flt, self.searchport(port))
+                matchflt = Q("match", ports__port=port)
+            elif ":" in info:
+                service, product = info.split(':', 1)
+                flt = self.flt_and(flt, self.searchproduct(
+                    product,
+                    service=service,
+                ))
+                matchflt = (
+                    Q("match", ports__service_name=service) &
+                    Q("match", ports__service_product=product)
+                )
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                matchflt = Q("match", ports__service_name=info)
+            matchflt &= Q("match", ports__state_state="open")
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": matchflt.to_dict(),
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "###";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+result += "###";
+if(doc['ports.service_version'].size() > 0) {
+    result += doc['ports.service_version'].value;
+}
+return result;
+""",
+                        ),
                     }},
                 }},
             }
@@ -482,23 +648,23 @@ class ElasticDBActive(ElasticDB, DBActive):
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts.http-headers"},
                         "aggs": {"patterns": {
-                            "terms": {
-                                "script": {
+                            "terms": dict(
+                                baseterms,
+                                script={
                                     "lang": "painless",
                                     "source":
                                     "doc['ports.scripts.http-headers.name']."
                                     "value + ':' + doc['ports.scripts.http-"
                                     "headers.value'].value"
                                 },
-                                "size": topnbr,
-                            },
+                            )
                         }},
                     }},
                 }},
             }
         elif field.startswith('httphdr.'):
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
-            field = {"field": "ports.scripts.http-headers.%s" % field[8:]}
+            field = "ports.scripts.http-headers.%s" % field[8:]
             nested = {
                 "nested": {"path": "ports"},
                 "aggs": {"patterns": {
@@ -506,7 +672,10 @@ class ElasticDBActive(ElasticDB, DBActive):
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts.http-headers"},
                         "aggs": {"patterns": {
-                            "terms": dict(field, size=topnbr),
+                            "terms": dict(
+                                baseterms,
+                                field=field
+                            ),
                         }},
                     }},
                 }},
@@ -527,25 +696,28 @@ class ElasticDBActive(ElasticDB, DBActive):
                                 "ports.scripts.http-headers.name": subfield,
                             }},
                             "aggs": {"patterns": {
-                                "terms": {
-                                    "field":
-                                    'ports.scripts.http-headers.value',
-                                    "size": topnbr,
-                                },
+                                "terms": dict(
+                                    baseterms,
+                                    field='ports.scripts.http-headers.value',
+                                ),
                             }},
                         }},
                     }},
                 }},
             }
         elif field == 'useragent' or field.startswith('useragent:'):
-            terms = {"field": "ports.scripts.http-user-agent", "size": topnbr}
             if field == 'useragent':
                 flt = self.flt_and(flt, self.searchuseragent())
                 nested = {
                     "nested": {"path": "ports"},
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts"},
-                        "aggs": {"patterns": {"terms": terms}},
+                        "aggs": {"patterns": {
+                            "terms": dict(
+                                baseterms,
+                                field="ports.scripts.http-user-agent",
+                            ),
+                        }},
                     }},
                 }
             else:
@@ -561,7 +733,11 @@ class ElasticDBActive(ElasticDB, DBActive):
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts"},
                         "aggs": {"patterns": {
-                            "terms": dict(terms, include=subfield),
+                            "terms": dict(
+                                baseterms,
+                                field="ports.scripts.http-user-agent",
+                                include=subfield,
+                            ),
                         }},
                     }},
                 }
@@ -590,11 +766,10 @@ class ElasticDBActive(ElasticDB, DBActive):
             else:
                 subfield = 'md5'
             base = {
-                "terms": {
-                    "field":
-                    "ports.scripts.ssl-ja3-client.%s" % subfield,
-                    "size": topnbr,
-                },
+                "terms": dict(
+                    baseterms,
+                    field="ports.scripts.ssl-ja3-client.%s" % subfield,
+                ),
             }
             if subkey is not None:
                 if subkey != subfield:
@@ -685,16 +860,16 @@ class ElasticDBActive(ElasticDB, DBActive):
                 client_value_or_hash=value2,
             ))
             base = {
-                "terms": {
-                    "script": {
+                "terms": dict(
+                    baseterms,
+                    script={
                         "lang": "painless",
                         "source":
                         "doc['ports.scripts.ssl-ja3-server.%s'].value + '/' + "
                         "doc['ports.scripts.ssl-ja3-server.client.%s'].value" %
                         (subfield, subfield),
                     },
-                    "size": topnbr,
-                },
+                ),
             }
             if value1 is not None:
                 base = {
@@ -728,7 +903,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             field = {"field": field}
         body = {"query": flt.to_dict()}
         if nested is None:
-            body["aggs"] = {"patterns": {"terms": dict(field, size=topnbr)}}
+            body["aggs"] = {"patterns": {"terms": dict(baseterms, **field)}}
         else:
             body["aggs"] = {"patterns": nested}
         utils.LOGGER.debug("DB: Elasticsearch aggregation: %r", body)
@@ -809,6 +984,30 @@ class ElasticDBActive(ElasticDB, DBActive):
             return ~res
         return res
 
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        """Filters (if `neg` == True, filters out) records with
+        specified protocol/port at required state. Be aware that when
+        a host has a lot of ports filtered or closed, it will not
+        report all of them, but only a summary, and thus the filter
+        might not work as expected. This filter will always work to
+        find open ports.
+
+        """
+        if port == "host":
+            res = Q("nested", path="ports", query=Q("match", ports__port=-1))
+        elif state == "open":
+            res = Q("match", **{"openports.%s.ports" % protocol: port})
+        else:
+            res = Q("nested", path="ports", query=(
+                Q("match", ports__port=port) &
+                Q("match", ports__protocol=protocol) &
+                Q("match", ports__state_state=state)
+            ))
+        if neg:
+            return ~res
+        return res
+
     @classmethod
     def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results.
@@ -865,6 +1064,35 @@ class ElasticDBActive(ElasticDB, DBActive):
         if neg:
             return ~res
         return res
+
+    @staticmethod
+    def searchservice(srv, port=None, protocol=None):
+        """Search an open port with a particular service."""
+        res = Q('match', ports__service_name=srv)
+        if port is not None:
+            res &= Q('match', ports__port=port)
+        if protocol is not None:
+            res &= Q('match', ports__protocol=protocol)
+        return Q('nested', path='ports', query=res)
+
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None,
+                      protocol=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        res = Q('match', ports__service_product=product)
+        if version is not None:
+            res &= Q('match', ports__service_version=version)
+        if service is not None:
+            res &= Q('match', ports__service_name=service)
+        if port is not None:
+            res &= Q('match', ports__port=port)
+        if protocol is not None:
+            res &= Q('match', ports__protocol=protocol)
+        return Q('nested', path='ports', query=res)
 
 
 class ElasticDBView(ElasticDBActive, DBView):
