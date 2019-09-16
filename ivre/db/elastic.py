@@ -374,6 +374,9 @@ class ElasticDBActive(ElasticDB, DBActive):
           - hop
 
         """
+        baseterms = {"size": topnbr}
+        if least:
+            baseterms["order"] = {"_count": "asc"}
         outputproc = None
         nested = None
         if flt is None:
@@ -407,15 +410,15 @@ class ElasticDBActive(ElasticDB, DBActive):
                             {'match': {'ports.port': -1}},
                         ]}},
                         "aggs": {"patterns": {
-                            "terms": {
-                                "script": {
+                            "terms": dict(
+                                baseterms,
+                                script={
                                     "lang": "painless",
                                     "source":
                                     'doc["ports.protocol"].value + "/" + '
                                     'doc["ports.port"].value',
                                 },
-                                "size": topnbr,
-                            }
+                            ),
                         }},
                     }},
                 }
@@ -442,15 +445,15 @@ class ElasticDBActive(ElasticDB, DBActive):
                             'must_not': [{'match': {'ports.port': -1}}],
                         }},
                         "aggs": {"patterns": {
-                            "terms": {
-                                "script": {
+                            "terms": dict(
+                                baseterms,
+                                script={
                                     "lang": "painless",
                                     "source":
                                     'doc["ports.protocol"].value + "/" + '
                                     'doc["ports.port"].value',
                                 },
-                                "size": topnbr,
-                            }
+                            ),
                         }},
                     }},
                 }
@@ -463,11 +466,11 @@ class ElasticDBActive(ElasticDB, DBActive):
                 "aggs": {"patterns": {
                     "filter": {"match": {"ports.state_state": "open"}},
                     "aggs": {"patterns": {
-                        "terms": {
-                            "field": "ports.service_name",
-                            "missing": "",
-                            "size": topnbr,
-                        },
+                        "terms": dict(
+                            baseterms,
+                            field="ports.service_name",
+                            missing="",
+                        ),
                     }},
                 }},
             }
@@ -482,23 +485,23 @@ class ElasticDBActive(ElasticDB, DBActive):
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts.http-headers"},
                         "aggs": {"patterns": {
-                            "terms": {
-                                "script": {
+                            "terms": dict(
+                                baseterms,
+                                script={
                                     "lang": "painless",
                                     "source":
                                     "doc['ports.scripts.http-headers.name']."
                                     "value + ':' + doc['ports.scripts.http-"
                                     "headers.value'].value"
                                 },
-                                "size": topnbr,
-                            },
+                            )
                         }},
                     }},
                 }},
             }
         elif field.startswith('httphdr.'):
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
-            field = {"field": "ports.scripts.http-headers.%s" % field[8:]}
+            field = "ports.scripts.http-headers.%s" % field[8:]
             nested = {
                 "nested": {"path": "ports"},
                 "aggs": {"patterns": {
@@ -506,7 +509,10 @@ class ElasticDBActive(ElasticDB, DBActive):
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts.http-headers"},
                         "aggs": {"patterns": {
-                            "terms": dict(field, size=topnbr),
+                            "terms": dict(
+                                baseterms,
+                                field=field
+                            ),
                         }},
                     }},
                 }},
@@ -527,25 +533,28 @@ class ElasticDBActive(ElasticDB, DBActive):
                                 "ports.scripts.http-headers.name": subfield,
                             }},
                             "aggs": {"patterns": {
-                                "terms": {
-                                    "field":
-                                    'ports.scripts.http-headers.value',
-                                    "size": topnbr,
-                                },
+                                "terms": dict(
+                                    baseterms,
+                                    field='ports.scripts.http-headers.value',
+                                ),
                             }},
                         }},
                     }},
                 }},
             }
         elif field == 'useragent' or field.startswith('useragent:'):
-            terms = {"field": "ports.scripts.http-user-agent", "size": topnbr}
             if field == 'useragent':
                 flt = self.flt_and(flt, self.searchuseragent())
                 nested = {
                     "nested": {"path": "ports"},
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts"},
-                        "aggs": {"patterns": {"terms": terms}},
+                        "aggs": {"patterns": {
+                            "terms": dict(
+                                baseterms,
+                                field="ports.scripts.http-user-agent",
+                            ),
+                        }},
                     }},
                 }
             else:
@@ -561,7 +570,11 @@ class ElasticDBActive(ElasticDB, DBActive):
                     "aggs": {"patterns": {
                         "nested": {"path": "ports.scripts"},
                         "aggs": {"patterns": {
-                            "terms": dict(terms, include=subfield),
+                            "terms": dict(
+                                baseterms,
+                                field="ports.scripts.http-user-agent",
+                                include=subfield,
+                            ),
                         }},
                     }},
                 }
@@ -590,11 +603,10 @@ class ElasticDBActive(ElasticDB, DBActive):
             else:
                 subfield = 'md5'
             base = {
-                "terms": {
-                    "field":
-                    "ports.scripts.ssl-ja3-client.%s" % subfield,
-                    "size": topnbr,
-                },
+                "terms": dict(
+                    baseterms,
+                    field="ports.scripts.ssl-ja3-client.%s" % subfield,
+                ),
             }
             if subkey is not None:
                 if subkey != subfield:
@@ -685,16 +697,16 @@ class ElasticDBActive(ElasticDB, DBActive):
                 client_value_or_hash=value2,
             ))
             base = {
-                "terms": {
-                    "script": {
+                "terms": dict(
+                    baseterms,
+                    script={
                         "lang": "painless",
                         "source":
                         "doc['ports.scripts.ssl-ja3-server.%s'].value + '/' + "
                         "doc['ports.scripts.ssl-ja3-server.client.%s'].value" %
                         (subfield, subfield),
                     },
-                    "size": topnbr,
-                },
+                ),
             }
             if value1 is not None:
                 base = {
@@ -728,7 +740,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             field = {"field": field}
         body = {"query": flt.to_dict()}
         if nested is None:
-            body["aggs"] = {"patterns": {"terms": dict(field, size=topnbr)}}
+            body["aggs"] = {"patterns": {"terms": dict(baseterms, **field)}}
         else:
             body["aggs"] = {"patterns": nested}
         utils.LOGGER.debug("DB: Elasticsearch aggregation: %r", body)
