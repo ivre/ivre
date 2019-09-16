@@ -2602,7 +2602,7 @@ it is not expected)."""
                 return {'count': x['count'],
                         '_id': x['_id'] if x['_id'] else None}
         elif field.startswith("service:"):
-            port = int(field.split(':', 1)[1])
+            port = int(field[8:])
             flt = self.flt_and(flt, self.searchport(port))
             specialproj = {"_id": 0, "ports.port": 1, "ports.service_name": 1}
             specialflt = [

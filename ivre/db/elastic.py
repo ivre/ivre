@@ -474,6 +474,52 @@ class ElasticDBActive(ElasticDB, DBActive):
                     }},
                 }},
             }
+        elif field.startswith("service:"):
+            port = int(field[8:])
+            flt = self.flt_and(flt, self.searchport(port))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"bool": {"must": [
+                        {"match": {"ports.state_state": "open"}},
+                        {"match": {"ports.port": port}},
+                    ]}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            field="ports.service_name",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
+        elif field == 'product':
+            def outputproc(value):
+                return tuple(v or None for v in value.split('/', 1))
+            flt = self.flt_and(flt, self.searchopenport())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"match": {"ports.state_state": "open"}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "/";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+return result;
+""",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
         elif field == 'httphdr':
             def outputproc(value):
                 return tuple(value.split(':', 1))
@@ -817,6 +863,30 @@ class ElasticDBActive(ElasticDB, DBActive):
         "Filters records with at least one open port."
         res = Q("nested", path="ports",
                 query=Q("match", ports__state_state="open"))
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        """Filters (if `neg` == True, filters out) records with
+        specified protocol/port at required state. Be aware that when
+        a host has a lot of ports filtered or closed, it will not
+        report all of them, but only a summary, and thus the filter
+        might not work as expected. This filter will always work to
+        find open ports.
+
+        """
+        if port == "host":
+            res = Q("nested", path="ports", query=Q("match", ports__port=-1))
+        elif state == "open":
+            res = Q("match", **{"openports.%s.ports" % protocol: port})
+        else:
+            res = Q("nested", path="ports", query=(
+                Q("match", ports__port=port) &
+                Q("match", ports__protocol=protocol) &
+                Q("match", ports__state_state=state)
+            ))
         if neg:
             return ~res
         return res
