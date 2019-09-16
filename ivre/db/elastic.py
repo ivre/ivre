@@ -381,7 +381,9 @@ class ElasticDBActive(ElasticDB, DBActive):
         nested = None
         if flt is None:
             flt = self.flt_empty
-        if field == "asnum":
+        if field == "category":
+            field = {"field": "categories"}
+        elif field == "asnum":
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
             field = {"field": "infos.as_num"}
         elif field == "as":

@@ -3713,7 +3713,9 @@ purposes to feed Elasticsearch view.
         self.assertTrue(not err)
         self.assertEqual(len(out.splitlines()), view_count)
 
-        # Filters
+        # Top values & filters
+        self.assertEqual(next(ivre.db.db.view.topvalues("category"))['_id'],
+                         "TEST")
         self.check_view_top_value("view_top_ssh_port", "port:ssh")
         self.check_view_top_value("view_top_http_header", "httphdr.name")
         self.check_view_top_value("view_top_http_header_value",
@@ -3791,6 +3793,7 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_version_http", "version:http")
         self.check_view_top_value("view_top_version_http_apache",
                                   "version:http:Apache httpd")
+
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
             # lot of functionalities. The next tests will fail for
@@ -3807,9 +3810,6 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_uids", "file.uid")
         self.check_view_top_value("view_top_modbus_deviceids",
                                   "modbus.deviceid")
-        categories = ivre.db.db.view.topvalues("category")
-        category = next(categories)
-        self.assertEqual(category["_id"], "TEST")
         self.check_view_top_value("view_top_devtype", "devicetype")
         self.check_view_top_value("view_top_devtype_80", "devicetype:80")
         self.check_view_top_value("view_top_domain", "domains")
