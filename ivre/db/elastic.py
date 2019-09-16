@@ -520,6 +520,43 @@ return result;
                     }},
                 }},
             }
+        elif field.startswith("product:"):
+            def outputproc(value):
+                return tuple(v or None for v in value.split('/', 1))
+            info = field[8:]
+            if info.isdigit():
+                info = int(info)
+                flt = self.flt_and(flt, self.searchport(info))
+                matchfield = "port"
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                matchfield = "service_name"
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"bool": {"must": [
+                        {"match": {"ports.state_state": "open"}},
+                        {"match": {"ports.%s" % matchfield: info}},
+                    ]}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "/";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+return result;
+""",
+                            missing="",
+                        ),
+                    }},
+                }},
+            }
         elif field == 'httphdr':
             def outputproc(value):
                 return tuple(value.split(':', 1))
@@ -947,6 +984,16 @@ return result;
         if neg:
             return ~res
         return res
+
+    @staticmethod
+    def searchservice(srv, port=None, protocol=None):
+        """Search an open port with a particular service."""
+        res = Q('match', ports__service_name=srv)
+        if port is not None:
+            res &= Q('match', ports__port=port)
+        if protocol is not None:
+            res &= Q('match', ports__protocol=protocol)
+        return Q('nested', path='ports', query=res)
 
 
 class ElasticDBView(ElasticDBActive, DBView):

@@ -2652,7 +2652,7 @@ it is not expected)."""
                     }
             field = "ports.service_product"
         elif field.startswith('product:'):
-            service = field.split(':', 1)[1]
+            service = field[8:]
             if service.isdigit():
                 port = int(service)
                 flt = self.flt_and(flt, self.searchport(port))
