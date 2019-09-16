@@ -3787,17 +3787,16 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_product_isotsap",
                                   "product:iso-tsap")
         self.check_view_top_value("view_top_product_80", "product:80")
-
+        self.check_view_top_value("view_top_version", "version")
+        self.check_view_top_value("view_top_version_http", "version:http")
+        self.check_view_top_value("view_top_version_http_apache",
+                                  "version:http:Apache httpd")
         if DATABASE == "elastic":
             # Support for Elasticsearch is experimental and lacks a
             # lot of functionalities. The next tests will fail for
             # lack of filters & topvalues.
             return
 
-        self.check_view_top_value("view_top_version", "version")
-        self.check_view_top_value("view_top_version_http", "version:http")
-        self.check_view_top_value("view_top_version_http_apache",
-                                  "version:http:Apache httpd")
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
         self.check_view_top_value("view_top_cert_subject", "cert.subject")
         self.check_view_top_value("view_top_filename", "file")

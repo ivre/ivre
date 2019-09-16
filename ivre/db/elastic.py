@@ -495,7 +495,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             }
         elif field == 'product':
             def outputproc(value):
-                return tuple(v or None for v in value.split('/', 1))
+                return tuple(v or None for v in value.split('###', 1))
             flt = self.flt_and(flt, self.searchopenport())
             nested = {
                 "nested": {"path": "ports"},
@@ -509,7 +509,7 @@ String result = "";
 if(doc['ports.service_name'].size() > 0) {
     result += doc['ports.service_name'].value;
 }
-result += "/";
+result += "###";
 if(doc['ports.service_product'].size() > 0) {
     result += doc['ports.service_product'].value;
 }
@@ -522,7 +522,7 @@ return result;
             }
         elif field.startswith("product:"):
             def outputproc(value):
-                return tuple(v or None for v in value.split('/', 1))
+                return tuple(v or None for v in value.split('###', 1))
             info = field[8:]
             if info.isdigit():
                 info = int(info)
@@ -546,13 +546,91 @@ String result = "";
 if(doc['ports.service_name'].size() > 0) {
     result += doc['ports.service_name'].value;
 }
-result += "/";
+result += "###";
 if(doc['ports.service_product'].size() > 0) {
     result += doc['ports.service_product'].value;
 }
 return result;
 """,
+                        ),
+                    }},
+                }},
+            }
+        elif field == 'version':
+            def outputproc(value):
+                return tuple(v or None for v in value.split('###', 2))
+            flt = self.flt_and(flt, self.searchopenport())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": {"match": {"ports.state_state": "open"}},
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "###";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+result += "###";
+if(doc['ports.service_version'].size() > 0) {
+    result += doc['ports.service_version'].value;
+}
+return result;
+""",
                             missing="",
+                        ),
+                    }},
+                }},
+            }
+        elif field.startswith('version:'):
+            def outputproc(value):
+                return tuple(v or None for v in value.split('###', 2))
+            info = field[8:]
+            if info.isdigit():
+                port = int(info)
+                flt = self.flt_and(flt, self.searchport(port))
+                matchflt = Q("match", ports__port=port)
+            elif ":" in info:
+                service, product = info.split(':', 1)
+                flt = self.flt_and(flt, self.searchproduct(
+                    product,
+                    service=service,
+                ))
+                matchflt = (
+                    Q("match", ports__service_name=service) &
+                    Q("match", ports__service_product=product)
+                )
+            else:
+                flt = self.flt_and(flt, self.searchservice(info))
+                matchflt = Q("match", ports__service_name=info)
+            matchflt &= Q("match", ports__state_state="open")
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "filter": matchflt.to_dict(),
+                    "aggs": {"patterns": {
+                        "terms": dict(
+                            baseterms,
+                            script="""
+String result = "";
+if(doc['ports.service_name'].size() > 0) {
+    result += doc['ports.service_name'].value;
+}
+result += "###";
+if(doc['ports.service_product'].size() > 0) {
+    result += doc['ports.service_product'].value;
+}
+result += "###";
+if(doc['ports.service_version'].size() > 0) {
+    result += doc['ports.service_version'].value;
+}
+return result;
+""",
                         ),
                     }},
                 }},
@@ -989,6 +1067,25 @@ return result;
     def searchservice(srv, port=None, protocol=None):
         """Search an open port with a particular service."""
         res = Q('match', ports__service_name=srv)
+        if port is not None:
+            res &= Q('match', ports__port=port)
+        if protocol is not None:
+            res &= Q('match', ports__protocol=protocol)
+        return Q('nested', path='ports', query=res)
+
+    @staticmethod
+    def searchproduct(product, version=None, service=None, port=None,
+                      protocol=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        res = Q('match', ports__service_product=product)
+        if version is not None:
+            res &= Q('match', ports__service_version=version)
+        if service is not None:
+            res &= Q('match', ports__service_name=service)
         if port is not None:
             res &= Q('match', ports__port=port)
         if protocol is not None:
