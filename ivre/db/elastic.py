@@ -254,12 +254,11 @@ class ElasticDBActive(ElasticDB, DBActive):
                              body=host)
 
     def count(self, flt):
-        return self.db_client.search(
+        return self.db_client.count(
             body={"query": flt.to_dict()},
             index=self.indexes[0],
-            size=0,
             ignore_unavailable=True,
-        )['hits']['total']['value']
+        )['count']
 
     def get(self, spec, fields=None, **kargs):
         """Queries the active index."""
