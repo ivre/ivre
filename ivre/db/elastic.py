@@ -931,6 +931,22 @@ return result;
             return ~res
         return res
 
+    @classmethod
+    def searchcategory(cls, cat, neg=False):
+        """
+        Filters (if `neg` == True, filters out) one particular category
+        (records may have zero, one or more categories).
+        """
+        if isinstance(cat, list):
+            res = Q("terms", categories=cat)
+        elif isinstance(cat, utils.REGEXP_T):
+            res = Q("regexp", categories=cls._get_pattern(cat))
+        else:
+            res = Q("match", categories=cat)
+        if neg:
+            return ~res
+        return res
+
     @staticmethod
     def searchcountry(country, neg=False):
         """Filters (if `neg` == True, filters out) one particular

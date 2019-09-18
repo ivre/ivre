@@ -275,10 +275,6 @@ def main():
                         '--limit 0 means unlimited.')
     parser.add_argument('--dnsbl-update', action='store_true',
                         help='Update the current database with DNS Blacklist')
-    if USING_ARGPARSE:
-        parser.add_argument('ips', nargs='*',
-                            help='Display results for specified IP addresses'
-                            ' or ranges.')
     args = parser.parse_args()
     baseflt = db.passive.parse_args(args, baseflt)
     if args.init:
@@ -342,24 +338,4 @@ def main():
         disp_recs(baseflt, sort, args.limit or db.passive.no_limit,
                   args.skip or 0)
         exit(0)
-    first = True
-    for a in args.ips:
-        if first:
-            first = False
-        else:
-            print()
-        flt = baseflt.copy()
-        if '/' in a:
-            flt = db.passive.flt_and(flt, db.passive.searchnet(a))
-        elif '-' in a:
-            a = a.split('-', 1)
-            if a[0].isdigit():
-                a[0] = int(a[0])
-            if a[1].isdigit():
-                a[1] = int(a[1])
-            flt = db.passive.flt_and(flt, db.passive.searchrange(a[0], a[1]))
-        else:
-            if a.isdigit():
-                a = utils.force_int2ip(int(a))
-            flt = db.passive.flt_and(flt, db.passive.searchhost(a))
-        disp_recs(flt, sort, args.limit or db.passive.no_limit, args.skip or 0)
+    disp_recs(baseflt, sort, args.limit or db.passive.no_limit, args.skip or 0)
