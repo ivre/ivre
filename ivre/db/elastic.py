@@ -22,6 +22,9 @@ databases.
 
 """
 
+# Pylint seems to consider Query instances as strings
+# pylint: disable=invalid-unary-operand-type
+
 import json
 import re
 try:
