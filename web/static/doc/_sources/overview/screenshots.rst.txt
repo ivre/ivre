@@ -4,6 +4,8 @@ Screenshots gallery
 Nmap results
 ------------
 
+See :ref:`usage/active-recon:Active recon`.
+
 |screenshot_heatmap|
 
 Home page with "heatmap" IP addresses.
@@ -28,6 +30,8 @@ Help tooltip and most common ENIP vendors
 Flow analysis
 -------------
 
+See :ref:`usage/flow:Flow`.
+
 |screenshot_flow_dns_halo|
 
 DNS flows with halo to show connected nodes
@@ -47,6 +51,8 @@ Flow map
 Passive network analysis
 ------------------------
 
+See :ref:`usage/passive:Passive`.
+
 |animation_passive|
 
 A simple passive analysis demonstration
@@ -54,6 +60,31 @@ A simple passive analysis demonstration
 |animation_passive_view|
 
 The data from the previous scene used to create an Nmap-like result
+
+Kibana exploration
+------------------
+
+See :ref:`usage/kibana:IVRE with Kibana`.
+
+|screenshot_kibana_cloud_domains|
+
+Domain names tag cloud
+
+|screenshot_kibana_cloud_services|
+
+Service names tag cloud
+
+|screenshot_kibana_pie_countries_asnums|
+
+Countries / AS numbers pie
+
+|screenshot_kibana_heatmap_asnames_ports|
+
+Heatmap showing correlations between AS and open ports
+
+|screenshot_kibana_worldmap|
+
+World map
 
 .. |screenshot_heatmap| image:: ../screenshots/webui-home-heatmap.png
 .. |screenshot_heatmap_zoom| image:: ../screenshots/webui-details-heatmapzoom.png
@@ -66,3 +97,8 @@ The data from the previous scene used to create an Nmap-like result
 .. |screenshot_map| image:: ../screenshots/webui-flow-flow-map.png
 .. |animation_passive| image:: ../screenshots/passive-cli.svg
 .. |animation_passive_view| image:: ../screenshots/passive-view-cli.svg
+.. |screenshot_kibana_cloud_domains| image:: ../screenshots/kibana-cloud-domains.png
+.. |screenshot_kibana_cloud_services| image:: ../screenshots/kibana-cloud-services.png
+.. |screenshot_kibana_pie_countries_asnums| image:: ../screenshots/kibana-pie-countries_ASnums.png
+.. |screenshot_kibana_heatmap_asnames_ports| image:: ../screenshots/kibana-heatmap-asnames-ports.png
+.. |screenshot_kibana_worldmap| image:: ../screenshots/kibana-worldmap.png

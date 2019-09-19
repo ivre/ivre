@@ -38,6 +38,9 @@ Finally, use ``ivre db2view nmap`` to create a ``view`` (see
 :ref:`overview/principles:Purposes`) that you can explore with the
 :ref:`usage/web-ui:Web User Interface`.
 
+See :ref:`usage/kibana:IVRE with Kibana` if you want to use Kibana to
+explore your scan results.
+
 Your own Passive DNS service
 ----------------------------
 

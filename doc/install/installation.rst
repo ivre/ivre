@@ -55,6 +55,10 @@ To install IVRE, you'll need `Python <http://www.python.org/>`__ 2
 - `sqlalchemy <http://www.sqlalchemy.org/>`_ and `psycopg2
   <http://initd.org/psycopg/>`_ to use the **experimental** PostgreSQL
   backend.
+- `elasticsearch <https://github.com/elastic/elasticsearch-py>`_ and
+  `elasticsearch-dsl
+  <https://github.com/elastic/elasticsearch-dsl-py>`_ to use the
+  **experimental** Elasticsearch backend.
 - `PIL <http://www.pythonware.com/products/pil/>`_ optional, to trim
   screenshots.
 
@@ -71,6 +75,10 @@ than 3.2).
 The ``passive``, ``nmap`` and ``view`` purposes have an
 **experimental** PostgreSQL backend that can be used in lieu of
 MongoDB.
+
+The ``view`` purpose has an **experimental** Elasticsearch backend. It
+can be used to create views accessible to other Elasticsearch tools,
+such as Kibana (see :ref:`usage/kibana:IVRE with Kibana`).
 
 The ``flow`` purpose can be used with Neo4j instead of MongoDB for
 historical reasons. This is **deprecated**.
