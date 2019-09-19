@@ -63,6 +63,16 @@ P0F_MODES = {
 
 P0F_DIST = re.compile(b'distance ([0-9]+),')
 
+DNSBL_START = re.compile(
+    '^(?:'
+    '(?:[0-9a-f]\\.){32}'
+    '|'
+    '(?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}'
+    '(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])).'
+    ')',
+    re.I,
+)
+
 
 def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
     line = [line.split(b' - ')[0]] + line.split(b' - ')[1].split(b' -> ')
@@ -279,11 +289,21 @@ def _prepare_rec(spec, ignorenets, neverignore):
         if any(spec['value'].endswith(dnsbl)
                for dnsbl in config.DNS_BLACKLIST_DOMAINS):
             dnsbl_val = spec['value']
-            spec['recontype'] = 'DNS_BLACKLIST'
-            spec['value'] = spec['addr']
-            spec.update({'source': "%s-%s" %
-                         (dnsbl_val.split('.', 4)[4], spec['source'])})
-            spec['addr'] = '.'.join(dnsbl_val.split('.')[3::-1])
+            match = DNSBL_START.search(dnsbl_val)
+            if match is not None:
+                spec['recontype'] = 'DNS_BLACKLIST'
+                spec['value'] = spec['addr']
+                spec.update({'source': "%s-%s" %
+                             (dnsbl_val[match.end():], spec['source'])})
+                addr = match.group()
+                # IPv4
+                if addr.count('.') == 4:
+                    spec['addr'] = '.'.join(addr.split('.')[3::-1])
+                # IPv6
+                else:
+                    spec['addr'] = utils.int2ip6(int(addr
+                                                     .replace('.', '')[::-1],
+                                                     16))
     return spec
 
 

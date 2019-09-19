@@ -2193,10 +2193,10 @@ passive table."""
                 if len(name) == 1:
                     name = name[0]
                 else:
-                    return cls._flt_or(*(cls._searchdns(name=domain,
-                                                        reverse=reverse,
-                                                        dnstype=dnstype,
-                                                        subdomains=subdomains)
+                    return cls.flt_or(*(cls._searchdns(name=domain,
+                                                       reverse=reverse,
+                                                       dnstype=dnstype,
+                                                       subdomains=subdomains)
                                          for domain in name))
         return cls._searchdns(name=name, reverse=reverse, dnstype=dnstype,
                               subdomains=subdomains)
