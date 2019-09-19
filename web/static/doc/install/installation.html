@@ -237,6 +237,9 @@ with version 3).</p></li>
 flow purpose with the Neo4j backend (<strong>deprecated</strong>).</p></li>
 <li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the <strong>experimental</strong> PostgreSQL
 backend.</p></li>
+<li><p><a class="reference external" href="https://github.com/elastic/elasticsearch-py">elasticsearch</a> and
+<a class="reference external" href="https://github.com/elastic/elasticsearch-dsl-py">elasticsearch-dsl</a> to use the
+<strong>experimental</strong> Elasticsearch backend.</p></li>
 <li><p><a class="reference external" href="http://www.pythonware.com/products/pil/">PIL</a> optional, to trim
 screenshots.</p></li>
 </ul>
@@ -251,6 +254,9 @@ than 3.2).</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes have an
 <strong>experimental</strong> PostgreSQL backend that can be used in lieu of
 MongoDB.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose has an <strong>experimental</strong> Elasticsearch backend. It
+can be used to create views accessible to other Elasticsearch tools,
+such as Kibana (see <a class="reference internal" href="../usage/kibana.html#ivre-with-kibana"><span class="std std-ref">IVRE with Kibana</span></a>).</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose can be used with Neo4j instead of MongoDB for
 historical reasons. This is <strong>deprecated</strong>.</p>
 <p>Please refer to the database servers (or your distribution)

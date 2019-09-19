@@ -1,0 +1,318 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>IVRE with Kibana &mdash; IVRE  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Development" href="../dev/index.html" />
+    <link rel="prev" title="Web User Interface" href="web-ui.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> IVRE
+          
+
+          
+            
+            <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.9.13.dev
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../install/index.html">Installation</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Usage</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
+<li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="passive.html">Passive</a></li>
+<li class="toctree-l2"><a class="reference internal" href="flow.html">Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="web-ui.html">Web User Interface</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">IVRE with Kibana</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#view-creation">View creation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#about-views">About views</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#configuration">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#index-creation-data-insertion">Index creation &amp; Data insertion</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#using-kibana">Using Kibana</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IVRE</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Usage</a> &raquo;</li>
+        
+      <li>IVRE with Kibana</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/usage/kibana.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="ivre-with-kibana">
+<h1>IVRE with Kibana<a class="headerlink" href="#ivre-with-kibana" title="Permalink to this headline">¶</a></h1>
+<p>IVRE has an <em>experimental</em> backend for Elasticsearch for the <code class="docutils literal notranslate"><span class="pre">view</span></code>
+purpose (see <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>). Only Elasticsearch
+7 supported and tested for now.</p>
+<p>While this backend lacks a lot of features, it is enough to create a
+view into an Elasticsearch cluster. Other tools using Elasticsearch
+can then use IVRE’s data.</p>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>As stated in the installation page (see the
+<a class="reference internal" href="../install/installation.html#python"><span class="std std-ref">Python</span></a> section), you will need to install
+the <a class="reference external" href="https://github.com/elastic/elasticsearch-py">elasticsearch</a> and
+<a class="reference external" href="https://github.com/elastic/elasticsearch-dsl-py">elasticsearch-dsl</a>
+Python packages.</p>
+</div>
+<div class="section" id="view-creation">
+<h2>View creation<a class="headerlink" href="#view-creation" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="about-views">
+<h3>About views<a class="headerlink" href="#about-views" title="Permalink to this headline">¶</a></h3>
+<p>Views are created from Nmap or Masscan scan results (stored in the
+<code class="docutils literal notranslate"><span class="pre">nmap</span></code> purpose) and passive host intelligence collected by Zeek
+(stored in the <code class="docutils literal notranslate"><span class="pre">passive</span></code> purpose). That is a prerequisite of view
+creation so if you have not read it yet, you should go read
+<a class="reference internal" href="active-recon.html#active-recon"><span class="std std-ref">Active recon</span></a> and
+<a class="reference internal" href="passive.html#passive"><span class="std std-ref">Passive</span></a> first.</p>
+<p>You can check you have data in the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and/or <code class="docutils literal notranslate"><span class="pre">passive</span></code>
+purposes using the command line: <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scancli</span> <span class="pre">--count</span></code> and <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">ipinfo</span> <span class="pre">--count</span></code>.</p>
+</div>
+<div class="section" id="configuration">
+<h3>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h3>
+<p>We need to configure IVRE to use the Elasticsearch database for the
+<code class="docutils literal notranslate"><span class="pre">view</span></code> purpose. Since we want to do that only to create the view, we
+are going to create a dedicated IVRE configuration file, for example
+in <code class="docutils literal notranslate"><span class="pre">~/.ivre-elastic.conf</span></code>; for example, to use an Elasticsearch
+server running on the local machine:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span> <span class="s1">&#39;DB_VIEW = &quot;elastic://127.0.0.1:9200/ivre&quot;&#39;</span> &gt; ~/.ivre-elastic.conf
+</pre></div>
+</div>
+<p>Then, to use this dedicated configuration file, we just have to set
+the <code class="docutils literal notranslate"><span class="pre">IVRE_CONF</span></code> environment variable:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre view --count
+</pre></div>
+</div>
+</div>
+<div class="section" id="index-creation-data-insertion">
+<h3>Index creation &amp; Data insertion<a class="headerlink" href="#index-creation-data-insertion" title="Permalink to this headline">¶</a></h3>
+<p>So now, we can create a view as we would do with any other
+backend. For example, if we want to create a view using all the
+records from the <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">passive</span></code> purposes:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre view --init &lt; /dev/null
+<span class="nv">IVRE_CONF</span><span class="o">=</span>~/.ivre-elastic.conf ivre db2view
+</pre></div>
+</div>
+<p>The first command will drop any existing data, and create the index
+and mapping, and the second will create the view itself.</p>
+</div>
+</div>
+<div class="section" id="using-kibana">
+<h2>Using Kibana<a class="headerlink" href="#using-kibana" title="Permalink to this headline">¶</a></h2>
+<p>From Kibana, you will have to create an index pattern (this can only
+be done after the view creation). The default index name from view is
+<code class="docutils literal notranslate"><span class="pre">ivre-views</span></code>; you can use this value as index pattern (and remove
+the final <code class="docutils literal notranslate"><span class="pre">*</span></code> since we use only one index).</p>
+<p><img alt="screenshot_index_creation_1" src="../_images/kibana-index-creation-1.png" /></p>
+<p>The field <code class="docutils literal notranslate"><span class="pre">starttime</span></code> can be used as the “Time Filter field name”.</p>
+<p><img alt="screenshot_index_creation_2" src="../_images/kibana-index-creation-2.png" /></p>
+<p>You are all set! Now, explore this data set as you would explore any
+other one.</p>
+<p>For a couple of examples of how Kiban can be used to explore IVRE’s
+data see the <a class="reference internal" href="../overview/screenshots.html#kibana-exploration"><span class="std std-ref">Kibana exploration</span></a> part of
+the screenshot gallery for examples of useful visualizations.</p>
+<p>If you have any troubles with Kibana, please refer to <a class="reference external" href="https://www.elastic.co/guide/en/kibana/current/index.html">its
+documentation</a>.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../dev/index.html" class="btn btn-neutral float-right" title="Development" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="web-ui.html" class="btn btn-neutral float-left" title="Web User Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2011 - 2019, Pierre LALET
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

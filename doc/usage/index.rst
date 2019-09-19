@@ -10,3 +10,4 @@ Usage
   passive
   flow 
   web-ui
+  kibana
