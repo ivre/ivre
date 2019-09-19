@@ -160,11 +160,11 @@ class DB(object):
         if args.range is not None:
             flt = self.flt_and(flt, self.searchrange(*args.range))
         if args.ips:
-            loc_flt = None
             def _updtflt_(oflt, nflt):
                 if not oflt:
                     return nflt
                 return self.flt_or(oflt, nflt)
+            loc_flt = None
             for a in args.ips:
                 if '-' in a:
                     a = a.split('-', 1)

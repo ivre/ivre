@@ -80,6 +80,7 @@ ivre/xmlnmap.py
 ivre/analyzer/__init__.py
 ivre/analyzer/ike.py
 ivre/db/__init__.py
+ivre/db/elastic.py
 ivre/db/http.py
 ivre/db/maxmind.py
 ivre/db/mongo.py
@@ -201,7 +202,7 @@ web/static/doc/_static/doctools.js
 web/static/doc/_static/documentation_options.js
 web/static/doc/_static/file.png
 web/static/doc/_static/graphviz.css
-web/static/doc/_static/jquery-3.2.1.js
+web/static/doc/_static/jquery-3.4.1.js
 web/static/doc/_static/jquery.js
 web/static/doc/_static/language_data.js
 web/static/doc/_static/logo.png
