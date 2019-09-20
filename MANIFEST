@@ -43,6 +43,7 @@ doc/screenshots/webui-topproducts-80.png
 doc/usage/active-recon.rst
 doc/usage/flow.rst
 doc/usage/index.rst
+doc/usage/kibana.rst
 doc/usage/passive.rst
 doc/usage/use-cases.rst
 doc/usage/web-ui.rst
@@ -165,6 +166,13 @@ web/static/doc/_images/graphviz-125b0ec799b46133ef369a34c7b89d23a2d5befd.png
 web/static/doc/_images/graphviz-125b0ec799b46133ef369a34c7b89d23a2d5befd.png.map
 web/static/doc/_images/graphviz-f4b92e47684cfa8950057720d510a6cd4d4c065c.png
 web/static/doc/_images/graphviz-f4b92e47684cfa8950057720d510a6cd4d4c065c.png.map
+web/static/doc/_images/kibana-cloud-domains.png
+web/static/doc/_images/kibana-cloud-services.png
+web/static/doc/_images/kibana-heatmap-asnames-ports.png
+web/static/doc/_images/kibana-index-creation-1.png
+web/static/doc/_images/kibana-index-creation-2.png
+web/static/doc/_images/kibana-pie-countries_ASnums.png
+web/static/doc/_images/kibana-worldmap.png
 web/static/doc/_images/passive-cli.svg
 web/static/doc/_images/passive-view-cli.svg
 web/static/doc/_images/webui-details-heatmapzoom.png
@@ -194,6 +202,7 @@ web/static/doc/_sources/overview/screenshots.rst.txt
 web/static/doc/_sources/usage/active-recon.rst.txt
 web/static/doc/_sources/usage/flow.rst.txt
 web/static/doc/_sources/usage/index.rst.txt
+web/static/doc/_sources/usage/kibana.rst.txt
 web/static/doc/_sources/usage/passive.rst.txt
 web/static/doc/_sources/usage/use-cases.rst.txt
 web/static/doc/_sources/usage/web-ui.rst.txt
@@ -260,6 +269,7 @@ web/static/doc/overview/screenshots.html
 web/static/doc/usage/active-recon.html
 web/static/doc/usage/flow.html
 web/static/doc/usage/index.html
+web/static/doc/usage/kibana.html
 web/static/doc/usage/passive.html
 web/static/doc/usage/use-cases.html
 web/static/doc/usage/web-ui.html
