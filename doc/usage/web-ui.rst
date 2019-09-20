@@ -117,8 +117,8 @@ appropriate, a regular expression can be used, with the
 If your command includes spaces, you need to protect it by using single
 or double quotes.
 
-Commands list
--------------
+Command list
+------------
 
 Filters
 ~~~~~~~
