@@ -62,9 +62,11 @@ def main():
         function(*fargs, **fkargs)
     for addr in args.ip:
         if addr.isdigit():
-            addr = int(addr)
+            addr = utils.int2ip(int(addr))
         print(addr)
+        info = utils.get_addr_type(addr)
+        if info:
+            print('    address_type %s' % info)
         for info in [db.data.as_byip(addr), db.data.location_byip(addr)]:
-            if info:
-                for key, value in viewitems(info):
-                    print('    %s %s' % (key, value))
+            for key, value in viewitems(info or {}):
+                print('    %s %s' % (key, value))
