@@ -256,7 +256,7 @@ your favorite open-source tools to IVRE’s databases.</p>
 </div>
 <div class="section" id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline">¶</a></h2>
-<div class="graphviz"><img src="../_images/graphviz-f4b92e47684cfa8950057720d510a6cd4d4c065c.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-0b6b644955bd932476408089234d1e507718ca4a.png" alt="digraph {
    &quot;maxmind.com&quot;;
    FLOWS [label=&quot;flow files&quot;];
    FLOW_LOG [label=&quot;.log files&quot;];
@@ -275,7 +275,7 @@ your favorite open-source tools to IVRE’s databases.</p>
    FLOWS -&gt; db_flow [label=&quot;ivre\nflow2db&quot;];
    &quot;Nmap&quot; -&gt; XML [label=&quot;-oX&quot;];
    &quot;Masscan&quot; -&gt; XML [label=&quot;-oX&quot;];
-   FLOW_LOG -&gt; db_flow [label=&quot;ivre\nbro2db&quot;];
+   FLOW_LOG -&gt; db_flow [label=&quot;ivre\nzeek2db&quot;];
    PASS_LOG -&gt; db_passive [label=&quot;ivre\npassiverecon2db&quot;];
    XML -&gt; db_nmap [label=&quot;ivre\nscan2db&quot;];
    db_passive -&gt; db_view [label=&quot;ivre\ndb2view&quot;];

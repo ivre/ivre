@@ -99,7 +99,6 @@ ivre/parser/netflow.py
 ivre/tools/__init__.py
 ivre/tools/airodump2db.py
 ivre/tools/arp2db.py
-ivre/tools/bro2db.py
 ivre/tools/db2view.py
 ivre/tools/flow2db.py
 ivre/tools/flowcli.py
@@ -121,6 +120,7 @@ ivre/tools/scancli.py
 ivre/tools/scanstatus.py
 ivre/tools/version.py
 ivre/tools/view.py
+ivre/tools/zeek2db.py
 ivre/web/__init__.py
 ivre/web/app.py
 ivre/web/utils.py
@@ -160,12 +160,12 @@ web/static/doc/license-external.html
 web/static/doc/license.html
 web/static/doc/search.html
 web/static/doc/searchindex.js
+web/static/doc/_images/graphviz-0b6b644955bd932476408089234d1e507718ca4a.png
+web/static/doc/_images/graphviz-0b6b644955bd932476408089234d1e507718ca4a.png.map
 web/static/doc/_images/graphviz-11192fdb0e5f85f2a9eb65f76909d74618a8b01e.png
 web/static/doc/_images/graphviz-11192fdb0e5f85f2a9eb65f76909d74618a8b01e.png.map
 web/static/doc/_images/graphviz-125b0ec799b46133ef369a34c7b89d23a2d5befd.png
 web/static/doc/_images/graphviz-125b0ec799b46133ef369a34c7b89d23a2d5befd.png.map
-web/static/doc/_images/graphviz-f4b92e47684cfa8950057720d510a6cd4d4c065c.png
-web/static/doc/_images/graphviz-f4b92e47684cfa8950057720d510a6cd4d4c065c.png.map
 web/static/doc/_images/kibana-cloud-domains.png
 web/static/doc/_images/kibana-cloud-services.png
 web/static/doc/_images/kibana-heatmap-asnames-ports.png
@@ -563,3 +563,8 @@ web/static/templates/view-scripts-only.html
 web/static/templates/view-services-only.html
 web/static/templates/view-vulnerabilities-only.html
 web/wsgi/app.wsgi
+zeek/passiverecon2db-ignore.example
+zeek/ivre/__load__.zeek
+zeek/ivre/passiverecon/__load__.zeek
+zeek/ivre/passiverecon/bare.zeek
+zeek/ivre/passiverecon/ja3.zeek

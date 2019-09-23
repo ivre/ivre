@@ -6,7 +6,7 @@ With Zeek
 
 You need to run `Zeek <https://www.zeek.org/>`_ (formerly known as
 Bro, version 2.5 minimum, tested with 2.5 and 2.6) with the option
-``-b`` and the location of the ``passiverecon/bare.bro`` file. If you
+``-b`` and the location of the ``passiverecon/bare.zeek`` file. If you
 want to run it on the ``eth0`` interface, for example, run (replace
 ``/usr/share/ivre`` by the appropriate location; use ``python -c
 'import ivre.config; print(ivre.config.guess_prefix())'`` if you
@@ -16,7 +16,7 @@ cannot find it):
 
    $ mkdir logs
    $ sudo LOG_PATH=logs/passiverecon \
-   > bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro -C -i eth0
+   >   zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek -C -i eth0
 
 If you want to run it on the ``capture`` file (``capture`` needs to a
 PCAP file), run:
@@ -25,7 +25,7 @@ PCAP file), run:
 
    $ mkdir logs
    $ LOG_PATH=logs/passiverecon \
-   > bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro -r capture
+   >   zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek -r capture
 
 This will produce log files in the ``logs`` directory. You need to run a
 ``ivre passivereconworker`` to process these files. You can try:
@@ -37,13 +37,13 @@ This will produce log files in the ``logs`` directory. You need to run a
 This program will not stop by itself. You can ``kill`` it, it will
 stop gently (as soon as it has finished to process the current file).
 
-You can also send the data from ``bro`` to the database without using
+You can also send the data from ``zeek`` to the database without using
 intermediate files:
 
 ::
 
-   $ bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro [option] \
-   > | ivre passiverecon2db
+   $ zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek [option] \
+   >   | ivre passiverecon2db
 
 With p0f
 --------
