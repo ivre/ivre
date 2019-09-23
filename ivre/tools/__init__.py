@@ -20,10 +20,9 @@
 """This sub-module contains functions to implement ivre commands."""
 
 
-__all__ = [
+__all__ = set([
     'airodump2db',
     'arp2db',
-    'bro2db',
     'db2view',
     'flow2db',
     'flowcli',
@@ -45,10 +44,12 @@ __all__ = [
     'scanstatus',
     'version',
     'view',
-]
+    'zeek2db',
+])
 
 
 ALIASES = {
+    "bro2db": "zeek2db",
     "httpd-ivre": "httpd",
     "ipinfohost": "iphost",
     "runscans-agent": "runscansagent",
@@ -69,9 +70,9 @@ def get_command(name):
 def guess_command(name):
     if name in __all__:
         return [name]
-    possible = [cmd for cmd in __all__ if cmd.startswith(name)]
+    possible = set(cmd for cmd in __all__ if cmd.startswith(name))
     if possible:
         return possible
     if name in ALIASES:
         return [name]
-    return [cmd for cmd in ALIASES if cmd.startswith(name)]
+    return set(cmd for cmd in ALIASES if cmd.startswith(name))

@@ -16,12 +16,12 @@ Usage
 Data insertion
 ..............
 
-There are two tools for data insertion, the first is bro-based:
+There are two tools for data insertion, the first is based on Zeek (Bro):
 
 .. code:: bash
 
-       $ bro -r capture_file.pcap
-       $ ivre bro2db ./*.log
+       $ zeek -r capture_file.pcap
+       $ ivre zeek2db ./*.log
        $ ivre flowcli
 
 The second can take either argus logs or netflow logs:

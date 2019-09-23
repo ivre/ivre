@@ -193,21 +193,21 @@
 <h2>With Zeek<a class="headerlink" href="#with-zeek" title="Permalink to this headline">¶</a></h2>
 <p>You need to run <a class="reference external" href="https://www.zeek.org/">Zeek</a> (formerly known as
 Bro, version 2.5 minimum, tested with 2.5 and 2.6) with the option
-<code class="docutils literal notranslate"><span class="pre">-b</span></code> and the location of the <code class="docutils literal notranslate"><span class="pre">passiverecon/bare.bro</span></code> file. If you
+<code class="docutils literal notranslate"><span class="pre">-b</span></code> and the location of the <code class="docutils literal notranslate"><span class="pre">passiverecon/bare.zeek</span></code> file. If you
 want to run it on the <code class="docutils literal notranslate"><span class="pre">eth0</span></code> interface, for example, run (replace
 <code class="docutils literal notranslate"><span class="pre">/usr/share/ivre</span></code> by the appropriate location; use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span>
 <span class="pre">'import</span> <span class="pre">ivre.config;</span> <span class="pre">print(ivre.config.guess_prefix())'</span></code> if you
 cannot find it):</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir logs
 $ sudo LOG_PATH=logs/passiverecon \
-&gt; bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro -C -i eth0
+&gt;   zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek -C -i eth0
 </pre></div>
 </div>
 <p>If you want to run it on the <code class="docutils literal notranslate"><span class="pre">capture</span></code> file (<code class="docutils literal notranslate"><span class="pre">capture</span></code> needs to a
 PCAP file), run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir logs
 $ LOG_PATH=logs/passiverecon \
-&gt; bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro -r capture
+&gt;   zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek -r capture
 </pre></div>
 </div>
 <p>This will produce log files in the <code class="docutils literal notranslate"><span class="pre">logs</span></code> directory. You need to run a
@@ -217,10 +217,10 @@ $ LOG_PATH=logs/passiverecon \
 </div>
 <p>This program will not stop by itself. You can <code class="docutils literal notranslate"><span class="pre">kill</span></code> it, it will
 stop gently (as soon as it has finished to process the current file).</p>
-<p>You can also send the data from <code class="docutils literal notranslate"><span class="pre">bro</span></code> to the database without using
+<p>You can also send the data from <code class="docutils literal notranslate"><span class="pre">zeek</span></code> to the database without using
 intermediate files:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ bro -b /usr/share/ivre/bro/ivre/passiverecon/bare.bro [option] \
-&gt; | ivre passiverecon2db
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek [option] \
+&gt;   | ivre passiverecon2db
 </pre></div>
 </div>
 </div>

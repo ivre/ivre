@@ -87,7 +87,7 @@ Storing data
       FLOWS -> db_flow [label="ivre\nflow2db"];
       "Nmap" -> XML [label="-oX"];
       "Masscan" -> XML [label="-oX"];
-      FLOW_LOG -> db_flow [label="ivre\nbro2db"];
+      FLOW_LOG -> db_flow [label="ivre\nzeek2db"];
       PASS_LOG -> db_passive [label="ivre\npassiverecon2db"];
       XML -> db_nmap [label="ivre\nscan2db"];
       db_passive -> db_view [label="ivre\ndb2view"];
