@@ -2118,6 +2118,9 @@ class DBData(DB):
 
     def infos_byip(self, addr):
         infos = {}
+        addr_type = utils.get_addr_type(addr)
+        if addr_type:
+            infos['address_type'] = addr_type
         for infos_byip in [self.as_byip,
                            self.country_byip,
                            self.location_byip]:

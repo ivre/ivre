@@ -2873,6 +2873,13 @@ purposes to feed Elasticsearch view.
     coordinates_accuracy_radius 1000
 '''.splitlines()))
 
+        res, out, _ = RUN(["ivre", "ipdata", "10.0.0.1"])
+        self.assertEqual(res, 0)
+        out = sorted(out.splitlines())
+        self.assertEqual(out, sorted(b'''10.0.0.1
+    address_type Private
+'''.splitlines()))
+
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count",
                            "--routable"])
         self.assertEqual(res, 0)

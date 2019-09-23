@@ -104,6 +104,10 @@ def disp_recs_std(flt, sort, limit, skip):
             print(utils.force_int2ip(old_addr))
             ipinfo = db.data.infos_byip(old_addr)
             if ipinfo:
+                if 'address_type' in ipinfo:
+                    print('\t', end=' ')
+                    print(ipinfo['address_type'], end=' ')
+                    print()
                 if 'country_code' in ipinfo:
                     print('\t', end=' ')
                     print(ipinfo['country_code'], end=' ')
@@ -127,7 +131,8 @@ def disp_recs_std(flt, sort, limit, skip):
                     print()
                 elif 'as_name' in ipinfo:
                     print('\t', end=' ')
-                    print('AS???? [%s]' % ipinfo['as_name'], end=' ')
+                    print('AS????? [%s]' % ipinfo['as_name'], end=' ')
+                    print()
         disp_rec(rec)
 
 
