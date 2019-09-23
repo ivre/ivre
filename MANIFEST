@@ -563,3 +563,8 @@ web/static/templates/view-scripts-only.html
 web/static/templates/view-services-only.html
 web/static/templates/view-vulnerabilities-only.html
 web/wsgi/app.wsgi
+zeek/passiverecon2db-ignore.example
+zeek/ivre/__load__.zeek
+zeek/ivre/passiverecon/__load__.zeek
+zeek/ivre/passiverecon/bare.zeek
+zeek/ivre/passiverecon/ja3.zeek

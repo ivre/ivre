@@ -1,0 +1,38 @@
+# This file is part of IVRE.
+# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+"""This is an example file to pass to ivre passiverecon2db as ignore
+spec (-i option). This example will discard any information related to
+private IP addresses (RFC 1918 + IPv4 link local) except those related
+to authentication.
+
+"""
+
+IGNORENETS = {
+    'HTTP_CLIENT_HEADER': (
+        (167772160, 184549375),    # 10/8
+        (2886729728, 2887778303),  # 172.16/12
+        (3232235520, 3232301055),  # 192.168/16
+        (2851995648, 2852061183),  # 169.254/16
+        ),
+}
+for rt in ['HTTP_SERVER_HEADER', 'HTTP_CLIENT_HEADER_SERVER',
+           'SSH_CLIENT', 'SSH_SERVER', 'SSL_SERVER', 'DNS_ANSWER',
+           'FTP_CLIENT', 'FTP_SERVER', 'POP_CLIENT', 'POP_SERVER']:
+    IGNORENETS[rt] = IGNORENETS['HTTP_CLIENT_HEADER']
+
+NEVERIGNORE = {'HTTP_CLIENT_HEADER': ['AUTHORIZATION', 'PROXY-AUTHORIZATION']}
+NEVERIGNORE['HTTP_CLIENT_HEADER_SERVER'] = NEVERIGNORE['HTTP_CLIENT_HEADER']
