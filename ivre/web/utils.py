@@ -572,7 +572,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 if '/' in port:
                     proto, port = port.split('/')
                 else:
-                    proto, port = "tcp", port
+                    proto = "tcp"
                 protos.setdefault(proto, []).append(int(port))
             for proto, ports in viewitems(protos):
                 flt = dbase.flt_and(

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,6 +21,12 @@
 
 
 from __future__ import print_function
+try:
+    import argparse
+    USE_ARGPARSE = True
+except ImportError:
+    import optparse
+    USE_ARGPARSE = False
 import os
 import signal
 import sys
@@ -105,13 +111,11 @@ WANT_DOWN = False
 
 
 def main():
-    try:
-        import argparse
+    if USE_ARGPARSE:
         parser = argparse.ArgumentParser(
             description=__doc__,
             parents=[ivre.target.ARGPARSER])
-    except ImportError:
-        import optparse
+    else:
         parser = optparse.OptionParser(
             description=__doc__)
         for args, kargs in ivre.target.ARGPARSER.args:
@@ -251,7 +255,7 @@ def main():
         def terminate_now(signum, _):
             ivre.utils.LOGGER.info('shutdown: got signal %d, halting now.',
                                    signum)
-            exit()
+            sys.exit(0)
         signal.signal(signal.SIGINT, terminate)
         signal.signal(signal.SIGTERM, terminate)
 

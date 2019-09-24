@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,6 +17,12 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+try:
+    import argparse
+    USE_ARGPARSE = True
+except ImportError:
+    import optparse
+    USE_ARGPARSE = False
 import os
 import shlex
 import subprocess
@@ -39,14 +45,11 @@ ACTION_BOTH = 3
 
 
 def main():
-    try:
-        import argparse
+    if USE_ARGPARSE:
         parser = argparse.ArgumentParser(
             description='Sends targets to a remote agent.',
             parents=[ivre.target.ARGPARSER])
-        USING_ARGPARSE = True
-    except ImportError:
-        import optparse
+    else:
         parser = optparse.OptionParser(
             description='Sends targets to a remote agent.',
             usage='Usage: ivre runscansagent [options] AGENT [AGENT ...]')
@@ -60,7 +63,6 @@ def main():
             return args
         parser.parse_args = parse_args
         parser.add_argument = parser.add_option
-        USING_ARGPARSE = False
     parser.add_argument('--category', metavar='CAT', default="MISC",
                         help='tag scan results with this category')
     parser.add_argument('--max-waiting', metavar='TIME', type=int, default=60,
@@ -72,7 +74,7 @@ def main():
                         const=False, default=True)
     parser.add_argument('--feed', dest='action', action='store_const',
                         const=ACTION_FEED)
-    if USING_ARGPARSE:
+    if USE_ARGPARSE:
         parser.add_argument('agents', metavar='AGENT', nargs='+',
                             help='agents to use (rsync address)')
     args = parser.parse_args()

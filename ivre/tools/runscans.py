@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,6 +24,12 @@ ivre scan2db.
 
 
 from __future__ import print_function
+try:
+    import argparse
+    USE_ARGPARSE = True
+except ImportError:
+    import optparse
+    USE_ARGPARSE = False
 import atexit
 import fcntl
 import functools
@@ -288,15 +294,13 @@ def _call_nmap_single(maincategory, options,
 def main():
     atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
-    try:
-        import argparse
+    if USE_ARGPARSE:
         parser = argparse.ArgumentParser(
             description='Run massive nmap scans.',
             parents=[ivre.target.ARGPARSER,
                      ivre.nmapopt.ARGPARSER])
         using_argparse = True
-    except ImportError:
-        import optparse
+    else:
         parser = optparse.OptionParser(
             description='Run massive nmap scans.')
         for parent in [ivre.target.ARGPARSER, ivre.nmapopt.ARGPARSER]:
@@ -340,40 +344,40 @@ def main():
         print("    %s" % ivre.nmapopt.build_nmap_commandline(
             template=args.nmap_template,
         ))
-        exit(0)
+        sys.exit(0)
     if args.output == 'Agent':
         sys.stdout.write(ivre.agent.build_agent(template=args.nmap_template))
-        exit(0)
+        sys.exit(0)
     if args.output == 'Count':
         if args.country is not None:
             print('%s has %d IPs.' % (
                 args.country,
                 ivre.geoiputils.count_ips_by_country(args.country)
             ))
-            exit(0)
+            sys.exit(0)
         if args.region is not None:
             print('%s / %s has %d IPs.' % (
                 args.region[0], args.region[1],
                 ivre.geoiputils.count_ips_by_region(*args.region),
             ))
-            exit(0)
+            sys.exit(0)
         if args.city is not None:
             print('%s / %s has %d IPs.' % (
                 args.city[0], args.city[1],
                 ivre.geoiputils.count_ips_by_city(*args.city),
             ))
-            exit(0)
+            sys.exit(0)
         if args.asnum is not None:
             print('AS%d has %d IPs.' % (
                 args.asnum,
                 ivre.geoiputils.count_ips_by_asnum(args.asnum)
             ))
-            exit(0)
+            sys.exit(0)
         if args.routable:
             print('We have %d routable IPs.' % (
                 ivre.geoiputils.count_routable_ips()
             ))
-            exit(0)
+            sys.exit(0)
         parser.error("argument --output: invalid choice: '%s' "
                      "(only available with --country, --asnum, --region, "
                      "--city or --routable)" % args.output)
@@ -383,33 +387,33 @@ def main():
                 args.country, listall=args.output == 'ListAll',
                 listcidrs=args.output == 'ListCIDRs',
             )
-            exit(0)
+            sys.exit(0)
         if args.region is not None:
             ivre.geoiputils.list_ips_by_region(
                 *args.region,
                 listall=args.output == 'ListAll',
                 listcidrs=args.output == 'ListCIDRs'
             )
-            exit(0)
+            sys.exit(0)
         if args.city is not None:
             ivre.geoiputils.list_ips_by_city(
                 *args.city,
                 listall=args.output == 'ListAll',
                 listcidrs=args.output == 'ListCIDRs'
             )
-            exit(0)
+            sys.exit(0)
         if args.asnum is not None:
             ivre.geoiputils.list_ips_by_asnum(
                 args.asnum, listall=args.output == 'ListAll',
                 listcidrs=args.output == 'ListCIDRs',
             )
-            exit(0)
+            sys.exit(0)
         if args.routable:
             ivre.geoiputils.list_routable_ips(
                 listall=args.output == 'ListAll',
                 listcidrs=args.output == 'ListCIDRs',
             )
-            exit(0)
+            sys.exit(0)
         parser.error("argument --output: invalid choice: '%s' "
                      "(only available with --country, --region, --city, "
                      "--asnum or --routable)" % args.output)
@@ -465,7 +469,7 @@ def main():
                     chunksize=1
             ):
                 pass
-        exit(0)
+        sys.exit(0)
     elif args.output == 'ListAllRand':
         targiter = iter(targets)
         try:
@@ -480,7 +484,7 @@ def main():
             print('Use "--state %s" to resume.' % (
                 ' '.join(str(elt) for elt in targiter.getstate())
             ))
-        exit(0)
+        sys.exit(0)
     xmlprocess = {
         'XML': (XmlProcessWritefile,
                 ['./scans/%s/' % targets.infos['categories'][0]], {}),
@@ -492,4 +496,4 @@ def main():
     xmlprocess = xmlprocess[0](*xmlprocess[1], **xmlprocess[2])
     retval = call_nmap(options, xmlprocess, targets,
                        accept_target_status=accept_target_status)
-    exit(retval)
+    sys.exit(retval)

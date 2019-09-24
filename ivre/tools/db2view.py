@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -68,7 +68,7 @@ def main():
                 parser.add_option(*args, **kargs)
         else:
             print('ivre db2view: error: invalid subcommand {nmap, passive}.')
-            exit(-1)
+            sys.exit(-1)
     else:
         subparsers = parser.add_subparsers(dest='view_source',
                                            help="Accepted values are 'nmap' "

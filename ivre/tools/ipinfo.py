@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -290,9 +290,9 @@ def main():
             )
             ans = input()
             if ans.lower() != 'y':
-                exit(0)
+                sys.exit(0)
         db.passive.init()
-        exit(0)
+        sys.exit(0)
     if args.ensure_indexes:
         if os.isatty(sys.stdin.fileno()):
             sys.stdout.write(
@@ -300,15 +300,15 @@ def main():
             )
             ans = input()
             if ans.lower() != 'y':
-                exit(0)
+                sys.exit(0)
         db.passive.ensure_indexes()
-        exit(0)
+        sys.exit(0)
     if args.update_schema:
         db.passive.migrate_schema(None)
-        exit(0)
+        sys.exit(0)
     if args.dnsbl_update:
         db.passive.update_dns_blacklist()
-        exit(0)
+        sys.exit(0)
     if args.short:
         disp_recs = disp_recs_short
     elif args.distinct is not None:
@@ -342,5 +342,5 @@ def main():
             disp_recs = disp_recs_tailfnew()
         disp_recs(baseflt, sort, args.limit or db.passive.no_limit,
                   args.skip or 0)
-        exit(0)
+        sys.exit(0)
     disp_recs(baseflt, sort, args.limit or db.passive.no_limit, args.skip or 0)
