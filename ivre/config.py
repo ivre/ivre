@@ -84,6 +84,7 @@ NMAP_SCAN_TEMPLATES = {
 }
 
 DNS_BLACKLIST_DOMAINS = set([
+    'blacklist.woody.ch',
     'zen.spamhaus.org',
 ])
 
