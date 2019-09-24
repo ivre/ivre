@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,8 +19,9 @@
 """Update the database from output of the Bro script 'passiverecon'"""
 
 
-import signal
 import functools
+import signal
+import sys
 
 
 import ivre.db
@@ -62,7 +63,6 @@ def rec_iter(bro_parser, sensor, ignore_rules):
 
 
 def main():
-    import sys
     parser, _ = ivre.utils.create_argparser(__doc__)
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--ignore-spec', '-i',

@@ -118,6 +118,7 @@ class MongoDB(DB):
             else:
                 username = unquote(username)
                 if username == 'GSSAPI':
+                    # pylint: disable=import-outside-toplevel
                     import krbV
                     self.username = (krbV.default_context().default_ccache()
                                      .principal().name)
@@ -5791,7 +5792,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 flows.setdefault(entry_name, 0)
                 flows[entry_name] += 1
             res = {
-                'flows': [(name, count) for name, count in viewitems(flows)],
+                'flows': list(viewitems(flows)),
                 'time_in_day': datetime.time(
                     hour=entry['_id']['hour'],
                     minute=entry['_id']['minute'],

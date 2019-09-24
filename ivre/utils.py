@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -598,7 +598,7 @@ def diff(doc1, doc2):
         if key in ['categories']:
             set1 = set(doc1[key])
             set2 = set(doc2[key])
-            res[key] = [s for s in set1.symmetric_difference(set2)]
+            res[key] = list(set1.symmetric_difference(set2))
             if not res[key]:
                 del res[key]
             continue

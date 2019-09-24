@@ -617,8 +617,8 @@ To use this to create a pandas DataFrame, you can run:
             """Returns a cluster
             """
             return cluster.HierarchicalClustering(
-                [rec for rec in values],
-                lambda x, y: abs(x['mean'] - y['mean'])
+                list(values),
+                lambda x, y: abs(x['mean'] - y['mean']),
             )
 
     @staticmethod

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -120,9 +120,9 @@ def main():
             )
             ans = input()
             if ans.lower() not in ['y', 'yes']:
-                exit(0)
+                sys.exit(0)
         db.view.init()
-        exit(0)
+        sys.exit(0)
 
     if args.top is not None:
         display_top(db.view, args.top, flt, args.limit)
