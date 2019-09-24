@@ -2197,7 +2197,7 @@ passive table."""
                                                        reverse=reverse,
                                                        dnstype=dnstype,
                                                        subdomains=subdomains)
-                                         for domain in name))
+                                        for domain in name))
         return cls._searchdns(name=name, reverse=reverse, dnstype=dnstype,
                               subdomains=subdomains)
 
