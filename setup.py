@@ -30,7 +30,9 @@ $ python setup.py build
 from distutils.core import setup
 from distutils.command.install_data import install_data
 from distutils.command.install_lib import install_lib
+from distutils.dist import DistributionMetadata
 import os
+from tempfile import TemporaryFile
 
 
 VERSION = __import__('ivre').VERSION
@@ -85,6 +87,30 @@ class smart_install_lib(install_lib):
 with open(os.path.join(os.path.abspath(os.path.dirname('__file__')),
                        'README.md')) as fdesc:
     long_description = fdesc.read()
+long_description_content_type = 'text/markdown'
+
+
+# Monkey patching (distutils does not handle Description-Content-Type
+# from long_description_content_type parameter in setup()).
+_write_pkg_file_orig = DistributionMetadata.write_pkg_file
+
+
+def _write_pkg_file(self, file):
+    with TemporaryFile(mode="w+") as tmpfd:
+        _write_pkg_file_orig(self, tmpfd)
+        tmpfd.seek(0)
+        for line in tmpfd:
+            if line.startswith('Metadata-Version: '):
+                file.write('Metadata-Version: 2.1\n')
+            elif line.startswith('Description: '):
+                file.write('Description-Content-Type: %s; charset=UTF-8\n' %
+                           long_description_content_type)
+                file.write(line)
+            else:
+                file.write(line)
+
+
+DistributionMetadata.write_pkg_file = _write_pkg_file
 
 
 setup(
@@ -97,7 +123,7 @@ setup(
     license='GPLv3+',
     description='Network recon framework',
     long_description=long_description,
-    long_description_content_type='text/markdown',
+    long_description_content_type=long_description_content_type,
     keywords=["network", "network recon", "network cartography",
               "nmap", "masscan", "zmap", "bro", "zeek", "p0f"],
     classifiers=[
