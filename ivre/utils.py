@@ -1766,7 +1766,11 @@ def display_top(db, arg, flt, lmt):
     field, least = ((arg[1:], True)
                     if arg[:1] in '!-~' else
                     (arg, False))
-    for entry in db.topvalues(field, flt=flt, topnbr=lmt or 10, least=least):
+    if lmt is None:
+        lmt = 10
+    elif lmt == 0:
+        lmt = None
+    for entry in db.topvalues(field, flt=flt, topnbr=lmt, least=least):
         if isinstance(entry['_id'], (list, tuple)):
             sep = ' / ' if isinstance(entry['_id'], tuple) else ', '
             if entry['_id']:
