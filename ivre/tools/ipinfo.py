@@ -317,6 +317,8 @@ def main():
         disp_recs = disp_recs_json
     elif args.top is not None:
         disp_recs = disp_recs_top(args.top)
+        if args.limit is None:
+            args.limit = 10
     elif args.tail is not None:
         disp_recs = disp_recs_tail(args.tail)
     elif args.tailnew is not None:
