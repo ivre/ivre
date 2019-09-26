@@ -6,6 +6,7 @@ bash_completion/ivre
 bin/ivre
 bro/passiverecon2db-ignore.example
 bro/ivre/__load__.bro
+bro/ivre/arp/__load__.bro
 bro/ivre/passiverecon/__load__.bro
 bro/ivre/passiverecon/bare.bro
 bro/ivre/passiverecon/ja3.bro
@@ -565,6 +566,7 @@ web/static/templates/view-vulnerabilities-only.html
 web/wsgi/app.wsgi
 zeek/passiverecon2db-ignore.example
 zeek/ivre/__load__.zeek
+zeek/ivre/arp/__load__.zeek
 zeek/ivre/passiverecon/__load__.zeek
 zeek/ivre/passiverecon/bare.zeek
 zeek/ivre/passiverecon/ja3.zeek
