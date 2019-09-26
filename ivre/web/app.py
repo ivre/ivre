@@ -119,11 +119,11 @@ def get_config():
 
 FilterParams = namedtuple("flt_params", ['flt', 'sortby', 'unused',
                                          'skip', 'limit', 'callback',
-                                         'ipsasnumbers', 'datesasstrings'])
+                                         'ipsasnumbers', 'datesasstrings',
+                                         'fmt'])
 
 
 def get_nmap_base(dbase):
-    response.set_header('Content-Type', 'application/javascript')
     query = webutils.query_from_params(request.params)
     flt, sortby, unused, skip, limit = webutils.flt_from_query(dbase, query)
     if limit is None:
@@ -133,12 +133,22 @@ def get_nmap_base(dbase):
     callback = request.params.get("callback")
     # type of result
     ipsasnumbers = request.params.get("ipsasnumbers")
+    if callback:
+        fmt = 'json'
+    else:
+        fmt = request.params.get("format") or 'json'
+        if fmt not in set(['txt', 'json']):
+            fmt = 'txt'
     datesasstrings = request.params.get("datesasstrings")
+    if fmt == 'txt':
+        response.set_header('Content-Type', 'text/plain')
+    else:
+        response.set_header('Content-Type', 'application/javascript')
     if callback is None:
         response.set_header('Content-Disposition',
-                            'attachment; filename="IVRE-results.json"')
+                            'attachment; filename="IVRE-results.%s"' % fmt)
     return FilterParams(flt, sortby, unused, skip, limit, callback,
-                        ipsasnumbers, datesasstrings)
+                        ipsasnumbers, datesasstrings, fmt)
 
 
 @application.get(
@@ -154,11 +164,13 @@ def get_nmap_action(subdb, action):
                       "ipsports", "timeline", "coordinates", "countopenports"
                       or "diffcats")
     :query str q: query (including limit/skip and sort)
-    :query str callback: callback to use for JSONP results
+    :query str callback: callback to use for JSONP results (forces "json"
+                        format)
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
     :query bool datesasstrings: to get dates as strings rather than as
                                timestamps
+    :query str format: "json" (the default) or "txt"
     :status 200: no error
     :status 400: invalid referer
     :>jsonarr object: results
@@ -254,6 +266,12 @@ def get_nmap_action(subdb, action):
                                   []).append([res['port'], res['value']])
                 count += 1
         result = viewitems(result)
+
+    if flt_params.fmt == "txt":
+        for rec in result:
+            yield "%s\n" % r2res(rec)
+        return
+
     if flt_params.callback is not None:
         if count >= config.WEB_WARN_DOTS_COUNT:
             yield (
