@@ -1029,6 +1029,7 @@ var MENU_MAIN = {
     share_report: true,
     share_compare: true,
     share_jsonexport: true,
+    share_addrlist: true,
     items: [
 	{title: "HELP",
 	 action: "$scope.togglenotes('doc/usage/web-ui.html');",
