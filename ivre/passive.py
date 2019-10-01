@@ -337,10 +337,10 @@ def _getinfos_http_client_authorization(spec):
     infos = {}
     data = spec['value'].split(None, 1)
     if data[1:]:
-        if data[0].lower() == b'basic':
+        if data[0].lower() == 'basic':
             try:
                 infos['username'], infos['password'] = utils.decode_b64(
-                    data[1].strip()
+                    data[1].strip().encode()
                 ).decode('latin-1').split(':', 1)
             except Exception:
                 pass
