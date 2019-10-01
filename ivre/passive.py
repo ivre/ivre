@@ -239,19 +239,23 @@ def _prepare_rec(spec, ignorenets, neverignore):
                                'HTTP_CLIENT_HEADER_SERVER'] and \
         spec.get('source') in ['AUTHORIZATION',
                                'PROXY-AUTHORIZATION']:
-        authtype = spec['value'].split(None, 1)[0]
-        if authtype.lower() == 'digest':
-            try:
-                # we only keep relevant info
-                value = [val for val in
-                         _split_digest_auth(spec['value'][6:].strip())
-                         if DIGEST_AUTH_INFOS.match(val)]
-                spec['value'] = '%s %s' % (authtype, ','.join(value))
-            except Exception:
-                utils.LOGGER.warning("Cannot parse digest error for %r", spec,
-                                     exc_info=True)
-        elif authtype.lower() in ['negotiate', 'kerberos', 'oauth', 'ntlm']:
-            spec['value'] = authtype
+        value = spec['value']
+        if value:
+            authtype = value.split(None, 1)[0]
+            if authtype.lower() == 'digest':
+                try:
+                    # we only keep relevant info
+                    spec['value'] = '%s %s' % (authtype, ','.join(
+                        val for val in
+                        _split_digest_auth(value[6:].strip())
+                        if DIGEST_AUTH_INFOS.match(val)
+                    ))
+                except Exception:
+                    utils.LOGGER.warning("Cannot parse digest error for %r",
+                                         spec, exc_info=True)
+            elif authtype.lower() in ['negotiate', 'kerberos', 'oauth',
+                                      'ntlm']:
+                spec['value'] = authtype
     # p0f in Bro hack: we use the "source" field to provide the
     # "distance" and "version" values
     elif spec['recontype'] == 'P0F':
