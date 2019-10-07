@@ -177,6 +177,7 @@ def _parse_query(dbase, query):
         'full': lambda: dbase.flt_empty,
         'noaccess': dbase.searchnonexistent,
         'category': lambda cat: dbase.searchcategory(cat.split(',')),
+        'source': dbase.searchsource,
     }[query[0]](*query[1:])
 
 
