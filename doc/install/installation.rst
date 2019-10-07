@@ -169,13 +169,7 @@ The installation of IVRE itself can be done:
 Configuration
 -------------
 
-Default configuration values are hard-coded in ``ivre/config.py``. You
-should not change this file, unless you are modifying IVRE and you
-want to change the default configuration. You do not need to do this
-if you want to install IVRE with a non-default configuration, you just
-need to distribute a proper configuration file.
-
-You can override default values in configuration files:
+You can set configuration values in several files:
 
 - system-wide: ``ivre.conf`` in the following directories: ``/etc/``,
   ``/etc/ivre``, ``/usr/local/etc``, ``/usr/local/etc/ivre``.
@@ -183,11 +177,15 @@ You can override default values in configuration files:
 - user-specific: ``~/.ivre.conf`` (read after the system-wide
   configuration files, so highest priority).
 
-- another configuration file can be specified using the ``$IVRE_CONF``
-  environment variable.
+- execution-specific: another configuration file can be specified
+  using the ``$IVRE_CONF`` environment variable.
 
 The configuration files are Python files. They may set, for example,
-the variable ``DB`` to use a different database than the default one.
+the variable ``DB`` to use a different database than the default
+one.
+
+See :ref:`install/config:Configuration` to learn more about the
+different configuration parameters.
 
 Initialization
 --------------

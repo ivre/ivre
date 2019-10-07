@@ -36,7 +36,7 @@
   <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Fast install &amp; first run" href="fast-install-and-first-run.html" />
+    <link rel="next" title="Configuration" href="config.html" />
     <link rel="prev" title="Installation" href="index.html" /> 
 </head>
 
@@ -64,7 +64,7 @@
             
             
               <div class="version">
-                0.9.13.dev
+                0.9.14.dev
               </div>
             
           
@@ -109,6 +109,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#using-agents">Using Agents</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="config.html">Configuration</a></li>
 <li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
 <li class="toctree-l2"><a class="reference internal" href="agents.html">Agents</a></li>
@@ -324,22 +325,20 @@ are already configured).</p></li>
 </div>
 <div class="section" id="configuration">
 <h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
-<p>Default configuration values are hard-coded in <code class="docutils literal notranslate"><span class="pre">ivre/config.py</span></code>. You
-should not change this file, unless you are modifying IVRE and you
-want to change the default configuration. You do not need to do this
-if you want to install IVRE with a non-default configuration, you just
-need to distribute a proper configuration file.</p>
-<p>You can override default values in configuration files:</p>
+<p>You can set configuration values in several files:</p>
 <ul class="simple">
 <li><p>system-wide: <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> in the following directories: <code class="docutils literal notranslate"><span class="pre">/etc/</span></code>,
 <code class="docutils literal notranslate"><span class="pre">/etc/ivre</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc/ivre</span></code>.</p></li>
 <li><p>user-specific: <code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code> (read after the system-wide
 configuration files, so highest priority).</p></li>
-<li><p>another configuration file can be specified using the <code class="docutils literal notranslate"><span class="pre">$IVRE_CONF</span></code>
-environment variable.</p></li>
+<li><p>execution-specific: another configuration file can be specified
+using the <code class="docutils literal notranslate"><span class="pre">$IVRE_CONF</span></code> environment variable.</p></li>
 </ul>
 <p>The configuration files are Python files. They may set, for example,
-the variable <code class="docutils literal notranslate"><span class="pre">DB</span></code> to use a different database than the default one.</p>
+the variable <code class="docutils literal notranslate"><span class="pre">DB</span></code> to use a different database than the default
+one.</p>
+<p>See <a class="reference internal" href="config.html#configuration"><span class="std std-ref">Configuration</span></a> to learn more about the
+different configuration parameters.</p>
 </div>
 <div class="section" id="initialization">
 <h2>Initialization<a class="headerlink" href="#initialization" title="Permalink to this headline">¶</a></h2>
@@ -416,7 +415,7 @@ that.</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="fast-install-and-first-run.html" class="btn btn-neutral float-right" title="Fast install &amp; first run" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="config.html" class="btn btn-neutral float-right" title="Configuration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="index.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>

@@ -354,7 +354,7 @@ class TargetZMapPreScan(TargetFile):
         zmap_opts += ['-p', str(port)]
         self.infos['zmap_pre_scan'] = zmap_opts[:]
         zmap_opts = [zmap] + zmap_opts + ['-o', '-']
-        self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
+        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode='w')
         for start, count in viewvalues(target.targets.ranges):
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
@@ -401,7 +401,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         self.infos['nmap_pre_scan'] = nmap_opts[:]
         # TODO: use -iL and feed target randomly when needed, w/o
         # using a temporary file
-        self.tmpfile = tempfile.NamedTemporaryFile(delete=False)
+        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode='w')
         nmap_opts = [nmap, '-iL', self.tmpfile.name, '-oG', '-'] + nmap_opts
         for start, count in viewvalues(target.targets.ranges):
             for net in utils.range2nets((start, start + count - 1)):

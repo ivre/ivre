@@ -20,6 +20,7 @@ doc/dev/index.rst
 doc/dev/tests.rst
 doc/dev/web-api.rst
 doc/install/agents.rst
+doc/install/config.rst
 doc/install/docker.rst
 doc/install/fast-install-and-first-run.rst
 doc/install/index.rst
@@ -192,6 +193,7 @@ web/static/doc/_sources/dev/index.rst.txt
 web/static/doc/_sources/dev/tests.rst.txt
 web/static/doc/_sources/dev/web-api.rst.txt
 web/static/doc/_sources/install/agents.rst.txt
+web/static/doc/_sources/install/config.rst.txt
 web/static/doc/_sources/install/docker.rst.txt
 web/static/doc/_sources/install/fast-install-and-first-run.rst.txt
 web/static/doc/_sources/install/index.rst.txt
@@ -259,6 +261,7 @@ web/static/doc/dev/index.html
 web/static/doc/dev/tests.html
 web/static/doc/dev/web-api.html
 web/static/doc/install/agents.html
+web/static/doc/install/config.html
 web/static/doc/install/docker.html
 web/static/doc/install/fast-install-and-first-run.html
 web/static/doc/install/index.html

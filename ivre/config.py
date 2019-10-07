@@ -26,18 +26,23 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 
 """
 
+# The comment lines "Begin XXX" and "End XXX" are used to include
+# parts of this files in the documentation.
+
 import os
 import stat
 
 # Default values:
+DEBUG = False
+DEBUG_DB = False
 DB = "mongodb:///ivre"
 DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
-LOCAL_BATCH_SIZE = 10000
+# Begin batch sizes
+LOCAL_BATCH_SIZE = 10000      # used with --local-bulk
 MONGODB_BATCH_SIZE = 100
 NEO4J_BATCH_SIZE = 1000
 POSTGRES_BATCH_SIZE = 10000
-DEBUG = False
-DEBUG_DB = False
+# End batch sizes
 # specific: if no value is specified for *_PATH variables, they are
 # going to be constructed by guessing the installation PREFIX (see the
 # end of this file).
@@ -47,6 +52,10 @@ HONEYD_IVRE_SCRIPTS_PATH = None
 WEB_STATIC_PATH = None
 WEB_DOKU_PATH = None
 AGENT_MASTER_PATH = "/var/lib/ivre/master"
+# specific: if no value is specified, tries /usr/local/share/nmap,
+# /opt/nmap/share/nmap, then /usr/share/nmap.
+NMAP_SHARE_PATH = None
+# Begin commands
 TESSERACT_CMD = "tesseract"
 GZ_CMD = "zcat"
 BZ2_CMD = "bzcat"
@@ -54,11 +63,9 @@ MD5_CMD = "md5sum"
 SHA1_CMD = "sha1sum"
 SHA256_CMD = "sha256sum"
 OPENSSL_CMD = "openssl"
-# specific: if no value is specified, tries /usr/local/share/<soft>,
-# /opt/<soft>/share/<soft>, then /usr/share/<soft>.
-NMAP_SHARE_PATH = None
+# End commands
 
-# Default Nmap scan template, see below how to add templates:
+# Begin default Nmap scan template
 NMAP_SCAN_TEMPLATES = {
     "default": {
         # Commented values are default values and to not need to be
@@ -82,25 +89,17 @@ NMAP_SCAN_TEMPLATES = {
         # "extra_options": None,
     }
 }
+# End default Nmap scan template
 
+# Begin DNSBL
+# Domains used for DNS blacklists (RFC 5782)
 DNS_BLACKLIST_DOMAINS = set([
     'blacklist.woody.ch',
     'zen.spamhaus.org',
 ])
+# End DNSBL
 
-# Example: to define an "aggressive" template that "inherits" from
-# the default template and runs more scripts with a more important
-# host timeout value, add the following lines to your ivre.conf,
-# uncommented of course.
-# NMAP_SCAN_TEMPLATES["aggressive"] = NMAP_SCAN_TEMPLATES["default"].copy()
-# NMAP_SCAN_TEMPLATES["aggressive"].update({
-#     "host_timeout": "30m",
-#     "script_timeout": "5m",
-#     "scripts_categories": ['default', 'discovery', 'auth', 'brute',
-#                            'exploit', 'intrusive'],
-#     "scripts_exclude": ['broadcast', 'external']
-# })
-
+# Begin flows
 # Dictionary that helps determine server ports of communications. Each entry
 # is {proto: {port: proba}}. The when two ports are known, the port with the
 # highest probability is used.
@@ -118,9 +117,8 @@ DNS_BLACKLIST_DOMAINS = set([
 #      },
 #  }
 KNOWN_PORTS = {}
-
-# Enable the recording of appearance times for flows. Will slow down a bit the
-# insertion rate
+# Enable the recording of appearance times for flows. Will slow down a
+# bit the insertion rate
 FLOW_TIME = True
 # Precision (in seconds) to use when recording times when flows appear
 FLOW_TIME_PRECISION = 3600
@@ -133,7 +131,9 @@ FLOW_TIME_FULL_RANGE = True
 FLOW_TIME_BASE = 0
 # Store high level protocols metadata in flows. It may take much more space.
 FLOW_STORE_METADATA = True
+# End flows
 
+# Begin IPDATA_URLS
 IPDATA_URLS = {
     'GeoLite2-City.tar.gz':
     'https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz',
@@ -154,6 +154,7 @@ IPDATA_URLS = {
     # This one is not from maxmind -- see http://thyme.apnic.net/
     'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
 }
+# End IPDATA_URLS
 
 GEOIP_LANG = "en"
 
@@ -180,21 +181,6 @@ WEB_PUBLIC_SRV = False
 # Feed with a random value, like `openssl rand -base64 42`.
 # *Mandatory* when WEB_PUBLIC_SRV == True
 WEB_SECRET = None
-
-# Basic ACL example
-# WEB_INIT_QUERIES = {
-#     'admin': 'full',
-#     'admin-site-a': 'category:site-a',
-#     'admin-scanner-a': 'source:scanner-a',
-# }
-# WEB_DEFAULT_INIT_QUERY = 'noaccess'
-
-# More complex ACL example with realm handling
-# WEB_INIT_QUERIES = {
-#     "admin": 'full',
-#     "@admin.sitea": 'category:sitea',
-# )
-# WEB_DEFAULT_INIT_QUERY = 'noaccess'
 
 
 def get_config_file(paths=None):
