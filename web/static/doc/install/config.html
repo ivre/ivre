@@ -1,0 +1,589 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Configuration &mdash; IVRE  documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/graphviz.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Fast install &amp; first run" href="fast-install-and-first-run.html" />
+    <link rel="prev" title="Installation guidelines" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> IVRE
+          
+
+          
+            
+            <img src="../_static/logo.png" class="logo" alt="Logo"/>
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.9.14.dev
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../overview/index.html">Overview</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Installation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="installation.html">Installation guidelines</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#debug">Debug</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#databases">Databases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#paths-and-commands">Paths and commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#nmap-scan-templates">Nmap scan templates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-flow-purpose">The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#the-data-purpose">The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#web-server">Web server</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#paths">Paths</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#notepad">Notepad</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#anti-csrf">Anti-CSRF</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#authentication-and-acls">Authentication and ACLs</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#misc">Misc</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="fast-install-and-first-run.html">Fast install &amp; first run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
+<li class="toctree-l2"><a class="reference internal" href="agents.html">Agents</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../dev/index.html">Development</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Licenses:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../license.html">IVRE: GPL v3</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../license-external.html">Licenses for external files</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">IVRE</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Installation</a> &raquo;</li>
+        
+      <li>Configuration</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+            
+            <a href="../_sources/install/config.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="configuration">
+<h1>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h1>
+<p>IVRE has several configuration variables. The default values are
+hard-coded in <code class="docutils literal notranslate"><span class="pre">ivre/config.py</span></code>. You should not change this file,
+unless you are modifying IVRE and you want to change the default
+configuration. You do not need to do this if you want to install IVRE
+with a non-default configuration, you just need to distribute a proper
+configuration file.</p>
+<p>IVRE can be configured using different configuration files:</p>
+<ul class="simple">
+<li><p>system-wide: <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code> in the following directories: <code class="docutils literal notranslate"><span class="pre">/etc/</span></code>,
+<code class="docutils literal notranslate"><span class="pre">/etc/ivre</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc</span></code>, <code class="docutils literal notranslate"><span class="pre">/usr/local/etc/ivre</span></code>.</p></li>
+<li><p>user-specific: <code class="docutils literal notranslate"><span class="pre">~/.ivre.conf</span></code> (read after the system-wide
+configuration files, so higher priority).</p></li>
+<li><p>execution-specific: another configuration file can be specified
+using the <code class="docutils literal notranslate"><span class="pre">$IVRE_CONF</span></code> environment variable (read after the
+user-specific file, so highest priority).</p></li>
+</ul>
+<p>The configuration files are Python files setting global variables.</p>
+<div class="section" id="debug">
+<h2>Debug<a class="headerlink" href="#debug" title="Permalink to this headline">¶</a></h2>
+<p>Debug messages are turned off by default, since IVRE has no
+bugs. <code class="docutils literal notranslate"><span class="pre">DEBUG_DB</span></code> turns on database-specific debug messages, and can
+be very noisy. Setting <code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> to <code class="docutils literal notranslate"><span class="pre">True</span></code> is mandatory to run
+IVRE’s tests.</p>
+</div>
+<div class="section" id="databases">
+<h2>Databases<a class="headerlink" href="#databases" title="Permalink to this headline">¶</a></h2>
+<p>Databases are specified using URLs:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>db_type://[username[:password]@][host[:port]]/databasename?options
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">DB</span></code> is the generic database URL (will be used for all
+<a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a> unless a purpose-specific URL has
+been specified). The value <code class="docutils literal notranslate"><span class="pre">&quot;mongodb:///ivre&quot;</span></code> is the default and
+means “use MongoDB on localhost, database <code class="docutils literal notranslate"><span class="pre">ivre</span></code>, default collection
+names”.</p>
+<p>Purpose-specific URLs can be specified using
+<code class="docutils literal notranslate"><span class="pre">DB_&lt;purpose&gt;</span></code>; <code class="docutils literal notranslate"><span class="pre">DB_DATA</span></code> is specific and defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>,
+which has the special meaning
+<code class="docutils literal notranslate"><span class="pre">&quot;maxmind:///&lt;ivre_share_path&gt;/geoip&quot;</span></code>.</p>
+<p>Here are some examples:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DB_PASSIVE</span> <span class="o">=</span> <span class="s2">&quot;sqlite:////tmp/ivre.db&quot;</span>
+<span class="n">DB_NMAP</span> <span class="o">=</span> <span class="s2">&quot;postgresql://ivre@localhost/ivre&quot;</span>
+<span class="n">DB_VIEW</span> <span class="o">=</span> <span class="s2">&quot;elastic://192.168.0.1:9200/ivre&quot;</span>
+<span class="n">DB_FLOW</span> <span class="o">=</span> <span class="s2">&quot;neo4j://neo4j:neo4j@localhost:7474/db/data/&quot;</span>
+<span class="n">DB_DATA</span> <span class="o">=</span> <span class="s2">&quot;maxmind:///share/data/ivre/geoip&quot;</span>
+</pre></div>
+</div>
+<p>Batch insert or upsert operations can be tuned using backend-specific variables:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">LOCAL_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>      <span class="c1"># used with --local-bulk</span>
+<span class="n">MONGODB_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
+<span class="n">NEO4J_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">POSTGRES_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="paths-and-commands">
+<h2>Paths and commands<a class="headerlink" href="#paths-and-commands" title="Permalink to this headline">¶</a></h2>
+<p>All variables ending with <code class="docutils literal notranslate"><span class="pre">_PATH</span></code> (except <code class="docutils literal notranslate"><span class="pre">AGENT_MASTER_PATH</span></code> and
+<code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code>) default to <code class="docutils literal notranslate"><span class="pre">None</span></code>, a special value which means
+“try to guess the path based on IVRE installation”.</p>
+<p>Here are the values with examples on a regular installation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DATA_PATH</span> <span class="o">=</span> <span class="bp">None</span>                  <span class="c1"># /usr/share/ivre/data</span>
+<span class="n">GEOIP_PATH</span> <span class="o">=</span> <span class="bp">None</span>                 <span class="c1"># /usr/share/ivre/geoip</span>
+<span class="n">HONEYD_IVRE_SCRIPTS_PATH</span> <span class="o">=</span> <span class="bp">None</span>   <span class="c1"># /usr/share/ivre/data/honeyd</span>
+<span class="n">WEB_STATIC_PATH</span> <span class="o">=</span> <span class="bp">None</span>            <span class="c1"># /usr/share/ivre/web/static</span>
+<span class="n">WEB_DOKU_PATH</span> <span class="o">=</span> <span class="bp">None</span>              <span class="c1"># /usr/share/ivre/dokuwiki</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">AGENT_MASTER_PATH</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">&quot;/var/lib/ivre/master&quot;</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>, which means IVRE will try
+<code class="docutils literal notranslate"><span class="pre">&quot;/usr/local/share/nmap&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;/opt/nmap/share/nmap&quot;</span></code>, then
+<code class="docutils literal notranslate"><span class="pre">&quot;/usr/share/nmap&quot;</span></code>.</p>
+<p>IVRE may need some executables:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TESSERACT_CMD</span> <span class="o">=</span> <span class="s2">&quot;tesseract&quot;</span>
+<span class="n">GZ_CMD</span> <span class="o">=</span> <span class="s2">&quot;zcat&quot;</span>
+<span class="n">BZ2_CMD</span> <span class="o">=</span> <span class="s2">&quot;bzcat&quot;</span>
+<span class="n">MD5_CMD</span> <span class="o">=</span> <span class="s2">&quot;md5sum&quot;</span>
+<span class="n">SHA1_CMD</span> <span class="o">=</span> <span class="s2">&quot;sha1sum&quot;</span>
+<span class="n">SHA256_CMD</span> <span class="o">=</span> <span class="s2">&quot;sha256sum&quot;</span>
+<span class="n">OPENSSL_CMD</span> <span class="o">=</span> <span class="s2">&quot;openssl&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nmap-scan-templates">
+<h2>Nmap scan templates<a class="headerlink" href="#nmap-scan-templates" title="Permalink to this headline">¶</a></h2>
+<p>Nmap scan templates are defined in the <code class="docutils literal notranslate"><span class="pre">NMAP_SCAN_TEMPLATES</span></code>
+variable. Usually, this variable should <strong>not</strong> be overridden, but
+rather modified.</p>
+<p>By default, <code class="docutils literal notranslate"><span class="pre">NMAP_SCAN_TEMPLATES</span></code> contains one template, named
+<code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code>, which is defined as follows:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">NMAP_SCAN_TEMPLATES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;default&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="c1"># Commented values are default values and to not need to be</span>
+        <span class="c1"># specified:</span>
+        <span class="c1"># &quot;nmap&quot;: &quot;nmap&quot;,</span>
+        <span class="c1"># &quot;pings&quot;: &quot;SE&quot;,</span>
+        <span class="c1"># &quot;scans&quot;: &quot;SV&quot;,</span>
+        <span class="c1"># &quot;osdetect&quot;: True,</span>
+        <span class="c1"># &quot;traceroute&quot;: True,</span>
+        <span class="c1"># &quot;resolve&quot;: 1,</span>
+        <span class="c1"># &quot;verbosity&quot;: 2,</span>
+        <span class="c1"># &quot;ports&quot;: None,</span>
+        <span class="s2">&quot;host_timeout&quot;</span><span class="p">:</span> <span class="s2">&quot;15m&quot;</span><span class="p">,</span>  <span class="c1"># default value: None</span>
+        <span class="s2">&quot;script_timeout&quot;</span><span class="p">:</span> <span class="s2">&quot;2m&quot;</span><span class="p">,</span>  <span class="c1"># default value: None</span>
+        <span class="s2">&quot;scripts_categories&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="s1">&#39;discovery&#39;</span><span class="p">,</span>
+                               <span class="s1">&#39;auth&#39;</span><span class="p">],</span>  <span class="c1"># default value: None</span>
+        <span class="s2">&quot;scripts_exclude&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;broadcast&#39;</span><span class="p">,</span> <span class="s1">&#39;brute&#39;</span><span class="p">,</span> <span class="s1">&#39;dos&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;exploit&#39;</span><span class="p">,</span> <span class="s1">&#39;external&#39;</span><span class="p">,</span> <span class="s1">&#39;fuzzer&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;intrusive&#39;</span><span class="p">],</span>  <span class="c1"># default value: None</span>
+        <span class="c1"># &quot;scripts_force&quot;: None,</span>
+        <span class="c1"># &quot;extra_options&quot;: None,</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>To create another template, the easiest is to copy, either using
+<code class="docutils literal notranslate"><span class="pre">.copy()</span></code> or using the <code class="docutils literal notranslate"><span class="pre">dict()</span></code> constructor, the <code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code>
+template; the following configuration entry creates an
+<code class="docutils literal notranslate"><span class="pre">&quot;aggressive&quot;</span></code> template that will run more scripts (including
+potentially dangerous ones) and have more permissive timeout values:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">[</span><span class="s2">&quot;aggressive&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+    <span class="n">NMAP_SCAN_TEMPLATES</span><span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">],</span>
+    <span class="n">host_timeout</span><span class="o">=</span><span class="s2">&quot;30m&quot;</span><span class="p">,</span>
+    <span class="n">script_timeout</span><span class="o">=</span><span class="s2">&quot;5m&quot;</span><span class="p">,</span>
+    <span class="n">scripts_categories</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="s1">&#39;discovery&#39;</span><span class="p">,</span> <span class="s1">&#39;auth&#39;</span><span class="p">,</span> <span class="s1">&#39;brute&#39;</span><span class="p">,</span>
+                        <span class="s1">&#39;exploit&#39;</span><span class="p">,</span> <span class="s1">&#39;intrusive&#39;</span><span class="p">],</span>
+    <span class="n">scripts_exclude</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;broadcast&#39;</span><span class="p">,</span> <span class="s1">&#39;external&#39;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>It is possible to check the options a template will use by running the
+following command (the output has been modified, the command line is
+normally on one single line):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre runscans --output CommandLine
+Command line to run a scan with template default
+    nmap -A -PS -PE -sS -vv --host-timeout 15m --script-timeout 2m
+         --script &#39;(default or discovery or auth) and not (broadcast
+         or brute or dos or exploit or external or fuzzer or intrusive)&#39;
+
+$ ivre runscans --output CommandLine --nmap-template aggressive
+Command line to run a scan with template aggressive
+    nmap -A -PS -PE -sS -vv --host-timeout 30m --script-timeout 5m
+         --script &#39;(default or discovery or auth or brute or exploit or
+         intrusive) and not (broadcast or external)&#39;
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-flow-purpose">
+<h2>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose<a class="headerlink" href="#the-flow-purpose" title="Permalink to this headline">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose has several specific configuration options, which
+may have important impacts on performances; here are the options and
+their default values:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Dictionary that helps determine server ports of communications. Each entry</span>
+<span class="c1"># is {proto: {port: proba}}. The when two ports are known, the port with the</span>
+<span class="c1"># highest probability is used.</span>
+<span class="c1"># When /usr/share/nmap/nmap-services is available, these probas are taken,</span>
+<span class="c1"># otherwise /etc/services is used with proba=0.5 for each entry.</span>
+<span class="c1"># KNOWN_PORTS entries have the highest priority.</span>
+<span class="c1"># Example:</span>
+<span class="c1">#  KNOWN_PORTS = {</span>
+<span class="c1">#      &quot;udp&quot;: {</span>
+<span class="c1">#          9999: 1.0,</span>
+<span class="c1">#          12345: 0.5,</span>
+<span class="c1">#      },</span>
+<span class="c1">#      &quot;tcp&quot;: {</span>
+<span class="c1">#          20202: 0.8,</span>
+<span class="c1">#      },</span>
+<span class="c1">#  }</span>
+<span class="n">KNOWN_PORTS</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="c1"># Enable the recording of appearance times for flows. Will slow down a</span>
+<span class="c1"># bit the insertion rate</span>
+<span class="n">FLOW_TIME</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="c1"># Precision (in seconds) to use when recording times when flows appear</span>
+<span class="n">FLOW_TIME_PRECISION</span> <span class="o">=</span> <span class="mi">3600</span>
+<span class="c1"># When recording flow times, record the whole range from start_time to end_time</span>
+<span class="c1"># This option is experimental and possibly useless in practice</span>
+<span class="n">FLOW_TIME_FULL_RANGE</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="c1"># When recording flow times, represents the beginning of the first timeslot</span>
+<span class="c1"># as a Unix timestamp shifted to local time.</span>
+<span class="c1"># 0 means that the first timeslot starts at 1970-01-01 00:00 (Local time).</span>
+<span class="n">FLOW_TIME_BASE</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="c1"># Store high level protocols metadata in flows. It may take much more space.</span>
+<span class="n">FLOW_STORE_METADATA</span> <span class="o">=</span> <span class="kc">True</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-data-purpose">
+<h2>The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose<a class="headerlink" href="#the-data-purpose" title="Permalink to this headline">¶</a></h2>
+<p>The URLs used to get IP address databases are set in the dictionary <code class="docutils literal notranslate"><span class="pre">IPDATA_URLS</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">IPDATA_URLS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;GeoLite2-City.tar.gz&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GeoLite2-City-CSV.zip&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/&#39;</span>
+    <span class="s1">&#39;GeoLite2-City-CSV.zip&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GeoLite2-Country.tar.gz&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/&#39;</span>
+    <span class="s1">&#39;GeoLite2-Country.tar.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GeoLite2-Country-CSV.zip&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/&#39;</span>
+    <span class="s1">&#39;GeoLite2-Country-CSV.zip&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GeoLite2-ASN.tar.gz&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;GeoLite2-ASN-CSV.zip&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;iso3166.csv&#39;</span><span class="p">:</span> <span class="s1">&#39;https://dev.maxmind.com/static/csv/codes/iso3166.csv&#39;</span><span class="p">,</span>
+    <span class="c1"># This one is not from maxmind -- see http://thyme.apnic.net/</span>
+    <span class="s1">&#39;BGP.raw&#39;</span><span class="p">:</span> <span class="s1">&#39;http://thyme.apnic.net/current/data-raw-table&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>GeoIP uses a locale to report country, region and city names. The
+locale to use is set in <code class="docutils literal notranslate"><span class="pre">GEOIP_LANG</span></code> and defaults to <code class="docutils literal notranslate"><span class="pre">&quot;en&quot;</span></code>.</p>
+</div>
+<div class="section" id="web-server">
+<h2>Web server<a class="headerlink" href="#web-server" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="paths">
+<h3>Paths<a class="headerlink" href="#paths" title="Permalink to this headline">¶</a></h3>
+<p>Two variables (<code class="docutils literal notranslate"><span class="pre">WEB_STATIC_PATH</span></code> and <code class="docutils literal notranslate"><span class="pre">WEB_DOKU_PATH</span></code>) are used for
+the Web application; see <a class="reference internal" href="#paths-and-commands"><span class="std std-ref">Paths and commands</span></a>.</p>
+</div>
+<div class="section" id="notepad">
+<h3>Notepad<a class="headerlink" href="#notepad" title="Permalink to this headline">¶</a></h3>
+<p>If Dokuwiki (or another web application for notes) is used, the
+variable <code class="docutils literal notranslate"><span class="pre">WEB_NOTES_BASE</span></code> should be set to the URL path to access
+the notes (<code class="docutils literal notranslate"><span class="pre">#IP#</span></code> will be replaced with the IP address). This
+variable defaults to <code class="docutils literal notranslate"><span class="pre">/dokuwiki/#IP#</span></code>.</p>
+<p>If you use Dokuwiki, you also want to set:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="s2">&quot;localdokuwiki&quot;</span><span class="sb">``</span>
+</pre></div>
+</div>
+<p>Or:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;localdokuwiki&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;/path/to/dokuwiki/data/pages&quot;</span><span class="p">,))</span><span class="sb">``</span>
+</pre></div>
+</div>
+<p>The second option is needed if the path to Dokuwiki pages is different
+from the default <code class="docutils literal notranslate"><span class="pre">&quot;/var/lib/dokuwiki/data/pages&quot;</span></code>.</p>
+<p>If you use Mediawiki, you need to set</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;mediawiki&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;server&quot;</span><span class="p">,</span> <span class="s2">&quot;username&quot;</span><span class="p">,</span> <span class="s2">&quot;password&quot;</span><span class="p">,</span>
+                                       <span class="s2">&quot;dbname&quot;</span><span class="p">,</span> <span class="s2">&quot;base&quot;</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="anti-csrf">
+<h3>Anti-CSRF<a class="headerlink" href="#anti-csrf" title="Permalink to this headline">¶</a></h3>
+<p>As an anti-CSRF option, IVRE will check the <code class="docutils literal notranslate"><span class="pre">Referer:</span></code> header of the
+requests to any dynamic URLs (under <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code>). Normally (when <code class="docutils literal notranslate"><span class="pre">ivre</span>
+<span class="pre">httpd</span></code> is used or when the WSGI application is exposed directly, IVRE
+will figure out the allowed referrer URLs alone; under certain
+circumstances however (e.g., when a reverse-proxy is used, or when the
+IVRE dynamic URLs are used by another Web application), this is not
+possible. In this case, the variable <code class="docutils literal notranslate"><span class="pre">WEB_ALLOWED_REFERERS</span></code> should
+be set to a list or URLs that are allowed to trigger Web accesses to
+the IVRE application; for example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_ALLOWED_REFERERS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre/&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre/index.html&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre/report.html&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre/upload.html&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre/compare.html&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;http://reverse-proxy.local/ivre/flow.html&#39;</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="authentication-and-acls">
+<h3>Authentication and ACLs<a class="headerlink" href="#authentication-and-acls" title="Permalink to this headline">¶</a></h3>
+<p>If you want to use an authentication in IVRE, you have to configure
+your Web server (e.g., Apache or Nginx) to do so and set the
+environment variable <code class="docutils literal notranslate"><span class="pre">REMOTE_USER</span></code> to the username.</p>
+<p>If you want to do some authorization based on the authentication, you
+can do so by setting a couple of variables; by default, ACL is
+disabled, and everyone (that can access the <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code> URLs) can access
+to all the results:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="bp">None</span>
+<span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{}</span>
+</pre></div>
+</div>
+<p>In the following, we call and “access filter” either the special value
+<code class="docutils literal notranslate"><span class="pre">None</span></code> which means “unrestricted”, or a string describing a filter
+to apply before performing any query. The strings can be:</p>
+<ul class="simple">
+<li><p>“full”: unrestricted.</p></li>
+<li><p>“noaccess”: no result will be returned to the user.</p></li>
+<li><p>“category:[category name]”: the user will only have access to
+results within <code class="docutils literal notranslate"><span class="pre">[category</span> <span class="pre">name]</span></code> category.</p></li>
+<li><p>“source:[source name]”: the user will only have access to results
+within <code class="docutils literal notranslate"><span class="pre">[source</span> <span class="pre">name]</span></code> source.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">WEB_DEFAULT_INIT_QUERY</span></code> should be set to an “access filter” that
+will apply when the current user does not match any user in
+<code class="docutils literal notranslate"><span class="pre">WEB_INIT_QUERIES</span></code>.</p>
+<p>Here is a simple example, where user <code class="docutils literal notranslate"><span class="pre">admin</span></code> has full access, user
+<code class="docutils literal notranslate"><span class="pre">admin-site-a</span></code> has access to all results in category <code class="docutils literal notranslate"><span class="pre">site-a</span></code>, and
+user <code class="docutils literal notranslate"><span class="pre">admin-scanner-a</span></code> has access to all results with source
+<code class="docutils literal notranslate"><span class="pre">scanner-a</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
+<span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;admin&#39;</span><span class="p">:</span> <span class="s1">&#39;full&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;admin-site-a&#39;</span><span class="p">:</span> <span class="s1">&#39;category:site-a&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;admin-scanner-a&#39;</span><span class="p">:</span> <span class="s1">&#39;source:scanner-a&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If you user Kerberos authentication (or if you have <code class="docutils literal notranslate"><span class="pre">&#64;</span></code> in your
+usernames that provide some kind of “realms”, you can use them; in the
+following example, any user in the <code class="docutils literal notranslate"><span class="pre">admin.sitea</span></code> realm has access to
+all results in category <code class="docutils literal notranslate"><span class="pre">site-a</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="s1">&#39;noaccess&#39;</span>
+<span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;@admin.sitea&#39;</span><span class="p">:</span> <span class="s1">&#39;category:site-a&#39;</span><span class="p">,</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="misc">
+<h2>Misc<a class="headerlink" href="#misc" title="Permalink to this headline">¶</a></h2>
+<p>IVRE handles DNS blacklist (as defined in the <a class="reference external" href="https://tools.ietf.org/html/rfc5782">RFC 5782</a>) answers, for domains listed
+in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLACKLIST_DOMAINS</span></code>. By default, it is defined as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Domains used for DNS blacklists (RFC 5782)</span>
+<span class="n">DNS_BLACKLIST_DOMAINS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+    <span class="s1">&#39;blacklist.woody.ch&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;zen.spamhaus.org&#39;</span><span class="p">,</span>
+<span class="p">])</span>
+</pre></div>
+</div>
+<p>To add a domain, just add in your configuration file:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DNS_BLACKLIST_DOMAIN</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;dnsbl.example.com&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Or, to add several entries at once:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DNS_BLACKLIST_DOMAIN</span><span class="o">.</span><span class="n">update</span><span class="p">([</span>
+    <span class="s2">&quot;dnsbl1.example.com&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;dnsbl2.example.com&quot;</span><span class="p">,</span>
+<span class="p">])</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="fast-install-and-first-run.html" class="btn btn-neutral float-right" title="Fast install &amp; first run" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation guidelines" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2011 - 2019, Pierre LALET
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

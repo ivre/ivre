@@ -2334,8 +2334,9 @@ class DBAgent(DB):
             prefix=str(scanid) + '-',
             dir=self.get_local_path(agent, "input"),
             delete=False,
+            mode='w',
         ) as fdesc:
-            fdesc.write(("%s\n" % addr).encode())
+            fdesc.write("%s\n" % addr)
             return True
         return False
 
