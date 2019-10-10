@@ -865,7 +865,7 @@ ivreWebUi
 		$("#uploadReferer")
 		    .attr("value", document.referrer);
 		$("#upload")
-		    .attr("action", 'cgi/view')
+		    .attr("action", 'cgi/view?output=html')
 		    .submit();
 	    }
 	};

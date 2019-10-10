@@ -40,6 +40,7 @@ from future.utils import viewitems
 
 from ivre import config, utils, VERSION
 from ivre.db import db
+from ivre.view import nmap_record_to_view
 from ivre.web import utils as webutils
 
 
@@ -525,12 +526,19 @@ def parse_form():
 def import_files(subdb, source, categories, files):
     count = 0
     categories = list(categories)
+    if subdb == 'view':
+        def callback(x):
+            return db.view.store_or_merge_host(
+                nmap_record_to_view(x)
+            )
+    else:
+        callback = None
     for fileelt in files:
-        fdesc = tempfile.NamedTemporaryFile(delete=False)
-        fileelt.save(fdesc)
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            fileelt.save(fdesc)
         try:
-            if subdb.store_scan(fdesc.name, categories=categories,
-                                source=source):
+            if db.nmap.store_scan(fdesc.name, categories=categories,
+                                  source=source, callback=callback):
                 count += 1
                 os.unlink(fdesc.name)
             else:
@@ -556,8 +564,7 @@ def post_nmap(subdb):
 
     """
     referer, source, categories, files = parse_form()
-    count = import_files(db.view if subdb == 'view' else db.nmap, source,
-                         categories, files)
+    count = import_files(subdb, source, categories, files)
     if request.params.get("output") == "html":
         response.set_header('Refresh', '5;url=%s' % referer)
         return """<html>
