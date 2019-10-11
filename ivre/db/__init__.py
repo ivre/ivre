@@ -1077,6 +1077,23 @@ field from having different data types.
         return doc
 
     @staticmethod
+    def __migrate_schema_hosts_14_15(doc):
+        """Converts a record from version 14 to version 15. Version 15 changes
+the structured output for httpègit script to move data to values
+instead of keys.
+
+        """
+        assert doc["schema_version"] == 14
+        doc["schema_version"] = 15
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-git" and 'http-git' in script:
+                    script['http-git'] = xmlnmap.change_http_git(
+                        script["http-git"]
+                    )
+        return doc
+
+    @staticmethod
     def json2dbrec(host):
         return host
 
