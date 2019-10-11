@@ -1425,6 +1425,27 @@ field from having different data types.
             update["$set"]["ports"] = doc['ports']
         return update
 
+    @staticmethod
+    def migrate_schema_hosts_14_15(doc):
+        """Converts a record from version 14 to version 15. Version 15 changes
+the structured output for httpègit script to move data to values
+instead of keys.
+
+        """
+        assert doc["schema_version"] == 14
+        update = {"$set": {"schema_version": 15}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-git" and 'http-git' in script:
+                    script['http-git'] = xmlnmap.change_ssh_hostkey(
+                        script["http-git"]
+                    )
+                    updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
 e.g.  .explain()).

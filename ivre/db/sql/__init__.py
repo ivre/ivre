@@ -968,6 +968,46 @@ field from having different data types.
         )
         return len(failed)
 
+    def _migrate_schema_14_15(self):
+        """Converts a record from version 14 to version 15. Version 15 changes
+the structured output for httpègit script to move data to values
+instead of keys.
+
+        """
+        failed = set()
+        req = (select([self.tables.scan.id,
+                       self.tables.script.name,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(self.tables.scan.schema_version == 14,
+                           self.tables.script.name == "http-git")))
+        for rec in self.db.execute(req):
+            if rec.name in rec.data:
+                try:
+                    data = xmlnmap.change_http_git(rec.data[rec.name])
+                except Exception:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id,
+                                         exc_info=True)
+                    failed.add(rec.id)
+                else:
+                    if data:
+                        self.db.execute(
+                            update(self.tables.script)
+                            .where(and_(self.tables.script.port == rec.port,
+                                        self.tables.script.name == rec.name))
+                            .values(data={rec.name: data})
+                        )
+        self.db.execute(
+            update(self.tables.scan)
+            .where(and_(self.tables.scan.schema_version == 14,
+                        self.tables.scan.id.notin_(failed)))
+            .values(schema_version=15)
+        )
+        return len(failed)
+
     def count(self, flt, **_):
         return self.db.execute(
             flt.query(select([func.count()]))
