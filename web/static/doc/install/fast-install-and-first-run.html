@@ -210,17 +210,6 @@ $ python setup.py build
 $ sudo python setup.py install
 </pre></div>
 </div>
-<p>NB: if you are running Debian stable, the dokuwiki package has been
-removed (no idea why: it exists in both oldstable and testing). Run the
-following commands (or similar) if you cannot install dokuwiki, and try
-again:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ echo &#39;APT::Default-Release &quot;stable&quot;;&#39; | \
-&gt;   sudo tee /etc/apt/apt.conf.d/99defaultrelease
-$ echo &#39;deb http://deb.debian.org/debian testing main&#39; | \
-&gt;   sudo tee -a /etc/apt/sources.list
-$ sudo apt-get update
-</pre></div>
-</div>
 </div>
 <div class="section" id="setup">
 <h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline">¶</a></h2>
