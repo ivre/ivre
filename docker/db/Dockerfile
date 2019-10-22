@@ -14,23 +14,26 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-FROM debian:jessie
+FROM debian:buster
 LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
 # MongoDB
-# http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 68818C72E52529D4
-RUN echo "deb http://repo.mongodb.org/apt/debian jessie/mongodb-org/4.0 main" | tee /etc/apt/sources.list.d/mongodb-org-4.0.list
-RUN apt-get -q update && apt-get -qy install mongodb-org
+# https://docs.mongodb.com/manual/tutorial/install-mongodb-on-debian/
+RUN apt-get -q update && apt-get -qy install --no-install-recommends gnupg && \
+    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 4B7C549A058F8B6B && \
+    echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.2 main" | tee /etc/apt/sources.list.d/mongodb-org-4.2.list && \
+    apt-get -q update && apt-get -qy install --no-install-recommends mongodb-org && \
+    apt-get -qy --purge autoremove gnupg && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Data & log directories
 VOLUME /var/lib/mongodb
 VOLUME /var/log/mongodb
 
 # Accept remote connections to DBs
-RUN sed -i 's/^  bindIp:/  bindIp: 0.0.0.0/' /etc/mongod.conf
+RUN sed -i 's/^  bindIp:.*/  bindIp: 0.0.0.0/' /etc/mongod.conf
 
 # MongoDB instance
 EXPOSE 27017
