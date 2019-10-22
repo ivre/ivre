@@ -739,6 +739,8 @@ class SQLDBActive(SQLDB, DBActive):
             failed += self._migrate_schema_12_13()
         if (version or 0) < 14:
             failed += self._migrate_schema_13_14()
+        if (version or 0) < 15:
+            failed += self._migrate_schema_14_15()
         return failed
 
     def _migrate_schema_8_9(self):
@@ -1212,6 +1214,10 @@ instead of keys.
                                    else (cls.tables.scan.id == oid[0]))
         return cls.base_filter(main=(cls.tables.scan.id.notin_(oid[0])) if neg
                                else (cls.tables.scan.id.in_(oid[0])))
+
+    @classmethod
+    def searchversion(cls, version):
+        return cls.base_filter(main=cls.tables.scan.schema_version == version)
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):

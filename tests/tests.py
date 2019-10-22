@@ -852,6 +852,13 @@ purposes to feed Elasticsearch view.
                                                   ivre.db.db.nmap.flt_empty,
                                                   [], None)
 
+        # Check schema version
+        self.check_count_value_api(
+            hosts_count,
+            ivre.db.db.nmap.searchversion(ivre.xmlnmap.SCHEMA_VERSION),
+            database=ivre.db.db.nmap,
+        )
+
         self.check_count_value_api(0, ivre.db.db.nmap.searchnonexistent(),
                                    database=ivre.db.db.nmap)
 
@@ -3845,6 +3852,13 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_domain_1", "domains:1")
         self.check_view_top_value("view_top_hop", "hop")
         self.check_view_top_value("view_top_hop_10+", "hop>10")
+
+        # Check schema version
+        self.check_count_value_api(
+            view_count,
+            ivre.db.db.view.searchversion(ivre.xmlnmap.SCHEMA_VERSION),
+            database=ivre.db.db.view,
+        )
 
         # Check script search filter
         count = self.check_view_count_value(
