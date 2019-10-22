@@ -81,9 +81,9 @@ dependency makes it harder for users to install IVRE.
 We try to comply with the some guidelines for new code:
 
 -   The code **must** be compatible with Python 2.6, 2.7, 3.4, 3.5,
-    3.6 and 3.7. The [future module](http://python-future.org/) can
-    help (IVRE already depends on it, so feel free to use it in your
-    code).
+    3.6, 3.7 and 3.8. The [future module](http://python-future.org/)
+    can help (IVRE already depends on it, so feel free to use it in
+    your code).
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
 -   [Pylint](http://www.pylint.org/) can help you write good Python
