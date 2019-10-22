@@ -972,6 +972,7 @@ class MongoDBActive(MongoDB, DBActive):
                 11: (12, self.migrate_schema_hosts_11_12),
                 12: (13, self.migrate_schema_hosts_12_13),
                 13: (14, self.migrate_schema_hosts_13_14),
+                14: (15, self.migrate_schema_hosts_14_15),
             },
         ]
 

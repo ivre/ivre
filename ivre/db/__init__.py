@@ -653,6 +653,7 @@ class DBActive(DB):
                 11: (12, self.__migrate_schema_hosts_11_12),
                 12: (13, self.__migrate_schema_hosts_12_13),
                 13: (14, self.__migrate_schema_hosts_13_14),
+                14: (15, self.__migrate_schema_hosts_14_15),
             },
         }
         self.argparser.add_argument(
