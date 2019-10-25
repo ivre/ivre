@@ -1276,6 +1276,89 @@ def find_ike_vendor_id(vendorid):
     return None
 
 
+_WIRESHARK_MANUF_DB_LAST_ADDR = []
+_WIRESHARK_MANUF_DB_VALUES = []
+_WIRESHARK_MANUF_DB_POPULATED = False
+
+
+def _mac2int(value):
+    """Converts a MAC address to an integer"""
+    return sum(
+        v << (40 - 8 * i)
+        for i, v in enumerate(int(v, 16) for v in value.split(':'))
+    )
+
+
+def _int2macmask(mask):
+    """Converts the number of bits set to 1 in a mask to the 48-bit
+    integer usable as a mask.
+
+    """
+    return (0xffffffffffff000000000000 >> mask) & 0xffffffffffff
+
+
+def _read_wireshark_manuf_db():
+    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, \
+        _WIRESHARK_MANUF_DB_POPULATED
+
+    def parse_line(line):
+        line = line.split('#', 1)[0]
+        if not line:
+            return
+        line = line.strip()
+        try:
+            addr, manuf, comment = line.split('\t', 2)
+        except ValueError:
+            try:
+                addr, manuf = line.split('\t', 1)
+            except ValueError:
+                LOGGER.warning('Cannot parse a line from Wireshark '
+                               'manufacturer database [%r].', line,
+                               exc_info=True)
+                print("XXX", repr(line))
+                return
+            comment = None
+        if '/' in addr:
+            addr, mask = addr.split('/')
+            mask = int(mask)
+        else:
+            mask = (addr.count(':') + 1) * 8
+        addr += ':00' * (5 - addr.count(':'))
+        addr = _mac2int(addr)
+        if _WIRESHARK_MANUF_DB_LAST_ADDR and \
+           _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr - 1:
+            _WIRESHARK_MANUF_DB_LAST_ADDR.append(addr - 1)
+            _WIRESHARK_MANUF_DB_VALUES.append(None)
+        _WIRESHARK_MANUF_DB_LAST_ADDR.append(
+            (addr & _int2macmask(mask)) + 2 ** (48 - mask) - 1
+        )
+        _WIRESHARK_MANUF_DB_VALUES.append(
+            (manuf, comment)
+        )
+    try:
+        with open(os.path.join(config.WIRESHARK_SHARE_PATH, 'manuf'),
+                  'r') as fdesc:
+            for line in fdesc:
+                parse_line(line[:-1])
+    except (AttributeError, TypeError, IOError):
+        LOGGER.warning('Cannot read Wireshark manufacturer database.',
+                       exc_info=True)
+    _WIRESHARK_MANUF_DB_POPULATED = True
+
+
+def get_wireshark_manuf_db():
+    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, \
+        _WIRESHARK_MANUF_DB_POPULATED
+    if not _WIRESHARK_MANUF_DB_POPULATED:
+        _read_wireshark_manuf_db()
+    return _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES
+
+
+def mac2manuf(mac):
+    last_addr, values = get_wireshark_manuf_db()
+    return values[bisect_left(last_addr, _mac2int(mac))]
+
+
 # Nmap (and Bro) encoding & decoding
 
 

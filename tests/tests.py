@@ -3384,6 +3384,15 @@ purposes to feed Elasticsearch view.
                 self.assertTrue(match)
                 self.assertEqual(len(match.groups()), 2)
                 self.assertEqual(match.groups(), tuple(naddr.split('/')))
+        for mac, res in [
+                ("00:00:00:00:00:00",
+                 ('00:00:00',
+                  'Officially Xerox, but 0:0:0:0:0:0 is more common')),
+                ('00:00:01:00:00:00', ('Xerox', 'Xerox Corporation')),
+                ('00:01:01:00:00:00', ('Private', None)),
+                ('01:00:00:00:00:00', None),
+        ]:
+            self.assertEqual(ivre.utils.mac2manuf(mac), res)
 
     def test_scans(self):
         "Run scans, with and without agents"
