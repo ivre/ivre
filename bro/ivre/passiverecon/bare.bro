@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,18 +24,18 @@ export {
 
 event bro_init() {
     # Let's disable standards outputs
+    Log::disable_stream(DNS::LOG);
+    Log::disable_stream(FTP::LOG);
     Log::disable_stream(HTTP::LOG);
     Log::disable_stream(SSH::LOG);
     Log::disable_stream(SSL::LOG);
-    Log::disable_stream(X509::LOG);
-    Log::disable_stream(Tunnel::LOG);
     Log::disable_stream(Conn::LOG);
-    Log::disable_stream(DNS::LOG);
-    Log::disable_stream(FTP::LOG);
-    Log::disable_stream(Weird::LOG);
-    Log::disable_stream(Notice::LOG);
     Log::disable_stream(Files::LOG);
+    Log::disable_stream(Notice::LOG);
     Log::disable_stream(Reporter::LOG);
+    Log::disable_stream(Tunnel::LOG);
+    Log::disable_stream(Weird::LOG);
+    Log::disable_stream(X509::LOG);
 
     local filter = Log::get_filter(PassiveRecon::LOG, "default");
     filter$path = getenv("LOG_PATH") == "" ? "/dev/stdout" : getenv("LOG_PATH");

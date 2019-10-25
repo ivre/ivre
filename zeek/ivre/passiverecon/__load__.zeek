@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -52,14 +52,14 @@ export {
         POP_SERVER,
         TCP_CLIENT_BANNER,
         TCP_SERVER_BANNER,
-        P0F,
+        MAC_ADDRESS,
     };
 
     type Info: record {
         ## The time at which the software was detected.
         ts: time &log;
         ## The connection uid
-        uid: string &log;
+        uid: string &log &optional;
         ## The IP address detected running the software.
         host: addr &log &optional;
         ## The service port
@@ -440,4 +440,32 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
                              $recon_type=TCP_SERVER_BANNER,
                              $value=contents]);
     }
+}
+
+event arp_request(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: addr, THA: string) {
+    Log::write(LOG, [$ts=network_time(),
+                     $host=SPA,
+                     $recon_type=MAC_ADDRESS,
+                     $source="ARP_REQUEST_SRC",
+                     $value=SHA]);
+    if (THA != "00:00:00:00:00:00") {
+        Log::write(LOG, [$ts=network_time(),
+                         $host=TPA,
+                         $recon_type=MAC_ADDRESS,
+                         $source="ARP_REQUEST_DST",
+                         $value=THA]);
+    }
+}
+
+event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: addr, THA: string) {
+    Log::write(LOG, [$ts=network_time(),
+                     $host=SPA,
+                     $recon_type=MAC_ADDRESS,
+                     $source="ARP_REPLY_SRC",
+                     $value=SHA]);
+    Log::write(LOG, [$ts=network_time(),
+                     $host=TPA,
+                     $recon_type=MAC_ADDRESS,
+                     $source="ARP_REPLY_DST",
+                     $value=THA]);
 }
