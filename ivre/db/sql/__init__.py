@@ -2267,6 +2267,30 @@ passive table."""
         return PassiveFilter(main=cnd)
 
     @classmethod
+    def searchmac(cls, mac=None, neg=False):
+        if mac is None:
+            if neg:
+                return PassiveFilter(
+                    main=cls.tables.passive.recontype != 'MAC_ADDRESS'
+                )
+            return PassiveFilter(
+                main=cls.tables.passive.recontype == 'MAC_ADDRESS'
+            )
+        if isinstance(mac, utils.REGEXP_T):
+            cnd = cls.tables.passive.value.op(
+                '~*' if (mac.flags & re.IGNORECASE) else '~'
+            )(mac.pattern)
+            if neg:
+                cnd = not_(cnd)
+        elif neg:
+            cnd = cls.tables.passive.value != mac
+        else:
+            cnd = cls.tables.passive.value == mac
+        return PassiveFilter(
+            main=(cls.tables.passive.recontype == 'MAC_ADDRESS') & cnd
+        )
+
+    @classmethod
     def searchuseragent(cls, useragent=None, neg=False):
         if neg:
             raise ValueError("searchuseragent([...], neg=True) is not "

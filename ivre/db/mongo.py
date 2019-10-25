@@ -4298,6 +4298,21 @@ setting values according to the keyword arguments.
     def searchsvchostname(hostname):
         return {'infos.service_hostname': hostname}
 
+    @classmethod
+    def searchmac(cls, mac=None, neg=False):
+        res = {'recontype': 'MAC_ADDRESS'}
+        if mac is not None:
+            if neg:
+                if isinstance(mac, utils.REGEXP_T):
+                    res['value'] = {"$not": mac}
+                else:
+                    res['value'] = {"$ne": mac}
+            else:
+                res['value'] = mac
+        elif neg:
+            return {'recontype': {'$not': 'MAC_ADDRESS'}}
+        return res
+
     @staticmethod
     def searchuseragent(useragent=None, neg=False):
         if neg:

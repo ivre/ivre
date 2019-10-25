@@ -110,6 +110,7 @@ ivre/tools/ipcalc.py
 ivre/tools/ipdata.py
 ivre/tools/iphost.py
 ivre/tools/ipinfo.py
+ivre/tools/macinfo.py
 ivre/tools/p0f2db.py
 ivre/tools/passiverecon2db.py
 ivre/tools/passivereconworker.py

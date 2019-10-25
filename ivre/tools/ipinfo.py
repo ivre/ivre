@@ -17,6 +17,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
+'Access and query the passive database.'
+
+
 from __future__ import print_function
 import functools
 import json
@@ -245,12 +248,12 @@ def main():
     global baseflt
     if USING_ARGPARSE:
         parser = argparse.ArgumentParser(
-            description='Access and query the passive database.',
+            description=__doc__,
             parents=[db.passive.argparser, utils.CLI_ARGPARSER],
         )
     else:
         parser = optparse.OptionParser(
-            description='Access and query the passive database.',
+            description=__doc__,
         )
         for args, kargs in chain(db.passive.argparser.args,
                                  utils.CLI_ARGPARSER):
