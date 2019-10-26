@@ -1615,6 +1615,57 @@ purposes to feed Elasticsearch view.
         self.assertGreater(total_count, 0)
         self.check_value("passive_count", total_count)
 
+        # MAC addresses
+        ret, out, err = RUN(["ivre", "macinfo", "--count"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        out = int(out.strip())
+        self.assertGreater(out, 0)
+        self.check_value("passive_count_mac", out)
+        ret, out, err = RUN(["ivre", "macinfo"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        out = out.splitlines()
+        self.check_value("passive_count_mac", len(out))
+        out = out[0].split()
+        self.assertEqual(out[1], b'at')
+        self.assertEqual(out[3], b'on')
+        ip_addr = out[0]
+        mac_addr = out[2]
+        ret, out, err = RUN(["ivre", "macinfo", "-r"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.check_value("passive_count_mac", len(out.splitlines()))
+        ret, out, err = RUN(["ivre", "macinfo", ip_addr.decode()])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertTrue(ip_addr in out)
+        self.assertTrue(mac_addr in out)
+        ret, out, err = RUN(["ivre", "macinfo", mac_addr.decode()])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertTrue(ip_addr in out)
+        self.assertTrue(mac_addr in out)
+        ret, out, err = RUN(["ivre", "macinfo", ip_addr.decode(),
+                             mac_addr.decode()])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertTrue(ip_addr in out)
+        self.assertTrue(mac_addr in out)
+        ret, out, err = RUN([
+            "ivre", "macinfo", "%s/24" % ip_addr.decode(),
+            '/^%s:/' % ':'.join(mac_addr.decode().split(':', 4)[:4])
+        ])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertTrue(ip_addr in out)
+        self.assertTrue(mac_addr in out)
+        # Multicast addresses should not be seen as belonging to hosts
+        ret, out, err = RUN(["ivre", "macinfo", "/^01:/"])
+        self.assertEqual(ret, 0)
+        self.assertTrue(not err)
+        self.assertTrue(not out)
+
         # Filters
         addr = ivre.db.db.passive.get_one(
             ivre.db.db.passive.searchnet('0.0.0.0/0')
@@ -3730,7 +3781,7 @@ purposes to feed Elasticsearch view.
         view_count = int(out)
         self.assertGreater(view_count, 0)
         self.check_value("view_count_total", view_count)
-        view_count = self.check_view_count_value("view_get_count",
+        view_count = self.check_view_count_value("view_count_total",
                                                  ivre.db.db.view.flt_empty,
                                                  [], None)
         ret, out, err = RUN(["ivre", "view"])
@@ -4232,7 +4283,7 @@ purposes to feed Elasticsearch view.
         res, out, err = RUN(["ivre", "view", "--count"], env=newenv)
         self.assertEqual(res, 0)
         self.assertTrue(not err)
-        self.check_value("view_get_count", int(out))
+        self.check_value("view_count_total", int(out))
 
         addr = next(ivre.db.db.view.get(
             ivre.db.db.view.flt_empty

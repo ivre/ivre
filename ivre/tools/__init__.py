@@ -32,6 +32,7 @@ __all__ = set([
     'ipdata',
     'ipinfo',
     'iphost',
+    'macinfo',
     'p0f2db',
     'passiverecon2db',
     'passivereconworker',
