@@ -16,22 +16,38 @@
 
 version: '3'
 services:
-  ivredb:
+  db:
+    container_name: ivre_db
     image: mongo
     volumes:
-      - ./var_lib_mongodb:/var/lib/mongodb
-      - ./var_log_mongodb:/var/log/mongodb
+      - ./mongodb:/data/db
+      - ./mongoconfigdb:/data/configdb
+      - ./ivre.conf:/etc/ivre.conf:ro
     restart: always
-  ivreweb:
+    networks:
+      - ivrenet
+
+  web:
+    container_name: ivre_web
     image: ivre/web
     restart: always
     ports:
       - "80:80"
     depends_on:
       - ivredb
-  ivreclient:
+    networks:
+      - ivrenet
+
+  client:
+    container_name: ivre_client
     image: ivre/client
     volumes:
       - ./ivre-share:/ivre-share
     depends_on:
       - ivredb
+    networks:
+      - ivrenet
+
+networks:
+  ivrenet:
+    driver: bridge
