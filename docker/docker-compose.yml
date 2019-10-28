@@ -22,7 +22,6 @@ services:
     volumes:
       - ./mongodb:/data/db
       - ./mongoconfigdb:/data/configdb
-      - ./ivre.conf:/etc/ivre.conf:ro
     restart: always
     networks:
       - ivrenet
@@ -33,6 +32,8 @@ services:
     restart: always
     ports:
       - "80:80"
+    volumes:
+      - ./ivre.conf:/etc/ivre.conf:ro
     depends_on:
       - ivredb
     networks:
