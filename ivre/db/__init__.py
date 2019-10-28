@@ -1752,6 +1752,14 @@ class DBView(DBActive):
                                    rec2.get("hostnames", [])))
         rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
                             for h, d in viewitems(hostnames)]
+        addresses = rec1.get('addresses', {})
+        for atype, addrs in viewitems(rec2.get('addresses', {})):
+            cur_addrs = addresses.setdefault(atype, [])
+            for addr in addrs:
+                if addr not in cur_addrs:
+                    cur_addrs.append(addr)
+        if addresses:
+            rec["addresses"] = addresses
         ports = dict(((port.get("protocol"), port["port"]), port.copy())
                      for port in rec2.get("ports", []))
         for port in rec1.get("ports", []):
