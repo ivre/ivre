@@ -1325,10 +1325,18 @@ def _read_wireshark_manuf_db():
             mask = (addr.count(':') + 1) * 8
         addr += ':00' * (5 - addr.count(':'))
         addr = _mac2int(addr)
-        if _WIRESHARK_MANUF_DB_LAST_ADDR and \
-           _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr - 1:
+        if (
+                _WIRESHARK_MANUF_DB_LAST_ADDR and
+                _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr - 1
+        ):
             _WIRESHARK_MANUF_DB_LAST_ADDR.append(addr - 1)
             _WIRESHARK_MANUF_DB_VALUES.append(None)
+        elif (
+                _WIRESHARK_MANUF_DB_VALUES and
+                _WIRESHARK_MANUF_DB_VALUES[-1] == (manuf, comment)
+        ):
+            _WIRESHARK_MANUF_DB_LAST_ADDR.pop()
+            _WIRESHARK_MANUF_DB_VALUES.pop()
         _WIRESHARK_MANUF_DB_LAST_ADDR.append(
             (addr & _int2macmask(mask)) + 2 ** (48 - mask) - 1
         )
