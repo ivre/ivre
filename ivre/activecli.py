@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -265,10 +265,25 @@ def _display_xml_host(h, out=sys.stdout):
         out.write('/>')
     out.write('\n')
     if 'addr' in h:
-        out.write('<address addr="%s" addrtype="ipv4"/>\n' % h['addr'])
-    for t in h.get('addresses', []):
-        for a in h['addresses'][t]:
-            out.write('<address addr="%s" addrtype="%s"/>\n' % (a, t))
+        out.write('<address addr="%s" addrtype="ipv%d"/>\n' % (
+            h['addr'],
+            6 if ':' in h['addr'] else 4,
+        ))
+    for atype, addrs in viewitems(h.get('addresses', {})):
+        for addr in addrs:
+            extra = ""
+            if atype == "mac":
+                manuf = utils.mac2manuf(addr)
+                # if manuf:
+                #     if len(manuf) > 1 and manuf[1]:
+                #         manuf = manuf[1]
+                #     else:
+                #         manuf = manuf[0]
+                #     extra = ' vendor=%s' % saxutils.quoteattr(manuf[0])
+                if manuf and manuf[0]:
+                    extra = ' vendor=%s' % saxutils.quoteattr(manuf[0])
+            out.write('<address addr="%s" addrtype="%s"%s/>\n' % (addr, atype,
+                                                                  extra))
     if 'hostnames' in h:
         out.write('<hostnames>\n')
         for hostname in h['hostnames']:
@@ -341,9 +356,7 @@ def _display_xml_host(h, out=sys.stdout):
                     saxutils.quoteattr(str(hop['ttl']))
                 ))
             if 'ipaddr' in hop:
-                out.write(' ipaddr=%s' % (
-                    saxutils.quoteattr(utils.int2ip(hop['ipaddr']))
-                ))
+                out.write(' ipaddr=%s' % (saxutils.quoteattr(hop['ipaddr'])))
             if 'rtt' in hop:
                 out.write(' rtt=%s' % (
                     saxutils.quoteattr('%.2f' % hop['rtt']
