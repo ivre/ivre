@@ -31,6 +31,11 @@
 <!-- Next div is only displayed in full mode-->
 <div class="full"
      ng-if="host.fulldisplay">
+  <!-- MAC addresses -->
+  <div ng-repeat="mac in ::host.addresses.mac"
+       ng-if="::(host.addresses && host.addresses.mac)">
+    MAC Address: {{mac.addr}}<span ng-if="::mac.manuf"> ({{mac.manuf}})</span>
+  </div>
   <!-- extraports -->
   <dd ng-repeat="(epstatus, epvalues) in ::host.extraports">
     {{::epvalues["total"]}} port{{::epvalues.total > 1 && "s" || ""}}

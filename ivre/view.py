@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -234,6 +234,11 @@ def _extract_passive_SSL_CLIENT(rec):
     return {'ports': [port]}
 
 
+def _extract_passive_MAC_ADDRESS(rec):
+    """Handle MAC addresses"""
+    return {"addresses": {"mac": [rec["value"]]}}
+
+
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
     'HTTP_CLIENT_HEADER': _extract_passive_HTTP_CLIENT_HEADER,
@@ -246,6 +251,7 @@ _EXTRACTORS = {
     'SSH_SERVER': _extract_passive_TCP_SERVER_BANNER,
     'SSH_SERVER_HOSTKEY': _extract_passive_SSH_SERVER_HOSTKEY,
     'TCP_SERVER_BANNER': _extract_passive_TCP_SERVER_BANNER,
+    'MAC_ADDRESS': _extract_passive_MAC_ADDRESS,
 }
 
 

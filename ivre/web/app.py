@@ -464,6 +464,16 @@ def get_nmap(subdb):
                     trace['hops'].sort(key=lambda x: x['ttl'])
                     for hop in trace['hops']:
                         hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
+        addresses = rec.get('addresses', {}).get('mac')
+        if addresses:
+            newaddresses = []
+            for addr in addresses:
+                manuf = utils.mac2manuf(addr)
+                if manuf and manuf[0]:
+                    newaddresses.append({'addr': addr, 'manuf': manuf[0]})
+                else:
+                    newaddresses.append({'addr': addr})
+            rec['addresses']['mac'] = newaddresses
         yield "%s\t%s" % ('' if i == 0 else ',\n',
                           json.dumps(rec, default=utils.serialize))
         check = subdb.cmp_schema_version_host(rec)
