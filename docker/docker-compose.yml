@@ -18,7 +18,7 @@ version: '3'
 services:
   db:
     container_name: ivre_db
-    image: mongo
+    image: mongo:4.2
     volumes:
       - ./mongodb:/data/db
       - ./mongoconfigdb:/data/configdb
