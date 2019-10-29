@@ -17,13 +17,15 @@
 version: '3'
 services:
   ivredb:
-    image: mongo
+    image: ivre/db
+    container_name: ivredb
     volumes:
       - ./var_lib_mongodb:/var/lib/mongodb
       - ./var_log_mongodb:/var/log/mongodb
     restart: always
   ivreweb:
     image: ivre/web
+    container_name: ivreweb
     restart: always
     ports:
       - "80:80"
@@ -31,6 +33,7 @@ services:
       - ivredb
   ivreclient:
     image: ivre/client
+    container_name: ivreclient
     volumes:
       - ./ivre-share:/ivre-share
     depends_on:
