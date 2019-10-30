@@ -2212,6 +2212,28 @@ purposes to feed Elasticsearch view.
         count = sum(1 for _ in out.splitlines())
         self.check_value("passive_iphost_count_com", count)
 
+        req = Request('http://%s:%d/cgi/passivedns/com?subdomains' % (
+            HTTPD_HOSTNAME,
+            HTTPD_PORT,
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEqual(udesc.getcode(), 200)
+        web_count = sum(1 for _ in udesc)
+
+        req = Request('http://%s:%d/cgi/passivedns/com?subdomains&reverse' % (
+            HTTPD_HOSTNAME,
+            HTTPD_PORT,
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEqual(udesc.getcode(), 200)
+        web_count += sum(1 for _ in udesc)
+
+        self.assertEqual(web_count, count)
+
         for tail in ["tail", "tailnew"]:
             ret, out, _ = RUN(["ivre", "ipinfo", "--%s" % tail, "1"])
             self.assertEqual(sum(1 for line in out.splitlines()

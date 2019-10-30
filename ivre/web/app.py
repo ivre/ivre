@@ -684,3 +684,81 @@ def get_ipdata(addr):
     if callback is None:
         return result + '\n'
     return "%s(%s);\n" % (callback, result)
+
+
+#
+# Passive (/passivedns/)
+#
+
+@application.get('/passivedns/<query>')
+@check_referer
+def get_passivedns(query):
+    """Route to query passive DNS data, compatible with the Common Output
+Format, as published in
+<https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/>
+and implemented in CIRCL's PyPDNS (<https://github.com/CIRCL/PyPDNS>).
+
+Unlike other Web APIs in IVRE, the results are returned in JSONL
+format (one record per line, each record as a JSON document).
+
+It accepts two extra parameters, not supported (yet?) in PyPDNS:
+
+  - `subdomains`: if this parameter exists and a domain name is
+    queried, records for any subdomains will also be returned.
+
+  - `reverse`: if this parameter exists and a domain name is queried,
+    records pointing to the queried domain (CNAME, NS, MX) will be
+    returned.
+
+It also returns additional information:
+
+  - "sensor": the "sensor" field of the record; this is useful to know
+    where this answer has been seen.
+
+  - "source": the IP address of the DNS server sending the answer.
+
+About passive DNS:
+  - <https://www.circl.lu/services/passive-dns/>
+
+    :param str addr: IP address or domains name to query
+    :query bool subdomains: query subdomains (domain name only)
+    :query bool reverse: use a reverse query (domain name only)
+    :query str type: specify the DNS query type
+    :status 200: no error
+    :status 400: invalid referer
+    :>json object: the result values (JSONL format: one JSON result per line)
+
+    """
+    subdomains = request.params.get("subdomains") is not None
+    reverse = request.params.get("reverse") is not None
+    utils.LOGGER.debug("passivedns: query: %r, subdomains: %r", query,
+                       subdomains)
+
+    if utils.IPADDR.search(query) or query.isdigit():
+        flt = db.passive.flt_and(
+            db.passive.searchdns(dnstype=request.params.get("type")),
+            db.passive.searchhost(query),
+        )
+    else:
+        flt = db.passive.searchdns(name=query,
+                                   dnstype=request.params.get("type"),
+                                   subdomains=subdomains,
+                                   reverse=reverse)
+    for rec in db.passive.get(flt):
+        for k in ['_id', 'infos', 'recontype', 'schema_version']:
+            try:
+                del rec[k]
+            except KeyError:
+                pass
+        rec['rrtype'], rec['source'], _ = rec['source'].split('-')
+        rec['rrname'] = rec.pop('value')
+        try:
+            rec['rdata'] = rec.pop('addr')
+        except KeyError:
+            rec['rdata'] = rec.pop('targetval')
+        for k in ['first', 'last']:
+            try:
+                rec['time_%s' % k] = rec.pop('%sseen' % k)
+            except KeyError:
+                pass
+        yield '%s\n' % json.dumps(rec, default=utils.serialize)

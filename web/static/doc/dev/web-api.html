@@ -420,6 +420,65 @@ timestamps</p></li>
 </dl>
 </dd></dl>
 
+<dl class="get">
+<dt id="get--passivedns-(query)">
+<code class="sig-name descname">GET </code><code class="sig-name descname">/passivedns/</code><span class="sig-paren">(</span><em class="sig-param">query</em><span class="sig-paren">)</span><a class="headerlink" href="#get--passivedns-(query)" title="Permalink to this definition">¶</a></dt>
+<dd><p>Route to query passive DNS data, compatible with the Common Output
+Format, as published in
+&lt;<a class="reference external" href="https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/">https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/</a>&gt;
+and implemented in CIRCL’s PyPDNS (&lt;<a class="reference external" href="https://github.com/CIRCL/PyPDNS">https://github.com/CIRCL/PyPDNS</a>&gt;).</p>
+<p>Unlike other Web APIs in IVRE, the results are returned in JSONL
+format (one record per line, each record as a JSON document).</p>
+<p>It accepts two extra parameters, not supported (yet?) in PyPDNS:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><cite>subdomains</cite>: if this parameter exists and a domain name is
+queried, records for any subdomains will also be returned.</p></li>
+<li><p><cite>reverse</cite>: if this parameter exists and a domain name is queried,
+records pointing to the queried domain (CNAME, NS, MX) will be
+returned.</p></li>
+</ul>
+</div></blockquote>
+<p>It also returns additional information:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>“sensor”: the “sensor” field of the record; this is useful to know
+where this answer has been seen.</p></li>
+<li><p>“source”: the IP address of the DNS server sending the answer.</p></li>
+</ul>
+</div></blockquote>
+<dl class="simple">
+<dt>About passive DNS:</dt><dd><ul class="simple">
+<li><p>&lt;<a class="reference external" href="https://www.circl.lu/services/passive-dns/">https://www.circl.lu/services/passive-dns/</a>&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">param str addr</dt>
+<dd class="field-odd"><p>IP address or domains name to query</p>
+</dd>
+<dt class="field-even">query bool subdomains</dt>
+<dd class="field-even"><p>query subdomains (domain name only)</p>
+</dd>
+<dt class="field-odd">query bool reverse</dt>
+<dd class="field-odd"><p>use a reverse query (domain name only)</p>
+</dd>
+<dt class="field-even">query str type</dt>
+<dd class="field-even"><p>specify the DNS query type</p>
+</dd>
+<dt class="field-odd">status 200</dt>
+<dd class="field-odd"><p>no error</p>
+</dd>
+<dt class="field-even">status 400</dt>
+<dd class="field-even"><p>invalid referer</p>
+</dd>
+<dt class="field-odd">&gt;json object</dt>
+<dd class="field-odd"><p>the result values (JSONL format: one JSON result per line)</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 
 
