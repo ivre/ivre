@@ -1516,6 +1516,8 @@ class DBNmap(DBActive):
             content_handler.callback = callback
             parser.setContentHandler(content_handler)
             parser.setEntityResolver(xmlnmap.NoExtResolver())
+            parser.setFeature(xml.sax.handler.feature_external_ges, 0)
+            parser.setFeature(xml.sax.handler.feature_external_pes, 0)
             parser.parse(utils.open_file(fname))
             if self.output_function is not None:
                 self.output_function(content_handler._db, out=self.output)
