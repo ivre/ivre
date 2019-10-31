@@ -51,7 +51,7 @@ RUN ln -s /etc/init.d/php?*-fpm /etc/init.d/php-fpm
 
 EXPOSE 80
 CMD service php-fpm start && \
-    ln -s /var/run/php/php?*-fpm.sock /var/run/php/php-fpm.sock && \
+    (ln -s /var/run/php/php?*-fpm.sock /var/run/php/php-fpm.sock || true ) && \
     service fcgiwrap start && \
     for d in "" /local; do if [ -f "/usr$d/share/ivre/web/wsgi/app.wsgi" ]; \
       then APP="/usr$d/share/ivre/web/wsgi/app.wsgi"; break; fi; done && \
