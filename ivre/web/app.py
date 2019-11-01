@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -693,13 +693,11 @@ def get_ipdata(addr):
 @application.get('/passivedns/<query>')
 @check_referer
 def get_passivedns(query):
-    """Route to query passive DNS data, compatible with the Common Output
-Format, as published in
-<https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/>
-and implemented in CIRCL's PyPDNS (<https://github.com/CIRCL/PyPDNS>).
-
-Unlike other Web APIs in IVRE, the results are returned in JSONL
-format (one record per line, each record as a JSON document).
+    """Query passive DNS data. This API is compatible with the `Common
+Output Format
+<https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/>`_
+and implemented in CIRCL's `PyPDNS
+<https://github.com/CIRCL/PyPDNS>`_.
 
 It accepts two extra parameters, not supported (yet?) in PyPDNS:
 
@@ -717,16 +715,13 @@ It also returns additional information:
 
   - "source": the IP address of the DNS server sending the answer.
 
-About passive DNS:
-  - <https://www.circl.lu/services/passive-dns/>
-
-    :param str addr: IP address or domains name to query
-    :query bool subdomains: query subdomains (domain name only)
-    :query bool reverse: use a reverse query (domain name only)
-    :query str type: specify the DNS query type
-    :status 200: no error
-    :status 400: invalid referer
-    :>json object: the result values (JSONL format: one JSON result per line)
+:param str query: IP address or domains name to query
+:query bool subdomains: query subdomains (domain name only)
+:query bool reverse: use a reverse query (domain name only)
+:query str type: specify the DNS query type
+:status 200: no error
+:status 400: invalid referer
+:>json object: the result values (JSONL format: one JSON result per line)
 
     """
     subdomains = request.params.get("subdomains") is not None
