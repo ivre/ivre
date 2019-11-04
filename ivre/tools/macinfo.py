@@ -94,7 +94,7 @@ def main():
     if flts[1]:
         flt = db.passive.flt_and(flt, db.passive.flt_or(*flts[1]))
     if args.sensor is not None:
-        flt = db.passive.flt_and(flt, args.sensor)
+        flt = db.passive.flt_and(flt, db.passive.searchsensor(args.sensor))
     if args.count:
         print(db.passive.count(flt))
         return
