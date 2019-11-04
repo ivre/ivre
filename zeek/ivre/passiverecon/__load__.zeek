@@ -448,7 +448,7 @@ event arp_request(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA:
                      $recon_type=MAC_ADDRESS,
                      $source="ARP_REQUEST_SRC",
                      $value=SHA]);
-    if (THA != "00:00:00:00:00:00") {
+    if (THA != "00:00:00:00:00:00" && THA != "ff:ff:ff:ff:ff:ff") {
         Log::write(LOG, [$ts=network_time(),
                          $host=TPA,
                          $recon_type=MAC_ADDRESS,
@@ -463,9 +463,11 @@ event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: a
                      $recon_type=MAC_ADDRESS,
                      $source="ARP_REPLY_SRC",
                      $value=SHA]);
-    Log::write(LOG, [$ts=network_time(),
-                     $host=TPA,
-                     $recon_type=MAC_ADDRESS,
-                     $source="ARP_REPLY_DST",
-                     $value=THA]);
+    if (THA != "ff:ff:ff:ff:ff:ff") {
+        Log::write(LOG, [$ts=network_time(),
+                         $host=TPA,
+                         $recon_type=MAC_ADDRESS,
+                         $source="ARP_REPLY_DST",
+                         $value=THA]);
+    }
 }
