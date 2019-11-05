@@ -1,4 +1,5 @@
 py2neo>=3,<4
 pycrypto
+pyOpenSSL
 future
 bottle

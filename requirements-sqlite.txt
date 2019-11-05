@@ -1,4 +1,5 @@
 pycrypto
 sqlalchemy
+pyOpenSSL
 future
 bottle

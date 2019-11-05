@@ -1217,16 +1217,6 @@ X509 "service" tag.
             info.setdefault('pubkey', {})[key] = info.pop(key)
         except KeyError:
             pass
-        else:
-            try:
-                info['pubkey'][key] = int(info['pubkey'][key])
-            except ValueError:
-                try:
-                    info['pubkey'][key] = str(int(re.sub('[ :\n]+', '',
-                                                         info['pubkey'][key]),
-                                                  16))
-                except ValueError:
-                    pass
     b64cert = data.decode()
     pem = []
     pem.append('-----BEGIN CERTIFICATE-----')

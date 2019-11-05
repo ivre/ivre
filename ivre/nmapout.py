@@ -98,7 +98,8 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
                               x['port']))
     for port in ports:
         if port.get('port') == -1:
-            record['scripts'] = port['scripts']
+            if 'scripts' in port:
+                record['scripts'] = port['scripts']
             continue
         if 'state_reason' in port:
             reason = " (%s)" % ', '.join(
