@@ -22,10 +22,14 @@
 
 import sys
 import os
+import warnings
 
 
-from ivre import utils, tools
-from ivre.tools.version import main as version
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
+from ivre import utils, tools  # noqa: E402
+from ivre.tools.version import main as version  # noqa: E402
 
 
 HELP_COMMANDS = ["-h", "--help", "h", "help"]

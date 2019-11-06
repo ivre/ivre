@@ -50,17 +50,24 @@ import socket
 import struct
 import subprocess
 import time
-try:
-    import PIL.Image
-    import PIL.ImageChops
-    USE_PIL = True
-except ImportError:
-    USE_PIL = False
 
 
 from builtins import bytes, int as int_types, object, range, str
 from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
+try:
+    from OpenSSL import crypto as osslc
+except ImportError:
+    USE_PYOPENSSL = False
+else:
+    USE_PYOPENSSL = True
+try:
+    import PIL.Image
+    import PIL.ImageChops
+except ImportError:
+    USE_PIL = False
+else:
+    USE_PIL = True
 
 
 from ivre import config
@@ -1731,7 +1738,7 @@ _CERTINFOS = [
         b'\n(?:.*\n)* *'
         b'Public Key Algorithm: (?P<pubkeyalgo>rsaEncryption)'
         b'\n *'
-        b'Public-Key: \\((?P<bits>[0-9]+) bit\\)'
+        b'(?:RSA )?Public-Key: \\((?P<bits>[0-9]+) bit\\)'
         b'\n *'
         b'Modulus: *\n(?P<modulus>[\\ 0-9a-f:\n]+)'
         b'\n *'
@@ -1751,7 +1758,7 @@ _CERTINFOS = [
 
 _CERTINFOS_SAN = re.compile(
     b'\n *'
-    b'X509v3 Subject Alternative Name: *\n *(?P<san>.*)'
+    b'X509v3 Subject Alternative Name: *(?:critical *)?\n *(?P<san>.*)'
     b'(?:\n|$)'
 )
 
@@ -1764,6 +1771,13 @@ _CERTKEYS = {
     'OU': 'organizationalUnitName',
     'ST': 'stateOrProvinceName',
     'SN': 'surname',
+}
+
+_CERTALGOS = {
+    6: 'rsaEncryption',
+    408: 'id-ecPublicKey',
+    116: 'id-dsa',
+    28: 'dhpublicnumber',
 }
 
 
@@ -1826,9 +1840,59 @@ def _parse_cert_subject(subject):
     yield "".join(curkey), "".join(curvalue)
 
 
-def get_cert_info(cert):
+def _parse_subject(subject):
+    """Parses an X509Name object (from pyOpenSSL module) and returns a
+text and a dict suitable for use by get_cert_info().
+
+    """
+    components = []
+    for k, v in subject.get_components():
+        k = printable(k).decode()
+        v = printable(v).decode()
+        k = _CERTKEYS.get(k, k)
+        components.append((k, v))
+    return ('/'.join('%s=%s' % kv for kv in components),
+            dict(components))
+
+
+def _get_cert_info_pyopenssl(cert):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
+
+This version relies on the pyOpenSSL module.
+
+    """
+    result = {}
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
+    cert = osslc.load_certificate(osslc.FILETYPE_ASN1, cert)
+    result['subject_text'], result['subject'] = _parse_subject(
+        cert.get_subject()
+    )
+    result['issuer_text'], result['issuer'] = _parse_subject(cert.get_issuer())
+    for i in range(cert.get_extension_count()):
+        ext = cert.get_extension(i)
+        if ext.get_short_name() == b'subjectAltName':
+            result['san'] = [x.strip() for x in str(ext).split(', ')]
+            break
+    pubkey = cert.get_pubkey()
+    pubkeytype = pubkey.type()
+    result['pubkeyalgo'] = _CERTALGOS.get(pubkeytype, pubkeytype)
+    result['bits'] = pubkey.bits()
+    if pubkeytype == 6:
+        # RSA
+        numbers = pubkey.to_cryptography_key().public_numbers()
+        result['exponent'] = numbers.e
+        result['modulus'] = str(numbers.n)
+    return result
+
+
+def _get_cert_info_openssl(cert):
+    """Extract info from a certificate (hash values, issuer, subject,
+    algorithm) in an handy-to-index-and-query form.
+
+This version parses the output of "openssl x509 -text" command line,
+and is a fallback when pyOpenSSL cannot be imported.
 
     """
     result = {}
@@ -1859,6 +1923,13 @@ def get_cert_info(cert):
                                      for key, value in fdata)
                 result['%s_text' % field] = '/'.join('%s=%s' % item
                                                      for item in fdata)
+            elif field in ['bits', 'exponent']:
+                result[field] = int(fdata)
+            elif field == 'modulus':
+                result[field] = str(int(fdata
+                                        .replace(' ', '')
+                                        .replace(':', '')
+                                        .replace('\n', ''), 16))
             else:
                 result[field] = fdata
     except Exception:
@@ -1871,6 +1942,12 @@ def get_cert_info(cert):
             LOGGER.info("Cannot parse subjectAltName in certificate %r", cert,
                         exc_info=True)
     return result
+
+
+if USE_PYOPENSSL:
+    get_cert_info = _get_cert_info_pyopenssl
+else:
+    get_cert_info = _get_cert_info_openssl
 
 
 def display_top(db, arg, flt, lmt):

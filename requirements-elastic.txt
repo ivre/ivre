@@ -1,5 +1,6 @@
 elasticsearch
 elasticsearch-dsl
 pycrypto
+pyOpenSSL
 future
 bottle

@@ -1,5 +1,6 @@
-pycrypto
 sqlalchemy
 psycopg2
+pycrypto
+pyOpenSSL
 future
 bottle
