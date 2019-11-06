@@ -43,8 +43,8 @@ Python
 ~~~~~~
   
 To install IVRE, you'll need `Python <http://www.python.org/>`__ 2
-(version 2.6 minimum, prefer 2.7) or 3 (version 3.3 minimum, prefer
-3.4 or newer), with the following modules:
+(version 2.6 minimum, prefer 2.7) or 3 (version 3.4 minimum), with the
+following modules:
 
 - `Bottle <https://bottlepy.org/>`_.
 - `Crypto <http://www.pycrypto.org/>`_.
@@ -109,7 +109,7 @@ under ``pkg/apache`` and ``pkg/nginx``. Also, the
 If you do not want (or cannot) to install a Web server, you can try
 IVRE's integrated server, suited for tests or tiny installations. Just
 run ``ivre httpd``!
-  
+
 IVRE
 ----
 

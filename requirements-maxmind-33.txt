@@ -1,6 +1,0 @@
-pycrypto
-# pyOpenSSL would install a more recent version
-cryptography<=1.9
-pyOpenSSL<=17.2.0
-future
-bottle

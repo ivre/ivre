@@ -19,5 +19,5 @@
 PIP_INSTALL_OPTIONS=""
 # We only run codespell and pylint once, with Python 3.7
 test "$TRAVIS_PYTHON_VERSION" = 3.7 && pip install -U $PIP_INSTALL_OPTIONS codespell pylint
-# flake8 won't run with Python 2.6 or 3.3
-test "$TRAVIS_PYTHON_VERSION" = 2.6 || test "$TRAVIS_PYTHON_VERSION" = 3.3 || pip install -U $PIP_INSTALL_OPTIONS flake8
+# flake8 won't run with Python 2.6
+test "$TRAVIS_PYTHON_VERSION" = 2.6 || pip install -U $PIP_INSTALL_OPTIONS flake8
