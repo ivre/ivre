@@ -243,6 +243,10 @@ backend.</p></li>
 <strong>experimental</strong> Elasticsearch backend.</p></li>
 <li><p><a class="reference external" href="http://www.pythonware.com/products/pil/">PIL</a> optional, to trim
 screenshots.</p></li>
+<li><p><a class="reference external" href="https://pypi.org/project/pyOpenSSL/">pyOpenSSL</a> version 16.1.0
+minimum, optional, to parse X509 certificates (a fallback exists
+that calls <code class="docutils literal notranslate"><span class="pre">Popen()</span></code> the <code class="docutils literal notranslate"><span class="pre">openssl</span></code> binary and parses its output,
+but it is much slower and less reliable).</p></li>
 </ul>
 </div>
 <div class="section" id="databases">

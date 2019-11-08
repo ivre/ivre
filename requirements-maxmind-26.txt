@@ -2,6 +2,6 @@ pycrypto
 # pyOpenSSL would install a more recent version
 cryptography<=2.1.4
 idna<=2.7
-pyOpenSSL<=17.5.0
+pyOpenSSL>=16.1.0,<=17.5.0
 future
 bottle
