@@ -155,7 +155,7 @@ setup(
     install_requires=[
         'pycrypto',
         'pymongo>=2.7.2',
-        'pyOpenSSL',
+        'pyOpenSSL>=16.1.0',
         'future',
         'bottle',
     ],

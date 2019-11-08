@@ -1,5 +1,5 @@
 py2neo>=3,<4
 pycrypto
-pyOpenSSL
+pyOpenSSL>=16.1.0
 future
 bottle

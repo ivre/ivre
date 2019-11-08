@@ -61,6 +61,10 @@ following modules:
   **experimental** Elasticsearch backend.
 - `PIL <http://www.pythonware.com/products/pil/>`_ optional, to trim
   screenshots.
+- `pyOpenSSL <https://pypi.org/project/pyOpenSSL/>`_ version 16.1.0
+  minimum, optional, to parse X509 certificates (a fallback exists
+  that calls ``Popen()`` the ``openssl`` binary and parses its output,
+  but it is much slower and less reliable).
 
 Databases
 ~~~~~~~~~

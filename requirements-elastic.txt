@@ -1,6 +1,6 @@
 elasticsearch
 elasticsearch-dsl
 pycrypto
-pyOpenSSL
+pyOpenSSL>=16.1.0
 future
 bottle
