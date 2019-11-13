@@ -52,6 +52,7 @@ export {
         POP_SERVER,
         TCP_CLIENT_BANNER,
         TCP_SERVER_BANNER,
+        OPEN_PORT,
         P0F,
         MAC_ADDRESS,
     };
@@ -481,4 +482,14 @@ event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: a
                          $source="ARP_REPLY_DST",
                          $value=THA]);
     }
+}
+
+event connection_established(c: connection) {
+    Log::write(LOG, [$ts=c$start_time,
+                     $host=c$id$resp_h,
+                     $recon_type=OPEN_PORT,
+                     $source="TCP",
+                     $srvport=c$id$resp_p,
+                     $value=fmt("tcp/%d", c$id$resp_p),
+                     $uid=c$uid]);
 }

@@ -238,6 +238,17 @@ def _extract_passive_MAC_ADDRESS(rec):
     """Handle MAC addresses"""
     return {"addresses": {"mac": [rec["value"]]}}
 
+def _extract_passive_OPEN_PORT(rec):
+    """Handle open ports"""
+    port = {
+        'state_state': 'open',
+        'state_reason': 'passive',
+        'port': rec['port'],
+        'protocol': rec.get('source', 'tcp').lower(),
+    }
+    return {'ports': [port]}
+
+
 
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
@@ -252,6 +263,7 @@ _EXTRACTORS = {
     'SSH_SERVER_HOSTKEY': _extract_passive_SSH_SERVER_HOSTKEY,
     'TCP_SERVER_BANNER': _extract_passive_TCP_SERVER_BANNER,
     'MAC_ADDRESS': _extract_passive_MAC_ADDRESS,
+    'OPEN_PORT': _extract_passive_OPEN_PORT,
 }
 
 
