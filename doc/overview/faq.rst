@@ -49,6 +49,45 @@ By default, users won't have access to any result. The user
 category ``SubNetwork``. The users in the ``ADMIN.NETWORK.AD`` realm
 will have access to all the results.
 
+Scanning the Internet is slow!
+------------------------------
+
+This is based on `issue GH#822
+<https://github.com/cea-sec/ivre/issues/822>`_.
+
+When running ``ivre runscans --routable --limit 40``, one can notice
+the scan really takes a long time to terminate.
+
+First of all, IVRE is not guilty here. IVRE runs Nmap, feeds it with
+targets, and wait for its output. You would get the same results using
+the same Nmap options as IVRE.
+
+That being said, we have several ways to speed up a scan.
+
+Use Masscan rather that Nmap
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is pretty radical, and have an important drawback: Masscan
+results gather less intelligence than Nmap (a lot less in some
+situations).
+
+However, it is often the only option to get comprehensive scans of the
+IPv4 routable address space.
+
+Parallelize Nmap scans
+~~~~~~~~~~~~~~~~~~~~~~
+
+Another option is to run several Nmap processes instead of
+one. Theoretically it should not work, since Nmap is supposed to
+handle efficiently the resources, but it has proven useful in several
+situations, particularly when scanning heavily filtered hosts or
+random hosts across the Internet.
+
+For that, one can either use an agent (see
+:ref:`install/agents:Agents`) or ``ivre runscans --output
+XMLFork --processes <n>`` where ``<n>`` is the number of simultaneous
+Nmap processes to use.
+
 Can IVRE be used to look for XXX?
 ---------------------------------
 
