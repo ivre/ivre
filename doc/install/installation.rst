@@ -119,6 +119,10 @@ IVRE
 
 The installation of IVRE itself can be done:
 
+- On `Kali <https://www.kali.org/>`_, just install the `package
+  <https://pkg.kali.org/pkg/ivre>`_ by running ``apt update && apt
+  install ivre``. You can also install ``ivre-doc`` if needed.
+
 - On `Fedora <https://getfedora.org/fr/>`_, you can use the `Copr
   package <https://copr.fedorainfracloud.org/coprs/>`_; follow the
   `instructions
