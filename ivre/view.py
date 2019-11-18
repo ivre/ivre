@@ -238,6 +238,7 @@ def _extract_passive_MAC_ADDRESS(rec):
     """Handle MAC addresses"""
     return {"addresses": {"mac": [rec["value"]]}}
 
+
 def _extract_passive_OPEN_PORT(rec):
     """Handle open ports"""
     port = {
@@ -247,7 +248,6 @@ def _extract_passive_OPEN_PORT(rec):
         'protocol': rec.get('source', 'tcp').lower(),
     }
     return {'ports': [port]}
-
 
 
 _EXTRACTORS = {

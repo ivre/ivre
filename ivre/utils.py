@@ -1371,7 +1371,11 @@ def get_wireshark_manuf_db():
 
 def mac2manuf(mac):
     last_addr, values = get_wireshark_manuf_db()
-    return values[bisect_left(last_addr, _mac2int(mac))]
+    try:
+        return values[bisect_left(last_addr, _mac2int(mac))]
+    except IndexError:
+        # empty lists, a warning must have been issued on db load
+        pass
 
 
 # Nmap (and Bro) encoding & decoding
