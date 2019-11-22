@@ -475,11 +475,14 @@ event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: a
 }
 
 event connection_established(c: connection) {
-    Log::write(LOG, [$ts=c$start_time,
-                     $host=c$id$resp_h,
-                     $recon_type=OPEN_PORT,
-                     $source="TCP",
-                     $srvport=c$id$resp_p,
-                     $value=fmt("tcp/%d", c$id$resp_p),
-                     $uid=c$uid]);
+    if ("ftp-data" !in c$service && "gridftp-data" !in c$service &&
+        "irc-dcc-data" !in c$service) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $host=c$id$resp_h,
+                         $recon_type=OPEN_PORT,
+                         $source="TCP",
+                         $srvport=c$id$resp_p,
+                         $value=fmt("tcp/%d", c$id$resp_p),
+                         $uid=c$uid]);
+    }
 }
