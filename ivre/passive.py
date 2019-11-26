@@ -143,7 +143,7 @@ TCP_SERVER_PATTERNS = [
         b'(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), [ 0-3]?[0-9] '
         b'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) '
         b'[12][0123456789]{3} [0-2][0-9]:[0-9][0-9]:[0-9][0-9]'
-    ), b'Thu 1 Jan 1970 00:00:00'),
+    ), b'Thu, 1 Jan 1970 00:00:00'),
     (re.compile(b'Local time is now [0-2][0-9]:[0-9][0-9]'),
      b'Local time is now 00:00'),
     (re.compile(
@@ -180,8 +180,16 @@ TCP_SERVER_PATTERNS = [
     ), b'220 \\g<1>0\\g<2>00\\g<3>000.mail.protection.outlook.com '),
     # Yahoo
     (re.compile(
-        b'220 mta[0-9]{4}\\.mail\\.([a-z0-9]+)\\.yahoo\\.com ESMTP ready'
+        b'^220 mta[0-9]{4}\\.mail\\.([a-z0-9]+)\\.yahoo\\.com ESMTP ready'
     ), b'220 mta0000.mail.\\1.yahoo.com ESMTP ready'),
+    # Communigate & other POP3 servers
+    (re.compile(
+        b'^\\+OK (.*) ready \\<[0-9]+\\.[0-9]+@'
+    ), b'+OK \\1 ready <000000.0000000000@'),
+    # IMAP servers
+    (re.compile(
+        b'^\\* OK (.*) IMAP Service ([0-9]+) imapd (.*) at (.*) ready'
+    ), b'* OK \\1 IMAP Service \\2 imapd \\3 at \\4 ready')
 ]
 
 

@@ -3473,6 +3473,23 @@ purposes to feed Elasticsearch view.
         ]:
             self.assertEqual(ivre.utils.mac2manuf(mac), res)
 
+        # Banner "canonicalization"
+        for expr, result in ivre.passive.TCP_SERVER_PATTERNS:
+            if not isinstance(result, bytes):
+                # Not tested yet
+                continue
+            if b'\\1' in result or b'\\g<' in result:
+                # Not tested yet
+                continue
+            # The substitution must match the pattern.
+            self.assertTrue(expr.search(result) is not None)
+            # The transformation must leave the result expression
+            # unchanged.
+            self.assertEqual(
+                expr.sub(result, result),
+                result
+            )
+
     def test_scans(self):
         "Run scans, with and without agents"
 
