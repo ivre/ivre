@@ -13,6 +13,7 @@ flow_count_all_sports_mongo = {'clients': 3, 'flows': 11, 'servers': 11}
 flow_count_all_sports_neo4j = {'clients': 4, 'flows': 12, 'servers': 12}
 flow_count_before_2015 = {'clients': 23, 'flows': 60, 'servers': 47}
 flow_count = {'clients': 27, 'flows': 110, 'servers': 96}
+flow_count_cleanup = {'clients': 2, 'servers': 2, 'flows': 2}
 flow_count_count_2 = {'clients': 8, 'flows': 15, 'servers': 14}
 flow_count_csbytes_278 = {'clients': 1, 'flows': 3, 'servers': 3}
 flow_count_cspkts_3 = {'clients': 4, 'flows': 12, 'servers': 12}

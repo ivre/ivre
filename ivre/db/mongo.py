@@ -5747,10 +5747,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             g['meta'] = row.get('meta')
         return g
 
-    def cleanup_flows(self):
-        # TODO Add cleanup steps like in neo4j
-        pass
-
     def flow_daily(self, precision, flt, after=None, before=None):
         """
         Returns a generator within each element is a dict
@@ -5911,3 +5907,131 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                                                                 cursor={})
         for entry in res:
             yield entry['_id']
+
+    @classmethod
+    def should_switch_hosts(cls, flw):
+        """
+        Returns True if flow hosts should be switched, False otherwise.
+        """
+        if len(flw['dports']) <= 5:
+            return False
+
+        # Try to avoid reversing scans
+        if flw['_id']['proto'] == 'tcp':
+            ratio = 0
+            divisor = 0
+            if flw['cspkts'] > 0:
+                ratio += flw['csbytes'] / flw['cspkts']
+                divisor += 1
+            if flw['scpkts'] > 0:
+                ratio += flw['scbytes'] / flw['scpkts']
+                divisor += 1
+
+            avg = ratio / divisor
+            if avg < 50:
+                # TCP segments were almost empty, which most of the time
+                # corresponds to an active scan.
+                return False
+
+        return True
+
+    def cleanup_flows(self):
+        """
+        Cleanup flows which source and destination seem to have been switched.
+        """
+        # Get flows which have a unique source port
+        pipeline = [
+            {
+                '$match': {
+                    'sports': {'$size': 1},
+                    'dport': {'$gt': 128},
+                }
+            },
+            {
+                '$unwind': '$sports'
+            },
+            {
+                '$unwind': '$times'
+            },
+            {
+                '$group': {
+                    '_id': {
+                        'src_addr_0': '$src_addr_0',
+                        'src_addr_1': '$src_addr_1',
+                        'dst_addr_0': '$dst_addr_0',
+                        'dst_addr_1': '$dst_addr_1',
+                        'proto': '$proto',
+                        'sport': '$sports'
+                    },
+                    "dports": {'$addToSet': '$dport'},
+                    '_ids': {'$addToSet': '$_id'},
+                    'cspkts': {'$sum': '$cspkts'},
+                    'scpkts': {'$sum': '$scpkts'},
+                    'csbytes': {'$sum': '$csbytes'},
+                    'scbytes': {'$sum': '$scbytes'},
+                    'firstseen': {'$min': '$firstseen'},
+                    'lastseen': {'$max': '$lastseen'},
+                    'count': {'$sum': '$count'},
+                    'times': {'$addToSet': '$times'}
+                }
+            },
+        ]
+        res = self.db[self.columns[self.column_flow]].aggregate(pipeline)
+        bulk = self.start_bulk_insert()
+        counter = 0
+        for rec in res:
+            rec['_id']['src_addr'] = self.internal2ip(
+                [rec['_id']['src_addr_0'], rec['_id']['src_addr_1']]
+            )
+            rec['_id']['dst_addr'] = self.internal2ip(
+                [rec['_id']['dst_addr_0'], rec['_id']['dst_addr_1']]
+            )
+            if self.should_switch_hosts(rec):
+                # new_rec is the new reversed flow
+                new_rec = {}
+                new_rec['src_addr_0'] = rec['_id']['dst_addr_0']
+                new_rec['src_addr_1'] = rec['_id']['dst_addr_1']
+                new_rec['dst_addr_0'] = rec['_id']['src_addr_0']
+                new_rec['dst_addr_1'] = rec['_id']['src_addr_1']
+                new_rec['dport'] = rec['_id']['sport']
+                new_rec['proto'] = rec['_id']['proto']
+                findspec = self._get_flow_key(new_rec)
+
+                # Note that sizes and packet numbers have been switched
+                # between src and dst
+                updatespec = {
+                    '$min': {'firstseen': rec['firstseen']},
+                    '$max': {'lastseen': rec['lastseen']},
+                    '$inc': {
+                        'cspkts': rec['scpkts'],
+                        'scpkts': rec['cspkts'],
+                        'csbytes': rec['scbytes'],
+                        'scbytes': rec['csbytes'],
+                        'count': rec['count']
+                    },
+                    '$addToSet': {'sports': {'$each': rec['dports']}}
+                }
+
+                # Remove old flows
+                removespec = {'_id': {'$in': rec['_ids']}}
+
+                if config.FLOW_TIME:
+                    updatespec["$addToSet"]['times'] = {
+                        '$each': rec['times']
+                    }
+
+                if config.DEBUG:
+                    f_str = "%s (%d) -- %s --> %s (%s)" % (
+                        rec['_id']['src_addr'],
+                        rec['_id']['sport'],
+                        rec['_id']['proto'],
+                        rec['_id']['dst_addr'],
+                        ','.join([str(elt) for elt in rec['dports']]))
+                    utils.LOGGER.debug("Switch flow hosts: %s", f_str)
+
+                bulk.find(findspec).upsert().update(updatespec)
+                bulk.find(removespec).remove()
+                counter += len(rec['_ids'])
+
+        self.bulk_commit(bulk)
+        utils.LOGGER.debug("%d flows switched.", counter)
