@@ -47,8 +47,14 @@ def main():
         parser.parse_args = my_parse_args
         parser.add_argument = parser.add_option
 
-    fltnmap = db.nmap.flt_empty
-    fltpass = db.passive.flt_empty
+    if db.nmap is None:
+        fltnmap = None
+    else:
+        fltnmap = db.nmap.flt_empty
+    if db.passive is None:
+        fltpass = None
+    else:
+        fltpass = db.passive.flt_empty
     _from = []
 
     parser.add_argument('--view-category', metavar='CATEGORY',
@@ -61,22 +67,31 @@ def main():
 
     if not USING_ARGPARSE:
         if 'nmap' in sys.argv:
+            if db.nmap is None:
+                parser.error('Cannot use "nmap" (no Nmap database exists)')
             for args, kargs in db.nmap.argparser.args:
                 parser.add_option(*args, **kargs)
         elif 'passive' in sys.argv:
+            if db.passive is None:
+                parser.error(
+                    'Cannot use "passive" (no Passive database exists)'
+                )
             for args, kargs in db.passive.argparser.args:
                 parser.add_option(*args, **kargs)
         else:
-            print('ivre db2view: error: invalid subcommand {nmap, passive}.')
-            sys.exit(-1)
+            parser.error(
+                'Invalid subcommand, only "nmap" and "passive" are supported'
+            )
     else:
         subparsers = parser.add_subparsers(dest='view_source',
                                            help="Accepted values are 'nmap' "
                                                 "and 'passive'. None or 'all' "
                                                 "will do both")
 
-        subparsers.add_parser('nmap', parents=[db.nmap.argparser])
-        subparsers.add_parser('passive', parents=[db.passive.argparser])
+        if db.nmap is not None:
+            subparsers.add_parser('nmap', parents=[db.nmap.argparser])
+        if db.passive is not None:
+            subparsers.add_parser('passive', parents=[db.passive.argparser])
         subparsers.add_parser('all')
 
     args = parser.parse_args()
@@ -85,14 +100,21 @@ def main():
     if not args.view_source:
         args.view_source = 'all'
     if args.view_source == 'all':
-        fltnmap = DB().parse_args(args, flt=fltnmap)
-        fltpass = DB().parse_args(args, flt=fltpass)
-        _from = [from_nmap(fltnmap, category=view_category),
-                 from_passive(fltpass, category=view_category)]
+        _from = []
+        if db.nmap is not None:
+            fltnmap = DB().parse_args(args, flt=fltnmap)
+            _from.append(from_nmap(fltnmap, category=view_category))
+        if db.passive is not None:
+            fltpass = DB().parse_args(args, flt=fltpass)
+            _from.append(from_passive(fltpass, category=view_category))
     elif args.view_source == 'nmap':
+        if db.nmap is None:
+            parser.error('Cannot use "nmap" (no Nmap database exists)')
         fltnmap = db.nmap.parse_args(args, fltnmap)
         _from = [from_nmap(fltnmap, category=view_category)]
     elif args.view_source == 'passive':
+        if db.passive is None:
+            parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
         _from = [from_passive(fltpass, category=view_category)]
     if args.test:
