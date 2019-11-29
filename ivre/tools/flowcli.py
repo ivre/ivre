@@ -45,6 +45,19 @@ except ImportError:
 from ivre.db import db
 from ivre import utils, config
 
+addr_fields = {
+    'src': {'type': 'edges', 'field': 'src.addr'},
+    'dst': {'type': 'edges', 'field': 'dst.addr'},
+    'host': {'type': 'nodes', 'field': 'addr'}
+}
+
+def get_addr_argument(field, value):
+    addr_field = addr_fields[field]
+    # Detect CIDR
+    op = '='
+    if '/' in value:
+        op = '=~'
+    return (addr_field['type'], "%s %s %s" % (addr_field['field'], op, value))
 
 def main():
     parser, _ = utils.create_argparser(__doc__)
@@ -117,6 +130,25 @@ def main():
                         "specified, get only flows with one timeslot of "
                         "the given precision. Otherwise, list "
                         "precisions.", type=int)
+    parser.add_argument('--host', type=str, metavar="HOST", help="Filter on "
+                        "source OR destination IP. Accepts IP address or "
+                        "CIDR.")
+    parser.add_argument('--src', type=str, metavar="SRC", help="Filter on "
+                        "source IP. Accepts IP address or CIDR.")
+    parser.add_argument('--dst', type=str, metavar="DST", help="Filter on "
+                        "destination IP. Accepts IP address or CIDR.")
+    parser.add_argument('--proto', type=str, metavar="PROTO", help="Filter on "
+                        "transport protocol.")
+    parser.add_argument('--tcp', action="store_true", help="Alias to "
+                        "--proto tcp")
+    parser.add_argument('--udp', action="store_true", help="Alias to "
+                        "--proto udp")
+    parser.add_argument('--port', type=int, metavar="PORT", help="Alias to "
+                        "--dport")
+    parser.add_argument("--dport", type=int, metavar="DPORT", help="Filter on "
+                        "destination port.")
+    parser.add_argument("--sport", type=int, metavar="SPORT", help="Filter on "
+                        "source port.")
     args = parser.parse_args()
 
     out = sys.stdout
@@ -156,9 +188,28 @@ def main():
     filters = {"nodes": args.node_filters or [],
                "edges": args.flow_filters or []}
 
+    args_dict = vars(args)
+
+    for key in addr_fields:
+        if args_dict[key] is not None:
+            flt_t, flt_v = get_addr_argument(key, args_dict[key])
+            filters[flt_t].append(flt_v)
+
+    if args.proto is not None:
+        filters['edges'].append("proto = %s" % args.proto)
+    for key in ['tcp', 'udp']:
+        if args_dict[key]:
+            filters['edges'].append("proto = %s" % key)
+
+    for key in ['port', 'dport']:
+        if args_dict[key] is not None:
+            filters['edges'].append("dport = %d" % args_dict[key])
+
+    if args.sport is not None:
+        filters['edges'].append("ANY sports = %d" % args.sport)
+
     time_args = ['before', 'after']
     time_values = {}
-    args_dict = vars(args)
     for arg in time_args:
         time_values[arg] = (
             datetime.datetime.strptime(args_dict[arg], "%Y-%m-%d %H:%M")
@@ -171,7 +222,6 @@ def main():
                                  after=time_values['after'],
                                  before=time_values['before'],
                                  precision=args.precision)
-
     if args.reduce_precision:
         if os.isatty(sys.stdin.fileno()):
             out.write(
