@@ -719,46 +719,6 @@ purposes to feed Elasticsearch view.
             self.assertEqual(sum(host_stored_test(line)
                                  for line in out.splitlines()), 1)
             os.unlink(fdesc.name)
-        # Screenshots: this tests the http-screenshot script
-        # (including phantomjs) and IVRE's ability to read
-        # screenshots (including extracting words with tesseract)
-        ipaddr = socket.gethostbyname('ivre.rocks')
-        with AgentScanner(self, nmap_template="http") as agent:
-            agent.scan(['--net', '%s/32' % ipaddr])
-        data_files, up_files = (
-            glob("%s.%s*" % (os.path.join('output', 'MISC', subdir,
-                                          '*', *ipaddr.split('.')), ext))
-            for subdir, ext in [('data', 'tar'), ('up', 'xml')]
-        )
-        self.assertEqual(len(data_files), 1)
-        self.assertTrue(os.path.exists(data_files[0]))
-        self.assertEqual(len(up_files), 1)
-        self.assertTrue(os.path.exists(up_files[0]))
-        # TarFile object does not implement __exit__ on Python 2.6,
-        # cannot use `with`
-        data_archive = tarfile.open(data_files[0])
-        data_archive.extractall()
-        data_archive.close()
-        self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
-        res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
-        self.assertEqual(res, 0)
-
-        def _json_loads(data, deflt=None):
-            try:
-                return json.loads(data.decode())
-            except ValueError:
-                return deflt
-        screenshots_count = sum(bool(port.get('screendata'))
-                                for line in out.splitlines()
-                                for host in _json_loads(line, [])
-                                for port in host.get('ports', []))
-        self.assertEqual(screenshots_count, 1)
-        screenwords = set(word for line in out.splitlines()
-                          for host in _json_loads(line, [])
-                          for port in host.get('ports', [])
-                          for word in port.get('screenwords', []))
-        self.assertTrue('IVRE' in screenwords)
-        shutil.rmtree('output')
 
         # Test various structured results for smb-enum-shares
         # before commit 79d25c5c6e4e2c3298f4f0771a183e82d06bfabe
@@ -3696,6 +3656,47 @@ purposes to feed Elasticsearch view.
         # Clean
         for dirname in ['scans', 'tmp']:
             shutil.rmtree(dirname)
+
+        # Screenshots: this tests the http-screenshot script
+        # (including phantomjs) and IVRE's ability to read
+        # screenshots (including extracting words with tesseract)
+        ipaddr = socket.gethostbyname('ivre.rocks')
+        with AgentScanner(self, nmap_template="http") as agent:
+            agent.scan(['--net', '%s/32' % ipaddr])
+        data_files, up_files = (
+            glob("%s.%s*" % (os.path.join('output', 'MISC', subdir,
+                                          '*', *ipaddr.split('.')), ext))
+            for subdir, ext in [('data', 'tar'), ('up', 'xml')]
+        )
+        self.assertEqual(len(data_files), 1)
+        self.assertTrue(os.path.exists(data_files[0]))
+        self.assertEqual(len(up_files), 1)
+        self.assertTrue(os.path.exists(up_files[0]))
+        # TarFile object does not implement __exit__ on Python 2.6,
+        # cannot use `with`
+        data_archive = tarfile.open(data_files[0])
+        data_archive.extractall()
+        data_archive.close()
+        self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
+        res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
+        self.assertEqual(res, 0)
+
+        def _json_loads(data, deflt=None):
+            try:
+                return json.loads(data.decode())
+            except ValueError:
+                return deflt
+        screenshots_count = sum(bool(port.get('screendata'))
+                                for line in out.splitlines()
+                                for host in _json_loads(line, [])
+                                for port in host.get('ports', []))
+        self.assertEqual(screenshots_count, 1)
+        screenwords = set(word for line in out.splitlines()
+                          for host in _json_loads(line, [])
+                          for port in host.get('ports', [])
+                          for word in port.get('screenwords', []))
+        self.assertTrue('IVRE' in screenwords)
+        shutil.rmtree('output')
 
     def test_50_view(self):
 
