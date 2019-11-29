@@ -941,7 +941,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(count, addr_range_count)
 
         addrs = set(
-            ivre.db.db.nmap.internal2ip(addr)
+            addr
             for net in ivre.utils.range2nets(addrrange)
             for addr in ivre.db.db.nmap.distinct(
                 "addr", flt=ivre.db.db.nmap.searchnet(net),
@@ -981,7 +981,7 @@ purposes to feed Elasticsearch view.
                     "addr",
                     flt=ivre.db.db.nmap.searchnet(net),
             ):
-                addr = ivre.utils.ip2int(ivre.db.db.nmap.internal2ip(addr))
+                addr = ivre.utils.ip2int(addr)
                 self.assertTrue(start <= addr <= stop)
         self.assertEqual(count, addr_range_count)
         # Networks in `nets` are separated sets
@@ -1129,7 +1129,7 @@ purposes to feed Elasticsearch view.
                     query,
                     ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
                 )
-            if DATABASE == "postgres":
+            elif DATABASE == "postgres":
                 output = ivre.db.db.nmap.explain(ivre.db.db.nmap._get(query))
                 self.assertTrue("ix_n_scan_host" in output)
 
@@ -1664,7 +1664,7 @@ purposes to feed Elasticsearch view.
 
         addrrange = sorted(
             (
-                ivre.db.db.passive.internal2ip(x)
+                x
                 for x in ivre.db.db.passive.distinct(
                     'addr',
                     flt=ivre.db.db.passive.searchipv4(),
@@ -1682,7 +1682,7 @@ purposes to feed Elasticsearch view.
         )
         self.assertGreaterEqual(result, 2)
         addresses_1 = [
-            ivre.db.db.passive.internal2ip(x)
+            x
             for x in ivre.db.db.passive.distinct(
                 'addr',
                 flt=ivre.db.db.passive.searchrange(*addrrange),
@@ -1692,7 +1692,7 @@ purposes to feed Elasticsearch view.
         nets = ivre.utils.range2nets(addrrange)
         for net in nets:
             addresses_2 = addresses_2.union(
-                ivre.db.db.passive.internal2ip(x)
+                x
                 for x in ivre.db.db.passive.distinct(
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
@@ -1711,7 +1711,7 @@ purposes to feed Elasticsearch view.
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
             ):
-                addr = ivre.utils.ip2int(ivre.db.db.passive.internal2ip(addr))
+                addr = ivre.utils.ip2int(addr)
                 self.assertTrue(
                     start <= addr <= stop
                 )
