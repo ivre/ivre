@@ -1944,7 +1944,7 @@ class DBView(DBActive):
         """
         try:
             flt = self.searchhost(host['addr'])
-            rec = next(self.get(flt))
+            rec = next(iter(self.get(flt)))
         except StopIteration:
             # "Merge" mode but no record for that host, let's add
             # the result normally
@@ -2852,6 +2852,7 @@ class MetaDB(object):
             "http": ("http", "HttpDBNmap"),
             "mongodb": ("mongo", "MongoDBNmap"),
             "postgresql": ("sql.postgres", "PostgresDBNmap"),
+            "tinydb": ("tiny", "TinyDBNmap"),
         },
         "passive": {
             "mongodb": ("mongo", "MongoDBPassive"),
@@ -2874,6 +2875,7 @@ class MetaDB(object):
             "http": ("http", "HttpDBView"),
             "mongodb": ("mongo", "MongoDBView"),
             "postgresql": ("sql.postgres", "PostgresDBView"),
+            "tinydb": ("tiny", "TinyDBView"),
         },
     }
 
