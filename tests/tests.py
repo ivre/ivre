@@ -2598,9 +2598,56 @@ purposes to feed Elasticsearch view.
             {"edges": ["dport = 80"]})
         self.check_flow_count_value(
             "flow_count_sport_49268",
-            {"edges": ["sport = 49268"]},
-            ["--flow-filters", "sport = 49268"],
-            {"edges": ["sport = 49268"]})
+            {"edges": ["ANY sports = 49268"]},
+            ["--flow-filters", "ANY sports = 49268"],
+            {"edges": ["ANY sports = 49268"]})
+
+        # Test cli shortcut
+
+        self.check_flow_count_value_cli(
+            "flow_count_192.168.122.214",
+            ["--host", "192.168.122.214"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_src_95.136.242.99",
+            ["--src", "95.136.242.99"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_dst_95.136.242.99",
+            ["--dst", "95.136.242.99"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_dport_80",
+            ["--port", "80"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_dport_80",
+            ["--dport", "80"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_sport_49268",
+            ["--sport", "49268"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_tcp",
+            ["--tcp"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_tcp",
+            ["--proto", "tcp"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_udp",
+            ["--udp"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_udp",
+            ["--proto", "udp"],
+            command="flowcli")
+        self.check_flow_count_value_cli(
+            "flow_count_icmp",
+            ["--proto", "icmp"],
+            command="flowcli")
 
         # Time precision in mongo is millisecond, whereas it is microsecond in
         # Neo4j. Thus, we can't have the same results.
@@ -2792,6 +2839,10 @@ purposes to feed Elasticsearch view.
                 {"nodes": ['addr =~ 10.0.0.0/8']},
                 ['--node-filters', "addr =~ 10.0.0.0/8"],
                 {"nodes": ["addr =~ 10.0.0.0/8"]})
+            self.check_flow_count_value_cli(
+                "flow_count_10.0.0.0/8",
+                ['--host', "10.0.0.0/8"],
+                command="flowcli")
             # Test flow data
             flt = ivre.db.db.flow.from_filters({
                 "nodes": [],
