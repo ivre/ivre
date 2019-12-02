@@ -44,6 +44,7 @@ except ImportError:
 
 from ivre.db import db
 from ivre import utils, config
+import ivre.flow
 
 addr_fields = {
     'src': {'type': 'edges', 'field': 'src.addr'},
@@ -59,6 +60,21 @@ def get_addr_argument(field, value):
     if '/' in value:
         op = '=~'
     return (addr_field['type'], "%s %s %s" % (addr_field['field'], op, value))
+
+
+def print_fields():
+    equals = "=" * 7
+    title = "General"
+    sys.stdout.write("{0} {1:^10} {0}\n".format(equals, title))
+    sys.stdout.writelines(("%-12s: %s\n" % (field, ivre.flow.FIELDS[field])
+                           for field in ivre.flow.FIELDS))
+    for meta in ivre.flow.META_DESC:
+        sys.stdout.write("{0} {1:^10} {0}\n".format(equals, meta))
+        sys.stdout.writelines(("meta.%s.%s (list)\n" % (meta, name)
+                               for name in ivre.flow.META_DESC[meta]["keys"]))
+        sys.stdout.writelines(("meta.%s.%s\n" % (meta, name)
+                               for name in ivre.flow.META_DESC[meta].get(
+                                   "counters", [])))
 
 
 def main():
@@ -106,8 +122,10 @@ def main():
                         "(%d)" % config.FLOW_TIME_PRECISION)
     parser.add_argument('--plot', action="store_true",
                         help="Plot data when possible (requires matplotlib).")
-    parser.add_argument('--fields', nargs='+',
-                        help="Display these fields for each entry.")
+    parser.add_argument('--fields', nargs='*',
+                        help="Without values, gives the list of available "
+                        "fields. Otherwise, display these fields for each "
+                        "entry.")
     parser.add_argument('--reduce-precision', type=int,
                         metavar="NEW_PRECISION",
                         help="Only with MongoDB backend. "
@@ -181,6 +199,15 @@ def main():
         db.flow.ensure_indexes()
         sys.exit(0)
 
+    if args.fields is not None and not args.fields:
+        # Print fields list
+        print_fields()
+        sys.exit(0)
+    elif args.fields is not None:
+        # Validate given fields
+        for field in args.fields:
+            ivre.flow.validate_field(field)
+
     if args.precision == 0:
         # Get precisions list
         out.writelines('%d\n' % precision
@@ -224,6 +251,7 @@ def main():
                                  after=time_values['after'],
                                  before=time_values['before'],
                                  precision=args.precision)
+
     if args.reduce_precision:
         if os.isatty(sys.stdin.fileno()):
             out.write(

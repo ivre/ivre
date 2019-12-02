@@ -441,12 +441,29 @@ class IvreTests(unittest.TestCase):
                 self.assertEqual(name_or_value, count)
         return count
 
-    def check_flow_top_values(self, name, cmd):
+    def check_flow_top_values(self, name, fields, sum_fields=None,
+                              collect_fields=None, test_api=True):
+        # Test cli
+        cmd = ['ivre', 'flowcli', '--limit', '1', '--top'] + fields
+        if sum_fields:
+            cmd += ['--sum'] + sum_fields
+        if collect_fields:
+            cmd += ['--collect'] + collect_fields
         res, out, err = RUN(cmd)
         self.assertEqual(res, 0)
         self.assertTrue(not err)
+        # Check only fields and count
         result = out.decode().rsplit('|', 1)[0]
         self.check_value(name, result)
+        if test_api:
+            # Test api
+            flt = ivre.db.db.flow.from_filters({})
+            values = list(ivre.db.db.flow.topvalues(
+                flt,
+                fields, sum_fields=sum_fields, collect_fields=collect_fields,
+                topnbr=2))
+            self.assertTrue(values[0]['count'] >= values[1]['count'])
+            self.check_value(name + '_api', sorted(values[0]['collected']))
 
     def check_flow_count_value_cli(self, name_or_value, cliflt, command="",
                                    **kwargs):
@@ -2791,23 +2808,37 @@ purposes to feed Elasticsearch view.
         # Test top values
         self.check_flow_top_values(
             "flow_top_flows",
-            ["ivre", "flowcli", "--top", "src.addr", "dst.addr", "proto",
-             "dport", "--limit", "1", "--sum", "count", "--collect",
-             "firstseen", "lastseen"])
+            ['src.addr', 'dst.addr', 'proto', 'dport'],
+            sum_fields=['count'],
+            collect_fields=['firstseen', 'lastseen'],
+            test_api=False)
 
         self.check_flow_top_values(
             "flow_top_pair",
-            ['ivre', 'flowcli', '--top', 'src.addr', 'dst.addr', '--sum',
-             'scbytes', 'csbytes', '--limit', '1', '--collect', 'proto',
-             'dport'])
+            ['src.addr', 'dst.addr'],
+            sum_fields=['scbytes', 'csbytes'],
+            collect_fields=['proto', 'dport', 'sports'])
 
         self.check_flow_top_values(
             "flow_top_transport",
-            ['ivre', 'flowcli', '--top', 'proto', 'dport', '--sum',
-             'scbytes', 'csbytes', '--limit', '1', '--collect', 'src.addr',
-             'dst.addr'])
+            ['proto', 'dport'],
+            sum_fields=['scbytes', 'csbytes'],
+            collect_fields=['src.addr', 'dst.addr'])
 
         if DATABASE == 'mongo':
+            # More top values test
+            self.check_flow_top_values(
+                "flow_top_sport",
+                ['sport'])
+            self.check_flow_top_values(
+                "flow_top_sport",
+                ['sports'])
+            self.check_flow_top_values(
+                "flow_top_times_start",
+                ['times'],
+                collect_fields=['src.addr', 'dst.addr', 'proto', 'dport',
+                                'sport'])
+
             self.check_flow_count_value(
                 "flow_count_http",
                 {"edges": ['meta.http']},
@@ -2948,6 +2979,30 @@ purposes to feed Elasticsearch view.
                              os.path.join(os.getcwd(), "samples", "nfcapd")])
         self.assertEqual(res, 0)
         self.check_flow_count_value("flow_count_netflow", {}, [], None)
+
+        # Test fields option
+        res, out, err = RUN(["ivre", "flowcli", "--fields"])
+        self.assertEqual(res, 0)
+        self.assertTrue(out)
+
+        # Test invalid fields
+        res, out, err = RUN(["ivre", "flowcli", "-f", "toto"])
+        self.assertTrue(err)
+        self.assertNotEqual(res, 0)
+        res, out, err = RUN(["ivre", "flowcli", "--fields", "toto"])
+        self.assertTrue(err)
+        self.assertNotEqual(res, 0)
+        res, out, err = RUN(["ivre", "flowcli", "--top", "toto"])
+        self.assertTrue(err)
+        self.assertNotEqual(res, 0)
+        res, out, err = RUN(["ivre", "flowcli", "--top", "src.addr",
+                             "--collect", "toto"])
+        self.assertTrue(err)
+        self.assertNotEqual(res, 0)
+        res, out, err = RUN(["ivre", "flowcli", "--top", "src.addr",
+                             "--count", "toto"])
+        self.assertTrue(err)
+        self.assertNotEqual(res, 0)
 
     # This test have to be done first.
     def test_10_data(self):
