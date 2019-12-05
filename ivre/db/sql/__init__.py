@@ -1746,10 +1746,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
     }
 
     base_filter = NmapFilter
-
-    def __init__(self, url):
-        super(SQLDBNmap, self).__init__(url)
-        self.content_handler = xmlnmap.Nmap2DB
+    content_handler = xmlnmap.Nmap2DB
 
     def store_or_merge_host(self, host):
         self.store_host(host)

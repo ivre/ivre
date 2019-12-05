@@ -83,6 +83,7 @@ class DB(object):
     globaldb = None
     ipaddr_fields = []
     datetime_fields = []
+    list_fields = []
 
     def __init__(self):
         self.argparser = utils.ArgparserParent()
@@ -329,6 +330,7 @@ If `yieldall` is true, when a specific feature exists (e.g., `(80,
             ), key=lambda val: [utils.key_sort_none(v) for v in val])
 
         def _gen(val):
+            val = list(val)
             yield tuple(val)
             for i in range(-1, -len(val), -1):
                 val[i] = None
@@ -360,7 +362,68 @@ algorithms) as lists of values.
 
     def _features_port_get(self, features, flt, yieldall, use_service,
                            use_product, use_version):
-        raise NotImplementedError()
+        if use_version:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], port.get('service_name'),
+                           port.get('service_product'),
+                           port.get('service_version'))
+                    if not yieldall:
+                        continue
+                    if port.get('service_version') is not None:
+                        yield (port['port'], port.get('service_name'),
+                               port.get('service_product'), None)
+                    else:
+                        continue
+                    if port.get('service_product') is not None:
+                        yield (port['port'], port.get('service_name'), None,
+                               None)
+                    else:
+                        continue
+                    if port.get('service_name') is not None:
+                        yield (port['port'], None, None, None)
+        elif use_product:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], port.get('service_name'),
+                           port.get('service_product'))
+                    if not yieldall:
+                        continue
+                    if port.get('service_product') is not None:
+                        yield (port['port'], port.get('service_name'), None)
+                    else:
+                        continue
+                    if port.get('service_name') is not None:
+                        yield (port['port'], None, None)
+        elif use_service:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], port.get('service_name'))
+                    if not yieldall:
+                        continue
+                    if port.get('service_name') is not None:
+                        yield (port['port'], None)
+        else:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], )
+        n_features = len(features)
+        for rec in self.get(flt):
+            currec = [0] * n_features
+            for feat in _extract(rec):
+                try:
+                    currec[features[feat]] = 1
+                except KeyError:
+                    pass
+            yield (rec['addr'], currec)
 
     def features(self, flt=None, use_asnum=True, use_ipv6=True,
                  use_single_int=False, yieldall=True, use_service=True,
@@ -634,6 +697,44 @@ class DBActive(DB):
 
     ipaddr_fields = ["addr", "traces.hops.ipaddr", "ports.state_reason_ip"]
     datetime_fields = ["starttime", "endtime"]
+    list_fields = [
+        "categories",
+        "cpes",
+        "openports.udp.ports",
+        "openports.tcp.ports",
+        "os.osclass",
+        "os.osmatch",
+        "ports",
+        "ports.screenwords",
+        "ports.scripts",
+        "ports.scripts.fcrdns",
+        "ports.scripts.fcrdns.addresses",
+        "ports.scripts.http-headers",
+        "ports.scripts.http-user-agent",
+        "ports.scripts.ike-info.transforms",
+        "ports.scripts.ike-info.vendor_ids",
+        "ports.scripts.ls.volumes",
+        "ports.scripts.ls.volumes.files",
+        "ports.scripts.ms-sql-info",
+        "ports.scripts.mongodb-databases.databases",
+        "ports.scripts.mongodb-databases.databases.shards",
+        "ports.scripts.rpcinfo",
+        "ports.scripts.rpcinfo.version",
+        "ports.scripts.smb-enum-shares.shares",
+        "ports.scripts.ssh-hostkey",
+        "ports.scripts.ssl-ja3-client",
+        "ports.scripts.ssl-ja3-server",
+        "ports.scripts.vulns",
+        "ports.scripts.vulns.check_results",
+        "ports.scripts.vulns.description",
+        "ports.scripts.vulns.extra_info",
+        "ports.scripts.vulns.ids",
+        "ports.scripts.vulns.refs",
+        "traces",
+        "traces.hops",
+        "hostnames",
+        "hostnames.domains",
+    ]
 
     def __init__(self):
         super(DBActive, self).__init__()
@@ -1460,9 +1561,10 @@ instead of keys.
 
 class DBNmap(DBActive):
 
+    content_handler = xmlnmap.Nmap2Txt
+
     def __init__(self, output_mode="json", output=sys.stdout):
         super(DBNmap, self).__init__()
-        self.content_handler = xmlnmap.Nmap2Txt
         self.output_function = {
             "normal": nmapout.displayhosts,
         }.get(output_mode, nmapout.displayhosts_json)
@@ -1842,7 +1944,7 @@ class DBView(DBActive):
         """
         try:
             flt = self.searchhost(host['addr'])
-            rec = next(self.get(flt))
+            rec = next(iter(self.get(flt)))
         except StopIteration:
             # "Merge" mode but no record for that host, let's add
             # the result normally
@@ -1925,6 +2027,7 @@ class _RecInfo(object):
 class DBPassive(DB):
 
     ipaddr_fields = ["addr"]
+    list_fields = ["infos.san"]
 
     def __init__(self):
         super(DBPassive, self).__init__()
@@ -2745,21 +2848,35 @@ class MetaDB(object):
     #              [...]},
     #  [...]}
     db_types = {
-        "nmap": {"http": ("http", "HttpDBNmap"),
-                 "mongodb": ("mongo", "MongoDBNmap"),
-                 "postgresql": ("sql.postgres", "PostgresDBNmap")},
-        "passive": {"mongodb": ("mongo", "MongoDBPassive"),
-                    "postgresql": ("sql.postgres", "PostgresDBPassive"),
-                    "sqlite": ("sql.sqlite", "SqliteDBPassive")},
-        "data": {"maxmind": ("maxmind", "MaxMindDBData")},
-        "agent": {"mongodb": ("mongo", "MongoDBAgent")},
-        "flow": {"neo4j": ("neo4j", "Neo4jDBFlow"),
-                 "mongodb": ("mongo", "MongoDBFlow"),
-                 "postgresql": ("sql.postgres", "PostgresDBFlow")},
-        "view": {"elastic": ("elastic", "ElasticDBView"),
-                 "http": ("http", "HttpDBView"),
-                 "mongodb": ("mongo", "MongoDBView"),
-                 "postgresql": ("sql.postgres", "PostgresDBView")},
+        "nmap": {
+            "http": ("http", "HttpDBNmap"),
+            "mongodb": ("mongo", "MongoDBNmap"),
+            "postgresql": ("sql.postgres", "PostgresDBNmap"),
+            "tinydb": ("tiny", "TinyDBNmap"),
+        },
+        "passive": {
+            "mongodb": ("mongo", "MongoDBPassive"),
+            "postgresql": ("sql.postgres", "PostgresDBPassive"),
+            "sqlite": ("sql.sqlite", "SqliteDBPassive"),
+        },
+        "data": {
+            "maxmind": ("maxmind", "MaxMindDBData"),
+        },
+        "agent": {
+            "mongodb": ("mongo", "MongoDBAgent"),
+        },
+        "flow": {
+            "neo4j": ("neo4j", "Neo4jDBFlow"),
+            "mongodb": ("mongo", "MongoDBFlow"),
+            "postgresql": ("sql.postgres", "PostgresDBFlow"),
+        },
+        "view": {
+            "elastic": ("elastic", "ElasticDBView"),
+            "http": ("http", "HttpDBView"),
+            "mongodb": ("mongo", "MongoDBView"),
+            "postgresql": ("sql.postgres", "PostgresDBView"),
+            "tinydb": ("tiny", "TinyDBView"),
+        },
     }
 
     def __init__(self, url=None, urls=None):

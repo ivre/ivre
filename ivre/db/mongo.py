@@ -102,7 +102,6 @@ class MongoDB(DB):
     schema_migrations_indexes = []
     schema_latest_versions = []
     hint_indexes = []
-    needunwind = []
     no_limit = 0
 
     def __init__(self, url):
@@ -477,7 +476,7 @@ want to do something special here, e.g., mix with other records.
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
         for i in range(field.count('.'), -1, -1):
             subfield = field.rsplit('.', i)[0]
-            if subfield in self.needunwind:
+            if subfield in self.list_fields:
                 pipeline += [{"$unwind": "$" + subfield}]
         pipeline += specialflt
         # next step for previous hack
@@ -521,7 +520,7 @@ want to do something special here, e.g., mix with other records.
         # mongodb-aggregation-framework-nested-arrays-subtract-expression>
         for i in range(field.count('.'), -1, -1):
             subfield = field.rsplit('.', i)[0]
-            if subfield in self.needunwind:
+            if subfield in self.list_fields:
                 pipeline += [{"$unwind": "$" + subfield}]
         if is_ipfield:
             if self.mongodb_32_more:
@@ -554,9 +553,11 @@ want to do something special here, e.g., mix with other records.
         )
         if is_ipfield:
             if self.mongodb_32_more:
-                return (None if res['_id'][0] is None else res['_id']
+                return (None if res['_id'][0] is None
+                        else self.internal2ip(res['_id'])
                         for res in cursor)
-            return ([int(val) for val in res] if res[0] else None
+            return (self.internal2ip([int(val) for val in res])
+                    if res[0] else None
                     for res in (res['_id'].split('###') for res in cursor))
         return (res['_id'] for res in cursor)
 
@@ -786,44 +787,6 @@ want to do something special here, e.g., mix with other records.
 
 class MongoDBActive(MongoDB, DBActive):
 
-    needunwind = [
-        "categories",
-        "cpes",
-        "openports.udp.ports",
-        "openports.tcp.ports",
-        "os.osclass",
-        "os.osmatch",
-        "ports",
-        "ports.screenwords",
-        "ports.scripts",
-        "ports.scripts.fcrdns",
-        "ports.scripts.fcrdns.addresses",
-        "ports.scripts.http-headers",
-        "ports.scripts.http-user-agent",
-        "ports.scripts.ike-info.transforms",
-        "ports.scripts.ike-info.vendor_ids",
-        "ports.scripts.ls.volumes",
-        "ports.scripts.ls.volumes.files",
-        "ports.scripts.ms-sql-info",
-        "ports.scripts.mongodb-databases.databases",
-        "ports.scripts.mongodb-databases.databases.shards",
-        "ports.scripts.rpcinfo",
-        "ports.scripts.rpcinfo.version",
-        "ports.scripts.smb-enum-shares.shares",
-        "ports.scripts.ssh-hostkey",
-        "ports.scripts.ssl-ja3-client",
-        "ports.scripts.ssl-ja3-server",
-        "ports.scripts.vulns",
-        "ports.scripts.vulns.check_results",
-        "ports.scripts.vulns.description",
-        "ports.scripts.vulns.extra_info",
-        "ports.scripts.vulns.ids",
-        "ports.scripts.vulns.refs",
-        "traces",
-        "traces.hops",
-        "hostnames",
-        "hostnames.domains",
-    ]
     column_hosts = 0
     _features_column = 0
     indexes = [
@@ -2020,15 +1983,15 @@ it is not expected)."""
         if output is not None:
             req['output'] = output
         if values is not None:
-            if name is None:
+            if not isinstance(name, basestring):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
+            key = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, (basestring, utils.REGEXP_T)):
-                req[xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)] = values
+                req[key] = values
             else:
                 for field, value in viewitems(values):
-                    req["%s.%s" % (xmlnmap.ALIASES_TABLE_ELEMS.get(name, name),
-                                   field)] = value
+                    req["%s.%s" % (key, field)] = value
         if not req:
             return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
@@ -2623,7 +2586,7 @@ it is not expected)."""
 
             def outputproc(x):
                 return {'count': x['count'],
-                        '_id': x['_id'] if x['_id'] else None}
+                        '_id': null_if_empty(x['_id'])}
         elif field.startswith("service:"):
             port = int(field[8:])
             flt = self.flt_and(flt, self.searchport(port))
@@ -2670,7 +2633,7 @@ it is not expected)."""
                 def outputproc(x):
                     return {
                         'count': x['count'],
-                        '_id': tuple(elt if elt else None for elt in
+                        '_id': tuple(null_if_empty(elt) for elt in
                                      x['_id'].split('###')),
                     }
             field = "ports.service_product"
@@ -2717,7 +2680,7 @@ it is not expected)."""
                 def outputproc(x):
                     return {
                         'count': x['count'],
-                        '_id': tuple(elt if elt else None for elt in
+                        '_id': tuple(null_if_empty(elt) for elt in
                                      x['_id'].split('###')),
                     }
             field = "ports.service_product"
@@ -2760,7 +2723,7 @@ it is not expected)."""
                 def outputproc(x):
                     return {
                         'count': x['count'],
-                        '_id': tuple(elt if elt else None for elt in
+                        '_id': tuple(null_if_empty(elt) for elt in
                                      x['_id'].split('###')),
                     }
             field = "ports.service_product"
@@ -2822,7 +2785,7 @@ it is not expected)."""
                 def outputproc(x):
                     return {
                         'count': x['count'],
-                        '_id': tuple(elt if elt else None for elt in
+                        '_id': tuple(null_if_empty(elt) for elt in
                                      x['_id'].split('###')),
                     }
             field = "ports.service_product"
@@ -2857,8 +2820,8 @@ it is not expected)."""
             # *and* for our filter
             fields = fields[:max(fields.index(field), len(cpeflt2)) + 1]
             flt = self.flt_and(flt, cpeflt1)
-            specialproj = dict(("cpes.%s" % fname, 1) for fname in fields)
-            specialproj["_id"] = 0
+            specialproj = dict((("cpes.%s" % fname, 1) for fname in fields),
+                               _id=0)
             concat = ["$cpes.%s" % fields[0]]
             # Now we only keep what the user wanted
             for fname in fields[1:fields.index(field) + 1]:
@@ -2933,8 +2896,7 @@ it is not expected)."""
             aggrflt = {
                 "field": re.compile('^([^\\.]+\\.){%d}[^\\.]+$' % level)}
         elif field.startswith('cert.'):
-            subfield = field[5:]
-            field = 'ports.scripts.ssl-cert.' + subfield
+            field = 'ports.scripts.ssl-cert.' + field[5:]
         elif field == 'useragent' or field.startswith('useragent:'):
             if field == 'useragent':
                 flt = self.flt_and(flt, self.searchuseragent())
@@ -3073,8 +3035,7 @@ it is not expected)."""
             field = "ports.scripts.ssh-hostkey.bits"
         elif field.startswith('sshkey.'):
             flt = self.flt_and(flt, self.searchsshkey())
-            subfield = field[7:]
-            field = 'ports.scripts.ssh-hostkey.' + subfield
+            field = 'ports.scripts.ssh-hostkey.' + field[7:]
         elif field == 'ike.vendor_ids':
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             specialproj = {"ports.scripts.ike-info.vendor_ids.value": 1,
@@ -3220,12 +3181,10 @@ it is not expected)."""
             field = "ports.scripts.http-headers.value"
         elif field.startswith('modbus.'):
             flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
-            subfield = field[7:]
-            field = 'ports.scripts.modbus-discover.' + subfield
+            field = 'ports.scripts.modbus-discover.' + field[7:]
         elif field.startswith('s7.'):
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
-            subfield = field[3:]
-            field = 'ports.scripts.s7-info.' + subfield
+            field = 'ports.scripts.s7-info.' + field[3:]
         elif field.startswith('enip.'):
             flt = self.flt_and(flt, self.searchscript(name="enip-info"))
             subfield = field[5:]
@@ -3316,7 +3275,7 @@ it is not expected)."""
 
             def outputproc(x):
                 return {'count': x['count'],
-                        '_id': x['_id'] if x['_id'] else None}
+                        '_id': null_if_empty(x['_id'])}
         elif field == 'screenwords':
             field = 'ports.screenwords'
             flt = self.flt_and(flt, self.searchscreenshot(words=True))
@@ -3423,71 +3382,6 @@ it is not expected)."""
             '$ports'
         )
 
-    def _features_port_get(self, features, flt, yieldall, use_service,
-                           use_product, use_version):
-        if use_version:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], port.get('service_name'),
-                           port.get('service_product'),
-                           port.get('service_version'))
-                    if not yieldall:
-                        continue
-                    if port.get('service_version') is not None:
-                        yield (port['port'], port.get('service_name'),
-                               port.get('service_product'), None)
-                    else:
-                        continue
-                    if port.get('service_product') is not None:
-                        yield (port['port'], port.get('service_name'), None,
-                               None)
-                    else:
-                        continue
-                    if port.get('service_name') is not None:
-                        yield (port['port'], None, None, None)
-        elif use_product:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], port.get('service_name'),
-                           port.get('service_product'))
-                    if not yieldall:
-                        continue
-                    if port.get('service_product') is not None:
-                        yield (port['port'], port.get('service_name'), None)
-                    else:
-                        continue
-                    if port.get('service_name') is not None:
-                        yield (port['port'], None, None)
-        elif use_service:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], port.get('service_name'))
-                    if not yieldall:
-                        continue
-                    if port.get('service_name') is not None:
-                        yield (port['port'], None)
-        else:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], )
-        n_features = len(features)
-        for rec in self.get(flt):
-            currec = [0] * n_features
-            for feat in _extract(rec):
-                try:
-                    currec[features[feat]] = 1
-                except KeyError:
-                    pass
-            yield (rec['addr'], currec)
-
     def diff_categories(self, category1, category2, flt=None,
                         include_both_open=True):
         """`category1` and `category2` must be categories (provided as str or
@@ -3553,13 +3447,13 @@ it is not expected)."""
 class MongoDBNmap(MongoDBActive, DBNmap):
 
     column_scans = 1
+    content_handler = Nmap2Mongo
 
     def __init__(self, url):
         super(MongoDBNmap, self).__init__(url)
         self.columns = [self.params.pop('colname_hosts', 'hosts'),
                         self.params.pop('colname_scans', 'scans')]
         self.schema_migrations.append({})  # scans
-        self.content_handler = Nmap2Mongo
         self.output_function = None
 
     def store_scan_doc(self, scan):
@@ -3623,7 +3517,6 @@ class MongoDBView(MongoDBActive, DBView):
 
 class MongoDBPassive(MongoDB, DBPassive):
 
-    needunwind = ["infos.san"]
     column_passive = 0
     _features_column = 0
     indexes = [
@@ -4654,12 +4547,12 @@ scan object on success, and raises a LockError on failure.
 
 class MongoDBFlowMeta(type):
     """
-    This metaclass aims to compute 'meta_desc' and 'needunwind' once for all
+    This metaclass aims to compute 'meta_desc' and 'list_fields' once for all
     instances of MongoDBFlow.
     """
     def __new__(cls, name, bases, attrs):
         attrs['meta_desc'] = MongoDBFlowMeta.compute_meta_desc()
-        attrs['needunwind'] = MongoDBFlowMeta.compute_needunwind(
+        attrs['list_fields'] = MongoDBFlowMeta.compute_list_fields(
             attrs['meta_desc'])
         return type.__new__(cls, name, bases, attrs)
 
@@ -4680,17 +4573,17 @@ class MongoDBFlowMeta(type):
         return meta_desc
 
     @staticmethod
-    def compute_needunwind(meta_desc):
+    def compute_list_fields(meta_desc):
         """
-        Computes needunwind from meta_desc.
+        Computes list_fields from meta_desc.
         """
-        needunwind = ['sports', 'codes']
+        list_fields = ['sports', 'codes']
         for proto, kinds in viewitems(meta_desc):
             for kind, values in viewitems(kinds):
                 if kind == 'keys':
                     for name in values:
-                        needunwind.append('meta.%s.%s' % (proto, name))
-        return needunwind
+                        list_fields.append('meta.%s.%s' % (proto, name))
+        return list_fields
 
 
 class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
@@ -5062,7 +4955,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         for field in internal_fields_set:
             for i in range(field.count('.'), -1, -1):
                 subfield = field.rsplit('.', i)[0]
-                if subfield in self.needunwind:
+                if subfield in self.list_fields:
                     pipeline += [{"$unwind": "$" + subfield}]
 
         # It is important to match the query after the unwind stages
@@ -5433,16 +5326,16 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         """
         Returns (longest array attribute, remaining attributes) where the
         longest array attribute is the longest attribute stored in
-        cls.needunwind which matches the given attr. Two attributes match
+        cls.list_fields which matches the given attr. Two attributes match
         each other if they share the same root.
         If no array attribute can be found, returns (None, attr)
         Example: a.b.c matches with a.b.c, a.b and a
-        If cls.needunwind = ['a', 'a.b'], then get_longest_array_attr('a.b.c')
+        If cls.list_fields = ['a', 'a.b'], then get_longest_array_attr('a.b.c')
         returns ('a.b', 'c').
         """
         for i in range(attr.count('.') + 1):
             subfield = attr.rsplit('.', i)
-            if subfield[0] in cls.needunwind:
+            if subfield[0] in cls.list_fields:
                 return (subfield[0], '.'.join(subfield[1:]))
         return (None, attr)
 

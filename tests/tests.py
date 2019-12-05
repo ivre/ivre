@@ -719,46 +719,6 @@ purposes to feed Elasticsearch view.
             self.assertEqual(sum(host_stored_test(line)
                                  for line in out.splitlines()), 1)
             os.unlink(fdesc.name)
-        # Screenshots: this tests the http-screenshot script
-        # (including phantomjs) and IVRE's ability to read
-        # screenshots (including extracting words with tesseract)
-        ipaddr = socket.gethostbyname('ivre.rocks')
-        with AgentScanner(self, nmap_template="http") as agent:
-            agent.scan(['--net', '%s/32' % ipaddr])
-        data_files, up_files = (
-            glob("%s.%s*" % (os.path.join('output', 'MISC', subdir,
-                                          '*', *ipaddr.split('.')), ext))
-            for subdir, ext in [('data', 'tar'), ('up', 'xml')]
-        )
-        self.assertEqual(len(data_files), 1)
-        self.assertTrue(os.path.exists(data_files[0]))
-        self.assertEqual(len(up_files), 1)
-        self.assertTrue(os.path.exists(up_files[0]))
-        # TarFile object does not implement __exit__ on Python 2.6,
-        # cannot use `with`
-        data_archive = tarfile.open(data_files[0])
-        data_archive.extractall()
-        data_archive.close()
-        self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
-        res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
-        self.assertEqual(res, 0)
-
-        def _json_loads(data, deflt=None):
-            try:
-                return json.loads(data.decode())
-            except ValueError:
-                return deflt
-        screenshots_count = sum(bool(port.get('screendata'))
-                                for line in out.splitlines()
-                                for host in _json_loads(line, [])
-                                for port in host.get('ports', []))
-        self.assertEqual(screenshots_count, 1)
-        screenwords = set(word for line in out.splitlines()
-                          for host in _json_loads(line, [])
-                          for port in host.get('ports', [])
-                          for word in port.get('screenwords', []))
-        self.assertTrue('IVRE' in screenwords)
-        shutil.rmtree('output')
 
         # Test various structured results for smb-enum-shares
         # before commit 79d25c5c6e4e2c3298f4f0771a183e82d06bfabe
@@ -888,10 +848,10 @@ purposes to feed Elasticsearch view.
         # Object ID
         res, out, _ = RUN(["ivre", "scancli", "--json", "--limit", "1"])
         self.assertEqual(res, 0)
-        oid = str(next(ivre.db.db.nmap.get(
+        oid = str(next(iter(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(json.loads(out.decode())['addr']),
             limit=1, fields=["_id"],
-        ))['_id'])
+        )))['_id'])
         res, out, _ = RUN(["ivre", "scancli", "--count", "--id", oid])
         self.assertEqual(res, 0)
         self.assertEqual(int(out), 1)
@@ -928,29 +888,29 @@ purposes to feed Elasticsearch view.
         )
 
         # Filters
-        addr = next(ivre.db.db.nmap.get(
+        addr = next(iter(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty, fields=["addr"]
-        ))['addr']
+        )))['addr']
         self.check_nmap_count_value(1, ivre.db.db.nmap.searchhost(addr),
                                     ['--host', ivre.utils.force_int2ip(addr)],
                                     ivre.utils.force_int2ip(addr))
-        result = next(ivre.db.db.nmap.get(
+        result = next(iter(ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
-        ))
+        )))
         self.assertEqual(result['addr'], addr)
         self.check_count_value_api(1, ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchhost(addr),
             ivre.db.db.nmap.searchhost(addr),
         ), database=ivre.db.db.nmap)
         recid = ivre.db.db.nmap.getid(
-            next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
+            next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))
         )
         self.check_count_value_api(1, ivre.db.db.nmap.searchid(recid),
                                    database=ivre.db.db.nmap)
         self.assertIsNotNone(
             ivre.db.db.nmap.getscan(
                 ivre.db.db.nmap.getscanids(
-                    next(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
+                    next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))
                 )[0]
             )
         )
@@ -959,7 +919,7 @@ purposes to feed Elasticsearch view.
                                     ivre.db.db.nmap.searchhost("127.12.34.56"),
                                     ["--host", "127.12.34.56"], "127.12.34.56")
 
-        generator = ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)
+        generator = iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
         addrrange = sorted((x['addr'] for x in [next(generator),
                                                 next(generator)]),
                            key=ivre.utils.force_ip2int)
@@ -981,7 +941,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(count, addr_range_count)
 
         addrs = set(
-            ivre.db.db.nmap.internal2ip(addr)
+            addr
             for net in ivre.utils.range2nets(addrrange)
             for addr in ivre.db.db.nmap.distinct(
                 "addr", flt=ivre.db.db.nmap.searchnet(net),
@@ -1000,11 +960,11 @@ purposes to feed Elasticsearch view.
 
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchtimerange(
-                0, next(ivre.db.db.nmap.get(
+                0, next(iter(ivre.db.db.nmap.get(
                     ivre.db.db.nmap.flt_empty,
                     fields=['endtime'],
                     sort=[['endtime', -1]]
-                ))['endtime']
+                )))['endtime']
             )
         )
         self.assertEqual(count, hosts_count)
@@ -1021,7 +981,7 @@ purposes to feed Elasticsearch view.
                     "addr",
                     flt=ivre.db.db.nmap.searchnet(net),
             ):
-                addr = ivre.utils.ip2int(ivre.db.db.nmap.internal2ip(addr))
+                addr = ivre.utils.ip2int(addr)
                 self.assertTrue(start <= addr <= stop)
         self.assertEqual(count, addr_range_count)
         # Networks in `nets` are separated sets
@@ -1054,7 +1014,7 @@ purposes to feed Elasticsearch view.
         result = ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchscript(name="http-robots.txt")
         )
-        addr = next(result)['addr']
+        addr = next(iter(result))['addr']
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.flt_and(
             ivre.db.db.nmap.searchscript(name="http-robots.txt"),
             ivre.db.db.nmap.searchhost(addr),
@@ -1128,7 +1088,7 @@ purposes to feed Elasticsearch view.
         hop = random.choice([
             hop for hop in
             reduce(lambda x, y: x['hops'] + y['hops'],
-                   next(result)['traces'],
+                   next(iter(result))['traces'],
                    {'hops': []})
             if 'domains' in hop and hop['domains']
         ])
@@ -1142,16 +1102,18 @@ purposes to feed Elasticsearch view.
         self.assertGreaterEqual(count, 1)
 
         # Indexes
-        addr = next(ivre.db.db.nmap.get(
+        addr = next(iter(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
-        ))['addr']
+        )))['addr']
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         queries = [
             ivre.db.db.nmap.searchhost(addr),
             ivre.db.db.nmap.searchnet(addr_net),
-            ivre.db.db.nmap.searchrange(max(ivre.utils.ip2int(addr) - 256, 0),
-                                        min(ivre.utils.ip2int(addr) + 256,
-                                            4294967295)),
+            ivre.db.db.nmap.searchrange(
+                ivre.utils.int2ip(max(ivre.utils.ip2int(addr) - 256, 0)),
+                ivre.utils.int2ip(min(ivre.utils.ip2int(addr) + 256,
+                                      4294967295)),
+            ),
         ]
         for query in queries:
             result = ivre.db.db.nmap.get(query)
@@ -1169,7 +1131,7 @@ purposes to feed Elasticsearch view.
                     query,
                     ivre.db.db.nmap.str2flt(ivre.db.db.nmap.flt2str(query))
                 )
-            if DATABASE == "postgres":
+            elif DATABASE == "postgres":
                 output = ivre.db.db.nmap.explain(ivre.db.db.nmap._get(query))
                 self.assertTrue("ix_n_scan_host" in output)
 
@@ -1220,9 +1182,9 @@ purposes to feed Elasticsearch view.
                                          neg=True)
         )
         self.check_value("nmap_not_domain_com_or_net_count", count)
-        name = next(ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
+        name = next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain(
             'com'
-        )))['hostnames'][0]['name']
+        ))))['hostnames'][0]['name']
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchhostname(name))
         self.assertGreater(count, 0)
         count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchcategory("TEST"))
@@ -1336,7 +1298,7 @@ purposes to feed Elasticsearch view.
         self._check_top_value_cli("nmap_top_version_http_apache",
                                   "version:http:Apache httpd",
                                   command="scancli")
-        categories = ivre.db.db.nmap.topvalues("category")
+        categories = iter(ivre.db.db.nmap.topvalues("category"))
         category = next(categories)
         self.assertEqual(category["_id"], "TEST")
         self.assertEqual(category["count"], hosts_count)
@@ -1537,9 +1499,9 @@ purposes to feed Elasticsearch view.
         self.assertTrue(not err)
         self.check_value("nmap_get_count", int(out))
 
-        addr = next(ivre.db.db.nmap.get(
+        addr = next(iter(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty
-        ))['addr']
+        )))['addr']
         res, out, err = RUN(["ivre", "scancli", "--host", addr], env=newenv)
         self.assertEqual(res, 0)
         self.assertTrue(not err)
@@ -1555,10 +1517,10 @@ purposes to feed Elasticsearch view.
 
     def test_53_nmap_delete(self):
         # Remove
-        addr = next(ivre.db.db.nmap.get(
+        addr = next(iter(ivre.db.db.nmap.get(
             ivre.db.db.nmap.flt_empty,
             sort=[('addr', -1)])
-        )['addr']
+        ))['addr']
         for result in ivre.db.db.nmap.get(
             ivre.db.db.nmap.searchhost(addr)
         ):
@@ -1704,7 +1666,7 @@ purposes to feed Elasticsearch view.
 
         addrrange = sorted(
             (
-                ivre.db.db.passive.internal2ip(x)
+                x
                 for x in ivre.db.db.passive.distinct(
                     'addr',
                     flt=ivre.db.db.passive.searchipv4(),
@@ -1722,7 +1684,7 @@ purposes to feed Elasticsearch view.
         )
         self.assertGreaterEqual(result, 2)
         addresses_1 = [
-            ivre.db.db.passive.internal2ip(x)
+            x
             for x in ivre.db.db.passive.distinct(
                 'addr',
                 flt=ivre.db.db.passive.searchrange(*addrrange),
@@ -1732,7 +1694,7 @@ purposes to feed Elasticsearch view.
         nets = ivre.utils.range2nets(addrrange)
         for net in nets:
             addresses_2 = addresses_2.union(
-                ivre.db.db.passive.internal2ip(x)
+                x
                 for x in ivre.db.db.passive.distinct(
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
@@ -1751,7 +1713,7 @@ purposes to feed Elasticsearch view.
                     "addr",
                     flt=ivre.db.db.passive.searchnet(net),
             ):
-                addr = ivre.utils.ip2int(ivre.db.db.passive.internal2ip(addr))
+                addr = ivre.utils.ip2int(addr)
                 self.assertTrue(
                     start <= addr <= stop
                 )
@@ -3748,6 +3710,47 @@ purposes to feed Elasticsearch view.
         for dirname in ['scans', 'tmp']:
             shutil.rmtree(dirname)
 
+        # Screenshots: this tests the http-screenshot script
+        # (including phantomjs) and IVRE's ability to read
+        # screenshots (including extracting words with tesseract)
+        ipaddr = socket.gethostbyname('ivre.rocks')
+        with AgentScanner(self, nmap_template="http") as agent:
+            agent.scan(['--net', '%s/32' % ipaddr])
+        data_files, up_files = (
+            glob("%s.%s*" % (os.path.join('output', 'MISC', subdir,
+                                          '*', *ipaddr.split('.')), ext))
+            for subdir, ext in [('data', 'tar'), ('up', 'xml')]
+        )
+        self.assertEqual(len(data_files), 1)
+        self.assertTrue(os.path.exists(data_files[0]))
+        self.assertEqual(len(up_files), 1)
+        self.assertTrue(os.path.exists(up_files[0]))
+        # TarFile object does not implement __exit__ on Python 2.6,
+        # cannot use `with`
+        data_archive = tarfile.open(data_files[0])
+        data_archive.extractall()
+        data_archive.close()
+        self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
+        res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
+        self.assertEqual(res, 0)
+
+        def _json_loads(data, deflt=None):
+            try:
+                return json.loads(data.decode())
+            except ValueError:
+                return deflt
+        screenshots_count = sum(bool(port.get('screendata'))
+                                for line in out.splitlines()
+                                for host in _json_loads(line, [])
+                                for port in host.get('ports', []))
+        self.assertEqual(screenshots_count, 1)
+        screenwords = set(word for line in out.splitlines()
+                          for host in _json_loads(line, [])
+                          for port in host.get('ports', [])
+                          for word in port.get('screenwords', []))
+        self.assertTrue('IVRE' in screenwords)
+        shutil.rmtree('output')
+
     def test_50_view(self):
 
         #
@@ -4438,6 +4441,8 @@ DATABASES = {
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
                 "54_passive_delete", "60_flow", "90_cleanup", "scans"],
+    "tinydb": ["40_passive", "54_passive_delete", "50_view",
+               "60_flow", "90_cleanup", "scans", "utils"],
 }
 
 

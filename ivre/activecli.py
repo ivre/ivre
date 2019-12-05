@@ -594,7 +594,7 @@ def displayfunction_json(cur, dbase, no_screenshots=False):
 
 def display_short(dbase, flt, srt, lmt, skp):
     for val in dbase.distinct("addr", flt=flt, sort=srt, limit=lmt, skip=skp):
-        sys.stdout.write(dbase.internal2ip(val) + '\n')
+        sys.stdout.write(val + '\n')
 
 
 def display_distinct(dbase, arg, flt, srt, lmt, skp):
