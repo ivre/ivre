@@ -308,6 +308,15 @@ e.g.  .explain()) based on the column and a filter.
         return json.dumps(cursor.explain(), indent=indent,
                           default=self.serialize)
 
+    def init(self):
+        """Initializes the column(s), i.e., drops the column(s) and creates
+the default indexes.
+
+        """
+        for colname in self.columns:
+            self.db[colname].drop()
+        self.create_indexes()
+
     def create_indexes(self):
         for colnum, indexes in enumerate(self.indexes):
             colname = self.columns[colnum]
@@ -938,12 +947,6 @@ class MongoDBActive(MongoDB, DBActive):
                 14: (15, self.migrate_schema_hosts_14_15),
             },
         ]
-
-    def init(self):
-        """Initializes the "active" columns, i.e., drops those columns and
-creates the default indexes."""
-        self.db[self.columns[self.column_hosts]].drop()
-        self.create_indexes()
 
     def cmp_schema_version_host(self, host):
         """Returns 0 if the `host`'s schema version matches the code's
@@ -3465,10 +3468,6 @@ class MongoDBNmap(MongoDBActive, DBNmap):
     def store_or_merge_host(self, host):
         self.store_host(host)
 
-    def init(self):
-        self.db[self.columns[self.column_scans]].drop()
-        super(MongoDBNmap, self).init()
-
     def cmp_schema_version_scan(self, scan):
         """Returns 0 if the `scan`'s schema version matches the code's
         current version, -1 if it is higher (you need to update IVRE),
@@ -3624,12 +3623,6 @@ class MongoDBPassive(MongoDB, DBPassive):
                 None: (1, self.migrate_schema_passive_0_1),
             },
         ]
-
-    def init(self):
-        """Initializes the "passive" columns, i.e., drops the columns, and
-creates the default indexes."""
-        self.db[self.columns[self.column_passive]].drop()
-        self.create_indexes()
 
     def cmp_schema_version_passive(self, rec):
         """Returns 0 if the `rec`'s schema version matches the code's
@@ -4376,16 +4369,6 @@ class MongoDBAgent(MongoDB, DBAgent):
                         self.params.pop('colname_scans', 'runningscans'),
                         self.params.pop('colname_masters', 'masters')]
 
-    def init(self):
-        """Initializes the "agent" columns, i.e., drops those columns
-        and creates the default indexes.
-
-        """
-        self.db[self.columns[self.column_agents]].drop()
-        self.db[self.columns[self.column_scans]].drop()
-        self.db[self.columns[self.column_masters]].drop()
-        self.create_indexes()
-
     def stop_agent(self, agentid):
         agent = self.get_agent(agentid)
         if agent is None:
@@ -4799,13 +4782,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         except pymongo.errors.InvalidOperation:
             # Raised when executing an empty bulk
             pass
-
-    def init(self):
-        """Initializes the "flows" columns, i.e., drops those columns and
-        creates the default indexes.
-        """
-        self.db[self.columns[self.column_flow]].drop()
-        self.create_indexes()
 
     def get(self, flt, skip=None, limit=None, orderby=None, fields=None):
         """
