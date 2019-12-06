@@ -33,6 +33,7 @@ import struct
 from uuid import uuid1
 
 
+from future.builtins import int as int_types
 from future.utils import viewitems
 from past.builtins import basestring
 from tinydb import TinyDB as TDB, Query
@@ -116,17 +117,19 @@ class TinyDB(DB):
 
         def _cmp(v1, v2):
             for (k, o) in sort:
+                f1 = v1
+                f2 = v2
                 for sk in k.split('.'):
-                    v1 = (v1 or {}).get(sk)
-                    v2 = (v2 or {}).get(sk)
-                if v1 == v2:
+                    f1 = (f1 or {}).get(sk)
+                    f2 = (f2 or {}).get(sk)
+                if f1 == f2:
                     continue
-                if v1 is None:
+                if f1 is None:
                     # None is lower than anything
                     return -o
-                if v2 is None:
+                if f2 is None:
                     return o
-                if v1 < v2:
+                if f1 < f2:
                     return -o
                 return o
             return 0
@@ -256,8 +259,8 @@ class TinyDB(DB):
 
     @staticmethod
     def ip2internal(addr):
-        if isinstance(addr, int):
-            return int
+        if isinstance(addr, int_types):
+            return addr
         val1, val2 = struct.unpack(
             '!QQ', utils.ip2bin(addr)
         )
