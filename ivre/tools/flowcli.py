@@ -51,6 +51,7 @@ addr_fields = {
     'host': {'type': 'nodes', 'field': 'addr'}
 }
 
+
 def get_addr_argument(field, value):
     addr_field = addr_fields[field]
     # Detect CIDR
@@ -58,6 +59,7 @@ def get_addr_argument(field, value):
     if '/' in value:
         op = '=~'
     return (addr_field['type'], "%s %s %s" % (addr_field['field'], op, value))
+
 
 def main():
     parser, _ = utils.create_argparser(__doc__)
