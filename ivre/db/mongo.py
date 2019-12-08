@@ -681,6 +681,9 @@ want to do something special here, e.g., mix with other records.
     def flt_or(*args):
         return {'$or': args} if len(args) > 1 else args[0]
 
+    def _search_field_exists(self, field):
+        return {field: {"$exists": True}}
+
     @staticmethod
     def searchnonexistent():
         return {'_id': 0}
@@ -4065,63 +4068,6 @@ setting values according to the keyword arguments.
             '$port',
             '$infos',
         )
-
-    def _features_port_get(self, features, flt, yieldall, use_service,
-                           use_product, use_version):
-        curaddr = None
-        currec = None
-        if use_version:
-            def _extract(rec):
-                info = rec.get('infos', {})
-                yield (rec['port'], info.get('service_name'),
-                       info.get('service_product'),
-                       info.get('service_version'))
-                if not yieldall:
-                    return
-                if info.get('service_version') is not None:
-                    yield (rec['port'], info.get('service_name'),
-                           info.get('service_product'), None)
-                if info.get('service_product') is not None:
-                    yield (rec['port'], info.get('service_name'), None, None)
-                if info.get('service_name') is not None:
-                    yield (rec['port'], None, None, None)
-        elif use_product:
-            def _extract(rec):
-                info = rec.get('infos', {})
-                yield (rec['port'], info.get('service_name'),
-                       info.get('service_product'))
-                if not yieldall:
-                    return
-                if info.get('service_product') is not None:
-                    yield (rec['port'], info.get('service_name'), None)
-                if info.get('service_name') is not None:
-                    yield (rec['port'], None, None)
-        elif use_service:
-            def _extract(rec):
-                info = rec.get('infos', {})
-                yield (rec['port'], info.get('service_name'))
-                if not yieldall:
-                    return
-                if info.get('service_name') is not None:
-                    yield (rec['port'], None)
-        else:
-            def _extract(rec):
-                yield (rec['port'], )
-        n_features = len(features)
-        for rec in self.get(self.flt_and(flt, {'port': {'$exists': True}}),
-                            sort=[('addr', 1)]):
-            # the addr aggregation could (should?) be done with an
-            # aggregation framework pipeline
-            if curaddr != rec['addr']:
-                if curaddr is not None:
-                    yield (curaddr, currec)
-                curaddr = rec['addr']
-                currec = [0] * n_features
-            for feat in _extract(rec):
-                # We could use += rec['count'] instead here
-                currec[features[feat]] = 1
-        if curaddr is not None:
-            yield (curaddr, currec)
 
     @staticmethod
     def searchrecontype(rectype):
