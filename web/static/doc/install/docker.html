@@ -204,9 +204,9 @@ instructions below to use another port.</p>
 source tree (or the <code class="docutils literal notranslate"><span class="pre">[PREFIX]/share/ivre/docker/</span></code> directory when IVRE
 has been installed), run (from the folder where you want to store your
 data):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir -m 1777 var_{lib,log}_{mongodb,neo4j} ivre-share
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir -m 1777 var_{lib,log}_mongodb ivre-share
   # For people using SELinux enforced, you need to run
-$ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_{mongodb,neo4j} ivre-share
+$ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_mongodb ivre-share
 
 $ cp [path to ivre source]/docker/Vagrantfile .
 $ vagrant up --no-parallel
@@ -308,7 +308,7 @@ images.</p>
 <p>To create the volume to store MongoDB data, run (<code class="docutils literal notranslate"><span class="pre">chmod</span></code>-ing to
 <code class="docutils literal notranslate"><span class="pre">1777</span></code> is a bit overkill, <code class="docutils literal notranslate"><span class="pre">chown</span></code>-ing it to the UID of the MongoDB
 user in the container would do):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir -m 1777 var_{lib,log}_{mongodb,neo4j}
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ mkdir -m 1777 var_{lib,log}_mongodb
 </pre></div>
 </div>
 <p>To run an instance of the MongoDB server ready for IVRE, issue (this

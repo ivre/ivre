@@ -25,9 +25,9 @@ data):
 
 ::
 
-   $ mkdir -m 1777 var_{lib,log}_{mongodb,neo4j} ivre-share
+   $ mkdir -m 1777 var_{lib,log}_mongodb ivre-share
      # For people using SELinux enforced, you need to run
-   $ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_{mongodb,neo4j} ivre-share
+   $ sudo chcon -Rt svirt_sandbox_file_t var_{lib,log}_mongodb ivre-share
 
    $ cp [path to ivre source]/docker/Vagrantfile .
    $ vagrant up --no-parallel
@@ -151,7 +151,7 @@ user in the container would do):
 
 ::
 
-   $ mkdir -m 1777 var_{lib,log}_{mongodb,neo4j}
+   $ mkdir -m 1777 var_{lib,log}_mongodb
 
 To run an instance of the MongoDB server ready for IVRE, issue (this
 will run the instance and give it the name ``ivredb``; we will use this
