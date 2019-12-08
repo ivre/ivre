@@ -3781,6 +3781,7 @@ purposes to feed Elasticsearch view.
         # Web server tests
         #
 
+        print('Web server tests')
         # Test invalid Referer: header values
         #   no header
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
@@ -3841,6 +3842,7 @@ purposes to feed Elasticsearch view.
                 break
         self.assertTrue(result)
 
+        print('Init DB & inserts')
         # Init DB
         self.assertEqual(RUN(["ivre", "view", "--init"],
                              stdin=open(os.devnull))[0], 0)
@@ -3873,6 +3875,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ret, 0)
         self.assertEqual(len(out.splitlines()), 1)
 
+        print('Counting')
         view_count = 0
         # Count passive results
         self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
@@ -3911,6 +3914,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ret, 0)
         self.assertTrue(not err)
 
+        print('Outputs')
         # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
@@ -3932,6 +3936,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         self.check_value("view_count_passive", int(out))
 
+        print('Top values')
         # Top values & filters
         self.assertEqual(
             next(iter(ivre.db.db.view.topvalues("category")))['_id'],
@@ -4038,6 +4043,7 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_hop", "hop")
         self.check_view_top_value("view_top_hop_10+", "hop>10")
 
+        print('Filters')
         # Check schema version
         self.check_count_value_api(
             view_count,
@@ -4069,6 +4075,7 @@ purposes to feed Elasticsearch view.
             "torcert",
         )
 
+        print('Web /view URLs')
         # Check Web /view
         addr = next(iter(ivre.db.db.view.get(
             ivre.db.db.view.flt_empty, fields=['addr']
@@ -4237,6 +4244,7 @@ purposes to feed Elasticsearch view.
             )
         ))
 
+        print('JA3 & UA filters')
         # Check ja3 filters
         self.check_view_count_value(
             "view_count_ja3_server",
@@ -4320,6 +4328,7 @@ purposes to feed Elasticsearch view.
             "useragent:%s" % regexp,
         )
 
+        print('Featuresx')
         columns, data = ivre.db.db.view.features(use_service=False)
         ncolumns = len(columns)
         data = list(data)
