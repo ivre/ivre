@@ -158,7 +158,8 @@ def disp_recs_json(flt, sort, limit, skip):
 
 def disp_recs_short(flt, *_):
     for addr in db.passive.distinct('addr', flt=flt):
-        print(addr)
+        if addr is not None:
+            print(addr)
 
 
 def disp_recs_distinct(field, flt, *_):
