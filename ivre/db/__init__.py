@@ -2372,6 +2372,13 @@ class DBAgent(DB):
         }
         return self._add_agent(agent)
 
+    def stop_agent(self, agentid):
+        agent = self.get_agent(agentid)
+        if agent is None:
+            raise IndexError("Agent not found [%r]" % agentid)
+        if agent['scan'] is not None:
+            self.unassign_agent(agent['_id'])
+
     def add_agent_from_string(self, masterid, string,
                               source=None, maxwaiting=60):
         """Adds an agent from a description string of the form
@@ -2930,6 +2937,7 @@ class MetaDB(object):
         },
         "agent": {
             "mongodb": ("mongo", "MongoDBAgent"),
+            "tinydb": ("tiny", "TinyDBAgent"),
         },
         "flow": {
             "neo4j": ("neo4j", "Neo4jDBFlow"),

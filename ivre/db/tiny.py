@@ -31,7 +31,7 @@ import os
 import re
 import socket
 import struct
-from uuid import uuid1
+from uuid import uuid1, UUID
 
 
 from future.builtins import int as int_types
@@ -39,9 +39,10 @@ from future.utils import viewitems
 from past.builtins import basestring
 from tinydb import TinyDB as TDB, Query
 from tinydb.database import Document
+from tinydb.operations import add, increment
 
 
-from ivre.db import DB, DBActive, DBNmap, DBPassive, DBView
+from ivre.db import DB, DBActive, DBAgent, DBNmap, DBPassive, DBView, LockError
 from ivre import utils
 from ivre.xmlnmap import ALIASES_TABLE_ELEMS, Nmap2DB
 
@@ -266,6 +267,10 @@ class TinyDB(DB):
         if isinstance(rec, dict):
             rec = rec['_id']
         self.db.remove(cond=Query()._id == rec)
+
+    @staticmethod
+    def str2id(string):
+        return int(string)
 
     @staticmethod
     def to_binary(data):
@@ -2338,3 +2343,189 @@ None) is returned.
         if neg:
             return req <= timestamp
         return req > timestamp
+
+
+class TinyDBAgent(TinyDB, DBAgent):
+
+    """An Nmap-specific DB using TinyDB backend"""
+
+    dbname = "agents"
+    dbname_scans = "agents_scans"
+    dbname_masters = "agents_masters"
+
+    @property
+    def db_scans(self):
+        """The DB for scan files"""
+        try:
+            return self._db_scans
+        except AttributeError:
+            self._db_scans = TDB(os.path.join(self.basepath,
+                                              "%s.json" % self.dbname_scans))
+            return self._db_scans
+
+    @property
+    def db_masters(self):
+        """The DB for scan files"""
+        try:
+            return self._db_masters
+        except AttributeError:
+            self._db_masters = TDB(os.path.join(
+                self.basepath,
+                "%s.json" % self.dbname_masters,
+            ))
+            return self._db_masters
+
+    def init(self):
+        super(TinyDBAgent, self).init()
+        self.db_scans.purge_tables()
+        self.db_masters.purge_tables()
+
+    def _add_agent(self, agent):
+        return self.db.insert(agent)
+
+    def get_agent(self, agentid):
+        res = self.db.get(doc_id=agentid)
+        res['_id'] = res.doc_id
+        return res
+
+    def get_free_agents(self):
+        return (x.doc_id for x in
+                self.db.search(Query().scan == None))  # noqa: E711
+
+    def get_agents_by_master(self, masterid):
+        return (x.doc_id for x in
+                self.db.search(Query().master == masterid))
+
+    def get_agents(self):
+        return (x.doc_id for x in
+                self.db.search(Query()))
+
+    def assign_agent(self, agentid, scanid,
+                     only_if_unassigned=False,
+                     force=False):
+        q = Query()
+        flt = []
+        if only_if_unassigned:
+            flt.append(q.scan == None)  # noqa: E711
+        elif not force:
+            flt.append(q.scan != False)  # noqa: E712
+        if flt:
+            flt = self.flt_and(*flt)
+        else:
+            flt = self.flt_empty
+        self.db.update({"scan": scanid}, cond=flt, doc_ids=[agentid])
+        agent = self.get_agent(agentid)
+        if scanid is not None and scanid is not False \
+           and scanid == agent["scan"]:
+            self.db_scans.update(add("agents", [agentid]),
+                                 cond=~q.agents.any([agentid]),
+                                 doc_ids=[scanid])
+
+    def unassign_agent(self, agentid, dont_reuse=False):
+        agent = self.get_agent(agentid)
+        scanid = agent.get("scan")
+        if scanid is not None:
+            def _pullagent(agentid):
+                def _transform(doc):
+                    doc['agents'].remove(agentid)
+                return _transform
+            self.db_scans.update(_pullagent(agentid),
+                                 cond=Query().agents.any([agentid]),
+                                 doc_ids=[scanid])
+        if dont_reuse:
+            self.assign_agent(agentid, False, force=True)
+        else:
+            self.assign_agent(agentid, None, force=True)
+
+    def _del_agent(self, agentid):
+        return self.db.remove(doc_ids=[agentid])
+
+    def _add_scan(self, scan):
+        return self.db_scans.insert(scan)
+
+    def get_scan(self, scanid):
+        scan = self.db_scans.get(doc_id=scanid)
+        scan['_id'] = scan.doc_id
+        if scan.get('lock') is not None:
+            scan['lock'] = UUID(bytes=self.from_binary(scan['lock']))
+        if "target_info" not in scan:
+            target = self.get_scan_target(scanid)
+            if target is not None:
+                target_info = target.target.infos
+                self.db_scans.update({"target_info": target_info},
+                                     doc_ids=[scanid])
+                scan["target_info"] = target_info
+        return scan
+
+    def _get_scan_target(self, scanid):
+        scan = self.db_scans.get(doc_id=scanid)
+        return None if scan is None else self.from_binary(scan['target'])
+
+    def _lock_scan(self, scanid, oldlockid, newlockid):
+        """Change lock for scanid from oldlockid to newlockid. Returns the new
+scan object on success, and raises a LockError on failure.
+
+        """
+        if oldlockid is not None:
+            oldlockid = self.to_binary(oldlockid)
+        if newlockid is not None:
+            newlockid = self.to_binary(newlockid)
+        # TinyDB .update() will not use both cond= and doc_id=, so ...
+        scan = self.db_scans.get(
+            doc_id=scanid,
+        )
+        if (scan or {}).get('lock') != oldlockid:
+            scan = None
+        if scan is not None:
+            # ... we need to do this instead
+            self.db_scans.update(
+                {"lock": newlockid, "pid": os.getpid()},
+                # cond=q.lock == oldlockid,
+                doc_ids=[scanid],
+            )
+            scan = self.db_scans.get(
+                # TinyDB .get() will not use both cond= and doc_id=, so...
+                # cond=q.lock == newlockid,
+                doc_id=scanid,
+            )
+            # ... we need to do this instead
+            if scan.get('lock') != newlockid:
+                scan = None
+        if scan is None:
+            if oldlockid is None:
+                raise LockError('Cannot acquire lock for %r' % scanid)
+            if newlockid is None:
+                raise LockError('Cannot release lock for %r' % scanid)
+            raise LockError('Cannot change lock for %r from '
+                            '%r to %r' % (scanid, oldlockid, newlockid))
+        if "target_info" not in scan:
+            target = self.get_scan_target(scanid)
+            if target is not None:
+                target_info = target.target.infos
+                self.db_scans.update({"target_info": target_info},
+                                     doc_ids=[scanid])
+                scan["target_info"] = target_info
+        if scan['lock'] is not None:
+            scan['lock'] = self.from_binary(scan['lock'])
+        scan['_id'] = scan.doc_id
+        return scan
+
+    def get_scans(self):
+        return (x.doc_id for x in
+                self.db_scans.search(Query()))
+
+    def _update_scan_target(self, scanid, target):
+        return self.db_scans.update({"target": target}, doc_ids=[scanid])
+
+    def incr_scan_results(self, scanid):
+        return self.db_scans.update(increment("results"), doc_ids=[scanid])
+
+    def _add_master(self, master):
+        return self.db_masters.insert(master)
+
+    def get_master(self, masterid):
+        return self.db_masters.get(doc_id=masterid)
+
+    def get_masters(self):
+        return (x.doc_id for x in
+                self.db_masters.search(Query()))

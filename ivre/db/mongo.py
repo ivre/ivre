@@ -4315,13 +4315,6 @@ class MongoDBAgent(MongoDB, DBAgent):
                         self.params.pop('colname_scans', 'runningscans'),
                         self.params.pop('colname_masters', 'masters')]
 
-    def stop_agent(self, agentid):
-        agent = self.get_agent(agentid)
-        if agent is None:
-            raise IndexError("Agent not found [%r]" % agentid)
-        if agent['scan'] is not None:
-            self.unassign_agent(agent['_id'])
-
     def _add_agent(self, agent):
         return self.db[self.columns[self.column_agents]].insert(agent)
 
