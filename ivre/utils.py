@@ -1501,7 +1501,11 @@ datetime.datetime instance `dtm`"""
     try:
         return dtm.timestamp()
     except AttributeError:
-        return time.mktime(dtm.timetuple()) + dtm.microsecond / (1000000.)
+        try:
+            return time.mktime(dtm.timetuple()) + dtm.microsecond / (1000000.)
+        except ValueError:
+            # year out of range might happen
+            return (dtm - datetime.datetime.fromtimestamp(0)).total_seconds()
 
 
 def tz_offset(timestamp=None):

@@ -362,68 +362,7 @@ algorithms) as lists of values.
 
     def _features_port_get(self, features, flt, yieldall, use_service,
                            use_product, use_version):
-        if use_version:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], port.get('service_name'),
-                           port.get('service_product'),
-                           port.get('service_version'))
-                    if not yieldall:
-                        continue
-                    if port.get('service_version') is not None:
-                        yield (port['port'], port.get('service_name'),
-                               port.get('service_product'), None)
-                    else:
-                        continue
-                    if port.get('service_product') is not None:
-                        yield (port['port'], port.get('service_name'), None,
-                               None)
-                    else:
-                        continue
-                    if port.get('service_name') is not None:
-                        yield (port['port'], None, None, None)
-        elif use_product:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], port.get('service_name'),
-                           port.get('service_product'))
-                    if not yieldall:
-                        continue
-                    if port.get('service_product') is not None:
-                        yield (port['port'], port.get('service_name'), None)
-                    else:
-                        continue
-                    if port.get('service_name') is not None:
-                        yield (port['port'], None, None)
-        elif use_service:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], port.get('service_name'))
-                    if not yieldall:
-                        continue
-                    if port.get('service_name') is not None:
-                        yield (port['port'], None)
-        else:
-            def _extract(rec):
-                for port in rec.get('ports', []):
-                    if port['port'] == -1:
-                        continue
-                    yield (port['port'], )
-        n_features = len(features)
-        for rec in self.get(flt):
-            currec = [0] * n_features
-            for feat in _extract(rec):
-                try:
-                    currec[features[feat]] = 1
-                except KeyError:
-                    pass
-            yield (rec['addr'], currec)
+        raise NotImplementedError()
 
     def features(self, flt=None, use_asnum=True, use_ipv6=True,
                  use_single_int=False, yieldall=True, use_service=True,
@@ -1239,6 +1178,71 @@ instead of keys.
         #             ports += port['port']
         #     result.append((self.getid(host), count * ports))
         # return result
+
+    def _features_port_get(self, features, flt, yieldall, use_service,
+                           use_product, use_version):
+        if use_version:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], port.get('service_name'),
+                           port.get('service_product'),
+                           port.get('service_version'))
+                    if not yieldall:
+                        continue
+                    if port.get('service_version') is not None:
+                        yield (port['port'], port.get('service_name'),
+                               port.get('service_product'), None)
+                    else:
+                        continue
+                    if port.get('service_product') is not None:
+                        yield (port['port'], port.get('service_name'), None,
+                               None)
+                    else:
+                        continue
+                    if port.get('service_name') is not None:
+                        yield (port['port'], None, None, None)
+        elif use_product:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], port.get('service_name'),
+                           port.get('service_product'))
+                    if not yieldall:
+                        continue
+                    if port.get('service_product') is not None:
+                        yield (port['port'], port.get('service_name'), None)
+                    else:
+                        continue
+                    if port.get('service_name') is not None:
+                        yield (port['port'], None, None)
+        elif use_service:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], port.get('service_name'))
+                    if not yieldall:
+                        continue
+                    if port.get('service_name') is not None:
+                        yield (port['port'], None)
+        else:
+            def _extract(rec):
+                for port in rec.get('ports', []):
+                    if port['port'] == -1:
+                        continue
+                    yield (port['port'], )
+        n_features = len(features)
+        for rec in self.get(flt):
+            currec = [0] * n_features
+            for feat in _extract(rec):
+                try:
+                    currec[features[feat]] = 1
+                except KeyError:
+                    pass
+            yield (rec['addr'], currec)
 
     def searchsshkey(self, fingerprint=None, key=None,
                      keytype=None, bits=None, output=None):
@@ -2161,6 +2165,67 @@ class DBPassive(DB):
                     records = {}
         _bulk_execute(records)
 
+    def _features_port_get(self, features, flt, yieldall, use_service,
+                           use_product, use_version):
+        curaddr = None
+        currec = None
+        if use_version:
+            def _extract(rec):
+                info = rec.get('infos', {})
+                yield (rec['port'], info.get('service_name'),
+                       info.get('service_product'),
+                       info.get('service_version'))
+                if not yieldall:
+                    return
+                if info.get('service_version') is not None:
+                    yield (rec['port'], info.get('service_name'),
+                           info.get('service_product'), None)
+                if info.get('service_product') is not None:
+                    yield (rec['port'], info.get('service_name'), None, None)
+                if info.get('service_name') is not None:
+                    yield (rec['port'], None, None, None)
+        elif use_product:
+            def _extract(rec):
+                info = rec.get('infos', {})
+                yield (rec['port'], info.get('service_name'),
+                       info.get('service_product'))
+                if not yieldall:
+                    return
+                if info.get('service_product') is not None:
+                    yield (rec['port'], info.get('service_name'), None)
+                if info.get('service_name') is not None:
+                    yield (rec['port'], None, None)
+        elif use_service:
+            def _extract(rec):
+                info = rec.get('infos', {})
+                yield (rec['port'], info.get('service_name'))
+                if not yieldall:
+                    return
+                if info.get('service_name') is not None:
+                    yield (rec['port'], None)
+        else:
+            def _extract(rec):
+                yield (rec['port'], )
+        n_features = len(features)
+        for rec in self.get(self.flt_and(flt,
+                                         self._search_field_exists('port')),
+                            sort=[('addr', 1)]):
+            # the addr aggregation could (should?) be done with an
+            # aggregation framework pipeline
+            if curaddr != rec['addr']:
+                if curaddr is not None:
+                    yield (curaddr, currec)
+                curaddr = rec['addr']
+                currec = [0] * n_features
+            for feat in _extract(rec):
+                # We could use += rec['count'] instead here
+                currec[features[feat]] = 1
+        if curaddr is not None:
+            yield (curaddr, currec)
+
+    def _search_field_exists(self, field):
+        raise NotImplementedError
+
     def searchcountry(self, code, neg=False):
         return self.searchranges(
             geoiputils.get_ranges_by_country(code), neg=neg
@@ -2858,6 +2923,7 @@ class MetaDB(object):
             "mongodb": ("mongo", "MongoDBPassive"),
             "postgresql": ("sql.postgres", "PostgresDBPassive"),
             "sqlite": ("sql.sqlite", "SqliteDBPassive"),
+            "tinydb": ("tiny", "TinyDBPassive"),
         },
         "data": {
             "maxmind": ("maxmind", "MaxMindDBData"),

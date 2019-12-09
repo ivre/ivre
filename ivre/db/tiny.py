@@ -28,17 +28,20 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from functools import cmp_to_key
 import os
+import re
 import socket
 import struct
 from uuid import uuid1
 
 
+from future.builtins import int as int_types
 from future.utils import viewitems
 from past.builtins import basestring
 from tinydb import TinyDB as TDB, Query
+from tinydb.database import Document
 
 
-from ivre.db import DB, DBActive, DBNmap, DBView
+from ivre.db import DB, DBActive, DBNmap, DBPassive, DBView
 from ivre import utils
 from ivre.xmlnmap import ALIASES_TABLE_ELEMS, Nmap2DB
 
@@ -48,6 +51,7 @@ class TinyDB(DB):
     """A DB using TinyDB backend"""
 
     flt_empty = Query()
+    no_limit = None
 
     def __init__(self, url):
         super(TinyDB, self).__init__()
@@ -62,6 +66,13 @@ class TinyDB(DB):
             self._db = TDB(os.path.join(self.basepath,
                                         "%s.json" % self.dbname))
             return self._db
+
+    def invalidate_cache(self):
+        try:
+            self._db.close()
+        except AttributeError:
+            pass
+        del self._db
 
     def init(self):
         self.db.purge_tables()
@@ -87,7 +98,10 @@ class TinyDB(DB):
             fields = _fields
 
             def _extractor(rec, wanted_fields, base=""):
-                res = {}
+                if isinstance(rec, Document):
+                    res = Document({}, doc_id=rec.doc_id)
+                else:
+                    res = {}
                 for fld, value in viewitems(wanted_fields):
                     if fld not in rec:
                         continue
@@ -116,17 +130,19 @@ class TinyDB(DB):
 
         def _cmp(v1, v2):
             for (k, o) in sort:
+                f1 = v1
+                f2 = v2
                 for sk in k.split('.'):
-                    v1 = (v1 or {}).get(sk)
-                    v2 = (v2 or {}).get(sk)
-                if v1 == v2:
+                    f1 = (f1 or {}).get(sk)
+                    f2 = (f2 or {}).get(sk)
+                if f1 == f2:
                     continue
-                if v1 is None:
+                if f1 is None:
                     # None is lower than anything
                     return -o
-                if v2 is None:
+                if f2 is None:
                     return o
-                if v1 < v2:
+                if f1 < f2:
                     return -o
                 return o
             return 0
@@ -139,46 +155,32 @@ class TinyDB(DB):
             return [_extractor(rec, fields) for rec in result]
         return result
 
-    def store_host(self, host):
-        host = deepcopy(host)
-        try:
-            host['scanid'] = [host['scanid'].decode()]
-        except KeyError:
-            pass
-        try:
-            host['addr'] = self.ip2internal(host['addr'])
-        except (KeyError, ValueError):
-            pass
-        for port in host.get('ports', []):
-            if 'state_reason_ip' in port:
-                try:
-                    port['state_reason_ip'] = self.ip2internal(
-                        port['state_reason_ip']
-                    )
-                except ValueError:
-                    pass
-        for trace in host.get('traces', []):
-            for hop in trace.get('hops', []):
-                if 'ipaddr' in hop:
-                    try:
-                        hop['ipaddr'] = self.ip2internal(hop['ipaddr'])
-                    except ValueError:
-                        pass
-        for fld in ['starttime', 'endtime']:
-            if isinstance(host[fld], datetime):
-                host[fld] = utils.datetime2timestamp(host[fld])
-            elif isinstance(host[fld], basestring):
-                host[fld] = utils.datetime2timestamp(
-                    utils.all2datetime(host[fld])
-                )
-        if '_id' not in host:
-            _id = host['_id'] = str(uuid1())
-        self.db.insert(host)
-        utils.LOGGER.debug("HOST STORED: %r in %r", _id, self.dbname)
-        return _id
+    @staticmethod
+    def _searchstring_re_inarray(query, value, neg=False):
+        if isinstance(value, utils.REGEXP_T):
+            res = query.test(
+                lambda val: any(value.search(subval) for subval in val)
+            )
+        else:
+            res = query.any([value])
+        if neg:
+            return ~res
+        return res
+
+    @staticmethod
+    def _searchstring_re(query, value, neg=False):
+        if isinstance(value, utils.REGEXP_T):
+            res = query.search(value.pattern, flags=value.flags)
+            if neg:
+                return ~res
+            return res
+        if neg:
+            return query != value
+        return query == value
 
     @classmethod
-    def _generate_field_values(cls, record, field, base=""):
+    def _generate_field_values(cls, record, field, base="", countfield=None,
+                               countval=None):
         try:
             cur, field = field.split('.', 1)
         except ValueError:
@@ -190,12 +192,27 @@ class TinyDB(DB):
                 fullfield = field
             if fullfield in cls.list_fields:
                 for val in record[field]:
-                    yield val
+                    if countval is not None:
+                        yield val, countval
+                    elif countfield is not None:
+                        yield val, record.get(countfield, 1)
+                    else:
+                        yield val
+            elif countval is not None:
+                yield record[field], countval
+            elif countfield is not None:
+                yield record[field], record.get(countfield, 1)
             else:
                 yield record[field]
             return
         if cur not in record:
             return
+        if countfield is not None:
+            if countfield.startswith('%s.' % cur):
+                countfield = countfield.split('.', 1)[1]
+            else:
+                countval = record.get(countfield, 1)
+                countfield = None
         record = record[cur]
         if base:
             base = "%s.%s" % (base, cur)
@@ -203,10 +220,14 @@ class TinyDB(DB):
             base = cur
         if base in cls.list_fields:
             for subrec in record:
-                for val in cls._generate_field_values(subrec, field, base):
+                for val in cls._generate_field_values(subrec, field, base=base,
+                                                      countfield=countfield,
+                                                      countval=countval):
                     yield val
         else:
-            for val in cls._generate_field_values(record, field, base):
+            for val in cls._generate_field_values(record, field, base=base,
+                                                  countfield=countfield,
+                                                  countval=countval):
                 yield val
 
     def _search_field_exists(self, field, base="", baseq=None):
@@ -232,8 +253,8 @@ class TinyDB(DB):
         flt &= self._search_field_exists(field)
         return list(set(
             val
-            for rec in self._get(flt or self.flt_empty, sort=sort, limit=limit,
-                                 skip=skip, fields=[field])
+            for rec in self._get(flt, sort=sort, limit=limit, skip=skip,
+                                 fields=[field])
             for val in self._generate_field_values(rec, field)
         ))
 
@@ -256,8 +277,8 @@ class TinyDB(DB):
 
     @staticmethod
     def ip2internal(addr):
-        if isinstance(addr, int):
-            return int
+        if isinstance(addr, int_types):
+            return addr
         val1, val2 = struct.unpack(
             '!QQ', utils.ip2bin(addr)
         )
@@ -397,55 +418,71 @@ This will be used by TinyDBNmap & TinyDBView
     def get(self, *args, **kargs):
         return list(self._get(*args, **kargs))
 
+    def store_host(self, host):
+        host = deepcopy(host)
+        try:
+            host['scanid'] = [host['scanid'].decode()]
+        except KeyError:
+            pass
+        try:
+            host['addr'] = self.ip2internal(host['addr'])
+        except (KeyError, ValueError):
+            pass
+        for port in host.get('ports', []):
+            if 'state_reason_ip' in port:
+                try:
+                    port['state_reason_ip'] = self.ip2internal(
+                        port['state_reason_ip']
+                    )
+                except ValueError:
+                    pass
+        for trace in host.get('traces', []):
+            for hop in trace.get('hops', []):
+                if 'ipaddr' in hop:
+                    try:
+                        hop['ipaddr'] = self.ip2internal(hop['ipaddr'])
+                    except ValueError:
+                        pass
+        for fld in ['starttime', 'endtime']:
+            if isinstance(host[fld], datetime):
+                host[fld] = utils.datetime2timestamp(host[fld])
+            elif isinstance(host[fld], basestring):
+                host[fld] = utils.datetime2timestamp(
+                    utils.all2datetime(host[fld])
+                )
+        if '_id' not in host:
+            _id = host['_id'] = str(uuid1())
+        self.db.insert(host)
+        utils.LOGGER.debug("HOST STORED: %r in %r", _id, self.dbname)
+        return _id
+
     @staticmethod
     def getscanids(host):
         return host.get("scanid", [])
 
-    @staticmethod
-    def searchdomain(name, neg=False):
+    @classmethod
+    def searchdomain(cls, name, neg=False):
         q = Query()
-        if isinstance(name, utils.REGEXP_T):
-            res = q.domains.test(
-                lambda val: any(name.search(subval) for subval in val)
-            )
-        else:
-            res = q.domains.any([name])
-        res = q.hostnames.any(res)
+        res = q.hostnames.any(cls._searchstring_re_inarray(q.domains, name))
         if neg:
             return ~res
         return res
 
-    @staticmethod
-    def searchhostname(name, neg=False):
+    @classmethod
+    def searchhostname(cls, name, neg=False):
         q = Query()
-        if isinstance(name, utils.REGEXP_T):
-            res = q.hostnames.any(q.name.search(
-                name.pattern,
-                flags=name.flags,
-            ))
-        else:
-            res = q.hostnames.any(q.name == name)
+        res = q.hostnames.any(cls._searchstring_re(q.name, name))
         if neg:
             return ~res
         return res
 
-    @staticmethod
-    def searchcategory(cat, neg=False):
+    @classmethod
+    def searchcategory(cls, cat, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular category
         (records may have zero, one or more categories).
         """
-        q = Query()
-        if isinstance(cat, utils.REGEXP_T):
-            res = q.categories.test(
-                lambda val: any(cat.search(subval)
-                                for subval in val)
-            )
-        else:
-            res = q.categories.any([cat])
-        if neg:
-            return ~res
-        return res
+        return cls._searchstring_re_inarray(Query().categories, cat, neg=neg)
 
     @staticmethod
     def searchcountry(country, neg=False):
@@ -464,19 +501,12 @@ This will be used by TinyDBNmap & TinyDBView
             return q.infos.country_code != country
         return q.infos.country_code == country
 
-    @staticmethod
-    def searchcity(city, neg=False):
+    @classmethod
+    def searchcity(cls, city, neg=False):
         """
         Filters (if `neg` == True, filters out) one particular city.
         """
-        q = Query()
-        if isinstance(city, utils.REGEXP_T):
-            res = q.infos.city.search(city)
-        else:
-            res = q.infos.city == city
-        if neg:
-            return ~res
-        return res
+        return cls._searchstring_re(Query().infos.city, city, neg=neg)
 
     @staticmethod
     def searchhaslocation(neg=False):
@@ -502,36 +532,21 @@ This will be used by TinyDBNmap & TinyDBView
             return q.infos.as_num != asnum
         return q.infos.as_num == asnum
 
-    @staticmethod
-    def searchasname(asname, neg=False):
+    @classmethod
+    def searchasname(cls, asname, neg=False):
         """Filters (if `neg` == True, filters out) one or more
         particular AS.
 
         """
-        q = Query()
-        if isinstance(asname, utils.REGEXP_T):
-            res = q.infos.as_name.search(asname)
-        else:
-            res = q.infos.as_name == asname
-        if neg:
-            return ~res
-        return res
+        return cls._searchstring_re(Query().infos.as_num, asname, neg=neg)
 
-    @staticmethod
-    def searchsource(src, neg=False):
+    @classmethod
+    def searchsource(cls, src, neg=False):
         """Filters (if `neg` == True, filters out) one particular
         source.
 
         """
-        q = Query()
-        if isinstance(src, utils.REGEXP_T):
-            res = q.source.search(src)
-            if neg:
-                return ~res
-            return res
-        if neg:
-            return q.source != src
-        return q.source == src
+        return cls._searchstring_re(Query().source, src, neg=neg)
 
     @staticmethod
     def searchport(port, protocol='tcp', state='open', neg=False):
@@ -566,8 +581,7 @@ This will be used by TinyDBNmap & TinyDBView
 
     @classmethod
     def searchports(cls, ports, protocol='tcp', state='open', neg=False):
-        res = [cls.searchport(port=port, protocol=protocol, state=state,
-                              neg=False)
+        res = [cls.searchport(port=port, protocol=protocol, state=state)
                for port in ports]
         if neg:
             # pylint: disable=invalid-unary-operand-type
@@ -607,22 +621,19 @@ This will be used by TinyDBNmap & TinyDBView
             return ~res
         return res
 
-    @staticmethod
-    def searchservice(srv, port=None, protocol=None):
+    @classmethod
+    def searchservice(cls, srv, port=None, protocol=None):
         """Search an open port with a particular service."""
         q = Query()
-        if isinstance(srv, utils.REGEXP_T):
-            flt = q.service_name.search(srv.pattern, flags=srv.flags)
-        else:
-            flt = (q.service_name == srv)
+        flt = cls._searchstring_re(q.service_name, srv)
         if port is not None:
             flt &= (q.port == port)
         if protocol is not None:
             flt &= (q.protocol == protocol)
         return q.ports.any(flt)
 
-    @staticmethod
-    def searchproduct(product, version=None, service=None, port=None,
+    @classmethod
+    def searchproduct(cls, product, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
@@ -630,21 +641,11 @@ This will be used by TinyDBNmap & TinyDBView
 
         """
         q = Query()
-        if isinstance(product, utils.REGEXP_T):
-            flt = q.service_product.search(product.pattern,
-                                           flags=product.flags)
-        else:
-            flt = (q.service_product == product)
-        if isinstance(version, utils.REGEXP_T):
-            flt &= q.service_version.search(version.pattern,
-                                            flags=version.flags)
-        elif version is not None:
-            flt &= (q.service_version == version)
-        if isinstance(service, utils.REGEXP_T):
-            flt &= q.service_name.search(service.pattern,
-                                         flags=service.flags)
-        elif service is not None:
-            flt &= (q.service_name == service)
+        flt = cls._searchstring_re(q.service_product, product)
+        if version is not None:
+            flt &= cls._searchstring_re(q.service_version, version)
+        if service is not None:
+            flt &= cls._searchstring_re(q.service_name, service)
         if port is not None:
             flt &= (q.port == port)
         if protocol is not None:
@@ -659,32 +660,25 @@ This will be used by TinyDBNmap & TinyDBView
         q = Query()
         res = []
         if name is not None:
-            if isinstance(name, utils.REGEXP_T):
-                res.append(q.id.search(name.pattern, flags=name.flags))
-            else:
-                res.append(q.id == name)
+            res.append(cls._searchstring_re(q.id, name))
         if output is not None:
-            if isinstance(output, utils.REGEXP_T):
-                res.append(q.output.search(output.pattern, flags=output.flags))
-            else:
-                res.append(q.output == output)
+            res.append(cls._searchstring_re(q.output, output))
         if values is not None:
             if not isinstance(name, basestring):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             key = ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, basestring):
-                res.append(getattr(q, key) == values)
-            elif isinstance(values, utils.REGEXP_T):
-                res.append(getattr(q, key).search(values.pattern,
-                                                  flags=values.flags))
-            else:
+            if isinstance(values, dict):
                 for field, value in viewitems(values):
                     if 'ports.scripts.%s' % key in cls.list_fields:
-                        base = getattr(q, field)
+                        base = q
+                        for subfld in field.split('.'):
+                            base = getattr(base, subfld)
                         list_field = True
                     else:
-                        base = getattr(getattr(q, key), field)
+                        base = getattr(q, key)
+                        for subfld in field.split('.'):
+                            base = getattr(base, subfld)
                         list_field = False
                     if isinstance(value, utils.REGEXP_T):
                         if 'ports.scripts.%s.%s' % (key,
@@ -705,6 +699,11 @@ This will be used by TinyDBNmap & TinyDBView
                         res.append(getattr(q, key).any(base))
                     else:
                         res.append(base)
+            elif 'ports.scripts.%s' % key in cls.list_fields:
+                res.append(cls._searchstring_re_inarray(getattr(q, key),
+                                                        values))
+            else:
+                res.append(cls._searchstring_re(getattr(q, key), values))
         if res:
             res = q.ports.any(q.scripts.any(cls.flt_and(*res)))
         else:
@@ -715,19 +714,9 @@ This will be used by TinyDBNmap & TinyDBView
         return res
 
     @classmethod
-    def searchcert(cls, keytype=None):
-        if keytype is None:
-            return cls.searchscript(name="ssl-cert")
+    def searchsvchostname(cls, hostname):
         q = Query()
-        return q.ports.any(q.scripts.any(q['ssl-cert'].pubkey.type == keytype))
-
-    @staticmethod
-    def searchsvchostname(hostname):
-        q = Query()
-        if isinstance(hostname, utils.REGEXP_T):
-            return q.ports.any(q.service_hostname.search(hostname.pattern,
-                                                         flags=hostname.flags))
-        return q.ports.any(q.service_hostname == hostname)
+        return q.ports.any(cls._searchstring_re(q.service_hostname, hostname))
 
     @staticmethod
     def searchwebmin():
@@ -754,10 +743,8 @@ This will be used by TinyDBNmap & TinyDBView
         q = Query()
         if fname is None:
             fname = q.filename.exists()
-        elif isinstance(fname, utils.REGEXP_T):
-            fname = q.filename.search(fname.pattern, flags=fname.flags)
         else:
-            fname = (q.filename == fname)
+            fname = self._searchstring_re(q.filename, fname)
         if scripts is None:
             return q.ports.any(q.scripts.any(q.ls.volumes.any(
                 q.files.any(fname)
@@ -774,13 +761,10 @@ This will be used by TinyDBNmap & TinyDBView
             q.ls.volumes.any(q.files.any(fname))
         ))
 
-    @staticmethod
-    def searchhttptitle(title):
+    @classmethod
+    def searchhttptitle(cls, title):
         q = Query()
-        if isinstance(title, utils.REGEXP_T):
-            base = q.output.search(title.pattern, flags=title.flags)
-        else:
-            base = (q.output == title)
+        base = cls._searchstring_re(q.output, title)
         return q.ports.any(q.scripts.any(
             q.id.one_of(['http-title', 'html-title']) &
             base
@@ -866,17 +850,9 @@ This will be used by TinyDBNmap & TinyDBView
         q = Query()
         res = []
         if status is not None:
-            if isinstance(status, utils.REGEXP_T):
-                res.append(q.vulns.status.search(status.pattern,
-                                                 flags=status.flags))
-            else:
-                res.append(q.vulns.status == status)
+            res.append(cls._searchstring_re(q.vulns.status, status))
         if vulnid is not None:
-            if isinstance(vulnid, utils.REGEXP_T):
-                res.append(q.vulns.id.search(vulnid.pattern,
-                                             flags=vulnid.flags))
-            else:
-                res.append(q.vulns.id == vulnid)
+            res.append(cls._searchstring_re(q.vulns.id, vulnid))
         if res:
             res = cls.flt_and(*res)
         else:
@@ -919,27 +895,21 @@ This will be used by TinyDBNmap & TinyDBView
             return ~res
         return res
 
-    @staticmethod
-    def searchhopdomain(hop, neg=False):
+    @classmethod
+    def searchhopdomain(cls, hop, neg=False):
         q = Query()
-        if isinstance(hop, utils.REGEXP_T):
-            res = q.traces.any(q.hops.any(q.domains.test(
-                lambda val: any(hop.search(subval) for subval in val)
-            )))
-        else:
-            res = q.traces.any(q.hops.any(q.domains.any([hop])))
+        res = q.traces.any(q.hops.any(cls._searchstring_re_inarray(
+            q.domains,
+            hop,
+        )))
         if neg:
             return ~res
         return res
 
-    @staticmethod
-    def searchhopname(hop, neg=False):
+    @classmethod
+    def searchhopname(cls, hop, neg=False):
         q = Query()
-        if isinstance(hop, utils.REGEXP_T):
-            res = q.traces.any(q.hops.any(q.host.search(hop.pattern,
-                                                        flags=hop.flags)))
-        else:
-            res = q.traces.any(q.hops.any(q.host == hop))
+        res = q.traces.any(q.hops.any(cls._searchstring_re(q.host, hop)))
         if neg:
             return ~res
         return res
@@ -958,9 +928,7 @@ This will be used by TinyDBNmap & TinyDBView
             ("product", product),
             ("version", version),
         ]
-        flt = [getattr(q, field).search(value.pattern, flags=value.flags)
-               if isinstance(value, utils.REGEXP_T) else
-               (getattr(q, field) == value)
+        flt = [cls._searchstring_re(getattr(q, field), value)
                for field, value in fields
                if value is not None]
         if not flt:
@@ -1410,11 +1378,11 @@ This will be used by TinyDBNmap & TinyDBView
                 def _extractor(flt, field):
                     for rec in self._get(
                             flt, sort=sort, limit=limit, skip=skip,
-                            fields=["ports.scripts.http-useragent"],
+                            fields=["ports.scripts.http-user-agent"],
                     ):
                         for port in rec['ports']:
                             for script in port.get('scripts', []):
-                                for ua in script.get('http-useragent', []):
+                                for ua in script.get('http-user-agent', []):
                                     if isinstance(subfield, utils.REGEXP_T):
                                         if subfield.search(ua):
                                             yield ua
@@ -1721,12 +1689,13 @@ This will be used by TinyDBNmap & TinyDBView
         return [
             {'_id': _outputproc(val), 'count': count}
             for val, count in
-            Counter(_extractor(flt &
-                               _newflt(field), field)).most_common(topnbr)
+            Counter(_extractor(flt & _newflt(field),
+                               field)).most_common(topnbr)
         ]
 
     def _features_port_list(self, flt, yieldall, use_service, use_product,
                             use_version):
+        flt &= self._search_field_exists('ports.port')
         fields = ["ports.port"]
         if use_service:
             fields.append('ports.service_name')
@@ -1760,11 +1729,11 @@ This will be used by TinyDBNmap & TinyDBView
                     continue
                 res.add(_extract(port))
 
-        if not yieldall:
-            return sorted(res,
-                          key=lambda val: [utils.key_sort_none(v)
-                                           for v in val])
-        return res
+        if yieldall:
+            return res
+
+        return sorted(res,
+                      key=lambda val: [utils.key_sort_none(v) for v in val])
 
     def getlocations(self, flt):
         res = defaultdict(int)
@@ -1872,10 +1841,500 @@ class TinyDBNmap(TinyDBActive, DBNmap):
 
 class TinyDBView(TinyDBActive, DBView):
 
-    """An View-specific DB using TinyDB backend"""
+    """A View-specific DB using TinyDB backend"""
 
     dbname = "view"
 
     def store_or_merge_host(self, host):
         if not self.merge_host(host):
             self.store_host(host)
+
+
+def op_update(count, firstseen, lastseen):
+    """A TinyDB operation to update a document with count, firstseen and
+lastseen values.
+
+    """
+    def transform(doc):
+        doc["count"] = doc.get("count", 0) + count
+        if firstseen is not None:
+            doc["firstseen"] = min(doc.get('firstseen', firstseen), firstseen)
+        if lastseen is not None:
+            doc["lastseen"] = max(doc.get('lastseen', lastseen), lastseen)
+    return transform
+
+
+class TinyDBPassive(TinyDB, DBPassive):
+
+    """A Passive-specific DB using TinyDB backend"""
+
+    dbname = "passive"
+
+    @classmethod
+    def rec2internal(cls, rec):
+        """Given a record as presented to the user, fixes it before it can be
+inserted in the database.
+
+        """
+        rec = deepcopy(rec)
+        try:
+            rec['addr'] = cls.ip2internal(rec['addr'])
+        except (KeyError, ValueError):
+            pass
+        for fld in ['firstseen', 'lastseen']:
+            if fld not in rec:
+                continue
+            if isinstance(rec[fld], datetime):
+                rec[fld] = utils.datetime2timestamp(rec[fld])
+            elif isinstance(rec[fld], basestring):
+                rec[fld] = utils.datetime2timestamp(
+                    utils.all2datetime(rec[fld])
+                )
+            if '_id' in rec:
+                del rec['_id']
+        return rec
+
+    @classmethod
+    def internal2rec(cls, rec):
+        """Given a record as stored in the database, fixes it before it can be
+returned to backend-agnostic functions.
+
+        """
+        rec = deepcopy(rec)
+        try:
+            rec['addr'] = cls.internal2ip(rec['addr'])
+        except (KeyError, ValueError):
+            pass
+        for fld in ['firstseen', 'lastseen']:
+            try:
+                rec[fld] = utils.all2datetime(rec[fld])
+            except KeyError:
+                pass
+        if rec.get('recontype') == 'SSL_SERVER' and \
+           rec.get('source') == 'cert':
+            rec['value'] = cls.from_binary(rec['value'])
+        if isinstance(rec, Document):
+            rec['_id'] = rec.doc_id
+        return rec
+
+    def _get(self, *args, **kargs):
+        for rec in super(TinyDBPassive, self).get(*args, **kargs):
+            yield self.internal2rec(rec)
+
+    def get(self, *args, **kargs):
+        """Queries the passive column with the provided filter "spec", and
+returns a list of results.
+
+        """
+        return list(self._get(*args, **kargs))
+
+    def get_one(self, *args, **kargs):
+        """Same function as get, except the first record matching "spec" (or
+None) is returned.
+
+        """
+        try:
+            return self.get(*args, **kargs)[0]
+        except IndexError:
+            return None
+
+    def insert(self, spec, getinfos=None):
+        """Inserts the record "spec" into the passive column."""
+        if getinfos is not None:
+            spec.update(getinfos(spec))
+        spec = self.rec2internal(spec)
+        self.db.insert(spec)
+
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
+        if spec is None:
+            return
+        q = Query()
+        orig = deepcopy(spec)
+        spec = self.rec2internal(spec)
+        try:
+            del spec['infos']
+        except KeyError:
+            pass
+        count = spec.pop("count", 1)
+        spec_cond = self.flt_and(*(getattr(q, key) == value
+                                   for key, value in viewitems(spec)))
+        if isinstance(timestamp, datetime):
+            timestamp = utils.datetime2timestamp(timestamp)
+        elif isinstance(timestamp, basestring):
+            timestamp = utils.datetime2timestamp(utils.all2datetime(timestamp))
+        if isinstance(lastseen, datetime):
+            lastseen = utils.datetime2timestamp(lastseen)
+        elif isinstance(lastseen, basestring):
+            lastseen = utils.datetime2timestamp(
+                utils.all2datetime(lastseen)
+            )
+        current = self.get_one(spec_cond, fields=[])
+        if current is not None:
+            self.db.update(op_update(count, timestamp, lastseen or timestamp),
+                           doc_ids=[current.doc_id])
+        else:
+            doc = dict(spec, count=count, firstseen=timestamp,
+                       lastseen=lastseen or timestamp)
+            if getinfos is not None:
+                orig.update(getinfos(orig))
+                try:
+                    doc['infos'] = orig['infos']
+                except KeyError:
+                    pass
+                # upsert() won't handle operations
+            self.db.upsert(doc, spec_cond)
+
+    def remove(self, spec_or_id):
+        if isinstance(spec_or_id, int_types):
+            self.db.remove(doc_ids=[spec_or_id])
+        else:
+            self.db.remove(cond=spec_or_id)
+
+    def topvalues(self, field, flt=None, distinct=True, topnbr=10, sort=None,
+                  limit=None, skip=None, least=False, aggrflt=None,
+                  specialproj=None, specialflt=None):
+        """This method makes use of the aggregation framework to
+        produce top values for a given field.
+
+        If `distinct` is True (default), the top values are computed
+        by distinct events. If it is False, they are computed based on
+        the "count" field.
+
+        """
+        if flt is None:
+            flt = self.flt_empty
+        if distinct:
+            countfield = None
+            fields = [field]
+        else:
+            countfield = "count"
+            fields = [field, "count"]
+
+        def _outputproc(val):
+            return val
+
+        def _extractor(flt, field):
+            for rec in self._get(flt, sort=sort, limit=limit, skip=skip,
+                                 fields=fields):
+                for val in self._generate_field_values(rec, field,
+                                                       countfield=countfield):
+                    yield val
+
+        def _newflt(field):
+            return self._search_field_exists(field)
+
+        if field == "net" or field.startswith("net:"):
+            maskval = int(field.split(':', 1)[1]) if ':' in field else 24
+            mask = utils.int2mask(maskval)
+            field = "addr"
+
+            def _newflt(field):  # noqa: F811
+                return self.searchipv4()
+
+            def _extractor(flt, field):  # noqa: F811
+                for rec in self._get(flt, sort=sort, limit=limit, skip=skip,
+                                     fields=fields):
+                    val = "%s/%s" % (
+                        utils.int2ip(utils.ip2int(rec['addr']) & mask),
+                        maskval,
+                    )
+                    if distinct:
+                        yield val
+                    else:
+                        yield (val, rec.get('count', 1))
+
+        if distinct:
+            return [
+                {'_id': _outputproc(val), 'count': count}
+                for val, count in
+                Counter(_extractor(flt & _newflt(field),
+                                   field)).most_common(topnbr)
+            ]
+        res = Counter()
+        for val, count in _extractor(flt & _newflt(field), field):
+            res[val] += count
+        return [
+            {'_id': _outputproc(val), 'count': count}
+            for val, count in res.most_common(topnbr)
+        ]
+
+    def _features_port_list(self, flt, yieldall, use_service, use_product,
+                            use_version):
+        flt &= self._search_field_exists('port')
+        fields = ['port']
+        if use_service:
+            fields.append('infos.service_name')
+            if use_product:
+                fields.append('infos.service_product')
+                if use_version:
+                    fields.append('infos.service_version')
+
+                    def _extract(rec):
+                        infos = rec.get('infos', {})
+                        return (rec.get("port"), infos.get("service_name"),
+                                infos.get("service_product"),
+                                infos.get("service_version"))
+                else:
+
+                    def _extract(rec):
+                        infos = rec.get('infos', {})
+                        return (rec.get("port"), infos.get("service_name"),
+                                infos.get("service_product"))
+            else:
+
+                def _extract(rec):
+                    return (rec.get("port"),
+                            rec.get('infos', {}).get("service_name"))
+        else:
+
+            def _extract(rec):
+                return (rec.get("port"),)
+
+        res = set()
+        for rec in self._get(flt, fields=fields):
+            res.add(_extract(rec))
+
+        if yieldall:
+            return res
+
+        return sorted(res,
+                      key=lambda val: [utils.key_sort_none(v) for v in val])
+
+    @classmethod
+    def searchrecontype(cls, rectype):
+        return cls._searchstring_re(Query().recontype, rectype)
+
+    @classmethod
+    def searchsensor(cls, sensor, neg=False):
+        return cls._searchstring_re(Query().sensor, sensor, neg=neg)
+
+    @staticmethod
+    def searchport(port, protocol='tcp', state='open', neg=False):
+        """Filters (if `neg` == True, filters out) records on the specified
+        protocol/port.
+
+        """
+        if protocol != 'tcp':
+            raise ValueError("Protocols other than TCP are not supported "
+                             "in passive")
+        if state != 'open':
+            raise ValueError("Only open ports can be found in passive")
+        if neg:
+            return Query().port != port
+        return Query().port == port
+
+    @classmethod
+    def searchservice(cls, srv, port=None, protocol=None):
+        """Search a port with a particular service."""
+        q = Query()
+        flt = cls._searchstring_re(q.infos.service_name, srv)
+        if port is not None:
+            flt &= q.port == port
+        if protocol is not None and protocol != 'tcp':
+            raise ValueError("Protocols other than TCP are not supported "
+                             "in passive")
+        return flt
+
+    @classmethod
+    def searchproduct(cls, product, version=None, service=None, port=None,
+                      protocol=None):
+        """Search a port with a particular `product`. It is (much)
+        better to provide the `service` name and/or `port` number
+        since those fields are indexed.
+
+        """
+        q = Query()
+        flt = cls._searchstring_re(q.infos.service_product, product)
+        if version is not None:
+            flt &= cls._searchstring_re(q.infos.service_version, version)
+        if service is not None:
+            flt &= cls._searchstring_re(q.infos.service_name, service)
+        if port is not None:
+            flt &= q.port == port
+        if protocol is not None:
+            if protocol != 'tcp':
+                raise ValueError("Protocols other than TCP are not supported "
+                                 "in passive")
+        return flt
+
+    @classmethod
+    def searchsvchostname(cls, hostname):
+        return cls._searchstring_re(Query().infos.service_hostname, hostname)
+
+    @classmethod
+    def searchmac(cls, mac=None, neg=False):
+        q = Query()
+        res = (q.recontype == 'MAC_ADDRESS')
+        if mac is not None:
+            res &= cls._searchstring_re(q.value, mac, neg=neg)
+        elif neg:
+            return q.recontype != 'MAC_ADDRESS'
+        return res
+
+    @classmethod
+    def searchuseragent(cls, useragent=None, neg=False):
+        if neg:
+            raise ValueError("searchuseragent([...], neg=True) is not "
+                             "supported in passive DB.")
+        q = Query()
+        res = ((q.recontype == 'HTTP_CLIENT_HEADER') &
+               (q.source == 'USER-AGENT'))
+        if useragent is None:
+            return res
+        return res & cls._searchstring_re(q.value, useragent)
+
+    @classmethod
+    def searchdns(cls, name=None, reverse=False, dnstype=None,
+                  subdomains=False):
+        q = Query()
+        res = (q.recontype == 'DNS_ANSWER')
+        if name is not None:
+            if subdomains:
+                inarray = True
+                if reverse:
+                    req = q.infos.domaintarget
+                else:
+                    req = q.infos.domain
+            else:
+                inarray = False
+                if reverse:
+                    req = q.targetval
+                else:
+                    req = q.value
+            if isinstance(name, list):
+                if inarray:
+                    res &= req.any(name)
+                else:
+                    res &= req.one_of(name)
+            elif inarray:
+                res &= cls._searchstring_re_inarray(req, name)
+            else:
+                res &= cls._searchstring_re(req, name)
+        if dnstype is not None:
+            res &= q.source.search('^%s-' % dnstype.upper())
+        return res
+
+    @staticmethod
+    def searchcert(keytype=None):
+        q = Query()
+        req = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert'))
+        if keytype is None:
+            return req
+        return req & (q.infos.pubkeyalgo == (keytype + 'Encryption'))
+
+    @classmethod
+    def _searchja3(cls, query, value_or_hash):
+        if value_or_hash is None:
+            return None
+        key, value = cls._ja3keyvalue(value_or_hash)
+        return cls._searchstring_re(
+            query.value if key == 'md5' else getattr(query.infos, key),
+            value,
+        )
+
+    @classmethod
+    def searchja3client(cls, value_or_hash=None):
+        q = Query()
+        base = ((q.recontype == 'SSL_CLIENT') &
+                (q.source == 'ja3'))
+        res = cls._searchja3(q, value_or_hash)
+        if res is None:
+            return base
+        return base & res
+
+    @classmethod
+    def searchja3server(cls, value_or_hash=None, client_value_or_hash=None):
+        q = Query()
+        base = (q.recontype == 'SSL_SERVER')
+        res = cls._searchja3(q, value_or_hash)
+        if res is not None:
+            base &= res
+        if client_value_or_hash is None:
+            return base & q.source.search('^ja3-')
+        key, value = cls._ja3keyvalue(client_value_or_hash)
+        if key == 'md5':
+            return base & (q.source == ('ja3-%s' % value))
+        return (base & q.source.search('^ja3-') &
+                cls._searchstring_re(getattr(q.infos.client, key),
+                                     client_value_or_hash))
+
+    @staticmethod
+    def searchsshkey(keytype=None):
+        q = Query()
+        req = ((q.recontype == 'SSH_SERVER_HOSTKEY') & (q.source == 'SSHv2'))
+        if keytype is None:
+            return req
+        return req & (q.infos.algo == 'ssh-' + keytype)
+
+    @classmethod
+    def searchcertsubject(cls, expr, issuer=None):
+        q = Query()
+        req = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert') &
+               cls._searchstring_re(q.infos.subject_text, expr))
+        if issuer is None:
+            return req
+        return req & cls._searchstring_re(q.infos.issuer_text, expr)
+
+    @classmethod
+    def searchcertissuer(cls, expr):
+        q = Query()
+        return ((q.recontype == 'SSL_SERVER') & (q.source == 'cert') &
+                cls._searchstring_re(q.infos.issuer_text, expr))
+
+    @staticmethod
+    def searchbasicauth():
+        q = Query()
+        return (
+            q.recontype.one_of(['HTTP_CLIENT_HEADER',
+                                'HTTP_CLIENT_HEADER_SERVER']) &
+            q.source.one_of(['AUTHORIZATION',
+                             'PROXY-AUTHORIZATION']) &
+            q.value.search('^Basic', flags=re.I)
+        )
+
+    @staticmethod
+    def searchhttpauth():
+        q = Query()
+        return (
+            q.recontype.one_of(['HTTP_CLIENT_HEADER',
+                                'HTTP_CLIENT_HEADER_SERVER']) &
+            q.source.one_of(['AUTHORIZATION',
+                             'PROXY-AUTHORIZATION'])
+        )
+
+    @staticmethod
+    def searchftpauth():
+        return Query().recontype.one_of(['FTP_CLIENT', 'FTP_SERVER'])
+
+    @staticmethod
+    def searchpopauth():
+        return Query().recontype.one_of(['POP_CLIENT', 'POP_SERVER'])
+
+    @classmethod
+    def searchtcpsrvbanner(cls, banner):
+        q = Query()
+        return ((q.recontype == 'TCP_SERVER_BANNER') &
+                cls._searchstring_re(q.value, banner))
+
+    @staticmethod
+    def searchtimeago(delta, neg=False, new=True):
+        if not isinstance(delta, timedelta):
+            delta = timedelta(seconds=delta)
+        tstamp = utils.datetime2timestamp(datetime.now() - delta)
+        req = getattr(Query(), 'firstseen' if new else 'lastseen')
+        if neg:
+            return req < tstamp
+        return req >= tstamp
+
+    @staticmethod
+    def searchnewer(timestamp, neg=False, new=True):
+        if isinstance(timestamp, datetime):
+            timestamp = utils.datetime2timestamp(timestamp)
+        elif isinstance(timestamp, basestring):
+            timestamp = utils.datetime2timestamp(
+                utils.all2datetime(timestamp)
+            )
+        req = getattr(Query(), 'firstseen' if new else 'lastseen')
+        if neg:
+            return req <= timestamp
+        return req > timestamp

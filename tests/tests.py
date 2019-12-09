@@ -1890,9 +1890,9 @@ purposes to feed Elasticsearch view.
 
         # Top values
         for distinct in [True, False]:
-            cur = ivre.db.db.passive.topvalues(field="addr",
-                                               distinct=distinct,
-                                               topnbr=2)
+            cur = iter(ivre.db.db.passive.topvalues(field="addr",
+                                                    distinct=distinct,
+                                                    topnbr=2))
             values = next(cur)
             while values.get('_id') is None:
                 values = next(cur)
@@ -1914,11 +1914,11 @@ purposes to feed Elasticsearch view.
                 # JSON fields
                 continue
             for distinct in [True, False]:
-                cur = ivre.db.db.passive.topvalues(
+                cur = iter(ivre.db.db.passive.topvalues(
                     field=field,
                     flt=ivre.db.db.passive.searchja3client(),
                     distinct=distinct,
-                )
+                ))
                 values = next(cur)
                 while values.get('_id') is None:
                     values = next(cur)
@@ -2146,18 +2146,30 @@ purposes to feed Elasticsearch view.
 
         # ASNs / Countries / .searchranges()
         for asnum in [15169, 15557, 3215, 2200, 123456789]:
+            if DATABASE == "tinydb" and asnum == 3215:
+                # With tinydb, the filter generates a huge expression
+                # which leads to the following error:
+                #
+                # RecursionError: maximum recursion depth exceeded
+                continue
             res, out, err = RUN(["ivre", "ipinfo", "--count", "--asnum",
                                  str(asnum)])
             self.assertEqual(ret, 0)
             self.assertTrue(not err)
             self.check_value("passive_count_as%d" % asnum, int(out))
         for cname in ['US', 'FR', 'DE', 'KP', 'XX']:
-            if DATABASE == "sqlite" and cname in ['US', 'FR', 'DE']:
+            if DATABASE in ["sqlite", "tinydb"] and \
+               cname in ['US', 'FR', 'DE']:
                 # With sqlite, the filter generates a huge expression
                 # which leads to the following error:
                 #
                 # sqlite3.OperationalError: Expression tree is too
                 # large (maximum depth 10000)
+                #
+                # With tinydb, the filter generates a huge expression
+                # which leads to the following error:
+                #
+                # RecursionError: maximum recursion depth exceeded
                 continue
             res, out, err = RUN(["ivre", "ipinfo", "--count", "--country",
                                  cname])
@@ -2284,6 +2296,9 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         self.assertTrue(not out)
 
+        if DATABASE == "tinydb":
+            ivre.db.db.passive.invalidate_cache()
+
         count = ivre.db.db.passive.count(
             ivre.db.db.passive.searchrecontype('DNS_BLACKLIST')
         )
@@ -2302,86 +2317,95 @@ purposes to feed Elasticsearch view.
             self.assertTrue(not err)
             self.check_value("passive_count_dnstype_%s" % dnstype, int(out))
 
-        if DATABASE != "sqlite":
+        if DATABASE == "sqlite":
             # BUG in sqlite backend: same bug as "cannot use topvalues
             # with JSON fields"
-            columns, data = ivre.db.db.passive.features(use_service=False)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_ports_ncolumns", ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_ports_ndata", len(data))
-            columns, data = ivre.db.db.passive.features()
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_services_ncolumns", ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_services_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(use_product=True)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_products_ncolumns", ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_products_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(use_version=True)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_versions_ncolumns", ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_versions_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(yieldall=False,
-                                                        use_version=True)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_versions_noyieldall_ncolumns",
-                             ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_versions_noyieldall_ndata",
-                             len(data))
+            return
 
-            subflts = [(country, ivre.db.db.passive.searchcountry(country))
-                       for country in ['FR', 'DE']]
-            columns, data = ivre.db.db.passive.features(use_service=False,
-                                                        subflts=subflts)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_ports_FRDE_ncolumns", ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_ports_FRDE_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(subflts=subflts)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_services_FRDE_ncolumns",
-                             ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_services_FRDE_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(use_product=True,
-                                                        subflts=subflts)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_products_FRDE_ncolumns",
-                             ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_products_FRDE_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(use_version=True,
-                                                        subflts=subflts)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value("passive_features_versions_FRDE_ncolumns",
-                             ncolumns)
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_versions_FRDE_ndata", len(data))
-            columns, data = ivre.db.db.passive.features(yieldall=False,
-                                                        use_version=True,
-                                                        subflts=subflts)
-            ncolumns = len(columns)
-            data = list(data)
-            self.check_value(
-                "passive_features_versions_noyieldall_FRDE_ncolumns", ncolumns,
-            )
-            self.assertTrue(all(len(d) == ncolumns for d in data))
-            self.check_value("passive_features_versions_noyieldall_FRDE_ndata",
-                             len(data))
+        columns, data = ivre.db.db.passive.features(use_service=False)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_ports_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_ports_ndata", len(data))
+        columns, data = ivre.db.db.passive.features()
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_services_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_services_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(use_product=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_products_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_products_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(use_version=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_versions_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_versions_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(yieldall=False,
+                                                    use_version=True)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_versions_noyieldall_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_versions_noyieldall_ndata",
+                         len(data))
+
+        if DATABASE == "tinydb":
+            # BUG in tinydb backend: the country filters generate huge
+            # expressions that cause the error:
+            #
+            # RecursionError: maximum recursion depth exceeded
+            return
+
+        subflts = [(country, ivre.db.db.passive.searchcountry(country))
+                   for country in ['FR', 'DE']]
+        columns, data = ivre.db.db.passive.features(use_service=False,
+                                                    subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_ports_FRDE_ncolumns", ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_ports_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_services_FRDE_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_services_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(use_product=True,
+                                                    subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_products_FRDE_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_products_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(use_version=True,
+                                                    subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value("passive_features_versions_FRDE_ncolumns",
+                         ncolumns)
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_versions_FRDE_ndata", len(data))
+        columns, data = ivre.db.db.passive.features(yieldall=False,
+                                                    use_version=True,
+                                                    subflts=subflts)
+        ncolumns = len(columns)
+        data = list(data)
+        self.check_value(
+            "passive_features_versions_noyieldall_FRDE_ncolumns", ncolumns,
+        )
+        self.assertTrue(all(len(d) == ncolumns for d in data))
+        self.check_value("passive_features_versions_noyieldall_FRDE_ndata",
+                         len(data))
 
     def test_54_passive_delete(self):
         total_count = ivre.db.db.passive.count(
@@ -2810,7 +2834,7 @@ purposes to feed Elasticsearch view.
                 "nodes": [],
                 "edges": ["meta.sip"]
             })
-            elt = next(ivre.db.db.flow.get(flt, orderby='src', limit=1))
+            elt = next(iter(ivre.db.db.flow.get(flt, orderby='src', limit=1)))
             del elt['_id']
             # Format datetime fields in ISO format
             for field in ivre.db.db.flow.datefields:
@@ -3757,6 +3781,7 @@ purposes to feed Elasticsearch view.
         # Web server tests
         #
 
+        print('Web server tests')
         # Test invalid Referer: header values
         #   no header
         req = Request('http://%s:%d/cgi/config' % (HTTPD_HOSTNAME, HTTPD_PORT))
@@ -3817,6 +3842,7 @@ purposes to feed Elasticsearch view.
                 break
         self.assertTrue(result)
 
+        print('Init DB & inserts')
         # Init DB
         self.assertEqual(RUN(["ivre", "view", "--init"],
                              stdin=open(os.devnull))[0], 0)
@@ -3849,6 +3875,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ret, 0)
         self.assertEqual(len(out.splitlines()), 1)
 
+        print('Counting')
         view_count = 0
         # Count passive results
         self.assertEqual(RUN(["ivre", "db2view", "passive"])[0], 0)
@@ -3887,6 +3914,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ret, 0)
         self.assertTrue(not err)
 
+        print('Outputs')
         # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
@@ -3908,9 +3936,12 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         self.check_value("view_count_passive", int(out))
 
+        print('Top values')
         # Top values & filters
-        self.assertEqual(next(ivre.db.db.view.topvalues("category"))['_id'],
-                         "TEST")
+        self.assertEqual(
+            next(iter(ivre.db.db.view.topvalues("category")))['_id'],
+            "TEST",
+        )
         self.check_view_top_value("view_top_ssh_port", "port:ssh")
         self.check_view_top_value("view_top_http_header", "httphdr.name")
         self.check_view_top_value("view_top_http_header_value",
@@ -4012,6 +4043,7 @@ purposes to feed Elasticsearch view.
         self.check_view_top_value("view_top_hop", "hop")
         self.check_view_top_value("view_top_hop_10+", "hop>10")
 
+        print('Filters')
         # Check schema version
         self.check_count_value_api(
             view_count,
@@ -4043,10 +4075,11 @@ purposes to feed Elasticsearch view.
             "torcert",
         )
 
+        print('Web /view URLs')
         # Check Web /view
-        addr = next(ivre.db.db.view.get(
+        addr = next(iter(ivre.db.db.view.get(
             ivre.db.db.view.flt_empty, fields=['addr']
-        ))['addr']
+        )))['addr']
         addr_i = ivre.utils.force_ip2int(addr)
         addr = ivre.utils.force_int2ip(addr)
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
@@ -4168,9 +4201,9 @@ purposes to feed Elasticsearch view.
         self.assertTrue(addr_i in
                         (x[0] for x in json.loads(udesc.read().decode())))
         # coordinates
-        result = next(ivre.db.db.view.get(
+        result = next(iter(ivre.db.db.view.get(
             ivre.db.db.view.searchcity(re.compile('.'))
-        ))
+        )))
         addr = ivre.utils.force_int2ip(result['addr'])
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         coords = result['infos']['coordinates']
@@ -4211,6 +4244,7 @@ purposes to feed Elasticsearch view.
             )
         ))
 
+        print('JA3 & UA filters')
         # Check ja3 filters
         self.check_view_count_value(
             "view_count_ja3_server",
@@ -4294,6 +4328,7 @@ purposes to feed Elasticsearch view.
             "useragent:%s" % regexp,
         )
 
+        print('Featuresx')
         columns, data = ivre.db.db.view.features(use_service=False)
         ncolumns = len(columns)
         data = list(data)
@@ -4384,9 +4419,9 @@ purposes to feed Elasticsearch view.
         self.assertTrue(not err)
         self.check_value("view_count_total", int(out))
 
-        addr = next(ivre.db.db.view.get(
+        addr = next(iter(ivre.db.db.view.get(
             ivre.db.db.view.flt_empty
-        ))['addr']
+        )))['addr']
         res, out, err = RUN(["ivre", "view", "--host", addr], env=newenv)
         self.assertEqual(res, 0)
         self.assertTrue(not err)
@@ -4441,8 +4476,7 @@ DATABASES = {
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
                 "54_passive_delete", "60_flow", "90_cleanup", "scans"],
-    "tinydb": ["40_passive", "54_passive_delete", "50_view",
-               "60_flow", "90_cleanup", "scans", "utils"],
+    "tinydb": ["60_flow", "90_cleanup", "scans", "utils"],
 }
 
 

@@ -98,7 +98,7 @@ def parse_p0f_line(line, include_port=False, sensor=None, recontype=None):
         'distance': dist,
         'value': osname.decode(),
         'version': version.decode(),
-        'signature': ':'.join(str(elt) for elt in sig),
+        'signature': ':'.join(elt.decode() for elt in sig),
     }
     if include_port:
         spec.update({'port': int(line[0][line[0].index(b':') + 1:])})

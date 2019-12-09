@@ -308,6 +308,15 @@ e.g.  .explain()) based on the column and a filter.
         return json.dumps(cursor.explain(), indent=indent,
                           default=self.serialize)
 
+    def init(self):
+        """Initializes the column(s), i.e., drops the column(s) and creates
+the default indexes.
+
+        """
+        for colname in self.columns:
+            self.db[colname].drop()
+        self.create_indexes()
+
     def create_indexes(self):
         for colnum, indexes in enumerate(self.indexes):
             colname = self.columns[colnum]
@@ -672,6 +681,9 @@ want to do something special here, e.g., mix with other records.
     def flt_or(*args):
         return {'$or': args} if len(args) > 1 else args[0]
 
+    def _search_field_exists(self, field):
+        return {field: {"$exists": True}}
+
     @staticmethod
     def searchnonexistent():
         return {'_id': 0}
@@ -938,12 +950,6 @@ class MongoDBActive(MongoDB, DBActive):
                 14: (15, self.migrate_schema_hosts_14_15),
             },
         ]
-
-    def init(self):
-        """Initializes the "active" columns, i.e., drops those columns and
-creates the default indexes."""
-        self.db[self.columns[self.column_hosts]].drop()
-        self.create_indexes()
 
     def cmp_schema_version_host(self, host):
         """Returns 0 if the `host`'s schema version matches the code's
@@ -3465,10 +3471,6 @@ class MongoDBNmap(MongoDBActive, DBNmap):
     def store_or_merge_host(self, host):
         self.store_host(host)
 
-    def init(self):
-        self.db[self.columns[self.column_scans]].drop()
-        super(MongoDBNmap, self).init()
-
     def cmp_schema_version_scan(self, scan):
         """Returns 0 if the `scan`'s schema version matches the code's
         current version, -1 if it is higher (you need to update IVRE),
@@ -3624,12 +3626,6 @@ class MongoDBPassive(MongoDB, DBPassive):
                 None: (1, self.migrate_schema_passive_0_1),
             },
         ]
-
-    def init(self):
-        """Initializes the "passive" columns, i.e., drops the columns, and
-creates the default indexes."""
-        self.db[self.columns[self.column_passive]].drop()
-        self.create_indexes()
 
     def cmp_schema_version_passive(self, rec):
         """Returns 0 if the `rec`'s schema version matches the code's
@@ -4073,63 +4069,6 @@ setting values according to the keyword arguments.
             '$infos',
         )
 
-    def _features_port_get(self, features, flt, yieldall, use_service,
-                           use_product, use_version):
-        curaddr = None
-        currec = None
-        if use_version:
-            def _extract(rec):
-                info = rec.get('infos', {})
-                yield (rec['port'], info.get('service_name'),
-                       info.get('service_product'),
-                       info.get('service_version'))
-                if not yieldall:
-                    return
-                if info.get('service_version') is not None:
-                    yield (rec['port'], info.get('service_name'),
-                           info.get('service_product'), None)
-                if info.get('service_product') is not None:
-                    yield (rec['port'], info.get('service_name'), None, None)
-                if info.get('service_name') is not None:
-                    yield (rec['port'], None, None, None)
-        elif use_product:
-            def _extract(rec):
-                info = rec.get('infos', {})
-                yield (rec['port'], info.get('service_name'),
-                       info.get('service_product'))
-                if not yieldall:
-                    return
-                if info.get('service_product') is not None:
-                    yield (rec['port'], info.get('service_name'), None)
-                if info.get('service_name') is not None:
-                    yield (rec['port'], None, None)
-        elif use_service:
-            def _extract(rec):
-                info = rec.get('infos', {})
-                yield (rec['port'], info.get('service_name'))
-                if not yieldall:
-                    return
-                if info.get('service_name') is not None:
-                    yield (rec['port'], None)
-        else:
-            def _extract(rec):
-                yield (rec['port'], )
-        n_features = len(features)
-        for rec in self.get(self.flt_and(flt, {'port': {'$exists': True}}),
-                            sort=[('addr', 1)]):
-            # the addr aggregation could (should?) be done with an
-            # aggregation framework pipeline
-            if curaddr != rec['addr']:
-                if curaddr is not None:
-                    yield (curaddr, currec)
-                curaddr = rec['addr']
-                currec = [0] * n_features
-            for feat in _extract(rec):
-                # We could use += rec['count'] instead here
-                currec[features[feat]] = 1
-        if curaddr is not None:
-            yield (curaddr, currec)
-
     @staticmethod
     def searchrecontype(rectype):
         return {'recontype': rectype}
@@ -4375,16 +4314,6 @@ class MongoDBAgent(MongoDB, DBAgent):
         self.columns = [self.params.pop('colname_agents', 'agents'),
                         self.params.pop('colname_scans', 'runningscans'),
                         self.params.pop('colname_masters', 'masters')]
-
-    def init(self):
-        """Initializes the "agent" columns, i.e., drops those columns
-        and creates the default indexes.
-
-        """
-        self.db[self.columns[self.column_agents]].drop()
-        self.db[self.columns[self.column_scans]].drop()
-        self.db[self.columns[self.column_masters]].drop()
-        self.create_indexes()
 
     def stop_agent(self, agentid):
         agent = self.get_agent(agentid)
@@ -4799,13 +4728,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         except pymongo.errors.InvalidOperation:
             # Raised when executing an empty bulk
             pass
-
-    def init(self):
-        """Initializes the "flows" columns, i.e., drops those columns and
-        creates the default indexes.
-        """
-        self.db[self.columns[self.column_flow]].drop()
-        self.create_indexes()
 
     def get(self, flt, skip=None, limit=None, orderby=None, fields=None):
         """

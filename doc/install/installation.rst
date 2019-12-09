@@ -50,6 +50,9 @@ following modules:
 - `Crypto <http://www.pycrypto.org/>`_.
 - `Future <https://python-future.org/>`_.
 - `pymongo <http://api.mongodb.org/python/>`_ version 2.7.2 minimum.
+- `tinydb <https://tinydb.readthedocs.io/>`_, to use the
+  **experimental** TinyDB backend (this does not require a database
+  server).
 - `py2neo <http://py2neo.org/v3/>`__ version 3, optional, to use the
   flow purpose with the Neo4j backend (**deprecated**).
 - `sqlalchemy <http://www.sqlalchemy.org/>`_ and `psycopg2
