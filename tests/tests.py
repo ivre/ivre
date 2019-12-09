@@ -2927,6 +2927,16 @@ purposes to feed Elasticsearch view.
                 ivre.db.db.flow.count(flt_new),
                 {'clients': 0, 'flows': 0, 'servers': 0}
             )
+        # Test flow cleanup
+        res, out, err = RUN(["ivre", "flowcli", "--init"],
+                            stdin=open(os.devnull))
+        self.assertEqual(res, 0)
+        self.assertTrue(not err)
+        res, out, err = RUN(['ivre', 'bro2db', os.path.join(os.getcwd(),
+                             "samples", "mongo_conn.log")])
+        self.assertEqual(res, 0)
+        self.assertTrue(not out)
+        self.check_flow_count_value("flow_count_cleanup", {}, [], None)
 
         # Test netflow capture insertion
         res, out, err = RUN(["ivre", "flowcli", "--init"],
