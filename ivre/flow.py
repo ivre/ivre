@@ -38,7 +38,7 @@ FIELDS = {
     'sports': "Source ports (list) (if relevant)",
     'type': "ICMP type (if relevant)",
     'codes': "ICMP codes (list) (if relevant)",
-    'count': "Number of occurences of the flow",
+    'count': "Number of occurrences of the flow",
     'csbytes': "Number of bytes sent by client (src) to server (dst)",
     'scbytes': "Number of bytes sent by server (dst) to client (src)",
     'cspkts': "Number of packets sent by client (src) to server (dst)",
