@@ -1015,18 +1015,6 @@ var _SUBMENU_SORT = [
 var MENU_MAIN = {
     share: true,
     share_report: true,
-    items: [
-	{title: "HELP",
-	 action: "$scope.togglenotes('doc/usage/web-ui.html');",
-	 icon: "question-sign",
-	},
-    ]
-};
-
-// Menu for index.html
-var MENU_MAIN = {
-    share: true,
-    share_report: true,
     share_compare: true,
     share_jsonexport: true,
     share_addrlist: true,
@@ -1034,6 +1022,10 @@ var MENU_MAIN = {
 	{title: "HELP",
 	 action: "$scope.togglenotes('doc/usage/web-ui.html');",
 	 icon: "question-sign",
+	},
+	{title: "Flow",
+	 action: "document.location = 'flow.html'",
+	 icon: "transfer",
 	},
     ]
 };
