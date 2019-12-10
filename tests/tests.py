@@ -4338,7 +4338,7 @@ purposes to feed Elasticsearch view.
             "useragent:%s" % regexp,
         )
 
-        print('Featuresx')
+        print('Features')
         columns, data = ivre.db.db.view.features(use_service=False)
         ncolumns = len(columns)
         data = list(data)
@@ -4486,7 +4486,7 @@ DATABASES = {
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
                 "54_passive_delete", "60_flow", "90_cleanup", "scans"],
-    "tinydb": ["60_flow", "90_cleanup", "scans", "utils"],
+    "tinydb": ["60_flow", "utils"],
 }
 
 
