@@ -4499,7 +4499,7 @@ class MongoDBFlowMeta(type):
         """
         Computes list_fields from meta_desc.
         """
-        list_fields = ['sports', 'codes']
+        list_fields = ['sports', 'codes', 'times']
         for proto, kinds in viewitems(meta_desc):
             for kind, values in viewitems(kinds):
                 if kind == 'keys':
@@ -4818,10 +4818,10 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             {
                 fields: (field_1_value, field_2_value, ...),
                 count: count,
-                collected: [
+                collected: (
                     (collect_1_value, collect_2_value, ...),
                     ...
-                ]
+                )
             }
         Collected fields are unique.
         """
@@ -4834,9 +4834,22 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         special_fields = {'src.addr': ['src_addr_0', 'src_addr_1'],
                           'dst.addr': ['dst_addr_0', 'dst_addr_1'],
                           'sport': ['sports']}
+
+        # Validate fields
+        for fields_list in (fields, collect_fields, sum_fields):
+            for f in fields_list:
+                # special fields can be shortcuts (ex: sport) and are not
+                # necessary valid fields
+                if f not in special_fields:
+                    flow.validate_field(f)
+
         # special fields that are not addresses will be translated again at
         # the end
         reverse_special_fields = {'sports': 'sport'}
+        # special fields that have been translated
+        # necessary to accept both already transformed and non transformed
+        # field
+        reversed_special_fields = set()
 
         # Compute the internal fields
         # internal_fields = [aggr fields, collect_fields, sum_fields]
@@ -4846,6 +4859,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             for field in external_fields[i]:
                 if field in special_fields:
                     internal_fields[i].extend(special_fields[field])
+                    for t_field in special_fields[field]:
+                        reversed_special_fields.add(t_field)
                 else:
                     internal_fields[i].append(field)
 
@@ -4961,14 +4976,14 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     ]
                     del ext_entry[addr0]
                     del ext_entry[addr1]
-            # reverse special fields
+            # reverse special fields which have been reversed
             for key in list(ext_entry):
-                if key in reverse_special_fields:
+                if key in reversed_special_fields:
                     ext_entry[reverse_special_fields[key]] = ext_entry.pop(key)
             for key in list(ext_entry['_id']):
-                if key in reverse_special_fields:
+                if key in reversed_special_fields:
                     ext_entry['_id'][reverse_special_fields[key]] = \
-                        ext_entry['id'].pop(key)
+                        ext_entry['_id'].pop(key)
             # Format fields in a tuple ordered accordingly to fields argument
             res_fields_dict = ext_entry.pop('_id')
             res_fields = tuple(res_fields_dict.get(key) for key in fields)
@@ -4976,6 +4991,11 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             res_count = ext_entry.pop('_count')
             # Format collected results in a set of tuples to avoid duplicates
             if ext_entry:
+                # Transforms collected list fields in tuples
+                for key in ext_entry:
+                    ext_entry[key] = [elt if not isinstance(elt, list)
+                                      else tuple(elt)
+                                      for elt in ext_entry[key]]
                 # This keeps the order of collected fields
                 res_collected = set(zip(*(ext_entry[key]
                                           for key in collect_fields)))
@@ -5461,7 +5481,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             times_filter.setdefault('start', {})['$lt'] = before
         if precision:
             times_filter['duration'] = precision
-        flt = cls.flt_and(flt, {'times': {'$elemMatch': times_filter}})
+        if times_filter:
+            flt = cls.flt_and(flt, {'times': {'$elemMatch': times_filter}})
         return flt
 
     def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,

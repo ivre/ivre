@@ -354,6 +354,10 @@ class Neo4jFlowQuery(flow.Query):
             attr = attr[1:]
         else:
             qtype = "@"
+        # Validate field
+        # 'addr' is a shortcut for src.addr OR dst.addr
+        if attr != 'addr':
+            flow.validate_field(attr)
         try:
             # Sorry for the horrendous code -- jalet
             elements, attr = attr.rsplit('.', 1)
@@ -1226,10 +1230,15 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
                     for collect in row["collected"]:
                         collect[index] = datetime.fromtimestamp(
                             collect[index])
+            for index, collect in enumerate(row["collected"] or []):
+                for i, elt in enumerate(row["collected"][index] or []):
+                    if isinstance(elt, list):
+                        row["collected"][index][i] = tuple(elt)
+                row["collected"][index] = tuple(row["collected"][index] or [])
             yield {
-                "fields": row["fields"],
+                "fields": tuple(row["fields"]),
                 "count": row["count"],
-                "collected": row["collected"],
+                "collected": tuple(row["collected"] or []),
             }
 
     @classmethod
@@ -1320,6 +1329,12 @@ class Neo4jDBFlow(with_metaclass(Neo4jDBFlowMeta, Neo4jDB, DBFlow)):
         """
         collect_fields = collect_fields or []
         sumfields = sum_fields or []
+
+        # Validate fields
+        for fields_list in (fields, collect_fields, sum_fields):
+            for f in fields_list:
+                flow.validate_field(f)
+
         original_fields = list(fields)
         collect = list(collect_fields)
         for flist in fields, collect, sumfields:
