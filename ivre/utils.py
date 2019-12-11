@@ -1313,6 +1313,8 @@ def _read_wireshark_manuf_db():
         if not line:
             return
         line = line.strip()
+        if not line:
+            return
         try:
             addr, manuf, comment = line.split('\t', 2)
         except ValueError:
@@ -1322,7 +1324,6 @@ def _read_wireshark_manuf_db():
                 LOGGER.warning('Cannot parse a line from Wireshark '
                                'manufacturer database [%r].', line,
                                exc_info=True)
-                print("XXX", repr(line))
                 return
             comment = None
         if '/' in addr:
@@ -1331,7 +1332,12 @@ def _read_wireshark_manuf_db():
         else:
             mask = (addr.count(':') + 1) * 8
         addr += ':00' * (5 - addr.count(':'))
-        addr = _mac2int(addr)
+        try:
+            addr = _mac2int(addr)
+        except ValueError:
+            LOGGER.warning('Cannot parse a line from Wireshark '
+                           'manufacturer database [%r].', line)
+            return
         if (
                 _WIRESHARK_MANUF_DB_LAST_ADDR and
                 _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr - 1
