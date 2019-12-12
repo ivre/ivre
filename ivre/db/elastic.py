@@ -94,7 +94,7 @@ class ElasticDB(DB):
                         "dynamic_templates": [
                             {"strings": {
                                 "match_mapping_type": "string",
-                                "mapping": {"type": "keyword"},
+                                "mapping": {"type": "keyword", "ignore_above": 32000},
                             }},
                         ],
                     }
