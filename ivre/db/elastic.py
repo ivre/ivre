@@ -94,7 +94,10 @@ class ElasticDB(DB):
                         "dynamic_templates": [
                             {"strings": {
                                 "match_mapping_type": "string",
-                                "mapping": {"type": "keyword"},
+                                # prevent RequestError exceptions when
+                                # one term's UTF-8 encoding is bigger
+                                # than the max length 32766
+                                "mapping": {"type": "keyword", "ignore_above": 32000},
                             }},
                         ],
                     }
