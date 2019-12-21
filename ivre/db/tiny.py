@@ -25,8 +25,10 @@ databases.
 
 from collections import defaultdict, Counter
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from functools import cmp_to_key
+from itertools import product as cartesian_prod
+import operator
 import os
 import re
 import socket
@@ -34,15 +36,18 @@ import struct
 from uuid import uuid1, UUID
 
 
-from future.builtins import int as int_types
-from future.utils import viewitems
+from future.builtins import int as int_types, zip
+from future.utils import viewitems, with_metaclass
 from past.builtins import basestring
 from tinydb import TinyDB as TDB, Query
 from tinydb.database import Document
 from tinydb.operations import add, increment
 
 
-from ivre.db import DB, DBActive, DBAgent, DBNmap, DBPassive, DBView, LockError
+from ivre.db import DB, DBActive, DBAgent, DBNmap, DBPassive, DBView, DBFlow, \
+    DBFlowMeta, LockError
+from ivre import config
+from ivre import flow
 from ivre import utils
 from ivre.xmlnmap import ALIASES_TABLE_ELEMS, Nmap2DB
 
@@ -73,7 +78,8 @@ class TinyDB(DB):
             self._db.close()
         except AttributeError:
             pass
-        del self._db
+        else:
+            del self._db
 
     def init(self):
         self.db.purge_tables()
@@ -2529,3 +2535,815 @@ scan object on success, and raises a LockError on failure.
     def get_masters(self):
         return (x.doc_id for x in
                 self.db_masters.search(Query()))
+
+
+# TinyDB update operations
+
+def inc_op(key, value=1):
+    subkeys = key.split('.')
+    lastkey = subkeys.pop()
+
+    def _transform(doc):
+        for subkey in subkeys:
+            doc = doc.setdefault(subkey, {})
+        doc[lastkey] = doc.get(lastkey, 0) + value
+
+    return _transform
+
+
+def add_to_set_op(key, value):
+    subkeys = key.split('.')
+    lastkey = subkeys.pop()
+
+    def _transform(doc):
+        for subkey in subkeys:
+            doc = doc.setdefault(subkey, {})
+        doc = doc.setdefault(lastkey, [])
+        if value not in doc:
+            doc.append(value)
+
+    return _transform
+
+
+def min_op(key, value):
+    if value is None:
+        return lambda doc: None
+
+    subkeys = key.split('.')
+    lastkey = subkeys.pop()
+
+    def _transform(doc):
+        for subkey in subkeys:
+            doc = doc.setdefault(subkey, {})
+        doc[lastkey] = min(doc.get(lastkey, value), value)
+
+    return _transform
+
+
+def max_op(key, value):
+    if value is None:
+        return lambda doc: None
+
+    subkeys = key.split('.')
+    lastkey = subkeys.pop()
+
+    def _transform(doc):
+        for subkey in subkeys:
+            doc = doc.setdefault(subkey, {})
+        doc[lastkey] = max(doc.get(lastkey, value), value)
+
+    return _transform
+
+
+def combine_ops(*ops):
+    def _transform(doc):
+        for op in ops:
+            op(doc)
+    return _transform
+
+
+class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
+
+    """A Flow-specific DB using TinyDB backend"""
+
+    dbname = "flows"
+
+    datefields = [
+        'firstseen',
+        'lastseen',
+        'times.start',
+    ]
+
+    # This represents the kinds of metadata that are defined in flow.META_DESC
+    # Each kind is associated with an aggregation operator used for
+    # insertion in db.
+    meta_kinds = {
+        'keys': add_to_set_op,
+        'counters': inc_op,
+    }
+
+    operators = {
+        ":": operator.eq,
+        "=": operator.eq,
+        "==": operator.eq,
+        "!=": operator.ne,
+        "<": operator.lt,
+        "<=": operator.le,
+        ">": operator.gt,
+        ">=": operator.ge,
+        "=~": "regex",
+    }
+
+    @staticmethod
+    def _get_flow_key(rec):
+        """Returns a query that matches the flow"""
+        q = Query()
+        insertspec = {'src_addr': rec['src_addr'],
+                      'dst_addr': rec['dst_addr'],
+                      'proto': rec['proto'],
+                      'schema_version': flow.SCHEMA_VERSION}
+        res = ((q.src_addr == rec['src_addr']) &
+               (q.dst_addr == rec['dst_addr']) &
+               (q.proto == rec['proto']) &
+               (q.schema_version == flow.SCHEMA_VERSION))
+        if rec['proto'] in ['udp', 'tcp']:
+            insertspec['dport'] = rec['dport']
+            res &= q.dport == rec['dport']
+        elif rec['proto'] == 'icmp':
+            insertspec['type'] = rec['type']
+            res &= q.type == rec['type']
+        return res, insertspec
+
+    @classmethod
+    def _update_timeslots(cls, updatespec, insertspec, rec):
+        """
+        If configured, adds timeslots in `updatespec`.
+        config.FLOW_TIME enables timeslots.
+        if config.FLOW_TIME_FULL_RANGE is set, a flow is linked to every
+        timeslots between its start_time and end_time.
+        Otherwise, it is only linked to the timeslot corresponding to its
+        start_time.
+        """
+        if config.FLOW_TIME:
+            if config.FLOW_TIME_FULL_RANGE:
+                generator = cls._get_timeslots(
+                    rec['start_time'],
+                    rec['end_time'],
+                )
+            else:
+                generator = cls._get_timeslot(
+                    rec['start_time'],
+                    config.FLOW_TIME_PRECISION,
+                    config.FLOW_TIME_BASE
+                )
+            for tslot in generator:
+                tslot = dict(tslot)
+                tslot['start'] = utils.datetime2timestamp(tslot['start'])
+                updatespec.append(add_to_set_op("times", tslot))
+                lst = insertspec.setdefault("times", [])
+                if tslot not in lst:
+                    lst.append(tslot)
+
+    def any2flow(self, bulk, name, rec):
+        """Takes a parsed *.log line entry and upserts it (bulk is not used in
+        this backend).  It is responsible for metadata processing (all
+        but conn.log files).
+
+        """
+        # Convert addr
+        rec['src_addr'] = self.ip2internal(rec['src'])
+        rec['dst_addr'] = self.ip2internal(rec['dst'])
+        # Insert in flows
+        findspec, insertspec = self._get_flow_key(rec)
+        updatespec = [
+            min_op('firstseen', utils.datetime2timestamp(rec['start_time'])),
+            max_op('lastseen', utils.datetime2timestamp(rec['end_time'])),
+            inc_op('meta.%s.count' % name),
+        ]
+        insertspec.update({
+            'firstseen': utils.datetime2timestamp(rec['start_time']),
+            'lastseen': utils.datetime2timestamp(rec['end_time']),
+            'meta.%s.count' % name: 1
+        })
+
+        # metadata storage can be disabled.
+        if config.FLOW_STORE_METADATA:
+            for kind, op in viewitems(self.meta_kinds):
+                for key, value in viewitems(self.meta_desc[name].get(kind,
+                                                                     {})):
+                    if not rec[value]:
+                        continue
+                    if ("%s.%s.%s" % (name, kind, key)
+                            in flow.META_DESC_ARRAYS):
+                        for val in rec[value]:
+                            updatespec.append(op('meta.%s.%s' % (name, key),
+                                                 val))
+                            if op is add_to_set_op:
+                                lst = (insertspec.setdefault('meta', {})
+                                       .setdefault(name, {})
+                                       .setdefault(key, []))
+                                if val not in lst:
+                                    lst.append(val)
+                            elif op is inc_op:
+                                value = (insertspec.setdefault('meta', {})
+                                         .setdefault(name, {})
+                                         .get(key, 0))
+                                insertspec['meta'][name][key] = value + val
+                            else:
+                                raise ValueError(
+                                    'Operation not supported [%r]' % op
+                                )
+                    else:
+                        updatespec.append(op('meta.%s.%s' % (name, key),
+                                             rec[value]))
+                        if op is add_to_set_op:
+                            lst = (insertspec.setdefault('meta', {})
+                                   .setdefault(name, {})
+                                   .setdefault(key, []))
+                            if rec[value] not in lst:
+                                lst.append(rec[value])
+                        elif op is inc_op:
+                            curval = (insertspec.setdefault('meta', {})
+                                      .setdefault(name, {})
+                                      .get(key, 0))
+                            insertspec['meta'][name][key] = curval + rec[value]
+                        else:
+                            raise ValueError(
+                                'Operation not supported [%r]' % op
+                            )
+
+        self._update_timeslots(updatespec, insertspec, rec)
+
+        if self.db.get(findspec) is None:
+            self.db.insert(insertspec)
+        else:
+            self.db.update(combine_ops(*updatespec), cond=findspec)
+
+    @staticmethod
+    def start_bulk_insert():
+        """Bulks are not used with TinyDB."""
+        return None
+
+    @staticmethod
+    def bulk_commit(bulk):
+        """Bulks are not used with TinyDB."""
+        assert bulk is None
+
+    def conn2flow(self, bulk, rec):
+        """Takes a parsed conn.log line entry and upserts it (bulk is not used
+        in this backend).
+
+        """
+        rec['src_addr'] = self.ip2internal(rec['src'])
+        rec['dst_addr'] = self.ip2internal(rec['dst'])
+        findspec, insertspec = self._get_flow_key(rec)
+
+        updatespec = [
+            min_op('firstseen', utils.datetime2timestamp(rec['start_time'])),
+            max_op('lastseen', utils.datetime2timestamp(rec['end_time'])),
+            inc_op('cspkts', value=rec['orig_pkts']),
+            inc_op('scpkts', value=rec['resp_pkts']),
+            inc_op('csbytes', value=rec['orig_ip_bytes']),
+            inc_op('scbytes', value=rec['resp_ip_bytes']),
+            inc_op('count'),
+        ]
+        insertspec.update({
+            'firstseen': utils.datetime2timestamp(rec['start_time']),
+            'lastseen': utils.datetime2timestamp(rec['end_time']),
+            'cspkts': rec['orig_pkts'],
+            'scpkts': rec['resp_pkts'],
+            'csbytes': rec['orig_ip_bytes'],
+            'scbytes': rec['resp_ip_bytes'],
+            'count': 1,
+        })
+
+        self._update_timeslots(updatespec, insertspec, rec)
+
+        if rec['proto'] in ['udp', 'tcp']:
+            updatespec.append(add_to_set_op('sports', rec["sport"]))
+            insertspec['sports'] = [rec['sport']]
+        elif rec['proto'] == 'icmp':
+            updatespec.append(add_to_set_op('codes', rec["code"]))
+            insertspec['codes'] = [rec['code']]
+
+        if self.db.get(findspec) is None:
+            self.db.insert(insertspec)
+        else:
+            self.db.update(combine_ops(*updatespec), cond=findspec)
+
+    def flow2flow(self, bulk, rec):
+        """Takes an entry coming from Netflow or Argus and upserts it (bulk is
+        not used in this backend)
+
+        """
+        rec['src_addr'] = self.ip2internal(rec['src'])
+        rec['dst_addr'] = self.ip2internal(rec['dst'])
+        findspec, insertspec = self._get_flow_key(rec)
+
+        updatespec = [
+            min_op('firstseen', utils.datetime2timestamp(rec['start_time'])),
+            max_op('lastseen', utils.datetime2timestamp(rec['end_time'])),
+            inc_op('cspkts', value=rec['cspkts']),
+            inc_op('scpkts', value=rec['scpkts']),
+            inc_op('csbytes', value=rec['csbytes']),
+            inc_op('scbytes', value=rec['scbytes']),
+            inc_op('count'),
+        ]
+        insertspec.update({
+            'firstseen': utils.datetime2timestamp(rec['start_time']),
+            'lastseen': utils.datetime2timestamp(rec['end_time']),
+            'cspkts': rec['cspkts'],
+            'scpkts': rec['scpkts'],
+            'csbytes': rec['csbytes'],
+            'scbytes': rec['scbytes'],
+            'count': 1,
+        })
+
+        self._update_timeslots(updatespec, insertspec, rec)
+
+        if rec['proto'] in ['udp', 'tcp']:
+            updatespec.append(add_to_set_op('sports', rec["sport"]))
+            lst = insertspec.setdefault("sports", [])
+            if rec['sport'] not in lst:
+                lst.append(rec['sport'])
+        elif rec['proto'] == 'icmp':
+            updatespec.append(add_to_set_op('codes', rec["code"]))
+            lst = insertspec.setdefault("codes", [])
+            if rec['code'] not in lst:
+                lst.append(rec['code'])
+
+        if self.db.get(findspec) is None:
+            self.db.insert(insertspec)
+        else:
+            self.db.update(combine_ops(*updatespec), cond=findspec)
+
+    def _get(self, flt, orderby=None, **kargs):
+        """
+        Returns an iterator over flows honoring the given filter
+        with the given options.
+        """
+        sort = kargs.get('sort')
+        if orderby == 'dst':
+            sort = [('dst_addr', 1)]
+        elif orderby == 'src':
+            sort = [('src_addr', 1)]
+        elif orderby == 'flow':
+            sort = [('dport', 1),
+                    ('proto', 1)]
+        if sort is not None:
+            kargs['sort'] = sort
+        elif orderby:
+            raise ValueError(
+                "Unsupported orderby (should be 'src', 'dst' or 'flow')"
+            )
+        for f in super(TinyDBFlow, self).get(flt, **kargs):
+            f = deepcopy(f)
+            f['_id'] = f.doc_id
+            try:
+                f['src_addr'] = self.internal2ip(f['src_addr'])
+                f['dst_addr'] = self.internal2ip(f['dst_addr'])
+            except KeyError:
+                pass
+            yield f
+
+    def get(self, *args, **kargs):
+        return list(self._get(*args, **kargs))
+
+    def count(self, flt):
+        """
+        Returns a dict {'client': nb_clients, 'servers': nb_servers',
+        'flows': nb_flows} according to the given filter.
+        """
+        sources = set()
+        destinations = set()
+        flows = 0
+        for flw in self.get(flt):
+            sources.add(flw['src_addr'])
+            destinations.add(flw['dst_addr'])
+            flows += 1
+        return {'clients': len(sources), 'servers': len(destinations),
+                'flows': flows}
+
+    @staticmethod
+    def should_switch_hosts(flw_id, flw):
+        """
+        Returns True if flow hosts should be switched, False otherwise.
+        """
+        if len(flw['dports']) <= 5:
+            return False
+
+        # Try to avoid reversing scans
+        if flw_id[2] == 'tcp':
+            ratio = 0
+            divisor = 0
+            if flw['cspkts'] > 0:
+                ratio += flw['csbytes'] / flw['cspkts']
+                divisor += 1
+            if flw['scpkts'] > 0:
+                ratio += flw['scbytes'] / flw['scpkts']
+                divisor += 1
+
+            avg = ratio / divisor
+            if avg < 50:
+                # TCP segments were almost empty, which most of the time
+                # corresponds to an active scan.
+                return False
+
+        return True
+
+    def cleanup_flows(self):
+        q = Query()
+        res = {}
+        flt = q.sports.test(lambda val: len(val) == 1) & (q.dport > 128)
+        for flw in self.db.search(flt):
+            rec = res.setdefault(
+                (flw['src_addr'], flw['dst_addr'], flw['proto'],
+                 flw['sports'][0]),
+                {}
+            )
+            rec.setdefault('_ids', set()).add(flw.doc_id)
+            rec.setdefault('dports', set()).add(flw['dport'])
+            for fld in ['cspkts', 'scpkts', 'csbytes', 'scbytes', 'count']:
+                rec[fld] = rec.get(fld, 0) + flw.get(fld, 0)
+            for fld, op in [('firstseen', min), ('lastseen', max)]:
+                if fld in rec:
+                    value = rec[fld]
+                    rec[fld] = op(flw.get(fld, value), value)
+                elif fld in flw:
+                    rec[fld] = flw[fld]
+            lst_times = rec.setdefault('times', list())
+            for tslot in flw['times']:
+                if tslot not in lst_times:
+                    lst_times.append(tslot)
+        counter = 0
+        for flw_id, flw in viewitems(res):
+            if not self.should_switch_hosts(flw_id, flw):
+                continue
+            new_rec = {
+                'src_addr': flw_id[1],
+                'dst_addr': flw_id[0],
+                'proto': flw_id[2],
+                'dport': flw_id[3],
+            }
+            findspec, insertspec = self._get_flow_key(new_rec)
+            updatespec = [
+                min_op('firstseen', flw.get('firstseen')),
+                max_op('lastseen', flw.get('lastseen')),
+                inc_op('cspkts', value=flw['scpkts']),
+                inc_op('scpkts', value=flw['cspkts']),
+                inc_op('csbytes', value=flw['scbytes']),
+                inc_op('scbytes', value=flw['csbytes']),
+                inc_op('count', value=flw['count']),
+            ]
+            insertspec.update({
+                'firstseen': flw.get('firstseen'),
+                'lastseen': flw.get('lastseen'),
+                'cspkts': flw['scpkts'],
+                'scpkts': flw['cspkts'],
+                'csbytes': flw['scbytes'],
+                'scbytes': flw['csbytes'],
+                'count': flw['count'],
+            })
+            for sport in flw['dports']:
+                updatespec.append(add_to_set_op('sports', sport))
+            removespec = list(flw['_ids'])
+            if config.FLOW_TIME:
+                for tval in flw['times']:
+                    updatespec.append(add_to_set_op('times', tval))
+            utils.LOGGER.debug(
+                "Switch flow hosts: %s (%d) -- %s --> %s (%s)",
+                self.internal2ip(flw_id[0]), flw_id[3], flw_id[2],
+                self.internal2ip(flw_id[1]),
+                ','.join(str(elt) for elt in flw['dports']),
+            )
+            # upsert won't work with operations
+            if self.db.get(findspec) is None:
+                new_rec.update(insertspec)
+                self.db.insert(new_rec)
+            else:
+                self.db.update(combine_ops(*updatespec), findspec)
+            self.db.remove(doc_ids=removespec)
+            counter += len(removespec)
+        utils.LOGGER.debug("%d flows switched.", counter)
+
+    @classmethod
+    def _flt_from_clause_addr(cls, clause):
+        """Returns a filter from the given clause which deals with addresses.
+
+        """
+        if clause['attr'] == 'addr':
+            res = cls.flt_or(*(
+                cls._flt_from_clause_addr(dict(clause, attr=subval, neg=False))
+                for subval in ['src_addr', 'dst_addr']
+            ))
+        else:
+            if clause['operator'] == 'regex':
+                start, stop = (cls.ip2internal(val)
+                               for val in utils.net2range(clause['value']))
+                res = cls._base_from_attr(
+                    clause['attr'],
+                    op=lambda val: (start <= val) & (val <= stop),
+                    array_mode=clause['array_mode'],
+                )
+            else:
+                res = cls._base_from_attr(
+                    clause['attr'],
+                    op=lambda val: clause['operator'](
+                        val,
+                        cls.ip2internal(clause['value']),
+                    ),
+                    array_mode=clause['array_mode'],
+                )
+        if clause['neg']:
+            return ~res
+        return res
+
+    @classmethod
+    def _flt_from_clause_any(cls, clause):
+        """Returns a filter from the given clause which does not deal with
+addresses.
+
+        """
+        if clause['operator'] == 'regex':
+            res = cls._base_from_attr(
+                clause['attr'],
+                op=lambda val: val.search(clause['value']),
+                array_mode=clause['array_mode'],
+            )
+        else:
+            value = clause['value']
+            if clause['attr'] in cls.datefields:
+                value = utils.datetime2timestamp(
+                    datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
+                )
+            res = cls._base_from_attr(
+                clause['attr'],
+                op=lambda val: clause['operator'](val, value),
+                array_mode=clause['array_mode'],
+            )
+        if clause['neg']:
+            return ~res
+        return res
+
+    @classmethod
+    def _get_array_attrs(cls, attr):
+        base = []
+        res = []
+        cur = []
+        subflts = attr.split('.')
+        for subattr in subflts[:-1]:
+            base.append(subattr)
+            cur.append(subattr)
+            curattr = '.'.join(base)
+            if curattr in cls.list_fields:
+                res.append(cur)
+                cur = []
+        return res, cur + [subflts[-1]]
+
+    @classmethod
+    def _base_from_attr(cls, attr, op, array_mode=None):
+        array_fields, final_fields = cls._get_array_attrs(attr)
+        final = Query()
+        for subfld in final_fields:
+            final = getattr(final, subfld)
+        if op == "exists":
+            final = final.exists()
+        elif attr in cls.list_fields:
+            if array_mode is None or array_mode.lower() == 'any':
+                final = final.test(lambda vals: any(op(val) for val in vals))
+            elif array_mode.lower() == 'all':
+                final = final.test(lambda vals: all(op(val) for val in vals))
+            else:
+                raise ValueError('Invalid array_mode %r' % array_mode)
+            array_mode = None
+        else:
+            final = op(final)
+        if not array_fields:
+            return final
+        res = []
+        for array in array_fields:
+            base = Query()
+            for subfld in array:
+                base = getattr(base, subfld)
+            res.append(base)
+        if array_mode is None or array_mode.lower() == 'any':
+            cur = res.pop().any(final)
+        elif array_mode.lower() == 'all':
+            cur = res.pop().all(final)
+        else:
+            raise ValueError('Invalid array_mode %r' % array_mode)
+        while res:
+            cur = res.pop().any(cur)
+        return cur
+
+    @classmethod
+    def _fix_operator(cls, op):
+        try:
+            return cls.operators[op]
+        except KeyError:
+            raise ValueError('Unknonw operator %r' % op)
+
+    @staticmethod
+    def _fix_attr_name(attr):
+        return {
+            'src.addr': 'src_addr',
+            'dst.addr': 'dst_addr',
+        }.get(attr, attr)
+
+    @classmethod
+    def flt_from_clause(cls, clause):
+        q = Query()
+        clause['attr'] = cls._fix_attr_name(clause['attr'])
+        if clause['operator'] is None:
+            if clause['attr'] == 'addr':
+                res = (q.src_addr.exists() | q.dst_addr.exists())
+            else:
+                res = cls._base_from_attr(
+                    clause['attr'],
+                    op="exists",
+                    array_mode=clause['array_mode'],
+                )
+            if clause['neg']:
+                return ~res
+            return res
+        if clause['len_mode']:
+            clause['value'] = int(clause['value'])
+        clause['operator'] = cls._fix_operator(clause['operator'])
+        if clause['attr'] in ['addr', 'src_addr', 'dst_addr']:
+            return cls._flt_from_clause_addr(clause)
+        return cls._flt_from_clause_any(clause)
+
+    @classmethod
+    def flt_from_query(cls, query):
+        """
+        Returns a MongoDB filter from the given query object.
+        """
+        res = []
+        for and_clause in query.clauses:
+            res_or = []
+            for or_clause in and_clause:
+                res_or.append(cls.flt_from_clause(or_clause))
+            if res_or:
+                res.append(cls.flt_or(*res_or))
+        if res:
+            return cls.flt_and(*res)
+        return cls.flt_empty
+
+    @classmethod
+    def from_filters(cls, filters, limit=None, skip=0, orderby="", mode=None,
+                     timeline=False, after=None, before=None, precision=None):
+        """Overloads from_filters method from TinyDB.
+
+        It transforms a flow.Query object returned by
+        super().from_filters into a TinyDB query and returns it.
+
+        Note: limit, skip, orderby, mode, timeline are IGNORED. They
+        are present only for compatibility reasons.
+        """
+        q = Query()
+        query = (super(TinyDBFlow, cls)
+                 .from_filters(filters, limit=limit, skip=skip,
+                               orderby=orderby, mode=mode, timeline=timeline))
+        flt = cls.flt_from_query(query)
+        times_filter = []
+        if after:
+            times_filter.append(q.start >= after)
+        if before:
+            times_filter.append(q.start < before)
+        if precision:
+            times_filter.append(q.duration == precision)
+        if times_filter:
+            flt &= q.times.any(cls.flt_and(*times_filter))
+        return flt
+
+    def flow_daily(self, precision, flt, after=None, before=None):
+        """
+        Returns a generator within each element is a dict
+        {
+            flows: [("proto/dport", count), ...]
+            time_in_day: time
+        }.
+        """
+        q = Query()
+        timeflt = q.duration == precision
+        if after:
+            timeflt &= q.start >= utils.datetime2timestamp(after)
+        if before:
+            timeflt &= q.start < utils.datetime2timestamp(before)
+        try:
+            if flt == self.flt_empty:
+                flt = q.times.any(timeflt)
+            else:
+                flt &= q.times.any(timeflt)
+        except ValueError:
+            # Hack for a bug in TinyDB: "ValueError: Query has no
+            # path" can be raised when comparing empty queries
+            if repr(flt) != 'Query()':
+                raise
+            flt = q.times.any(timeflt)
+        res = {}
+        for flw in self.get(flt):
+            for tslot in flw.get('times', []):
+                if not timeflt(tslot):
+                    continue
+                dtm = utils.all2datetime(tslot['start'])
+                res.setdefault((dtm.hour, dtm.minute, dtm.second), []).append({
+                    "proto": flw.get('proto'),
+                    "dport": flw.get('dport'),
+                    "type": flw.get('type'),
+                })
+        for entry in sorted(res):
+            fields = res[entry]
+            flows = {}
+            for field in fields:
+                if field.get('proto') in ['tcp', 'udp']:
+                    entry_name = '%(proto)s/%(dport)d' % field
+                elif field.get('type') is not None:
+                    entry_name = '%(proto)s/%(type)d' % field
+                else:
+                    entry_name = field['proto']
+                flows[entry_name] = flows.get(entry_name, 0) + 1
+            yield {
+                'flows': list(viewitems(flows)),
+                'time_in_day': time(hour=entry[0], minute=entry[1],
+                                    second=entry[2])
+            }
+
+    def topvalues(self, flt, fields, collect_fields=None, sum_fields=None,
+                  limit=None, skip=None, least=False, topnbr=10):
+        """
+        Returns the top values honoring the given `query` for the given
+        fields list `fields`, counting and sorting the aggregated records
+        by `sum_fields` sum and storing the `collect_fields` fields of
+        each original entry in aggregated records as a list.
+        By default, the aggregated records are sorted by their number of
+        occurrences.
+        Return format:
+            {
+                fields: (field_1_value, field_2_value, ...),
+                count: count,
+                collected: (
+                    (collect_1_value, collect_2_value, ...),
+                    ...
+                )
+            }
+        Collected fields are unique.
+        """
+        if flt is None:
+            flt = self.flt_empty
+        collect_fields = collect_fields or []
+        sum_fields = sum_fields or []
+
+        # Translation dictionary for special fields
+        special_fields = {'src.addr': 'src_addr',
+                          'dst.addr': 'dst_addr',
+                          'sport': 'sports'}
+        fields = [special_fields.get(fld, fld) for fld in fields]
+        collect_fields = [special_fields.get(fld, fld)
+                          for fld in collect_fields]
+        sum_fields = [special_fields.get(fld, fld) for fld in sum_fields]
+        all_fields = list(set(fields).union(collect_fields).union(sum_fields))
+
+        for fields_list in (fields, collect_fields, sum_fields):
+            for f in fields_list:
+                if f not in ['src_addr', 'dst_addr']:
+                    flow.validate_field(f)
+
+        def _outputproc(val):
+            return val
+
+        def _extractor(flt):
+            for rec in self._get(flt, limit=limit, skip=skip,
+                                 fields=all_fields):
+                # values = (
+                #     self._generate_field_values(rec, field)
+                #     for field in fields
+                # )
+                if sum_fields:
+                    count = sum(
+                        sum(self._generate_field_values(rec, field))
+                        for field in sum_fields
+                    )
+                else:
+                    count = 1
+
+                def _get_one(generator):
+                    try:
+                        return next(generator)
+                    except StopIteration:
+                        return None
+                collected = tuple(
+                    tuple(set(self._generate_field_values(rec, field)))
+                    if field in self.list_fields else
+                    _get_one(self._generate_field_values(rec, field))
+                    for field in collect_fields
+                )
+                for val in cartesian_prod(*(
+                    self._generate_field_values(rec, field)
+                    for field in fields
+                )):
+                    yield (val, count, collected)
+
+        def _newflt(field):
+            return self._search_field_exists(field)
+
+        res = {}
+        flt &= self.flt_and(*(_newflt(field) for field in all_fields))
+        for key, count, collected in _extractor(flt):
+            if key in res:
+                curres = res[key]
+                curres[0] += count
+                curres[1].add(collected)
+            else:
+                res[key] = [count, set([collected])]
+        result = sorted(
+            ({"fields": key,
+              "count": val[0],
+              "collected": tuple(tuple(col) for col in val[1])}
+             for key, val in viewitems(res)),
+            key=lambda elt: elt['count'],
+            reverse=True,
+        )
+        if topnbr is not None:
+            return result[:topnbr]
+        return result

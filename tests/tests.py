@@ -322,7 +322,7 @@ class IvreTests(unittest.TestCase):
         if pid == -1:
             raise OSError("Cannot fork()")
         if pid:
-            cls.children.append(pid)
+            cls.web_srv_pid = pid
             time.sleep(2)
         else:
             def terminate(signum, _):
@@ -342,6 +342,19 @@ class IvreTests(unittest.TestCase):
             proc.wait()
             sys.exit(0)
 
+    def stop_web_server(cls):
+        if cls.web_srv_pid is None:
+            return
+        for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGKILL]:
+            os.kill(cls.web_srv_pid, sig)
+            time.sleep(2)
+        os.waitpid(cls.web_srv_pid, 0)
+        cls.web_srv_pid = None
+
+    def restart_web_server(cls):
+        cls.stop_web_server()
+        cls.start_web_server()
+
     @classmethod
     def stop_children(cls):
         for sig in [signal.SIGINT, signal.SIGTERM, signal.SIGKILL]:
@@ -350,9 +363,13 @@ class IvreTests(unittest.TestCase):
                     os.kill(pid, sig)
                 except OSError:
                     cls.children.remove(pid)
+            if cls.web_srv_pid is not None:
+                os.kill(cls.web_srv_pid, sig)
             time.sleep(2)
         while cls.children:
             os.waitpid(cls.children.pop(), 0)
+        if cls.web_srv_pid is not None:
+            os.waitpid(cls.web_srv_pid, 0)
 
     @staticmethod
     def _sort_top_values(listval):
@@ -621,6 +638,7 @@ which `predicate()` is True, given `webflt`.
             if fname.endswith('.pcap')
         ]
         cls.children = []
+        cls.web_srv_pid = None
         # Start a Web server
         cls.start_web_server()
 
@@ -2978,6 +2996,9 @@ purposes to feed Elasticsearch view.
         res, out, err = RUN(['ivre', 'flow2db',
                              os.path.join(os.getcwd(), "samples", "nfcapd")])
         self.assertEqual(res, 0)
+        if DATABASE == "tinydb":
+            ivre.db.db.flow.invalidate_cache()
+            self.restart_web_server()
         self.check_flow_count_value("flow_count_netflow", {}, [], None)
 
         # Test fields option
@@ -4541,7 +4562,7 @@ DATABASES = {
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
                 "54_passive_delete", "60_flow", "90_cleanup", "scans"],
-    "tinydb": ["60_flow", "utils"],
+    "tinydb": ["utils"],
 }
 
 
