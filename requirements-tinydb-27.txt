@@ -1,0 +1,5 @@
+tinydb<=3.15.1
+pycrypto
+pyOpenSSL>=16.1.0
+future
+bottle
