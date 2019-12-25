@@ -46,13 +46,13 @@ import uuid
 
 import bson
 from future.builtins import bytes, range, zip
-from future.utils import viewitems, viewvalues, with_metaclass
+from future.utils import viewitems, with_metaclass
 from past.builtins import basestring
 from pymongo.errors import BulkWriteError
 import pymongo
 
 from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBFlow, \
-    LockError
+    DBFlowMeta, LockError
 from ivre import config, passive, utils, xmlnmap, flow
 
 
@@ -4467,48 +4467,7 @@ scan object on success, and raises a LockError on failure.
                               fields=["_id"])))
 
 
-class MongoDBFlowMeta(type):
-    """
-    This metaclass aims to compute 'meta_desc' and 'list_fields' once for all
-    instances of MongoDBFlow.
-    """
-    def __new__(cls, name, bases, attrs):
-        attrs['meta_desc'] = MongoDBFlowMeta.compute_meta_desc()
-        attrs['list_fields'] = MongoDBFlowMeta.compute_list_fields(
-            attrs['meta_desc'])
-        return type.__new__(cls, name, bases, attrs)
-
-    @staticmethod
-    def compute_meta_desc():
-        """
-        Computes meta_desc from flow.META_DESC
-        meta_desc is a "usable" version of flow.META_DESC. It is computed only
-        once at class initialization.
-        """
-        meta_desc = {}
-        for proto, configs in viewitems(flow.META_DESC):
-            meta_desc[proto] = {}
-            for kind, values in viewitems(configs):
-                meta_desc[proto][kind] = (
-                    utils.normalize_props(values, braces=False)
-                )
-        return meta_desc
-
-    @staticmethod
-    def compute_list_fields(meta_desc):
-        """
-        Computes list_fields from meta_desc.
-        """
-        list_fields = ['sports', 'codes', 'times']
-        for proto, kinds in viewitems(meta_desc):
-            for kind, values in viewitems(kinds):
-                if kind == 'keys':
-                    for name in values:
-                        list_fields.append('meta.%s.%s' % (proto, name))
-        return list_fields
-
-
-class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
+class MongoDBFlow(with_metaclass(DBFlowMeta, MongoDB, DBFlow)):
     column_flow = 0
 
     datefields = [
@@ -4601,14 +4560,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                     cls._get_timeslot(rec['start_time'],
                                       config.FLOW_TIME_PRECISION,
                                       config.FLOW_TIME_BASE))
-
-    @classmethod
-    def dns2flow(cls, bulk, rec):
-        """
-        Takes a parsed dns.log line entry and adds it to insert bulk.
-        It must be a separate method because of neo4j compatibility.
-        """
-        return cls.any2flow(bulk, 'dns', rec)
 
     @classmethod
     def any2flow(cls, bulk, name, rec):
@@ -5008,201 +4959,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 'count': res_count
             }
 
-    @staticmethod
-    def _flow2host(row, prefix):
-        """
-        Returns a dict which represents one of the two host of the given flow.
-        prefix should be 'dst' or 'src' to get the source or the destination
-        host.
-        """
-        res = {}
-        if prefix == 'src':
-            res['addr'] = row.get('src_addr')
-        elif prefix == 'dst':
-            res['addr'] = row.get('dst_addr')
-        else:
-            raise Exception("prefix must be 'dst' or 'src'")
-        res['firstseen'] = row.get('firstseen')
-        res['lastseen'] = row.get('lastseen')
-        return res
-
-    @staticmethod
-    def _node2json(row):
-        """
-        Returns a dict representing a node in graph output.
-        row must be the representation of an host, see _flow2host.
-        """
-        return {
-            "id": row.get('addr'),
-            "label": row.get('addr'),
-            "labels": ["Host"],
-            "x": random.random(),
-            "y": random.random(),
-            "data": row
-        }
-
-    @staticmethod
-    def _edge2json_default(row, timeline=False, after=None, before=None,
-                           precision=None):
-        """
-        Returns a dict representing an edge in default graph output.
-        row must be a flow entry.
-        """
-        label = (row.get('proto') + '/' + str(row.get('dport'))
-                 if row.get('proto') in ['tcp', 'udp']
-                 else row.get('proto') + '/' + str(row.get('type')))
-        res = {
-            "id": str(row.get('_id')),
-            "label": label,
-            "labels": ["Flow"],
-            "source": row.get('src_addr'),
-            "target": row.get('dst_addr'),
-            "data": {
-                "cspkts": row.get('cspkts'),
-                "csbytes": row.get('csbytes'),
-                "count": row.get('count'),
-                "scpkts": row.get('scpkts'),
-                "scbytes": row.get('scbytes'),
-                "proto": row.get('proto'),
-                "firstseen": row.get('firstseen'),
-                "lastseen": row.get('lastseen'),
-                "__key__": str(row.get('_id')),
-                "addr_src": row.get('src_addr'),
-                "addr_dst": row.get('dst_addr')
-            }
-        }
-
-        # Fill timeline field if necessary
-        if timeline and row.get('times'):
-            # Remove timeslots that do not satisfy temporal filters
-            res["data"]["meta"] = {
-                "times": [
-                    t for t in row.get('times')
-                    if ((after is None or t.get('start') >= after) and
-                        (before is None or t.get('start') < before) and
-                        (precision is None or t.get('duration') == precision))
-                ]
-            }
-
-        if row.get('proto') in ['tcp', 'udp']:
-            res['data']["sports"] = row.get('sports')
-            res['data']["dport"] = row.get('dport')
-        elif row.get('proto') == 'icmp':
-            res['data']['codes'] = row.get('codes')
-            res['data']['type'] = row.get('type')
-        return res
-
-    @staticmethod
-    def _edge2json_flow_map(row):
-        """
-        Returns a dict representing an edge in flow map graph output.
-        row must be a flow entry.
-        """
-        if row.get('proto') in ['udp', 'tcp']:
-            flowkey = (row.get('proto'), row.get('dport'))
-        else:
-            flowkey = (row.get('proto'), None)
-        res = {
-            "id": str(row.get('_id')),
-            "label": "MERGED_FLOWS",
-            "labels": ["MERGED_FLOWS"],
-            "source": row.get('src_addr'),
-            "target": row.get('dst_addr'),
-            "data": {
-                "count": 1,
-                "flows": [flowkey]
-            }
-        }
-        return res
-
-    @staticmethod
-    def _edge2json_talk_map(row):
-        """
-        Returns a dict representing an edge in talk map graph output.
-        row must be a flow entry.
-        """
-        res = {
-            "id": str(row.get('_id')),
-            "label": "TALK",
-            "labels": ["TALK"],
-            "source": row.get('src_addr'),
-            "target": row.get('dst_addr'),
-            "data": {
-                "count": 1,
-                "flows": ["TALK"]
-            }
-        }
-        return res
-
-    @classmethod
-    def cursor2json_iter(cls, cursor, mode=None, timeline=False, after=None,
-                         before=None, precision=None):
-        """
-        Takes a MongoDB cursor on flows collection and for each entry
-        yield a dict {src: src_node, dst: dst_node, flow: flow_edge}.
-        """
-        random.seed()
-        for row in cursor:
-            src_node = cls._node2json(cls._flow2host(row, 'src'))
-            dst_node = cls._node2json(cls._flow2host(row, 'dst'))
-            flow_node = []
-            if mode == "flow_map":
-                flow_node = cls._edge2json_flow_map(row)
-            elif mode == "talk_map":
-                flow_node = cls._edge2json_talk_map(row)
-            else:
-                flow_node = cls._edge2json_default(row, timeline=timeline,
-                                                   after=after, before=before,
-                                                   precision=precision)
-            yield {"src": src_node, "dst": dst_node, "flow": flow_node}
-
-    @classmethod
-    def cursor2json_graph(cls, cursor, mode, timeline, after=None,
-                          before=None, precision=None):
-        """
-        Returns a dict {"nodes": [], "edges": []} representing the output
-        graph.
-        Nodes are unique hosts. Edges are flows, formatted according to the
-        given mode.
-        """
-        g = {"nodes": [], "edges": []}
-        # Store unique hosts
-        hosts = {}
-        # Store tuples (source, dest) for flow and talk map modes.
-        edges = {}
-        for row in cls.cursor2json_iter(cursor, mode=mode, timeline=timeline,
-                                        after=after, before=before,
-                                        precision=precision):
-            if mode in ["flow_map", "talk_map"]:
-                flw = row["flow"]
-                # If this edge already exists
-                if (flw["source"], flw["target"]) in edges:
-                    edge = edges[(flw["source"], flw["target"])]
-                    if mode == "flow_map":
-                        # In flow map mode, store flows data in each edge
-                        flows = flw["data"]["flows"]
-                        if flows[0] not in edge["data"]["flows"]:
-                            edge["data"]["flows"].append(flows[0])
-                            edge["data"]["count"] += 1
-                else:
-                    edges[(flw["source"], flw["target"])] = flw
-            else:
-                g["edges"].append(row["flow"])
-            for host in (row["src"], row["dst"]):
-                if host["id"] in hosts:
-                    hosts[host["id"]]["data"]["firstseen"] = min(
-                        hosts[host["id"]]["data"]["firstseen"],
-                        host["data"]["firstseen"])
-                    hosts[host["id"]]["data"]["lastseen"] = max(
-                        hosts[host["id"]]["data"]["lastseen"],
-                        host["data"]["lastseen"])
-                else:
-                    hosts[host["id"]] = host
-        g["nodes"] = list(viewvalues(hosts))
-        if mode in ["flow_map", "talk_map"]:
-            g["edges"] = list(viewvalues(edges))
-        return g
-
     @classmethod
     def search_flow_net(cls, net, neg=False, fieldname=''):
         """
@@ -5257,16 +5013,16 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         return flt
 
     @classmethod
-    def get_longest_array_attr(cls, attr):
-        """
-        Returns (longest array attribute, remaining attributes) where the
+    def _get_longest_array_attr(cls, attr):
+        """Returns (longest array attribute, remaining attributes) where the
         longest array attribute is the longest attribute stored in
-        cls.list_fields which matches the given attr. Two attributes match
-        each other if they share the same root.
-        If no array attribute can be found, returns (None, attr)
-        Example: a.b.c matches with a.b.c, a.b and a
-        If cls.list_fields = ['a', 'a.b'], then get_longest_array_attr('a.b.c')
-        returns ('a.b', 'c').
+        cls.list_fields which matches the given attr. Two attributes
+        match each other if they share the same root. If no array
+        attribute can be found, returns (None, attr) Example: a.b.c
+        matches with a.b.c, a.b and a If cls.list_fields = ['a',
+        'a.b'], then _get_longest_array_attr('a.b.c') returns ('a.b',
+        'c').
+
         """
         for i in range(attr.count('.') + 1):
             subfield = attr.rsplit('.', i)
@@ -5379,7 +5135,7 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
                 # values (in other words when array values are dictionaries),
                 # we must use $elemMatch on the array attribute.
                 attr = clause['attr']
-                array_attr, value_attr = cls.get_longest_array_attr(
+                array_attr, value_attr = cls._get_longest_array_attr(
                     clause['attr'])
                 if array_attr is None:
                     raise ValueError("%s is not a valid array attribute"
@@ -5484,31 +5240,6 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         if times_filter:
             flt = cls.flt_and(flt, {'times': {'$elemMatch': times_filter}})
         return flt
-
-    def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
-                 timeline=False, after=None, before=None):
-        """
-        Returns a dict {"nodes": [], "edges": []}.
-        """
-        return self.cursor2json_graph(
-            self.get(flt, skip, limit, orderby),
-            mode,
-            timeline,
-            after=after,
-            before=before
-        )
-
-    def to_iter(self, flt, limit=None, skip=None, orderby=None, mode=None,
-                timeline=False, after=None, before=None, precision=None):
-        """
-        Returns an iterator which yields dict {"src": src, "dst": dst,
-        "flow": flow}.
-        """
-        return self.cursor2json_iter(
-            self.get(flt, skip, limit, orderby),
-            mode=mode,
-            timeline=timeline
-        )
 
     def host_details(self, addr):
         """
@@ -5647,10 +5378,11 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
             flows = {}
             for fields in entry['fields']:
                 if fields.get('proto') in ['tcp', 'udp']:
-                    number = fields.get('dport')
+                    entry_name = '%(proto)s/%(dport)d' % fields
+                elif fields.get('type') is not None:
+                    entry_name = '%(proto)s/%(type)d' % fields
                 else:
-                    number = fields.get('type')
-                entry_name = "%s/%s" % (fields.get('proto'), number)
+                    entry_name = fields['proto']
                 flows.setdefault(entry_name, 0)
                 flows[entry_name] += 1
             res = {
@@ -5737,8 +5469,8 @@ class MongoDBFlow(with_metaclass(MongoDBFlowMeta, MongoDB, DBFlow)):
         for entry in res:
             yield entry['_id']
 
-    @classmethod
-    def should_switch_hosts(cls, flw):
+    @staticmethod
+    def should_switch_hosts(flw):
         """
         Returns True if flow hosts should be switched, False otherwise.
         """

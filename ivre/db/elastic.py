@@ -97,7 +97,8 @@ class ElasticDB(DB):
                                 # prevent RequestError exceptions when
                                 # one term's UTF-8 encoding is bigger
                                 # than the max length 32766
-                                "mapping": {"type": "keyword", "ignore_above": 32000},
+                                "mapping": {"type": "keyword",
+                                            "ignore_above": 32000},
                             }},
                         ],
                     }
