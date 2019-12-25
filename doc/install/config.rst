@@ -188,13 +188,13 @@ If you use Dokuwiki, you also want to set:
 
 .. code:: python
 
-   WEB_GET_NOTEPAD_PAGES = "localdokuwiki"``
+   WEB_GET_NOTEPAD_PAGES = "localdokuwiki"
 
 Or:
 
 .. code:: python
 
-   WEB_GET_NOTEPAD_PAGES = ("localdokuwiki", ("/path/to/dokuwiki/data/pages",))``
+   WEB_GET_NOTEPAD_PAGES = ("localdokuwiki", ("/path/to/dokuwiki/data/pages",))
 
 The second option is needed if the path to Dokuwiki pages is different
 from the default ``"/var/lib/dokuwiki/data/pages"``.
