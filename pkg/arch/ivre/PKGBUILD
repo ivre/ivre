@@ -18,47 +18,47 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-pkgbase=ivre
-# ivre-data must be the last one as it changes $pkgver
-pkgname=('ivre' 'ivre-docs' 'ivre-web' 'python-ivre' 'python2-ivre' 'ivre-data')
-pkgver=0.9.13
+pkgbase=ivre-git
+_pkgname=ivre
+pkgname=('ivre-git' 'ivre-web-git' 'ivre-docs-git' 'python-ivre-git' 'python2-ivre-git')
+pkgver=0.9.14.dev_fixes_113
 pkgrel=1
 pkgdesc='Network recon framework based on Nmap, Masscan, Zeek (Bro), Argus, Netflow,...'
 arch=('any')
 url='https://ivre.rocks/'
 license=('GPL3')
-makedepends=('git')
+makedepends=('git' 'python' 'python2')
 branch="`git branch | awk '/^*/ {print $2}'`"
-source=("git+file://`readlink -f ../../`#branch=$branch")
+source=("git+file://`readlink -f ../../../`#branch=$branch")
 sha512sums=('SKIP')
 
 pkgver() {
-  cd "$srcdir/$pkgbase"
+  cd "$srcdir/$_pkgname"
 
   python setup.py --version | sed "s/\.dev/.dev_${branch//-/_}_/"
 }
 
 prepare() {
-  cp -a $srcdir/$pkgbase{,-py2}
+  cp -a $srcdir/$_pkgname{,-py2}
 }
 
 build() {
   (
-    cd "$srcdir/$pkgbase"
+    cd "$srcdir/$_pkgname"
 
     python setup.py build
   )
   (
-    cd "$srcdir/$pkgbase-py2"
+    cd "$srcdir/$_pkgname-py2"
 
     python2 setup.py build
   )
 }
 
-package_ivre() {
-  depends=('python-ivre')
-  optdepends=('ivre-docs: Documentation'
-              'ivre-web: Web server'
+package_ivre-git() {
+  depends=('python-ivre-git')
+  optdepends=('ivre-docs-git: Documentation'
+              'ivre-web-git: Web server'
               'nmap: Network scan'
               'masscan: Network scan'
               'zmap: Network scan'
@@ -68,8 +68,10 @@ package_ivre() {
               'imagemagick: Screenshots via Nmap scripts'
               'phantomjs: HTTP screenshots via Nmap script'
               'ffmpeg: RTSP Screenshots via Nmap script')
+  provides=('ivre')
+  conflicts=('ivre')
 
-  cd "$srcdir/$pkgbase"
+  cd "$srcdir/$_pkgname"
 
   python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
 
@@ -81,20 +83,12 @@ package_ivre() {
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
 }
 
-package_ivre-data() {
-  pkgdesc+=' (data files)'
-  pkgver+="_`date -u +%Y%m%d%H%M%S`"
-  cd "$srcdir/$pkgbase"
-  mkdir -p "${pkgdir}/usr/share/ivre/geoip"
-  echo "GEOIP_PATH = '${pkgdir}/usr/share/ivre/geoip'" > tmp_ivre_conf
-  PYTHONPATH=./build/lib IVRE_CONF=./tmp_ivre_conf ./build/script*/ivre ipdata --download --import-all
-  rm tmp_ivre_conf
-}
-
-package_ivre-docs() {
+package_ivre-docs-git() {
+  provides=('ivre-docs')
+  conflicts=('ivre-docs')
   pkgdesc+=' (documentation)'
 
-  cd "$srcdir/$pkgbase"
+  cd "$srcdir/$_pkgname"
 
   python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
 
@@ -105,21 +99,24 @@ package_ivre-docs() {
      "$pkgdir/etc/bash_completion.d"
 }
 
-package_ivre-web() {
-  depends=('ivre' 'python-bottle')
+package_ivre-web-git() {
+  depends=('python-ivre-git' 'python-bottle')
   optdepends=('apache: Web server'
               'mod_wsgi: Web server'
               'dokuwiki: Web server (notebook)')
+  provides=('ivre-web')
+  conflicts=('ivre-web')
   pkgdesc+=' (web application)'
   backup=('etc/httpd/conf/extra/ivre.conf')
 
-  cd "$srcdir/$pkgbase"
+  cd "$srcdir/$_pkgname"
 
   python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
 
   rm -r "$pkgdir/usr/bin" "$pkgdir/usr/lib" \
      "$pkgdir/usr/share/doc" \
      "$pkgdir/usr/share/ivre/bro" \
+     "$pkgdir/usr/share/ivre/zeek" \
      "$pkgdir/usr/share/ivre/data" \
      "$pkgdir/usr/share/ivre/docker" \
      "$pkgdir/usr/share/ivre/geoip" \
@@ -131,13 +128,14 @@ package_ivre-web() {
   install -Dm0644 "pkg/apache/ivre.conf" "$pkgdir/etc/httpd/conf/extra/ivre.conf"
 }
 
-package_python-ivre() {
+package_python-ivre-git() {
   depends=('python' 'python-pymongo' 'python-future')
   optdepends=('python-py2neo: experimental flow analysis (Neo4j backend)'
               'python-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python-psycopg2: experimental PostgreSQL backend'
               'python-elasticsearch: experimental Elasticsearch backend'
               'python-elasticsearch-dsl: experimental Elasticsearch backend'
+              'python-tinydb: experimental file-based backend (no DB server)'
               'python-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
               'python-pycryptodome: extract data from public keys ("ivre getmoduli")'
@@ -147,9 +145,11 @@ package_python-ivre() {
               'mongodb: database server'
               'postgresql: database server (experimental backend)'
               'neo4j-community: database server (experimental flow analysis)')
+  provides=('python-ivre')
+  conflicts=('python-ivre')
   pkgdesc+=' (library)'
 
-  cd "$srcdir/$pkgbase"
+  cd "$srcdir/$_pkgname"
 
   python setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
 
@@ -162,13 +162,14 @@ package_python-ivre() {
       "$pkgdir"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
 }
 
-package_python2-ivre() {
+package_python2-ivre-git() {
   depends=('python2' 'python2-pymongo' 'python2-future')
   optdepends=('python2-py2neo: experimental flow analysis (Neo4j backend)'
               'python2-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python2-psycopg2: experimental PostgreSQL backend'
               'python2-elasticsearch: experimental Elasticsearch backend'
               'python2-elasticsearch-dsl: experimental Elasticsearch backend'
+              'python2-tinydb: experimental file-based backend (no DB server)'
               'python2-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
               'python2-pycryptodome: extract data from public keys ("ivre getmoduli")'
@@ -178,9 +179,11 @@ package_python2-ivre() {
               'mongodb: database server'
               'postgresql: database server (experimental backend)'
               'neo4j-community: database server (experimental flow analysis)')
+  provides=('python2-ivre')
+  conflicts=('python2-ivre')
   pkgdesc+=' (library)'
 
-  cd "$srcdir/$pkgbase-py2"
+  cd "$srcdir/$_pkgname-py2"
 
   python2 setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
 
