@@ -256,11 +256,11 @@ which has the special meaning
 <code class="docutils literal notranslate"><span class="pre">NMAP_SHARE_PATH</span></code>) default to <code class="docutils literal notranslate"><span class="pre">None</span></code>, a special value which means
 “try to guess the path based on IVRE installation”.</p>
 <p>Here are the values with examples on a regular installation:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DATA_PATH</span> <span class="o">=</span> <span class="bp">None</span>                  <span class="c1"># /usr/share/ivre/data</span>
-<span class="n">GEOIP_PATH</span> <span class="o">=</span> <span class="bp">None</span>                 <span class="c1"># /usr/share/ivre/geoip</span>
-<span class="n">HONEYD_IVRE_SCRIPTS_PATH</span> <span class="o">=</span> <span class="bp">None</span>   <span class="c1"># /usr/share/ivre/data/honeyd</span>
-<span class="n">WEB_STATIC_PATH</span> <span class="o">=</span> <span class="bp">None</span>            <span class="c1"># /usr/share/ivre/web/static</span>
-<span class="n">WEB_DOKU_PATH</span> <span class="o">=</span> <span class="bp">None</span>              <span class="c1"># /usr/share/ivre/dokuwiki</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DATA_PATH</span> <span class="o">=</span> <span class="kc">None</span>                  <span class="c1"># /usr/share/ivre/data</span>
+<span class="n">GEOIP_PATH</span> <span class="o">=</span> <span class="kc">None</span>                 <span class="c1"># /usr/share/ivre/geoip</span>
+<span class="n">HONEYD_IVRE_SCRIPTS_PATH</span> <span class="o">=</span> <span class="kc">None</span>   <span class="c1"># /usr/share/ivre/data/honeyd</span>
+<span class="n">WEB_STATIC_PATH</span> <span class="o">=</span> <span class="kc">None</span>            <span class="c1"># /usr/share/ivre/web/static</span>
+<span class="n">WEB_DOKU_PATH</span> <span class="o">=</span> <span class="kc">None</span>              <span class="c1"># /usr/share/ivre/dokuwiki</span>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">AGENT_MASTER_PATH</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">&quot;/var/lib/ivre/master&quot;</span></code>.</p>
@@ -423,11 +423,11 @@ variable <code class="docutils literal notranslate"><span class="pre">WEB_NOTES_
 the notes (<code class="docutils literal notranslate"><span class="pre">#IP#</span></code> will be replaced with the IP address). This
 variable defaults to <code class="docutils literal notranslate"><span class="pre">/dokuwiki/#IP#</span></code>.</p>
 <p>If you use Dokuwiki, you also want to set:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="s2">&quot;localdokuwiki&quot;</span><span class="sb">``</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="s2">&quot;localdokuwiki&quot;</span>
 </pre></div>
 </div>
 <p>Or:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;localdokuwiki&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;/path/to/dokuwiki/data/pages&quot;</span><span class="p">,))</span><span class="sb">``</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_GET_NOTEPAD_PAGES</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;localdokuwiki&quot;</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;/path/to/dokuwiki/data/pages&quot;</span><span class="p">,))</span>
 </pre></div>
 </div>
 <p>The second option is needed if the path to Dokuwiki pages is different
@@ -470,7 +470,7 @@ environment variable <code class="docutils literal notranslate"><span class="pre
 can do so by setting a couple of variables; by default, ACL is
 disabled, and everyone (that can access the <code class="docutils literal notranslate"><span class="pre">/cgi/</span></code> URLs) can access
 to all the results:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="bp">None</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">WEB_DEFAULT_INIT_QUERY</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="n">WEB_INIT_QUERIES</span> <span class="o">=</span> <span class="p">{}</span>
 </pre></div>
 </div>

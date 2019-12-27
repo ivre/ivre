@@ -1,0 +1,40 @@
+# Maintainer: Pierre Lalet <pl@ivre.rocks>
+#
+# Arch Linux package file for package ivre-data.
+
+# This file is part of IVRE.
+# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+pkgname=ivre-data
+pkgver=0.9.14.dev110.20191225223419
+pkgrel=1
+pkgdesc='Network recon framework based on Nmap, Masscan, Zeek (Bro), Argus, Netflow,... (data files)'
+arch=('any')
+url='https://ivre.rocks/'
+license=('GPL3')
+makedepends=('ivre')
+
+pkgver() {
+  echo "`ivre version | awk '/^Version / {print $2}'`.`date -u +%Y%m%d%H%M%S`"
+}
+
+package_ivre-data() {
+  geoip_dir="$srcdir/$pkgname/$pkgdir/usr/share/ivre/geoip"
+  mkdir -p "$geoip_dir"
+  echo "GEOIP_PATH = '$geoip_dir'" > tmp_ivre_conf
+  PYTHONPATH=./build/lib IVRE_CONF=./tmp_ivre_conf ivre ipdata --download --import-all
+  rm tmp_ivre_conf
+}
