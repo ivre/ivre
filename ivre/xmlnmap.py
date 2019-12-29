@@ -31,6 +31,7 @@ import os
 import re
 import struct
 import sys
+from textwrap import wrap
 from xml.sax.handler import ContentHandler, EntityResolver
 
 
@@ -1194,11 +1195,6 @@ X509 "service" tag.
             newout.append('%s: %s' % (name, info[key]))
         except KeyError:
             pass
-    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:')]:
-        try:
-            newout.append('%-7s%s\n' % (name, info[key]))
-        except KeyError:
-            pass
     try:
         pubkeyalgo = info.pop('pubkeyalgo')
     except KeyError:
@@ -1210,11 +1206,25 @@ X509 "service" tag.
             'id-dsa': 'dsa',
             'dhpublicnumber': 'dh',
         }.get(pubkeyalgo, pubkeyalgo)
-        newout.append('Public Key type: %s\n' % pubkeytype)
+        newout.append('Public Key type: %s' % pubkeytype)
         info['pubkey'] = {'type': pubkeytype}
-    for key in ['bits', 'modulus', 'exponent']:
+    try:
+        pubkeybits = info.pop('bits')
+    except KeyError:
+        pass
+    else:
+        newout.append('Public Key bits: %d' % pubkeybits)
+        info.setdefault('pubkey', {})['bits'] = pubkeybits
+    for key in ['modulus', 'exponent']:
         try:
             info.setdefault('pubkey', {})[key] = info.pop(key)
+        except KeyError:
+            pass
+    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:'),
+                      ('sha256', 'SHA-256:')]:
+        # NB: SHA-256 is not (yet) reported by Nmap, but it might help.
+        try:
+            newout.append('%-7s%s' % (name, ' '.join(wrap(info[key], 4))))
         except KeyError:
             pass
     b64cert = data.decode()
