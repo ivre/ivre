@@ -1658,6 +1658,10 @@ class DBNmap(DBActive):
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 host = self.json2dbrec(json.loads(line.decode()))
+                if ((needports and 'ports' not in host) or
+                    (needopenports and
+                     not host.get('openports', {}).get('count'))):
+                    continue
                 if "_id" in host:
                     del host["_id"]
                 host["scanid"] = filehash
@@ -1673,28 +1677,25 @@ class DBNmap(DBActive):
                                  self.globaldb.data.as_byip,
                                  self.globaldb.data.location_byip]:
                         host['infos'].update(func(host['addr']) or {})
-                if ((not needports or 'ports' in host) and
-                    (not needopenports or
-                     host.get('openports', {}).get('count'))):
-                    # Update schema if/as needed.
-                    while host.get(
-                            "schema_version"
-                    ) in self._schema_migrations["hosts"]:
-                        oldvers = host.get("schema_version")
-                        self._schema_migrations["hosts"][oldvers][1](host)
-                        if oldvers == host.get("schema_version"):
-                            utils.LOGGER.warning(
-                                "[%r] could not migrate host from version "
-                                "%r [%r]",
-                                self.__class__, oldvers, host
-                            )
-                            break
-                    # We are about to insert data based on this file,
-                    # so we want to save the scan document
-                    if not scan_doc_saved:
-                        self.store_scan_doc({'_id': filehash})
-                        scan_doc_saved = True
-                    self.store_host(host)
+                # Update schema if/as needed.
+                while host.get(
+                        "schema_version"
+                ) in self._schema_migrations["hosts"]:
+                    oldvers = host.get("schema_version")
+                    self._schema_migrations["hosts"][oldvers][1](host)
+                    if oldvers == host.get("schema_version"):
+                        utils.LOGGER.warning(
+                            "[%r] could not migrate host from version "
+                            "%r [%r]",
+                            self.__class__, oldvers, host
+                        )
+                        break
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({'_id': filehash})
+                    scan_doc_saved = True
+                self.store_host(host)
                 if callback is not None:
                     callback(host)
         self.stop_store_hosts()
