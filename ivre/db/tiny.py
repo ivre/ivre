@@ -1849,6 +1849,10 @@ class TinyDBNmap(TinyDBActive, DBNmap):
         utils.LOGGER.debug("SCAN STORED: %r in %r", _id, self.dbname_scans)
         return _id
 
+    def update_scan_doc(self, scan_id, data):
+        self.db_scans.update(deepcopy(data),
+                             cond=Query()._id == scan_id.decode())
+
 
 class TinyDBView(TinyDBActive, DBView):
 

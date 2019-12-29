@@ -1022,6 +1022,19 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
         else:
             self.db.execute(insrt)
 
+    def update_scan_doc(self, scan_id, data):
+        data = data.copy()
+        if 'end' in data:
+            data['end'] = datetime.datetime.utcfromtimestamp(
+                int(data['end'])
+            )
+        self.db.execute(
+            update(self.tables.scanfile)
+            .where(self.tables.scanfile.sha256 == utils.decode_hex(scan_id))
+            .values(**dict((key, data[key]) for key in ['end', 'elapsed']
+                           if key in data))
+        )
+
     def _store_host(self, host):
         addr = self.ip2internal(host['addr'])
         info = host.get('infos')

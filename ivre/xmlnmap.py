@@ -1360,6 +1360,12 @@ class NmapHandler(ContentHandler):
     def _storescan(self):
         """Subclasses may store self._curscan here."""
 
+    def _updatescan(self, _):
+        """Subclasses may update the scan record here, based on the first
+argument (a dict object).
+
+        """
+
     def _addscaninfo(self, _):
         """Subclasses may add scan information (first argument) to
         self._curscan here.
@@ -1374,6 +1380,13 @@ class NmapHandler(ContentHandler):
             self._curscan = dict(attrs)
             self.scanner = self._curscan.get("scanner", self.scanner)
             self._curscan['_id'] = self._filehash
+        elif name == 'finished':
+            curscan_more = dict(attrs)
+            if 'time' in curscan_more:
+                curscan_more['end'] = curscan_more.pop('time')
+            if 'timestr' in curscan_more:
+                curscan_more['endstr'] = curscan_more.pop('timestr')
+            self._updatescan(curscan_more)
         elif name == 'scaninfo' and self._curscan is not None:
             self._addscaninfo(dict(attrs))
         elif name == 'host':
@@ -2293,10 +2306,10 @@ class Nmap2DB(NmapHandler):
         ident = self._db.nmap.store_scan_doc(self._curscan)
         return ident
 
+    def _updatescan(self, curscan_more):
+        self._db.nmap.update_scan_doc(self._filehash, curscan_more)
+
     def _addscaninfo(self, i):
         if 'numservices' in i:
             i['numservices'] = int(i['numservices'])
-        if 'scaninfos' in self._curscan:
-            self._curscan['scaninfos'].append(i)
-        else:
-            self._curscan['scaninfos'] = [i]
+        self._curscan.setdefault('scaninfos', []).append(i)

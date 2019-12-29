@@ -3468,6 +3468,13 @@ class MongoDBNmap(MongoDBActive, DBNmap):
                            self.columns[self.column_scans])
         return ident
 
+    def update_scan_doc(self, scan_id, data):
+        self.db[self.columns[self.column_scans]].update(
+            {'_id': scan_id},
+            {"set": data},
+            multi=False,
+        )
+
     def store_or_merge_host(self, host):
         self.store_host(host)
 

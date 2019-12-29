@@ -31,6 +31,7 @@ from functools import reduce
 import json
 import os
 import pickle
+import pipes
 import random
 import re
 import shutil
@@ -58,6 +59,7 @@ except ImportError:
 
 
 from ivre import config, geoiputils, nmapout, utils, xmlnmap, flow
+from ivre.zgrabout import ZGRAB_PARSERS
 
 
 class DB(object):
@@ -1142,6 +1144,9 @@ instead of keys.
     def store_scan_doc(self, scan):
         pass
 
+    def update_scan_doc(self, scan_id, data):
+        pass
+
     def remove(self, host):
         raise NotImplementedError
 
@@ -1590,13 +1595,30 @@ class DBNmap(DBActive):
             return False
         with utils.open_file(fname) as fdesc:
             fchar = fdesc.read(1)
+            if fchar == b'{':
+                firstline = fchar + fdesc.readline()[:-1]
         try:
             store_scan_function = {
                 b'<': self.store_scan_xml,
-                b'{': self.store_scan_json,
             }[fchar]
         except KeyError:
-            raise ValueError("Unknown file type %s" % fname)
+            if fchar == b'{':
+                try:
+                    firstres = (firstline).decode()
+                except UnicodeDecodeError:
+                    raise ValueError("Unknown file type %s" % fname)
+                try:
+                    firstres = json.loads(firstres)
+                except json.decoder.JSONDecodeError:
+                    raise ValueError("Unknown file type %s" % fname)
+                if 'addr' in firstres:
+                    store_scan_function = self.store_scan_json_ivre
+                elif 'ip' in firstres:
+                    store_scan_function = self.store_scan_json_zgrab
+                else:
+                    raise ValueError("Unknown file type %s" % fname)
+            else:
+                raise ValueError("Unknown file type %s" % fname)
         return store_scan_function(fname, filehash=scanid, **kargs)
 
     def store_scan_xml(self, fname, callback=None, **kargs):
@@ -1633,11 +1655,11 @@ class DBNmap(DBActive):
         self.stop_store_hosts()
         return False
 
-    def store_scan_json(self, fname, filehash=None,
-                        needports=False, needopenports=False,
-                        categories=None, source=None,
-                        add_addr_infos=True, force_info=False,
-                        callback=None, **_):
+    def store_scan_json_ivre(self, fname, filehash=None,
+                             needports=False, needopenports=False,
+                             categories=None, source=None,
+                             add_addr_infos=True, force_info=False,
+                             callback=None, **_):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
         return True if everything went fine, False otherwise.
@@ -1669,6 +1691,118 @@ class DBNmap(DBActive):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
+                if add_addr_infos and self.globaldb is not None and (
+                        force_info or 'infos' not in host or not host['infos']
+                ):
+                    host['infos'] = {}
+                    for func in [self.globaldb.data.country_byip,
+                                 self.globaldb.data.as_byip,
+                                 self.globaldb.data.location_byip]:
+                        host['infos'].update(func(host['addr']) or {})
+                # Update schema if/as needed.
+                while host.get(
+                        "schema_version"
+                ) in self._schema_migrations["hosts"]:
+                    oldvers = host.get("schema_version")
+                    self._schema_migrations["hosts"][oldvers][1](host)
+                    if oldvers == host.get("schema_version"):
+                        utils.LOGGER.warning(
+                            "[%r] could not migrate host from version "
+                            "%r [%r]",
+                            self.__class__, oldvers, host
+                        )
+                        break
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({'_id': filehash})
+                    scan_doc_saved = True
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_zgrab(self, fname, filehash=None,
+                              needports=False, needopenports=False,
+                              categories=None, source=None,
+                              add_addr_infos=True, force_info=False,
+                              callback=None, **_):
+        """This method parses a JSON scan result produced by zgrab, displays
+        the parsing result, and return True if everything went fine,
+        False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                rec = json.loads(line.decode())
+                try:
+                    host = {"addr": rec.pop('ip'),
+                            "scanid": filehash,
+                            "schema_version": xmlnmap.SCHEMA_VERSION}
+                except KeyError:
+                    # the last result (which contains a
+                    # "success_count" field) holds the scan's data
+                    if "success_count" in rec:
+                        scan_doc = {'_id': filehash, 'scanner': 'zgrab'}
+                        if 'flags' in rec:
+                            scan_doc['args'] = ' '.join(
+                                pipes.quote(elt) for elt in rec.pop('flags')
+                            )
+                        if "start_time" in rec:
+                            start = utils.all2datetime(
+                                rec.pop('start_time').rstrip('Z')
+                            )
+                            scan_doc['start'] = start.strftime('%s')
+                            scan_doc['startstr'] = str(start)
+                        if "end_time" in rec:
+                            end = utils.all2datetime(
+                                rec.pop('end_time').rstrip('Z')
+                            )
+                            scan_doc['end'] = end.strftime('%s')
+                            scan_doc['endstr'] = str(end)
+                        if "duration" in rec:
+                            scan_doc["elapsed"] = str(rec.pop('duration'))
+                        self.store_scan_doc(scan_doc)
+                    else:
+                        utils.LOGGER.warning('Record has no "ip" field %r',
+                                             rec)
+                    continue
+                host['start_time'] = rec.pop('timestamp')
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                for key, value in viewitems(rec.pop('data', {})):
+                    try:
+                        parser = ZGRAB_PARSERS[key]
+                    except KeyError:
+                        utils.LOGGER.warning(
+                            'Data type %r from zgrab not (yet) supported',
+                            key,
+                        )
+                    else:
+                        port = parser(value)
+                        if port:
+                            host.setdefault('ports', []).append(port)
+                host = self.json2dbrec(host)
+                if ((needports and 'ports' not in host) or
+                    (needopenports and
+                     not any(port.get('state_state') == 'open'
+                             for port in host.get('ports', [])))):
+                    continue
                 if add_addr_infos and self.globaldb is not None and (
                         force_info or 'infos' not in host or not host['infos']
                 ):
