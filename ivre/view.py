@@ -171,6 +171,7 @@ def _extract_passive_SSL_SERVER_cert(rec):
         'state_reason': "passive",
         'port': rec['port'],
         'protocol': rec.get('protocol', 'tcp'),
+        'service_tunnel': 'ssl',
     }
     output, info = create_ssl_cert(rec['value'], b64encoded=False)
     if info:

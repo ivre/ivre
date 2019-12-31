@@ -276,6 +276,8 @@ class _ScanFile(object):
     scaninfo = Column(SQLJSONB)
     scanner = Column(String(16))
     start = Column(DateTime)
+    end = Column(DateTime)
+    elapsed = Column(Float)
     version = Column(String(16))
     xmloutputversion = Column(String(16))
 

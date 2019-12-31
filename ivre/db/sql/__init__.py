@@ -1960,7 +1960,7 @@ class SQLDBPassive(SQLDB, DBPassive):
 
     def _get(self, flt, limit=None, skip=None, sort=None, fields=None):
         if fields is not None:
-            utils.LOGGER.warning("Argument 'fields' provided but unused.")
+            utils.LOGGER.warning("Argument 'fields' provided but unused")
         req = flt.query(
             select([
                 self.tables.passive.id.label("_id"),

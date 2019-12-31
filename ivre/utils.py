@@ -735,6 +735,9 @@ class FileOpener(object):
     def read(self, *args):
         return self.fdesc.read(*args)
 
+    def readline(self):
+        return self.fdesc.readline()
+
     def fileno(self):
         return self.fdesc.fileno()
 
@@ -1887,7 +1890,11 @@ This version relies on the pyOpenSSL module.
     for i in range(cert.get_extension_count()):
         ext = cert.get_extension(i)
         if ext.get_short_name() == b'subjectAltName':
-            result['san'] = [x.strip() for x in str(ext).split(', ')]
+            try:
+                result['san'] = [x.strip() for x in str(ext).split(', ')]
+            except Exception:
+                LOGGER.warning('Cannot decode subjectAltName %r for %r', ext,
+                               result['subject_text'], exc_info=True)
             break
     pubkey = cert.get_pubkey()
     pubkeytype = pubkey.type()
