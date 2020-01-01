@@ -1797,6 +1797,16 @@ class DBNmap(DBActive):
                         port = parser(value)
                         if port:
                             host.setdefault('ports', []).append(port)
+                openports = host['openports'] = {'count': 0}
+                for port in host.get('ports', []):
+                    if port.get('state_state') != 'open':
+                        continue
+                    openports['count'] += 1
+                    cur = openports.setdefault(port['protocol'],
+                                               {"count": 0, "ports": []})
+                    if port['port'] not in cur['ports']:
+                        cur["count"] += 1
+                        cur["ports"].append(port['port'])
                 host = self.json2dbrec(host)
                 if ((needports and 'ports' not in host) or
                     (needopenports and

@@ -305,10 +305,10 @@ def passive_record_to_view(rec, category=None):
         if port.get('state_state') != 'open':
             continue
         openports['count'] += 1
-        protoopenports = openports.setdefault(port['protocol'],
-                                              {'count': 0, 'ports': []})
-        protoopenports['count'] += 1
-        protoopenports['ports'].append(port['port'])
+        cur = openports.setdefault(port['protocol'], {'count': 0, 'ports': []})
+        if port['port'] not in cur['ports']:
+            cur["count"] += 1
+            cur["ports"].append(port['port'])
     if category is not None:
         outrec['categories'] = [category]
     return outrec
