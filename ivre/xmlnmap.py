@@ -715,11 +715,17 @@ integers.
 New in SCHEMA_VERSION == 12.
 
     """
-    return [{"program": int(program), "protocol": proto,
-             "port": int(result["port"]),
-             "version": [int(v) for v in result["version"]]}
-            for program, protores in viewitems(table)
-            for proto, result in viewitems(protores)]
+    result = []
+    for program, protores in viewitems(table):
+        for proto, data in viewitems(protores):
+            data["program"] = int(program)
+            data["protocol"] = proto
+            try:
+                data['port'] = int(data['port'])
+            except (KeyError, ValueError):
+                pass
+            result.append(data)
+    return result
 
 
 def change_ms_sql_info(table):
