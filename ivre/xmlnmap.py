@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -793,6 +793,40 @@ New in SCHEMA_VERSION == 15.
     return result
 
 
+def change_ssl_cert(table):
+    """Fix modulus and exponent value in "ssl-cert" Nmap script. A bug
+exists in some Nmap versions that reports "BIGNUM: 0x<memory address>"
+instead of the value for fields `.modulus` and `.exponent` of
+`.pubkey`.
+
+    """
+    if not isinstance(table, dict) or 'pubkey' not in table or 'pem' not in table:
+        return table
+    pubkey = table['pubkey']
+    fixit = False
+    for key in ["modulus", "exponent"]:
+        if (isinstance(pubkey.get(key), str) and
+            pubkey[key].startswith('BIGNUM: ')):
+            fixit = True
+            break
+    if not fixit:
+        return table
+    data = ''.join(table['pem'].splitlines()[1:-1]).encode()
+    try:
+        newinfo = create_ssl_cert(data)[1]
+    except Exception:
+        utils.LOGGER.warning('Cannot parse certificate %r', data,
+                             exc_info=True)
+        return table
+    if 'pubkey' not in newinfo:
+        return table
+    newpubkey = newinfo['pubkey']
+    for key in ["modulus", "exponent"]:
+        if key in newpubkey:
+            pubkey[key] = newpubkey[key]
+    return table
+
+
 CHANGE_TABLE_ELEMS = {
     'smb-enum-shares': change_smb_enum_shares,
     "s7-info": change_s7_info_keys,
@@ -803,6 +837,7 @@ CHANGE_TABLE_ELEMS = {
     'ms-sql-info': change_ms_sql_info,
     'ssh-hostkey': change_ssh_hostkey,
     'http-git': change_http_git,
+    'ssl-cert': change_ssl_cert,
 }
 
 IGNORE_SCRIPTS = {
@@ -893,6 +928,8 @@ IGNORE_SCRIPTS = {
     'http-wordpress-users': set(["[Error] Wordpress installation was not found"
                                  ". We couldn't find wp-login.php"]),
     'ssl-date': set(['TLS randomness does not represent time']),
+    'http-comments-displayer': set(["Couldn't find any comments."]),
+    'http-jsonp-detection': set(["Couldn't find any JSONP endpoints."]),
     # host scripts
     'firewalk': set(['None found']),
     'ipidseq': set(['Unknown']),
