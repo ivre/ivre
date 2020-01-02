@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -209,7 +209,10 @@ function load() {
         if(maxres !== skip) {
             set_display_bounds(skip + 1, maxres);
         }
-        changefav("favicon.png");
+        // Some Firefox versions seem to need a setTimeout (500 works,
+        // apparently)...
+        // changefav("favicon.png");
+        setTimeout(function() {changefav("favicon.png");}, 500);
         if(hostcount === 1) {
             toggle_full_display(0);
         }
