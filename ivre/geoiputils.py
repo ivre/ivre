@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ from builtins import range
 from future.utils import viewitems, viewvalues
 
 
-from ivre import utils, config
+from ivre import VERSION, utils, config
 
 
 def bgp_raw_to_csv(fname, out):
@@ -137,6 +137,9 @@ PARSERS = [
     (gunzip, ['GeoLite2-ASN.tar.gz'], {}),
     (untar_all, ['GeoLite2-ASN.tar'],
      {"cond": lambda fdesc: fdesc.name.endswith('.mmdb')}),
+    (gunzip, ['GeoLite2-dumps.tar.gz'], {}),
+    (untar_all, ['GeoLite2-dumps.tar'],
+     {"cond": lambda fdesc: fdesc.name.endswith('.csv')}),
     (bgp_raw_to_csv, ['BGP.raw', 'BGP.csv'], {}),
 ]
 
@@ -144,8 +147,19 @@ PARSERS = [
 def download_all(verbose=False):
     utils.makedirs(config.GEOIP_PATH)
     opener = build_opener()
-    opener.addheaders = [('User-agent', 'IVRE/1.0 +https://ivre.rocks/')]
+    opener.addheaders = [('User-agent',
+                          'IVRE/%s +https://ivre.rocks/' % VERSION)]
     for fname, url in viewitems(config.IPDATA_URLS):
+        if url is None:
+            if not fname.startswith('GeoLite2-'):
+                continue
+            if fname.startswith('GeoLite2-dumps.'):
+                continue
+            basename, ext = fname.split('.', 1)
+            url = ('https://download.maxmind.com/app/geoip_download?'
+                   'edition_id=%s&suffix=%s&license_key=%s' % (
+                       basename, ext, config.MAXMIND_LICENSE_KEY,
+                   ))
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
@@ -159,7 +173,15 @@ def download_all(verbose=False):
         sys.stdout.write("Unpacking: ")
         sys.stdout.flush()
     for func, args, kargs in PARSERS:
-        func(*args, **kargs)
+        try:
+            func(*args, **kargs)
+        except Exception:
+            utils.LOGGER.warning(
+                "A parser failed: %s(%s, %s)", func.__name__,
+                ', '.join(args),
+                ', '.join('%s=%r' % k_v for k_v in viewitems(kargs)),
+                exc_info=True,
+            )
     if verbose:
         sys.stdout.write("done.\n")
 

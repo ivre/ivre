@@ -35,6 +35,6 @@ package_ivre-data() {
   geoip_dir="$srcdir/$pkgname/$pkgdir/usr/share/ivre/geoip"
   mkdir -p "$geoip_dir"
   echo "GEOIP_PATH = '$geoip_dir'" > tmp_ivre_conf
-  PYTHONPATH=./build/lib IVRE_CONF=./tmp_ivre_conf ivre ipdata --download --import-all
+  PYTHONPATH=./build/lib IVRE_CONF=./tmp_ivre_conf ivre ipdata --download
   rm tmp_ivre_conf
 }

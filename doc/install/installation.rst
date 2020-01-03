@@ -233,7 +233,7 @@ on a decent server):
 
 ::
 
-   $ sudo ivre ipdata --download --import-all
+   $ sudo ivre ipdata --download
 
 It is advised to run this command on a regular basis (e.g.,
 weekly). If you use IVRE on several machines, you may want to run the
@@ -251,12 +251,13 @@ following files are downloaded:
    >>> for fname, url in IPDATA_URLS.items():
    ...     print("%s: %s" % (fname, url))
    ...
-   GeoLite2-City.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz
-   GeoLite2-City-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip
-   GeoLite2-Country.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz
-   GeoLite2-Country-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip
-   GeoLite2-ASN.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz
-   GeoLite2-ASN-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip
+   GeoLite2-City.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz
+   GeoLite2-City-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip
+   GeoLite2-Country.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz
+   GeoLite2-Country-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip
+   GeoLite2-ASN.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz
+   GeoLite2-ASN-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip
+   GeoLite2-dumps.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz
    iso3166.csv: https://dev.maxmind.com/static/csv/codes/iso3166.csv
    BGP.raw: http://thyme.apnic.net/current/data-raw-table
 

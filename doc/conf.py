@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'IVRE'
-copyright = '2011 - 2019, Pierre LALET'
+copyright = '2011 - 2020, Pierre LALET'
 author = 'Pierre LALET'
 html_logo = '../web/static/logo.png'
 master_doc = 'index'

@@ -375,7 +375,7 @@ $ yes | sudo ivre runscansagentdb --init
 scan or list all IP addresses from a country or an AS), just run the
 following command (it takes a long time, usually more than 40 minutes
 on a decent server):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre ipdata --download --import-all
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre ipdata --download
 </pre></div>
 </div>
 <p>It is advised to run this command on a regular basis (e.g.,
@@ -390,12 +390,13 @@ following files are downloaded:</p>
 &gt;&gt;&gt; for fname, url in IPDATA_URLS.items():
 ...     print(&quot;%s: %s&quot; % (fname, url))
 ...
-GeoLite2-City.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz
-GeoLite2-City-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-City-CSV.zip
-GeoLite2-Country.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz
-GeoLite2-Country-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-Country-CSV.zip
-GeoLite2-ASN.tar.gz: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz
-GeoLite2-ASN-CSV.zip: https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip
+GeoLite2-City.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz
+GeoLite2-City-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip
+GeoLite2-Country.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz
+GeoLite2-Country-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip
+GeoLite2-ASN.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz
+GeoLite2-ASN-CSV.zip: https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip
+GeoLite2-dumps.tar.gz: https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz
 iso3166.csv: https://dev.maxmind.com/static/csv/codes/iso3166.csv
 BGP.raw: http://thyme.apnic.net/current/data-raw-table
 </pre></div>
@@ -436,7 +437,7 @@ that.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2011 - 2019, Pierre LALET
+        &copy; Copyright 2011 - 2020, Pierre LALET
 
     </p>
   </div>

@@ -385,25 +385,40 @@ their default values:</p>
 <h2>The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose<a class="headerlink" href="#the-data-purpose" title="Permalink to this headline">¶</a></h2>
 <p>The URLs used to get IP address databases are set in the dictionary <code class="docutils literal notranslate"><span class="pre">IPDATA_URLS</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">IPDATA_URLS</span> <span class="o">=</span> <span class="p">{</span>
+
+    <span class="c1"># None has a special meaning:</span>
+    <span class="c1"># https://download.maxmind.com/app/geoip_download?edition_id=XXX&amp;suffix=XXX&amp;license_key=XXX</span>
+    <span class="c1">#</span>
+    <span class="c1"># You can use this value for the GeoLite2-* files (and set</span>
+    <span class="c1"># MAXMIND_LICENSE_KEY below) to download files from MaxMind</span>
+    <span class="c1"># instead of ivre.rocks directly. Maxmind license keys are free</span>
+    <span class="c1"># and can be obtained from &lt;https://www.maxmind.com/&gt;</span>
+
     <span class="s1">&#39;GeoLite2-City.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz&#39;</span><span class="p">,</span>
     <span class="s1">&#39;GeoLite2-City-CSV.zip&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/&#39;</span>
-    <span class="s1">&#39;GeoLite2-City-CSV.zip&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip&#39;</span><span class="p">,</span>
     <span class="s1">&#39;GeoLite2-Country.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/&#39;</span>
-    <span class="s1">&#39;GeoLite2-Country.tar.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz&#39;</span><span class="p">,</span>
     <span class="s1">&#39;GeoLite2-Country-CSV.zip&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/&#39;</span>
-    <span class="s1">&#39;GeoLite2-Country-CSV.zip&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip&#39;</span><span class="p">,</span>
     <span class="s1">&#39;GeoLite2-ASN.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz&#39;</span><span class="p">,</span>
     <span class="s1">&#39;GeoLite2-ASN-CSV.zip&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip&#39;</span><span class="p">,</span>
+
+    <span class="c1"># For other files, None has a special meaning &quot;do not</span>
+    <span class="c1"># download&quot;. The following file can be computed based the</span>
+    <span class="c1"># GeoLite2-* files using `ivre ipdata --import-all`. You should do</span>
+    <span class="c1"># that if you get your files from Maxmind.</span>
+    <span class="s1">&#39;GeoLite2-dumps.tar.gz&#39;</span><span class="p">:</span>
+    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz&#39;</span><span class="p">,</span>
+
     <span class="s1">&#39;iso3166.csv&#39;</span><span class="p">:</span> <span class="s1">&#39;https://dev.maxmind.com/static/csv/codes/iso3166.csv&#39;</span><span class="p">,</span>
     <span class="c1"># This one is not from maxmind -- see http://thyme.apnic.net/</span>
     <span class="s1">&#39;BGP.raw&#39;</span><span class="p">:</span> <span class="s1">&#39;http://thyme.apnic.net/current/data-raw-table&#39;</span><span class="p">,</span>
 <span class="p">}</span>
+<span class="n">MAXMIND_LICENSE_KEY</span> <span class="o">=</span> <span class="kc">None</span>
 </pre></div>
 </div>
 <p>GeoIP uses a locale to report country, region and city names. The
@@ -557,7 +572,7 @@ in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLAC
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2011 - 2019, Pierre LALET
+        &copy; Copyright 2011 - 2020, Pierre LALET
 
     </p>
   </div>

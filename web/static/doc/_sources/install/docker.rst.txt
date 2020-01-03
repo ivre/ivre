@@ -218,10 +218,9 @@ initialize the database:
    root@ivreclient:/# yes | ivre view --init
    root@ivreclient:/# yes | ivre flowcli --init
    root@ivreclient:/# yes | ivre runscansagentdb --init
-   root@ivreclient:/# ivre ipdata --download --import-all
+   root@ivreclient:/# ivre ipdata --download
 
-The latest command will take a long time (about 40 minutes on a decent
-server). Then we can integrate the Nmap results to the database
+Then we can integrate the Nmap results to the database
 ``nmap`` database and create a ``view`` from it:
 
 ::
