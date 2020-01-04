@@ -78,10 +78,7 @@ Database init, data download & importation
    $ yes | ivre view --init
    $ yes | ivre flowcli --init
    $ yes | sudo ivre runscansagentdb --init
-   $ sudo ivre ipdata --download --import-all
-
-The two last step may take a long time to run (40 minutes on a decent
-server), nothing to worry about.
+   $ sudo ivre ipdata --download
 
 Run a first scan
 ----------------

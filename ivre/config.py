@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -136,25 +136,40 @@ FLOW_STORE_METADATA = True
 
 # Begin IPDATA_URLS
 IPDATA_URLS = {
+
+    # None has a special meaning:
+    # https://download.maxmind.com/app/geoip_download?edition_id=XXX&suffix=XXX&license_key=XXX
+    #
+    # You can use this value for the GeoLite2-* files (and set
+    # MAXMIND_LICENSE_KEY below) to download files from MaxMind
+    # instead of ivre.rocks directly. Maxmind license keys are free
+    # and can be obtained from <https://www.maxmind.com/>
+
     'GeoLite2-City.tar.gz':
-    'https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz',
+    'https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz',
     'GeoLite2-City-CSV.zip':
-    'https://geolite.maxmind.com/download/geoip/database/'
-    'GeoLite2-City-CSV.zip',
+    'https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip',
     'GeoLite2-Country.tar.gz':
-    'https://geolite.maxmind.com/download/geoip/database/'
-    'GeoLite2-Country.tar.gz',
+    'https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz',
     'GeoLite2-Country-CSV.zip':
-    'https://geolite.maxmind.com/download/geoip/database/'
-    'GeoLite2-Country-CSV.zip',
+    'https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip',
     'GeoLite2-ASN.tar.gz':
-    'https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN.tar.gz',
+    'https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz',
     'GeoLite2-ASN-CSV.zip':
-    'https://geolite.maxmind.com/download/geoip/database/GeoLite2-ASN-CSV.zip',
+    'https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip',
+
+    # For other files, None has a special meaning "do not
+    # download". The following file can be computed based the
+    # GeoLite2-* files using `ivre ipdata --import-all`. You should do
+    # that if you get your files from Maxmind.
+    'GeoLite2-dumps.tar.gz':
+    'https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz',
+
     'iso3166.csv': 'https://dev.maxmind.com/static/csv/codes/iso3166.csv',
     # This one is not from maxmind -- see http://thyme.apnic.net/
     'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
 }
+MAXMIND_LICENSE_KEY = None
 # End IPDATA_URLS
 
 GEOIP_LANG = "en"

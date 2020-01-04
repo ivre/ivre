@@ -362,11 +362,10 @@ initialize the database:</p>
 <span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># yes | ivre view --init</span>
 <span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># yes | ivre flowcli --init</span>
 <span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># yes | ivre runscansagentdb --init</span>
-<span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># ivre ipdata --download --import-all</span>
+<span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># ivre ipdata --download</span>
 </pre></div>
 </div>
-<p>The latest command will take a long time (about 40 minutes on a decent
-server). Then we can integrate the Nmap results to the database
+<p>Then we can integrate the Nmap results to the database
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code> database and create a <code class="docutils literal notranslate"><span class="pre">view</span></code> from it:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># ivre scan2db -r -s MySource -c MyCategory /ivre-share</span>
 <span class="n">root</span><span class="nd">@ivreclient</span><span class="p">:</span><span class="o">/</span><span class="c1"># ivre db2view nmap</span>
@@ -409,7 +408,7 @@ root@ivreclient:/#
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2011 - 2019, Pierre LALET
+        &copy; Copyright 2011 - 2020, Pierre LALET
 
     </p>
   </div>
