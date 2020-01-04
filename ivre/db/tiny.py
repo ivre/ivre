@@ -455,6 +455,8 @@ This will be used by TinyDBNmap & TinyDBView
                     except ValueError:
                         pass
         for fld in ['starttime', 'endtime']:
+            if fld not in host:
+                continue
             if isinstance(host[fld], datetime):
                 host[fld] = utils.datetime2timestamp(host[fld])
             elif isinstance(host[fld], basestring):
