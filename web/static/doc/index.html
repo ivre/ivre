@@ -184,8 +184,9 @@ response, monitoring, etc.</p>
 </ul>
 <div class="section" id="features">
 <h2>Features<a class="headerlink" href="#features" title="Permalink to this headline">¶</a></h2>
-<p>IVRE can aggregate <a class="reference external" href="http://nmap.org/">Nmap</a> &amp; <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> scan results as well
-as intelligence from network captures using <a class="reference external" href="https://www.zeek.org/">Zeek</a> (formerly known as Bro), <a class="reference external" href="http://qosient.com/argus/">Argus</a> and <a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a></p>
+<p>IVRE can aggregate <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> &amp; <a class="reference external" href="https://zmap.io/">Zgrab / Zgrab2</a> scan results as well as intelligence from network
+captures using <a class="reference external" href="https://www.zeek.org/">Zeek</a> (formerly known as
+Bro), <a class="reference external" href="http://qosient.com/argus/">Argus</a> and <a class="reference external" href="http://nfdump.sourceforge.net/">Nfdump</a></p>
 </div>
 <div class="section" id="use-cases">
 <h2>Use-cases<a class="headerlink" href="#use-cases" title="Permalink to this headline">¶</a></h2>
@@ -193,8 +194,9 @@ as intelligence from network captures using <a class="reference external" href="
 have a look at the <a class="reference internal" href="overview/screenshots.html#screenshots-gallery"><span class="std std-ref">Screenshots gallery</span></a>). Here are
 some examples:</p>
 <ul>
-<li><p>Create your own Shodan-like service, using Nmap and/or Masscan,
-against the whole Internet or your own networks, (private or not).</p></li>
+<li><p>Create your own Shodan-like service, using Nmap and/or Masscan
+and/or Zmap / Zgrab / Zgrab2, against the whole Internet or your own
+networks, (private or not).</p></li>
 <li><p>Store each X509 certificate seen in SSL/TLS connections, SSH public
 keys and algorithms, DNS answers, HTTP headers (<code class="docutils literal notranslate"><span class="pre">Server</span></code>,
 <code class="docutils literal notranslate"><span class="pre">Host</span></code>, <code class="docutils literal notranslate"><span class="pre">User-Agent</span></code>, etc.), and more… This can be useful to:</p>
@@ -212,7 +214,7 @@ service.</p></li>
 </div>
 <div class="section" id="getting-started">
 <h2>Getting started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
-<p>If You want to learn more about the different purposes of IVRE, you
+<p>If you want to learn more about the different purposes of IVRE, you
 should start reading the <a class="reference internal" href="overview/principles.html#principles"><span class="std std-ref">Principles</span></a>.</p>
 <p>After that, you can start the <a class="reference internal" href="install/index.html#installation"><span class="std std-ref">Installation</span></a>
 process.</p>

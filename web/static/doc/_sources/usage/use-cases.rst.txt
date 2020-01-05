@@ -21,18 +21,20 @@ Of course, this require more work than just using an existing public
 service, but the benefits are huge!
 
 IVRE does not come with a scanner, and takes advantage of `Nmap
-<https://nmap.org/>`_ and `Masscan
-<https://github.com/robertdavidgraham/masscan>`_. Depending on your
-use case, you can choose one or use both (IVRE will happily merge the
-results for you). Remember to use the ``-oX`` option (which works with
-both Nmap and Masscan), as IVRE needs the XML output file.
+<https://nmap.org/>`_, `Masscan
+<https://github.com/robertdavidgraham/masscan>`_ and `Zgrab / Zgrab2
+<https://zmap.io/>`_. Depending on your use case, you can choose one
+or use both (IVRE will happily merge the results for you). Remember to
+use the ``-oX`` option (which works with both Nmap and Masscan) or
+``-o`` for Zgrab2, as IVRE needs the XML output file for Nmap and
+Masscan, and JSON for Zgrab2.
 
 You can use ``ivre runcsans``, ``ivre runscansagent`` or
 ``ivre runscansagentdb`` to run Nmap scans against wide targets (more)
 easily.
 
-You will then store the results from the XML output files into IVRE
-database using ``ivre scan2db``.
+You will then store the results from the XML or JSON output files into
+IVRE database using ``ivre scan2db``.
 
 Finally, use ``ivre db2view nmap`` to create a ``view`` (see
 :ref:`overview/principles:Purposes`) that you can explore with the

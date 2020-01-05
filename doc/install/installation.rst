@@ -22,12 +22,12 @@ External programs
 ~~~~~~~~~~~~~~~~~
 
 If you plan to run scans from a machine, install `Nmap
-<https://nmap.org/>`_ and `Masscan
-<https://github.com/robertdavidgraham/masscan>`_. If you want to
-integrate screenshots, install `Tesseract
-<https://github.com/tesseract-ocr/tesseract>`_, `ImageMagick
-<https://www.imagemagick.org/>`_, `FFmpeg <http://ffmpeg.org/>`_ and
-`PhantomJS <http://phantomjs.org/>`_.
+<https://nmap.org/>`_, `Masscan
+<https://github.com/robertdavidgraham/masscan>`_, and/or `Zmap / Zgrab
+/ Zgrab2 <https://zmap.io/>`_. If you want to integrate screenshots,
+install `Tesseract <https://github.com/tesseract-ocr/tesseract>`_,
+`ImageMagick <https://www.imagemagick.org/>`_, `FFmpeg
+<http://ffmpeg.org/>`_ and `PhantomJS <http://phantomjs.org/>`_.
 
 If you plan to analyze PCAP file on a machine, install, depending on
 your needs:
