@@ -45,6 +45,9 @@ The output is a port dict (i.e., the content of the "ports" key of an
     """
     if not data:
         return {}
+    # for zgrab2 results
+    if 'result' in data:
+        data.update(data.pop('result'))
     if 'response' not in data:
         utils.LOGGER.warning('Missing "response" field in zgrab HTTP result')
         return {}
@@ -58,9 +61,10 @@ The output is a port dict (i.e., the content of the "ports" key of an
             ', '.join(repr(fld) for fld in missing_fields),
         )
         return {}
+    req = resp['request']
     res = {"service_name": "http", "service_method": "probed",
            "state_state": "open", "state_reason": "syn-ack", "protocol": "tcp"}
-    url = resp.get('request', {}).get('url')
+    url = req.get('url')
     if url:
         port = None
         if ':' in url.get('host', ''):
@@ -73,7 +77,8 @@ The output is a port dict (i.e., the content of the "ports" key of an
                 port = 443
             else:
                 port = 80
-    elif resp.get('request', {}).get('tls_handshake'):
+    elif req.get('tls_handshake') or req.get('tls_log'):
+        # zgrab / zgrab2
         port = 443
     else:
         port = 80
@@ -96,7 +101,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
                 http_hdrs.append({'name': hdr, 'value': val})
                 output.append('%s: %s' % (hdr, val))
         if http_hdrs:
-            method = resp['request'].get('method')
+            method = req.get('method')
             if method:
                 output.append('')
                 output.append('(Request type: %s)' % method)
@@ -123,11 +128,16 @@ The output is a port dict (i.e., the content of the "ports" key of an
                 'id': 'http-title', 'output': title,
                 'http-title': {'title': title},
             })
+    tls = None
     try:
-        tls = resp['request']['tls_handshake']
+        tls = req['tls_handshake']
     except KeyError:
-        pass
-    else:
+        # zgrab2
+        try:
+            tls = req['tls_log']['handshake_log']
+        except KeyError:
+            pass
+    if tls is not None:
         res['service_tunnel'] = 'ssl'
         try:
             cert = tls['server_certificates']['certificate']['raw']

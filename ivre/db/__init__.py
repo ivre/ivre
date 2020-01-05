@@ -1780,12 +1780,21 @@ class DBNmap(DBActive):
                         utils.LOGGER.warning('Record has no "ip" field %r',
                                              rec)
                     continue
-                host['start_time'] = rec.pop('timestamp')
+                try:
+                    host['starttime'] = rec.pop('timestamp')
+                except KeyError:
+                    pass
                 if categories:
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
                 for key, value in viewitems(rec.pop('data', {})):
+                    if 'timestamp' in value:
+                        tstamp = value.pop('timestamp')
+                        if 'starttime' in rec:
+                            rec['starttime'] = min(rec['starttime'], tstamp)
+                        else:
+                            rec['starttime'] = tstamp
                     try:
                         parser = ZGRAB_PARSERS[key]
                     except KeyError:
