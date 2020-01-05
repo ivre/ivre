@@ -24,8 +24,8 @@ View creation
 About views
 ~~~~~~~~~~~
 
-Views are created from Nmap or Masscan scan results (stored in the
-``nmap`` purpose) and passive host intelligence collected by Zeek
+Views are created from Nmap, Masscan or Zgrab2 scan results (stored in
+the ``nmap`` purpose) and passive host intelligence collected by Zeek
 (stored in the ``passive`` purpose). That is a prerequisite of view
 creation so if you have not read it yet, you should go read
 :ref:`usage/active-recon:Active recon` and

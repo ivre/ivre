@@ -21,10 +21,10 @@ types of data IVRE handles), which can be stored by one or more
    - Web (JSON) API: the ``/cgi/ipdata/<address>`` URL.
 
 - ``nmap`` (sometimes also referred to as ``scans``): contains `Nmap
-  <http://nmap.org/>`_ and `Masscan
-  <https://github.com/robertdavidgraham/masscan/>`_ scan results. Each
-  record represents one host seen during one network scan. It can be
-  queried using:
+  <http://nmap.org/>`_, `Masscan
+  <https://github.com/robertdavidgraham/masscan/>`_ and `Zgrab /
+  Zgrab2 <https://zmap.io/>`_ scan results. Each record represents one
+  host seen during one network scan. It can be queried using:
 
    - Python API: the ``db.nmap`` object from the ``ivre.db`` module.
    - Command line: the ``ivre scancli`` tool.
@@ -74,6 +74,7 @@ Storing data
       FLOW_LOG [label=".log files"];
       PASS_LOG [label="passive_recon.log"];
       XML [label="XML scan result"];
+      JSON [label="JSON scan result"];
       db_data [label="db.data" shape="box" style="filled"];
       db_flow [label="db.flow" shape="box" style="filled"];
       db_passive [label="db.passive" shape="box" style="filled"];
@@ -87,9 +88,11 @@ Storing data
       FLOWS -> db_flow [label="ivre\nflow2db"];
       "Nmap" -> XML [label="-oX"];
       "Masscan" -> XML [label="-oX"];
+      "Zgrab2" -> JSON [label="-o"];
       FLOW_LOG -> db_flow [label="ivre\nzeek2db"];
       PASS_LOG -> db_passive [label="ivre\npassiverecon2db"];
       XML -> db_nmap [label="ivre\nscan2db"];
+      JSON -> db_nmap [label="ivre\nscan2db"];
       db_passive -> db_view [label="ivre\ndb2view"];
       db_nmap -> db_view [label="ivre\ndb2view"];
    }

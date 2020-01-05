@@ -200,15 +200,16 @@ query on your data; no-one has to know what you are really looking
 for.</p>
 <p>Of course, this require more work than just using an existing public
 service, but the benefits are huge!</p>
-<p>IVRE does not come with a scanner, and takes advantage of <a class="reference external" href="https://nmap.org/">Nmap</a> and <a class="reference external" href="https://github.com/robertdavidgraham/masscan">Masscan</a>. Depending on your
-use case, you can choose one or use both (IVRE will happily merge the
-results for you). Remember to use the <code class="docutils literal notranslate"><span class="pre">-oX</span></code> option (which works with
-both Nmap and Masscan), as IVRE needs the XML output file.</p>
+<p>IVRE does not come with a scanner, and takes advantage of <a class="reference external" href="https://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan">Masscan</a> and <a class="reference external" href="https://zmap.io/">Zgrab / Zgrab2</a>. Depending on your use case, you can choose one
+or use both (IVRE will happily merge the results for you). Remember to
+use the <code class="docutils literal notranslate"><span class="pre">-oX</span></code> option (which works with both Nmap and Masscan) or
+<code class="docutils literal notranslate"><span class="pre">-o</span></code> for Zgrab2, as IVRE needs the XML output file for Nmap and
+Masscan, and JSON for Zgrab2.</p>
 <p>You can use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runcsans</span></code>, <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagent</span></code> or
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">runscansagentdb</span></code> to run Nmap scans against wide targets (more)
 easily.</p>
-<p>You will then store the results from the XML output files into IVRE
-database using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>.</p>
+<p>You will then store the results from the XML or JSON output files into
+IVRE database using <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>.</p>
 <p>Finally, use <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> to create a <code class="docutils literal notranslate"><span class="pre">view</span></code> (see
 <a class="reference internal" href="../overview/principles.html#purposes"><span class="std std-ref">Purposes</span></a>) that you can explore with the
 <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>.</p>

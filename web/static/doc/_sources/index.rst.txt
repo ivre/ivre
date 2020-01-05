@@ -18,11 +18,11 @@ response, monitoring, etc.
 Features
 --------
 
-IVRE can aggregate `Nmap <http://nmap.org/>`_ & `Masscan
-<https://github.com/robertdavidgraham/masscan/>`_ scan results as well
-as intelligence from network captures using `Zeek
-<https://www.zeek.org/>`_ (formerly known as Bro), `Argus
-<http://qosient.com/argus/>`_ and `Nfdump
+IVRE can aggregate `Nmap <http://nmap.org/>`_, `Masscan
+<https://github.com/robertdavidgraham/masscan/>`_ & `Zgrab / Zgrab2
+<https://zmap.io/>`_ scan results as well as intelligence from network
+captures using `Zeek <https://www.zeek.org/>`_ (formerly known as
+Bro), `Argus <http://qosient.com/argus/>`_ and `Nfdump
 <http://nfdump.sourceforge.net/>`_
 
 Use-cases
@@ -32,8 +32,9 @@ IVRE can prove useful in several different scenarios (you may want to
 have a look at the :ref:`overview/screenshots:screenshots gallery`). Here are
 some examples:
 
-- Create your own Shodan-like service, using Nmap and/or Masscan,
-  against the whole Internet or your own networks, (private or not).
+- Create your own Shodan-like service, using Nmap and/or Masscan
+  and/or Zmap / Zgrab / Zgrab2, against the whole Internet or your own
+  networks, (private or not).
 
 - Store each X509 certificate seen in SSL/TLS connections, SSH public
   keys and algorithms, DNS answers, HTTP headers (``Server``,
@@ -49,7 +50,7 @@ some examples:
 Getting started
 ---------------
 
-If You want to learn more about the different purposes of IVRE, you
+If you want to learn more about the different purposes of IVRE, you
 should start reading the :ref:`overview/principles:principles`.
 
 After that, you can start the :ref:`install/index:installation`

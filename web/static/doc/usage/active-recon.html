@@ -99,7 +99,7 @@
 <li class="toctree-l2"><a class="reference internal" href="use-cases.html">Some use cases</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Active recon</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#scanning">Scanning</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#with-nmap-or-masscan">With Nmap or Masscan</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#with-nmap-masscan-or-zgrab2">With Nmap, Masscan or Zgrab2</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#with-ivre">With IVRE</a></li>
 </ul>
 </li>
@@ -194,10 +194,11 @@
 <h1>Active recon<a class="headerlink" href="#active-recon" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="scanning">
 <h2>Scanning<a class="headerlink" href="#scanning" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="with-nmap-or-masscan">
-<h3>With Nmap or Masscan<a class="headerlink" href="#with-nmap-or-masscan" title="Permalink to this headline">¶</a></h3>
-<p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a> or <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> to run the scans. In
-both cases, use <code class="docutils literal notranslate"><span class="pre">-oX</span></code> to produce an XML output.</p>
+<div class="section" id="with-nmap-masscan-or-zgrab2">
+<h3>With Nmap, Masscan or Zgrab2<a class="headerlink" href="#with-nmap-masscan-or-zgrab2" title="Permalink to this headline">¶</a></h3>
+<p>You can use directly <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> or <a class="reference external" href="https://zmap.io/">Zgrab2</a> to run the scans. Use <code class="docutils literal notranslate"><span class="pre">-oX</span></code> to produce an XML
+output with Nmap or Masscan, and <code class="docutils literal notranslate"><span class="pre">-o</span></code> to produce a JSON output with
+Zgrab2.</p>
 <p>Then, provide that output to the command line tool <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">scan2db</span></code>;
 if you want to use the <a class="reference internal" href="web-ui.html#web-user-interface"><span class="std std-ref">Web User Interface</span></a>, use
 <code class="docutils literal notranslate"><span class="pre">ivre</span> <span class="pre">db2view</span> <span class="pre">nmap</span></code> and you’re good!</p>

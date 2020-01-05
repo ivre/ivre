@@ -201,9 +201,9 @@ be queried using:</p>
 </ul>
 </div></blockquote>
 </li>
-<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a> and <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> scan results. Each
-record represents one host seen during one network scan. It can be
-queried using:</p>
+<li><p><code class="docutils literal notranslate"><span class="pre">nmap</span></code> (sometimes also referred to as <code class="docutils literal notranslate"><span class="pre">scans</span></code>): contains <a class="reference external" href="http://nmap.org/">Nmap</a>, <a class="reference external" href="https://github.com/robertdavidgraham/masscan/">Masscan</a> and <a class="reference external" href="https://zmap.io/">Zgrab /
+Zgrab2</a> scan results. Each record represents one
+host seen during one network scan. It can be queried using:</p>
 <blockquote>
 <div><ul class="simple">
 <li><p>Python API: the <code class="docutils literal notranslate"><span class="pre">db.nmap</span></code> object from the <code class="docutils literal notranslate"><span class="pre">ivre.db</span></code> module.</p></li>
@@ -256,12 +256,13 @@ your favorite open-source tools to IVRE’s databases.</p>
 </div>
 <div class="section" id="storing-data">
 <h2>Storing data<a class="headerlink" href="#storing-data" title="Permalink to this headline">¶</a></h2>
-<div class="graphviz"><img src="../_images/graphviz-0b6b644955bd932476408089234d1e507718ca4a.png" alt="digraph {
+<div class="graphviz"><img src="../_images/graphviz-31f85517c4675bbe52bfed004b37192e5d888e53.png" alt="digraph {
    &quot;maxmind.com&quot;;
    FLOWS [label=&quot;flow files&quot;];
    FLOW_LOG [label=&quot;.log files&quot;];
    PASS_LOG [label=&quot;passive_recon.log&quot;];
    XML [label=&quot;XML scan result&quot;];
+   JSON [label=&quot;JSON scan result&quot;];
    db_data [label=&quot;db.data&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
    db_flow [label=&quot;db.flow&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
    db_passive [label=&quot;db.passive&quot; shape=&quot;box&quot; style=&quot;filled&quot;];
@@ -275,9 +276,11 @@ your favorite open-source tools to IVRE’s databases.</p>
    FLOWS -&gt; db_flow [label=&quot;ivre\nflow2db&quot;];
    &quot;Nmap&quot; -&gt; XML [label=&quot;-oX&quot;];
    &quot;Masscan&quot; -&gt; XML [label=&quot;-oX&quot;];
+   &quot;Zgrab2&quot; -&gt; JSON [label=&quot;-o&quot;];
    FLOW_LOG -&gt; db_flow [label=&quot;ivre\nzeek2db&quot;];
    PASS_LOG -&gt; db_passive [label=&quot;ivre\npassiverecon2db&quot;];
    XML -&gt; db_nmap [label=&quot;ivre\nscan2db&quot;];
+   JSON -&gt; db_nmap [label=&quot;ivre\nscan2db&quot;];
    db_passive -&gt; db_view [label=&quot;ivre\ndb2view&quot;];
    db_nmap -&gt; db_view [label=&quot;ivre\ndb2view&quot;];
 }" class="graphviz" /></div>

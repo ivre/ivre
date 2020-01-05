@@ -74,6 +74,14 @@ situations).
 However, it is often the only option to get comprehensive scans of the
 IPv4 routable address space.
 
+A trade-off could be, for some protocols, to use Zmap /
+Zgrab2. Compare the possibilities of Masscan (``--banner``) versus
+Zgrab2 for the protocol(s) you want to scan.
+
+IVRE will happily combine results from Nmap, Masscan and Zgrab /
+Zgrab2: you can build your own, perfectly suited, scanning solution
+and use IVRE to merge and browse the results.
+
 Parallelize Nmap scans
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -92,24 +100,25 @@ Can IVRE be used to look for XXX?
 ---------------------------------
 
 IVRE is not a scanner or a network traffic analyzer. It relies on
-tools like Nmap, Masscan, Zeek and p0f, parses their results and
-stores them in a database.
+tools like Nmap, Masscan, Zgrab2, Zeek and p0f, parses their results
+and stores them in a database.
 
 So when you are asking, for example, "can IVRE scan a network for
 hosts with the `Heartbleed
 <https://en.wikipedia.org/wiki/Heartbleed>`_ vulnerability?", in
 reality you are asking two different questions:
 
--  "Can Nmap or Masscan detect when a scanned hosts is vulnerable to the
-   Heartbleed vulnerability?"
--  "How can IVRE list the hosts that have been found vulnerable to
-   Heartbleed by Nmap or Masscan?"
+- "Can Nmap or Masscan or Zgrab2 detect when a scanned hosts is
+  vulnerable to the Heartbleed vulnerability?"
+- "How can IVRE list the hosts that have been found vulnerable to
+  Heartbleed by Nmap or Masscan?"
 
-The first question is not related to IVRE (and should probably be asked
-to Nmap or Masscan developers), but the second question is (and may be
-asked as a "question" labeled issue).
+The first question is not related to IVRE (and should probably be
+asked to Nmap, Masscan or Zgrab2 developers), but the second question
+is (and may be asked as a `"question" labeled issue
+<https://github.com/cea-sec/ivre/issues/new?labels=question>`_).
 
-For that particular Heartbleed example, both Nmap and Masscan can
+For that particular Heartbleed example, Nmap, Masscan and Zgrab2 can
 (reliably) report hosts with the Heartbleed vulnerability, and IVRE
 can be used to find such hosts.
 

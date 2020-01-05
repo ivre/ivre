@@ -4,12 +4,14 @@ Active recon
 Scanning
 --------
 
-With Nmap or Masscan
-~~~~~~~~~~~~~~~~~~~~
+With Nmap, Masscan or Zgrab2
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You can use directly `Nmap <http://nmap.org/>`_ or `Masscan
-<https://github.com/robertdavidgraham/masscan/>`_ to run the scans. In
-both cases, use ``-oX`` to produce an XML output.
+You can use directly `Nmap <http://nmap.org/>`_, `Masscan
+<https://github.com/robertdavidgraham/masscan/>`_ or `Zgrab2
+<https://zmap.io/>`_ to run the scans. Use ``-oX`` to produce an XML
+output with Nmap or Masscan, and ``-o`` to produce a JSON output with
+Zgrab2.
 
 Then, provide that output to the command line tool ``ivre scan2db``;
 if you want to use the :ref:`usage/web-ui:Web User Interface`, use
