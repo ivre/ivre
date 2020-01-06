@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -831,6 +831,12 @@ class MongoDBActive(MongoDB, DBActive):
              {"sparse": True}),
             ([('ports.scripts.ls.volumes.files.filename',
                pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.md5', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.sha1', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.sha256', pymongo.ASCENDING)],
              {"sparse": True}),
             ([
                 ('ports.scripts.vulns.id', pymongo.ASCENDING),

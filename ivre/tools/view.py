@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -122,6 +122,16 @@ def main():
             if ans.lower() not in ['y', 'yes']:
                 sys.exit(0)
         db.view.init()
+        sys.exit(0)
+    if args.ensure_indexes:
+        if os.isatty(sys.stdin.fileno()):
+            sys.stdout.write(
+                'This will lock your database. '
+                'Process ? [y/N] ')
+            ans = input()
+            if ans.lower() != 'y':
+                sys.exit(-1)
+        db.view.ensure_indexes()
         sys.exit(0)
 
     if args.top is not None:
