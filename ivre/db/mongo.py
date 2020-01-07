@@ -3785,7 +3785,7 @@ setting values according to the keyword arguments.
         # so, we replace the value with its SHA1 hash and store the
         # original value in full[original column name].
         for key in ['value', 'targetval']:
-            if len(spec.get(key, "")) > utils.MAXVALLEN:
+            if len(spec.get(key) or "") > utils.MAXVALLEN:
                 spec['full' + key] = spec[key]
                 value = spec[key]
                 if not isinstance(value, bytes):
