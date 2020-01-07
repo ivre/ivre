@@ -1771,25 +1771,26 @@ class DBNmap(DBActive):
                             )
                         if "start_time" in rec:
                             start = utils.all2datetime(
-                                rec.pop('start_time').rstrip('Z')
+                                rec.pop('start_time').rstrip('Z').replace('T', ' ')
                             )
                             scan_doc['start'] = start.strftime('%s')
                             scan_doc['startstr'] = str(start)
                         if "end_time" in rec:
                             end = utils.all2datetime(
-                                rec.pop('end_time').rstrip('Z')
+                                rec.pop('end_time').rstrip('Z').replace('T', ' ')
                             )
                             scan_doc['end'] = end.strftime('%s')
                             scan_doc['endstr'] = str(end)
                         if "duration" in rec:
                             scan_doc["elapsed"] = str(rec.pop('duration'))
-                        self.store_scan_doc(scan_doc)
+                        self.update_scan_doc(filehash, scan_doc)
                     else:
                         utils.LOGGER.warning('Record has no "ip" field %r',
                                              rec)
                     continue
                 try:
-                    host['starttime'] = rec.pop('timestamp')
+                    host['starttime'] = (rec.pop('timestamp').rstrip('Z')
+                                         .replace('T', ' '))
                 except KeyError:
                     pass
                 if categories:
@@ -1854,7 +1855,7 @@ class DBNmap(DBActive):
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
-                    self.store_scan_doc({'_id': filehash})
+                    self.store_scan_doc({'_id': filehash, 'scanner': 'zgrab'})
                     scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
