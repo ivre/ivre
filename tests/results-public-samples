@@ -1,6 +1,6 @@
 # This file is part of IVRE.
 #
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # This file contains expected results for IVRE's tests run with public
 # data. It is intended for use within the Travis CI platform with
@@ -27,8 +27,7 @@ flow_count_gt_lastseen_neo4j = {'clients': 5, 'flows': 28, 'servers': 27}
 flow_count_http = {'clients': 7, 'flows': 21, 'servers': 21}
 flow_count_icmp = {'clients': 7, 'flows': 7, 'servers': 7}
 flow_count_in_2015 = {'clients': 1, 'flows': 29, 'servers': 29}
-flow_count_lastseen_mongo = {'clients': 1, 'flows': 1, 'servers': 1}
-flow_count_lastseen_neo4j = {'clients': 1, 'flows': 1, 'servers': 1}
+flow_count_lastseen = {'clients': 1, 'flows': 1, 'servers': 1}
 flow_count_len_sports_mongo = {'clients': 2, 'flows': 3, 'servers': 3}
 flow_count_len_sports_neo4j = {'clients': 2, 'flows': 3, 'servers': 3}
 flow_count_meta_dns_query_neuf_fr = {'clients': 3, 'flows': 3, 'servers': 1}

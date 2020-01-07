@@ -2702,7 +2702,7 @@ purposes to feed Elasticsearch view.
         lastseen_date = self.get_timezone_fmt_date(
             "2015-09-18 14:15:19.949904")
         self.check_flow_count_value(
-            "flow_count_lastseen_%s" % DATABASE,
+            "flow_count_lastseen",
             {"edges": ["lastseen = %s" % lastseen_date]},
             ["--flow-filters", "lastseen = %s" % lastseen_date],
             {"edges": ["lastseen = %s" % lastseen_date]})
