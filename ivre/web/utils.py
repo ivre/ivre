@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -438,6 +438,14 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchsshkey(
                     **{subfield: value}
                 ))
+            else:
+                add_unused(neg, param, value)
+        elif not neg and param == 'cert':
+            flt = dbase.flt_and(flt, dbase.searchcert())
+        elif not neg and param.startswith('cert.'):
+            subfield = param.split('.', 1)[1]
+            if subfield in ['md5', 'sha1', 'sha256']:
+                flt = dbase.flt_and(flt, dbase.searchcert(**{subfield: value}))
             else:
                 add_unused(neg, param, value)
         elif not neg and param == 'httphdr':

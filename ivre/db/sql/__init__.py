@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1545,11 +1545,19 @@ instead of keys.
         return cls.base_filter(script=[(not neg, req)])
 
     @classmethod
-    def searchcert(cls, keytype=None):
-        if keytype is None:
-            return cls.searchscript(name="ssl-cert")
-        return cls.searchscript(name="ssl-cert",
-                                values={'pubkey': {'type': keytype}})
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
+        values = {}
+        if keytype is not None:
+            values['pubkey'] = {'type': keytype}
+        if md5 is not None:
+            values['md5'] = md5
+        if sha1 is not None:
+            values['sha1'] = sha1
+        if sha256 is not None:
+            values['sha256'] = sha256
+        if values:
+            return cls.searchscript(name="ssl-cert", values=values)
+        return cls.searchscript(name="ssl-cert")
 
     @classmethod
     def searchsvchostname(cls, hostname):
@@ -2337,19 +2345,21 @@ passive table."""
         ))
 
     @classmethod
-    def searchcert(cls, keytype=None):
-        if keytype is None:
-            return PassiveFilter(main=(
-                (cls.tables.passive.recontype == 'SSL_SERVER') &
-                (cls.tables.passive.source == 'cert')
-            ))
-        return PassiveFilter(main=(
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
+        res = (
             (cls.tables.passive.recontype == 'SSL_SERVER') &
-            (cls.tables.passive.source == 'cert') &
-            (cls.tables.passive.moreinfo.op('->>')(
-                'pubkeyalgo'
-            ) == keytype + 'Encryption')
-        ))
+            (cls.tables.passive.source == 'cert')
+        )
+        if keytype is not None:
+            res &= (cls.tables.passive.moreinfo.op('->>')('pubkeyalgo') ==
+                    keytype + 'Encryption')
+        if md5 is not None:
+            res &= (cls.tables.passive.moreinfo.op('->>')('md5') == md5)
+        if sha1 is not None:
+            res &= (cls.tables.passive.moreinfo.op('->>')('sha1') == sha1)
+        if sha256 is not None:
+            res &= (cls.tables.passive.moreinfo.op('->>')('sha256') == sha256)
+        return PassiveFilter(main=res)
 
     @classmethod
     def _searchja3(cls, value_or_hash=None):

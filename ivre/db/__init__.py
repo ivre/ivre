@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1344,11 +1344,19 @@ instead of keys.
                                  output=re.compile('nfs', flags=0))
 
     @classmethod
-    def searchcert(cls, keytype=None):
-        if keytype is None:
-            return cls.searchscript(name="ssl-cert")
-        return cls.searchscript(name="ssl-cert",
-                                values={'pubkey.type': keytype})
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
+        values = {}
+        if keytype is not None:
+            values['pubkey.type'] = keytype
+        if md5 is not None:
+            values['md5'] = md5
+        if sha1 is not None:
+            values['sha1'] = sha1
+        if sha256 is not None:
+            values['sha256'] = sha256
+        if values:
+            return cls.searchscript(name="ssl-cert", values=values)
+        return cls.searchscript(name="ssl-cert")
 
     def searchtorcert(self):
         expr = re.compile(

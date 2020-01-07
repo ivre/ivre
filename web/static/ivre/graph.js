@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -168,6 +168,11 @@ var GraphTopValues = (function(_super) {
 		    }
 		    return result.join('/');
 		};
+	    else if(['cert.md5', 'cert.sha1', 'cert.sha256'].indexOf(field) !== -1) {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "' + field + '", "' + x + '")';
+		};
+	    }
 	    else if(field === 'asnum') {
 		preparefilter = function(x) {
 		    return 'setparam(FILTER, "asnum", "' + x + '", true);';

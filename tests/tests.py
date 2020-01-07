@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1306,6 +1306,26 @@ purposes to feed Elasticsearch view.
                                   "product:iso-tsap")
         self.check_nmap_top_value("nmap_top_cert_issuer", "cert.issuer")
         self.check_nmap_top_value("nmap_top_cert_subject", "cert.subject")
+        for hashtype in ['md5', 'sha1', 'sha256']:
+            self.check_nmap_top_value("nmap_top_cert_%s" % hashtype,
+                                      "cert.%s" % hashtype)
+            for val in self._sort_top_values(
+                    ivre.db.db.nmap.topvalues('cert.%s' % hashtype)
+            ):
+                for host in ivre.db.db.nmap.get(
+                        ivre.db.db.nmap.searchcert(**{hashtype: val})
+                ):
+                    found = False
+                    for port in host['ports']:
+                        for script in port.get('scripts', []):
+                            if script['id'] == 'ssl-cert' and script.get(
+                                    'ssl-cert', {}
+                            ).get(hashtype) == val:
+                                found = True
+                                break
+                        if found:
+                            break
+                    self.assertTrue(found)
         self._check_top_value_cli("nmap_top_filename", "file",
                                   command="scancli")
         self._check_top_value_cli("nmap_top_filename", "file.filename",
@@ -2682,7 +2702,7 @@ purposes to feed Elasticsearch view.
         lastseen_date = self.get_timezone_fmt_date(
             "2015-09-18 14:15:19.949904")
         self.check_flow_count_value(
-            "flow_count_lastseen_%s" % DATABASE,
+            "flow_count_lastseen",
             {"edges": ["lastseen = %s" % lastseen_date]},
             ["--flow-filters", "lastseen = %s" % lastseen_date],
             {"edges": ["lastseen = %s" % lastseen_date]})
@@ -4114,6 +4134,26 @@ purposes to feed Elasticsearch view.
 
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
         self.check_view_top_value("view_top_cert_subject", "cert.subject")
+        for hashtype in ['md5', 'sha1', 'sha256']:
+            self.check_view_top_value("view_top_cert_%s" % hashtype,
+                                      "cert.%s" % hashtype)
+            for val in self._sort_top_values(
+                    ivre.db.db.view.topvalues('cert.%s' % hashtype)
+            ):
+                for host in ivre.db.db.view.get(
+                        ivre.db.db.view.searchcert(**{hashtype: val})
+                ):
+                    found = False
+                    for port in host['ports']:
+                        for script in port.get('scripts', []):
+                            if script['id'] == 'ssl-cert' and script.get(
+                                    'ssl-cert', {}
+                            ).get(hashtype) == val:
+                                found = True
+                                break
+                        if found:
+                            break
+                    self.assertTrue(found)
         self.check_view_top_value("view_top_filename", "file")
         self.check_view_top_value("view_top_filename", "file.filename")
         self.check_view_top_value("view_top_anonftp_filename", "file:ftp-anon")

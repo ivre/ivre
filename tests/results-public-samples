@@ -1,6 +1,6 @@
 # This file is part of IVRE.
 #
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # This file contains expected results for IVRE's tests run with public
 # data. It is intended for use within the Travis CI platform with
@@ -27,8 +27,7 @@ flow_count_gt_lastseen_neo4j = {'clients': 5, 'flows': 28, 'servers': 27}
 flow_count_http = {'clients': 7, 'flows': 21, 'servers': 21}
 flow_count_icmp = {'clients': 7, 'flows': 7, 'servers': 7}
 flow_count_in_2015 = {'clients': 1, 'flows': 29, 'servers': 29}
-flow_count_lastseen_mongo = {'clients': 1, 'flows': 1, 'servers': 1}
-flow_count_lastseen_neo4j = {'clients': 1, 'flows': 1, 'servers': 1}
+flow_count_lastseen = {'clients': 1, 'flows': 1, 'servers': 1}
 flow_count_len_sports_mongo = {'clients': 2, 'flows': 3, 'servers': 3}
 flow_count_len_sports_neo4j = {'clients': 2, 'flows': 3, 'servers': 3}
 flow_count_meta_dns_query_neuf_fr = {'clients': 3, 'flows': 3, 'servers': 1}
@@ -189,6 +188,9 @@ nmap_robots.txt_count = 52
 nmap_ssh_count = 191
 nmap_top_anonftp_filename = [u'Automata', u'BLDR', u'BOOT.INI', u'NKMSCQ7.BIN', u'ProfileMSCQ7', u'SPLASH.BMX', u'StartUp']
 nmap_top_cert_issuer = [{u'organizationName': u'CradlePoint Technology', u'organizationalUnitName': u'http://www.cradlepoint.com', u'commonName': u'cp'}]
+nmap_top_cert_md5 = ['ac26955bfd54108acd55486fa62944c3']
+nmap_top_cert_sha1 = ['397514bb841f893fdd9c3442cc69758288272ff0']
+nmap_top_cert_sha256 = ['cdf555315a8ba0139e721d5b17cbee6599c42b52e4b8eb52f9237825b1e74f64']
 nmap_top_cert_subject = [{u'organizationName': u'CradlePoint Technology', u'organizationalUnitName': u'http://www.cradlepoint.com', u'commonName': u'cp'}]
 nmap_top_devtype_80 = [u'broadband router']
 nmap_top_devtype = [u'broadband router', u'specialized']
@@ -358,6 +360,9 @@ view_test_network = 4
 view_test_range = 4
 view_top_anonftp_filename = ['Automata', 'BLDR', 'BOOT.INI', 'NKMSCQ7.BIN', 'ProfileMSCQ7', 'SPLASH.BMX', 'StartUp']
 view_top_cert_issuer = [{'organizationName': 'CradlePoint Technology', 'organizationalUnitName': 'http://www.cradlepoint.com', 'commonName': 'cp'}]
+view_top_cert_md5 = ['ac26955bfd54108acd55486fa62944c3']
+view_top_cert_sha1 = ['397514bb841f893fdd9c3442cc69758288272ff0']
+view_top_cert_sha256 = ['cdf555315a8ba0139e721d5b17cbee6599c42b52e4b8eb52f9237825b1e74f64']
 view_top_cert_subject = [{'organizationName': 'CradlePoint Technology', 'organizationalUnitName': 'http://www.cradlepoint.com', 'commonName': 'cp'}]
 view_top_devtype_80 = ['broadband router']
 view_top_devtype = ['broadband router', 'specialized']
