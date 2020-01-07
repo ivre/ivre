@@ -4194,13 +4194,18 @@ setting values according to the keyword arguments.
         return res
 
     @staticmethod
-    def searchcert(keytype=None):
-        if keytype is None:
-            return {'recontype': 'SSL_SERVER',
-                    'source': 'cert'}
-        return {'recontype': 'SSL_SERVER',
-                'source': 'cert',
-                'infos.pubkeyalgo': keytype + 'Encryption'}
+    def searchcert(keytype=None, md5=None, sha1=None, sha256=None):
+        res = {'recontype': 'SSL_SERVER',
+               'source': 'cert'}
+        if keytype is not None:
+            res['infos.pubkeyalgo'] = keytype + 'Encryption'
+        if md5 is not None:
+            res['infos.md5'] = md5
+        if sha1 is not None:
+            res['infos.sha1'] = sha1
+        if sha256 is not None:
+            res['infos.sha256'] = sha256
+        return res
 
     @classmethod
     def _searchja3(cls, value_or_hash):
