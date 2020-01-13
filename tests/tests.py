@@ -61,13 +61,14 @@ else:
 import ivre
 import ivre.config
 import ivre.db
+import ivre.flow
 import ivre.mathutils
 import ivre.parser.bro
 import ivre.parser.iptables
 import ivre.passive
+import ivre.target
 import ivre.utils
 import ivre.web.utils
-import ivre.flow
 import ivre.xmlnmap
 
 HTTPD_PORT = 18080
@@ -3190,6 +3191,11 @@ purposes to feed Elasticsearch view.
                 result,
                 json.loads(udesc.read().decode()),
             )
+
+        # targets manipulation
+        targ1 = ivre.target.TargetCountry('PN')
+        targ2 = ivre.target.TargetCountry('BV')
+        self.assertItemsEqual(set(targ1).union(targ2), set(targ1 + targ2))
 
     def test_utils(self):
         """Functions that have not yet been tested"""

@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
 This sub-module contains the classes and functions to handle
 information about IP addresses (mostly from Maxmind GeoIP files).
@@ -237,6 +237,70 @@ class IPRanges(object):
         length = stop - start + 1
         self.ranges[self.length] = (start, length)
         self.length += int(length)  # in case it's a long
+
+    def union(self, *others):
+        res = IPRanges()
+        gens = [self.iter_int_ranges()] + [o.iter_int_ranges() for o in others]
+        curs = []
+        # We cannot use a `for itr in itrs` loop here because itrs is
+        # modified in the loop.
+        i = 0
+        while i < len(gens):
+            try:
+                curs.append(list(next(gens[i])))
+            except StopIteration:
+                # We need to remove the corresponding generator from
+                # gens, which happens to be the n-th where n is the
+                # current length of next_recs.
+                del gens[len(curs)]  # Do not increment i here
+            else:
+                i += 1
+        try:
+            cur_range = min(curs, key=lambda k: k[0])
+        except ValueError:
+            # curs is empty
+            return res
+        while curs:
+            while True:
+                # We cannot use a `for i in range(len(itrs))` loop because
+                # itrs is modified in the loop.
+                i = 0
+                cur_range_modified = False
+                while i < len(gens):
+                    needs_continue = False
+                    while curs[i][1] < cur_range[1]:
+                        try:
+                            curs[i] = list(next(gens[i]))
+                        except StopIteration:
+                            del gens[i]
+                            del curs[i]
+                            needs_continue = True
+                            break  # Do not increment i
+                        i += 1
+                    if needs_continue:
+                        continue
+                    if curs[i][0] <= cur_range[1] + 1:
+                        cur_range[1] = curs[i][1]
+                        cur_range_modified = True
+                        try:
+                            curs[i] = list(next(gens[i]))
+                        except StopIteration:
+                            del gens[i]
+                            del curs[i]
+                            continue  # Do not increment i
+                    i += 1
+                if not cur_range_modified:
+                    break
+            res.append(*cur_range)
+            try:
+                cur_range = min(curs, key=lambda k: k[0])
+            except ValueError:
+                # curs is empty
+                return res
+
+    def iter_int_ranges(self):
+        for start, length in sorted(viewvalues(self.ranges)):
+            yield start, start + length - 1
 
     def iter_ranges(self):
         for start, length in sorted(viewvalues(self.ranges)):
