@@ -255,12 +255,8 @@ class IPRanges(object):
                 del gens[len(curs)]  # Do not increment i here
             else:
                 i += 1
-        try:
-            cur_range = min(curs, key=lambda k: k[0])
-        except ValueError:
-            # curs is empty
-            return res
         while curs:
+            cur_range = min(curs, key=lambda k: k[0])
             while True:
                 # We cannot use a `for i in range(len(itrs))` loop because
                 # itrs is modified in the loop.
@@ -292,11 +288,7 @@ class IPRanges(object):
                 if not cur_range_modified:
                     break
             res.append(*cur_range)
-            try:
-                cur_range = min(curs, key=lambda k: k[0])
-            except ValueError:
-                # curs is empty
-                return res
+        return res
 
     def iter_int_ranges(self):
         for start, length in sorted(viewvalues(self.ranges)):
