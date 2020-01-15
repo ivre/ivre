@@ -3113,15 +3113,15 @@ purposes to feed Elasticsearch view.
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count",
                            "--routable"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'We have 2848655972 routable IPs.\n')
+        self.assertEqual(out, b'Target has 2848655972 IP addresses\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--asnum",
                            "15169"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'AS15169 has 4521723 IPs.\n')
+        self.assertEqual(out, b'Target has 4521723 IP addresses\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count",
                            "--country", "US"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'US has 1581733971 IPs.\n')
+        self.assertEqual(out, b'Target has 1581733971 IP addresses\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "List", "--country",
                            "PN"])
         self.assertEqual(res, 0)

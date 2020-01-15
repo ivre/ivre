@@ -89,6 +89,7 @@ class Target(object):
         return '<Target %s>' % self.name
 
     def union(self, *others):
+        others = tuple(o for o in others if o)
         if (
                 self.maxnbr < self.targetscount
                 or any(o.maxnbr < o.targetscount for o in others)
