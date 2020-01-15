@@ -3196,6 +3196,25 @@ purposes to feed Elasticsearch view.
         targ1 = ivre.target.TargetCountry('PN')
         targ2 = ivre.target.TargetCountry('BV')
         self.assertItemsEqual(set(targ1).union(targ2), set(targ1 + targ2))
+        count_t1_t2 = len(targ1 + targ2)
+
+        res, out1, err = RUN(["ivre", "runscans", "--output", "Count",
+                              "--country", "UK"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "runscans", "--output", "Count",
+                              "--country", "GB"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+        res, out, err = RUN(["ivre", "runscans", "--output", "Count",
+                             "--country", "PN,BV"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(
+            out,
+            ("Target has %d IP addresses\n" % count_t1_t2).encode(),
+        )
 
     def test_utils(self):
         """Functions that have not yet been tested"""

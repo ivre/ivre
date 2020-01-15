@@ -31,6 +31,7 @@ try:
     from math import gcd
 except ImportError:
     from fractions import gcd
+from operator import add, mul
 import os
 import random
 import re
@@ -91,8 +92,8 @@ class Target(object):
     def union(self, *others):
         others = tuple(o for o in others if o)
         if (
-                self.maxnbr < self.targetscount
-                or any(o.maxnbr < o.targetscount for o in others)
+                self.maxnbr < self.targetscount or
+                any(o.maxnbr < o.targetscount for o in others)
         ):
             raise ValueError('Cannot union when maxnbr is set')
         if self.state or any(o.state for o in others):
@@ -132,8 +133,7 @@ class IterTarget(object):
             while gcd(self.lcg_c, self.lcg_m) != 1:
                 self.lcg_c = random.randint(1, self.lcg_m - 1)
             # a - 1 is divisible by all prime factors of m
-            mfactors = reduce(lambda x, y: x * y,
-                              set(mathutils.factors(self.lcg_m)))
+            mfactors = reduce(mul, set(mathutils.factors(self.lcg_m)))
             # a - 1 is a multiple of 4 if m is a multiple of 4.
             if self.lcg_m % 4 == 0:
                 mfactors *= 2
@@ -436,7 +436,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
 ARGPARSER = utils.ArgparserParent()
 ARGPARSER.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
-ARGPARSER.add_argument('--country', '-c', metavar='CODE',
+ARGPARSER.add_argument('--country', '-c', metavar='CODE[,CODE[,...]]',
                        help='select a country')
 ARGPARSER.add_argument('--city', nargs=2,
                        metavar=('COUNTRY_CODE', 'CITY'),
@@ -444,7 +444,7 @@ ARGPARSER.add_argument('--city', nargs=2,
 ARGPARSER.add_argument('--region', nargs=2,
                        metavar=('COUNTRY_CODE', 'REGION_CODE'),
                        help='select a region')
-ARGPARSER.add_argument('--asnum', '-a', metavar='AS', type=int,
+ARGPARSER.add_argument('--asnum', '-a', metavar='AS[,AS[,...]]',
                        help='select an autonomous system')
 ARGPARSER.add_argument('--range', '-r', nargs=2, metavar=('START', 'STOP'),
                        help='select an address range')
@@ -467,10 +467,23 @@ ARGPARSER.add_argument('--state', type=int, nargs=4,
 
 def target_from_args(args):
     if args.country is not None:
-        target = TargetCountry(args.country,
-                               categories=args.categories,
-                               maxnbr=args.limit,
-                               state=args.state)
+        countries = set()
+        for country in args.country.split(','):
+            ccodes = utils.country_unalias(country)
+            if isinstance(ccodes, list):
+                countries.update(ccodes)
+            else:
+                countries.add(ccodes)
+        target = reduce(
+            add,
+            (
+                TargetCountry(country,
+                              categories=args.categories,
+                              maxnbr=args.limit,
+                              state=args.state)
+                for country in countries
+            ),
+        )
     elif args.city is not None:
         target = TargetCity(args.city[0], args.city[1],
                             categories=args.categories,
@@ -482,10 +495,16 @@ def target_from_args(args):
                               maxnbr=args.limit,
                               state=args.state)
     elif args.asnum is not None:
-        target = TargetAS(args.asnum,
-                          categories=args.categories,
-                          maxnbr=args.limit,
-                          state=args.state)
+        target = reduce(
+            add,
+            (
+                TargetAS(asnum,
+                         categories=args.categories,
+                         maxnbr=args.limit,
+                         state=args.state)
+                for asnum in args.asnum.split(',')
+            ),
+        )
     elif args.range is not None:
         target = TargetRange(args.range[0], args.range[1],
                              categories=args.categories,
