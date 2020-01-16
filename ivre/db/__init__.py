@@ -1771,13 +1771,15 @@ class DBNmap(DBActive):
                             )
                         if "start_time" in rec:
                             start = utils.all2datetime(
-                                rec.pop('start_time').rstrip('Z').replace('T', ' ')
+                                rec.pop('start_time').rstrip('Z')
+                                .replace('T', ' ')
                             )
                             scan_doc['start'] = start.strftime('%s')
                             scan_doc['startstr'] = str(start)
                         if "end_time" in rec:
                             end = utils.all2datetime(
-                                rec.pop('end_time').rstrip('Z').replace('T', ' ')
+                                rec.pop('end_time').rstrip('Z')
+                                .replace('T', ' ')
                             )
                             scan_doc['end'] = end.strftime('%s')
                             scan_doc['endstr'] = str(end)
