@@ -186,12 +186,7 @@ changes.
                         )
                         continue
                     try:
-                        pubkeytype = {
-                            'rsaEncryption': 'rsa',
-                            'id-ecPublicKey': 'ec',
-                            'id-dsa': 'dsa',
-                            'dhpublicnumber': 'dh',
-                        }[rec.data['ssl-cert'].pop('pubkeyalgo')]
+                        algo = rec.data['ssl-cert'].pop('pubkeyalgo')
                     except KeyError:
                         pass
                     else:
@@ -199,9 +194,12 @@ changes.
                             update(self.tables.script)
                             .where(and_(self.tables.script.port == rec.port,
                                         self.tables.script.name == "ssl-cert"))
-                            .values(data={"ssl-cert":
-                                          dict(rec.data['ssl-cert'],
-                                               type=pubkeytype)})
+                            .values(
+                                data={"ssl-cert":
+                                      dict(rec.data['ssl-cert'],
+                                           type=utils.PUBKEY_TYPES.get(algo,
+                                                                       algo))}
+                            )
                         )
         self.db.execute(
             update(self.tables.scan)

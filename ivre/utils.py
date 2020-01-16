@@ -1797,6 +1797,15 @@ _CERTALGOS = {
     28: 'dhpublicnumber',
 }
 
+PUBKEY_TYPES = {
+    'rsaEncryption': 'rsa',
+    'id-ecPublicKey': 'ec',
+    'id-dsa': 'dsa',
+    'dhpublicnumber': 'dh',
+}
+
+PUBKEY_REV_TYPES = dict((val, key) for key, val in viewitems(PUBKEY_TYPES))
+
 
 def _parse_cert_subject(subject):
     status = 0

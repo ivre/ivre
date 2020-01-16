@@ -1285,16 +1285,13 @@ index) unsigned 128-bit integers in MongoDB.
                             updated = True
                             continue
                     try:
-                        pubkeytype = {
-                            'rsaEncryption': 'rsa',
-                            'id-ecPublicKey': 'ec',
-                            'id-dsa': 'dsa',
-                            'dhpublicnumber': 'dh',
-                        }[script['ssl-cert'].pop('pubkeyalgo')]
+                        algo = script['ssl-cert'].pop('pubkeyalgo')
                     except KeyError:
                         pass
                     else:
-                        script['pubkey'] = {'type': pubkeytype}
+                        script['pubkey'] = {
+                            'type': utils.PUBKEY_TYPES.get(algo, algo),
+                        }
                         updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
@@ -4198,7 +4195,8 @@ setting values according to the keyword arguments.
         res = {'recontype': 'SSL_SERVER',
                'source': 'cert'}
         if keytype is not None:
-            res['infos.pubkeyalgo'] = keytype + 'Encryption'
+            res['infos.pubkeyalgo'] = utils.PUBKEY_REV_TYPES.get(keytype,
+                                                                 keytype)
         if md5 is not None:
             res['infos.md5'] = md5
         if sha1 is not None:

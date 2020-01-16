@@ -1029,16 +1029,13 @@ they are stored as canonical string representations.
                             script['ssl-cert'] = newinfo
                             continue
                     try:
-                        pubkeytype = {
-                            'rsaEncryption': 'rsa',
-                            'id-ecPublicKey': 'ec',
-                            'id-dsa': 'dsa',
-                            'dhpublicnumber': 'dh',
-                        }[script['ssl-cert'].pop('pubkeyalgo')]
+                        algo = script['ssl-cert'].pop('pubkeyalgo')
                     except KeyError:
                         pass
                     else:
-                        script['pubkey'] = {'type': pubkeytype}
+                        script['pubkey'] = {
+                            'type': utils.PUBKEY_TYPES.get(algo, algo),
+                        }
         for trace in doc.get('traces', []):
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:

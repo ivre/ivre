@@ -2352,7 +2352,7 @@ passive table."""
         )
         if keytype is not None:
             res &= (cls.tables.passive.moreinfo.op('->>')('pubkeyalgo') ==
-                    keytype + 'Encryption')
+                    utils.PUBKEY_REV_TYPES.get(keytype, keytype))
         if md5 is not None:
             res &= (cls.tables.passive.moreinfo.op('->>')('md5') == md5)
         if sha1 is not None:

@@ -2236,7 +2236,8 @@ None) is returned.
         q = Query()
         res = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert'))
         if keytype is not None:
-            res &= (q.infos.pubkeyalgo == (keytype + 'Encryption'))
+            res &= (q.infos.pubkeyalgo == utils.PUBKEY_REV_TYPES.get(keytype,
+                                                                     keytype))
         if md5 is not None:
             res &= (q.infos.md5 == md5)
         if sha1 is not None:
