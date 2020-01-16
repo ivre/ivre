@@ -298,13 +298,13 @@ def _prepare_rec(spec, ignorenets, neverignore):
             ).hexdigest()
     # Check DNS Blacklist answer
     elif spec['recontype'] == 'DNS_ANSWER':
-        if any(spec['value'].endswith(dnsbl)
+        if any((spec.get('value') or "").endswith(dnsbl)
                for dnsbl in config.DNS_BLACKLIST_DOMAINS):
             dnsbl_val = spec['value']
             match = DNSBL_START.search(dnsbl_val)
             if match is not None:
                 spec['recontype'] = 'DNS_BLACKLIST'
-                spec['value'] = spec['addr']
+                spec['value'] = spec.get('addr')
                 spec.update({'source': "%s-%s" %
                              (dnsbl_val[match.end():], spec['source'])})
                 addr = match.group()
