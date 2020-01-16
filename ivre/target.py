@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
 This sub-module contains objects and functions to manipulate target
 lists.
@@ -31,6 +31,7 @@ try:
     from math import gcd
 except ImportError:
     from fractions import gcd
+from operator import add, mul
 import os
 import random
 import re
@@ -56,7 +57,8 @@ class Target(object):
 
     """
 
-    def __init__(self, targets, rand=True, maxnbr=None, state=None):
+    def __init__(self, targets, rand=True, maxnbr=None, state=None, name=None,
+                 categories=None):
         self.targets = targets
         self.rand = rand
         # len() result needs to be lower than sys.maxsize
@@ -66,12 +68,44 @@ class Target(object):
         else:
             self.maxnbr = maxnbr
         self.state = state
+        self.name = name or ("%d address%s from %d range%s" % (
+            self.maxnbr,
+            'es' if self.maxnbr > 1 else '',
+            len(targets),
+            's' if len(targets) > 1 else '',
+        ))
+        if categories is None:
+            self.categories = [self.name]
+        else:
+            self.categories = categories
+        self.infos = {'categories': self.categories}
 
     def __len__(self):
         return self.maxnbr
 
     def __iter__(self):
         return IterTarget(self, rand=self.rand, state=self.state)
+
+    def __repr__(self):
+        return '<Target %s>' % self.name
+
+    def union(self, *others):
+        others = tuple(o for o in others if o)
+        if (
+                self.maxnbr < self.targetscount or
+                any(o.maxnbr < o.targetscount for o in others)
+        ):
+            raise ValueError('Cannot union when maxnbr is set')
+        if self.state or any(o.state for o in others):
+            raise ValueError('Cannot union when state is set')
+        return Target(
+            self.targets.union(*(o.targets for o in others)),
+            rand=self.rand or any(o.rand for o in others),
+            name=' + '.join([self.name] + [o.name for o in others])
+        )
+
+    def __add__(self, other):
+        return self.union(other)
 
 
 class IterTarget(object):
@@ -99,8 +133,7 @@ class IterTarget(object):
             while gcd(self.lcg_c, self.lcg_m) != 1:
                 self.lcg_c = random.randint(1, self.lcg_m - 1)
             # a - 1 is divisible by all prime factors of m
-            mfactors = reduce(lambda x, y: x * y,
-                              set(mathutils.factors(self.lcg_m)))
+            mfactors = reduce(mul, set(mathutils.factors(self.lcg_m)))
             # a - 1 is a multiple of 4 if m is a multiple of 4.
             if self.lcg_m % 4 == 0:
                 mfactors *= 2
@@ -129,14 +162,15 @@ class TargetTest(Target):
 
     def __init__(self, count=10, categories=None, rand=True, maxnbr=None,
                  state=None):
-        Target.__init__(
-            self,
+        if count < 0:
+            raise ValueError('count must be greater than or equal to 0')
+        if count > 16777216:
+            raise ValueError('count must be lower than or equal to 16777216')
+        super(TargetTest, self).__init__(
             geoiputils.IPRanges(ranges=[(2130706433, 2130706432 + count)]),
-            rand=rand, maxnbr=maxnbr, state=state
+            rand=rand, maxnbr=maxnbr, state=state, name='TEST-%d' % count,
+            categories=categories,
         )
-        if categories is None:
-            categories = ['TEST']
-        self.infos = {'categories': categories}
 
 
 class TargetCountry(Target):
@@ -147,12 +181,11 @@ class TargetCountry(Target):
 
     def __init__(self, country, categories=None, rand=True, maxnbr=None,
                  state=None):
-        Target.__init__(self,
-                        geoiputils.get_ranges_by_country(country),
-                        rand=rand, maxnbr=maxnbr, state=state)
-        if categories is None:
-            categories = ['COUNTRY-%s' % country]
-        self.infos = {'categories': categories}
+        super(TargetCountry, self).__init__(
+            geoiputils.get_ranges_by_country(country), rand=rand,
+            maxnbr=maxnbr, state=state, name='COUNTRY-%s' % country,
+            categories=categories,
+        )
 
 
 class TargetRegion(Target):
@@ -163,12 +196,11 @@ class TargetRegion(Target):
 
     def __init__(self, country, region, categories=None, rand=True,
                  maxnbr=None, state=None):
-        Target.__init__(self,
-                        geoiputils.get_ranges_by_region(country, region),
-                        rand=rand, maxnbr=maxnbr, state=state)
-        if categories is None:
-            categories = ['REGION-%s-%s' % (country, region)]
-        self.infos = {'categories': categories}
+        super(TargetRegion, self).__init__(
+            geoiputils.get_ranges_by_region(country, region), rand=rand,
+            maxnbr=maxnbr, state=state,
+            name='REGION-%s-%s' % (country, region), categories=categories,
+        )
 
 
 class TargetCity(Target):
@@ -177,14 +209,13 @@ class TargetCity(Target):
 
     """
 
-    def __init__(self, couontry_code, city, categories=None, rand=True,
+    def __init__(self, country_code, city, categories=None, rand=True,
                  maxnbr=None, state=None):
-        Target.__init__(self,
-                        geoiputils.get_ranges_by_city(couontry_code, city),
-                        rand=rand, maxnbr=maxnbr, state=state)
-        if categories is None:
-            categories = ['CITY-%s' % city]
-        self.infos = {'categories': categories}
+        super(TargetCity, self).__init__(
+            geoiputils.get_ranges_by_city(country_code, city), rand=rand,
+            maxnbr=maxnbr, state=state,
+            name='CITY-%s-%s' % (country_code, city), categories=categories,
+        )
 
 
 class TargetAS(Target):
@@ -199,14 +230,10 @@ class TargetAS(Target):
             asnum = int(asnum[2:])
         else:
             asnum = int(asnum)
-        Target.__init__(
-            self,
-            geoiputils.get_ranges_by_asnum(asnum),
-            rand=rand, maxnbr=maxnbr, state=state
+        super(TargetAS, self).__init__(
+            geoiputils.get_ranges_by_asnum(asnum), rand=rand, maxnbr=maxnbr,
+            state=state, name='AS-%d' % asnum, categories=categories,
         )
-        if categories is None:
-            categories = ['AS-%d' % asnum]
-        self.infos = {'categories': categories}
 
 
 class TargetRoutable(Target):
@@ -216,14 +243,10 @@ class TargetRoutable(Target):
     """
 
     def __init__(self, categories=None, rand=True, maxnbr=None, state=None):
-        Target.__init__(
-            self,
-            geoiputils.get_routable_ranges(),
-            rand=rand, maxnbr=maxnbr, state=state
+        super(TargetRoutable, self).__init__(
+            geoiputils.get_routable_ranges(), rand=rand, maxnbr=maxnbr,
+            state=state, name='ROUTABLE', categories=categories
         )
-        if categories is None:
-            categories = ['ROUTABLE']
-        self.infos = {'categories': categories}
 
 
 class TargetRange(Target):
@@ -233,16 +256,13 @@ class TargetRange(Target):
     """
 
     def __init__(self, start, stop, categories=None, rand=True, maxnbr=None,
-                 state=None):
-        Target.__init__(
-            self,
+                 state=None, name=None):
+        super(TargetRange, self).__init__(
             geoiputils.IPRanges(ranges=[(utils.ip2int(start),
                                          utils.ip2int(stop))]),
-            rand=rand, maxnbr=maxnbr, state=state
+            rand=rand, maxnbr=maxnbr, state=state,
+            name=name or 'RANGE-%s-%s' % (start, stop), categories=categories,
         )
-        if categories is None:
-            categories = ['RANGE-%s-%s' % (start, stop)]
-        self.infos = {'categories': categories}
 
 
 class TargetNetwork(TargetRange):
@@ -251,10 +271,12 @@ class TargetNetwork(TargetRange):
 
     """
 
-    def __init__(self, net, **kargs):
-        if 'categories' not in kargs or kargs['categories'] is None:
-            kargs['categories'] = ['NET-' + net.replace('/', '_')]
-        TargetRange.__init__(self, *utils.net2range(net), **kargs)
+    def __init__(self, net, categories=None, rand=True, maxnbr=None,
+                 state=None):
+        super(TargetNetwork, self).__init__(
+            *utils.net2range(net), rand=rand, maxnbr=maxnbr, state=state,
+            name='NET-%s' % net.replace('/', '-'), categories=categories
+        )
 
 
 class TargetFile(Target):
@@ -264,7 +286,7 @@ class TargetFile(Target):
     before it.
 
     Because of this, we cannot iterate the IP addresses in a random
-    order.
+    order or .union().
 
     """
 
@@ -414,7 +436,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
 ARGPARSER = utils.ArgparserParent()
 ARGPARSER.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
-ARGPARSER.add_argument('--country', '-c', metavar='CODE',
+ARGPARSER.add_argument('--country', '-c', metavar='CODE[,CODE[,...]]',
                        help='select a country')
 ARGPARSER.add_argument('--city', nargs=2,
                        metavar=('COUNTRY_CODE', 'CITY'),
@@ -422,7 +444,7 @@ ARGPARSER.add_argument('--city', nargs=2,
 ARGPARSER.add_argument('--region', nargs=2,
                        metavar=('COUNTRY_CODE', 'REGION_CODE'),
                        help='select a region')
-ARGPARSER.add_argument('--asnum', '-a', metavar='AS', type=int,
+ARGPARSER.add_argument('--asnum', '-a', metavar='AS[,AS[,...]]',
                        help='select an autonomous system')
 ARGPARSER.add_argument('--range', '-r', nargs=2, metavar=('START', 'STOP'),
                        help='select an address range')
@@ -445,10 +467,23 @@ ARGPARSER.add_argument('--state', type=int, nargs=4,
 
 def target_from_args(args):
     if args.country is not None:
-        target = TargetCountry(args.country,
-                               categories=args.categories,
-                               maxnbr=args.limit,
-                               state=args.state)
+        countries = set()
+        for country in args.country.split(','):
+            ccodes = utils.country_unalias(country)
+            if isinstance(ccodes, list):
+                countries.update(ccodes)
+            else:
+                countries.add(ccodes)
+        target = reduce(
+            add,
+            (
+                TargetCountry(country,
+                              categories=args.categories,
+                              maxnbr=args.limit,
+                              state=args.state)
+                for country in countries
+            ),
+        )
     elif args.city is not None:
         target = TargetCity(args.city[0], args.city[1],
                             categories=args.categories,
@@ -460,10 +495,16 @@ def target_from_args(args):
                               maxnbr=args.limit,
                               state=args.state)
     elif args.asnum is not None:
-        target = TargetAS(args.asnum,
-                          categories=args.categories,
-                          maxnbr=args.limit,
-                          state=args.state)
+        target = reduce(
+            add,
+            (
+                TargetAS(asnum,
+                         categories=args.categories,
+                         maxnbr=args.limit,
+                         state=args.state)
+                for asnum in args.asnum.split(',')
+            ),
+        )
     elif args.range is not None:
         target = TargetRange(args.range[0], args.range[1],
                              categories=args.categories,

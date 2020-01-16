@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1344,11 +1344,19 @@ instead of keys.
                                  output=re.compile('nfs', flags=0))
 
     @classmethod
-    def searchcert(cls, keytype=None):
-        if keytype is None:
-            return cls.searchscript(name="ssl-cert")
-        return cls.searchscript(name="ssl-cert",
-                                values={'pubkey.type': keytype})
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
+        values = {}
+        if keytype is not None:
+            values['pubkey.type'] = keytype
+        if md5 is not None:
+            values['md5'] = md5
+        if sha1 is not None:
+            values['sha1'] = sha1
+        if sha256 is not None:
+            values['sha256'] = sha256
+        if values:
+            return cls.searchscript(name="ssl-cert", values=values)
+        return cls.searchscript(name="ssl-cert")
 
     def searchtorcert(self):
         expr = re.compile(
@@ -1764,24 +1772,27 @@ class DBNmap(DBActive):
                         if "start_time" in rec:
                             start = utils.all2datetime(
                                 rec.pop('start_time').rstrip('Z')
+                                .replace('T', ' ')
                             )
                             scan_doc['start'] = start.strftime('%s')
                             scan_doc['startstr'] = str(start)
                         if "end_time" in rec:
                             end = utils.all2datetime(
                                 rec.pop('end_time').rstrip('Z')
+                                .replace('T', ' ')
                             )
                             scan_doc['end'] = end.strftime('%s')
                             scan_doc['endstr'] = str(end)
                         if "duration" in rec:
                             scan_doc["elapsed"] = str(rec.pop('duration'))
-                        self.store_scan_doc(scan_doc)
+                        self.update_scan_doc(filehash, scan_doc)
                     else:
                         utils.LOGGER.warning('Record has no "ip" field %r',
                                              rec)
                     continue
                 try:
-                    host['starttime'] = rec.pop('timestamp')
+                    host['starttime'] = (rec.pop('timestamp').rstrip('Z')
+                                         .replace('T', ' '))
                 except KeyError:
                     pass
                 if categories:
@@ -1846,7 +1857,7 @@ class DBNmap(DBActive):
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
-                    self.store_scan_doc({'_id': filehash})
+                    self.store_scan_doc({'_id': filehash, 'scanner': 'zgrab'})
                     scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:

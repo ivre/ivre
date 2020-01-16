@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -61,13 +61,14 @@ else:
 import ivre
 import ivre.config
 import ivre.db
+import ivre.flow
 import ivre.mathutils
 import ivre.parser.bro
 import ivre.parser.iptables
 import ivre.passive
+import ivre.target
 import ivre.utils
 import ivre.web.utils
-import ivre.flow
 import ivre.xmlnmap
 
 HTTPD_PORT = 18080
@@ -1306,6 +1307,26 @@ purposes to feed Elasticsearch view.
                                   "product:iso-tsap")
         self.check_nmap_top_value("nmap_top_cert_issuer", "cert.issuer")
         self.check_nmap_top_value("nmap_top_cert_subject", "cert.subject")
+        for hashtype in ['md5', 'sha1', 'sha256']:
+            self.check_nmap_top_value("nmap_top_cert_%s" % hashtype,
+                                      "cert.%s" % hashtype)
+            for val in self._sort_top_values(
+                    ivre.db.db.nmap.topvalues('cert.%s' % hashtype)
+            ):
+                for host in ivre.db.db.nmap.get(
+                        ivre.db.db.nmap.searchcert(**{hashtype: val})
+                ):
+                    found = False
+                    for port in host['ports']:
+                        for script in port.get('scripts', []):
+                            if script['id'] == 'ssl-cert' and script.get(
+                                    'ssl-cert', {}
+                            ).get(hashtype) == val:
+                                found = True
+                                break
+                        if found:
+                            break
+                    self.assertTrue(found)
         self._check_top_value_cli("nmap_top_filename", "file",
                                   command="scancli")
         self._check_top_value_cli("nmap_top_filename", "file.filename",
@@ -2682,7 +2703,7 @@ purposes to feed Elasticsearch view.
         lastseen_date = self.get_timezone_fmt_date(
             "2015-09-18 14:15:19.949904")
         self.check_flow_count_value(
-            "flow_count_lastseen_%s" % DATABASE,
+            "flow_count_lastseen",
             {"edges": ["lastseen = %s" % lastseen_date]},
             ["--flow-filters", "lastseen = %s" % lastseen_date],
             {"edges": ["lastseen = %s" % lastseen_date]})
@@ -3092,15 +3113,15 @@ purposes to feed Elasticsearch view.
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count",
                            "--routable"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'We have 2848655972 routable IPs.\n')
+        self.assertEqual(out, b'Target has 2848655972 IP addresses\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count", "--asnum",
                            "15169"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'AS15169 has 4521723 IPs.\n')
+        self.assertEqual(out, b'Target has 4521723 IP addresses\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "Count",
                            "--country", "US"])
         self.assertEqual(res, 0)
-        self.assertEqual(out, b'US has 1581733971 IPs.\n')
+        self.assertEqual(out, b'Target has 1581733971 IP addresses\n')
         res, out, _ = RUN(["ivre", "runscans", "--output", "List", "--country",
                            "PN"])
         self.assertEqual(res, 0)
@@ -3170,6 +3191,30 @@ purposes to feed Elasticsearch view.
                 result,
                 json.loads(udesc.read().decode()),
             )
+
+        # targets manipulation
+        targ1 = ivre.target.TargetCountry('PN')
+        targ2 = ivre.target.TargetCountry('BV')
+        self.assertItemsEqual(set(targ1).union(targ2), set(targ1 + targ2))
+        count_t1_t2 = len(targ1 + targ2)
+
+        res, out1, err = RUN(["ivre", "runscans", "--output", "Count",
+                              "--country", "UK"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "runscans", "--output", "Count",
+                              "--country", "GB"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+        res, out, err = RUN(["ivre", "runscans", "--output", "Count",
+                             "--country", "PN,BV"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(
+            out,
+            ("Target has %d IP addresses\n" % count_t1_t2).encode(),
+        )
 
     def test_utils(self):
         """Functions that have not yet been tested"""
@@ -4114,6 +4159,26 @@ purposes to feed Elasticsearch view.
 
         self.check_view_top_value("view_top_cert_issuer", "cert.issuer")
         self.check_view_top_value("view_top_cert_subject", "cert.subject")
+        for hashtype in ['md5', 'sha1', 'sha256']:
+            self.check_view_top_value("view_top_cert_%s" % hashtype,
+                                      "cert.%s" % hashtype)
+            for val in self._sort_top_values(
+                    ivre.db.db.view.topvalues('cert.%s' % hashtype)
+            ):
+                for host in ivre.db.db.view.get(
+                        ivre.db.db.view.searchcert(**{hashtype: val})
+                ):
+                    found = False
+                    for port in host['ports']:
+                        for script in port.get('scripts', []):
+                            if script['id'] == 'ssl-cert' and script.get(
+                                    'ssl-cert', {}
+                            ).get(hashtype) == val:
+                                found = True
+                                break
+                        if found:
+                            break
+                    self.assertTrue(found)
         self.check_view_top_value("view_top_filename", "file")
         self.check_view_top_value("view_top_filename", "file.filename")
         self.check_view_top_value("view_top_anonftp_filename", "file:ftp-anon")

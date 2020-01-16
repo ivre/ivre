@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -31,6 +31,15 @@ from ivre.xmlnmap import create_ssl_cert
 
 
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
+_EXPR_INDEX_OF = re.compile('<title[^>]*> *index +of', re.I)
+_EXPR_FILES = [
+    re.compile('<a href="(?P<filename>[^"]+)">[^<]+</a></td><td[^>]*> *'
+               '(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *'
+               '</td><td[^>]*> *(?P<size>[^<]+)</td>', re.I),
+    re.compile('<a href="(?P<filename>[^"]+)">[^<]+</a> *'
+               '(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *'
+               '(?P<size>[^ \r\n]+)', re.I),
+]
 
 
 def zgrap_parser_http(data):
@@ -121,13 +130,43 @@ The output is a port dict (i.e., the content of the "ports" key of an
     if info:
         res.update(info)
     if resp.get('body'):
-        match = _EXPR_TITLE.search(resp['body'])
-        if match:
+        body = resp['body']
+        match = _EXPR_TITLE.search(body)
+        if match is not None:
             title = match.groups()[0]
             res.setdefault('scripts', []).append({
                 'id': 'http-title', 'output': title,
                 'http-title': {'title': title},
             })
+        match = _EXPR_INDEX_OF.search(body)
+        if match is not None:
+            files = []
+            for pattern in _EXPR_FILES:
+                for match in pattern.finditer(body):
+                    files.append(match.groupdict())
+            if files:
+                output = []
+                if url is None or 'path' not in url:
+                    volname = "???"
+                else:
+                    volname = url['path']
+                output.append('Volume %s' % volname)
+                title = ['size', 'time', 'filename']
+                column_width = [len(t) for t in title[:-1]]
+                for fobj in files:
+                    for i, t in enumerate(title[:-1]):
+                        column_width[i] = max(column_width[i],
+                                              len(fobj.get(t, "")))
+                line_fmt = ('%%(size)-%ds  %%(time)-%ds  %%(filename)s' %
+                            tuple(column_width))
+                output.append(line_fmt % dict((t, t.upper()) for t in title))
+                for fobj in files:
+                    output.append(line_fmt % fobj)
+                output.append("")
+                res.setdefault('scripts', []).append({
+                    'id': 'http-ls', 'output': '\n'.join(output),
+                    'ls': {'volumes': [{'volume': volname, 'files': files}]},
+                })
     tls = None
     try:
         tls = req['tls_handshake']

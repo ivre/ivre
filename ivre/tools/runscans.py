@@ -348,76 +348,24 @@ def main():
     if args.output == 'Agent':
         sys.stdout.write(ivre.agent.build_agent(template=args.nmap_template))
         sys.exit(0)
-    if args.output == 'Count':
-        if args.country is not None:
-            print('%s has %d IPs.' % (
-                args.country,
-                ivre.geoiputils.count_ips_by_country(args.country)
-            ))
-            sys.exit(0)
-        if args.region is not None:
-            print('%s / %s has %d IPs.' % (
-                args.region[0], args.region[1],
-                ivre.geoiputils.count_ips_by_region(*args.region),
-            ))
-            sys.exit(0)
-        if args.city is not None:
-            print('%s / %s has %d IPs.' % (
-                args.city[0], args.city[1],
-                ivre.geoiputils.count_ips_by_city(*args.city),
-            ))
-            sys.exit(0)
-        if args.asnum is not None:
-            print('AS%d has %d IPs.' % (
-                args.asnum,
-                ivre.geoiputils.count_ips_by_asnum(args.asnum)
-            ))
-            sys.exit(0)
-        if args.routable:
-            print('We have %d routable IPs.' % (
-                ivre.geoiputils.count_routable_ips()
-            ))
-            sys.exit(0)
-        parser.error("argument --output: invalid choice: '%s' "
-                     "(only available with --country, --asnum, --region, "
-                     "--city or --routable)" % args.output)
-    if args.output in ['List', 'ListAll', 'ListCIDRs']:
-        if args.country is not None:
-            ivre.geoiputils.list_ips_by_country(
-                args.country, listall=args.output == 'ListAll',
-                listcidrs=args.output == 'ListCIDRs',
-            )
-            sys.exit(0)
-        if args.region is not None:
-            ivre.geoiputils.list_ips_by_region(
-                *args.region,
-                listall=args.output == 'ListAll',
-                listcidrs=args.output == 'ListCIDRs'
-            )
-            sys.exit(0)
-        if args.city is not None:
-            ivre.geoiputils.list_ips_by_city(
-                *args.city,
-                listall=args.output == 'ListAll',
-                listcidrs=args.output == 'ListCIDRs'
-            )
-            sys.exit(0)
-        if args.asnum is not None:
-            ivre.geoiputils.list_ips_by_asnum(
-                args.asnum, listall=args.output == 'ListAll',
-                listcidrs=args.output == 'ListCIDRs',
-            )
-            sys.exit(0)
-        if args.routable:
-            ivre.geoiputils.list_routable_ips(
-                listall=args.output == 'ListAll',
-                listcidrs=args.output == 'ListCIDRs',
-            )
-            sys.exit(0)
-        parser.error("argument --output: invalid choice: '%s' "
-                     "(only available with --country, --region, --city, "
-                     "--asnum or --routable)" % args.output)
     targets = ivre.target.target_from_args(args)
+    if args.output in ['Count', 'List', 'ListAll', 'ListCIDRs']:
+        if isinstance(targets, ivre.target.TargetFile):
+            parser.error("argument --output: invalid choice: '%s' "
+                         "(not available with this target selection)"
+                         % args.output)
+        if args.output == 'Count':
+            count = len(targets)
+            print('Target has %d IP address%s' % (count,
+                                                  'es' if count > 1 else ''))
+        elif args.output == 'List':
+            for start_stop in targets.targets.iter_ranges():
+                print('%s - %s' % start_stop)
+        else:
+            for out in {'ListAll': targets.targets.iter_addrs,
+                        'ListCIDRs': targets.targets.iter_nets}[args.output]():
+                print(out)
+        sys.exit(0)
     if targets is None:
         parser.error('one argument of --country/--region/--city/--asnum/'
                      '--range/--network/--routable/--file/--test is required')

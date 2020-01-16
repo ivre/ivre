@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -2232,12 +2232,18 @@ None) is returned.
         return res
 
     @staticmethod
-    def searchcert(keytype=None):
+    def searchcert(keytype=None, md5=None, sha1=None, sha256=None):
         q = Query()
-        req = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert'))
-        if keytype is None:
-            return req
-        return req & (q.infos.pubkeyalgo == (keytype + 'Encryption'))
+        res = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert'))
+        if keytype is not None:
+            res &= (q.infos.pubkeyalgo == (keytype + 'Encryption'))
+        if md5 is not None:
+            res &= (q.infos.md5 == md5)
+        if sha1 is not None:
+            res &= (q.infos.sha1 == sha1)
+        if sha256 is not None:
+            res &= (q.infos.sha256 == sha256)
+        return res
 
     @classmethod
     def _searchja3(cls, query, value_or_hash):

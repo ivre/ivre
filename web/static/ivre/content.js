@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -673,6 +673,18 @@ var HELP_TOPVALUES = {
 	"cert.issuer": {
 	    "content": "cert.issuer",
 	    "title": "<b>(!)</b>cert.issuer"
+	},
+	"cert.md5": {
+	    "content": "cert.md5",
+	    "title": "<b>(!)</b>cert.md5"
+	},
+	"cert.sha1": {
+	    "content": "cert.sha1",
+	    "title": "<b>(!)</b>cert.sha1"
+	},
+	"cert.sha256": {
+	    "content": "cert.sha256",
+	    "title": "<b>(!)</b>cert.sha256"
 	},
 	"sshkey.type": {
 	    "title": "<b>(!)</b>sshkey.type",

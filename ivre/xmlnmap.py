@@ -799,17 +799,32 @@ exists in some Nmap versions that reports "BIGNUM: 0x<memory address>"
 instead of the value for fields `.modulus` and `.exponent` of
 `.pubkey`.
 
+In newer versions, the output has been fixed, **but** the exponent is
+written as a decimal number and the modulus as an hexadecimal number
+(see comments there: <https://github.com/nmap/nmap/commit/0f3a8a7>.
+
     """
-    if not isinstance(table, dict) or 'pubkey' not in table or 'pem' not in table:
+    if (
+            not isinstance(table, dict) or 'pubkey' not in table or
+            'pem' not in table
+    ):
         return table
     pubkey = table['pubkey']
     fixit = False
     for key in ["modulus", "exponent"]:
-        if (isinstance(pubkey.get(key), str) and
-            pubkey[key].startswith('BIGNUM: ')):
+        if (
+                isinstance(pubkey.get(key), str) and
+                pubkey[key].startswith('BIGNUM: ')
+        ):
             fixit = True
             break
     if not fixit:
+        if isinstance(pubkey.get("modulus"), str):
+            try:
+                pubkey["modulus"] = str(int(pubkey["modulus"], 16))
+            except ValueError:
+                utils.LOGGER.warning('Cannot convert modulus to decimal [%r]',
+                                     pubkey["modulus"])
         return table
     data = ''.join(table['pem'].splitlines()[1:-1]).encode()
     try:
