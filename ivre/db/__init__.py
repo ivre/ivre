@@ -652,6 +652,7 @@ class DBActive(DB):
         "ports.scripts.fcrdns",
         "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-headers",
+        "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
         "ports.scripts.ike-info.transforms",
         "ports.scripts.ike-info.vendor_ids",
@@ -697,6 +698,7 @@ class DBActive(DB):
                 12: (13, self.__migrate_schema_hosts_12_13),
                 13: (14, self.__migrate_schema_hosts_13_14),
                 14: (15, self.__migrate_schema_hosts_14_15),
+                15: (16, self.__migrate_schema_hosts_15_16),
             },
         }
         self.argparser.add_argument(
@@ -1136,6 +1138,34 @@ instead of keys.
                         script["http-git"]
                     )
         return doc
+
+    @staticmethod
+    def __migrate_schema_hosts_15_16(doc):
+        """Converts a record from version 15 to version 16. Version 16 uses a
+consistent structured output for Nmap http-server-header script (old
+versions reported `{"Server": "value"}`, while recent versions report
+`["value"]`).
+
+        """
+        assert doc["schema_version"] == 15
+        doc["schema_version"] = 16
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-server-header":
+                    if 'http-server-header' in script:
+                        data = script['http-server-header']
+                        if isinstance(data, dict):
+                            if 'Server' in data:
+                                script['http-server-header'] = [data['Server']]
+                            else:
+                                script['http-server-header'] = []
+                    else:
+                        script['http-server-header'] = [
+                            l.split(':', 1)[1].lstrip() for l in (
+                                l.strip()
+                                for l in script['output'].splitlines()
+                            ) if l.startswith('Server:')
+                        ]
 
     @staticmethod
     def json2dbrec(host):

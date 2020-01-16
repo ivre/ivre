@@ -44,7 +44,7 @@ from ivre import utils
 from ivre.analyzer import ike
 
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -842,6 +842,14 @@ written as a decimal number and the modulus as an hexadecimal number
     return table
 
 
+def change_http_server_header(table):
+    if isinstance(table, dict):
+        if 'Server' in table:
+            return [table['Server']]
+        return []
+    return table
+
+
 CHANGE_TABLE_ELEMS = {
     'smb-enum-shares': change_smb_enum_shares,
     "s7-info": change_s7_info_keys,
@@ -852,6 +860,7 @@ CHANGE_TABLE_ELEMS = {
     'ms-sql-info': change_ms_sql_info,
     'ssh-hostkey': change_ssh_hostkey,
     'http-git': change_http_git,
+    'http-server-header': change_http_server_header,
     'ssl-cert': change_ssl_cert,
 }
 

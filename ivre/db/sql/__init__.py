@@ -741,6 +741,8 @@ class SQLDBActive(SQLDB, DBActive):
             failed += self._migrate_schema_13_14()
         if (version or 0) < 15:
             failed += self._migrate_schema_14_15()
+        if (version or 0) < 16:
+            failed += self._migrate_schema_15_16()
         return failed
 
     def _migrate_schema_8_9(self):
@@ -1007,6 +1009,63 @@ instead of keys.
             .where(and_(self.tables.scan.schema_version == 14,
                         self.tables.scan.id.notin_(failed)))
             .values(schema_version=15)
+        )
+        return len(failed)
+
+    def _migrate_schema_15_16(self):
+        """Converts a record from version 15 to version 16. Version 16 uses a
+consistent structured output for Nmap http-server-header script (old
+versions reported `{"Server": "value"}`, while recent versions report
+`["value"]`).
+
+        """
+        failed = []
+        req = (select([self.tables.scan.id,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(self.tables.scan.schema_version == 15,
+                           self.tables.script.name == "http-server-header")))
+        for rec in self.db.execute(req):
+            updated = False
+            if 'http-server-header' in rec.data:
+                data = rec.data['http-server-header']
+                if isinstance(data, dict):
+                    updated = True
+                    if 'Server' in data:
+                        data = [data['Server']]
+                    else:
+                        data = []
+            else:
+                try:
+                    data = [
+                        l.split(':', 1)[1].lstrip() for l in (
+                            l.strip()
+                            for l in rec.output.splitlines()
+                        ) if l.startswith('Server:')
+                    ]
+                except Exception:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id,
+                                         exc_info=True)
+                    failed.add(rec.id)
+                else:
+                    updated = True
+            if updated:
+                self.db.execute(
+                    update(self.tables.script)
+                    .where(and_(
+                        self.tables.script.port == rec.port,
+                        self.tables.script.name == "http-server-header"
+                    ))
+                    .values(data={"http-server-header": data})
+                )
+        self.db.execute(
+            update(self.tables.scan)
+            .where(and_(self.tables.scan.schema_version == 15,
+                        self.tables.scan.id.notin_(failed)))
+            .values(schema_version=16)
         )
         return len(failed)
 
