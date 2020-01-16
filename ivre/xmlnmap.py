@@ -19,7 +19,7 @@
 
 """
 This module is part of IVRE.
-Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
 This sub-module contains the parser for nmap's XML output files.
 
@@ -1097,6 +1097,15 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
 
 
 MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
+_HTTP_HEADER = re.compile(
+    b"\\\n([!\\#\\$%\\&'\\*\\+\\-\\.\\^_`\\|\\~A-Z0-9]+):[ \\\t]*"
+    b"([^\\\r\\\n]*?)[ \\\t\\\r]*(?:\\\n|$)",
+    re.I
+)
+_HTTP_SERVER_HEADER = re.compile(
+    re.escape(b'\nServer:') + b'[ \\\t]*([^\\\r\\\n]*?)[ \\\t\\\r]*(?:\\\n|$)',
+    re.I,
+)
 
 
 def _masscan_decode_print(match):
@@ -2228,24 +2237,29 @@ argument (a dict object).
             script[script["id"]] = output_data
 
     def masscan_post_http(self, script):
-        header = re.search(
-            re.escape(b'\nServer:') + b'[ \\\t]*([^\\\r\\\n]*)\\\r?(?:\\\n|$)',
-            self._from_binary(script['masscan']['raw']),
-        )
-        if header is None:
-            return
-        header = header.groups()[0]
-        if not header:
+        raw = self._from_binary(script['masscan']['raw'])
+        self._curport.update(utils.match_nmap_svc_fp(
+            raw, proto="tcp", probe="GetRequest",
+        ))
+        script['http-headers'] = [
+            {"name": utils.nmap_encode_data(hdrname).lower(),
+             "value": utils.nmap_encode_data(hdrval)}
+            for hdrname, hdrval in (
+                m.groups() for m in _HTTP_HEADER.finditer(raw)
+            )
+        ]
+        headers = [m.groups()[0] for m in _HTTP_SERVER_HEADER.finditer(raw)]
+        if not (headers and headers[0]):
             return
         self._curport.setdefault('scripts', []).append({
             "id": "http-server-header",
-            "output": utils.nmap_encode_data(header),
+            "output": utils.nmap_encode_data(headers[0]),
+            "http-server-header": [utils.nmap_encode_data(hdr)
+                                   for hdr in headers],
             "masscan": {
-                "raw": self._to_binary(header),
+                "raw": self._to_binary(headers[0]),
             },
         })
-        # XXX use fingerprints
-        self._curport['service_product'] = utils.nmap_encode_data(header)
 
     def _add_cpe_to_host(self):
         """Adds the cpe in self._curdata to the host-wide cpe list, taking
