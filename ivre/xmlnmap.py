@@ -1258,12 +1258,7 @@ X509 "service" tag.
     except KeyError:
         pass
     else:
-        pubkeytype = {
-            'rsaEncryption': 'rsa',
-            'id-ecPublicKey': 'ec',
-            'id-dsa': 'dsa',
-            'dhpublicnumber': 'dh',
-        }.get(pubkeyalgo, pubkeyalgo)
+        pubkeytype = utils.PUBKEY_TYPES.get(pubkeyalgo, pubkeyalgo)
         newout.append('Public Key type: %s' % pubkeytype)
         info['pubkey'] = {'type': pubkeytype}
     try:
