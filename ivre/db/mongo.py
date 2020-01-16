@@ -954,6 +954,7 @@ class MongoDBActive(MongoDB, DBActive):
                 12: (13, self.migrate_schema_hosts_12_13),
                 13: (14, self.migrate_schema_hosts_13_14),
                 14: (15, self.migrate_schema_hosts_14_15),
+                15: (16, self.migrate_schema_hosts_15_16),
             },
         ]
 
@@ -1415,6 +1416,40 @@ instead of keys.
                         script["http-git"]
                     )
                     updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_15_16(doc):
+        """Converts a record from version 15 to version 16. Version 16 uses a
+consistent structured output for Nmap http-server-header script (old
+versions reported `{"Server": "value"}`, while recent versions report
+`["value"]`).
+
+        """
+        assert doc["schema_version"] == 15
+        update = {"$set": {"schema_version": 16}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "http-server-header":
+                    if 'http-server-header' in script:
+                        data = script['http-server-header']
+                        if isinstance(data, dict):
+                            if 'Server' in data:
+                                script['http-server-header'] = [data['Server']]
+                            else:
+                                script['http-server-header'] = []
+                            updated = True
+                    else:
+                        script['http-server-header'] = [
+                            l.split(':', 1)[1].lstrip() for l in (
+                                l.strip()
+                                for l in script['output'].splitlines()
+                            ) if l.startswith('Server:')
+                        ]
+                        updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update
