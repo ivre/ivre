@@ -103,6 +103,7 @@ ivre/parser/netflow.py
 ivre/tools/__init__.py
 ivre/tools/airodump2db.py
 ivre/tools/arp2db.py
+ivre/tools/auditdom.py
 ivre/tools/db2view.py
 ivre/tools/flow2db.py
 ivre/tools/flowcli.py

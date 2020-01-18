@@ -95,14 +95,15 @@ def run_iter(cmd, interp=None, stdin=None, stdout=subprocess.PIPE,
                             env=env)
 
 
-def run_cmd(cmd, interp=None, stdin=None, env=None):
-    proc = run_iter(cmd, interp=interp, stdin=stdin, env=env)
+def run_cmd(cmd, interp=None, stdin=None, stdout=subprocess.PIPE, env=None):
+    proc = run_iter(cmd, interp=interp, stdin=stdin, stdout=stdout, env=env)
     out, err = proc.communicate()
     return proc.returncode, out, err
 
 
-def python_run(cmd, stdin=None, env=None):
-    return run_cmd(cmd, interp=[sys.executable], stdin=stdin, env=env)
+def python_run(cmd, stdin=None, stdout=subprocess.PIPE, env=None):
+    return run_cmd(cmd, interp=[sys.executable], stdin=stdin, stdout=stdout,
+                   env=env)
 
 
 def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
@@ -111,9 +112,9 @@ def python_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
                     stderr=stderr)
 
 
-def coverage_run(cmd, stdin=None, env=None):
+def coverage_run(cmd, stdin=None, stdout=subprocess.PIPE, env=None):
     return run_cmd(cmd, interp=COVERAGE + ["run", "--parallel-mode"],
-                   stdin=stdin, env=env)
+                   stdin=stdin, stdout=stdout, env=env)
 
 
 def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE,
@@ -3657,6 +3658,33 @@ purposes to feed Elasticsearch view.
                 expr.sub(result, result),
                 result
             )
+
+        # DNS audit domain
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            res, out, err = RUN(["ivre", "auditdom", "ivre.rocks",
+                                 "zonetransfer.me"], stdout=fdesc)
+            self.assertEqual(res, 0)
+            self.assertFalse(out)
+            self.assertFalse(err)
+        res, out, err = RUN(["ivre", "scan2db", "--test", fdesc.name])
+        os.unlink(fdesc.name)
+        self.assertEqual(res, 0)
+        out = out.decode().splitlines()
+        self.assertEqual(len(out), 2)
+        out = json.loads(out[0])
+        self.assertEqual(len(out), 2)
+        found = False
+        for rec in out:
+            self.assertEqual(len(rec['ports']), 1)
+            for port in rec['ports']:
+                self.assertEqual(len(port['scripts']), 1)
+                for script in port['scripts']:
+                    self.assertEqual(script['id'], 'dns-zone-transfer')
+                    self.assertEqual(len(script['dns-zone-transfer']), 1)
+                    self.assertEqual(script['dns-zone-transfer'][0]['domain'],
+                                     'zonetransfer.me')
+                    found = True
+        self.assertTrue(found)
 
     def test_scans(self):
         "Run scans, with and without agents"
