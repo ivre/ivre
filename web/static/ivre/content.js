@@ -201,11 +201,10 @@ var HELP_FILTERS = {
 	    "title": "mysqlemptypwd",
 	    "content": "Look for MySQL servers with an empty password for the <code>root</code> account.",
 	},
-        "httphdr": {
+	"httphdr": {
 	    "title": "httphdr<b>(:[header](:[value]))</b>",
-            "title": "httphdr",
-            "content": "Look for HTTP headers."
-        },
+	    "content": "Look for HTTP headers."
+	},
 	"owa": {
 	    "title": "owa",
 	    "content": "Look for OWA (Outlook Web App) servers.",
@@ -810,26 +809,26 @@ var HELP_TOPVALUES = {
 	    "title": "<b>(!)<b>useragent<b>[:[value]]</b>",
 	    "content": "Top HTTP User-Agent values seen."
 	},
-        "ja3-client:": {
+	"ja3-client:": {
 	    "title": "<b>(!)<b>ja3-client<b>[:[value]]</b>",
 	    "content": "Top JA3 client values (MD5)."
-        },
-        "ja3-client.md5:": {
+	},
+	"ja3-client.md5:": {
 	    "title": "<b>(!)<b>ja3-client.md5<b>[:[value]]</b>",
 	    "content": "Top JA3 client values (MD5)."
-        },
-        "ja3-client.sha1:": {
+	},
+	"ja3-client.sha1:": {
 	    "title": "<b>(!)<b>ja3-client.sha1<b>[:[value]]</b>",
 	    "content": "Top JA3 client values (SHA1)."
-        },
-        "ja3-client.sha256:": {
+	},
+	"ja3-client.sha256:": {
 	    "title": "<b>(!)<b>ja3-client.sha256<b>[:[value]]</b>",
 	    "content": "Top JA3 client values (SHA256)."
-        },
-        "ja3-client.raw:": {
+	},
+	"ja3-client.raw:": {
 	    "title": "<b>(!)<b>ja3-client.raw<b>[:[value]]</b>",
 	    "content": "Top JA3 client values (raw fingerprint)."
-        },
+	},
     }
 };
 
