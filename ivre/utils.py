@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -1600,7 +1600,11 @@ def parse_ssh_key(data):
     info = dict((hashtype, hashlib.new(hashtype, data).hexdigest())
                 for hashtype in ['md5', 'sha1', 'sha256'])
     parsed = _parse_ssh_key(data)
-    keytype = info["algo"] = next(parsed).decode()
+    try:
+        keytype = info["algo"] = next(parsed).decode()
+    except Exception:
+        LOGGER.warning('Cannot parse SSH key [%r] [%r]', data, parsed)
+        return info
     if keytype == "ssh-rsa":
         try:
             info["exponent"], info["modulus"] = (int(encode_hex(elt), 16)

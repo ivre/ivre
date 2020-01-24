@@ -1602,7 +1602,9 @@ argument (a dict object).
                             continue
                         # os values may contain spaces
                         if banner.startswith('os=') or \
-                           banner.startswith('ver='):
+                           banner.startswith('ver=') or \
+                           banner.startswith('domain=') or \
+                           banner.startswith('name='):
                             key, banner = banner.split('=', 1)
                             value = []
                             while banner and not re.compile(
