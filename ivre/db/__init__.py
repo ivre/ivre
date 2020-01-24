@@ -28,6 +28,7 @@ except ImportError:
     OrderedDict = dict
 from datetime import datetime, timedelta
 from functools import reduce
+from itertools import chain
 import json
 import os
 import pickle
@@ -1971,6 +1972,38 @@ class DBView(DBActive):
                                      ua_equals, ua_output)
 
     @staticmethod
+    def merge_axfr_scripts(curscript, script, script_id):
+        # If one results has no structured output, keep the other
+        # one. Prefer curscript over script.
+        if script_id not in script:
+            return curscript
+        if script_id not in curscript:
+            curscript['output'] = script['output']
+            curscript[script_id] = script[script_id]
+            return script
+        res = []
+        for data in chain(curscript[script_id], script[script_id]):
+            if any(data['domain'] == r['domain'] for r in res):
+                continue
+            res.append(data)
+        res = sorted(res,
+                     key=lambda r: tuple(reversed(r['domain'].split('.'))))
+        line_fmt = "| %%-%ds  %%-%ds  %%s" % (
+            max(len(r['name']) for data in res for r in data['records']),
+            max(len(r['type']) for data in res for r in data['records']),
+        )
+        curscript['output'] = "\n".join(
+            "\nDomain: %s\n%s\n\\\n" % (
+                data['domain'],
+                "\n".join(line_fmt % (r['name'], r['type'], r['data'])
+                          for r in data['records'])
+            )
+            for data in res
+        )
+        curscript[script_id] = res
+        return curscript
+
+    @staticmethod
     def _merge_scripts(curscript, script, script_id,
                        script_equals, script_output):
         """Merge two scripts and return the result. Avoid duplicates.
@@ -1998,6 +2031,8 @@ class DBView(DBActive):
             return DBView.merge_ja3_scripts(curscript, script, script_id)
         if script_id == 'http-user-agent':
             return DBView.merge_ua_scripts(curscript, script, script_id)
+        if script_id == 'dns-zone-transfer':
+            return DBView.merge_axfr_scripts(curscript, script, script_id)
         return {}
 
     @staticmethod
@@ -2084,7 +2119,8 @@ class DBView(DBActive):
                         curport['scripts'].append(script)
                     elif (script['id'] in ['ssl-ja3-server',
                                            'ssl-ja3-client',
-                                           'http-user-agent']):
+                                           'http-user-agent',
+                                           'dns-zone-transfer']):
                         # Merge scripts
                         curscript = next(x for x in curport['scripts']
                                          if x['id'] == script['id'])

@@ -123,7 +123,7 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
             srv = ""
         out.write("\t%-10s%-8s%-22s%s\n" %
                   ('%s/%d' % (port.get('protocol'), port['port']),
-                   port['state_state'], reason, srv))
+                   port.get('state_state', ''), reason, srv))
         if showscripts:
             out.writelines(_scriptoutput(port))
     if showscripts:

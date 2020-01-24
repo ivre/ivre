@@ -44,7 +44,7 @@ else:
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
-from ivre.utils import LOGGER
+from ivre.utils import LOGGER, get_domains
 from ivre.xmlnmap import SCHEMA_VERSION
 
 
@@ -95,7 +95,7 @@ class Checker(object):
         try:
             return self._ns4
         except AttributeError:
-            self._ns4 = list(addr
+            self._ns4 = list((srv, addr)
                              for srv in self.ns_servers
                              for addr in _dns_query(srv, rtype='A'))
             return self._ns4
@@ -105,7 +105,7 @@ class Checker(object):
         try:
             return self._ns6
         except AttributeError:
-            self._ns6 = list(addr
+            self._ns6 = list((srv, addr)
                              for srv in self.ns_servers
                              for addr in _dns_query(srv, rtype='AAAA'))
             return self._ns6
@@ -117,8 +117,8 @@ class Checker(object):
         if v6:
             servers.append(self.ns6_servers)
         for srvlist in servers:
-            for addr in srvlist:
-                yield (addr, self._test(addr))
+            for srv, addr in srvlist:
+                yield (srv, addr, self._test(addr))
 
 
 class AXFRChecker(Checker):
@@ -128,7 +128,8 @@ class AXFRChecker(Checker):
                                getall=True, getfull=True))
 
     def test(self, v4=True, v6=True):
-        for addr, res in self.do_test(v4=v4, v6=v6):
+        start = datetime.now()
+        for srvname, addr, res in self.do_test(v4=v4, v6=v6):
             if not res:
                 continue
             if (
@@ -137,22 +138,29 @@ class AXFRChecker(Checker):
             ):
                 # SOA only: transfer failed
                 continue
-            line_fmt = "%%-%ds  %%-%ds  %%s" % (
+            LOGGER.info('AXFR success for %r on %r', self.domain, addr)
+            line_fmt = "| %%-%ds  %%-%ds  %%s" % (
                 max(len(r.name) for r in res),
                 max(len(r.rtype) for r in res),
             )
             yield {
                 "addr": addr,
+                "hostnames": [{"name": srvname, "type": "user",
+                               "domains": list(get_domains(srvname))}],
                 "schema_version": SCHEMA_VERSION,
-                # XXX names XXX
-                # "start": XXX, "end": XXX
+                "starttime": start,
+                "endtime": datetime.now(),
                 "ports": [{"port": 53, "protocol": "tcp",
-                           "service_name": "domain", "scripts": [{
+                           "service_name": "domain", "state_state": "open",
+                           "scripts": [{
                                "id": "dns-zone-transfer",
-                               "output": '\n%s\n' % ('\n'.join(
-                                   line_fmt % (r.name, r.rtype, r.data)
-                                   for r in res
-                               )),
+                               "output": '\nDomain: %s\n%s\n\\\n' % (
+                                   self.domain,
+                                   '\n'.join(
+                                       line_fmt % (r.name, r.rtype, r.data)
+                                       for r in res
+                                   ),
+                               ),
                                "dns-zone-transfer": [
                                    {"domain": self.domain,
                                     "records": [
@@ -166,6 +174,7 @@ class AXFRChecker(Checker):
                                ]
                            }]}],
             }
+            start = datetime.now()
 
 
 def main():

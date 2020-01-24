@@ -3661,11 +3661,9 @@ purposes to feed Elasticsearch view.
 
         # DNS audit domain
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
-            res, out, err = RUN(["ivre", "auditdom", "ivre.rocks",
-                                 "zonetransfer.me"], stdout=fdesc)
+            res = RUN(["ivre", "auditdom", "ivre.rocks", "zonetransfer.me"],
+                      stdout=fdesc)[0]
             self.assertEqual(res, 0)
-            self.assertFalse(out)
-            self.assertFalse(err)
         res, out, err = RUN(["ivre", "scan2db", "--test", fdesc.name])
         os.unlink(fdesc.name)
         self.assertEqual(res, 0)
