@@ -2201,8 +2201,11 @@ argument (a dict object).
                 # TODO this might be somehow factorized with
                 # view.py:_extract_passive_SSH_SERVER_HOSTKEY()
                 value = utils.encode_b64(host_key_length_data).decode()
-                ssh_hostkey = {'type': info['algo'],
-                               'key': value}
+                try:
+                    ssh_hostkey = {'type': info['algo'],
+                                   'key': value}
+                except KeyError:
+                    continue
                 if 'bits' in info:
                     ssh_hostkey['bits'] = info['bits']
                 ssh_hostkey['fingerprint'] = info['md5']
