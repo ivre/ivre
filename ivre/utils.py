@@ -1603,14 +1603,14 @@ def parse_ssh_key(data):
     try:
         keytype = info["algo"] = next(parsed).decode()
     except Exception:
-        LOGGER.warning('Cannot parse SSH key [%r] [%r]', data, parsed)
+        LOGGER.warning('Cannot parse SSH host key from data %r', data)
         return info
     if keytype == "ssh-rsa":
         try:
             info["exponent"], info["modulus"] = (int(encode_hex(elt), 16)
                                                  for elt in parsed)
         except Exception:
-            LOGGER.info("Cannot parse SSH host key from data %r", data,
+            LOGGER.info("Cannot parse SSH RSA host key from data %r", data,
                         exc_info=True)
         else:
             info["bits"] = math.ceil(math.log(info["modulus"], 2))
