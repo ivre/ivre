@@ -23,6 +23,7 @@
 __all__ = set([
     'airodump2db',
     'arp2db',
+    'auditdom',
     'db2view',
     'flow2db',
     'flowcli',

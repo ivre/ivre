@@ -196,7 +196,7 @@ def _display_xml_scan(scan, out=sys.stdout):
               '<?xml-stylesheet '
               'href="file:///usr/local/bin/../share/nmap/nmap.xsl" '
               'type="text/xsl"?>\n'
-              '<!-- Nmap %(version)s scan initiated %(startstr)s '
+              '<!-- %(scanner)s %(version)s scan initiated %(startstr)s '
               'as: %(args)s -->\n'
               '<nmaprun scanner="%(scanner)s" args="%(args)s" '
               'start="%(start)s" startstr="%(startstr)s" '
@@ -460,9 +460,9 @@ def displayfunction_honeyd(cur):
     _display_honeyd_epilogue(honeyd_routes, honeyd_entries, sys.stdout)
 
 
-def displayfunction_nmapxml(cur):
+def displayfunction_nmapxml(cur, scan=None):
     _display_xml_preamble(out=sys.stdout)
-    _display_xml_scan({}, out=sys.stdout)
+    _display_xml_scan(scan or {}, out=sys.stdout)
     for h in cur:
         _display_xml_host(h, out=sys.stdout)
     _display_xml_epilogue(out=sys.stdout)

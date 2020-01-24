@@ -1,3 +1,4 @@
+pymongo>=2.7.2
 pycrypto
 pyOpenSSL>=16.1.0
 future

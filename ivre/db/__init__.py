@@ -649,6 +649,8 @@ class DBActive(DB):
         "ports",
         "ports.screenwords",
         "ports.scripts",
+        "ports.scripts.dns-zone-transfer",
+        "ports.scripts.dns-zone-transfer.records",
         "ports.scripts.fcrdns",
         "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-headers",
@@ -2013,8 +2015,12 @@ class DBView(DBActive):
         if "schema_version" in rec1:
             rec["schema_version"] = rec1["schema_version"]
         # When we have different values, we will use the one from the
-        # most recent scan, rec2
-        if rec1.get("endtime") > rec2.get("endtime"):
+        # most recent scan, rec2. If one result has no "endtime", we
+        # consider it as older.
+        if (
+                (rec1.get("endtime") or datetime.fromtimestamp(0)) >
+                (rec2.get("endtime") or datetime.fromtimestamp(0))
+        ):
             rec1, rec2 = rec2, rec1
         for fname, function in [("starttime", min), ("endtime", max)]:
             try:
