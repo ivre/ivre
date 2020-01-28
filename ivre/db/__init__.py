@@ -2266,7 +2266,9 @@ class _RecInfo(object):
 class DBPassive(DB):
 
     ipaddr_fields = ["addr"]
-    list_fields = ["infos.san"]
+    list_fields = ["infos.domain",
+                   "infos.domaintarget",
+                   "infos.san"]
 
     def __init__(self):
         super(DBPassive, self).__init__()
