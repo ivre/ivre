@@ -1621,7 +1621,10 @@ def parse_ssh_key(data):
     elif keytype == 'ecdsa-sha2-nistp256':
         info['bits'] = 256
     elif keytype == 'ssh-ed25519':
-        info['bits'] = len(next(data)) * 8
+        info['bits'] = len(next(parsed)) * 8
+    else:
+        LOGGER.debug("Cannot get key size for type %r (data %r)", keytype,
+                     data)
     return info
 
 
