@@ -2018,6 +2018,8 @@ def display_top(db, arg, flt, lmt):
         elif isinstance(entry['_id'], dict):
             entry['_id'] = json.dumps(entry['_id'],
                                       default=serialize)
+        elif not entry['_id']:
+            entry['_id'] = "None"
         print("%(_id)s: %(count)d" % entry)
 
 

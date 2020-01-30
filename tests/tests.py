@@ -1947,21 +1947,23 @@ purposes to feed Elasticsearch view.
 
         # Top values
         for distinct in [True, False]:
-            cur = iter(ivre.db.db.passive.topvalues(field="addr",
-                                                    distinct=distinct,
-                                                    topnbr=2))
-            values = next(cur)
-            while values.get('_id') is None:
+            for field in ["addr", "domains", "domains:2"]:
+                if DATABASE == "sqlite" and field.startswith('domains'):
+                    # BUG in sqlite backend: cannot use topvalues with
+                    # JSON fields
+                    continue
+                valname = "passive_top_%s_%sdistinct" % (
+                    field.replace(':', '_'),
+                    "" if distinct else "not_",
+                )
+                cur = iter(ivre.db.db.passive.topvalues(field=field,
+                                                        distinct=distinct,
+                                                        topnbr=2))
                 values = next(cur)
-            self.check_value(
-                "passive_top_addr_%sdistinct" % ("" if distinct else "not_"),
-                values["_id"],
-            )
-            self.check_value(
-                "passive_top_addr_%sdistinct_count" % ("" if distinct
-                                                       else "not_"),
-                values["count"],
-            )
+                while values.get('_id') is None:
+                    values = next(cur)
+                self.check_value(valname, values["_id"])
+                self.check_value("%s_count" % valname, values["count"])
         for field, key in [('value', 'ja3cli_md5'),
                            ('infos.raw', 'ja3cli_raw'),
                            ('infos.sha1', 'ja3cli_sha1'),

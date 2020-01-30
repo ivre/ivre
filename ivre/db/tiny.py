@@ -2060,6 +2060,45 @@ None) is returned.
                     else:
                         yield (val, rec.get('count', 1))
 
+        elif field == "domains":
+            field = "infos.domain"
+            if distinct:
+                fields = [field]
+            else:
+                fields = [field, "count"]
+
+            def _newflt(field):  # noqa: F811
+                return self.searchdns()
+
+        elif field.startswith('domains:'):
+            level = int(field[8:]) - 1
+            field = "infos.domain"
+
+            def _newflt(field):  # noqa: F811
+                return self.searchdns()
+
+            def _extractor(flt, field):  # noqa: F811
+                # We cannot use limit= or skip= here, since we are filtering
+                # the results
+                i = 0
+                j = skip or 0
+                fields = [field] if distinct else [field, "count"]
+                for rec in self._get(flt, sort=sort, fields=fields):
+                    for val in self._generate_field_values(rec, field):
+                        if val.count('.') == level:
+                            if j:
+                                j -= 1
+                                continue
+                            i += 1
+                            if distinct:
+                                yield val
+                            else:
+                                yield (val, rec.get('count'))
+                        if limit is not None and i >= limit:
+                            break
+                    if limit is not None and i >= limit:
+                        break
+
         if distinct:
             return [
                 {'_id': _outputproc(val), 'count': count}

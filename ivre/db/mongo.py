@@ -2938,7 +2938,8 @@ it is not expected)."""
             level = int(field[8:]) - 1
             field = 'hostnames.domains'
             aggrflt = {
-                "field": re.compile('^([^\\.]+\\.){%d}[^\\.]+$' % level)}
+                "field": re.compile('^([^\\.]+\\.){%d}[^\\.]+$' % level)
+            }
         elif field.startswith('cert.'):
             field = 'ports.scripts.ssl-cert.' + field[5:]
         elif field == 'useragent' or field.startswith('useragent:'):
@@ -4025,6 +4026,7 @@ setting values according to the keyword arguments.
         if not distinct:
             kargs['countfield'] = 'count'
         outputproc = None
+        aggrflt = None
         specialproj = None
         if field == "addr":
             if self.mongodb_32_more:
@@ -4086,8 +4088,18 @@ setting values according to the keyword arguments.
                         mask,
                     ),
                 }
-        pipeline = self._topvalues(field, flt=flt, specialproj=specialproj,
-                                   **kargs)
+        elif field == 'domains':
+            flt = self.flt_and(flt, self.searchdns())
+            field = 'infos.domain'
+        elif field.startswith('domains:'):
+            flt = self.flt_and(flt, self.searchdns())
+            level = int(field[8:]) - 1
+            field = 'infos.domain'
+            aggrflt = {
+                "field": re.compile('^([^\\.]+\\.){%d}[^\\.]+$' % level)
+            }
+        pipeline = self._topvalues(field, flt=flt, aggrflt=aggrflt,
+                                   specialproj=specialproj, **kargs)
         log_pipeline(pipeline)
         cursor = self.set_limits(
             self.db[self.columns[self.column_passive]].aggregate(
