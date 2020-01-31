@@ -940,13 +940,13 @@ CLI_ARGPARSER.add_argument('--skip', type=int, help='Skip first SKIP results.')
 
 # Country aliases:
 #   - UK: GB
-#   - EU: 28 EU member states, + EU itself, for historical reasons
+#   - EU: 27 EU member states, + EU itself, for historical reasons
 COUNTRY_ALIASES = {
     "UK": "GB",
     "EU": [
         "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR",
         "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK",
-        "SI", "ES", "SE", "GB",
+        "SI", "ES", "SE",
         "EU",
     ],
 }

@@ -920,8 +920,8 @@ purposes to feed Elasticsearch view.
 
         self.check_nmap_count_value(
             "nmap_extended_eu_count",
-            ivre.db.db.nmap.searchcountry(['EU', 'CH', 'NO']),
-            ["--country=EU,CH,NO"], "country:EU,CH,NO"
+            ivre.db.db.nmap.searchcountry(['EU', 'GB', 'CH', 'NO']),
+            ["--country=EU,GB,CH,NO"], "country:EU,GB,CH,NO"
         )
 
         # Filters
@@ -3523,6 +3523,7 @@ purposes to feed Elasticsearch view.
         self.assertTrue('FR' in europe)
         self.assertTrue('DE' in europe)
         self.assertFalse('US' in europe)
+        self.assertFalse('GB' in europe)
         self.assertEqual(ivre.utils.country_unalias('UK'),
                          ivre.utils.country_unalias('GB'))
         ukfr = ivre.utils.country_unalias(['FR', 'UK'])
