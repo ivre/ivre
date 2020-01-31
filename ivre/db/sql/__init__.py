@@ -2151,6 +2151,10 @@ passive table."""
         self.insert_or_update_bulk(_backupgen(backupfdesc), getinfos=None,
                                    separated_timestamps=False)
 
+    _topstructure = namedtuple("topstructure", ["fields", "where", "group_by",
+                                                "extraselectfrom"])
+    _topstructure.__new__.__defaults__ = (None,) * len(_topstructure._fields)
+
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, distinct=True):
         """This method produces top values for a given field.
@@ -2160,24 +2164,56 @@ passive table."""
         the "count" field.
 
         """
+        more_filter = None
+        if flt is None:
+            flt = PassiveFilter()
+        if field == "domains":
+            field = func.jsonb_array_elements(
+                self.tables.passive.moreinfo["domain"]
+            )
+        elif field.startswith("domains:"):
+            level = int(field[8:]) - 1
+            field = func.jsonb_array_elements_text(
+                self.tables.passive.moreinfo["domain"]
+            ).label("field")
+
+            def more_filter(base):
+                return (func.length(base.field) -
+                        func.length(func.replace(base.field, '.', '')) ==
+                        level)
+
+            # another option would be:
+            # def more_filter(base):
+            #     return base.field.op('~')('^([^\\.]+\\.){%d}[^\\.]+$' %
+            #                               level)
         if isinstance(field, basestring):
             field = self.fields[field]
 
-        if field == "addr":
+        if field is not None and field == self.fields['addr']:
             outputproc = self.internal2ip
         else:
             def outputproc(val):
                 return val
-        if flt is None:
-            flt = PassiveFilter()
         order = "count" if least else desc("count")
-        req = flt.query(
-            select([(func.count() if distinct else
-                     func.sum(self.tables.passive.count))
-                    .label("count"), field])
-            .select_from(flt.select_from)
-            .group_by(field)
-        )
+        if more_filter is None:
+            req = flt.query(
+                select([(func.count() if distinct else
+                         func.sum(self.tables.passive.count))
+                        .label("count"), field])
+                .select_from(flt.select_from)
+                .group_by(field)
+            )
+        else:
+            base1 = flt.query(
+                select([(func.count() if distinct else
+                         func.sum(self.tables.passive.count))
+                        .label("count"), field])
+                .select_from(flt.select_from)
+                .group_by(field)
+            ).cte("base1")
+            req = select([base1.c.count, base1.c.field]).where(
+                more_filter(base1.c)
+            )
         return (
             {"count": result[0],
              "_id": outputproc(result[1:] if len(result) > 2 else result[1])}
