@@ -72,6 +72,18 @@ def disp_rec(r):
                 firstseen,
                 lastseen,
             ))
+        # Case of a A or AAAA request with no answer (i.e., no addr in r)
+        elif r['source'].startswith('A-') or r['source'].startswith('AAAA-'):
+            print('%s %s %s (%s, %s time%s, %s - %s)' % (
+                r['value'],
+                r['source'].split('-', 1)[0],
+                None,
+                ':'.join(r['source'].split('-')[1:]),
+                r['count'],
+                r['count'] > 1 and 's' or '',
+                firstseen,
+                lastseen,
+            ))
         else:
             utils.LOGGER.warning("Cannot display record %r", r)
 
