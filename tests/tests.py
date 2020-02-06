@@ -2051,21 +2051,44 @@ purposes to feed Elasticsearch view.
                         break
                 else:
                     self.assertTrue(False)
+                # Test to find client with cli
+                if clival is not None:
+                    res, out, err = RUN(["ivre", "ipinfo", "--ssl-ja3-client", str(clival)])
+                    self.assertEqual(res, 0)
+                    self.assertTrue(not err)
+                    out = out.decode().splitlines()
+                    self.assertTrue(len(out) >= 1)
+                # Test to find server with cli
+                if value is not None:
+                    res, out, err = RUN(["ivre", "ipinfo", "--ssl-ja3-server", str(value)])
+                    self.assertEqual(res, 0)
+                    self.assertTrue(not err)
+                    out = out.decode().splitlines()
+                    self.assertTrue(len(out) >= 1)
+                # Test to find (client, server) with cli
+                if clival is not None and value is not None:
+                    res, out, err = RUN(["ivre", "ipinfo", "--ssl-ja3-server", "%s:%s" % (value, clival)])
+                    self.assertEqual(res, 0)
+                    self.assertTrue(not err)
+                    out = out.decode().splitlines()
+                    self.assertTrue(len(out) >= 1)
                 # Run a new test for raw values using regular
                 # expressions
                 newtest = False
+                newvalue = value
+                newclival = clival
                 if value == rec1['infos']['raw']:
-                    value = re.compile('^' + re.escape(value) + '$')
+                    newvalue = re.compile('^' + re.escape(value) + '$')
                     newtest = True
                 if clival == rec1['infos']['client']['raw']:
-                    clival = re.compile('^' + re.escape(clival) + '$')
+                    newclival = re.compile('^' + re.escape(clival) + '$')
                     newtest = True
                 if not newtest:
                     continue
                 for rec2 in ivre.db.db.passive.get(
                     ivre.db.db.passive.searchja3server(
-                        value_or_hash=value,
-                        client_value_or_hash=clival,
+                        value_or_hash=newvalue,
+                        client_value_or_hash=newclival,
                     )
                 ):
                     if rec1 == rec2:
