@@ -2288,6 +2288,16 @@ class DBPassive(DB):
             '--dnstype', metavar='DNS_TYPE',
             help='Display results for specified DNS type.',
         )
+        self.argparser.add_argument('--ssl-ja3-server',
+                                    metavar='JA3-SERVER[:JA3-CLIENT]',
+                                    nargs='?',
+                                    const=False,
+                                    default=None)
+        self.argparser.add_argument('--ssl-ja3-client',
+                                    metavar='JA3-CLIENT',
+                                    nargs='?',
+                                    const=False,
+                                    default=None)
 
     def parse_args(self, args, flt=None):
         flt = super(DBPassive, self).parse_args(args, flt=flt)
@@ -2332,6 +2342,32 @@ class DBPassive(DB):
             flt = self.flt_and(self.searchtimeago(args.timeagonew, new=True))
         if args.dnstype is not None:
             flt = self.flt_and(flt, self.searchdns(dnstype=args.dnstype))
+        if args.ssl_ja3_client is not None:
+            cli = args.ssl_ja3_client
+            flt = self.flt_and(flt, self.searchja3client(
+                value_or_hash=(
+                    False if cli is False else utils.str2regexp(cli)
+                )
+            ))
+        if args.ssl_ja3_server is not None:
+            if args.ssl_ja3_server is False:
+                # There are no additional arguments
+                flt = self.flt_and(flt, self.searchja3server())
+            else:
+                split = [utils.str2regexp(v) if v else None
+                         for v in args.ssl_ja3_server.split(':', 1)]
+                if len(split) == 1:
+                    # Only a JA3 server is given
+                    flt = self.flt_and(flt, self.searchja3server(
+                        value_or_hash=split[0]
+                    ))
+                else:
+                    # Both client and server JA3 are given
+                    flt = self.flt_and(flt, self.searchja3server(
+                        value_or_hash=split[0],
+                        client_value_or_hash=split[1],
+                    ))
+
         return flt
 
     def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
