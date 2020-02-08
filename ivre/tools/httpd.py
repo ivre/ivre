@@ -106,8 +106,8 @@ def parse_args():
 
 def main():
     """Function run when the tool is called."""
-    print(__doc__)
     args = parse_args()
+    print(__doc__)
     application = default_app()
     application.mount('/cgi/', webapp.application)
     run(host=args.bind_address, port=args.port, debug=DEBUG)
