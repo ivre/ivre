@@ -879,8 +879,8 @@ def create_argparser(description, extraargs=None):
 
     """
     if USE_ARGPARSE:
-        return argparse.ArgumentParser(description=__doc__), True
-    parser = optparse.OptionParser(description=__doc__)
+        return argparse.ArgumentParser(description=description), True
+    parser = optparse.OptionParser(description=description)
     parser.parse_args_orig = parser.parse_args
 
     def my_parse_args():
