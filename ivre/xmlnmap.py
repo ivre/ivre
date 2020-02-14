@@ -36,7 +36,7 @@ from xml.sax.handler import ContentHandler, EntityResolver
 
 
 from builtins import int, range
-from future.utils import viewitems, viewvalues
+from future.utils import PY2, viewitems, viewvalues
 from past.builtins import basestring
 
 
@@ -1643,8 +1643,12 @@ argument (a dict object).
                                 tzone = '%+03d%02d' % (tzone // 60, tzone % 60)
                             else:
                                 tzone = ""
-                            if tstamp.startswith('60056-05-28 '):
-                                # maximum windows timestamp value
+                            if PY2:
+                                # %z is not supported with strptime()
+                                tzone = ""
+                            if tstamp.startswith('1601-01-01 ') or \
+                               tstamp.startswith('60056-05-28 '):
+                                # minimum / maximum windows timestamp value
                                 continue
                             try:
                                 data[key] = datetime.datetime.strptime(
@@ -1695,15 +1699,22 @@ argument (a dict object).
                                 ))
                     scripts = []
                     if 'time' in data:
-                        # FIXME TIME ZONE
-                        smb_os_disco['date'] = data['time'].strftime(
-                            '%Y-%m-%dT%H:%M:%S'
-                        )
-                        smb_os_disco_output.append(
-                            '  System time: %s' % smb_os_disco['date']
-                        )
-                        smb2_time = {'date': str(data['time'])}
-                        smb2_time_out = ['', '  date: %s' % data['time']]
+                        smb2_time = {}
+                        smb2_time_out = ['']
+                        try:
+                            # FIXME TIME ZONE
+                            smb_os_disco['date'] = data['time'].strftime(
+                                '%Y-%m-%dT%H:%M:%S'
+                            )
+                        except ValueError:
+                            # year == 1601
+                            pass
+                        else:
+                            smb_os_disco_output.append(
+                                '  System time: %s' % smb_os_disco['date']
+                            )
+                            smb2_time['date'] = str(data['time'])
+                            smb2_time_out.append('  date: %s' % data['time'])
                         if 'boottime' in data:
                             # Masscan has to be patched to report
                             # this.
@@ -1711,11 +1722,12 @@ argument (a dict object).
                             smb2_time_out.append(
                                 '  start_time: %s' % data['boottime']
                             )
-                        scripts.append({
-                            'id': 'smb2-time',
-                            'smb2-time': smb2_time,
-                            'output': '\n'.join(smb2_time_out)
-                        })
+                        if smb2_time:
+                            scripts.append({
+                                'id': 'smb2-time',
+                                'smb2-time': smb2_time,
+                                'output': '\n'.join(smb2_time_out)
+                            })
                     smb_os_disco_output.append('')
                     scripts.append({
                         'id': 'smb-os-discovery',

@@ -299,8 +299,9 @@ class TargetFile(Target):
 
     def __init__(self, filename, categories=None, maxnbr=None, state=None):
         self.filename = filename
+        self.name = 'FILE-%s' % filename
         if categories is None:
-            categories = ['FILE-%s' % filename.replace('/', '_')]
+            categories = [self.name]
         self.infos = {'categories': categories}
         with open(filename) as fdesc:
             i = 0
