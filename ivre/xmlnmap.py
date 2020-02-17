@@ -1107,13 +1107,9 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
 
 MASSCAN_ENCODING = re.compile(re.escape(b"\\x") + b"([0-9a-f]{2})")
 _HTTP_HEADER = re.compile(
-    b"\\\n([!\\#\\$%\\&'\\*\\+\\-\\.\\^_`\\|\\~A-Z0-9]+):[ \\\t]*"
-    b"([^\\\r\\\n]*?)[ \\\t\\\r]*(?:\\\n|$)",
+    b"^([!\\#\\$%\\&'\\*\\+\\-\\.\\^_`\\|\\~A-Z0-9]+):[ \\\t]*([^\\\r]*)"
+    b"[ \\\t\\\r]*$",
     re.I
-)
-_HTTP_SERVER_HEADER = re.compile(
-    re.escape(b'\nServer:') + b'[ \\\t]*([^\\\r\\\n]*?)[ \\\t\\\r]*(?:\\\n|$)',
-    re.I,
 )
 
 
@@ -2266,10 +2262,15 @@ argument (a dict object).
             {"name": utils.nmap_encode_data(hdrname).lower(),
              "value": utils.nmap_encode_data(hdrval)}
             for hdrname, hdrval in (
-                m.groups() for m in _HTTP_HEADER.finditer(raw)
+                m.groups() for m in (
+                    _HTTP_HEADER.search(part.strip())
+                    for part in raw.split(b'\n')
+                ) if m
             )
         ]
-        headers = [m.groups()[0] for m in _HTTP_SERVER_HEADER.finditer(raw)]
+        headers = [utils.nmap_decode_data(h['value'])
+                   for h in script['http-headers']
+                   if h['name'] == 'server']
         if not (headers and headers[0]):
             return
         self._curport.setdefault('scripts', []).append({
