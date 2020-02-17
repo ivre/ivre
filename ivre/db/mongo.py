@@ -2016,8 +2016,8 @@ it is not expected)."""
             return {'ports.service_product': product}
         return {'ports': {'$elemMatch': flt}}
 
-    @staticmethod
-    def searchscript(name=None, output=None, values=None, neg=False):
+    @classmethod
+    def searchscript(cls, name=None, output=None, values=None, neg=False):
         """Search a particular content in the scripts results.
 
         """
@@ -2034,8 +2034,12 @@ it is not expected)."""
             if isinstance(values, (basestring, utils.REGEXP_T)):
                 req[key] = values
             else:
-                for field, value in viewitems(values):
-                    req["%s.%s" % (key, field)] = value
+                if len(values) >= 2 and \
+                   'ports.scripts.%s' % key in cls.list_fields:
+                    req[key] = {'$elemMatch': values}
+                else:
+                    for field, value in viewitems(values):
+                        req["%s.%s" % (key, field)] = value
         if not req:
             return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
