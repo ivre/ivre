@@ -148,6 +148,11 @@ var GraphTopValues = (function(_super) {
 			    return 'setparam(FILTER, "open", "' + x.map(function(x) {return x.join('/');}).join(',') + '", true, true); setparam(FILTER, "countports", "' + x.length + '", true);';
 		    };
 	    }
+	    else if(field === "net" || field.substr(0, 4) === "net:") {
+		preparefilter = function(x) {
+		    return 'setparam(FILTER, "' + x + '")';
+		};
+	    }
 	    else if(['cert.issuer', 'cert.subject'].indexOf(field) !== -1)
 		prepareoutput = function(x) {
 		    var attributes = {

@@ -297,6 +297,18 @@ var HELP_FILTERS = {
 	    "title": "xp445",
 	    "content": "Look for Windows XP machines with TCP/445 port open.",
 	},
+        "cert.md5:": {
+            "title": "cert.md5:[MD5 hash]",
+            "content": "Look for a particular certificate, based on the MD5 hash.",
+        },
+        "cert.sha1:": {
+            "title": "cert.sha1:[SHA1 hash]",
+            "content": "Look for a particular certificate, based on the SHA1 hash.",
+        },
+        "cert.sha256:": {
+            "title": "cert.sha256:[SHA256 hash]",
+            "content": "Look for a particular certificate, based on the SHA256 hash.",
+        },
 	"ssl-ja3-client": {
 	    "title": "(!)ssl-ja3-client<b>[:JA3]</b>",
 	    "content": "Look for hosts with a JA3 or with the given JA3.",
