@@ -1600,7 +1600,9 @@ argument (a dict object).
                         if banner.startswith('os=') or \
                            banner.startswith('ver=') or \
                            banner.startswith('domain=') or \
-                           banner.startswith('name='):
+                           banner.startswith('name=') or \
+                           banner.startswith('domain-dns=') or \
+                           banner.startswith('name-dns='):
                             key, banner = banner.split('=', 1)
                             value = []
                             while banner and not re.compile(
