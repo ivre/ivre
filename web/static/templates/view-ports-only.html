@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@
       <div port-summary=""></div>
     </dt>
     <dd ng-repeat-end
-	ng-if="port.port !== -1 && port_display_mode_needed_port(port.port)">
+	ng-if="port.port !== -1 && port_display_mode_needed_port(port.protocol, port.port)">
       <div ng-if="::port.service_name"
 	   class="result-service"
 	   service-summary="">        
