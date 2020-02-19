@@ -1075,6 +1075,7 @@ NMAP_S7_INDEXES = {
 MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "http": "http-headers",
     "title": "http-title",
+    "html": "http-content",
     "ftp": "banner",
     "unknown": "banner",
     "ssh": "ssh-banner",
@@ -1303,6 +1304,56 @@ X509 "service" tag.
     newout.extend(pem)
     info['pem'] = '\n'.join(pem)
     return newout, info
+
+
+_EXPR_INDEX_OF = re.compile('<title[^>]*> *index +of', re.I)
+_EXPR_FILES = [
+    re.compile('<a href="(?P<filename>[^"]+)">[^<]+</a></td><td[^>]*> *'
+               '(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *'
+               '</td><td[^>]*> *(?P<size>[^<]+)</td>', re.I),
+    re.compile('<a href="(?P<filename>[^"]+)">[^<]+</a> *'
+               '(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *'
+               '(?P<size>[^ \r\n]+)', re.I),
+]
+
+
+def create_http_ls(data, url=None):
+    """Produces an http-ls script output (both structured and human
+readable) from the content of an HTML page. Used for Zgrab and Masscan
+results.
+
+    """
+    match = _EXPR_INDEX_OF.search(data)
+    if match is None:
+        return None
+    files = []
+    for pattern in _EXPR_FILES:
+        for match in pattern.finditer(data):
+            files.append(match.groupdict())
+    if not files:
+        return None
+    output = []
+    if url is None or 'path' not in url:
+        volname = "???"
+    else:
+        volname = url['path']
+    output.append('Volume %s' % volname)
+    title = ['size', 'time', 'filename']
+    column_width = [len(t) for t in title[:-1]]
+    for fobj in files:
+        for i, t in enumerate(title[:-1]):
+            column_width[i] = max(column_width[i],
+                                  len(fobj.get(t, "")))
+    line_fmt = ('%%(size)-%ds  %%(time)-%ds  %%(filename)s' %
+                tuple(column_width))
+    output.append(line_fmt % dict((t, t.upper()) for t in title))
+    for fobj in files:
+        output.append(line_fmt % fobj)
+    output.append("")
+    return {
+        'id': 'http-ls', 'output': '\n'.join(output),
+        'ls': {'volumes': [{'volume': volname, 'files': files}]},
+    }
 
 
 def ignore_script(script):
@@ -2061,6 +2112,7 @@ argument (a dict object).
         try:
             function = {
                 "http-headers": self.masscan_post_http,
+                "http-content": self.masscan_post_http_content,
                 "s7-info": self.masscan_post_s7info,
                 "ssl-cert": self.masscan_post_x509,
                 "ssh-banner": self.masscan_post_ssh,
@@ -2277,13 +2329,21 @@ argument (a dict object).
             return
         self._curport.setdefault('scripts', []).append({
             "id": "http-server-header",
-            "output": utils.nmap_encode_data(headers[0]),
+            "output": '\n'.join(utils.nmap_encode_data(hdr)
+                                for hdr in headers),
             "http-server-header": [utils.nmap_encode_data(hdr)
                                    for hdr in headers],
             "masscan": {
                 "raw": self._to_binary(headers[0]),
             },
         })
+
+    def masscan_post_http_content(self, script):
+        raw = self._from_binary(script['masscan']['raw'])
+        script_http_ls = create_http_ls(script['output'])
+        script['output'] = utils.nmap_encode_data(raw)
+        if script_http_ls:
+            self._curport.setdefault('scripts', []).append(script_http_ls)
 
     def _add_cpe_to_host(self):
         """Adds the cpe in self._curdata to the host-wide cpe list, taking
