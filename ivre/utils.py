@@ -1470,13 +1470,38 @@ def nmap_decode_data(data, arbitrary_escapes=False):
                                       arbitrary_escapes=arbitrary_escapes))
 
 
+def _nmap_command_match_subst(match_num):
+    return re.compile('\\$SUBST\\(%d,"([^"]*)","([^"]*)"\\)' % match_num)
+
+
+def _nmap_command_match_i(match_num):
+    return re.compile('\\$I\\(%d,"([<>])"\\)' % match_num)
+
+
 def nmap_svc_fp_format_data(data, match):
     for i, value in enumerate(match.groups()):
         if value is None:
-            if '$%d' % (i + 1) in data:
+            if '$%d' % (i + 1) in data or \
+               '$P(%d)' % (i + 1) in data or \
+               '$I(%d,' % (i + 1) in data or \
+               '$SUBST(%d,' % (i + 1) in data:
+                LOGGER.warning('Group %d is None in data %r', i + 1, data)
                 return None
             continue
         data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
+        data = data.replace('$P(%d)' % (i + 1),
+                            nmap_encode_data(only_printable(value)))
+        # pylint: disable=cell-var-from-loop
+        data = _nmap_command_match_subst(i + 1).sub(
+            lambda m: nmap_encode_data(value).replace(*m.groups()),
+            data,
+        )
+        if len(value) == 2:
+            # $I(x,"<") or $I(x,">") may exist
+            data = _nmap_command_match_i(i + 1).sub(
+                lambda m: str(struct.unpack('%sH' % m.groups()[0], value)[0]),
+                data,
+            )
     return data
 
 
@@ -1586,6 +1611,12 @@ def printable(string):
     if PY3 and isinstance(string, bytes):
         return bytes(c if 32 <= c <= 126 else 46 for c in string)
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
+
+
+def only_printable(string):
+    if PY3 and isinstance(string, bytes):
+        return bytes(c for c in string if 32 <= c <= 126)
+    return "".join(c for c in string if ' ' <= c <= '~')
 
 
 def _parse_ssh_key(data):
