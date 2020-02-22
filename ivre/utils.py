@@ -1238,9 +1238,11 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL"):
                 doc['service_name'] = service
                 for elt, key in viewitems(NMAP_FINGERPRINT_IVRE_KEY):
                     if elt in fingerprint:
-                        doc[key] = nmap_svc_fp_format_data(
+                        data = nmap_svc_fp_format_data(
                             fingerprint[elt][0], match
                         )
+                        if data is not None:
+                            doc[key] = data
                 if not fingerprint['soft']:
                     return result
     return softmatch
@@ -1485,7 +1487,6 @@ def nmap_svc_fp_format_data(data, match):
                '$P(%d)' % (i + 1) in data or \
                '$I(%d,' % (i + 1) in data or \
                '$SUBST(%d,' % (i + 1) in data:
-                LOGGER.warning('Group %d is None in data %r', i + 1, data)
                 return None
             continue
         data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
