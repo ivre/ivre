@@ -1622,6 +1622,10 @@ argument (a dict object).
                         "raw": self._to_binary(raw_output),
                         "encoded": banner,
                     }
+                    if banner.startswith('ERR unknown response'):
+                        # skip this part of the banner, which gets stored as:
+                        # "ERR unknown responseERROR(UNKNOWN)"
+                        banner = banner[20:]
                     if banner.startswith('ERROR'):
                         self._curhost.setdefault('ports', []).append({
                             'port': -1,
