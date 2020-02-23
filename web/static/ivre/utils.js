@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -63,17 +63,20 @@ function escapeRegExp(str) {
 }
 
 function str2regexp(str) {
-    if (str.substr(0, 1) === '/') {
-	str = str.substr(1).split('/',2);
-	if (str.length == 1)
-	    str = RegExp(str[0], 'g');
-	else if (str[1].indexOf('g') === -1)
-	    str = RegExp(str[0], str[1] + 'g');
-	else
+    if (str.substr(0, 1) === "/") {
+	str = str.substr(1).split("/",2);
+	if (str.length === 1) {
+	    str = RegExp(str[0], "g");
+	}
+	else if (str[1].indexOf("g") === -1) {
+	    str = RegExp(str[0], str[1] + "g");
+	}
+	else {
 	    str = RegExp(str[0], str[1]);
+	}
     }
     else
-	str = RegExp('^'+escapeRegExp(str)+'$', 'g');
+	str = RegExp("^"+escapeRegExp(str)+"$", "g");
     return str;
 }
 
@@ -272,8 +275,9 @@ function download_blob(blob, title) {
 	this.setAttribute('href', window.URL.createObjectURL(blob));
 	return true;
     };
-    if(title === undefined)
+    if(title === undefined) {
 	title = "Unknown.bin";
+    }
     a.download = title;
     a.href = "#";
 
@@ -297,17 +301,17 @@ function find_parent(base, tagname) {
 function duration_humanize(milliseconds) {
     var seconds = milliseconds / 1000;
     var levels = [
-        [Math.floor(seconds / 31536000), 'years'],
-        [Math.floor((seconds % 31536000) / 86400), 'days'],
-        [Math.floor(((seconds % 31536000) % 86400) / 3600), 'hours'],
-        [Math.floor((((seconds % 31536000) % 86400) % 3600) / 60), 'minutes'],
-        [(((seconds % 31536000) % 86400) % 3600) % 60, 'seconds'],
+	[Math.floor(seconds / 31536000), 'years'],
+	[Math.floor((seconds % 31536000) / 86400), 'days'],
+	[Math.floor(((seconds % 31536000) % 86400) / 3600), 'hours'],
+	[Math.floor((((seconds % 31536000) % 86400) % 3600) / 60), 'minutes'],
+	[(((seconds % 31536000) % 86400) % 3600) % 60, 'seconds'],
     ];
     var returntext = '';
 
     for (var i = 0, max = levels.length; i < max; i++) {
-        if ( levels[i][0] === 0 ) continue;
-        returntext += ' ' + levels[i][0] + ' ' + (levels[i][0] === 1 ? levels[i][1].substr(0, levels[i][1].length-1): levels[i][1]);
+	if ( levels[i][0] === 0 ) continue;
+	returntext += ' ' + levels[i][0] + ' ' + (levels[i][0] === 1 ? levels[i][1].substr(0, levels[i][1].length-1): levels[i][1]);
     }
     return returntext.trim();
 }

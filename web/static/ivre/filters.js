@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -52,9 +52,9 @@ var Filter = (function() {
         /* Returns true iff store "contains" other. "limit", "skip"
          * and "sortby" are omitted when count is true. */
         for(var key in store) {
-            if((count && (key == 'limit' || key == 'skip' ||
-                            key == 'sortby')) ||
-                    key == 'display') {
+            if((count && (key === "limit" || key === "skip" ||
+                            key === "sortby")) ||
+               key === "display") {
                 continue;
             }
             if(other[key] === undefined) {
@@ -114,7 +114,7 @@ var Filter = (function() {
         do_count: function() {
             var filterobject = this;
             $.ajax({
-                url: 'cgi/view/count?q=' +
+                url: "cgi/view/count?q=" +
                     encodeURIComponent(this.query),
                 jsonp: "callback",
                 dataType: "jsonp",
@@ -132,7 +132,7 @@ var Filter = (function() {
             var filterobject = this;
             if(this.callbacks.get_results.length > 0) {
                 $.ajax({
-                    url: 'cgi/view?q=' + encodeURIComponent(this.query),
+                    url: "cgi/view?q=" + encodeURIComponent(this.query),
                     jsonp: "callback",
                     dataType: "jsonp",
                     beforeSend: function() {
