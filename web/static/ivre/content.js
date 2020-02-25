@@ -298,15 +298,15 @@ var HELP_FILTERS = {
 	    "content": "Look for Windows XP machines with TCP/445 port open.",
 	},
         "cert.md5:": {
-            "title": "cert.md5:[MD5 hash]",
+            "title": "cert.md5:[MD5 hash or /MD5 hash regexp/]",
             "content": "Look for a particular certificate, based on the MD5 hash.",
         },
         "cert.sha1:": {
-            "title": "cert.sha1:[SHA1 hash]",
+            "title": "cert.sha1:[SHA1 hash or /SHA1 hash regexp/]",
             "content": "Look for a particular certificate, based on the SHA1 hash.",
         },
         "cert.sha256:": {
-            "title": "cert.sha256:[SHA256 hash]",
+            "title": "cert.sha256:[SHA256 hash or /SHA256 hash regexp/]",
             "content": "Look for a particular certificate, based on the SHA256 hash.",
         },
 	"ssl-ja3-client": {
