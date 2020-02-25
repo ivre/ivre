@@ -2224,6 +2224,14 @@ argument (a dict object).
         except ValueError:
             return
         script['output'] = utils.nmap_encode_data(data[:idx].rstrip(b'\r'))
+        if 'service_product' not in self._curport:
+            # some Nmap fingerprints won't match with data after the
+            # banner
+            match = utils.match_nmap_svc_fp(output=data[:idx + 1],
+                                            proto=self._curport['protocol'],
+                                            probe="NULL")
+            if match:
+                self._curport.update(match)
         # this requires a patched version of masscan
         for msgtype, msg in self._read_ssh_msgs(data[idx + 1:]):
             if msgtype == 20:  # key exchange init
