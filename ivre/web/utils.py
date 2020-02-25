@@ -445,7 +445,9 @@ def flt_from_query(dbase, query, base_flt=None):
         elif not neg and param.startswith('cert.'):
             subfield = param.split('.', 1)[1]
             if subfield in ['md5', 'sha1', 'sha256']:
-                flt = dbase.flt_and(flt, dbase.searchcert(**{subfield: value}))
+                flt = dbase.flt_and(flt, dbase.searchcert(**{
+                    subfield: utils.str2regexp(value),
+                }))
             else:
                 add_unused(neg, param, value)
         elif not neg and param == 'httphdr':
