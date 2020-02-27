@@ -443,8 +443,8 @@ def get_nmap(subdb):
                 del rec[fld]
             except KeyError:
                 pass
-        if not flt_params.ipsasnumbers:
-            rec['addr'] = utils.force_int2ip(rec['addr'])
+        if flt_params.ipsasnumbers:
+            rec['addr'] = utils.force_ip2int(rec['addr'])
         for field in ['starttime', 'endtime']:
             if field in rec:
                 if not flt_params.datesasstrings:
@@ -480,7 +480,7 @@ def get_nmap(subdb):
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
         # XXX-WORKAROUND-PGSQL
-        if i + 1 >= flt_params.limit:
+        if flt_params.limit and i + 1 >= flt_params.limit:
             break
     if flt_params.callback is None:
         yield "\n]\n"
