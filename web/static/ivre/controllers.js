@@ -160,7 +160,7 @@ ivreWebUi
 		query = "limit:0";
 	    }
 	    return 'cgi/view?q=' + encodeURIComponent(query) +
-		'&ipsasnumbers=1&datesasstrings=1';
+		'&datesasstrings=1';
 	};
 	$scope.get_addr_list = function() {
 	    var query;
