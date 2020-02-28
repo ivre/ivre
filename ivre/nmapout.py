@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -64,9 +64,12 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
     if record.get('hostnames'):
         line += " (%s)" % '/'.join(x['name'] for x in record['hostnames'])
     if 'source' in record:
-        line += ' from %s' % record['source']
+        line += ' from %s' % ('/'.join(record['source'])
+                              if isinstance(record['source'], list) else
+                              record['source'])
     if record.get('categories'):
-        line += ' (%s)' % ', '.join(record['categories'])
+        line += ' (%s)' % ', '.join(cat for cat in record['categories']
+                                    if not cat.startswith('_'))
     if 'state' in record:
         line += ' (%s' % record['state']
         if 'state_reason' in record:
