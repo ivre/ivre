@@ -1870,7 +1870,8 @@ purposes to feed Elasticsearch view.
         for service, product in [('ssh', 'Cisco SSH'),
                                  ('http', 'Apache httpd'),
                                  ('imap', 'Microsoft Exchange imapd')]:
-            flt = ivre.db.db.passive.searchproduct(product, service=service)
+            flt = ivre.db.db.passive.searchproduct(product=product,
+                                                   service=service)
             count = ivre.db.db.passive.count(flt)
             self.check_value(
                 "passive_count_%s_%s" % (service, product.replace(' ', '')),
@@ -1884,7 +1885,8 @@ purposes to feed Elasticsearch view.
                 ('ssh', 'Cisco SSH', "1.25"),
                 ('ssh', 'OpenSSH', '3.1p1')
         ]:
-            flt = ivre.db.db.passive.searchproduct(product, service=service,
+            flt = ivre.db.db.passive.searchproduct(product=product,
+                                                   service=service,
                                                    version=version)
             count = ivre.db.db.passive.count(flt)
             self.check_value(
@@ -1901,7 +1903,8 @@ purposes to feed Elasticsearch view.
                 ('ssh', 'Cisco SSH', 22),
                 ('ssh', 'OpenSSH', 22)
         ]:
-            flt = ivre.db.db.passive.searchproduct(product, service=service,
+            flt = ivre.db.db.passive.searchproduct(product=product,
+                                                   service=service,
                                                    port=port)
             count = ivre.db.db.passive.count(flt)
             self.check_value(

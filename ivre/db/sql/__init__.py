@@ -1461,14 +1461,17 @@ versions reported `{"Server": "value"}`, while recent versions report
         return cls.base_filter(port=[(True, req)])
 
     @classmethod
-    def searchproduct(cls, product, version=None, service=None, port=None,
+    def searchproduct(cls, product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        req = cls._searchstring_re(cls.tables.port.service_product, product)
+        req = True
+        if product is not None:
+            req = and_(cls._searchstring_re(cls.tables.port.service_product,
+                                            product))
         if version is not None:
             req = and_(req, cls._searchstring_re(
                 cls.tables.port.service_version, version
@@ -2601,17 +2604,21 @@ passive table."""
         return PassiveFilter(main=and_(*flt))
 
     @classmethod
-    def searchproduct(cls, product, version=None, service=None, port=None,
+    def searchproduct(cls, product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        flt = [cls._searchstring_re(
-            cls.tables.passive.moreinfo.op('->>')('service_product'),
-            product
-        )]
+        flt = []
+        if product is not None:
+            flt.append(
+                cls._searchstring_re(
+                    cls.tables.passive.moreinfo.op('->>')('service_product'),
+                    product,
+                )
+            )
         if version is not None:
             flt.append(
                 cls._searchstring_re(
