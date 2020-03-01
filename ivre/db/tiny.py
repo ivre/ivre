@@ -426,6 +426,13 @@ This will be used by TinyDBNmap & TinyDBView
                     )
                 except (KeyError, socket.error):
                     pass
+                for script in port.get('scripts', []):
+                    for cert in script.get('ssl-cert', []):
+                        for fld in ['not_before', 'not_after']:
+                            try:
+                                cert[fld] = utils.all2datetime(cert[fld])
+                            except KeyError:
+                                pass
             for trace in host.get('traces', []):
                 for hop in trace.get('hops', []):
                     try:
@@ -457,6 +464,17 @@ This will be used by TinyDBNmap & TinyDBView
                     )
                 except ValueError:
                     pass
+            for script in port.get('scripts', []):
+                for cert in script.get('ssl-cert', []):
+                    for fld in ['not_before', 'not_after']:
+                        if fld not in cert:
+                            continue
+                        if isinstance(cert[fld], datetime):
+                            cert[fld] = utils.datetime2timestamp(cert[fld])
+                        elif isinstance(cert[fld], basestring):
+                            cert[fld] = utils.datetime2timestamp(
+                                utils.all2datetime(cert[fld])
+                            )
         for trace in host.get('traces', []):
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:
@@ -700,7 +718,7 @@ This will be used by TinyDBNmap & TinyDBView
             res.append(cls._searchstring_re(q.id, name))
         if output is not None:
             res.append(cls._searchstring_re(q.output, output))
-        if values is not None:
+        if values:
             if not isinstance(name, basestring):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
@@ -1964,6 +1982,15 @@ returned to backend-agnostic functions.
 
     def _get(self, *args, **kargs):
         for rec in self._db_get(*args, **kargs):
+            if rec.get('recontype') == 'SSL_SERVER' and \
+               rec.get('source') == 'cert':
+                for fld in ['not_before', 'not_after']:
+                    try:
+                        rec['infos'][fld] = utils.all2datetime(
+                            rec['infos'][fld]
+                        )
+                    except KeyError:
+                        pass
             yield self.internal2rec(rec)
 
     def get_one(self, *args, **kargs):
@@ -2019,6 +2046,18 @@ None) is returned.
                     doc['infos'] = orig['infos']
                 except KeyError:
                     pass
+                if doc['recontype'] == 'SSL_SERVER' and \
+                   doc['source'] == 'cert':
+                    for fld in ['not_before', 'not_after']:
+                        if fld not in doc.get('infos', {}):
+                            continue
+                        info = doc['infos']
+                        if isinstance(info[fld], datetime):
+                            info[fld] = utils.datetime2timestamp(info[fld])
+                        elif isinstance(info[fld], basestring):
+                            info[fld] = utils.datetime2timestamp(
+                                utils.all2datetime(info[fld])
+                            )
                 # upsert() won't handle operations
             self.db.upsert(doc, spec_cond)
 
@@ -2307,19 +2346,32 @@ None) is returned.
             res &= q.source.search('^%s-' % dnstype.upper())
         return res
 
-    @staticmethod
-    def searchcert(keytype=None, md5=None, sha1=None, sha256=None):
+    @classmethod
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
+                   subject=None, issuer=None, self_signed=None,
+                   pkmd5=None, pksha1=None, pksha256=None):
         q = Query()
         res = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert'))
         if keytype is not None:
-            res &= (q.infos.pubkeyalgo == utils.PUBKEY_REV_TYPES.get(keytype,
-                                                                     keytype))
+            res &= (q.infos.pubkey.type == keytype)
         if md5 is not None:
-            res &= (q.infos.md5 == md5)
+            res &= cls._searchstring_re(q.infos.md5, md5)
         if sha1 is not None:
-            res &= (q.infos.sha1 == sha1)
+            res &= cls._searchstring_re(q.infos.sha1, sha1)
         if sha256 is not None:
-            res &= (q.infos.sha256 == sha256)
+            res &= cls._searchstring_re(q.infos.sha256, sha256)
+        if subject is not None:
+            res &= cls._searchstring_re(q.infos.subject_text, subject)
+        if issuer is not None:
+            res &= cls._searchstring_re(q.infos.issuer_text, issuer)
+        if self_signed is not None:
+            res &= (q.infos.self_signed == self_signed)
+        if pkmd5 is not None:
+            res &= cls._searchstring_re(q.infos.pubkey.md5, pkmd5)
+        if pksha1 is not None:
+            res &= cls._searchstring_re(q.infos.pubkey.sha1, pksha1)
+        if pksha256 is not None:
+            res &= cls._searchstring_re(q.infos.pubkey.sha256, pksha256)
         return res
 
     @classmethod
@@ -2365,21 +2417,6 @@ None) is returned.
         if keytype is None:
             return req
         return req & (q.infos.algo == 'ssh-' + keytype)
-
-    @classmethod
-    def searchcertsubject(cls, expr, issuer=None):
-        q = Query()
-        req = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert') &
-               cls._searchstring_re(q.infos.subject_text, expr))
-        if issuer is None:
-            return req
-        return req & cls._searchstring_re(q.infos.issuer_text, expr)
-
-    @classmethod
-    def searchcertissuer(cls, expr):
-        q = Query()
-        return ((q.recontype == 'SSL_SERVER') & (q.source == 'cert') &
-                cls._searchstring_re(q.infos.issuer_text, expr))
 
     @staticmethod
     def searchbasicauth():

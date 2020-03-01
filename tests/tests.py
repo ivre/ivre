@@ -1325,11 +1325,11 @@ purposes to feed Elasticsearch view.
                     found = False
                     for port in host['ports']:
                         for script in port.get('scripts', []):
-                            if script['id'] == 'ssl-cert' and script.get(
-                                    'ssl-cert', {}
-                            ).get(hashtype) == val:
-                                found = True
-                                break
+                            if script['id'] == 'ssl-cert':
+                                for cert in script.get('ssl-cert', []):
+                                    if cert.get(hashtype) == val:
+                                        found = True
+                                        break
                         if found:
                             break
                     self.assertTrue(found)
@@ -1791,14 +1791,14 @@ purposes to feed Elasticsearch view.
         )
         self.check_value("passive_torcert_count", count)
         count = ivre.db.db.passive.count(
-            ivre.db.db.passive.searchcertsubject(
-                re.compile('google', re.I)
+            ivre.db.db.passive.searchcert(
+                subject=re.compile('google', re.I)
             )
         )
         self.check_value("passive_cert_google", count)
         count = ivre.db.db.passive.count(
-            ivre.db.db.passive.searchcertsubject(
-                re.compile('microsoft', re.I)
+            ivre.db.db.passive.searchcert(
+                subject=re.compile('microsoft', re.I)
             )
         )
         self.check_value("passive_cert_microsoft", count)
@@ -4278,11 +4278,11 @@ purposes to feed Elasticsearch view.
                     found = False
                     for port in host['ports']:
                         for script in port.get('scripts', []):
-                            if script['id'] == 'ssl-cert' and script.get(
-                                    'ssl-cert', {}
-                            ).get(hashtype) == val:
-                                found = True
-                                break
+                            if script['id'] == 'ssl-cert':
+                                for cert in script.get('ssl-cert', []):
+                                    if cert.get(hashtype) == val:
+                                        found = True
+                                        break
                         if found:
                             break
                     self.assertTrue(found)

@@ -17,8 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module implement tools to look for (public) keys in the database.
+"""This module implement tools to look for (public) keys in the
+database.
 
 """
 
@@ -287,12 +287,13 @@ class SSLRsaNmapKey(SSLNmapKey, RSAKey):
 
     def getkeys(self, host):
         for script in self.getscripts(host):
-            key = script["script"][self.scriptid]['pubkey']
-            yield Key(host['addr'], script["port"], "ssl", key['type'],
-                      key['bits'],
-                      _rsa_construct(long(key['exponent']),
-                                     long(key['modulus'])),
-                      utils.decode_hex(script["script"][self.scriptid]['md5']))
+            for cert in script["script"].get(self.scriptid, []):
+                key = cert['pubkey']
+                yield Key(host['addr'], script["port"], "ssl", key['type'],
+                          key['bits'],
+                          _rsa_construct(long(key['exponent']),
+                                         long(key['modulus'])),
+                          utils.decode_hex(cert['md5']))
 
 
 class SSHRsaNmapKey(SSHNmapKey, RSAKey):

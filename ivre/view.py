@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,9 +19,12 @@
 """Put selected results in views."""
 
 from datetime import datetime
+from textwrap import wrap
 
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION, create_ssl_cert
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, \
+    create_ssl_output
+from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre.db import db
 
 
@@ -173,10 +176,16 @@ def _extract_passive_SSL_SERVER_cert(rec):
         'protocol': rec.get('protocol', 'tcp'),
         'service_tunnel': 'ssl',
     }
-    output, info = create_ssl_cert(rec['value'], b64encoded=False)
+    info = rec['infos']
     if info:
-        script['output'] = "\n".join(output)
-        script['ssl-cert'] = info
+        pem = []
+        pem.append('-----BEGIN CERTIFICATE-----')
+        pem.extend(wrap(utils.encode_b64(rec['value']).decode(), 64))
+        pem.append('-----END CERTIFICATE-----')
+        pem.append('')
+        info['pem'] = '\n'.join(pem)
+        script['output'] = "\n".join(create_ssl_output(info))
+        script['ssl-cert'] = [info]
         port['scripts'] = [script]
     return {'ports': [port]}
 
@@ -282,7 +291,7 @@ def passive_record_to_view(rec, category=None):
     outrec = {
         'addr': rec["addr"],
         'state_reason': 'passive',
-        'schema_version': SCHEMA_VERSION,
+        'schema_version': ACTIVE_SCHEMA_VERSION,
     }
     # a DNS_ANSWER record is not enough to mark a host as up
     if rec['recontype'] != 'DNS_ANSWER':
@@ -323,6 +332,13 @@ def passive_to_view(flt, category=None):
 
     """
     for rec in db.passive.get(flt, sort=[("addr", 1)]):
+        if rec.get('schema_version') != PASSIVE_SCHEMA_VERSION:
+            utils.LOGGER.warning(
+                'Will not handle record with schema_version %d (%d needed) '
+                '[%r]', rec.get('schema_version', 0), PASSIVE_SCHEMA_VERSION,
+                rec
+            )
+            continue
         outrec = passive_record_to_view(rec, category=category)
         if outrec is not None:
             yield outrec
@@ -388,6 +404,13 @@ def from_nmap(flt, category=None):
     cur_rec = None
     result = None
     for rec in db.nmap.get(flt, sort=[("addr", 1)]):
+        if rec.get('schema_version') != ACTIVE_SCHEMA_VERSION:
+            utils.LOGGER.warning(
+                'Will not handle record with schema_version %d (%d needed) '
+                '[%r]', rec.get('schema_version', 0), ACTIVE_SCHEMA_VERSION,
+                rec,
+            )
+            continue
         if 'addr' not in rec:
             continue
         rec = nmap_record_to_view(rec, category=category)

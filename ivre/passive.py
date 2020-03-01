@@ -33,7 +33,7 @@ from future.utils import viewitems
 from ivre import utils, config
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 DNSBL_START = re.compile(
     '^(?:'

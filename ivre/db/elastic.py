@@ -1046,7 +1046,7 @@ return result;
                                 cls._get_pattern(output)}))
             else:
                 req.append(Q("match", **{"ports.scripts.output": output}))
-        if values is not None:
+        if values:
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")

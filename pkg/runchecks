@@ -1,0 +1,26 @@
+#! /bin/sh
+
+# This file is part of IVRE.
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+#
+# IVRE is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# IVRE is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+# License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with IVRE. If not, see <http://www.gnu.org/licenses/>.
+
+# pip install -U flake8 codespell pylint
+
+flake8 --ignore=F401,E402 doc/conf.py && flake8 --ignore=W504 setup.py bin/ivre && flake8 --ignore=E402,W504 tests/tests.py && flake8 --ignore=W504 ivre/ && echo "flake8 OK (except W504)"
+
+codespell  --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
+
+pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init,bad-continuation,broad-except,cyclic-import,deprecated-module,duplicate-code,exec-used,fixme,function-redefined,global-statement,global-variable-undefined,import-error,import-outside-toplevel,invalid-name,locally-disabled,missing-docstring,no-absolute-import,no-member,non-parent-init-called,no-self-use,old-division,protected-access,reload-builtin,round-builtin,singleton-comparison,subprocess-popen-preexec-fn,super-init-not-called,suppressed-message,too-few-public-methods,too-many-ancestors,too-many-arguments,too-many-boolean-expressions,too-many-branches,too-many-instance-attributes,too-many-lines,too-many-locals,too-many-nested-blocks,too-many-public-methods,too-many-return-statements,too-many-statements,unsubscriptable-object,unsupported-membership-test,unused-argument,useless-object-inheritance,wrong-import-order,wrong-import-position ivre && echo "pylint OK"
+

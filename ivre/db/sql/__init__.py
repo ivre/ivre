@@ -136,6 +136,19 @@ class ScanCSVFile(CSVFile):
                     script['masscan']['raw'] = utils.encode_b64(
                         script['masscan']['raw']
                     )
+                if 'ssl-cert' in script:
+                    for cert in script['ssl-cert']:
+                        for fld in ['not_before', 'not_after']:
+                            if fld not in cert:
+                                continue
+                            if isinstance(cert[fld], datetime.datetime):
+                                cert[fld] = utils.datetime2timestamp(
+                                    cert[fld]
+                                )
+                            elif isinstance(cert[fld], basestring):
+                                cert[fld] = utils.datetime2timestamp(
+                                    utils.all2datetime(cert[fld])
+                                )
             if 'screendata' in port:
                 port['screendata'] = utils.encode_b64(port['screendata'])
         for field in ["hostnames", "ports", "info"]:
@@ -185,6 +198,16 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
+        if line['recontype'] == 'SSL_SERVER' and line['source'] == 'cert':
+            for fld in ['not_before', 'not_after']:
+                if fld not in line:
+                    continue
+                if isinstance(line[fld], datetime.datetime):
+                    line[fld] = utils.datetime2timestamp(line[fld])
+                elif isinstance(line[fld], basestring):
+                    line[fld] = utils.datetime2timestamp(
+                        utils.all2datetime(line[fld])
+                    )
         for key, value in viewitems(line):
             if key not in ["info", "moreinfo"] and \
                isinstance(value, basestring):
@@ -699,6 +722,7 @@ class SQLDBActive(SQLDB, DBActive):
         "http-headers",
         "http-user-agent",
         "ssh-hostkey",
+        "ssl-cert",
         "ssl-ja3-client",
         "ssl-ja3-server"
     ])
@@ -1206,11 +1230,17 @@ versions reported `{"Server": "value"}`, while recent versions report
                                 self.tables.script.output,
                                 self.tables.script.data])
                         .where(self.tables.script.port == portid)):
-                    recp.setdefault('scripts', []).append(
-                        dict(id=script.name,
-                             output=script.output,
-                             **(script.data if script.data else {}))
-                    )
+                    data = dict(id=script.name,
+                                output=script.output,
+                                **(script.data if script.data else {}))
+                    if 'ssl-cert' in data:
+                        for cert in data['ssl-cert']:
+                            for fld in ['not_before', 'not_after']:
+                                try:
+                                    cert[fld] = utils.all2datetime(cert[fld])
+                                except KeyError:
+                                    pass
+                    recp.setdefault('scripts', []).append(data)
                 rec.setdefault('ports', []).append(recp)
             for trace in self.db.execute(select([self.tables.trace])
                                          .where(self.tables.trace.scan ==
@@ -1379,8 +1409,8 @@ versions reported `{"Server": "value"}`, while recent versions report
 
         """
         return cls.base_filter(
-            main=cls._searchstring_re(cls.tables.scan.info['as_name'].astext,
-                                      asname, neg=neg)
+            main=cls._searchstring_rec(cls.tables.scan.info['as_name'].astext,
+                                       asname, neg=neg)
         )
 
     @classmethod
@@ -1627,21 +1657,6 @@ versions reported `{"Server": "value"}`, while recent versions report
                         for subkey2 in needunwind])
             )])
         return cls.base_filter(script=[(not neg, req)])
-
-    @classmethod
-    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
-        values = {}
-        if keytype is not None:
-            values['pubkey'] = {'type': keytype}
-        if md5 is not None:
-            values['md5'] = md5
-        if sha1 is not None:
-            values['sha1'] = sha1
-        if sha256 is not None:
-            values['sha256'] = sha256
-        if values:
-            return cls.searchscript(name="ssl-cert", values=values)
-        return cls.searchscript(name="ssl-cert")
 
     @classmethod
     def searchsvchostname(cls, hostname):
@@ -2005,7 +2020,8 @@ class SQLDBPassive(SQLDB, DBPassive):
         "infos.issuer": Passive.moreinfo.op('->>')('issuer'),
         "infos.issuer_text": Passive.moreinfo.op('->>')('issuer_text'),
         "infos.md5": Passive.moreinfo.op('->>')('md5'),
-        "infos.pubkeyalgo": Passive.moreinfo.op('->>')('pubkeyalgo'),
+        "infos.pubkey.type": (Passive.moreinfo.op('->')('pubkey')
+                              .op('->>')('type')),
         "infos.san": Passive.moreinfo.op('->>')('san'),
         "infos.sha1": Passive.moreinfo.op('->>')('sha1'),
         "infos.sha256": Passive.moreinfo.op('->>')('sha256'),
@@ -2061,7 +2077,8 @@ class SQLDBPassive(SQLDB, DBPassive):
                 self.tables.passive.lastseen, self.tables.passive.port,
                 self.tables.passive.recontype, self.tables.passive.source,
                 self.tables.passive.targetval, self.tables.passive.value,
-                self.tables.passive.info, self.tables.passive.moreinfo
+                self.tables.passive.info, self.tables.passive.moreinfo,
+                self.tables.passive.schema_version,
             ]).select_from(flt.select_from)
         )
         for key, way in sort or []:
@@ -2089,6 +2106,13 @@ returns a generator.
             if rec.get('recontype') == 'SSL_SERVER' and \
                rec.get('source') == 'cert':
                 rec['value'] = self.from_binary(rec['value'])
+                for fld in ['not_before', 'not_after']:
+                    try:
+                        rec['infos'][fld] = utils.all2datetime(
+                            rec['infos'][fld]
+                        )
+                    except KeyError:
+                        pass
             yield rec
 
     def get_one(self, flt, skip=None):
@@ -2118,6 +2142,16 @@ returns the first result, or None if no result exists."""
             lastseen = utils.all2datetime(lastseen)
         if addr:
             addr = self.ip2internal(addr)
+        if spec['recontype'] == 'SSL_SERVER' and spec['source'] == 'cert':
+            for fld in ['not_before', 'not_after']:
+                if fld not in spec:
+                    continue
+                if isinstance(spec[fld], datetime.datetime):
+                    spec[fld] = utils.datetime2timestamp(spec[fld])
+                elif isinstance(spec[fld], basestring):
+                    spec[fld] = utils.datetime2timestamp(
+                        utils.all2datetime(spec[fld])
+                    )
         otherfields = dict(
             (key, spec.pop(key, ""))
             for key in ["sensor", "source", "targetval", "recontype", "value"]
@@ -2466,20 +2500,57 @@ passive table."""
         ))
 
     @classmethod
-    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
+                   subject=None, issuer=None, self_signed=None,
+                   pkmd5=None, pksha1=None, pksha256=None):
         res = (
             (cls.tables.passive.recontype == 'SSL_SERVER') &
             (cls.tables.passive.source == 'cert')
         )
         if keytype is not None:
-            res &= (cls.tables.passive.moreinfo.op('->>')('pubkeyalgo') ==
-                    utils.PUBKEY_REV_TYPES.get(keytype, keytype))
+            res &= (
+                cls.tables.passive.moreinfo
+                .op('->')('pubkey').op('->>')('type') == keytype
+            )
         if md5 is not None:
-            res &= (cls.tables.passive.moreinfo.op('->>')('md5') == md5)
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('md5'), md5,
+            )
         if sha1 is not None:
-            res &= (cls.tables.passive.moreinfo.op('->>')('sha1') == sha1)
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('sha1'), sha1,
+            )
         if sha256 is not None:
-            res &= (cls.tables.passive.moreinfo.op('->>')('sha256') == sha256)
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('sha256'), sha256,
+            )
+        if subject is not None:
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('subject_text'),
+                subject,
+            )
+        if issuer is not None:
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('issuer_text'),
+                issuer,
+            )
+        if self_signed is not None:
+            res &= (cls.tables.passive.self_signed == self_signed)
+        if pkmd5 is not None:
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo
+                .op('->')('pubkey').op('->>')('md5'), pkmd5,
+            )
+        if pksha1 is not None:
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo
+                .op('->')('pubkey').op('->>')('sha1'), pksha1,
+            )
+        if pksha256 is not None:
+            res &= cls._searchstring_re(
+                cls.tables.passive.moreinfo
+                .op('->')('pubkey').op('->>')('sha256'), pksha256,
+            )
         return PassiveFilter(main=res)
 
     @classmethod
@@ -2540,34 +2611,6 @@ passive table."""
                 ),
                 value,
             )
-        ))
-
-    @classmethod
-    def searchcertsubject(cls, expr, issuer=None):
-        base = (
-            (cls.tables.passive.recontype == 'SSL_SERVER') &
-            (cls.tables.passive.source == 'cert') &
-            (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('subject_text'), expr
-            ))
-        )
-        if issuer is None:
-            return PassiveFilter(main=base)
-        return PassiveFilter(main=(
-            base &
-            (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('issuer_text'), issuer
-            ))
-        ))
-
-    @classmethod
-    def searchcertissuer(cls, expr):
-        return PassiveFilter(main=(
-            (cls.tables.passive.recontype == 'SSL_SERVER') &
-            (cls.tables.passive.source == 'cert') &
-            (cls._searchstring_re(
-                cls.tables.passive.moreinfo.op('->>')('issuer_text'), expr
-            ))
         ))
 
     @classmethod

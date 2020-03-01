@@ -31,8 +31,8 @@ from textwrap import wrap
 from xml.sax.handler import ContentHandler, EntityResolver
 
 
-from builtins import int, range
-from future.utils import PY2, viewitems, viewvalues
+from builtins import int
+from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 
 
@@ -40,7 +40,7 @@ from ivre import utils
 from ivre.analyzer import dicom, ike
 
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -789,55 +789,6 @@ New in SCHEMA_VERSION == 15.
     return result
 
 
-def change_ssl_cert(table):
-    """Fix modulus and exponent value in "ssl-cert" Nmap script. A bug
-exists in some Nmap versions that reports "BIGNUM: 0x<memory address>"
-instead of the value for fields `.modulus` and `.exponent` of
-`.pubkey`.
-
-In newer versions, the output has been fixed, **but** the exponent is
-written as a decimal number and the modulus as an hexadecimal number
-(see comments there: <https://github.com/nmap/nmap/commit/0f3a8a7>.
-
-    """
-    if (
-            not isinstance(table, dict) or 'pubkey' not in table or
-            'pem' not in table
-    ):
-        return table
-    pubkey = table['pubkey']
-    fixit = False
-    for key in ["modulus", "exponent"]:
-        if (
-                isinstance(pubkey.get(key), str) and
-                pubkey[key].startswith('BIGNUM: ')
-        ):
-            fixit = True
-            break
-    if not fixit:
-        if isinstance(pubkey.get("modulus"), str):
-            try:
-                pubkey["modulus"] = str(int(pubkey["modulus"], 16))
-            except ValueError:
-                utils.LOGGER.warning('Cannot convert modulus to decimal [%r]',
-                                     pubkey["modulus"])
-        return table
-    data = ''.join(table['pem'].splitlines()[1:-1]).encode()
-    try:
-        newinfo = create_ssl_cert(data)[1]
-    except Exception:
-        utils.LOGGER.warning('Cannot parse certificate %r', data,
-                             exc_info=True)
-        return table
-    if 'pubkey' not in newinfo:
-        return table
-    newpubkey = newinfo['pubkey']
-    for key in ["modulus", "exponent"]:
-        if key in newpubkey:
-            pubkey[key] = newpubkey[key]
-    return table
-
-
 def change_http_server_header(table):
     if isinstance(table, dict):
         if 'Server' in table:
@@ -857,8 +808,55 @@ CHANGE_TABLE_ELEMS = {
     'ssh-hostkey': change_ssh_hostkey,
     'http-git': change_http_git,
     'http-server-header': change_http_server_header,
+}
+
+
+def change_ssl_cert(out, table):
+    """Fix modulus and exponent value in "ssl-cert" Nmap script. A bug
+exists in some Nmap versions that reports "BIGNUM: 0x<memory address>"
+instead of the value for fields `.modulus` and `.exponent` of
+`.pubkey`.
+
+In newer versions, the output has been fixed, **but** the exponent is
+written as a decimal number and the modulus as an hexadecimal number
+(see comments there: <https://github.com/nmap/nmap/commit/0f3a8a7>.
+
+Anyway, we first try to use our own parser, to get more information
+than Nmap would report.
+
+    """
+    if not isinstance(table, dict):
+        return out, [table]
+    if 'pem' in table:
+        # Let's try out own parser first
+        data = ''.join(table['pem'].splitlines()[1:-1]).encode()
+        try:
+            return create_ssl_cert(data)
+        except Exception:
+            utils.LOGGER.warning('Cannot parse certificate %r', data,
+                                 exc_info=True)
+    if 'pubkey' not in table:
+        return out, [table]
+    pubkey = table['pubkey']
+    for key in ["modulus", "exponent"]:
+        if (
+                isinstance(pubkey.get(key), str) and
+                pubkey[key].startswith('BIGNUM: ')
+        ):
+            del pubkey[key]
+    if isinstance(pubkey.get("modulus"), str):
+        try:
+            pubkey["modulus"] = str(int(pubkey["modulus"], 16))
+        except ValueError:
+            utils.LOGGER.warning('Cannot convert modulus to decimal [%r]',
+                                 pubkey["modulus"])
+    return out, [table]
+
+
+CHANGE_OUTPUT_TABLE_ELEMS = {
     'ssl-cert': change_ssl_cert,
 }
+
 
 IGNORE_SCRIPTS = {
     'mcafee-epo-agent': set(['ePO Agent not found']),
@@ -1248,6 +1246,47 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
+def create_ssl_output(info):
+    out = []
+    for key, name in [('subject_text', 'Subject'),
+                      ('issuer_text', 'Issuer')]:
+        try:
+            out.append('%s: %s' % (name, info[key]))
+        except KeyError:
+            pass
+    try:
+        pubkey = info['pubkey']
+    except KeyError:
+        pass
+    else:
+        try:
+            out.append('Public Key type: %s' % pubkey['type'])
+        except KeyError:
+            pass
+        try:
+            out.append('Public Key bits: %d' % pubkey['bits'])
+        except KeyError:
+            pass
+    for key, name in [('not_before', 'Not valid before: '),
+                      ('not_after', 'Not valid after:  ')]:
+        try:
+            out.append('%s%s' % (name, info[key]))
+        except KeyError:
+            pass
+    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:'),
+                      ('sha256', 'SHA-256:')]:
+        # NB: SHA-256 is not (yet) reported by Nmap, but it might help.
+        try:
+            out.append('%-7s%s' % (name, ' '.join(wrap(info[key], 4))))
+        except KeyError:
+            pass
+    try:
+        out.append(info['pem'])
+    except KeyError:
+        pass
+    return out
+
+
 def create_ssl_cert(data, b64encoded=True):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
@@ -1259,49 +1298,15 @@ X509 "service" tag.
         cert = data
         data = utils.encode_b64(cert)
     info = utils.get_cert_info(cert)
-    newout = []
-    for key, name in [('subject_text', 'Subject'),
-                      ('issuer_text', 'Issuer')]:
-        try:
-            newout.append('%s: %s' % (name, info[key]))
-        except KeyError:
-            pass
-    try:
-        pubkeyalgo = info.pop('pubkeyalgo')
-    except KeyError:
-        pass
-    else:
-        pubkeytype = utils.PUBKEY_TYPES.get(pubkeyalgo, pubkeyalgo)
-        newout.append('Public Key type: %s' % pubkeytype)
-        info['pubkey'] = {'type': pubkeytype}
-    try:
-        pubkeybits = info.pop('bits')
-    except KeyError:
-        pass
-    else:
-        newout.append('Public Key bits: %d' % pubkeybits)
-        info.setdefault('pubkey', {})['bits'] = pubkeybits
-    for key in ['modulus', 'exponent']:
-        try:
-            info.setdefault('pubkey', {})[key] = info.pop(key)
-        except KeyError:
-            pass
-    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:'),
-                      ('sha256', 'SHA-256:')]:
-        # NB: SHA-256 is not (yet) reported by Nmap, but it might help.
-        try:
-            newout.append('%-7s%s' % (name, ' '.join(wrap(info[key], 4))))
-        except KeyError:
-            pass
     b64cert = data.decode()
     pem = []
     pem.append('-----BEGIN CERTIFICATE-----')
-    pem.extend(b64cert[i:i + 64] for i in range(0, len(b64cert), 64))
+    pem.extend(wrap(b64cert, 64))
     pem.append('-----END CERTIFICATE-----')
     pem.append('')
-    newout.extend(pem)
     info['pem'] = '\n'.join(pem)
-    return newout, info
+    newout = create_ssl_output(info)
+    return newout, [info]
 
 
 _EXPR_INDEX_OF = re.compile(
@@ -1697,7 +1702,7 @@ argument (a dict object).
                                 tzone = '%+03d%02d' % (tzone // 60, tzone % 60)
                             else:
                                 tzone = ""
-                            if PY2:
+                            if not utils.STRPTIME_SUPPORTS_TZ:
                                 # %z is not supported with strptime()
                                 tzone = ""
                             if tstamp.startswith('1601-01-01 ') or \
@@ -2086,6 +2091,14 @@ argument (a dict object).
                                          "got [%r]", self._curtablepath)
                 if infokey in CHANGE_TABLE_ELEMS:
                     self._curtable = CHANGE_TABLE_ELEMS[infokey](
+                        self._curtable
+                    )
+                elif infokey in CHANGE_OUTPUT_TABLE_ELEMS:
+                    (
+                        self._curscript['output'],
+                        self._curtable,
+                    ) = CHANGE_OUTPUT_TABLE_ELEMS[infokey](
+                        self._curscript.get('output', ''),
                         self._curtable
                     )
                 self._curscript[infokey] = self._curtable
