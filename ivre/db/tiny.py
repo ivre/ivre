@@ -646,7 +646,7 @@ This will be used by TinyDBNmap & TinyDBView
         return q.ports.any(flt)
 
     @classmethod
-    def searchproduct(cls, product, version=None, service=None, port=None,
+    def searchproduct(cls, product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
@@ -654,16 +654,18 @@ This will be used by TinyDBNmap & TinyDBView
 
         """
         q = Query()
-        flt = cls._searchstring_re(q.service_product, product)
+        res = []
+        if product is not None:
+            res.append(cls._searchstring_re(q.service_product, product))
         if version is not None:
-            flt &= cls._searchstring_re(q.service_version, version)
+            res.append(cls._searchstring_re(q.service_version, version))
         if service is not None:
-            flt &= cls._searchstring_re(q.service_name, service)
+            res.append(cls._searchstring_re(q.service_name, service))
         if port is not None:
-            flt &= (q.port == port)
+            res.append(q.port == port)
         if protocol is not None:
-            flt &= (q.protocol == protocol)
-        return q.ports.any(flt)
+            res.append(q.protocol == protocol)
+        return q.ports.any(cls.flt_and(*res))
 
     @classmethod
     def searchscript(cls, name=None, output=None, values=None, neg=False):
@@ -1208,7 +1210,7 @@ This will be used by TinyDBNmap & TinyDBView
                 service, product = service.split(':', 1)
 
                 def _newflt(field):
-                    return self.searchproduct(product, service=service)
+                    return self.searchproduct(product=product, service=service)
 
                 def _extractor(flt, field):
                     for rec in self._get(flt, sort=sort, limit=limit,
@@ -2192,7 +2194,7 @@ None) is returned.
         return flt
 
     @classmethod
-    def searchproduct(cls, product, version=None, service=None, port=None,
+    def searchproduct(cls, product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
@@ -2200,18 +2202,20 @@ None) is returned.
 
         """
         q = Query()
-        flt = cls._searchstring_re(q.infos.service_product, product)
+        res = []
+        if product is not None:
+            res.append(cls._searchstring_re(q.infos.service_product, product))
         if version is not None:
-            flt &= cls._searchstring_re(q.infos.service_version, version)
+            res.append(cls._searchstring_re(q.infos.service_version, version))
         if service is not None:
-            flt &= cls._searchstring_re(q.infos.service_name, service)
+            res.append(cls._searchstring_re(q.infos.service_name, service))
         if port is not None:
-            flt &= q.port == port
+            res.append(q.port == port)
         if protocol is not None:
             if protocol != 'tcp':
                 raise ValueError("Protocols other than TCP are not supported "
                                  "in passive")
-        return flt
+        return cls.flt_and(*res)
 
     @classmethod
     def searchsvchostname(cls, hostname):
@@ -3087,6 +3091,7 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
                     array_mode=clause['array_mode'],
                 )
         if clause['neg']:
+            # pylint: disable=invalid-unary-operand-type
             return ~res
         return res
 

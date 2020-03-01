@@ -312,7 +312,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        utils.str2regexp(product[1]),
+                        product=utils.str2regexp(product[1]),
                         service=utils.str2regexp(product[0])
                     )
                 )
@@ -320,7 +320,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        utils.str2regexp(product[1]),
+                        product=utils.str2regexp(product[1]),
                         service=utils.str2regexp(product[0]),
                         port=int(product[2])
                     )
@@ -331,7 +331,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        utils.str2regexp(product[1]),
+                        product=utils.str2regexp(product[1]),
                         version=utils.str2regexp(product[2]),
                         service=utils.str2regexp(product[0]),
                     )
@@ -340,7 +340,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        utils.str2regexp(product[1]),
+                        product=utils.str2regexp(product[1]),
                         version=utils.str2regexp(product[2]),
                         service=utils.str2regexp(product[0]),
                         port=int(product[3])

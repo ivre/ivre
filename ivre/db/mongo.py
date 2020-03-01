@@ -1996,14 +1996,16 @@ it is not expected)."""
         return {'ports': {'$elemMatch': flt}}
 
     @staticmethod
-    def searchproduct(product, version=None, service=None, port=None,
+    def searchproduct(product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        flt = {'service_product': product}
+        flt = {}
+        if product is not None:
+            flt['service_product'] = product
         if version is not None:
             flt['service_version'] = version
         if service is not None:
@@ -2786,7 +2788,7 @@ it is not expected)."""
             elif ":" in service:
                 service, product = service.split(':', 1)
                 flt = self.flt_and(flt, self.searchproduct(
-                    product,
+                    product=product,
                     service=service,
                 ))
                 specialflt = [
@@ -4167,14 +4169,16 @@ setting values according to the keyword arguments.
         return flt
 
     @staticmethod
-    def searchproduct(product, version=None, service=None, port=None,
+    def searchproduct(product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        flt = {'infos.service_product': product}
+        flt = {}
+        if product is not None:
+            flt['infos.service_product'] = product
         if version is not None:
             flt['infos.service_version'] = version
         if service is not None:

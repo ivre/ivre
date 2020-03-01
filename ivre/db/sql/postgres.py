@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -530,7 +530,7 @@ insert structures.
                 )
             elif ':' in info:
                 info = info.split(':', 1)
-                flt = self.flt_and(flt, self.searchproduct(info[1],
+                flt = self.flt_and(flt, self.searchproduct(product=info[1],
                                                            service=info[0]))
                 field = self._topstructure(
                     self.tables.port,

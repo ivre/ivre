@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -603,7 +603,7 @@ return result;
             elif ":" in info:
                 service, product = info.split(':', 1)
                 flt = self.flt_and(flt, self.searchproduct(
-                    product,
+                    product=product,
                     service=service,
                 ))
                 matchflt = (
@@ -1094,24 +1094,26 @@ return result;
             res &= Q('match', ports__protocol=protocol)
         return Q('nested', path='ports', query=res)
 
-    @staticmethod
-    def searchproduct(product, version=None, service=None, port=None,
+    @classmethod
+    def searchproduct(cls, product=None, version=None, service=None, port=None,
                       protocol=None):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
         """
-        res = Q('match', ports__service_product=product)
+        res = []
+        if product is not None:
+            res.append(Q('match', ports__service_product=product))
         if version is not None:
-            res &= Q('match', ports__service_version=version)
+            res.append(Q('match', ports__service_version=version))
         if service is not None:
-            res &= Q('match', ports__service_name=service)
+            res.append(Q('match', ports__service_name=service))
         if port is not None:
-            res &= Q('match', ports__port=port)
+            res.append(Q('match', ports__port=port))
         if protocol is not None:
-            res &= Q('match', ports__protocol=protocol)
-        return Q('nested', path='ports', query=res)
+            res.append(Q('match', ports__protocol=protocol))
+        return Q('nested', path='ports', query=cls.flt_and(*res))
 
 
 class ElasticDBView(ElasticDBActive, DBView):

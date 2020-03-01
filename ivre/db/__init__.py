@@ -203,7 +203,9 @@ class DB(object):
         conditions is true.
 
         """
-        return reduce(cls._flt_and, args)
+        if args:
+            return reduce(cls._flt_and, args)
+        return cls.flt_empty
 
     @staticmethod
     def _flt_and(cond1, cond2):
@@ -222,7 +224,9 @@ class DB(object):
         conditions is true.
 
         """
-        return reduce(cls._flt_or, args)
+        if args:
+            return reduce(cls._flt_or, args)
+        return cls.flt_empty
 
     @staticmethod
     def _flt_or(cond1, cond2):
@@ -1411,7 +1415,7 @@ versions reported `{"Server": "value"}`, while recent versions report
                                 values={"name": name, "value": value})
 
     def searchgeovision(self):
-        return self.searchproduct(re.compile('^GeoVision', re.I))
+        return self.searchproduct(product=re.compile('^GeoVision', re.I))
 
     def searchwebcam(self):
         return self.searchdevicetype('webcam')
@@ -1433,7 +1437,7 @@ versions reported `{"Server": "value"}`, while recent versions report
         raise NotImplementedError
 
     @staticmethod
-    def searchproduct(product, version=None, service=None, port=None,
+    def searchproduct(product=None, version=None, service=None, port=None,
                       protocol=None):
         raise NotImplementedError
 
