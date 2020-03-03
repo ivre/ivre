@@ -608,7 +608,7 @@ To use this to create a pandas DataFrame, you can run:
     @classmethod
     def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
                    subject=None, issuer=None, self_signed=None,
-                   pkmd5=None, pksha1=None, pksha256=None):
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         """Look for a particular certificate"""
         raise NotImplementedError
 
@@ -1433,7 +1433,7 @@ do this, we use the opportunity to parse the certificate again.
     @classmethod
     def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
                    subject=None, issuer=None, self_signed=None,
-                   pkmd5=None, pksha1=None, pksha256=None):
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         values = {}
         if keytype is not None:
             values['pubkey.type'] = keytype
@@ -1455,7 +1455,8 @@ do this, we use the opportunity to parse the certificate again.
             values['pubkey.sha1'] = pksha1
         if pksha256 is not None:
             values['pubkey.sha256'] = pksha256
-        return cls.searchscript(name="ssl-cert", values=values)
+        return cls.searchscript(name="ssl-cacert" if cacert else "ssl-cert",
+                                values=values)
 
     @classmethod
     def searchhttphdr(cls, name=None, value=None):
@@ -2098,16 +2099,19 @@ class DBView(DBActive):
                                      ua_equals, ua_output)
 
     @staticmethod
-    def merge_cert_scripts(curscript, script, script_id):
+    def merge_ssl_cert_scripts(curscript, script, script_id):
 
         def cert_equals(a, b, script_id):
             return a['sha256'] == b['sha256']
 
         def cert_output(cert, script_id):
-            return xmlnmap.create_ssl_output(cert)
+            return '\n'.join(xmlnmap.create_ssl_output(cert))
 
-        return DBView._merge_scripts(curscript, script, script_id,
-                                     cert_equals, cert_output)
+        return DBView._merge_scripts(
+            curscript, script, script_id, cert_equals, cert_output,
+            outsep="\n---------------------------------------------"
+            "-------------------\n"
+        )
 
     @staticmethod
     def merge_axfr_scripts(curscript, script, script_id):
@@ -2142,27 +2146,29 @@ class DBView(DBActive):
         return curscript
 
     @staticmethod
-    def _merge_scripts(curscript, script, script_id,
-                       script_equals, script_output):
+    def _merge_scripts(curscript, script, script_id, script_equals,
+                       script_output, outsep="\n"):
         """Merge two scripts and return the result. Avoid duplicates.
         """
         to_merge_list = []
-        for to_add in script[script_id]:
+        script_id_alias = xmlnmap.ALIASES_TABLE_ELEMS.get(script_id, script_id)
+        for to_add in script.setdefault(script_id_alias, []):
             to_merge = True
-            for cur in curscript[script_id]:
+            for cur in curscript.get(script_id_alias, []):
                 if script_equals(to_add, cur, script_id):
                     to_merge = False
                     break
             if to_merge:
                 to_merge_list.append(to_add)
-        curscript[script_id].extend(to_merge_list)
-        # Compute output from curscript[script_id]
+        curscript.setdefault(script_id_alias, []).extend(to_merge_list)
+        # Compute output from curscript[script_id_alias]
         output = []
-        for el in curscript[script_id]:
+        for el in curscript[script_id_alias]:
             output.append(script_output(el, script_id))
         if output:
-            output.append('')
-        curscript['output'] = '\n'.join(output)
+            curscript['output'] = outsep.join(output) + '\n'
+        else:
+            curscript['output'] = ''
         return curscript
 
     @staticmethod
@@ -2173,7 +2179,7 @@ class DBView(DBActive):
             return DBView.merge_ua_scripts(curscript, script, script_id)
         if script_id == 'dns-zone-transfer':
             return DBView.merge_axfr_scripts(curscript, script, script_id)
-        if script_id == 'ssl-cert':
+        if script_id in ['ssl-cert', 'ssl-cacert']:
             return DBView.merge_ssl_cert_scripts(curscript, script, script_id)
         return {}
 
@@ -2262,7 +2268,9 @@ class DBView(DBActive):
                     elif (script['id'] in ['ssl-ja3-server',
                                            'ssl-ja3-client',
                                            'http-user-agent',
-                                           'dns-zone-transfer']):
+                                           'dns-zone-transfer',
+                                           'ssl-cacert',
+                                           'ssl-cert']):
                         # Merge scripts
                         curscript = next(x for x in curport['scripts']
                                          if x['id'] == script['id'])

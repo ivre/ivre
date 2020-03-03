@@ -3555,7 +3555,7 @@ inserted in the database.
         except (KeyError, ValueError):
             pass
         if rec.get('recontype') == 'SSL_SERVER' and \
-           rec.get('source') == 'cert':
+           rec.get('source') in {'cert', 'cacert'}:
             rec['value'] = cls.to_binary(
                 utils.decode_b64(rec['value'].encode())
             )
@@ -4032,9 +4032,9 @@ setting values according to the keyword arguments.
     @staticmethod
     def searchcert(keytype=None, md5=None, sha1=None, sha256=None,
                    subject=None, issuer=None, self_signed=None,
-                   pkmd5=None, pksha1=None, pksha256=None):
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         res = {'recontype': 'SSL_SERVER',
-               'source': 'cert'}
+               'source': 'cacert' if cacert else 'cert'}
         if keytype is not None:
             res['infos.pubkey.type'] = keytype
         if md5 is not None:

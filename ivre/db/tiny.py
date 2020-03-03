@@ -1973,8 +1973,10 @@ returned to backend-agnostic functions.
                 rec[fld] = utils.all2datetime(rec[fld])
             except KeyError:
                 pass
-        if rec.get('recontype') == 'SSL_SERVER' and \
-           rec.get('source') == 'cert':
+        if (
+                rec.get('recontype') == 'SSL_SERVER' and
+                rec.get('source') in {'cert', 'cacert'}
+        ):
             rec['value'] = cls.from_binary(rec['value'])
         if isinstance(rec, Document):
             rec['_id'] = rec.doc_id
@@ -1982,8 +1984,10 @@ returned to backend-agnostic functions.
 
     def _get(self, *args, **kargs):
         for rec in self._db_get(*args, **kargs):
-            if rec.get('recontype') == 'SSL_SERVER' and \
-               rec.get('source') == 'cert':
+            if (
+                    rec.get('recontype') == 'SSL_SERVER' and
+                    rec.get('source') in {'cert', 'cacert'}
+            ):
                 for fld in ['not_before', 'not_after']:
                     try:
                         rec['infos'][fld] = utils.all2datetime(
@@ -2046,8 +2050,10 @@ None) is returned.
                     doc['infos'] = orig['infos']
                 except KeyError:
                     pass
-                if doc['recontype'] == 'SSL_SERVER' and \
-                   doc['source'] == 'cert':
+                if (
+                        doc['recontype'] == 'SSL_SERVER' and
+                        doc['source'] in {'cert', 'cacert'}
+                ):
                     for fld in ['not_before', 'not_after']:
                         if fld not in doc.get('infos', {}):
                             continue
@@ -2349,9 +2355,10 @@ None) is returned.
     @classmethod
     def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
                    subject=None, issuer=None, self_signed=None,
-                   pkmd5=None, pksha1=None, pksha256=None):
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         q = Query()
-        res = ((q.recontype == 'SSL_SERVER') & (q.source == 'cert'))
+        res = ((q.recontype == 'SSL_SERVER') &
+               (q.source == ('cacert' if cacert else 'cert')))
         if keytype is not None:
             res &= (q.infos.pubkey.type == keytype)
         if md5 is not None:

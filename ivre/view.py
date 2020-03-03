@@ -161,21 +161,40 @@ def _extract_passive_SSL_SERVER(rec):
     """Handle ssl server headers."""
     source = rec.get('source')
     if source == 'cert':
-        return _extract_passive_SSL_SERVER_cert(rec)
+        return _extract_passive_SSL_cert(rec)
+    if source == 'cacert':
+        return _extract_passive_SSL_cert(rec, cacert=True)
     if source.startswith('ja3-'):
         return _extract_passive_SSL_SERVER_ja3(rec)
     return {}
 
 
-def _extract_passive_SSL_SERVER_cert(rec):
-    script = {"id": "ssl-cert"}
-    port = {
-        'state_state': 'open',
-        'state_reason': "passive",
-        'port': rec['port'],
-        'protocol': rec.get('protocol', 'tcp'),
-        'service_tunnel': 'ssl',
-    }
+def _extract_passive_SSL_CLIENT(rec):
+    """Handle ssl server headers."""
+    source = rec.get('source')
+    if source == 'cert':
+        return _extract_passive_SSL_cert(rec, server=False)
+    if source == 'cacert':
+        return _extract_passive_SSL_cert(rec, cacert=True, server=False)
+    if source == 'ja3':
+        return _extract_passive_SSL_CLIENT_ja3(rec)
+    return {}
+
+
+def _extract_passive_SSL_cert(rec, cacert=False, server=True):
+    script = {"id": "ssl-cacert" if cacert else "ssl-cert"}
+    if server:
+        port = {
+            'state_state': 'open',
+            'state_reason': "passive",
+            'port': rec['port'],
+            'protocol': rec.get('protocol', 'tcp'),
+            'service_tunnel': 'ssl',
+        }
+    else:
+        port = {
+            'port': -1,
+        }
     info = rec['infos']
     if info:
         pem = []
@@ -187,6 +206,9 @@ def _extract_passive_SSL_SERVER_cert(rec):
         script['output'] = "\n".join(create_ssl_output(info))
         script['ssl-cert'] = [info]
         port['scripts'] = [script]
+    elif not server:
+        # nothing interesting on a client w/o cert
+        return {}
     return {'ports': [port]}
 
 
@@ -225,7 +247,7 @@ def _extract_passive_DNS_ANSWER(rec):
                            'name': name}]}
 
 
-def _extract_passive_SSL_CLIENT(rec):
+def _extract_passive_SSL_CLIENT_ja3(rec):
     """Handle SSL client ja3 extraction."""
     script = {"id": "ssl-ja3-client"}
     script['output'] = rec['value']

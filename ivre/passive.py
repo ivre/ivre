@@ -352,7 +352,7 @@ records.
 
     """
     source = spec.get('source')
-    if source == 'cert':
+    if source in {'cert', 'cacert'}:
         return _getinfos_cert(spec)
     if source.startswith('ja3-'):
         return _getinfos_ja3(spec)

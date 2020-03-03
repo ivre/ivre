@@ -198,7 +198,10 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
-        if line['recontype'] == 'SSL_SERVER' and line['source'] == 'cert':
+        if (
+                line['recontype'] == 'SSL_SERVER' and
+                line['source'] in {'cert', 'cacert'}
+        ):
             for fld in ['not_before', 'not_after']:
                 if fld not in line:
                     continue
@@ -2103,8 +2106,10 @@ returns a generator.
             except (KeyError, ValueError):
                 pass
             rec["infos"] = dict(rec.pop("info"), **rec.pop("moreinfo"))
-            if rec.get('recontype') == 'SSL_SERVER' and \
-               rec.get('source') == 'cert':
+            if (
+                    rec.get('recontype') == 'SSL_SERVER' and
+                    rec.get('source') in {'cert', 'cacert'}
+            ):
                 rec['value'] = self.from_binary(rec['value'])
                 for fld in ['not_before', 'not_after']:
                     try:
@@ -2142,7 +2147,10 @@ returns the first result, or None if no result exists."""
             lastseen = utils.all2datetime(lastseen)
         if addr:
             addr = self.ip2internal(addr)
-        if spec['recontype'] == 'SSL_SERVER' and spec['source'] == 'cert':
+        if (
+                spec['recontype'] == 'SSL_SERVER' and
+                spec['source'] in {'cert', 'cacert'}
+        ):
             for fld in ['not_before', 'not_after']:
                 if fld not in spec:
                     continue
@@ -2502,10 +2510,10 @@ passive table."""
     @classmethod
     def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
                    subject=None, issuer=None, self_signed=None,
-                   pkmd5=None, pksha1=None, pksha256=None):
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         res = (
             (cls.tables.passive.recontype == 'SSL_SERVER') &
-            (cls.tables.passive.source == 'cert')
+            (cls.tables.passive.source == ('cacert' if cacert else 'cert'))
         )
         if keytype is not None:
             res &= (

@@ -47,6 +47,8 @@ SCHEMA_VERSION = 17
 IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2', 'sslv2-drown'])
 
 ALIASES_TABLE_ELEMS = {
+    # Use the same structured output for both ssl-cert and ssl-cacert
+    "ssl-cacert": "ssl-cert",
     # ls unified output (ls NSE module + ftp-anon)
     #   grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
     "afp-ls": "ls",
@@ -1077,6 +1079,7 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "imap": "banner",
     "pop": "banner",
     "X509": "ssl-cert",
+    "X509CA": "ssl-cacert",
     "s7comm": "s7-info",
     "telnet": "banner",
 }
@@ -2161,6 +2164,7 @@ argument (a dict object).
                 "http-content": self.masscan_post_http_content,
                 "s7-info": self.masscan_post_s7info,
                 "ssl-cert": self.masscan_post_x509,
+                "ssl-cacert": self.masscan_post_x509,
                 "ssh-banner": self.masscan_post_ssh,
             }[script['id']]
         except KeyError:
@@ -2359,7 +2363,7 @@ argument (a dict object).
             return
         if output_data:
             script["output"] = "\n".join(output_text)
-            script[script["id"]] = output_data
+            script["ssl-cert"] = output_data
 
     def masscan_post_http(self, script):
         raw = self._from_binary(script['masscan']['raw'])
