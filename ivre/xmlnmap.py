@@ -2321,6 +2321,7 @@ argument (a dict object).
 
     def masscan_post_http(self, script):
         raw = self._from_binary(script['masscan']['raw'])
+        self._curport['service_name'] = 'http'
         self._curport.update(utils.match_nmap_svc_fp(
             raw, proto="tcp", probe="GetRequest",
         ))
@@ -2351,6 +2352,7 @@ argument (a dict object).
         })
 
     def masscan_post_http_content(self, script):
+        self._curport['service_name'] = 'http'
         raw = self._from_binary(script['masscan']['raw'])
         script_http_ls = create_http_ls(script['output'])
         script['output'] = utils.nmap_encode_data(raw)
