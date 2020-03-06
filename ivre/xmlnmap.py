@@ -2220,7 +2220,7 @@ argument (a dict object).
             data = data[4:]
             curdata, data = data[:length], data[length:]
             if curdata:
-                yield keys.pop(), curdata.decode().split(',')
+                yield keys.pop(), utils.nmap_encode_data(curdata).split(',')
             else:
                 yield keys.pop(), []
 
@@ -2252,7 +2252,7 @@ argument (a dict object).
                     keyc2s, keys2c = ('%s_client_to_server' % key,
                                       '%s_server_to_client' % key)
                     if keyc2s in ssh2_enum and \
-                       ssh2_enum[keyc2s] == ssh2_enum[keys2c]:
+                       ssh2_enum[keyc2s] == ssh2_enum.get(keys2c):
                         ssh2_enum[key] = ssh2_enum.pop(keyc2s)
                         del ssh2_enum[keys2c]
                 # preserve output order
