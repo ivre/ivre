@@ -64,6 +64,9 @@ def main():
                              'inserting them in database.')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='For test output, print out formatted results.')
+    parser.add_argument('--no-merge', action='store_true', help='Do **not** '
+                        'merge with existing results for same host and '
+                        'source.')
 
     if not USING_ARGPARSE:
         if 'nmap' in sys.argv:
@@ -121,6 +124,8 @@ def main():
 
         def output(x):
             print(x)
+    elif args.no_merge:
+        output = db.view.store_host
     else:
         output = db.view.store_or_merge_host
     # Output results
