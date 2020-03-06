@@ -1645,10 +1645,10 @@ argument (a dict object).
                             try:
                                 idx = banner.index(' ')
                             except ValueError:
-                                data['version'] = banner
+                                data['smb-version'] = banner
                                 banner = ""
                             else:
-                                data['version'] = banner[:idx]
+                                data['smb-version'] = banner[:idx]
                                 banner = banner[idx:]
                             continue
                         # os values may contain spaces
@@ -1730,18 +1730,29 @@ argument (a dict object).
                         data[key] = value
                     smb_os_disco = {}
                     smb_os_disco_output = ['']
+                    if 'os' in data:
+                        smb_os_disco['os'] = data['os']
+                        if 'ver' in data:
+                            smb_os_disco_output.append("  OS: %s (%s)" % (
+                                data['os'], data['ver']
+                            ))
+                            smb_os_disco['lanmanager'] = data['ver']
+                        else:
+                            smb_os_disco_output.append("  OS: %s" % data['os'])
+                    elif 'ver' in data:
+                        smb_os_disco_output.append("  OS: - (%s)" %
+                                                   data['ver'])
+                        smb_os_disco['lanmanager'] = data['ver']
                     for masscankey, nmapkey, humankey in [
                             ('name', 'server', 'NetBIOS computer name'),
-                            ('domain', 'workgroup', None),
+                            ('domain', 'workgroup', 'Workgroup'),
                             ('name-dns', 'fqdn', 'FQDN'),
                             ('domain-dns', 'domain_dns', 'Domain name'),
-                            ('forest', 'forest_dns', 'Forest name')
-                            # TODO
-                            # ('guid', 'guid', None),
-                            # ('ntlm-ver', 'guid', None),
-                            # ('os', 'guid', None),
-                            # ('ver', 'guid', None),
-                            # ('version', 'guid', None),
+                            ('forest', 'forest_dns', 'Forest name'),
+                            ('version', 'ntlm-os', 'Version (from NTLM)'),
+                            ('ntlm-ver', 'ntlm-version', 'NTLM version'),
+                            ('smb-version', 'smb-version', 'SMB version'),
+                            ('guid', 'guid', 'GUID'),
                     ]:
                         if masscankey in data:
                             smb_os_disco[nmapkey] = data[masscankey]
@@ -2209,7 +2220,7 @@ argument (a dict object).
             data = data[4:]
             curdata, data = data[:length], data[length:]
             if curdata:
-                yield keys.pop(), curdata.decode().split(',')
+                yield keys.pop(), utils.nmap_encode_data(curdata).split(',')
             else:
                 yield keys.pop(), []
 
@@ -2241,7 +2252,7 @@ argument (a dict object).
                     keyc2s, keys2c = ('%s_client_to_server' % key,
                                       '%s_server_to_client' % key)
                     if keyc2s in ssh2_enum and \
-                       ssh2_enum[keyc2s] == ssh2_enum[keys2c]:
+                       ssh2_enum[keyc2s] == ssh2_enum.get(keys2c):
                         ssh2_enum[key] = ssh2_enum.pop(keyc2s)
                         del ssh2_enum[keys2c]
                 # preserve output order
