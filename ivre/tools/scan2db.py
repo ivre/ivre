@@ -58,11 +58,6 @@ def main():
                         help='Store only hosts with a "ports" element.')
     parser.add_argument('--open-ports', action='store_true',
                         help='Store only hosts with open ports.')
-    parser.add_argument('--merge', action='store_true', help='Merge '
-                        'result with previous scan result for same host '
-                        'and source. Useful to use multiple partial '
-                        'scan results (e.g., one with -p 80, another '
-                        'with -p 21).')
     parser.add_argument('--masscan-probes', nargs='+', metavar='PROBE',
                         help='Additional Nmap probes to use when trying to '
                         'match Masscan results against Nmap service '
