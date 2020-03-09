@@ -80,6 +80,27 @@ function str2regexp(str) {
     return str;
 }
 
+function regexp2pattern(str) {
+    if (str instanceof RegExp) {
+	flags = str.flags;
+	str = str.source;
+	if (str.substr(0, 1) === "^") {
+	    str = str.substr(1);
+	}
+	else {
+	    str = ".*" + str;
+	}
+	if (str.substr(str.length - 1) === "$") {
+	    str = str.substr(0, str.length - 1);
+	}
+	else {
+	    str = str + ".*";
+	}
+	return [str, flags];
+    }
+    return [escapeRegExp(str), "g"];
+}
+
 function protect(value) {
     var state = 1;
     var result = [];
