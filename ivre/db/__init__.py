@@ -1458,6 +1458,9 @@ versions reported `{"Server": "value"}`, while recent versions report
             args['domain_dns'] = args.pop('dnsdomain')
         if 'forest' in args:
             args['forest_dns'] = args.pop('forest')
+        for key in ['ntlm_os', 'ntlm_version', 'smb_version']:
+            if key in args:
+                args[key.replace('_', '-')] = args.pop(key)
         return cls.searchscript(name='smb-os-discovery', values=args)
 
     @classmethod

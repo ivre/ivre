@@ -1,6 +1,6 @@
 /*
  * This file is part of IVRE.
- * Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+ * Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
  *
  * IVRE is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by
@@ -239,51 +239,39 @@ function add_param_objects(filter, p, pp) {
 	 * smb.* filters are very specific: they rely on the
 	 * table/elem values of the smb-os-discovery host script,
 	 * which may differ from the displayed output.
-	 *
-	 * For this reason, we do to rely on the value but rather on
-	 * the field and highlight whole lines.
 	 */
 	var subfield = p.substr(4);
 	var subfieldend = subfield.indexOf(':');
 	if (subfieldend !== -1) {
+	    value = subfield.substr(subfieldend + 1);
+	    value_flags = regexp2pattern(str2regexp(value));
+	    value = value_flags[0];
+	    flags = value_flags[1] + "m";
 	    subfield = subfield.substr(0, subfieldend);
 	}
-	switch(subfield) {
-	case 'os':
-	case 'lanmanager':
-	    add_param_object(filter.parametersobjunalias, 'script',
-			     [b, 'smb-os-discovery:/^(OS|OS CPE): .*$/m']);
-	    break;
-	case 'server':
-	    add_param_object(
-		filter.parametersobjunalias, 'script',
-		[b, 'smb-os-discovery:/^NetBIOS computer name: .*$/m']
-	    );
-	    break;
-	case 'workgroup':
-	    add_param_object(filter.parametersobjunalias, 'script',
-			     [b, 'smb-os-discovery:/^Workgroup: .*$/m']);
-	    break;
-	case 'date':
-	    add_param_object(filter.parametersobjunalias, 'script',
-			     [b, 'smb-os-discovery:/^System time: .*$/m']);
-	    break;
-	case 'domain_dns':
-	    add_param_object(
-		filter.parametersobjunalias, 'script',
-		[b, 'smb-os-discovery:/^Domain name: .*$/m']
-	    );
-	    break;
-	case 'fqdn':
-	    add_param_object(
-		filter.parametersobjunalias, 'script',
-		[b, 'smb-os-discovery:/^FQDN: .*$/m']
-	    );
-	    break;
-	default:
-	    add_param_object(filter.parametersobjunalias, 'script',
-			     [b, 'smb-os-discovery']);
+	else {
+	    value = "";
+	    flags = "m";
 	}
+	key = {
+	    'os': '(OS|OS CPE)',
+	    'lanmanager': '(OS|OS CPE)',
+	    'server': 'NetBIOS computer name',
+	    'workgroup': 'Workgroup',
+	    'date': 'System time',
+	    'domain_dns': 'Domain name',
+	    'forest_dns': 'Forest name',
+	    'fqdn': 'FQDN',
+	    'ntlm-os': 'Version \\(from NTLM\\)',
+	    'ntlm-version': 'NTLM version',
+	    'smb-version': 'SMB version',
+	    'guid': 'GUID',
+	}[subfield] || subfield;
+	add_param_object(
+	    filter.parametersobjunalias, 'script',
+	    [b, 'smb-os-discovery:/^' + key + ': (' + value + '|.*)$/' + flags]
+	);
+
     }
     else if (p.substr(0, 4) === "tcp/" || p.substr(0, 4) === "udp/") {
 	add_param_object(filter.parametersobjunalias, 'open', [b, p]);

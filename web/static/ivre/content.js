@@ -213,8 +213,8 @@ var HELP_FILTERS = {
 	    "title": "phpmyadmin",
 	    "content": "Look for PHPMyAdmin servers.",
 	},
-	"smb.dnsdomain:": {
-	    "title": "smb.dnsdomain:[FQDN]",
+	"smb.domain_dns:": {
+	    "title": "smb.domain_dns:[FQDN]",
 	    "content": "Search results with SMB service in a specific DNS domain.",
 	},
 	"smb.domain:": {
@@ -225,8 +225,8 @@ var HELP_FILTERS = {
 	    "title": "smb.fqdn:[NetBIOS]",
 	    "content": "Search results with SMB service in a specific host name (FQDN).",
 	},
-	"smb.forest:": {
-	    "title": "smb.forest:[FQDN]",
+	"smb.forest_dns:": {
+	    "title": "smb.forest_dns:[FQDN]",
 	    "content": "Search results with SMB service in a specific forest (DNS name).",
 	},
 	"smb.lanmanager:": {
@@ -235,15 +235,31 @@ var HELP_FILTERS = {
 	},
 	"smb.os:": {
 	    "title": "smb.os:[OS]",
-	    "content": "Search results with SMB service with a specific OS.",
+	    "content": "Search results with SMB service reporting a specific OS.",
+	},
+	"smb.ntlm-os:": {
+	    "title": "smb.ntlm-os:[Version]",
+	    "content": "Search results with NTLM protocol in SMB service reporting a specific OS.",
+	},
+	"smb.ntlm-version:": {
+	    "title": "smb.ntlm-version:[Version]",
+	    "content": "Search results with a specific versioln of the NTLM protocol in SMB service.",
+	},
+	"smb.smb-version:": {
+	    "title": "smb.smb-version:[Version]",
+	    "content": "Search results with a specific versioln of the SMB protocol.",
 	},
 	"smb.server:": {
 	    "title": "smb.server:[NetBIOS]",
-	    "content": "Search results with SMB service in a specific host name (NetBIOS).",
+	    "content": "Search results with SMB service with a specific host name (NetBIOS).",
 	},
 	"smb.workgroup:": {
 	    "title": "smb.workgroup:[NetBIOS]",
 	    "content": "Search results with SMB service in a specific workgroup (NetBIOS).",
+	},
+	"smb.guid:": {
+	    "title": "smb.guid:[GUID]",
+	    "content": "Search results with SMB service with a specific GUID.",
 	},
 	"smbshare": {
 	    "title": "smbshare<b>(:[access mode])</b>",
@@ -477,17 +493,21 @@ var HELP_TOPVALUES = {
 	    "title": "<b>(!)</b>cpe.version<b>(:[type](:[vendor])(:[product](:[version])))</b> or <b>(!)</b>cpe<b>(:[...])",
 	    "content": "CPE versions (matching optional type / vendor / product / version filter).",
 	},
-	"smb.dnsdomain": {
-	    "title": "<b>(!)</b>smb.dnsdomain",
+	"smb.domain_dns": {
+	    "title": "<b>(!)</b>smb.domain_dns",
 	    "content": "SMB domains (DNS).",
 	},
 	"smb.domain": {
 	    "title": "<b>(!)</b>smb.domain",
 	    "content": "SMB domains.",
 	},
-	"smb.forest": {
-	    "title": "<b>(!)</b>smb.forest",
+	"smb.forest_dns": {
+	    "title": "<b>(!)</b>smb.forest_dns",
 	    "content": "SMB forests.",
+	},
+	"smb.guid": {
+	    "title": "<b>(!)</b>smb.guid",
+	    "content": "SMB GUIDs.",
 	},
 	"smb.workgroup": {
 	    "title": "<b>(!)</b>smb.workgroup",
@@ -500,6 +520,18 @@ var HELP_TOPVALUES = {
 	"smb.os": {
 	    "title": "<b>(!)</b>smb.os",
 	    "content": "OS versions according to the SMB service.",
+	},
+	"smb.ntlm-os": {
+	    "title": "<b>(!)</b>smb.ntlm-os",
+	    "content": "OS versions according to the NTLM protocol in the SMB service.",
+	},
+	"smb.ntlm-version": {
+	    "title": "<b>(!)</b>smb.ntlm-version",
+	    "content": "NTLM versions in the SMB service.",
+	},
+	"smb.smb-version": {
+	    "title": "<b>(!)</b>smb.smb-version",
+	    "content": "SMB versions.",
 	},
 	"domains": {
 	    "title": "<b>(!)</b>domains<b>(:[level])</b>:",
