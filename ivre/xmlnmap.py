@@ -1084,6 +1084,7 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "pop": "banner",
     "X509": "ssl-cert",
     "s7comm": "s7-info",
+    "telnet": "banner",
 }
 
 MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
@@ -1103,6 +1104,7 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "pop": "pop3",
     "smtp": "smtp",
     "s7comm": "iso-tsap",
+    "telnet": "telnet",
 }
 
 
