@@ -1645,7 +1645,7 @@ def parse_ssh_key(data):
             LOGGER.info("Cannot parse SSH RSA host key from data %r", data,
                         exc_info=True)
         else:
-            info["bits"] = math.ceil(math.log(info["modulus"], 2))
+            info["bits"] = int(math.ceil(math.log(info["modulus"], 2)))
             # convert integer to strings to prevent overflow errors
             # (e.g., "MongoDB can only handle up to 8-byte ints")
             for val in ["exponent", "modulus"]:
