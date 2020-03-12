@@ -1308,7 +1308,9 @@ X509 "service" tag.
     return newout, info
 
 
-_EXPR_INDEX_OF = re.compile('<title[^>]*> *index +of', re.I)
+_EXPR_INDEX_OF = re.compile(
+    '<title[^>]*> *(?:index +of|directory +listing +(?:of|for))', re.I,
+)
 _EXPR_FILES = [
     re.compile('<a href="(?P<filename>[^"]+)">[^<]+</a></td><td[^>]*> *'
                '(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *'
@@ -1316,6 +1318,7 @@ _EXPR_FILES = [
     re.compile('<a href="(?P<filename>[^"]+)">[^<]+</a> *'
                '(?P<time>[0-9]+-[a-z0-9]+-[0-9]+ [0-9]+:[0-9]+) *'
                '(?P<size>[^ \r\n]+)', re.I),
+    re.compile('<li><a href="(?P<filename>[^"]+)">(?P=filename)</a>')
 ]
 
 
@@ -1345,12 +1348,12 @@ results.
     for fobj in files:
         for i, t in enumerate(title[:-1]):
             column_width[i] = max(column_width[i],
-                                  len(fobj.get(t, "")))
+                                  len(fobj.get(t, "-")))
     line_fmt = ('%%(size)-%ds  %%(time)-%ds  %%(filename)s' %
                 tuple(column_width))
     output.append(line_fmt % dict((t, t.upper()) for t in title))
     for fobj in files:
-        output.append(line_fmt % fobj)
+        output.append(line_fmt % dict(size="-", time="-", **fobj))
     output.append("")
     return {
         'id': 'http-ls', 'output': '\n'.join(output),
