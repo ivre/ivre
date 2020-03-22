@@ -18,10 +18,10 @@ On the "master", install IVRE following the
 ``screen``, ``tmux`` or ``nohup`` if you want to be able to "detach"
 from the ``agent`` script (which is not a daemon).
 
-On the "slave(s)", the ``agent`` script must be deployed, together with
+On the "remotehost(s)", the ``agent`` script must be deployed, together with
 ``nmap``, and ``rsync``.
 
-Run the slave(s)
+Run the remotehost(s)
 ----------------
 
 The computer running IVRE (the "master") needs to be able to access via
