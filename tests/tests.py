@@ -3702,11 +3702,10 @@ purposes to feed Elasticsearch view.
         out = out.decode().splitlines()
         self.assertEqual(len(out), 2)
         out = json.loads(out[0])
-        self.assertEqual(len(out), 2)
+        self.assertEqual(len(out), 26)
         found = False
         for rec in out:
-            self.assertEqual(len(rec['ports']), 1)
-            for port in rec['ports']:
+            for port in rec.get('ports', []):
                 self.assertEqual(len(port['scripts']), 1)
                 for script in port['scripts']:
                     self.assertEqual(script['id'], 'dns-zone-transfer')

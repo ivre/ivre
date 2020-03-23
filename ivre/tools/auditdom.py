@@ -42,6 +42,9 @@ else:
     sys.setdefaultencoding('utf-8')
 
 
+from future.utils import viewitems
+
+
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
 from ivre.utils import LOGGER, get_domains
@@ -130,6 +133,7 @@ class AXFRChecker(Checker):
     def test(self, v4=True, v6=True):
         start = datetime.now()
         for srvname, addr, res in self.do_test(v4=v4, v6=v6):
+            srvname = srvname.rstrip('.')
             if not res:
                 continue
             if (
@@ -174,6 +178,23 @@ class AXFRChecker(Checker):
                                ]
                            }]}],
             }
+            hosts = {}
+            for r in res:
+                if r.rclass != 'IN':
+                    continue
+                if r.rtype in ['A', 'AAAA']:
+                    name = r.name.rstrip('.')
+                    hosts.setdefault(r.data, set()).add((r.rtype, name))
+            for host, records in viewitems(hosts):
+                yield {
+                    "addr": host,
+                    "hostnames": [{"name": rec[1], "type": rec[0],
+                                   "domains": list(get_domains(rec[1]))}
+                                  for rec in records],
+                    "schema_version": SCHEMA_VERSION,
+                    "starttime": start,
+                    "endtime": datetime.now()
+                }
             start = datetime.now()
 
 
