@@ -21,10 +21,10 @@
   
     
       <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-        <script type="text/javascript" src="../_static/jquery.js"></script>
-        <script type="text/javascript" src="../_static/underscore.js"></script>
-        <script type="text/javascript" src="../_static/doctools.js"></script>
-        <script type="text/javascript" src="../_static/language_data.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/language_data.js"></script>
     
     <script type="text/javascript" src="../_static/js/theme.js"></script>
 
@@ -99,7 +99,7 @@
 <li class="toctree-l2"><a class="reference internal" href="docker.html">Docker</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Agents</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#set-up">Set-up</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#run-the-slave-s">Run the slave(s)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#run-the-worker-s">Run the worker(s)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#run-the-master">Run the master</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#runscansagent-the-old-school-one"><strong>runscansagent</strong>, the “old-school” one</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#runscansagentdb-the-modern-but-probably-broken-one"><strong>runscansagentdb</strong>, the “modern” (but probably broken) one</a></li>
@@ -201,11 +201,11 @@ number of dependencies.</p>
 <a class="reference internal" href="installation.html#installation-guidelines"><span class="std std-ref">Installation guidelines</span></a>. Install also
 <code class="docutils literal notranslate"><span class="pre">screen</span></code>, <code class="docutils literal notranslate"><span class="pre">tmux</span></code> or <code class="docutils literal notranslate"><span class="pre">nohup</span></code> if you want to be able to “detach”
 from the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script (which is not a daemon).</p>
-<p>On the “slave(s)”, the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script must be deployed, together with
+<p>On the “worker(s)”, the <code class="docutils literal notranslate"><span class="pre">agent</span></code> script must be deployed, together with
 <code class="docutils literal notranslate"><span class="pre">nmap</span></code>, and <code class="docutils literal notranslate"><span class="pre">rsync</span></code>.</p>
 </div>
-<div class="section" id="run-the-slave-s">
-<h2>Run the slave(s)<a class="headerlink" href="#run-the-slave-s" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="run-the-worker-s">
+<h2>Run the worker(s)<a class="headerlink" href="#run-the-worker-s" title="Permalink to this headline">¶</a></h2>
 <p>The computer running IVRE (the “master”) needs to be able to access via
 <code class="docutils literal notranslate"><span class="pre">rsync</span></code> the data directory of the agents (to add targets and to
 retrieve results): this is not an issue if you are running the agent and
