@@ -41,7 +41,7 @@ categories = {"discovery", "safe", "screenshot"}
 -- |_x11-screenshot: Saved to screenshot-1.2.3.4-6000.jpg
 
 local function sh_timeout(cmd, timeout)
-  return ("%s & CPID=${!}; (sleep %d; kill -9 ${CPID}) & SPID=${!}; wait ${CPID} 2>/dev/null; kill -9 ${SPID} 2>/dev/null"):format(cmd, timeout)
+  return ("%s & CPID=${!}; (sleep %d; kill -9 ${CPID} 2>/dev/null) & SPID=${!}; wait ${CPID} 2>/dev/null; kill -- -${SPID} 2>/dev/null"):format(cmd, timeout)
 end
 
 
