@@ -724,7 +724,11 @@ class MongoDBActive(MongoDB, DBActive):
             ([('starttime', pymongo.ASCENDING)], {}),
             ([('endtime', pymongo.ASCENDING)], {}),
             ([('source', pymongo.ASCENDING)], {}),
-            ([('categories', pymongo.ASCENDING)], {}),
+            ([
+                ('categories', pymongo.ASCENDING),
+                ('addr_0', pymongo.ASCENDING),
+                ('addr_1', pymongo.ASCENDING),
+            ], {}),
             ([('hostnames.domains', pymongo.ASCENDING)], {}),
             ([('traces.hops.domains', pymongo.ASCENDING)], {}),
             ([('openports.count', pymongo.ASCENDING)], {}),
@@ -736,7 +740,11 @@ class MongoDBActive(MongoDB, DBActive):
              {"sparse": True}),
             ([('ports.port', pymongo.ASCENDING)], {}),
             ([('ports.state_state', pymongo.ASCENDING)], {}),
-            ([('ports.service_name', pymongo.ASCENDING)], {}),
+            ([
+                ('ports.service_name', pymongo.ASCENDING),
+                ('ports.service_product', pymongo.ASCENDING),
+                ('ports.service_version', pymongo.ASCENDING),
+            ], {}),
             ([('ports.scripts.id', pymongo.ASCENDING)], {}),
             ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
              {"sparse": True}),
@@ -877,7 +885,21 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
             },
             17: {
+                "drop": [
+                    ([('categories', pymongo.ASCENDING)], {}),
+                    ([('ports.service_name', pymongo.ASCENDING)], {}),
+                ],
                 "ensure": [
+                    ([
+                        ('categories', pymongo.ASCENDING),
+                        ('addr_0', pymongo.ASCENDING),
+                        ('addr_1', pymongo.ASCENDING),
+                    ], {}),
+                    ([
+                        ('ports.service_name', pymongo.ASCENDING),
+                        ('ports.service_product', pymongo.ASCENDING),
+                        ('ports.service_version', pymongo.ASCENDING),
+                    ], {}),
                     ([('ports.scripts.ssl-cert.self_signed',
                        pymongo.ASCENDING)],
                      {"sparse": True}),
