@@ -1218,7 +1218,7 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
     return _NMAP_PROBES[proto][probe]
 
 
-def match_nmap_svc_fp(output, proto="tcp", probe="NULL"):
+def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
     """Take output from a given probe and return the closest nmap
     fingerprint."""
     softmatch = {}
@@ -1245,6 +1245,8 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL"):
                             doc[key] = data
                 if not fingerprint['soft']:
                     return result
+    if softmatch and soft:
+        return dict(softmatch, soft=True)
     return softmatch
 
 
