@@ -1859,12 +1859,21 @@ argument (a dict object).
                         raw_output = raw_output.split(
                             b'\n', 1
                         )[0].rstrip(b'\r')
-                    match = utils.match_nmap_svc_fp(
+                    new_match = utils.match_nmap_svc_fp(
                         output=raw_output,
                         proto=self._curport['protocol'],
                         probe=probe,
+                        soft=True,
                     )
+                    if new_match and (not match or
+                                      (match.get('soft') and
+                                       not new_match.get('soft'))):
+                        match = new_match
                 if match:
+                    try:
+                        del match['soft']
+                    except KeyError:
+                        pass
                     self._curport.update(match)
                 return
             for attr in attrs.keys():
