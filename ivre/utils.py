@@ -1234,6 +1234,16 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
         for service, fingerprint in fingerprints:
             match = fingerprint['m'][0].search(output)
             if match is not None:
+                if probe == 'NULL' and service == 'landesk-rc':
+                    # This Nmap fingerprint sucks: it is just a size
+                    # check with a simple rule to exclude values
+                    # starting with HTTP, RTSP or SIP. This gives too
+                    # many false positive matches. According to a
+                    # comment, the values are supposed to be
+                    # random. Let's at least make sure it contains
+                    # enough different chars.
+                    if len(set(output)) < 100:
+                        continue
                 doc = softmatch if fingerprint['soft'] else result
                 doc['service_name'] = service
                 for elt, key in viewitems(NMAP_FINGERPRINT_IVRE_KEY):
