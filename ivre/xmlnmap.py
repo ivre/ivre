@@ -37,7 +37,7 @@ from past.builtins import basestring
 
 
 from ivre import utils
-from ivre.analyzer import ike
+from ivre.analyzer import dicom, ike
 
 
 SCHEMA_VERSION = 16
@@ -1845,6 +1845,16 @@ argument (a dict object).
                             raw_output, probe=probe,
                         ))
                         if self._curport.get('service_name') == 'isakmp':
+                            self._curport['scripts'][0][
+                                'masscan'
+                            ] = masscan_data
+                        return
+                    # tcp/dicom: use our own parser
+                    if self._curport['protocol'] == 'tcp' and \
+                       probe == 'dicom':
+                        masscan_data = script["masscan"]
+                        self._curport.update(dicom.parse_message(raw_output))
+                        if self._curport.get('service_name') == 'dicom':
                             self._curport['scripts'][0][
                                 'masscan'
                             ] = masscan_data
