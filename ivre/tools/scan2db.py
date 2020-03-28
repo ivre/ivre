@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -107,4 +107,4 @@ def main():
         except Exception:
             ivre.utils.LOGGER.warning("Exception (file %r)", scan,
                                       exc_info=True)
-    print("%d results imported." % count)
+    ivre.utils.LOGGER.info("%d results imported.", count)

@@ -17,11 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
-
-This sub-module contains the parser for nmap's XML output files.
+"""This sub-module contains the parser for nmap's XML output files.
 
 """
 
@@ -1353,7 +1349,7 @@ results.
                 tuple(column_width))
     output.append(line_fmt % dict((t, t.upper()) for t in title))
     for fobj in files:
-        output.append(line_fmt % dict(size="-", time="-", **fobj))
+        output.append(line_fmt % dict({"size": "-", "time": "-"}, **fobj))
     output.append("")
     return {
         'id': 'http-ls', 'output': '\n'.join(output),

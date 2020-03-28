@@ -682,9 +682,12 @@ purposes to feed Elasticsearch view.
 
         def host_stored_test(line):
             try:
-                return len(json.loads(line.decode()))
+                data = json.loads(line.decode())
             except ValueError:
                 return 0
+            if isinstance(data, dict):
+                return 1
+            return 0
         scan_duplicate = re.compile(b"^DEBUG:ivre:Scan already present in "
                                     b"Database", re.M)
         for fname in self.nmap_files:
@@ -3700,11 +3703,10 @@ purposes to feed Elasticsearch view.
         os.unlink(fdesc.name)
         self.assertEqual(res, 0)
         out = out.decode().splitlines()
-        self.assertEqual(len(out), 2)
-        out = json.loads(out[0])
         self.assertEqual(len(out), 26)
         found = False
-        for rec in out:
+        for line in out:
+            rec = json.loads(line)
             for port in rec.get('ports', []):
                 self.assertEqual(len(port['scripts']), 1)
                 for script in port['scripts']:
@@ -3951,15 +3953,18 @@ purposes to feed Elasticsearch view.
                 return json.loads(data.decode())
             except ValueError:
                 return deflt
-        screenshots_count = sum(bool(port.get('screendata'))
-                                for line in out.splitlines()
-                                for host in _json_loads(line, [])
-                                for port in host.get('ports', []))
+        screenshots_count = sum(
+            bool(port.get('screendata'))
+            for line in out.splitlines()
+            for port in _json_loads(line, {}).get('ports', [])
+        )
         self.assertEqual(screenshots_count, 1)
-        screenwords = set(word for line in out.splitlines()
-                          for host in _json_loads(line, [])
-                          for port in host.get('ports', [])
-                          for word in port.get('screenwords', []))
+        screenwords = set(
+            word
+            for line in out.splitlines()
+            for port in _json_loads(line, {}).get('ports', [])
+            for word in port.get('screenwords', [])
+        )
         self.assertTrue('IVRE' in screenwords)
         shutil.rmtree('output')
 
