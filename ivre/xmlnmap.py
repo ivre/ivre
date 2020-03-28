@@ -1762,7 +1762,7 @@ argument (a dict object).
                                     humankey,
                                     data[masscankey],
                                 ))
-                    scripts = []
+                    scripts = self._curport.setdefault('scripts', [])
                     if 'time' in data:
                         smb2_time = {}
                         smb2_time_out = ['']
@@ -1799,10 +1799,6 @@ argument (a dict object).
                         'smb-os-discovery': smb_os_disco,
                         'output': '\n'.join(smb_os_disco_output),
                         'masscan': masscan_data,
-                    })
-                    self._curhost.setdefault('ports', []).append({
-                        'port': -1,
-                        'scripts': scripts,
                     })
                     return
                 # create fake scripts from masscan "service" tags
