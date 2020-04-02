@@ -992,6 +992,10 @@ def screenwords(imgdata):
             if size == 0:
                 break
             for word in line.split():
+                try:
+                    word = word.decode()
+                except UnicodeDecodeError:
+                    continue
                 if word not in words:
                     if len(word) <= size:
                         words.add(word)
