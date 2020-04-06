@@ -2214,6 +2214,10 @@ class DBView(DBActive):
                                     key not in curport
                             ):
                                 curport[key] = port[key]
+                if 'screenshot' in port and 'screenshot' not in curport:
+                    for key in ['screenshot', 'screendata', 'screenwords']:
+                        if key in port:
+                            curport[key] = port[key]
             else:
                 ports[(port.get('protocol'), port['port'])] = port
         rec["ports"] = sorted(viewvalues(ports), key=lambda port: (
