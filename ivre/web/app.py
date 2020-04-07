@@ -193,10 +193,11 @@ def get_nmap_action(subdb, action):
         if flt_params.ipsasnumbers:
             def r2res(r):
                 return [r2time(r), utils.ip2int(r['addr']),
-                        r['openports']['count']]
+                        r.get('openports', {}).get('count', 0)]
         else:
             def r2res(r):
-                return [r2time(r), r['addr'], r['openports']['count']]
+                return [r2time(r), r['addr'],
+                        r.get('openports', {}).get('count', 0)]
     elif action == "coordinates":
         def r2res(r):
             return {
@@ -212,10 +213,11 @@ def get_nmap_action(subdb, action):
         result, count = subdb.get_open_port_count(flt_params.flt)
         if flt_params.ipsasnumbers:
             def r2res(r):
-                return [utils.ip2int(r['addr']), r['openports']['count']]
+                return [utils.ip2int(r['addr']),
+                        r.get('openports', {}).get('count', 0)]
         else:
             def r2res(r):
-                return [r['addr'], r['openports']['count']]
+                return [r['addr'], r.get('openports', {}).get('count', 0)]
     elif action == "ipsports":
         result, count = subdb.get_ips_ports(flt_params.flt)
         if flt_params.ipsasnumbers:
