@@ -22,7 +22,7 @@ from __future__ import print_function
 import sys
 
 from ivre.db import db, DB
-from ivre.view import from_passive, from_nmap, to_view
+from ivre.view import from_passive, from_passivedns, from_nmap, to_view
 
 try:
     import argparse
@@ -95,6 +95,7 @@ def main():
             subparsers.add_parser('nmap', parents=[db.nmap.argparser])
         if db.passive is not None:
             subparsers.add_parser('passive', parents=[db.passive.argparser])
+            subparsers.add_parser('passivedns')
         subparsers.add_parser('all')
 
     args = parser.parse_args()
@@ -110,6 +111,8 @@ def main():
         if db.passive is not None:
             fltpass = DB().parse_args(args, flt=fltpass)
             _from.append(from_passive(fltpass, category=view_category))
+            _from.append(from_passivedns(db.passive.searchdns(),
+                                         category=view_category))
     elif args.view_source == 'nmap':
         if db.nmap is None:
             parser.error('Cannot use "nmap" (no Nmap database exists)')
@@ -120,6 +123,14 @@ def main():
             parser.error('Cannot use "passive" (no Passive database exists)')
         fltpass = db.passive.parse_args(args, fltpass)
         _from = [from_passive(fltpass, category=view_category)]
+    elif args.view_source == 'passivedns':
+        if db.passive is None:
+            parser.error(
+                'Cannot use "passivedns" (no Passive database exists)'
+            )
+        _from = [
+            from_passivedns(db.passive.searchdns(), category=view_category)
+        ]
     if args.test:
 
         def output(x):

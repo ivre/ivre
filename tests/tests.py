@@ -4046,6 +4046,8 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ret, 0)
         # One entry in test should actually be one entry at the end.
         self.check_value("view_count_passive", len(out.splitlines()))
+        ret, out, _ = RUN(["ivre", "db2view", "--test", "passivedns"])
+        self.assertEqual(ret, 0)
         ret, out, _ = RUN(["ivre", "db2view", "--test", "nmap"])
         self.assertEqual(ret, 0)
         # One entry in test should actually be one entry at the end.
@@ -4081,6 +4083,17 @@ purposes to feed Elasticsearch view.
         self.check_value("view_count_passive", view_count)
         self.assertEqual(RUN(["ivre", "view", "--init"],
                              stdin=open(os.devnull))[0], 0)
+        # Count passivedns results
+        self.assertEqual(RUN(["ivre", "db2view", "passivedns"])[0], 0)
+        if DATABASE == 'elastic':
+            time.sleep(ELASTIC_INSERT_TEMPO)
+        ret, out, _ = RUN(["ivre", "view", "--count"])
+        self.assertEqual(ret, 0)
+        view_count = int(out)
+        self.assertGreater(view_count, 0)
+        self.check_value("view_count_passivedns", view_count)
+        self.assertEqual(RUN(["ivre", "view", "--init"],
+                             stdin=open(os.devnull))[0], 0)
         # Count active results
         self.assertEqual(RUN(["ivre", "db2view", "nmap"])[0], 0)
         if DATABASE == 'elastic':
@@ -4093,6 +4106,14 @@ purposes to feed Elasticsearch view.
         # Count merged results
         self.assertEqual(RUN(["ivre", "db2view", "--view-category", "PASSIVE",
                               "passive"])[0], 0)
+        # XXXXXX
+        # self.assertEqual(RUN(["ivre", "db2view", "--view-category",
+        #                       "PASSIVEDNS", "passivedns"])[0], 0)
+        res, out, err = RUN(["ivre", "db2view", "--view-category",
+                             "PASSIVEDNS", "passivedns"])
+        print("XXXXXX %r %r %r" % (res, out, err))
+        self.assertEqual(res, 0)
+        # XXXXXX
         if DATABASE == 'elastic':
             time.sleep(ELASTIC_INSERT_TEMPO)
         ret, out, _ = RUN(["ivre", "view", "--count"])

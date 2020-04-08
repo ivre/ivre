@@ -208,7 +208,7 @@ def _extract_passive_SSL_SERVER_ja3(rec):
 
 
 def _extract_passive_DNS_ANSWER(rec):
-    """Handle dns server headers."""
+    """Handle dns answers."""
     name = rec['value']
     domains = rec['infos']['domain']
     return {'hostnames': [{'domains': domains,
@@ -268,25 +268,11 @@ _EXTRACTORS = {
 }
 
 
-def passive_record_to_view(rec, category=None):
-    """Return a passive entry in the View format.
-
-    Note that this entry is likely to have no sense in itself. This
-    function is intended to be used to format results for the merge
-    function.
-
-    """
-    rec = dict(rec)
-    if not rec.get('addr'):
-        return None
+def _passive_record_to_view_base(rec):
     outrec = {
-        'addr': rec["addr"],
         'state_reason': 'passive',
         'schema_version': SCHEMA_VERSION,
     }
-    # a DNS_ANSWER record is not enough to mark a host as up
-    if rec['recontype'] != 'DNS_ANSWER':
-        outrec['state'] = 'up'
     sensor = rec.get('sensor')
     if sensor:
         outrec['source'] = [sensor]
@@ -296,10 +282,10 @@ def passive_record_to_view(rec, category=None):
     except TypeError:
         outrec['starttime'] = rec['firstseen']
         outrec['endtime'] = rec['lastseen']
-    function = _EXTRACTORS.get(rec['recontype'], lambda _: {})
-    if isinstance(function, dict):
-        function = function.get(rec['source'], lambda _: {})
-    outrec.update(function(rec))
+    return outrec
+
+
+def _passive_record_to_view_finish(outrec, category=None):
     openports = outrec['openports'] = {'count': 0}
     for port in outrec.get('ports', []):
         if port.get('state_state') != 'open':
@@ -311,6 +297,29 @@ def passive_record_to_view(rec, category=None):
             cur["ports"].append(port['port'])
     if category is not None:
         outrec['categories'] = [category]
+
+
+def passive_record_to_view(rec, category=None):
+    """Return a passive entry in the View format.
+
+    Note that this entry is likely to have no sense in itself. This
+    function is intended to be used to format results for the merge
+    function.
+
+    """
+    rec = dict(rec)
+    if not rec.get('addr'):
+        return None
+    outrec = _passive_record_to_view_base(rec)
+    outrec['addr'] = rec["addr"]
+    # a DNS_ANSWER record is not enough to mark a host as up
+    if rec['recontype'] != 'DNS_ANSWER':
+        outrec['state'] = 'up'
+    function = _EXTRACTORS.get(rec['recontype'], lambda _: {})
+    if isinstance(function, dict):
+        function = function.get(rec['source'], lambda _: {})
+    outrec.update(function(rec))
+    _passive_record_to_view_finish(outrec, category=category)
     return outrec
 
 
@@ -331,6 +340,58 @@ def passive_to_view(flt, category=None):
 def from_passive(flt, category=None):
     """Iterator over passive results, by address."""
     records = passive_to_view(flt, category=category)
+    cur_addr = None
+    cur_rec = {}
+    for rec in records:
+        if cur_addr is None:
+            cur_addr = rec['addr']
+            cur_rec = rec
+        elif cur_addr != rec['addr']:
+            # TODO: add_addr_info should be optional
+            cur_rec['infos'] = {}
+            for func in [db.data.country_byip,
+                         db.data.as_byip,
+                         db.data.location_byip]:
+                cur_rec['infos'].update(func(cur_addr) or {})
+            yield cur_rec
+            cur_rec = rec
+            cur_addr = rec['addr']
+        else:
+            cur_rec = db.view.merge_host_docs(cur_rec, rec)
+    if cur_rec:
+        yield cur_rec
+
+
+def passivedns_to_view(flt, category=None):
+    """Generates passive entries in the View format.
+
+    Note that this entry is likely to have no sense in itself. This
+    function is intended to be used to format results for the merge
+    function.
+
+    """
+    for rec in db.passive.get(flt, sort=[("source", 1)]):
+        try:
+            addr, port = rec['source'].split('-', 2)[1:]
+        except (TypeError, ValueError):
+            continue
+        outrec = _passive_record_to_view_base(rec)
+        outrec['addr'] = addr
+        outrec['state'] = 'up'
+        outrec['ports'] = [{
+            'state_state': 'open',
+            'state_reason': 'passive',
+            'port': int(port),
+            'protocol': 'udp',  # because, you know, probably
+            'service_name': 'domain',
+        }]
+        _passive_record_to_view_finish(outrec, category=category)
+        yield outrec
+
+
+def from_passivedns(flt, category=None):
+    """Iterator over passive results, by DNS server address."""
+    records = passivedns_to_view(flt, category=category)
     cur_addr = None
     cur_rec = {}
     for rec in records:
