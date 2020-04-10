@@ -29,7 +29,7 @@ use the ``-oX`` option (which works with both Nmap and Masscan) or
 ``-o`` for Zgrab2, as IVRE needs the XML output file for Nmap and
 Masscan, and JSON for Zgrab2.
 
-You can use ``ivre runcsans``, ``ivre runscansagent`` or
+You can use ``ivre runscans``, ``ivre runscansagent`` or
 ``ivre runscansagentdb`` to run Nmap scans against wide targets (more)
 easily.
 
