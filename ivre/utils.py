@@ -790,7 +790,7 @@ def hash_file(fname, hashtype="sha1"):
                 if exc.errno != errno.ENOENT:
                     raise
         result = hashlib.new(hashtype)
-        for data in iter(lambda: fdesc.read(1048576), ""):
+        for data in iter(lambda: fdesc.read(1048576), b""):
             result.update(data)
         return result.hexdigest()
 
