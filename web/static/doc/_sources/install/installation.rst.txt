@@ -46,9 +46,9 @@ To install IVRE, you'll need `Python <http://www.python.org/>`__ 2
 (version 2.6 minimum, prefer 2.7) or 3 (version 3.4 minimum), with the
 following modules:
 
-- `Bottle <https://bottlepy.org/>`_.
-- `Crypto <http://www.pycrypto.org/>`_.
-- `Future <https://python-future.org/>`_.
+- `bottle <https://bottlepy.org/>`_.
+- `cryptography <https://cryptography.io/en/latest/>`_.
+- `future <https://python-future.org/>`_.
 - `pymongo <http://api.mongodb.org/python/>`_ version 2.7.2 minimum.
 - `tinydb <https://tinydb.readthedocs.io/>`_, to use the
   **experimental** TinyDB backend (this does not require a database
