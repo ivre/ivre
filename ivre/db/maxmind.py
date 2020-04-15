@@ -25,6 +25,7 @@ files.
 import codecs
 from functools import reduce
 import os
+import sys
 import struct
 
 
@@ -341,6 +342,9 @@ class MaxMindDBData(DBData):
 
     def __init__(self, url):
         self.basepath = url.path
+        if sys.platform == 'win32' and self.basepath.startswith('/'):
+            # Strip the leading / for Windows
+            self.basepath = self.basepath[1:]
         self.reload_files()
 
     def reload_files(self):
