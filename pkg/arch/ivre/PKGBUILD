@@ -3,7 +3,7 @@
 # Arch Linux package file
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -138,7 +138,7 @@ package_python-ivre-git() {
               'python-tinydb: experimental file-based backend (no DB server)'
               'python-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
-              'python-pycryptodome: extract data from public keys ("ivre getmoduli")'
+              'python-cryptography: extract data from public keys ("ivre getmoduli")'
               'python-scapy: parse PCAP files for ARP inspection (flow analysis)'
               'python-matplotlib: create graphs from command line tools'
               'python-dbus: 3D traceroute graphs'
@@ -172,7 +172,7 @@ package_python2-ivre-git() {
               'python2-tinydb: experimental file-based backend (no DB server)'
               'python2-pillow: trim screenshots on insertion'
               'tesseract: extract words from screenshots on insertion'
-              'python2-pycryptodome: extract data from public keys ("ivre getmoduli")'
+              'python2-cryptography: extract data from public keys ("ivre getmoduli")'
               'python2-scapy: parse PCAP files for ARP inspection (flow analysis)'
               'python2-matplotlib: create graphs from command line tools'
               'python2-dbus: 3D traceroute graphs'

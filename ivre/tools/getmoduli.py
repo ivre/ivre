@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@ def main():
         ]
     for base in bases:
         for key in base():
-            moduli.setdefault(key.key.n,
+            moduli.setdefault(key.key.public_numbers().n,
                               set()).add((key.ip, key.port, key.service))
     for mod in moduli:
         sys.stdout.write('%x %d %s\n' % (mod, len(moduli[mod]),

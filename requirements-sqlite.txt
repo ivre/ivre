@@ -1,5 +1,5 @@
-pycrypto
 sqlalchemy
+cryptography
 pyOpenSSL>=16.1.0
 future
 bottle
