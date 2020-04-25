@@ -291,7 +291,8 @@ class SSLRsaNmapKey(SSLNmapKey, RSAKey):
             key = script["script"][self.scriptid]['pubkey']
             yield Key(host['addr'], script["port"], "ssl", key['type'],
                       key['bits'],
-                      _rsa_construct(long(key['exponent']), long(key['modulus'])),
+                      _rsa_construct(long(key['exponent']),
+                                     long(key['modulus'])),
                       utils.decode_hex(script["script"][self.scriptid]['md5']))
 
 
