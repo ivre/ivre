@@ -1926,10 +1926,10 @@ class DBNmap(DBActive):
                     {'name': name, 'type': 'PTR',
                      'domains': list(utils.get_domains(name))}
                     for name in (
-                            ans['answer'].rstrip('.')
-                            for ans in answers
-                            if (ans.get('class') == 'IN' and
-                                ans.get('type') == 'PTR')
+                        ans['answer'].rstrip('.')
+                        for ans in answers
+                        if (ans.get('class') == 'IN' and
+                            ans.get('type') == 'PTR')
                     )
                 ]
                 if not hostnames:
