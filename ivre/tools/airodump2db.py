@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,17 +20,19 @@
 """Update the flow database from Airodump CSV files"""
 
 
-from ivre import config, utils
+from argparse import ArgumentParser
+
+
+from ivre import config
 from ivre.db import db
 from ivre.parser.airodump import Airodump
 
 
 def main():
     """Update the flow database from Airodump CSV files"""
-    parser, use_argparse = utils.create_argparser(__doc__, extraargs="files")
-    if use_argparse:
-        parser.add_argument("files", nargs='*', metavar='FILE',
-                            help="Airodump CSV files")
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument("files", nargs='*', metavar='FILE',
+                        help="Airodump CSV files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     args = parser.parse_args()

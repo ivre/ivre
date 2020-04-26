@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,12 +21,7 @@
 
 
 from __future__ import print_function
-try:
-    import argparse
-    USE_ARGPARSE = True
-except ImportError:
-    import optparse
-    USE_ARGPARSE = False
+import argparse
 import os
 import signal
 import sys
@@ -111,18 +106,10 @@ WANT_DOWN = False
 
 
 def main():
-    if USE_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description=__doc__,
-            parents=[ivre.target.ARGPARSER])
-    else:
-        parser = optparse.OptionParser(
-            description=__doc__)
-        for args, kargs in ivre.target.ARGPARSER.args:
-            parser.add_option(*args, **kargs)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
-        parser.add_argument = parser.add_option
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        parents=[ivre.target.ARGPARSER],
+    )
     parser.add_argument(
         '--assign-free-agents', action="store_true",
         help="Assign any agent available (only useful when specifying"

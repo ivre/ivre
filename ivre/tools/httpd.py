@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ tested with both Apache and Nginx).
 """
 
 
+from argparse import ArgumentParser
 import os
 
 
@@ -34,7 +35,6 @@ from bottle import default_app, get, redirect, run, static_file
 
 
 from ivre.config import DEBUG, WEB_DOKU_PATH, WEB_STATIC_PATH
-from ivre.utils import create_argparser
 from ivre.web import app as webapp
 
 
@@ -94,11 +94,11 @@ def parse_args():
     the parsed arguments.
 
     """
-    parser, _ = create_argparser(__doc__)
-    parser.add_argument('--bind-address', '-b',
-                        help='(IP) Address to bind the server to (defaults '
-                        'to 127.0.0.1).',
-                        default="127.0.0.1")
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument(
+        '--bind-address', '-b', default="127.0.0.1",
+        help='(IP) Address to bind the server to (defaults to 127.0.0.1).',
+    )
     parser.add_argument('--port', '-p', type=int, default=80,
                         help='(TCP) Port to use (defaults to 80)')
     return parser.parse_args()

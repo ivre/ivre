@@ -11,16 +11,17 @@ code. For example:
 ```
 $ ivre version
 IVRE - Network recon framework
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
-Version 0.9.5.dev46
+Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+Version 0.9.15
 
-2.7.13 (default, Feb 11 2017, 12:22:40) 
-[GCC 6.3.1 20170109]
+Python 3.8.2 (default, Feb 26 2020, 22:21:03)
+[GCC 9.2.1 20200130]
+
+Linux computer 5.6.6-arch1-1 #1 SMP PREEMPT Mon, 30 Mar 2020 20:42:41 +0000 x86_64
 
 Dependencies:
-    Python module Crypto: 2.6.1
-	[...]
-
+    Python module pymongo: 3.10.1
+    [...]
 ```
 
 ### Summary

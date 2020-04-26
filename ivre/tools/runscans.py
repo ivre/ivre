@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,12 +24,7 @@ ivre scan2db.
 
 
 from __future__ import print_function
-try:
-    import argparse
-    USE_ARGPARSE = True
-except ImportError:
-    import optparse
-    USE_ARGPARSE = False
+import argparse
 import atexit
 import fcntl
 import functools
@@ -53,20 +48,6 @@ import ivre.geoiputils
 import ivre.utils
 import ivre.target
 import ivre.nmapopt
-
-
-if sys.version_info >= (2, 7):
-    USE_PARTIAL = True
-else:
-    # Python version <= 2.6:
-    # see http://bugs.python.org/issue5228
-    # multiprocessing not compatible with functools.partial
-    USE_PARTIAL = False
-    # Also Python version <= 2.6: cannot use a function defined in
-    # another function in a multiprocessing.Pool.imap()
-
-    def _call_nmap_single_tuple(args):
-        return _call_nmap_single(*args)
 
 
 STATUS_NEW = 0
@@ -294,22 +275,10 @@ def _call_nmap_single(maincategory, options,
 def main():
     atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
-    if USE_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description='Run massive nmap scans.',
-            parents=[ivre.target.ARGPARSER,
-                     ivre.nmapopt.ARGPARSER])
-        using_argparse = True
-    else:
-        parser = optparse.OptionParser(
-            description='Run massive nmap scans.')
-        for parent in [ivre.target.ARGPARSER, ivre.nmapopt.ARGPARSER]:
-            for args, kargs in parent.args:
-                parser.add_option(*args, **kargs)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
-        parser.add_argument = parser.add_option
-        using_argparse = False
+    parser = argparse.ArgumentParser(
+        description='Run massive nmap scans.',
+        parents=[ivre.target.ARGPARSER,
+                 ivre.nmapopt.ARGPARSER])
     parser.add_argument('--output',
                         choices=['XML', 'XMLFull', 'XMLFork', 'Test',
                                  'Count', 'List', 'ListAll',
@@ -329,14 +298,9 @@ def main():
     parser.add_argument('--nmap-max-stack-size', metavar='SIZE', type=int,
                         help="maximum size (in bytes) of each nmap "
                         "process's stack")
-    if using_argparse:
-        parser.add_argument('--again', nargs='+',
-                            choices=['up', 'down', 'unknown', 'all'],
-                            help='select status of targets to scan again')
-    else:
-        parser.add_argument('--again',
-                            choices=['up', 'down', 'unknown', 'all'],
-                            help='select status of targets to scan again')
+    parser.add_argument('--again', nargs='+',
+                        choices=['up', 'down', 'unknown', 'all'],
+                        help='select status of targets to scan again')
     args = parser.parse_args()
     if args.output == 'CommandLine':
         print("Command line to run a scan with template "
@@ -397,26 +361,13 @@ def main():
                                               args.nmap_max_stack_size)
     if args.output == 'XMLFork':
         pool = multiprocessing.Pool(processes=args.processes)
-        if USE_PARTIAL:
-            call_nmap_single = functools.partial(_call_nmap_single,
-                                                 targets.infos[
-                                                     'categories'][0],
-                                                 options,
-                                                 accept_target_status)
-            for _ in pool.imap(call_nmap_single, targets, chunksize=1):
-                pass
-        else:
-            for _ in pool.imap(
-                    _call_nmap_single_tuple,
-                    (
-                        (targets.infos['categories'][0],
-                         options,
-                         accept_target_status,
-                         target) for target in targets
-                    ),
-                    chunksize=1
-            ):
-                pass
+        call_nmap_single = functools.partial(_call_nmap_single,
+                                             targets.infos[
+                                                 'categories'][0],
+                                             options,
+                                             accept_target_status)
+        for _ in pool.imap(call_nmap_single, targets, chunksize=1):
+            pass
         sys.exit(0)
     elif args.output == 'ListAllRand':
         targiter = iter(targets)

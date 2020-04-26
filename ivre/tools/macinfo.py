@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,13 +21,7 @@
 
 
 from __future__ import print_function
-try:
-    import argparse
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
+import argparse
 import re
 import sys
 try:
@@ -50,22 +44,12 @@ MAC_ADDR = re.compile(
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(description=__doc__)
-        parser.add_argument('ips_or_macs', nargs='*',
-                            help='Display results for specified IP (or '
-                            'networks) or MAC addresses (or MAC address '
-                            'regexps).')
-    else:
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            res[0].ensure_value('ips_or_macs', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        'ips_or_macs', nargs='*',
+        help=('Display results for specified IP (or networks) or MAC addresses'
+              ' (or MAC address regexps).')
+    )
     parser.add_argument('-s', '--sensor')
     parser.add_argument('-c', '--count', action="store_true")
     parser.add_argument('-r', '--resolve', action="store_true",

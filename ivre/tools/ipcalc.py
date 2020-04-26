@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,14 +18,7 @@
 
 
 from __future__ import print_function
-
-try:
-    import argparse
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
+import argparse
 import sys
 try:
     reload(sys)
@@ -39,26 +32,13 @@ from ivre import utils
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description='Tool for ip addresses manipulation.',
-        )
-    else:
-        parser = optparse.OptionParser(
-            description='Tool for ip addresses manipulation.',)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            res[0].ensure_value('ips', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
-
-    if USING_ARGPARSE:
-        parser.add_argument('ips', nargs='*',
-                            help='Display results for specified IP addresses'
-                            ' or ranges.')
+    parser = argparse.ArgumentParser(
+        description='Tool for ip addresses manipulation.',
+    )
+    parser.add_argument(
+        'ips', nargs='*',
+        help='Display results for specified IP addresses or ranges.',
+    )
     args = parser.parse_args()
 
     for a in args.ips:

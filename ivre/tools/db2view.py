@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,37 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Create views from nmap and passive databases."""
 
+
 from __future__ import print_function
-import sys
+
 
 from ivre.db import db, DB
 from ivre.view import from_passive, from_nmap, to_view
 
-try:
-    import argparse
-    USING_ARGPARSE = True
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
+
+import argparse
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(description=__doc__,
-                                         parents=[DB().argparser])
-    else:
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            res[0].ensure_value('ips', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
-
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     parents=[DB().argparser])
     if db.nmap is None:
         fltnmap = None
     else:
@@ -68,34 +54,16 @@ def main():
                         'merge with existing results for same host and '
                         'source.')
 
-    if not USING_ARGPARSE:
-        if 'nmap' in sys.argv:
-            if db.nmap is None:
-                parser.error('Cannot use "nmap" (no Nmap database exists)')
-            for args, kargs in db.nmap.argparser.args:
-                parser.add_option(*args, **kargs)
-        elif 'passive' in sys.argv:
-            if db.passive is None:
-                parser.error(
-                    'Cannot use "passive" (no Passive database exists)'
-                )
-            for args, kargs in db.passive.argparser.args:
-                parser.add_option(*args, **kargs)
-        else:
-            parser.error(
-                'Invalid subcommand, only "nmap" and "passive" are supported'
-            )
-    else:
-        subparsers = parser.add_subparsers(dest='view_source',
-                                           help="Accepted values are 'nmap' "
-                                                "and 'passive'. None or 'all' "
-                                                "will do both")
-
-        if db.nmap is not None:
-            subparsers.add_parser('nmap', parents=[db.nmap.argparser])
-        if db.passive is not None:
-            subparsers.add_parser('passive', parents=[db.passive.argparser])
-        subparsers.add_parser('all')
+    subparsers = parser.add_subparsers(
+        dest='view_source',
+        help=("Accepted values are 'nmap' and 'passive'. "
+              "None or 'all' will do both")
+    )
+    if db.nmap is not None:
+        subparsers.add_parser('nmap', parents=[db.nmap.argparser])
+    if db.passive is not None:
+        subparsers.add_parser('passive', parents=[db.passive.argparser])
+    subparsers.add_parser('all')
 
     args = parser.parse_args()
 

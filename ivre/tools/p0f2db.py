@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 """Update the database from output of a p0f process"""
 
 
+from argparse import ArgumentParser
 import signal
 import functools
 import subprocess
@@ -26,7 +27,6 @@ import os
 
 
 import ivre.db
-import ivre.utils
 import ivre.passive
 
 
@@ -74,8 +74,7 @@ def process_file(fname, sensor, bulk_db, bulk_local, mode):
 
 
 def main():
-    parser, use_argparse = ivre.utils.create_argparser(__doc__,
-                                                       extraargs='filenames')
+    parser = ArgumentParser(description=__doc__)
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--mode', '-m', help='p0f mode',
                         choices=list(ivre.passive.P0F_MODES),
@@ -86,11 +85,10 @@ def main():
                         help='Use local (memory) bulk inserts')
     parser.add_argument('--no-bulk', action='store_true',
                         help='Do not use bulk inserts')
-    if use_argparse:
-        parser.add_argument(
-            'filenames', nargs="+", metavar='filename',
-            help="PCAP file to read or iface:[interface name]",
-        )
+    parser.add_argument(
+        'filenames', nargs="+", metavar='filename',
+        help="PCAP file to read or iface:[interface name]",
+    )
     args = parser.parse_args()
     for filename in args.filenames:
         process_file(filename, args.sensor,

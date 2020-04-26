@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,9 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Handle ivre passiverecon2db files."""
 
 
+from argparse import ArgumentParser
 import os
 import re
 import shutil
@@ -146,7 +148,7 @@ def main():
     for s in [signal.SIGINT, signal.SIGTERM]:
         signal.signal(s, shutdown)
         signal.siginterrupt(s, False)
-    parser, _ = utils.create_argparser(__doc__)
+    parser = ArgumentParser(description=__doc__)
     parser.add_argument(
         '--sensor', metavar='SENSOR[:SENSOR]',
         help='sensor to check, optionally with a long name, defaults to all.',

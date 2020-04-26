@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,12 +18,16 @@
 
 """Update the flow database from ARP requests in PCAP files"""
 
+
+from argparse import ArgumentParser
 from datetime import datetime
 import subprocess
 
+
 from scapy.all import PcapReader
 
-from ivre import config, utils
+
+from ivre import config
 from ivre.db import db
 
 
@@ -35,10 +39,9 @@ def reader(fname):
 
 def main():
     """Update the flow database from ARP requests in PCAP files"""
-    parser, use_argparse = utils.create_argparser(__doc__, extraargs="files")
-    if use_argparse:
-        parser.add_argument("files", nargs='*', metavar='FILE',
-                            help="PCAP files")
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument("files", nargs='*', metavar='FILE',
+                        help="PCAP files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     args = parser.parse_args()

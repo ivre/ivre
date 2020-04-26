@@ -19,7 +19,10 @@
 """Update the flow database from Bro logs"""
 
 
+from argparse import ArgumentParser
 import os
+
+
 from ivre.parser.bro import BroFile
 from ivre.db import db
 from ivre import config, utils, flow
@@ -113,11 +116,9 @@ def any2flow(name):
 
 def main():
     """Update the flow database from Bro logs"""
-    parser, use_argparse = utils.create_argparser(__doc__,
-                                                  extraargs="logfiles")
-    if use_argparse:
-        parser.add_argument("logfiles", nargs='*', metavar='FILE',
-                            help="Bro log files")
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument("logfiles", nargs='*', metavar='FILE',
+                        help="Bro log files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     parser.add_argument("-C", "--no-cleanup",

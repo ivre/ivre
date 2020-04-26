@@ -23,11 +23,7 @@ databases.
 """
 
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    # fallback to dict for Python 2.6
-    OrderedDict = dict
+from collections import OrderedDict
 from copy import deepcopy
 import datetime
 import hashlib

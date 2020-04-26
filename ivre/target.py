@@ -17,15 +17,13 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
-
-This sub-module contains objects and functions to manipulate target
+"""This sub-module contains objects and functions to manipulate target
 lists.
+
 """
 
 
+from argparse import ArgumentParser
 from functools import reduce
 try:
     from math import gcd
@@ -434,7 +432,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         self.targetsfd = self.proc.stdout
 
 
-ARGPARSER = utils.ArgparserParent()
+ARGPARSER = ArgumentParser(add_help=False)
 ARGPARSER.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
 ARGPARSER.add_argument('--country', '-c', metavar='CODE[,CODE[,...]]',

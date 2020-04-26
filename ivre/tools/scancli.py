@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,14 +18,7 @@
 
 
 from __future__ import print_function
-try:
-    import argparse
-except ImportError:
-    from itertools import chain
-    import optparse
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
+import argparse
 import os
 import sys
 try:
@@ -47,21 +40,10 @@ from ivre.utils import display_top, CLI_ARGPARSER
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description='Access and query the active scans database.',
-            parents=[db.db.nmap.argparser, CLI_ARGPARSER],
-        )
-    else:
-        parser = optparse.OptionParser(
-            description='Access and query the active scans database.',
-        )
-        for args, kargs in chain(db.db.nmap.argparser.args,
-                                 CLI_ARGPARSER.args):
-            parser.add_option(*args, **kargs)
-        parser.parse_args_orig = parser.parse_args
-        parser.parse_args = lambda: parser.parse_args_orig()[0]
-        parser.add_argument = parser.add_option
+    parser = argparse.ArgumentParser(
+        description='Access and query the active scans database.',
+        parents=[db.db.nmap.argparser, CLI_ARGPARSER],
+    )
     parser.add_argument('--no-screenshots', action='store_true',
                         help='When used with --json, do not output '
                         'screenshots data.')

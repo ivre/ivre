@@ -42,9 +42,8 @@ your needs:
 Python
 ~~~~~~
   
-To install IVRE, you'll need `Python <http://www.python.org/>`__ 2
-(version 2.6 minimum, prefer 2.7) or 3 (version 3.4 minimum), with the
-following modules:
+To install IVRE, you'll need `Python <http://www.python.org/>`__ 2.7
+or 3 (version 3.4 minimum), with the following modules:
 
 - `bottle <https://bottlepy.org/>`_.
 - `cryptography <https://cryptography.io/en/latest/>`_.

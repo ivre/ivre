@@ -21,13 +21,11 @@
 database backends.
 """
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    # fallback to dict for Python 2.6
-    OrderedDict = dict
+from argparse import ArgumentParser
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from functools import reduce
+from importlib import import_module
 from itertools import chain
 import json
 import os
@@ -90,7 +88,7 @@ class DB(object):
     list_fields = []
 
     def __init__(self):
-        self.argparser = utils.ArgparserParent()
+        self.argparser = ArgumentParser(add_help=False)
         self.argparser.add_argument(
             '--country', metavar='CODE',
             help='show only results from this country'
@@ -720,18 +718,12 @@ class DBActive(DB):
                                     help='show only results from this source')
         self.argparser.add_argument('--version', metavar="VERSION", type=int)
         self.argparser.add_argument('--timeago', metavar='SECONDS', type=int)
-        if utils.USE_ARGPARSE:
-            self.argparser.add_argument('--id', metavar='ID', help='show only '
-                                        'results with this(those) ID(s)',
-                                        nargs='+')
-            self.argparser.add_argument('--no-id', metavar='ID', help='show '
-                                        'only results WITHOUT this(those) '
-                                        'ID(s)', nargs='+')
-        else:
-            self.argparser.add_argument('--id', metavar='ID', help='show only '
-                                        'results with this ID')
-            self.argparser.add_argument('--no-id', metavar='ID', help='show '
-                                        'only results WITHOUT this ID')
+        self.argparser.add_argument('--id', metavar='ID', help='show only '
+                                    'results with this(those) ID(s)',
+                                    nargs='+')
+        self.argparser.add_argument('--no-id', metavar='ID', help='show '
+                                    'only results WITHOUT this(those) '
+                                    'ID(s)', nargs='+')
         self.argparser.add_argument('--hostname', metavar='NAME / ~NAME')
         self.argparser.add_argument('--domain', metavar='NAME / ~NAME')
         self.argparser.add_argument('--hop', metavar='IP')
@@ -2956,7 +2948,7 @@ class DBAgent(DB):
                 itertarget.fdesc = (True, fdesc.tell())
         scan = {
             # We need to explicitly call self.to_binary() because with
-            # MongoDB, Python 2.6 will store a unicode string that it
+            # MongoDB, Python 2 will store a unicode string that it
             # won't be able un pickle.loads() later
             "target": self.to_binary(pickle.dumps(itertarget)),
             "target_info": target.infos,
@@ -3045,7 +3037,7 @@ LockError on failure.
             else:
                 target.fdesc = (True, fdesc.tell())
         # We need to explicitly call self.to_binary() because with
-        # MongoDB, Python 2.6 will store a unicode string that it
+        # MongoDB, Python 2 will store a unicode string that it
         # won't be able un pickle.loads() later
         return self._update_scan_target(scanid,
                                         self.to_binary(pickle.dumps(target)))
@@ -3635,9 +3627,7 @@ class MetaDB(object):
                 )
                 return None
             try:
-                # we should use importlib.import_module, but it is an
-                # external module in Python 2.6.
-                module = __import__('ivre.db.%s' % modulename).db
+                module = import_module('ivre.db.%s' % modulename)
             except ImportError:
                 utils.LOGGER.error(
                     'Cannot import ivre.db.%s for %s',
@@ -3646,8 +3636,6 @@ class MetaDB(object):
                     exc_info=True,
                 )
                 return None
-            for submod in modulename.split('.'):
-                module = getattr(module, submod)
             result = getattr(module, classname)(url)
             result.globaldb = self
             return result
