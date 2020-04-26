@@ -2729,7 +2729,7 @@ purposes to feed Elasticsearch view.
         firstseen_date = self.get_timezone_fmt_date(
             "2015-09-18 14:15:19.830319")
         self.check_flow_count_value(
-            "flow_count_firstseen_%s " % DATABASE,
+            "flow_count_firstseen_%s" % DATABASE,
             {"edges": ["firstseen = %s" % firstseen_date]},
             ["--flow-filters", "firstseen = %s" % firstseen_date],
             {"edges": ["firstseen = %s" % firstseen_date]})

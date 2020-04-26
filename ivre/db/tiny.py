@@ -3101,7 +3101,15 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
 addresses.
 
         """
-        if clause['operator'] == 'regex':
+        if clause['len_mode']:
+            value = clause['value']
+            res = cls._base_from_attr(
+                clause['attr'],
+                op=lambda val: clause['operator'](val, value),
+                array_mode=clause['array_mode'],
+                len_mode=clause['len_mode'],
+            )
+        elif clause['operator'] == 'regex':
             res = cls._base_from_attr(
                 clause['attr'],
                 op=lambda val: val.search(clause['value']),
@@ -3138,7 +3146,7 @@ addresses.
         return res, cur + [subflts[-1]]
 
     @classmethod
-    def _base_from_attr(cls, attr, op, array_mode=None):
+    def _base_from_attr(cls, attr, op, array_mode=None, len_mode=False):
         array_fields, final_fields = cls._get_array_attrs(attr)
         final = Query()
         for subfld in final_fields:
@@ -3146,7 +3154,9 @@ addresses.
         if op == "exists":
             final = final.exists()
         elif attr in cls.list_fields:
-            if array_mode is None or array_mode.lower() == 'any':
+            if len_mode:
+                final = final.test(lambda vals: op(len(vals)))
+            elif array_mode is None or array_mode.lower() == 'any':
                 final = final.test(lambda vals: any(op(val) for val in vals))
             elif array_mode.lower() == 'all':
                 final = final.test(lambda vals: all(op(val) for val in vals))
