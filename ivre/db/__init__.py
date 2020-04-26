@@ -317,23 +317,11 @@ If `yieldall` is true, when a specific feature exists (e.g., `(80,
 
         """
         if not yieldall:
-            # when `yieldall` is false, the sort operation is done in
-            # database, unless we are using MongoDB < 3.2
-            try:
-                supports_sort = self.mongodb_32_more
-            except AttributeError:
-                supports_sort = True
-            if supports_sort:
-                return list(
-                    tuple(val) for val in
-                    self._features_port_list(flt, yieldall, use_service,
-                                             use_product, use_version)
-                )
-            return sorted(set(
+            return list(
                 tuple(val) for val in
                 self._features_port_list(flt, yieldall, use_service,
                                          use_product, use_version)
-            ), key=lambda val: [utils.key_sort_none(v) for v in val])
+            )
 
         def _gen(val):
             val = list(val)

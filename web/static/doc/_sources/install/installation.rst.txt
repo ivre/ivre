@@ -70,11 +70,9 @@ Databases
 ~~~~~~~~~
 
 IVRE's reference backend service is `MongoDB
-<https://www.mongodb.org/>`_, version 2.6 minimum. It is highly
+<https://www.mongodb.org/>`_, version 3.2 minimum. It is highly
 suggested that you use the latest stable release (the performances
-have improved quite a lot since version 2.6), or at least 3.2 (IVRE
-uses a hack for some operations when it connects to a server older
-than 3.2).
+tend to improve a lot).
 
 The ``passive``, ``nmap`` and ``view`` purposes have an
 **experimental** PostgreSQL backend that can be used in lieu of

@@ -30,8 +30,6 @@ env:
   - DB=postgres POSTGRES_VERSION=10.1
   # MongoDB
   ## Previous releases
-  - DB=mongo MONGODB_VERSION=2.6.12
-  - DB=mongo MONGODB_VERSION=3.0.15
   - DB=mongo MONGODB_VERSION=3.2.21
   - DB=mongo MONGODB_VERSION=3.4.17
   - DB=mongo MONGODB_VERSION=3.6.8
@@ -73,7 +71,7 @@ install:
   # cleanup
   - rm -rf ivre/
 
-# We need MongoDB 2.6
+# We need MongoDB many MongoDB versions
 # https://github.com/travis-ci/travis-ci/issues/2246
 #services: mongodb
 
