@@ -160,7 +160,6 @@ setup(
         'bottle',
     ],
     extras_require={
-        'Flow with Neo4j (deprecated)': ["py2neo>=3,<4"],
         'TinyDB (experimental)': ["tinydb"],
         'PostgreSQL (experimental)': ["sqlalchemy", "psycopg2"],
         'Elasticsearch (experimental)': ["elasticsearch", "elasticsearch-dsl"],

@@ -52,8 +52,6 @@ or 3 (version 3.4 minimum), with the following modules:
 - `tinydb <https://tinydb.readthedocs.io/>`_, to use the
   **experimental** TinyDB backend (this does not require a database
   server).
-- `py2neo <http://py2neo.org/v3/>`__ version 3, optional, to use the
-  flow purpose with the Neo4j backend (**deprecated**).
 - `sqlalchemy <http://www.sqlalchemy.org/>`_ and `psycopg2
   <http://initd.org/psycopg/>`_ to use the **experimental** PostgreSQL
   backend.
@@ -85,9 +83,6 @@ MongoDB.
 The ``view`` purpose has an **experimental** Elasticsearch backend. It
 can be used to create views accessible to other Elasticsearch tools,
 such as Kibana (see :ref:`usage/kibana:IVRE with Kibana`).
-
-The ``flow`` purpose can be used with Neo4j instead of MongoDB for
-historical reasons. This is **deprecated**.
 
 Please refer to the database servers (or your distribution)
 documentation on how to install and configure them.

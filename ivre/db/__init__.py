@@ -3184,13 +3184,6 @@ class DBFlow(DB):
         d["duration"] = precision
         return d
 
-    def dns2flow(self, bulk, rec):
-        """Takes a parsed dns.log line entry and adds it to insert bulk.  It
-        must be a separated method because of neo4j compatibility.
-
-        """
-        return self.any2flow(bulk, 'dns', rec)
-
     def reduce_precision(self, new_precision, flt=None,
                          before=None, after=None, current_precision=None):
         """
@@ -3534,7 +3527,6 @@ class MetaDB(object):
             "tinydb": ("tiny", "TinyDBAgent"),
         },
         "flow": {
-            "neo4j": ("neo4j", "Neo4jDBFlow"),
             "mongodb": ("mongo", "MongoDBFlow"),
             "postgresql": ("sql.postgres", "PostgresDBFlow"),
             "tinydb": ("tiny", "TinyDBFlow"),

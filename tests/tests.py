@@ -2726,12 +2726,10 @@ purposes to feed Elasticsearch view.
             ["--proto", "icmp"],
             command="flowcli")
 
-        # Time precision in mongo is millisecond, whereas it is microsecond in
-        # Neo4j. Thus, we can't have the same results.
         firstseen_date = self.get_timezone_fmt_date(
             "2015-09-18 14:15:19.830319")
         self.check_flow_count_value(
-            "flow_count_firstseen_%s" % DATABASE,
+            "flow_count_firstseen_%s " % DATABASE,
             {"edges": ["firstseen = %s" % firstseen_date]},
             ["--flow-filters", "firstseen = %s" % firstseen_date],
             {"edges": ["firstseen = %s" % firstseen_date]})
@@ -2743,7 +2741,7 @@ purposes to feed Elasticsearch view.
             ["--flow-filters", "lastseen = %s" % lastseen_date],
             {"edges": ["lastseen = %s" % lastseen_date]})
         self.check_flow_count_value(
-            "flow_count_gt_lastseen_%s" % DATABASE,
+            "flow_count_gt_lastseen",
             {"edges": ["lastseen > %s" % lastseen_date]},
             ["--flow-filters", "lastseen > %s" % lastseen_date],
             {"edges": ["lastseen > %s" % lastseen_date]})
@@ -2851,15 +2849,13 @@ purposes to feed Elasticsearch view.
             sport["flows"],
             sport_lte_68["flows"] + sport_gt_68["flows"])
 
-        # MongoDB stores a unlimited number of source ports,
-        # whereas neo4j stores only 5
         self.check_flow_count_value(
-            "flow_count_len_sports_%s" % DATABASE,
+            "flow_count_len_sports",
             {"edges": ['LEN sports = 5']},
             ["--flow-filters", "LEN sports = 5"],
             {"edges": ["LEN sports = 5"]})
         self.check_flow_count_value(
-            "flow_count_all_sports_%s" % DATABASE,
+            "flow_count_all_sports",
             {"edges": ['ALL sports > 50000']},
             ["--flow-filters", "ALL sports > 50000"],
             {"edges": ["ALL sports > 50000"]})
@@ -4674,8 +4670,6 @@ DATABASES = {
     "postgres": ["60_flow", "scans", "utils"],
     "sqlite": ["30_nmap", "53_nmap_delete", "50_view", "60_flow", "scans",
                "utils"],
-    "neo4j": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
-              "54_passive_delete", "90_cleanup", "scans", "utils"],
     "elastic": ["30_nmap", "40_passive", "53_nmap_delete", "54_passive_delete",
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",

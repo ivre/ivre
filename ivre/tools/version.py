@@ -46,9 +46,8 @@ def main():
     print()
     print("Dependencies:")
     for module in [
-            'pymongo', 'py2neo', 'sqlalchemy', 'psycopg2', 'cryptography',
-            'krbV', 'PIL', 'MySQLdb', 'dbus', 'matplotlib', 'bottle',
-            'OpenSSL', 'tinydb'
+            'pymongo', 'sqlalchemy', 'psycopg2', 'cryptography', 'krbV', 'PIL',
+            'MySQLdb', 'dbus', 'matplotlib', 'bottle', 'OpenSSL', 'tinydb',
     ]:
         try:
             version = __import__(module).__version__

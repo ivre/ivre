@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -93,7 +93,7 @@ def dns2flow(bulk, rec):
     rec['answers'] = [elt.lower() for elt in
                       (rec['answers'] if rec['answers'] else [])]
     rec['query'] = rec['query'].lower() if rec['query'] else None
-    db.flow.dns2flow(bulk, rec)
+    db.flow.any2flow(bulk, 'dns', rec)
 
 
 FUNCTIONS = {

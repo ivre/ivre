@@ -81,10 +81,10 @@ before_script:
   # display version
   - ivre version
   # init DB
-  - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
-  - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
-  - test "$DB" = "maxmind" || test "$DB" = "neo4j" || ivre view --init < /dev/null || echo "ERROR failed to init view database."
-  - test "$DB" != "neo4j" -a "$DB" != "mongo" || ivre flowcli --init < /dev/null || echo "ERROR failed to init flow database."
+  - test "$DB" = "maxmind" || ivre ipinfo --init < /dev/null || echo "ERROR failed to init passive database."
+  - test "$DB" = "maxmind" || ivre scancli --init < /dev/null || echo "ERROR failed to init nmap database."
+  - test "$DB" = "maxmind" || ivre view --init < /dev/null || echo "ERROR failed to init view database."
+  - test "$DB" != "tinydb" -a "$DB" != "mongo" || ivre flowcli --init < /dev/null || echo "ERROR failed to init flow database."
   - cat .travis/ivre.conf >> ~/.ivre.conf
   - echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
   - echo "WIRESHARK_SHARE_PATH = '`pwd`/usr/local/wireshark/share/wireshark'" >> ~/.ivre.conf

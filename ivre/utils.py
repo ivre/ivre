@@ -1497,11 +1497,7 @@ def tz_offset(timestamp=None):
         timestamp = time.time()
     utc_offset = (datetime.datetime.fromtimestamp(timestamp) -
                   datetime.datetime.utcfromtimestamp(timestamp))
-    try:
-        return int(utc_offset.total_seconds())
-    except AttributeError:
-        # total_seconds does not exist in Python 2.6
-        return utc_offset.seconds + utc_offset.days * 24 * 3600
+    return int(utc_offset.total_seconds())
 
 
 def datetime2utcdatetime(dtm):
