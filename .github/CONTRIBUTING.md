@@ -80,22 +80,27 @@ dependency makes it harder for users to install IVRE.
 
 We try to comply with the some guidelines for new code:
 
--   The code **must** be compatible with Python 2.6, 2.7, 3.4, 3.5,
-    3.6 and 3.7. The [future module](http://python-future.org/) can
-    help (IVRE already depends on it, so feel free to use it in your
-    code).
+-   The code **must** be compatible with Python 2.7 and 3.4 to
+    3.8. The [future module](http://python-future.org/) can help (IVRE
+    already depends on it, so feel free to use it in your code).
+
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
+
 -   [Pylint](http://www.pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
     or even undesirable; human brain needed!).
+
 -   [flake8](http://flake8.pycqa.org/) and Pylint tests are run for
     each pull request (see .travis.yml for the specific options). Pull
     requests will not be accepted when the tests fail.
+
 -   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
+
 -   Avoid creating `list` objects when generators can be used,
     particularly if they can be huge:
+
     -   Make sure to import `range` from `future.utils` (for Python 2).
     -   Use `for line in fdesc` instead of `for line in fdesc.readlines()`.
     -   More generally, prefer generators over lists.
@@ -125,8 +130,3 @@ understand why certain decisions have been made), performances, API
 consistency, etc.
 
 **Thanks for reading, happy hacking!**
-
----
-
-This file is part of IVRE. Copyright 2011 - 2019
-[Pierre LALET](mailto:pierre.lalet@cea.fr)

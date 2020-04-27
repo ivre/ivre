@@ -114,7 +114,7 @@ If you are using IVRE in you research, please cite it as follows:
 Pierre Lalet, Florent Monjalet, Camille Mougey, Vincent Ruello and
 Vivien Venuti. *IVRE, a network recon framework*.
 [https://github.com/cea-sec/ivre](https://github.com/cea-sec/ivre),
-2011-2019.
+2011-2020.
 
 Here is the appropriate bibtex entry:
 
@@ -124,7 +124,7 @@ Here is the appropriate bibtex entry:
         url = {https://ivre.rocks/},
         howpublished = {\url{https://github.com/cea-sec/ivre/}},
         institution = {{CEA}: the French Alternative Energies and Atomic Energy Commission},
-        year = {2011--2019},
+        year = {2011--2020},
     }
 
 ### Technical documents & blog posts ###
@@ -136,7 +136,3 @@ the repository,
 
 On twitter, you can follow and/or mention
 [@IvreRocks](https://twitter.com/IvreRocks).
-
----
-
-This file is part of IVRE. Copyright 2011 - 2019 [Pierre LALET](mailto:pierre.lalet@cea.fr).

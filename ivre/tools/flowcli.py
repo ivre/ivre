@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,7 +21,10 @@ Access and query the flows database.
 
 See doc/FLOW.md for more information.
 """
+
+
 from __future__ import print_function
+from argparse import ArgumentParser
 import datetime
 import os
 import sys
@@ -45,6 +48,7 @@ except ImportError:
 from ivre.db import db
 from ivre import utils, config
 import ivre.flow
+
 
 addr_fields = {
     'src': {'type': 'edges', 'field': 'src.addr'},
@@ -78,7 +82,7 @@ def print_fields():
 
 
 def main():
-    parser, _ = utils.create_argparser(__doc__)
+    parser = ArgumentParser(description=__doc__)
     parser.add_argument('--init', '--purgedb', action='store_true',
                         help='Purge or create and initialize the database.')
     parser.add_argument('--ensure-indexes', action='store_true',

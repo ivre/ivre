@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -25,14 +25,7 @@ import functools
 import json
 import os
 import time
-try:
-    import argparse
-except ImportError:
-    from itertools import chain
-    import optparse
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
+import argparse
 import sys
 try:
     reload(sys)
@@ -247,26 +240,10 @@ def disp_recs_explain(flt, sort, limit, skip):
 
 def main():
     global baseflt
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description=__doc__,
-            parents=[db.passive.argparser, utils.CLI_ARGPARSER],
-        )
-    else:
-        parser = optparse.OptionParser(
-            description=__doc__,
-        )
-        for args, kargs in chain(db.passive.argparser.args,
-                                 utils.CLI_ARGPARSER):
-            parser.add_option(*args, **kargs)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            res[0].ensure_value('ips', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        parents=[db.passive.argparser, utils.CLI_ARGPARSER],
+    )
     baseflt = db.passive.flt_empty
     disp_recs = disp_recs_std
     # display modes

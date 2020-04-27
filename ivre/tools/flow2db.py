@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 """Update the flow database from log files"""
+
+
+from argparse import ArgumentParser
 
 
 from ivre import config
@@ -54,10 +57,9 @@ PARSERS_MAGIC = {
 
 def main():
     """Update the flow database from log files"""
-    parser, use_argparse = utils.create_argparser(__doc__, extraargs='files')
-    if use_argparse:
-        parser.add_argument('files', nargs='*', metavar='FILE',
-                            help='Files to import in the flow database')
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument('files', nargs='*', metavar='FILE',
+                        help='Files to import in the flow database')
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     parser.add_argument("-t", "--type", help="file type",

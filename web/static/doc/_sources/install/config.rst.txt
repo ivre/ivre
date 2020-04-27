@@ -57,7 +57,6 @@ Here are some examples:
    DB_PASSIVE = "sqlite:////tmp/ivre.db"
    DB_NMAP = "postgresql://ivre@localhost/ivre"
    DB_VIEW = "elastic://192.168.0.1:9200/ivre"
-   DB_FLOW = "neo4j://neo4j:neo4j@localhost:7474/db/data/"
    DB_DATA = "maxmind:///share/data/ivre/geoip"
 
 Batch insert or upsert operations can be tuned using backend-specific variables:

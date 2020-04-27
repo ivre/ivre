@@ -64,7 +64,7 @@
             
             
               <div class="version">
-                0.9.14.dev
+                0.9.15.dev
               </div>
             
           
@@ -227,9 +227,8 @@ with version 3).</p></li>
 </div>
 <div class="section" id="python">
 <h3>Python<a class="headerlink" href="#python" title="Permalink to this headline">¶</a></h3>
-<p>To install IVRE, you’ll need <a class="reference external" href="http://www.python.org/">Python</a> 2
-(version 2.6 minimum, prefer 2.7) or 3 (version 3.4 minimum), with the
-following modules:</p>
+<p>To install IVRE, you’ll need <a class="reference external" href="http://www.python.org/">Python</a> 2.7
+or 3 (version 3.4 minimum), with the following modules:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://bottlepy.org/">bottle</a>.</p></li>
 <li><p><a class="reference external" href="https://cryptography.io/en/latest/">cryptography</a>.</p></li>
@@ -238,8 +237,6 @@ following modules:</p>
 <li><p><a class="reference external" href="https://tinydb.readthedocs.io/">tinydb</a>, to use the
 <strong>experimental</strong> TinyDB backend (this does not require a database
 server).</p></li>
-<li><p><a class="reference external" href="http://py2neo.org/v3/">py2neo</a> version 3, optional, to use the
-flow purpose with the Neo4j backend (<strong>deprecated</strong>).</p></li>
 <li><p><a class="reference external" href="http://www.sqlalchemy.org/">sqlalchemy</a> and <a class="reference external" href="http://initd.org/psycopg/">psycopg2</a> to use the <strong>experimental</strong> PostgreSQL
 backend.</p></li>
 <li><p><a class="reference external" href="https://github.com/elastic/elasticsearch-py">elasticsearch</a> and
@@ -255,19 +252,15 @@ but it is much slower and less reliable).</p></li>
 </div>
 <div class="section" id="databases">
 <h3>Databases<a class="headerlink" href="#databases" title="Permalink to this headline">¶</a></h3>
-<p>IVRE’s reference backend service is <a class="reference external" href="https://www.mongodb.org/">MongoDB</a>, version 2.6 minimum. It is highly
+<p>IVRE’s reference backend service is <a class="reference external" href="https://www.mongodb.org/">MongoDB</a>, version 3.2 minimum. It is highly
 suggested that you use the latest stable release (the performances
-have improved quite a lot since version 2.6), or at least 3.2 (IVRE
-uses a hack for some operations when it connects to a server older
-than 3.2).</p>
+tend to improve a lot).</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">passive</span></code>, <code class="docutils literal notranslate"><span class="pre">nmap</span></code> and <code class="docutils literal notranslate"><span class="pre">view</span></code> purposes have an
 <strong>experimental</strong> PostgreSQL backend that can be used in lieu of
 MongoDB.</p>
 <p>The <code class="docutils literal notranslate"><span class="pre">view</span></code> purpose has an <strong>experimental</strong> Elasticsearch backend. It
 can be used to create views accessible to other Elasticsearch tools,
 such as Kibana (see <a class="reference internal" href="../usage/kibana.html#ivre-with-kibana"><span class="std std-ref">IVRE with Kibana</span></a>).</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">flow</span></code> purpose can be used with Neo4j instead of MongoDB for
-historical reasons. This is <strong>deprecated</strong>.</p>
 <p>Please refer to the database servers (or your distribution)
 documentation on how to install and configure them.</p>
 </div>

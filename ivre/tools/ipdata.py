@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@ AS number and country information.
 
 
 from __future__ import print_function
+from argparse import ArgumentParser
 import sys
 try:
     reload(sys)
@@ -41,7 +42,7 @@ from ivre import geoiputils, utils
 
 
 def main():
-    parser, use_argparse = utils.create_argparser(__doc__, extraargs='ip')
+    parser = ArgumentParser(description=__doc__)
     torun = []
     parser.add_argument('--download', action='store_true',
                         help='Fetch all data files.')
@@ -49,9 +50,8 @@ def main():
                         help='Create all CSV files for reverse lookups.')
     parser.add_argument('--quiet', "-q", action='store_true',
                         help='Quiet mode.')
-    if use_argparse:
-        parser.add_argument('ip', nargs='*', metavar='IP',
-                            help='Display results for specified IP addresses.')
+    parser.add_argument('ip', nargs='*', metavar='IP',
+                        help='Display results for specified IP addresses.')
     args = parser.parse_args()
     if args.download:
         geoiputils.download_all(verbose=not args.quiet)

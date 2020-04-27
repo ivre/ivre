@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,7 +19,10 @@
 """Update the flow database from Bro logs"""
 
 
+from argparse import ArgumentParser
 import os
+
+
 from ivre.parser.bro import BroFile
 from ivre.db import db
 from ivre import config, utils, flow
@@ -90,7 +93,7 @@ def dns2flow(bulk, rec):
     rec['answers'] = [elt.lower() for elt in
                       (rec['answers'] if rec['answers'] else [])]
     rec['query'] = rec['query'].lower() if rec['query'] else None
-    db.flow.dns2flow(bulk, rec)
+    db.flow.any2flow(bulk, 'dns', rec)
 
 
 FUNCTIONS = {
@@ -113,11 +116,9 @@ def any2flow(name):
 
 def main():
     """Update the flow database from Bro logs"""
-    parser, use_argparse = utils.create_argparser(__doc__,
-                                                  extraargs="logfiles")
-    if use_argparse:
-        parser.add_argument("logfiles", nargs='*', metavar='FILE',
-                            help="Bro log files")
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument("logfiles", nargs='*', metavar='FILE',
+                        help="Bro log files")
     parser.add_argument("-v", "--verbose", help="verbose mode",
                         action="store_true")
     parser.add_argument("-C", "--no-cleanup",

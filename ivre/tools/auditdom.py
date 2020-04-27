@@ -21,13 +21,7 @@
 Nmap script result."""
 
 
-try:
-    import argparse
-except ImportError:
-    import optparse
-    USING_ARGPARSE = False
-else:
-    USING_ARGPARSE = True
+import argparse
 from collections import namedtuple
 from datetime import datetime
 import json
@@ -199,27 +193,15 @@ class AXFRChecker(Checker):
 
 
 def main():
-    if USING_ARGPARSE:
-        parser = argparse.ArgumentParser(description=__doc__)
-    else:
-        parser = optparse.OptionParser(description=__doc__)
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            args, domains = parser.parse_args_orig()
-            args._update_loose({'domains': domains})
-            return args
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--json', action='store_true',
                         help='Output as JSON rather than XML.')
     parser.add_argument('--ipv4', '-4', action='store_true',
                         help='Use only IPv4.')
     parser.add_argument('--ipv6', '-6', action='store_true',
                         help='Use only IPv6.')
-    if USING_ARGPARSE:
-        parser.add_argument('domains', metavar='DOMAIN', nargs='+',
-                            help='domains to check')
+    parser.add_argument('domains', metavar='DOMAIN', nargs='+',
+                        help='domains to check')
     args = parser.parse_args()
     if args.json:
         def displayfunction(cur, scan=None):
@@ -252,11 +234,5 @@ def main():
     end = datetime.now()
     scan["end"] = end.strftime('%s')
     scan["endstr"] = str(end)
-    elapsed = end - start
-    try:
-        elapsed = str(elapsed.total_seconds())
-    except AttributeError:
-        # .total_seconds() does not exist in Python 2.6
-        elapsed = str(elapsed.days * 86400 + elapsed.seconds)
-    scan["elapsed"] = elapsed
+    scan["elapsed"] = str((end - start).total_seconds())
     displayfunction(results, scan=scan)

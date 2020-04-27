@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,11 +21,7 @@ from __future__ import print_function
 import json
 import os
 from xml.sax import saxutils
-try:
-    from collections import OrderedDict
-except ImportError:
-    # fallback to dict for Python 2.6
-    OrderedDict = dict
+from collections import OrderedDict
 import sys
 try:
     reload(sys)

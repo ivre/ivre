@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,12 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-try:
-    import argparse
-    USE_ARGPARSE = True
-except ImportError:
-    import optparse
-    USE_ARGPARSE = False
+import argparse
 import os
 import shlex
 import subprocess
@@ -45,24 +40,10 @@ ACTION_BOTH = 3
 
 
 def main():
-    if USE_ARGPARSE:
-        parser = argparse.ArgumentParser(
-            description='Sends targets to a remote agent.',
-            parents=[ivre.target.ARGPARSER])
-    else:
-        parser = optparse.OptionParser(
-            description='Sends targets to a remote agent.',
-            usage='Usage: ivre runscansagent [options] AGENT [AGENT ...]')
-        for args, kargs in ivre.target.ARGPARSER.args:
-            parser.add_option(*args, **kargs)
-        parser.parse_args_orig = parser.parse_args
-
-        def parse_args():
-            args, agents = parser.parse_args_orig()
-            args._update_loose({'agents': agents})
-            return args
-        parser.parse_args = parse_args
-        parser.add_argument = parser.add_option
+    parser = argparse.ArgumentParser(
+        description='Sends targets to a remote agent.',
+        parents=[ivre.target.ARGPARSER],
+    )
     parser.add_argument('--category', metavar='CAT', default="MISC",
                         help='tag scan results with this category')
     parser.add_argument('--max-waiting', metavar='TIME', type=int, default=60,
@@ -74,9 +55,8 @@ def main():
                         const=False, default=True)
     parser.add_argument('--feed', dest='action', action='store_const',
                         const=ACTION_FEED)
-    if USE_ARGPARSE:
-        parser.add_argument('agents', metavar='AGENT', nargs='+',
-                            help='agents to use (rsync address)')
+    parser.add_argument('agents', metavar='AGENT', nargs='+',
+                        help='agents to use (rsync address)')
     args = parser.parse_args()
     if args.categories is None:
         args.categories = [args.category]

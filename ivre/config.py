@@ -40,7 +40,6 @@ DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
 # Begin batch sizes
 LOCAL_BATCH_SIZE = 10000      # used with --local-bulk
 MONGODB_BATCH_SIZE = 100
-NEO4J_BATCH_SIZE = 1000
 POSTGRES_BATCH_SIZE = 10000
 # End batch sizes
 # specific: if no value is specified for *_PATH variables, they are

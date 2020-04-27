@@ -1,7 +1,0 @@
-pymongo>=2.7.2,<=3.6.1
-# pyOpenSSL would install a more recent version
-cryptography<=2.1.4
-idna<=2.7
-pyOpenSSL>=16.1.0,<=17.5.0
-future
-bottle

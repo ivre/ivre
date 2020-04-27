@@ -2726,8 +2726,6 @@ purposes to feed Elasticsearch view.
             ["--proto", "icmp"],
             command="flowcli")
 
-        # Time precision in mongo is millisecond, whereas it is microsecond in
-        # Neo4j. Thus, we can't have the same results.
         firstseen_date = self.get_timezone_fmt_date(
             "2015-09-18 14:15:19.830319")
         self.check_flow_count_value(
@@ -2743,7 +2741,7 @@ purposes to feed Elasticsearch view.
             ["--flow-filters", "lastseen = %s" % lastseen_date],
             {"edges": ["lastseen = %s" % lastseen_date]})
         self.check_flow_count_value(
-            "flow_count_gt_lastseen_%s" % DATABASE,
+            "flow_count_gt_lastseen",
             {"edges": ["lastseen > %s" % lastseen_date]},
             ["--flow-filters", "lastseen > %s" % lastseen_date],
             {"edges": ["lastseen > %s" % lastseen_date]})
@@ -2851,15 +2849,13 @@ purposes to feed Elasticsearch view.
             sport["flows"],
             sport_lte_68["flows"] + sport_gt_68["flows"])
 
-        # MongoDB stores a unlimited number of source ports,
-        # whereas neo4j stores only 5
         self.check_flow_count_value(
-            "flow_count_len_sports_%s" % DATABASE,
+            "flow_count_len_sports",
             {"edges": ['LEN sports = 5']},
             ["--flow-filters", "LEN sports = 5"],
             {"edges": ["LEN sports = 5"]})
         self.check_flow_count_value(
-            "flow_count_all_sports_%s" % DATABASE,
+            "flow_count_all_sports",
             {"edges": ['ALL sports > 50000']},
             ["--flow-filters", "ALL sports > 50000"],
             {"edges": ["ALL sports > 50000"]})
@@ -3116,15 +3112,8 @@ purposes to feed Elasticsearch view.
 
         res, out, _ = RUN(["ivre", "ipdata", "8.8.8.8"])
         self.assertEqual(res, 0)
-        # The order may differ, depending on the backend.  We need to
-        # replace float representations because it differs between
-        # Python 2.6 and other supported Python version; see
-        # <https://docs.python.org/2/whatsnew/2.7.html#python-3-1-features>.
-        out = sorted(
-            b'    coordinates (37.751, -97.822)' if
-            x == b'    coordinates (37.750999999999998, -97.822000000000003)'
-            else x for x in out.splitlines()
-        )
+        # The order may differ, depending on the backend.
+        out = sorted(out.splitlines())
         self.assertEqual(out, sorted(b'''8.8.8.8
     as_num 15169
     as_name Google LLC
@@ -3939,11 +3928,9 @@ purposes to feed Elasticsearch view.
         self.assertTrue(os.path.exists(data_files[0]))
         self.assertEqual(len(up_files), 1)
         self.assertTrue(os.path.exists(up_files[0]))
-        # TarFile object does not implement __exit__ on Python 2.6,
-        # cannot use `with`
-        data_archive = tarfile.open(data_files[0])
-        data_archive.extractall()
-        data_archive.close()
+        with tarfile.open(data_files[0]) as data_archive:
+            data_archive = tarfile.open(data_files[0])
+            data_archive.extractall()
         self.assertTrue(os.path.exists('screenshot-%s-80.jpg' % ipaddr))
         res, out, _ = RUN(["ivre", "scan2db", "--test"] + up_files)
         self.assertEqual(res, 0)
@@ -4683,8 +4670,6 @@ DATABASES = {
     "postgres": ["60_flow", "scans", "utils"],
     "sqlite": ["30_nmap", "53_nmap_delete", "50_view", "60_flow", "scans",
                "utils"],
-    "neo4j": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
-              "54_passive_delete", "90_cleanup", "scans", "utils"],
     "elastic": ["30_nmap", "40_passive", "53_nmap_delete", "54_passive_delete",
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
@@ -4695,43 +4680,12 @@ DATABASES = {
 
 def parse_args():
     global SAMPLES, USE_COVERAGE
-    try:
-        import argparse
-        parser = argparse.ArgumentParser(
-            description='Run IVRE tests',
-        )
-        use_argparse = True
-    except ImportError:
-        import optparse
-        parser = optparse.OptionParser(
-            description='Run IVRE tests',
-        )
-        parser.parse_args_orig = parser.parse_args
-
-        def my_parse_args():
-            res = parser.parse_args_orig()
-            try:
-                test = next(test for test in res[1] if test not in TESTS)
-            except StopIteration:
-                pass
-            else:
-                raise optparse.OptionError(
-                    "invalid choice: %r (choose from %s)" % (
-                        test,
-                        ", ".join(repr(val) for val in sorted(TESTS)),
-                    ),
-                    "tests",
-                )
-            res[0].ensure_value('tests', res[1])
-            return res[0]
-        parser.parse_args = my_parse_args
-        parser.add_argument = parser.add_option
-        use_argparse = False
+    import argparse
+    parser = argparse.ArgumentParser(description='Run IVRE tests')
     parser.add_argument('--samples', metavar='DIR',
                         default="./samples/")
     parser.add_argument('--coverage', action="store_true")
-    if use_argparse:
-        parser.add_argument('tests', nargs='*', choices=list(TESTS) + [[]])
+    parser.add_argument('tests', nargs='*', choices=list(TESTS) + [[]])
     args = parser.parse_args()
     SAMPLES = args.samples
     USE_COVERAGE = args.coverage
@@ -4781,11 +4735,6 @@ if __name__ == '__main__':
         IvreTests.assertItemsEqual = IvreTests.assertCountEqual
     except AttributeError:
         pass
-    try:
-        IvreTests.assertIsNone
-    except AttributeError:
-        # Python 2.6
-        IvreTests.assertIsNone = lambda self, obj: self.assertTrue(obj is None)
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )

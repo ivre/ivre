@@ -89,7 +89,6 @@ ivre/db/elastic.py
 ivre/db/http.py
 ivre/db/maxmind.py
 ivre/db/mongo.py
-ivre/db/neo4j.py
 ivre/db/tiny.py
 ivre/db/sql/__init__.py
 ivre/db/sql/postgres.py

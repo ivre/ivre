@@ -47,7 +47,7 @@ place your samples there (the PCAP files must have the extension
 and the Nmap JSON results must have the extension ``.json``).
 
 Then, run ``python ./tests.py`` (optionally replace ``python`` by the
-alternative interpreter you want to use, e.g., ``python2.6``; note
+alternative interpreter you want to use, e.g., ``python2.7``; note
 that ``coverage.py`` must be installed for this interpreter).  The
 first run will create a ``samples/results`` file with the expected
 values for some results. The next runs will use those values to check

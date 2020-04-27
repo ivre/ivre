@@ -64,7 +64,7 @@
             
             
               <div class="version">
-                0.9.14.dev
+                0.9.15.dev
               </div>
             
           
@@ -296,25 +296,6 @@ visible.</p>
 represent on the timeline (capped by the actual time precision set in
 <code class="docutils literal notranslate"><span class="pre">ivre.conf</span></code>). The timeline can also be played on the graph by clicking
 the ‘Play timeline’ button.</p>
-</div>
-</div>
-<div class="section" id="raw-database-queries">
-<h4>Raw Database queries<a class="headerlink" href="#raw-database-queries" title="Permalink to this headline">¶</a></h4>
-<p>Ivre flow module is currently built on top of neo4j. The query language
-of this database is quite intuitive and the user is encouraged to
-execute his own custom queries. The model is as follows:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>(:Host)-[:SEND]-&gt;(:Flow)-[:TO]-&gt;(:Host)
-   |                |
-   \                /
-    `--&gt;(:Intel)&lt;--&#39;
-</pre></div>
-</div>
-<p>As an example, the following query returns the most common (proto,
-dport):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">MATCH</span> <span class="p">(</span><span class="n">f</span><span class="p">:</span><span class="n">Flow</span><span class="p">)</span>
-<span class="n">RETURN</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">proto</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="n">dport</span><span class="p">],</span> <span class="n">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span> <span class="n">AS</span> <span class="n">cnt</span>
-<span class="n">ORDER</span> <span class="n">BY</span> <span class="n">cnt</span> <span class="n">DESC</span>
-</pre></div>
 </div>
 </div>
 <div class="section" id="flow-filters">

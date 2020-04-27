@@ -84,10 +84,13 @@ class TinyDB(DB):
     def init(self):
         self.db.purge_tables()
 
+    def get(self, *args, **kargs):
+        return list(self._get(*args, **kargs))
+
     def count(self, flt):
         return self.db.count(flt)
 
-    def get(self, flt, fields=None, sort=None, limit=None, skip=None):
+    def _db_get(self, flt, fields=None, sort=None, limit=None, skip=None):
         result = self.db.search(flt)
         if fields is not None:
 
@@ -400,7 +403,7 @@ This will be used by TinyDBNmap & TinyDBView
     """
 
     def _get(self, *args, **kargs):
-        for host in super(TinyDBActive, self).get(*args, **kargs):
+        for host in self._db_get(*args, **kargs):
             host = deepcopy(host)
             try:
                 host['addr'] = self.internal2ip(host['addr'])
@@ -425,9 +428,6 @@ This will be used by TinyDBNmap & TinyDBView
                 except KeyError:
                     pass
             yield host
-
-    def get(self, *args, **kargs):
-        return list(self._get(*args, **kargs))
 
     def store_host(self, host):
         host = deepcopy(host)
@@ -1937,15 +1937,8 @@ returned to backend-agnostic functions.
         return rec
 
     def _get(self, *args, **kargs):
-        for rec in super(TinyDBPassive, self).get(*args, **kargs):
+        for rec in self._db_get(*args, **kargs):
             yield self.internal2rec(rec)
-
-    def get(self, *args, **kargs):
-        """Queries the passive column with the provided filter "spec", and
-returns a list of results.
-
-        """
-        return list(self._get(*args, **kargs))
 
     def get_one(self, *args, **kargs):
         """Same function as get, except the first record matching "spec" (or
@@ -2932,7 +2925,7 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
             raise ValueError(
                 "Unsupported orderby (should be 'src', 'dst' or 'flow')"
             )
-        for f in super(TinyDBFlow, self).get(flt, **kargs):
+        for f in self._db_get(flt, **kargs):
             f = deepcopy(f)
             f['_id'] = f.doc_id
             try:
@@ -2941,9 +2934,6 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
             except KeyError:
                 pass
             yield f
-
-    def get(self, *args, **kargs):
-        return list(self._get(*args, **kargs))
 
     def count(self, flt):
         """
@@ -3091,7 +3081,6 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
                     array_mode=clause['array_mode'],
                 )
         if clause['neg']:
-            # pylint: disable=invalid-unary-operand-type
             return ~res
         return res
 
@@ -3101,7 +3090,15 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
 addresses.
 
         """
-        if clause['operator'] == 'regex':
+        if clause['len_mode']:
+            value = clause['value']
+            res = cls._base_from_attr(
+                clause['attr'],
+                op=lambda val: clause['operator'](val, value),
+                array_mode=clause['array_mode'],
+                len_mode=clause['len_mode'],
+            )
+        elif clause['operator'] == 'regex':
             res = cls._base_from_attr(
                 clause['attr'],
                 op=lambda val: val.search(clause['value']),
@@ -3138,7 +3135,7 @@ addresses.
         return res, cur + [subflts[-1]]
 
     @classmethod
-    def _base_from_attr(cls, attr, op, array_mode=None):
+    def _base_from_attr(cls, attr, op, array_mode=None, len_mode=False):
         array_fields, final_fields = cls._get_array_attrs(attr)
         final = Query()
         for subfld in final_fields:
@@ -3146,7 +3143,9 @@ addresses.
         if op == "exists":
             final = final.exists()
         elif attr in cls.list_fields:
-            if array_mode is None or array_mode.lower() == 'any':
+            if len_mode:
+                final = final.test(lambda vals: op(len(vals)))
+            elif array_mode is None or array_mode.lower() == 'any':
                 final = final.test(lambda vals: any(op(val) for val in vals))
             elif array_mode.lower() == 'all':
                 final = final.test(lambda vals: all(op(val) for val in vals))

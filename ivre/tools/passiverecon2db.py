@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,16 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Update the database from output of the Bro script 'passiverecon'"""
 
 
+from argparse import ArgumentParser
 import functools
 import signal
 import sys
 
 
 import ivre.db
-import ivre.utils
 import ivre.passive
 import ivre.parser.bro
 
@@ -37,9 +38,6 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 def _get_ignore_rules(ignore_spec):
     """Executes the ignore_spec file and returns the ignore_rules
 dictionary.
-
-Python 2.6 bug: it has to be in a separate function than main()
-because of the exec() call and the nested functions.
 
     """
     ignore_rules = {}
@@ -63,7 +61,7 @@ def rec_iter(bro_parser, sensor, ignore_rules):
 
 
 def main():
-    parser, _ = ivre.utils.create_argparser(__doc__)
+    parser = ArgumentParser(description=__doc__)
     parser.add_argument('--sensor', '-s', help='Sensor name')
     parser.add_argument('--ignore-spec', '-i',
                         help='Filename containing ignore rules')

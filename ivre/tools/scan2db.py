@@ -21,6 +21,7 @@
 
 
 from __future__ import print_function
+from argparse import ArgumentParser
 import os
 import sys
 
@@ -42,11 +43,8 @@ def recursive_filelisting(base_directories):
 
 
 def main():
-    parser, use_argparse = ivre.utils.create_argparser(__doc__,
-                                                       extraargs='scan')
-    if use_argparse:
-        parser.add_argument('scan', nargs='*', metavar='SCAN',
-                            help='Scan results')
+    parser = ArgumentParser(description=__doc__)
+    parser.add_argument('scan', nargs='*', metavar='SCAN', help='Scan results')
     parser.add_argument('-c', '--categories', default='',
                         help='Scan categories.')
     parser.add_argument('-s', '--source', default=None,

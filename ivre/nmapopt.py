@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,13 +21,14 @@
 """This sub-module is responsible for generating Nmap options."""
 
 
+from argparse import ArgumentParser
 import pipes
 
 
-from ivre import config, utils
+from ivre import config
 
 
-ARGPARSER = utils.ArgparserParent()
+ARGPARSER = ArgumentParser(add_help=False)
 
 ARGPARSER.add_argument('--nmap-template', help="Select Nmap scan template",
                        choices=config.NMAP_SCAN_TEMPLATES,

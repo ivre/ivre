@@ -130,8 +130,7 @@ package_ivre-web-git() {
 
 package_python-ivre-git() {
   depends=('python' 'python-pymongo' 'python-future')
-  optdepends=('python-py2neo: experimental flow analysis (Neo4j backend)'
-              'python-sqlalchemy: experimental PostgreSQL & SQLite backends'
+  optdepends=('python-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python-psycopg2: experimental PostgreSQL backend'
               'python-elasticsearch: experimental Elasticsearch backend'
               'python-elasticsearch-dsl: experimental Elasticsearch backend'
@@ -143,8 +142,7 @@ package_python-ivre-git() {
               'python-matplotlib: create graphs from command line tools'
               'python-dbus: 3D traceroute graphs'
               'mongodb: database server'
-              'postgresql: database server (experimental backend)'
-              'neo4j-community: database server (experimental flow analysis)')
+              'postgresql: database server (experimental backend)')
   provides=('python-ivre')
   conflicts=('python-ivre')
   pkgdesc+=' (library)'
@@ -164,8 +162,7 @@ package_python-ivre-git() {
 
 package_python2-ivre-git() {
   depends=('python2' 'python2-pymongo' 'python2-future')
-  optdepends=('python2-py2neo: experimental flow analysis (Neo4j backend)'
-              'python2-sqlalchemy: experimental PostgreSQL & SQLite backends'
+  optdepends=('python2-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python2-psycopg2: experimental PostgreSQL backend'
               'python2-elasticsearch: experimental Elasticsearch backend'
               'python2-elasticsearch-dsl: experimental Elasticsearch backend'
@@ -177,8 +174,7 @@ package_python2-ivre-git() {
               'python2-matplotlib: create graphs from command line tools'
               'python2-dbus: 3D traceroute graphs'
               'mongodb: database server'
-              'postgresql: database server (experimental backend)'
-              'neo4j-community: database server (experimental flow analysis)')
+              'postgresql: database server (experimental backend)')
   provides=('python2-ivre')
   conflicts=('python2-ivre')
   pkgdesc+=' (library)'

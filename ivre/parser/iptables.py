@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -31,8 +31,6 @@
 # TODO:
 #  - the log does not contain the Year so it's necessary to set it using
 #    parameter or changing input with new field 'YEAR' or using current year.
-#  - The log contains mac addr from source and destination, is this inifo can
-#    be added to neo db ?
 #
 """Support for Iptables log from syslog files."""
 

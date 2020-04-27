@@ -64,7 +64,7 @@
             
             
               <div class="version">
-                0.9.14.dev
+                0.9.15.dev
               </div>
             
           
@@ -238,14 +238,12 @@ which has the special meaning
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">DB_PASSIVE</span> <span class="o">=</span> <span class="s2">&quot;sqlite:////tmp/ivre.db&quot;</span>
 <span class="n">DB_NMAP</span> <span class="o">=</span> <span class="s2">&quot;postgresql://ivre@localhost/ivre&quot;</span>
 <span class="n">DB_VIEW</span> <span class="o">=</span> <span class="s2">&quot;elastic://192.168.0.1:9200/ivre&quot;</span>
-<span class="n">DB_FLOW</span> <span class="o">=</span> <span class="s2">&quot;neo4j://neo4j:neo4j@localhost:7474/db/data/&quot;</span>
 <span class="n">DB_DATA</span> <span class="o">=</span> <span class="s2">&quot;maxmind:///share/data/ivre/geoip&quot;</span>
 </pre></div>
 </div>
 <p>Batch insert or upsert operations can be tuned using backend-specific variables:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">LOCAL_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>      <span class="c1"># used with --local-bulk</span>
 <span class="n">MONGODB_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
-<span class="n">NEO4J_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">1000</span>
 <span class="n">POSTGRES_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>
 </pre></div>
 </div>

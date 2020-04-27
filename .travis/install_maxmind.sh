@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,7 +17,8 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 PIP_INSTALL_OPTIONS=""
-# We only run codespell and pylint once, with Python 3.7
-test "$TRAVIS_PYTHON_VERSION" = 3.7 && pip install -U $PIP_INSTALL_OPTIONS codespell pylint
-# flake8 won't run with Python 2.6
-test "$TRAVIS_PYTHON_VERSION" = 2.6 || pip install -U $PIP_INSTALL_OPTIONS flake8
+pip install -U $PIP_INSTALL_OPTIONS flake8
+# We only run codespell and pylint once, with Python 3.8
+test "$TRAVIS_PYTHON_VERSION" = 3.8 && \
+    pip install -U $PIP_INSTALL_OPTIONS codespell pylint
+true
