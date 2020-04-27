@@ -642,6 +642,8 @@ want to do something special here, e.g., mix with other records.
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
+        if not hosts:
+            return cls.flt_empty if neg else cls.searchnonexistent()
         return {'$and' if neg else '$or':
                 [cls.searchhost(host, neg=neg) for host in hosts]}
 
