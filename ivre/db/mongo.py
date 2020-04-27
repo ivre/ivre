@@ -4466,8 +4466,8 @@ class MongoDBFlow(with_metaclass(DBFlowMeta, MongoDB, DBFlow)):
         # internal_fields = [aggr fields, collect_fields, sum_fields]
         internal_fields = [[], [], []]
         external_fields = [fields, collect_fields, sum_fields]
-        for i in range(len(external_fields)):
-            for field in external_fields[i]:
+        for i, ext_flds in enumerate(external_fields):
+            for field in ext_flds:
                 if field in special_fields:
                     internal_fields[i].extend(special_fields[field])
                     for t_field in special_fields[field]:
