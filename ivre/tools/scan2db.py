@@ -33,10 +33,22 @@ import ivre.xmlnmap
 from ivre.view import nmap_record_to_view
 
 
-def recursive_filelisting(base_directories):
-    "Iterator on filenames in base_directories"
+def recursive_filelisting(base_directories, error):
+    """Iterator on filenames in base_directories. Ugly hack: error is a
+one-element list that will be set to True if one of the directories in
+base_directories does not exist.
+
+    """
 
     for base_directory in base_directories:
+        if not os.path.exists(base_directory):
+            ivre.utils.LOGGER.warning('directory %r does not exist',
+                                      base_directory)
+            error[0] = True
+            continue
+        if not os.path.isdir(base_directory):
+            yield base_directory
+            continue
         for root, _, files in os.walk(base_directory):
             for leaffile in files:
                 yield os.path.join(root, leaffile)
@@ -81,8 +93,11 @@ def main():
         args.update_view = False
         args.no_update_view = True
         database = ivre.db.DBNmap(output_mode="normal")
+    # Ugly hack: we use a one-element list so that
+    # recursive_filelisting can modify its value
+    error = [False]
     if args.recursive:
-        scans = recursive_filelisting(args.scan)
+        scans = recursive_filelisting(args.scan, error)
     else:
         scans = args.scan
     if not args.update_view or args.no_update_view:
@@ -93,8 +108,11 @@ def main():
                 nmap_record_to_view(x)
             )
     count = 0
-    error = False
     for scan in scans:
+        if not os.path.exists(scan):
+            ivre.utils.LOGGER.warning('file %r does not exist', scan)
+            error[0] = True
+            continue
         try:
             if database.store_scan(
                     scan,
@@ -107,6 +125,6 @@ def main():
         except Exception:
             ivre.utils.LOGGER.warning("Exception (file %r)", scan,
                                       exc_info=True)
-            error = True
+            error[0] = True
     ivre.utils.LOGGER.info("%d results imported.", count)
-    sys.exit(error)
+    sys.exit(error[0])
