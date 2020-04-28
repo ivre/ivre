@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,8 +20,9 @@
 """IVRE command line"""
 
 
-import sys
+from errno import EPIPE
 import os
+import sys
 import warnings
 
 
@@ -81,8 +82,12 @@ def main():
             output.write("  %s\n" % availcmd)
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)
-        exit(retcode)
+        sys.exit(retcode)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except IOError as exc:
+        if exc.errno != EPIPE:
+            raise
