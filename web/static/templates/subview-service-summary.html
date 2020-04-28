@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -31,3 +31,11 @@
       >(ostype: {{::port.service_ostype}})</span>
 <span ng-if="::port.service_tunnel"
       >(tunnel: {{::port.service_tunnel}})</span>
+<span ng-if="::port.screenshot == 'empty'"
+      >(empty screenshot)</span>
+<div>
+  <img ng-if="::port.screenshot == 'field'"
+       ng-src="data:image/jpeg;base64,{{::port.screendata}}"
+       class="screenshot"
+       alt="Screenshot for port {{::port.port}}"/>
+</div>

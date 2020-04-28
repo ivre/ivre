@@ -1430,11 +1430,15 @@ it is not expected)."""
             raise KeyError("Port %s/%d does not exist" % (protocol, port))
         if 'screenshot' in port and not overwrite:
             return
-        port['screenshot'] = "field"
         trim_result = utils.trim_image(data)
         if trim_result is False:
             # Image no longer exists after trim
+            port['screenshot'] = "empty"
+            self.db[self.columns[self.column_hosts]].update(
+                {"_id": host['_id']}, {"$set": {'ports': host['ports']}}
+            )
             return
+        port['screenshot'] = "field"
         if trim_result is not True:
             # Image has been trimmed
             data = trim_result
