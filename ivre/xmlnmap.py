@@ -2059,6 +2059,8 @@ argument (a dict object).
                                     screenwords = utils.screenwords(data)
                                     if screenwords is not None:
                                         current['screenwords'] = screenwords
+                                else:
+                                    current['screenshot'] = "empty"
                         except Exception:
                             exceptions.append((sys.exc_info(), full_fname))
                         else:
