@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -22,10 +22,16 @@
   <div host-summary=""></div>
   <div class="full">
     <!-- ports w/ scripts, etc. -->
-    <dt ng-repeat="port in ::host.ports | orderBy:['protocol','port']"
+    <dt ng-repeat-start="port in ::host.ports | orderBy:['protocol','port']"
         ng-if="::port.port !== -1 && port.screenshot"
         class="port">
       <div port-summary=""></div>
     </dt>
+    <dd ng-repeat-end ng-if="port.port !== -1">
+      <div ng-if="::port.service_name"
+	   class="result-service"
+	   service-summary="">
+      </div>
+    </dd>
   </div>
 </div>
