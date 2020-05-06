@@ -1453,7 +1453,10 @@ versions reported `{"Server": "value"}`, while recent versions report
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
         """Search an open port with a particular service."""
-        req = cls._searchstring_re(cls.tables.port.service_name, srv)
+        if srv is False:
+            req = (cls.tables.port.service_name == None)  # noqa: E711
+        else:
+            req = cls._searchstring_re(cls.tables.port.service_name, srv)
         if port is not None:
             req = and_(req, cls.tables.port.port == port)
         if protocol is not None:
@@ -1470,16 +1473,36 @@ versions reported `{"Server": "value"}`, while recent versions report
         """
         req = True
         if product is not None:
-            req = and_(cls._searchstring_re(cls.tables.port.service_product,
-                                            product))
+            if product is False:
+                req = and_(
+                    req,
+                    cls.tables.port.service_product == None,  # noqa: E711
+                )
+            else:
+                req = and_(req, cls._searchstring_re(
+                    cls.tables.port.service_product,
+                    product,
+                ))
         if version is not None:
-            req = and_(req, cls._searchstring_re(
-                cls.tables.port.service_version, version
-            ))
+            if version is False:
+                req = and_(
+                    req,
+                    cls.tables.port.service_version == None,  # noqa: E711
+                )
+            else:
+                req = and_(req, cls._searchstring_re(
+                    cls.tables.port.service_version, version
+                ))
         if service is not None:
-            req = and_(req, cls._searchstring_re(
-                cls.tables.port.service_name, service
-            ))
+            if service is False:
+                req = and_(
+                    req,
+                    cls.tables.port.service_name == None,  # noqa: E711
+                )
+            else:
+                req = and_(req, cls._searchstring_re(
+                    cls.tables.port.service_name, service
+                ))
         if port is not None:
             req = and_(req, cls.tables.port.port == port)
         if protocol is not None:
@@ -2592,10 +2615,13 @@ passive table."""
     @classmethod
     def searchservice(cls, srv, port=None, protocol=None):
         """Search a port with a particular service."""
-        flt = [cls._searchstring_re(
-            cls.tables.passive.moreinfo.op('->>')('service_name'),
-            srv
-        )]
+        if srv is False:
+            flt = ~cls.tables.passive.moreinfo.op('?')('service_name')
+        else:
+            flt = [cls._searchstring_re(
+                cls.tables.passive.moreinfo.op('->>')('service_name'),
+                srv
+            )]
         if port is not None:
             flt.append(cls.tables.passive.port == port)
         if protocol is not None and protocol != 'tcp':
@@ -2613,26 +2639,45 @@ passive table."""
         """
         flt = []
         if product is not None:
-            flt.append(
-                cls._searchstring_re(
-                    cls.tables.passive.moreinfo.op('->>')('service_product'),
-                    product,
+            if product is False:
+                flt.append(~cls.tables.passive.moreinfo.op('?')(
+                    'service_product'
+                ))
+            else:
+                flt.append(
+                    cls._searchstring_re(
+                        cls.tables.passive.moreinfo.op('->>')(
+                            'service_product'
+                        ),
+                        product,
+                    )
                 )
-            )
         if version is not None:
-            flt.append(
-                cls._searchstring_re(
-                    cls.tables.passive.moreinfo.op('->>')('service_version'),
-                    version,
+            if version is False:
+                flt.append(~cls.tables.passive.moreinfo.op('?')(
+                    'service_version'
+                ))
+            else:
+                flt.append(
+                    cls._searchstring_re(
+                        cls.tables.passive.moreinfo.op('->>')(
+                            'service_version'
+                        ),
+                        version,
+                    )
                 )
-            )
         if service is not None:
-            flt.append(
-                cls._searchstring_re(
-                    cls.tables.passive.moreinfo.op('->>')('service_name'),
-                    service,
+            if service is False:
+                flt.append(~cls.tables.passive.moreinfo.op('?')(
+                    'service_name'
+                ))
+            else:
+                flt.append(
+                    cls._searchstring_re(
+                        cls.tables.passive.moreinfo.op('->>')('service_name'),
+                        service,
+                    )
                 )
-            )
         if port is not None:
             flt.append(cls.tables.passive.port == port)
         if protocol is not None:
