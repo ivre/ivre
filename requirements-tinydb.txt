@@ -1,4 +1,4 @@
-tinydb
+tinydb<4
 cryptography
 pyOpenSSL>=16.1.0
 future
