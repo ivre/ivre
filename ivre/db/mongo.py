@@ -1900,7 +1900,12 @@ it is not expected)."""
 
     @staticmethod
     def searchservice(srv, port=None, protocol=None):
-        """Search an open port with a particular service."""
+        """Search an open port with a particular service. False means the
+        service is unknown.
+
+        """
+        if srv is False:
+            srv = {'$exists': False}
         flt = {'service_name': srv}
         if port is not None:
             flt['port'] = port
@@ -1917,20 +1922,32 @@ it is not expected)."""
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
+        For product, version and service parameters, False is a
+        special value that means "unknown"
+
         """
         flt = {}
         if product is not None:
-            flt['service_product'] = product
+            if product is False:
+                flt['service_product'] = {'$exists': False}
+            else:
+                flt['service_product'] = product
         if version is not None:
-            flt['service_version'] = version
+            if product is False:
+                flt['service_version'] = {'$exists': False}
+            else:
+                flt['service_version'] = version
         if service is not None:
-            flt['service_name'] = service
+            if service is False:
+                flt['service_name'] = {'$exists': False}
+            else:
+                flt['service_name'] = service
         if port is not None:
             flt['port'] = port
         if protocol is not None:
             flt['protocol'] = protocol
         if len(flt) == 1:
-            return {'ports.service_product': product}
+            return {'ports.%s' % key: value for key, value in viewitems(flt)}
         return {'ports': {'$elemMatch': flt}}
 
     @classmethod
@@ -3754,7 +3771,12 @@ setting values according to the keyword arguments.
 
     @staticmethod
     def searchservice(srv, port=None, protocol=None):
-        """Search a port with a particular service."""
+        """Search an open port with a particular service. False means the
+        service is unknown.
+
+        """
+        if srv is False:
+            srv = {'$exists': False}
         flt = {'infos.service_name': srv}
         if port is not None:
             flt['port'] = port
@@ -3770,14 +3792,26 @@ setting values according to the keyword arguments.
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
 
+        For product, version and service parameters, False is a
+        special value that means "unknown"
+
         """
         flt = {}
         if product is not None:
-            flt['infos.service_product'] = product
+            if product is False:
+                flt['infos.service_product'] = {'$exists': False}
+            else:
+                flt['infos.service_product'] = product
         if version is not None:
-            flt['infos.service_version'] = version
+            if product is False:
+                flt['infos.service_version'] = {'$exists': False}
+            else:
+                flt['infos.service_version'] = version
         if service is not None:
-            flt['infos.service_name'] = service
+            if service is False:
+                flt['infos.service_name'] = {'$exists': False}
+            else:
+                flt['infos.service_name'] = service
         if port is not None:
             flt['port'] = port
         if protocol is not None:

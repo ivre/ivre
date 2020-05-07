@@ -638,7 +638,10 @@ This will be used by TinyDBNmap & TinyDBView
     def searchservice(cls, srv, port=None, protocol=None):
         """Search an open port with a particular service."""
         q = Query()
-        flt = cls._searchstring_re(q.service_name, srv)
+        if srv is False:
+            flt = ~q.service_name.exists()
+        else:
+            flt = cls._searchstring_re(q.service_name, srv)
         if port is not None:
             flt &= (q.port == port)
         if protocol is not None:
@@ -656,11 +659,20 @@ This will be used by TinyDBNmap & TinyDBView
         q = Query()
         res = []
         if product is not None:
-            res.append(cls._searchstring_re(q.service_product, product))
+            if product is False:
+                res.append(~q.service_product.exists())
+            else:
+                res.append(cls._searchstring_re(q.service_product, product))
         if version is not None:
-            res.append(cls._searchstring_re(q.service_version, version))
+            if version is False:
+                res.append(~q.service_version.exists())
+            else:
+                res.append(cls._searchstring_re(q.service_version, version))
         if service is not None:
-            res.append(cls._searchstring_re(q.service_name, service))
+            if service is False:
+                res.append(~q.service_name.exists())
+            else:
+                res.append(cls._searchstring_re(q.service_name, service))
         if port is not None:
             res.append(q.port == port)
         if protocol is not None:
@@ -2178,7 +2190,10 @@ None) is returned.
     def searchservice(cls, srv, port=None, protocol=None):
         """Search a port with a particular service."""
         q = Query()
-        flt = cls._searchstring_re(q.infos.service_name, srv)
+        if srv is False:
+            flt = ~q.infos.service_name.exists()
+        else:
+            flt = cls._searchstring_re(q.infos.service_name, srv)
         if port is not None:
             flt &= q.port == port
         if protocol is not None and protocol != 'tcp':
@@ -2197,11 +2212,22 @@ None) is returned.
         q = Query()
         res = []
         if product is not None:
-            res.append(cls._searchstring_re(q.infos.service_product, product))
+            if product is False:
+                res.append(~q.infos.service_product.exists())
+            else:
+                res.append(cls._searchstring_re(q.infos.service_product,
+                                                product))
         if version is not None:
-            res.append(cls._searchstring_re(q.infos.service_version, version))
+            if version is False:
+                res.append(~q.infos.service_version.exists())
+            else:
+                res.append(cls._searchstring_re(q.infos.service_version,
+                                                version))
         if service is not None:
-            res.append(cls._searchstring_re(q.infos.service_name, service))
+            if service is False:
+                res.append(~q.infos.service_name.exists())
+            else:
+                res.append(cls._searchstring_re(q.infos.service_name, service))
         if port is not None:
             res.append(q.port == port)
         if protocol is not None:

@@ -1872,35 +1872,48 @@ purposes to feed Elasticsearch view.
 
         for service, product in [('ssh', 'Cisco SSH'),
                                  ('http', 'Apache httpd'),
-                                 ('imap', 'Microsoft Exchange imapd')]:
+                                 ('imap', 'Microsoft Exchange imapd'),
+                                 ('imap', False)]:
             flt = ivre.db.db.passive.searchproduct(product=product,
                                                    service=service)
             count = ivre.db.db.passive.count(flt)
             self.check_value(
-                "passive_count_%s_%s" % (service, product.replace(' ', '')),
+                "passive_count_%s_%s" % (
+                    service, (product or "UNKNOWN").replace(' ', ''),
+                ),
                 count,
             )
             for res in ivre.db.db.passive.get(flt):
-                self.assertTrue(res['infos']['service_name'] == service)
-                self.assertTrue(res['infos']['service_product'] == product)
+                self.assertEqual(res['infos']['service_name'], service)
+                if product:
+                    self.assertEqual(res['infos']['service_product'], product)
+                else:
+                    self.assertFalse('service_product' in res['infos'])
 
         for service, product, version in [
                 ('ssh', 'Cisco SSH', "1.25"),
-                ('ssh', 'OpenSSH', '3.1p1')
+                ('ssh', 'OpenSSH', '3.1p1'),
+                ('ssh', 'OpenSSH', False),
         ]:
             flt = ivre.db.db.passive.searchproduct(product=product,
                                                    service=service,
                                                    version=version)
             count = ivre.db.db.passive.count(flt)
             self.check_value(
-                "passive_count_%s_%s_%s" % (service, product.replace(' ', ''),
-                                            version.replace('.', '_')),
+                "passive_count_%s_%s_%s" % (
+                    service,
+                    product.replace(' ', ''),
+                    (version or "UNKNOWN").replace('.', '_'),
+                ),
                 count,
             )
             for res in ivre.db.db.passive.get(flt):
-                self.assertTrue(res['infos']['service_name'] == service)
-                self.assertTrue(res['infos']['service_product'] == product)
-                self.assertTrue(res['infos']['service_version'] == version)
+                self.assertEqual(res['infos']['service_name'], service)
+                self.assertEqual(res['infos']['service_product'], product)
+                if version:
+                    self.assertEqual(res['infos']['service_version'], version)
+                else:
+                    self.assertFalse('service_version' in res['infos'])
 
         for service, product, port in [
                 ('ssh', 'Cisco SSH', 22),
@@ -4250,6 +4263,66 @@ purposes to feed Elasticsearch view.
             ivre.db.db.view.searchversion(ivre.xmlnmap.SCHEMA_VERSION),
             database=ivre.db.db.view,
         )
+
+        # Check .searchproduct()
+        for service, product in [('ssh', 'Cisco SSH'),
+                                 ('http', 'Apache httpd'),
+                                 ('imap', 'Microsoft Exchange imapd'),
+                                 ('imap', False)]:
+            flt = ivre.db.db.view.searchproduct(product=product,
+                                                service=service)
+            count = ivre.db.db.view.count(flt)
+            self.check_value(
+                "view_count_%s_%s" % (
+                    service, (product or "UNKNOWN").replace(' ', ''),
+                ),
+                count,
+            )
+            for res in ivre.db.db.view.get(flt):
+                found = False
+                for port in res.get('ports', []):
+                    if port.get('service_name') == service:
+                        if product:
+                            if port.get('service_product') == product:
+                                found = True
+                                break
+                        elif 'service_product' not in port:
+                            found = True
+                            break
+                self.assertTrue(found)
+
+        for service, product, version in [
+                ('ssh', 'Cisco SSH', "1.25"),
+                ('ssh', 'OpenSSH', '3.1p1'),
+                ('ssh', 'OpenSSH', False),
+        ]:
+            flt = ivre.db.db.view.searchproduct(product=product,
+                                                service=service,
+                                                version=version)
+            count = ivre.db.db.view.count(flt)
+            self.check_value(
+                "view_count_%s_%s_%s" % (
+                    service,
+                    product.replace(' ', ''),
+                    (version or "UNKNOWN").replace('.', '_'),
+                ),
+                count,
+            )
+            for res in ivre.db.db.view.get(flt):
+                found = False
+                for port in res.get('ports'):
+                    if (
+                            port.get('service_name') == service and
+                            port.get('service_product') == product
+                    ):
+                        if version:
+                            if port.get('service_version') == version:
+                                found = True
+                                break
+                        elif 'service_version' not in port:
+                            found = True
+                            break
+                self.assertTrue(found)
 
         # Check script search filter
         count = self.check_view_count_value(
