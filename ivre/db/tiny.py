@@ -52,11 +52,17 @@ from ivre import utils
 from ivre.xmlnmap import ALIASES_TABLE_ELEMS, Nmap2DB
 
 
+try:
+    EMPTY_QUERY = Query().noop()
+except TypeError:
+    EMPTY_QUERY = Query()
+
+
 class TinyDB(DB):
 
     """A DB using TinyDB backend"""
 
-    flt_empty = Query()
+    flt_empty = EMPTY_QUERY
     no_limit = None
 
     def __init__(self, url):
@@ -82,7 +88,11 @@ class TinyDB(DB):
             del self._db
 
     def init(self):
-        self.db.purge_tables()
+        try:
+            self.db.drop_tables()
+        except AttributeError:
+            # TinyDB < 4
+            self.db.purge_tables()
 
     def get(self, *args, **kargs):
         return list(self._get(*args, **kargs))
@@ -1823,7 +1833,11 @@ class TinyDBNmap(TinyDBActive, DBNmap):
 
     def init(self):
         super(TinyDBNmap, self).init()
-        self.db_scans.purge_tables()
+        try:
+            self.db_scans.drop_tables()
+        except AttributeError:
+            # TinyDB < 4
+            self.db_scans.purge_tables()
 
     def remove(self, rec):
         """Removes the record from the active column. `rec` must be the
@@ -2458,8 +2472,14 @@ class TinyDBAgent(TinyDB, DBAgent):
 
     def init(self):
         super(TinyDBAgent, self).init()
-        self.db_scans.purge_tables()
-        self.db_masters.purge_tables()
+        try:
+            self.db_scans.drop_tables()
+        except AttributeError:
+            # TinyDB < 4
+            self.db_scans.purge_tables()
+            self.db_masters.purge_tables()
+        else:
+            self.db_masters.drop_tables()
 
     def _add_agent(self, agent):
         return self.db.insert(agent)
@@ -2479,7 +2499,7 @@ class TinyDBAgent(TinyDB, DBAgent):
 
     def get_agents(self):
         return (x.doc_id for x in
-                self.db.search(Query()))
+                self.db.search(self.flt_empty))
 
     def assign_agent(self, agentid, scanid,
                      only_if_unassigned=False,
@@ -2593,7 +2613,7 @@ scan object on success, and raises a LockError on failure.
 
     def get_scans(self):
         return (x.doc_id for x in
-                self.db_scans.search(Query()))
+                self.db_scans.search(self.flt_empty))
 
     def _update_scan_target(self, scanid, target):
         return self.db_scans.update({"target": target}, doc_ids=[scanid])
@@ -2609,7 +2629,7 @@ scan object on success, and raises a LockError on failure.
 
     def get_masters(self):
         return (x.doc_id for x in
-                self.db_masters.search(Query()))
+                self.db_masters.search(self.flt_empty))
 
 
 # TinyDB update operations

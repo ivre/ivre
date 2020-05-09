@@ -160,7 +160,7 @@ setup(
         'bottle',
     ],
     extras_require={
-        'TinyDB (experimental)': ["tinydb<4"],
+        'TinyDB (experimental)': ["tinydb"],
         'PostgreSQL (experimental)': ["sqlalchemy", "psycopg2"],
         'Elasticsearch (experimental)': ["elasticsearch", "elasticsearch-dsl"],
         'GSSAPI authentication': ["python-krbV"],
