@@ -27,7 +27,7 @@
         class="port">
       <div port-summary=""></div>
     </dt>
-    <dd ng-repeat-end ng-if="port.port !== -1">
+    <dd ng-repeat-end ng-if="port.port !== -1 && port.screenshot">
       <div ng-if="::port.service_name"
 	   class="result-service"
 	   service-summary="">
