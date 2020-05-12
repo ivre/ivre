@@ -1987,10 +1987,6 @@ purposes to feed Elasticsearch view.
                            ('infos.raw', 'ja3cli_raw'),
                            ('infos.sha1', 'ja3cli_sha1'),
                            ('infos.sha256', 'ja3cli_sha256')]:
-            if DATABASE == "sqlite" and '.' in field:
-                # BUG in sqlite backend: cannot use topvalues with
-                # JSON fields
-                continue
             for distinct in [True, False]:
                 cur = iter(ivre.db.db.passive.topvalues(
                     field=field,
