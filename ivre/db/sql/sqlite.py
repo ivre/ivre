@@ -51,16 +51,15 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
             self.tables.passive.port, self.tables.passive.source,
             self.tables.passive.value, self.tables.passive.targetval,
             self.tables.passive.info, unique=True,
-            sqlite_where=self.tables.passive.addr != None,
-            # noqa: E711 (BinaryExpression)
+            sqlite_where=self.tables.passive.addr != None,  # noqa: E711
         )
         Index(
             'ix_passive_record_noaddr', self.tables.passive.sensor,
             self.tables.passive.recontype, self.tables.passive.port,
             self.tables.passive.source, self.tables.passive.value,
             self.tables.passive.targetval, self.tables.passive.info,
-            unique=True, sqlite_where=self.tables.passive.addr == None,
-            # noqa: E711 (BinaryExpression)
+            unique=True,
+            sqlite_where=self.tables.passive.addr == None,  # noqa: E711
         )
 
     def _insert_or_update(self, timestamp, values, lastseen=None):

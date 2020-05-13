@@ -304,8 +304,7 @@ insert structures.
         elif field == "ttl":
             field = self._topstructure(
                 self.tables.port, [self.tables.port.state_reason_ttl],
-                self.tables.port.state_reason_ttl != None,
-                # noqa: E711 (BinaryExpression)
+                self.tables.port.state_reason_ttl != None,  # noqa: E711
             )
         elif field == "ttlinit":
             field = self._topstructure(
@@ -313,8 +312,7 @@ insert structures.
                 [func.least(255, func.power(2, func.ceil(
                     func.log(2, self.tables.port.state_reason_ttl)
                 )))],
-                self.tables.port.state_reason_ttl != None,
-                # noqa: E711 (BinaryExpression)
+                self.tables.port.state_reason_ttl != None,  # noqa: E711
             )
             outputproc = int
         elif field.startswith('port:'):
@@ -590,9 +588,13 @@ insert structures.
             field = self._topstructure(
                 self.tables.script,
                 [self.tables.script.data['ssl-cert'][subfield]],
-                and_(self.tables.script.name == 'ssl-cert',
-                     self.tables.script.data['ssl-cert'].has_key(subfield))
-            )  # noqa: W601 (BinaryExpression)
+                and_(
+                    self.tables.script.name == 'ssl-cert',
+                    self.tables.script.data[
+                        'ssl-cert'
+                    ].has_key(subfield),  # noqa: W601
+                )
+            )
         elif field == 'useragent' or field.startswith('useragent:'):
             if field == 'useragent':
                 flt = self.flt_and(flt, self.searchuseragent())
@@ -604,7 +606,7 @@ insert structures.
                     func.jsonb_array_elements(
                         self.tables.script.data['http-user-agent'],
                     ).alias('http_user_agent')
-                )  # noqa: W601 (BinaryExpression)
+                )
             else:
                 subfield = utils.str2regexp(field[10:])
                 flt = self.flt_and(flt,
@@ -621,7 +623,7 @@ insert structures.
                     func.jsonb_array_elements(
                         self.tables.script.data['http-user-agent'],
                     ).alias('http_user_agent')
-                )  # noqa: W601 (BinaryExpression)
+                )
         elif field == 'ja3-client' or (
                 field.startswith('ja3-client') and field[10] in ':.'
         ):
@@ -644,7 +646,7 @@ insert structures.
                     func.jsonb_array_elements(
                         self.tables.script.data['ssl-ja3-client'],
                     ).alias('ssl_ja3_client')
-                )  # noqa: W601 (BinaryExpression)
+                )
             else:
                 field = self._topstructure(
                     self.tables.script,
@@ -658,7 +660,7 @@ insert structures.
                     func.jsonb_array_elements(
                         self.tables.script.data['ssl-ja3-client'],
                     ).alias('ssl_ja3_client')
-                )  # noqa: W601 (BinaryExpression)
+                )
         elif field == 'ja3-server' or (
                 field.startswith('ja3-server') and field[10] in ':.'
         ):
@@ -718,7 +720,7 @@ insert structures.
                 func.jsonb_array_elements(
                     self.tables.script.data['ssl-ja3-server'],
                 ).alias('ssl_ja3_server')
-            )  # noqa: W601 (BinaryExpression)
+            )
         elif field == "source":
             field = self._topstructure(self.tables.scan,
                                        [self.tables.scan.source])
@@ -794,17 +796,19 @@ insert structures.
                 [self.tables.script.data['modbus-discover'][subfield]],
                 and_(self.tables.script.name == 'modbus-discover',
                      self.tables.script.data['modbus-discover']
-                     .has_key(subfield)),
-                # noqa: W601 (BinaryExpression)
+                     .has_key(subfield)),  # noqa: W601
             )
         elif field.startswith('s7.'):
             subfield = field[3:]
             field = self._topstructure(
                 self.tables.script,
                 [self.tables.script.data['s7-info'][subfield]],
-                and_(self.tables.script.name == 's7-info',
-                     self.tables.script.data['s7-info'].has_key(subfield)),
-                # noqa: W601 (BinaryExpression)
+                and_(
+                    self.tables.script.name == 's7-info',
+                    self.tables.script.data[
+                        's7-info'
+                    ].has_key(subfield),  # noqa: W601
+                ),
             )
         elif field == 'httphdr':
             flt = self.flt_and(flt, self.searchscript(name="http-headers"))
@@ -1304,16 +1308,15 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             self.tables.passive.port, self.tables.passive.source,
             self.tables.passive.value, self.tables.passive.targetval,
             self.tables.passive.info, unique=True,
-            postgresql_where=self.tables.passive.addr != None,
-            # noqa: E711 (BinaryExpression)
+            postgresql_where=self.tables.passive.addr != None,  # noqa: E711
         )
         Index(
             'ix_passive_record_noaddr', self.tables.passive.sensor,
             self.tables.passive.recontype, self.tables.passive.port,
             self.tables.passive.source, self.tables.passive.value,
             self.tables.passive.targetval, self.tables.passive.info,
-            unique=True, postgresql_where=self.tables.passive.addr == None,
-            # noqa: E711 (BinaryExpression)
+            unique=True,
+            postgresql_where=self.tables.passive.addr == None,  # noqa: E711
         )
 
     def _insert_or_update(self, timestamp, values, lastseen=None):
@@ -1333,16 +1336,14 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             stmt = stmt.on_conflict_do_update(
                 index_elements=['addr', 'sensor', 'recontype', 'port',
                                 'source', 'value', 'targetval', 'info'],
-                index_where=self.tables.passive.addr != None,
-                # noqa: E711 (BinaryExpression)
+                index_where=self.tables.passive.addr != None,  # noqa: E711
                 set_=upsert,
             )
         else:
             stmt = stmt.on_conflict_do_update(
                 index_elements=['sensor', 'recontype', 'port',
                                 'source', 'value', 'targetval', 'info'],
-                index_where=self.tables.passive.addr == None,
-                # noqa: E711 (BinaryExpression)
+                index_where=self.tables.passive.addr == None,  # noqa: E711
                 set_=upsert,
             )
         self.db.execute(stmt)
@@ -1396,10 +1397,9 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 tmp.columns[col] for col in [
                                     'sensor', 'port', 'recontype', 'source',
                                     'targetval', 'value', 'info', 'moreinfo'
-                                    ]])\
+                                ]])\
                     .where(
-                        tmp.columns['addr'] != None
-                        # noqa: E711 (BinaryExpression)
+                        tmp.columns['addr'] != None  # noqa: E711
                     )\
                     .group_by(*(tmp.columns[col] for col in [
                         'addr', 'sensor', 'port', 'recontype', 'source',
@@ -1409,8 +1409,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 .on_conflict_do_update(
                     index_elements=['addr', 'sensor', 'recontype', 'port',
                                     'source', 'value', 'targetval', 'info'],
-                    index_where=self.tables.passive.addr != None,
-                    # noqa: E711 (BinaryExpression)
+                    index_where=self.tables.passive.addr != None,  # noqa: E711
                     set_={
                         'firstseen': func.least(
                             self.tables.passive.firstseen,
@@ -1442,10 +1441,9 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                                 tmp.columns[col] for col in [
                                     'sensor', 'port', 'recontype', 'source',
                                     'targetval', 'value', 'info', 'moreinfo'
-                                    ]])\
+                                ]])\
                     .where(
-                        tmp.columns['addr'] == None
-                        # noqa: E711 (BinaryExpression)
+                        tmp.columns['addr'] == None  # noqa: E711
                     )\
                     .group_by(*(tmp.columns[col] for col in [
                         'addr', 'sensor', 'port', 'recontype', 'source',

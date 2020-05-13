@@ -1136,8 +1136,8 @@ def _read_nmap_probes():
     try:
         with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes'),
                   'rb') as fdesc:
-            for l in fdesc:
-                parse_line(l[:-1])
+            for fline in fdesc:
+                parse_line(fline[:-1])
     except (AttributeError, TypeError, IOError):
         LOGGER.warning('Cannot read Nmap service fingerprint file.',
                        exc_info=True)
