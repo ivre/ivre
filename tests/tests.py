@@ -262,9 +262,11 @@ class IvreTests(unittest.TestCase):
     def setUp(self):
         try:
             with open(os.path.join(SAMPLES, "results")) as fdesc:
-                self.results = dict([l[:l.index(' = ')],
-                                     literal_eval(l[l.index(' = ') + 3:-1])]
-                                    for l in fdesc if ' = ' in l)
+                self.results = {
+                    line[:line.index(' = ')]:
+                    literal_eval(line[line.index(' = ') + 3:-1])
+                    for line in fdesc if ' = ' in line
+                }
         except IOError as exc:
             if exc.errno != errno.ENOENT:
                 raise exc

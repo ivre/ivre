@@ -1355,10 +1355,10 @@ versions reported `{"Server": "value"}`, while recent versions report
                             updated = True
                     else:
                         script['http-server-header'] = [
-                            l.split(':', 1)[1].lstrip() for l in (
-                                l.strip()
-                                for l in script['output'].splitlines()
-                            ) if l.startswith('Server:')
+                            line.split(':', 1)[1].lstrip() for line in (
+                                line.strip()
+                                for line in script['output'].splitlines()
+                            ) if line.startswith('Server:')
                         ]
                         updated = True
         if updated:

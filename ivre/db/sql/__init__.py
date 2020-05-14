@@ -1041,10 +1041,10 @@ versions reported `{"Server": "value"}`, while recent versions report
             else:
                 try:
                     data = [
-                        l.split(':', 1)[1].lstrip() for l in (
-                            l.strip()
-                            for l in rec.output.splitlines()
-                        ) if l.startswith('Server:')
+                        line.split(':', 1)[1].lstrip() for line in (
+                            line.strip()
+                            for line in rec.output.splitlines()
+                        ) if line.startswith('Server:')
                     ]
                 except Exception:
                     utils.LOGGER.warning("Cannot migrate host %r", rec.id,
@@ -1114,8 +1114,7 @@ versions reported `{"Server": "value"}`, while recent versions report
         req = flt.query(
             select([func.count(self.tables.scan.id),
                     self.tables.scan.info['coordinates'].astext])
-            .where(self.tables.scan.info.has_key('coordinates')),
-            # noqa: W601 (BinaryExpression)
+            .where(self.tables.scan.info.has_key('coordinates')),  # noqa: W601
         )
         if skip is not None:
             req = req.offset(skip)
@@ -2379,10 +2378,11 @@ passive table."""
         cnd = cls.tables.passive.recontype == 'DNS_ANSWER'
         if name is not None:
             cnd &= (
-                (cls.tables.passive.moreinfo['domaintarget'
-                                             if reverse else
-                                             'domain'].has_key(name))
-                # noqa: W601 (BinaryExpression)
+                (cls.tables.passive.moreinfo[
+                    'domaintarget'
+                    if reverse else
+                    'domain'
+                ].has_key(name))   # noqa: W601
                 if subdomains else
                 cls._searchstring_re(cls.tables.passive.targetval
                                      if reverse else
