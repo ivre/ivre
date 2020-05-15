@@ -10,13 +10,13 @@
 (Instrument de veille sur les réseaux extérieurs) or DRUNK (Dynamic
 Recon of UNKnown networks) is a network recon framework, including
 tools for passive recon (flow analytics relying on
-[Bro](https://www.bro.org/), [Argus](http://qosient.com/argus/),
-[Nfdump](https://github.com/phaag/nfdump), fingerprint analytics based
-on Bro and [p0f](http://lcamtuf.coredump.cx/p0f/) and active recon
-(IVRE uses [Nmap](http://nmap.org/) to run scans, can use
-[ZMap](https://zmap.io/) as a pre-scanner; IVRE can also import XML
-output from Nmap and
-[Masscan](https://github.com/robertdavidgraham/masscan)).
+[Zeek](https://zeek.org/), [Argus](http://qosient.com/argus/),
+[Nfdump](https://github.com/phaag/nfdump), and active recon (IVRE uses
+[Nmap](http://nmap.org/) to run scans; IVRE can also import XML output
+from Nmap and
+[Masscan](https://github.com/robertdavidgraham/masscan)), and JSON
+output from [ZGrab2](https://github.com/zmap/zgrab2) and
+[ZDNS](https://github.com/zmap/zdns/).
 
 The advertising slogans are:
 

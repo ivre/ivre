@@ -1335,7 +1335,7 @@ def mac2manuf(mac):
         pass
 
 
-# Nmap (and Bro) encoding & decoding
+# Nmap (and Zeek) encoding & decoding
 
 
 _REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}

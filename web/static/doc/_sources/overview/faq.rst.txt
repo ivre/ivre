@@ -100,8 +100,8 @@ Can IVRE be used to look for XXX?
 ---------------------------------
 
 IVRE is not a scanner or a network traffic analyzer. It relies on
-tools like Nmap, Masscan, Zgrab2, Zeek and p0f, parses their results
-and stores them in a database.
+tools like Nmap, Masscan, ZGrab2, and Zeek, parses their results and
+stores them in a database.
 
 So when you are asking, for example, "can IVRE scan a network for
 hosts with the `Heartbleed

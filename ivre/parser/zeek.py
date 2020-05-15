@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""Support for Bro log files"""
+"""Support for Zeek log files"""
 
 import datetime
 import re
@@ -32,8 +32,8 @@ from ivre.utils import LOGGER, decode_hex
 CONTAINER_TYPE = re.compile(b"^(table|set|vector)\\[([a-z]+)\\]$")
 
 
-class BroFile(Parser):
-    """Bro log generator"""
+class ZeekFile(Parser):
+    """Zeek log generator"""
 
     int_types = set([b"port", b"count"])
     float_types = set([b"interval"])
@@ -48,7 +48,7 @@ class BroFile(Parser):
         self.types = []
         self.path = None
         self.nextlines = []
-        super(BroFile, self).__init__(fname)
+        super(ZeekFile, self).__init__(fname)
         for line in self.fdesc:
             line = line.strip()
             if not line.startswith(b'#'):

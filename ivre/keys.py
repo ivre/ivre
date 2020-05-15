@@ -82,8 +82,7 @@ class NmapKey(DBKey):
 
 
 class PassiveKey(DBKey):
-    """Base class for a key lookup tool specialized for the passive
-    (Bro) DB.
+    """Base class for a key lookup tool specialized for the passive DB.
 
     """
     def __init__(self, baseflt=None):
@@ -160,7 +159,7 @@ class SSLNmapKey(NmapKey, SSLKey):
 
 class SSLPassiveKey(PassiveKey, SSLKey):
     """Base class for the keys from SSL certificates within the passive
-    (Bro) DB.
+    DB.
 
     """
 
@@ -223,7 +222,7 @@ class SSHNmapKey(NmapKey, SSHKey):
 
 class SSHPassiveKey(PassiveKey, SSHKey):
     """Base class for the keys from SSH certificates within the passive
-    (Bro) DB.
+    DB.
 
     """
 
@@ -308,8 +307,7 @@ class SSHRsaNmapKey(SSHNmapKey, RSAKey):
 
 
 class SSLRsaPassiveKey(SSLPassiveKey, RSAKey):
-    """Tool for the RSA Keys from SSL certificates within the passive
-    (Bro) DB.
+    """Tool for the RSA Keys from SSL certificates within the passive DB.
 
     """
 

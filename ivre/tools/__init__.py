@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -34,7 +34,6 @@ __all__ = set([
     'ipinfo',
     'iphost',
     'macinfo',
-    'p0f2db',
     'passiverecon2db',
     'passivereconworker',
     'plotdb',

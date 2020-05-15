@@ -4,12 +4,6 @@ setup.cfg
 setup.py
 bash_completion/ivre
 bin/ivre
-bro/passiverecon2db-ignore.example
-bro/ivre/__load__.bro
-bro/ivre/arp/__load__.bro
-bro/ivre/passiverecon/__load__.bro
-bro/ivre/passiverecon/bare.bro
-bro/ivre/passiverecon/ja3.bro
 data/.empty
 data/ike-vendor-ids
 data/honeyd/sshd
@@ -97,9 +91,9 @@ ivre/db/sql/tables.py
 ivre/parser/__init__.py
 ivre/parser/airodump.py
 ivre/parser/argus.py
-ivre/parser/bro.py
 ivre/parser/iptables.py
 ivre/parser/netflow.py
+ivre/parser/zeek.py
 ivre/tools/__init__.py
 ivre/tools/airodump2db.py
 ivre/tools/arp2db.py
@@ -114,7 +108,6 @@ ivre/tools/ipdata.py
 ivre/tools/iphost.py
 ivre/tools/ipinfo.py
 ivre/tools/macinfo.py
-ivre/tools/p0f2db.py
 ivre/tools/passiverecon2db.py
 ivre/tools/passivereconworker.py
 ivre/tools/plotdb.py

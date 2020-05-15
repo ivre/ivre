@@ -6,8 +6,8 @@ the most efficient way.
 ## Project objectives
 
 IVRE does not include scanners or network analyzers, it only feeds a
-database with data from such programs (Nmap, Masscan, Bro, p0f, etc.)
-and provide tools to use the collected data.
+database with data from such programs (Nmap, Masscan, Zeek, etc.) and
+provide tools to use the collected data.
 
 We believe that it is important to keep the raw (uninterpreted) data
 in the database, together with data interpretation.
