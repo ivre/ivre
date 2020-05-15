@@ -2354,7 +2354,17 @@ argument (a dict object).
         self._curport.update(utils.match_nmap_svc_fp(
             raw, proto="tcp", probe="GetRequest",
         ))
-        script['http-headers'] = [
+        try:
+            script['http-headers'] = [
+                {
+                    "name": '_status',
+                    "value":
+                    utils.nmap_encode_data(raw.split(b'\n', 1)[0].strip()),
+                }
+            ]
+        except IndexError:
+            script['http-headers'] = []
+        script['http-headers'].extend(
             {"name": utils.nmap_encode_data(hdrname).lower(),
              "value": utils.nmap_encode_data(hdrval)}
             for hdrname, hdrval in (
@@ -2363,7 +2373,7 @@ argument (a dict object).
                     for part in raw.split(b'\n')
                 ) if m
             )
-        ]
+        )
         headers = [utils.nmap_decode_data(h['value'])
                    for h in script['http-headers']
                    if h['name'] == 'server']
