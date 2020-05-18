@@ -8,7 +8,7 @@ Purposes
 
 IVRE has five **purposes** (we use this word to refer to the different
 types of data IVRE handles), which can be stored by one or more
-**back-end** databases:
+**backend** databases:
 
 - ``data``: associates IP ranges to Autonomous Systems (AS numbers and
   names), and geographical information (country, region, city), based
