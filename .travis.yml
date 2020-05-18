@@ -135,42 +135,21 @@ before_script:
   # add wireshark manuf DB
   - mkdir -p usr/local/wireshark/share/wireshark
   - LD_LIBRARY_PATH= wget -q https://raw.githubusercontent.com/wireshark/wireshark/master/manuf -O usr/local/wireshark/share/wireshark/manuf
+  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/ab1ef539ffec2d6010a38ad2ef52f70191399f78.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
   # install Zeek & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
   - ZEEK_VERSION="3.$((RANDOM % 2))"; echo "ZEEK_VERSION $ZEEK_VERSION"; for archive in tools-travis-ivre zeek-${ZEEK_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise nfdump-1.6.17; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   # get GeoIP CSV files -- we are supposed to build them, but that's
   # disabled in Travis since that's too slow
-  - wget -q --no-check-certificate -P `python -c 'from ivre import config; print(config.GEOIP_PATH)'` https://ivre.rocks/data/tests/db/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
-  - export PATH="`pwd`/tools/bin:`pwd`/usr/local/zeek/bin:`pwd`/usr/local/nmap/bin:`pwd`/usr/local/nfdump/bin:$PATH"
-  - export LD_LIBRARY_PATH="`pwd`/tools/lib:`pwd`/usr/local/zeek/lib:`pwd`/usr/local/nfdump/lib"
+  - mv tests/geoip/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2 `python -c 'from ivre import config; print(config.GEOIP_PATH)'`; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
+  - export PATH="`pwd`/usr/local/zeek/bin:`pwd`/usr/local/nmap/bin:`pwd`/usr/local/nfdump/bin:$PATH"
+  - export LD_LIBRARY_PATH="`pwd`/usr/local/zeek/lib:`pwd`/usr/local/nfdump/lib"
   - export ZEEKPATH=".:`pwd`/usr/local/zeek/share/zeek:`pwd`/usr/local/zeek/share/zeek/policy:`pwd`/usr/local/zeek/share/zeek/site"
   # install IVRE's Nmap scripts.
   - cp `python -c "import ivre.config; print(ivre.config.guess_prefix('nmap_scripts'))"`/*.nse `pwd`/usr/local/nmap/share/nmap/scripts/
   - for patch in `python -c "import ivre.config; print(ivre.config.guess_prefix('nmap_scripts'))"`/patches/*; do (cd `pwd`/usr/local/nmap/share/nmap && patch -p0 < $patch); done
   - nmap --script-updatedb
-  # get samples
-  - mkdir tests/samples
-  - cp tests/results-public-samples tests/samples/results
-  - cp tests/iptables-samples tests/samples/iptables.log
-  ## Nmap Internet-wide Modbus scan (JSON format, shortened)
-  - wget -q --no-check-certificate -O tests/samples/Nmap-Modbus-IPv4.json.bz2 https://ivre.rocks/data/tests/Nmap-Modbus-IPv4-partial.json.bz2 # JSON files w/ Nmap scan results
-  ## Masscan sample scans (XML format)
-  - for file in test-probe-ike-ipsec-nat-t-probe-U4500.xml.bz2 test-probe-ike-probe-U500.xml.bz2 test-T22.xml.bz2 test-T443.xml.bz2 test-T102-s7comm.xml.bz2; do wget -q --no-check-certificate "https://ivre.rocks/data/tests/$file" -O "tests/samples/$file" ; done
-  ## Nmap IPv6 scans
-  - wget -q https://raw.githubusercontent.com/logstash-plugins/logstash-codec-nmap/master/spec/fixtures/ipv6_all.xml -O "tests/samples/ipv6_all.xml"
-  ## PCAP files from ivre.rocks
-  - wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/dnsbl.pcap.bz2 | bunzip2 > tests/samples/dnsbl.pcap
-  ## nfcapd files from ivre.rocks
-  - wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/nfcapd > tests/samples/nfcapd
-  ## mongo_conn.log file for flow cleanup step from ivre.rocks
-  - wget -q --no-check-certificate -O tests/samples/mongo_conn.log https://ivre.rocks/data/tests/mongo_conn.log
-  ## PCAP files from the Wireshark project
-  - for file in dns.cap imap.cap http.cap telnet-raw.pcap nb6-startup.pcap nb6-http.pcap nb6-telephone.pcap nb6-hotspot.pcap Teredo.pcap sr-header.pcap; do wget --no-check-certificate -q "https://ivre.rocks/data/tests/wiki.wireshark.org/$file" -O "tests/samples/$file"; done
-  - for file in SSHv2.cap; do wget -q "http://packetlife.net/media/captures/$file" -O "tests/samples/$file"; done
-  - wget -q 'https://www.cloudshark.org/captures/616566f75f0c/download' -O tests/samples/gre-sample.pcap
-  # 2015-09-18-Nuclear-EK-traffic comes from https://www.malware-traffic-analysis.net/2015/09/18/2015-09-18-Nuclear-EK-traffic.pcap.zip
-  - for file in banners.pcap 2015-09-18-Nuclear-EK-traffic.pcap; do wget -q --no-check-certificate -O tests/samples/$file https://ivre.rocks/data/tests/$file; done
-  - for file in tests/samples/*.cap; do mv "$file" "${file/.cap/.pcap}"; done
+  - test "$DB" != "elastic" || tar jxf ./tests/mongodb_backup/backup_nmap_passive.tar.bz2
   - export ZEEK_SAMPLES=`pwd`/usr/local/zeek/testing
   - ivre --version; echo; zeek --version; echo; nmap --version
 
