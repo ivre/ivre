@@ -711,7 +711,7 @@ def get_ipdata(addr):
 # Passive (/passivedns/)
 #
 
-@application.get('/passivedns/<query>')
+@application.get('/passivedns/<query:path>')
 @check_referer
 def get_passivedns(query):
     """Query passive DNS data. This API is compatible with the `Common
@@ -754,6 +754,11 @@ It also returns additional information:
         flt = db.passive.flt_and(
             db.passive.searchdns(dnstype=request.params.get("type")),
             db.passive.searchhost(query),
+        )
+    elif utils.NETADDR.search(query):
+        flt = db.passive.flt_and(
+            db.passive.searchdns(dnstype=request.params.get("type")),
+            db.passive.searchnet(query),
         )
     else:
         flt = db.passive.searchdns(name=query,

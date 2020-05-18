@@ -2320,6 +2320,53 @@ purposes to feed Elasticsearch view.
 
         self.assertEqual(web_count, count)
 
+        for rtype in ['A', 'AAAA']:
+            rec = next(iter(ivre.db.db.passive.get(
+                ivre.db.db.passive.searchdns(dnstype=rtype),
+                sort=[('addr', 1)]
+            )))
+            req = Request('http://%s:%d/cgi/passivedns/%s' % (
+                HTTPD_HOSTNAME,
+                HTTPD_PORT,
+                rec['addr']
+            ))
+            req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                         HTTPD_PORT))
+            udesc = urlopen(req)
+            self.assertEqual(udesc.getcode(), 200)
+            found = False
+            for line in udesc:
+                cur_rec = json.loads(line.decode("utf-8"))
+                self.assertEqual(rec['addr'], cur_rec['rdata'])
+                if cur_rec['rrtype'] == rtype and \
+                        cur_rec['rrname'] == rec['value']:
+                    found = True
+                    break
+            self.assertTrue(found)
+
+        rec = next(iter(ivre.db.db.passive.get(
+            ivre.db.db.passive.searchdns(dnstype='A'),
+            sort=[('addr', 1)]
+        )))
+        # Try to request subnet /24 (should include the initial IP addr)
+        req = Request('http://%s:%d/cgi/passivedns/%s/24' % (
+            HTTPD_HOSTNAME,
+            HTTPD_PORT,
+            rec['addr']
+        ))
+        req.add_header('Referer', 'http://%s:%d/' % (HTTPD_HOSTNAME,
+                                                     HTTPD_PORT))
+        udesc = urlopen(req)
+        self.assertEqual(udesc.getcode(), 200)
+        found = False
+        for line in udesc:
+            cur_rec = json.loads(line.decode("utf-8"))
+            self.assertEqual(rec['addr'], cur_rec['rdata'])
+            if cur_rec['rrtype'] == 'A' and cur_rec['rrname'] == rec['value']:
+                found = True
+                break
+        self.assertTrue(found)
+
         for tail in ["tail", "tailnew"]:
             ret, out, _ = RUN(["ivre", "ipinfo", "--%s" % tail, "1"])
             self.assertEqual(sum(1 for line in out.splitlines()
