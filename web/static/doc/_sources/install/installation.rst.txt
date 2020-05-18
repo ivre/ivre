@@ -32,10 +32,8 @@ install `Tesseract <https://github.com/tesseract-ocr/tesseract>`_,
 If you plan to analyze PCAP file on a machine, install, depending on
 your needs:
 
-- `Zeek <https://www.zeek.org/>`_ (previously known as Bro, version
-  2.5 minimum).
-- `p0f <http://lcamtuf.coredump.cx/p0f/>`_ (version 2, will not work
-  with version 3).
+- `Zeek <https://www.zeek.org/>`_ (previously known as Bro, version 3
+  minimum).
 - `Argus <http://qosient.com/argus/>`_.
 - `Nfdump <http://nfdump.sourceforge.net/>`_.
 

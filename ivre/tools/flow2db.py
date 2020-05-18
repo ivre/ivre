@@ -27,31 +27,22 @@ from ivre import utils
 from ivre.db import db
 # from ivre.parser.airodump import Airodump
 from ivre.parser.argus import Argus
-# from ivre.parser.bro import BroFile
 from ivre.parser.netflow import NetFlow
 from ivre.parser.iptables import Iptables
 
 PARSERS_CHOICE = {
     # 'airodump': Airodump,
     'argus': Argus,
-    # 'bro': BroFile,
     'netflow': NetFlow,
     'iptables': Iptables,
 }
 
 
 PARSERS_MAGIC = {
-    # Pcap: ARP
-    # '\xa1\xb2\xd3\xc4': None,
-    # '\xd4\xc3\xb2\xa1': None,
     # NetFlow
     b'\x0c\xa5\x01\x00': NetFlow,
     # Argus
     b'\x83\x10\x00\x20': Argus,
-    # Bro
-    # '#sep': BroFile,
-    # Airodump CSV
-    # '\x0d\x0aBS': Airodump,
 }
 
 

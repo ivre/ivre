@@ -100,7 +100,6 @@
 <li class="toctree-l2"><a class="reference internal" href="active-recon.html">Active recon</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Passive</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#with-zeek">With Zeek</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#with-p0f">With p0f</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#enjoying-the-results">Enjoying the results</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="#cli">CLI</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#python-module">Python module</a></li>
@@ -192,7 +191,7 @@
 <div class="section" id="with-zeek">
 <h2>With Zeek<a class="headerlink" href="#with-zeek" title="Permalink to this headline">¶</a></h2>
 <p>You need to run <a class="reference external" href="https://www.zeek.org/">Zeek</a> (formerly known as
-Bro, version 2.5 minimum, tested with 2.5 and 2.6) with the option
+Bro), version 3.0 minimum (tested with 3.0 and 3.1) with the option
 <code class="docutils literal notranslate"><span class="pre">-b</span></code> and the location of the <code class="docutils literal notranslate"><span class="pre">passiverecon/bare.zeek</span></code> file. If you
 want to run it on the <code class="docutils literal notranslate"><span class="pre">eth0</span></code> interface, for example, run (replace
 <code class="docutils literal notranslate"><span class="pre">/usr/share/ivre</span></code> by the appropriate location; use <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-c</span>
@@ -221,19 +220,6 @@ stop gently (as soon as it has finished to process the current file).</p>
 intermediate files:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek [option] \
 &gt;   | ivre passiverecon2db
-</pre></div>
-</div>
-</div>
-<div class="section" id="with-p0f">
-<h2>With p0f<a class="headerlink" href="#with-p0f" title="Permalink to this headline">¶</a></h2>
-<p>To start filling your database with information from the <code class="docutils literal notranslate"><span class="pre">eth0</span></code>
-interface, you just need to run (<code class="docutils literal notranslate"><span class="pre">passiverecon</span></code> is just a sensor name
-here):</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo ivre p0f2db -s passiverecon iface:eth0
-</pre></div>
-</div>
-<p>And from the same <code class="docutils literal notranslate"><span class="pre">capture</span></code> file:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ivre p0f2db -s passiverecon capture
 </pre></div>
 </div>
 </div>

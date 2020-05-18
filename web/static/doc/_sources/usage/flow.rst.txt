@@ -16,7 +16,8 @@ Usage
 Data insertion
 ..............
 
-There are two tools for data insertion, the first is based on Zeek (Bro):
+There are two tools for data insertion, the first is based on Zeek
+(previously known as Bro):
 
 .. code:: bash
 

@@ -125,7 +125,7 @@ setup(
     long_description=long_description,
     long_description_content_type=long_description_content_type,
     keywords=["network", "network recon", "network cartography",
-              "nmap", "masscan", "zmap", "bro", "zeek", "p0f"],
+              "nmap", "masscan", "zmap", "bro", "zeek"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
@@ -174,16 +174,6 @@ setup(
     scripts=['bin/ivre'],
     data_files=[
         ('', ['README.md']),  # needed for the package description
-        ('share/ivre/bro',
-         ['bro/passiverecon2db-ignore.example']),
-        ('share/ivre/bro/ivre',
-         ['bro/ivre/__load__.bro']),
-        ('share/ivre/bro/ivre/arp',
-         ['bro/ivre/arp/__load__.bro']),
-        ('share/ivre/bro/ivre/passiverecon',
-         ['bro/ivre/passiverecon/__load__.bro',
-          'bro/ivre/passiverecon/bare.bro',
-          'bro/ivre/passiverecon/ja3.bro']),
         ('share/ivre/zeek',
          ['zeek/passiverecon2db-ignore.example']),
         ('share/ivre/zeek/ivre',

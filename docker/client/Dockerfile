@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre.lalet@cea.fr>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ RUN sed -i 's/ main/ main non-free/' /etc/apt/sources.list
 RUN apt-get -q update
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
-RUN apt-get -qy install p0f rsync screen ipython openssl tesseract-ocr \
+RUN apt-get -qy install rsync screen ipython openssl tesseract-ocr \
     libfreetype6 libfontconfig1 fonts-dejavu imagemagick ffmpeg s3270 \
     patch bash-completion bzip2 bro python-pil nfdump
 

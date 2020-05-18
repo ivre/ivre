@@ -5,7 +5,7 @@ With Zeek
 ---------
 
 You need to run `Zeek <https://www.zeek.org/>`_ (formerly known as
-Bro, version 2.5 minimum, tested with 2.5 and 2.6) with the option
+Bro), version 3.0 minimum (tested with 3.0 and 3.1) with the option
 ``-b`` and the location of the ``passiverecon/bare.zeek`` file. If you
 want to run it on the ``eth0`` interface, for example, run (replace
 ``/usr/share/ivre`` by the appropriate location; use ``python -c
@@ -44,23 +44,6 @@ intermediate files:
 
    $ zeek -b /usr/share/ivre/zeek/ivre/passiverecon/bare.zeek [option] \
    >   | ivre passiverecon2db
-
-With p0f
---------
-
-To start filling your database with information from the ``eth0``
-interface, you just need to run (``passiverecon`` is just a sensor name
-here):
-
-::
-
-   $ sudo ivre p0f2db -s passiverecon iface:eth0
-
-And from the same ``capture`` file:
-
-::
-
-   $ ivre p0f2db -s passiverecon capture
 
 Enjoying the results
 --------------------

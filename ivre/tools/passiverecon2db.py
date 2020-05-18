@@ -17,7 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""Update the database from output of the Bro script 'passiverecon'"""
+"""Update the database from output of the Zeek script 'passiverecon'"""
 
 
 from argparse import ArgumentParser
@@ -28,7 +28,7 @@ import sys
 
 import ivre.db
 import ivre.passive
-import ivre.parser.bro
+import ivre.parser.zeek
 
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -47,8 +47,8 @@ dictionary.
     return ignore_rules
 
 
-def rec_iter(bro_parser, sensor, ignore_rules):
-    for line in bro_parser:
+def rec_iter(zeek_parser, sensor, ignore_rules):
+    for line in zeek_parser:
         line["timestamp"] = line.pop("ts")
         # skip PassiveRecon::
         line["recon_type"] = line["recon_type"][14:]
@@ -87,8 +87,8 @@ def main():
         stdin = sys.stdin.buffer
     except AttributeError:
         stdin = sys.stdin
-    bro_parser = ivre.parser.bro.BroFile(stdin)
+    zeek_parser = ivre.parser.zeek.ZeekFile(stdin)
     function(
-        rec_iter(bro_parser, args.sensor, ignore_rules),
+        rec_iter(zeek_parser, args.sensor, ignore_rules),
         getinfos=ivre.passive.getinfos
     )

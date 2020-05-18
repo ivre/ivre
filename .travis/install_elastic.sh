@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -41,8 +41,3 @@ if [ -f "requirements-mongo-$PYVERS.txt" ]; then
 else
     pip install -U $PIP_INSTALL_OPTIONS -r "requirements-mongo.txt"
 fi
-
-# We also need results since we will not run 30_nmap & 40_passive
-# tests. This is used in 20_fake_nmap_passive
-mkdir backup
-wget -q --no-check-certificate -O - https://ivre.rocks/data/tests/backup_nmap_passive.tar.bz2 | tar jxf -

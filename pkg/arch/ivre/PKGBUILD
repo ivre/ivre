@@ -115,7 +115,6 @@ package_ivre-web-git() {
 
   rm -r "$pkgdir/usr/bin" "$pkgdir/usr/lib" \
      "$pkgdir/usr/share/doc" \
-     "$pkgdir/usr/share/ivre/bro" \
      "$pkgdir/usr/share/ivre/zeek" \
      "$pkgdir/usr/share/ivre/data" \
      "$pkgdir/usr/share/ivre/docker" \
