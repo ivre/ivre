@@ -17,8 +17,9 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""This sub-module contains functions to interact with the
-database backends.
+"""This sub-module contains functions to interact with the database
+backends.
+
 """
 
 from argparse import ArgumentParser
@@ -577,6 +578,40 @@ To use this to create a pandas DataFrame, you can run:
         """
         raise NotImplementedError
 
+    @classmethod
+    def searchtorcert(cls):
+        expr = re.compile(
+            '^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
+            flags=0
+        )
+        return cls.searchcert(
+            subject=expr,
+            issuer=expr,
+        )
+
+    @classmethod
+    def searchcertsubject(cls, expr, issuer=None):
+        utils.LOGGER.info(
+            'The API .searchcertsubject() is deprecated and will be removed. '
+            'Use .searchcert() instead.'
+        )
+        return cls.searchcert(subject=expr, issuer=issuer)
+
+    @classmethod
+    def searchcertissuer(cls, expr):
+        utils.LOGGER.info(
+            'The API .searchcertissuer() is deprecated and will be removed. '
+            'Use .searchcert() instead.'
+        )
+        return cls.searchcert(issuer=expr)
+
+    @classmethod
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
+                   subject=None, issuer=None, self_signed=None,
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
+        """Look for a particular certificate"""
+        raise NotImplementedError
+
     @staticmethod
     def _ja3keyvalue(value_or_hash):
         """Returns the key and the value to search for according
@@ -658,6 +693,7 @@ class DBActive(DB):
         "ports.scripts.rpcinfo.version",
         "ports.scripts.smb-enum-shares.shares",
         "ports.scripts.ssh-hostkey",
+        "ports.scripts.ssl-cert",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
         "ports.scripts.vulns",
@@ -692,6 +728,7 @@ class DBActive(DB):
                 13: (14, self.__migrate_schema_hosts_13_14),
                 14: (15, self.__migrate_schema_hosts_14_15),
                 15: (16, self.__migrate_schema_hosts_15_16),
+                16: (17, self.__migrate_schema_hosts_16_17),
             },
         }
         self.argparser.add_argument(
@@ -1152,6 +1189,42 @@ versions reported `{"Server": "value"}`, while recent versions report
                         ]
 
     @staticmethod
+    def __migrate_schema_hosts_16_17(doc):
+        """Converts a record from version 16 to version 17. Version 17 uses a
+list for ssl-cert output, since several certificates may exist on a
+single port.
+
+The parsing has been improved and more data gets stored, so while we
+do this, we use the opportunity to parse the certificate again.
+
+        """
+        assert doc["schema_version"] == 16
+        doc["schema_version"] = 17
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "ssl-cert" and 'ssl-cert' in script:
+                    data = script['ssl-cert']
+                    out = script['output']
+                    if 'pem' in data:
+                        rawdata = ''.join(
+                            data['pem'].splitlines()[1:-1]
+                        )
+                        try:
+                            out, data = xmlnmap.create_ssl_cert(
+                                rawdata.encode()
+                            )
+                            out = '\n'.join(out)
+                        except Exception:
+                            utils.LOGGER.warning(
+                                'Cannot parse certificate data [%r]',
+                                rawdata,
+                                exc_info=True,
+                            )
+                            data = [data]
+                    script['ssl-cert'] = data
+                    script['output'] = out
+
+    @staticmethod
     def json2dbrec(host):
         return host
 
@@ -1358,7 +1431,9 @@ versions reported `{"Server": "value"}`, while recent versions report
                                  output=re.compile('nfs', flags=0))
 
     @classmethod
-    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None):
+    def searchcert(cls, keytype=None, md5=None, sha1=None, sha256=None,
+                   subject=None, issuer=None, self_signed=None,
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         values = {}
         if keytype is not None:
             values['pubkey.type'] = keytype
@@ -1368,19 +1443,20 @@ versions reported `{"Server": "value"}`, while recent versions report
             values['sha1'] = sha1
         if sha256 is not None:
             values['sha256'] = sha256
-        if values:
-            return cls.searchscript(name="ssl-cert", values=values)
-        return cls.searchscript(name="ssl-cert")
-
-    def searchtorcert(self):
-        expr = re.compile(
-            '^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
-            flags=0
-        )
-        return self.searchscript(
-            name='ssl-cert',
-            values={'subject_text': expr, 'issuer_text': expr},
-        )
+        if subject is not None:
+            values['subject_text'] = subject
+        if issuer is not None:
+            values['issuer_text'] = issuer
+        if self_signed is not None:
+            values['self_signed'] = self_signed
+        if pkmd5 is not None:
+            values['pubkey.md5'] = pkmd5
+        if pksha1 is not None:
+            values['pubkey.sha1'] = pksha1
+        if pksha256 is not None:
+            values['pubkey.sha256'] = pksha256
+        return cls.searchscript(name="ssl-cacert" if cacert else "ssl-cert",
+                                values=values)
 
     @classmethod
     def searchhttphdr(cls, name=None, value=None):
@@ -2023,6 +2099,21 @@ class DBView(DBActive):
                                      ua_equals, ua_output)
 
     @staticmethod
+    def merge_ssl_cert_scripts(curscript, script, script_id):
+
+        def cert_equals(a, b, script_id):
+            return a['sha256'] == b['sha256']
+
+        def cert_output(cert, script_id):
+            return '\n'.join(xmlnmap.create_ssl_output(cert))
+
+        return DBView._merge_scripts(
+            curscript, script, script_id, cert_equals, cert_output,
+            outsep="\n---------------------------------------------"
+            "-------------------\n"
+        )
+
+    @staticmethod
     def merge_axfr_scripts(curscript, script, script_id):
         # If one results has no structured output, keep the other
         # one. Prefer curscript over script.
@@ -2055,25 +2146,29 @@ class DBView(DBActive):
         return curscript
 
     @staticmethod
-    def _merge_scripts(curscript, script, script_id,
-                       script_equals, script_output):
+    def _merge_scripts(curscript, script, script_id, script_equals,
+                       script_output, outsep="\n"):
         """Merge two scripts and return the result. Avoid duplicates.
         """
         to_merge_list = []
-        for to_add in script[script_id]:
+        script_id_alias = xmlnmap.ALIASES_TABLE_ELEMS.get(script_id, script_id)
+        for to_add in script.setdefault(script_id_alias, []):
             to_merge = True
-            for cur in curscript[script_id]:
+            for cur in curscript.get(script_id_alias, []):
                 if script_equals(to_add, cur, script_id):
                     to_merge = False
                     break
             if to_merge:
                 to_merge_list.append(to_add)
-        curscript[script_id].extend(to_merge_list)
-        # Compute output from curscript[script_id]
-        output = ""
-        for el in curscript[script_id]:
-            output += script_output(el, script_id) + '\n'
-        curscript['output'] = output
+        curscript.setdefault(script_id_alias, []).extend(to_merge_list)
+        # Compute output from curscript[script_id_alias]
+        output = []
+        for el in curscript[script_id_alias]:
+            output.append(script_output(el, script_id))
+        if output:
+            curscript['output'] = outsep.join(output) + '\n'
+        else:
+            curscript['output'] = ''
         return curscript
 
     @staticmethod
@@ -2084,6 +2179,8 @@ class DBView(DBActive):
             return DBView.merge_ua_scripts(curscript, script, script_id)
         if script_id == 'dns-zone-transfer':
             return DBView.merge_axfr_scripts(curscript, script, script_id)
+        if script_id in ['ssl-cert', 'ssl-cacert']:
+            return DBView.merge_ssl_cert_scripts(curscript, script, script_id)
         return {}
 
     @staticmethod
@@ -2171,7 +2268,9 @@ class DBView(DBActive):
                     elif (script['id'] in ['ssl-ja3-server',
                                            'ssl-ja3-client',
                                            'http-user-agent',
-                                           'dns-zone-transfer']):
+                                           'dns-zone-transfer',
+                                           'ssl-cacert',
+                                           'ssl-cert']):
                         # Merge scripts
                         curscript = next(x for x in curport['scripts']
                                          if x['id'] == script['id'])
@@ -2389,7 +2488,7 @@ class DBPassive(DB):
         if args.cert is not None:
             flt = self.flt_and(
                 flt,
-                self.searchcertsubject(utils.str2regexp(args.cert)),
+                self.searchcert(subject=utils.str2regexp(args.cert)),
             )
         if args.timeago is not None:
             flt = self.flt_and(self.searchtimeago(args.timeago, new=False))
@@ -2578,18 +2677,6 @@ class DBPassive(DB):
         if flt:
             return (cls.flt_and if neg else cls.flt_or)(*flt)
         return cls.flt_empty if neg else cls.searchnonexistent()
-
-    def searchtorcert(self):
-        return self.searchcertsubject(
-            re.compile('^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
-                       flags=0),
-            issuer=re.compile('^commonName=www\\.[a-z2-7]{8,20}\\.(net|com)$',
-                              flags=0),
-        )
-
-    @staticmethod
-    def searchcertsubject(expr, issuer=None):
-        raise NotImplementedError
 
     @staticmethod
     def searchdns(name=None, reverse=False, dnstype=None, subdomains=False):

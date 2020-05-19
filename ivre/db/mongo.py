@@ -724,7 +724,11 @@ class MongoDBActive(MongoDB, DBActive):
             ([('starttime', pymongo.ASCENDING)], {}),
             ([('endtime', pymongo.ASCENDING)], {}),
             ([('source', pymongo.ASCENDING)], {}),
-            ([('categories', pymongo.ASCENDING)], {}),
+            ([
+                ('categories', pymongo.ASCENDING),
+                ('addr_0', pymongo.ASCENDING),
+                ('addr_1', pymongo.ASCENDING),
+            ], {}),
             ([('hostnames.domains', pymongo.ASCENDING)], {}),
             ([('traces.hops.domains', pymongo.ASCENDING)], {}),
             ([('openports.count', pymongo.ASCENDING)], {}),
@@ -736,18 +740,60 @@ class MongoDBActive(MongoDB, DBActive):
              {"sparse": True}),
             ([('ports.port', pymongo.ASCENDING)], {}),
             ([('ports.state_state', pymongo.ASCENDING)], {}),
-            ([('ports.service_name', pymongo.ASCENDING)], {}),
+            ([
+                ('ports.service_name', pymongo.ASCENDING),
+                ('ports.service_product', pymongo.ASCENDING),
+                ('ports.service_version', pymongo.ASCENDING),
+            ], {}),
             ([('ports.scripts.id', pymongo.ASCENDING)], {}),
             ([('ports.scripts.ls.volumes.volume', pymongo.ASCENDING)],
              {"sparse": True}),
             ([('ports.scripts.ls.volumes.files.filename',
                pymongo.ASCENDING)],
              {"sparse": True}),
+            ([('ports.scripts.ssl-cert.self_signed', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.san', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.issuer.commonName', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.issuer.countryName', pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.issuer.stateOrProvinceName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.issuer.localityName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.issuer.organizationName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.issuer.organizationalUnitName',
+               pymongo.ASCENDING)],
+             {"sparse": True,
+              "name": "ivre.hosts.$ports.scripts.ssl-cert.issuer.fields_1"}),
+            ([('ports.scripts.ssl-cert.subject.commonName',
+               pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.subject.countryName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.subject.stateOrProvinceName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.subject.localityName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.subject.organizationName',
+               pymongo.ASCENDING),
+              ('ports.scripts.ssl-cert.subject.organizationalUnitName',
+               pymongo.ASCENDING)],
+             {"sparse": True,
+              "name": "ivre.hosts.$ports.scripts.ssl-cert.subject.fields_1"}),
             ([('ports.scripts.ssl-cert.md5', pymongo.ASCENDING)],
              {"sparse": True}),
             ([('ports.scripts.ssl-cert.sha1', pymongo.ASCENDING)],
              {"sparse": True}),
             ([('ports.scripts.ssl-cert.sha256', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.pubkey.md5', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.pubkey.sha1', pymongo.ASCENDING)],
+             {"sparse": True}),
+            ([('ports.scripts.ssl-cert.pubkey.sha256', pymongo.ASCENDING)],
              {"sparse": True}),
             ([
                 ('ports.scripts.vulns.id', pymongo.ASCENDING),
@@ -838,6 +884,70 @@ class MongoDBActive(MongoDB, DBActive):
                     ], {}),
                 ],
             },
+            17: {
+                "drop": [
+                    ([('categories', pymongo.ASCENDING)], {}),
+                    ([('ports.service_name', pymongo.ASCENDING)], {}),
+                ],
+                "ensure": [
+                    ([
+                        ('categories', pymongo.ASCENDING),
+                        ('addr_0', pymongo.ASCENDING),
+                        ('addr_1', pymongo.ASCENDING),
+                    ], {}),
+                    ([
+                        ('ports.service_name', pymongo.ASCENDING),
+                        ('ports.service_product', pymongo.ASCENDING),
+                        ('ports.service_version', pymongo.ASCENDING),
+                    ], {}),
+                    ([('ports.scripts.ssl-cert.self_signed',
+                       pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('ports.scripts.ssl-cert.san', pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('ports.scripts.ssl-cert.issuer.commonName',
+                       pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('ports.scripts.ssl-cert.issuer.countryName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.issuer.stateOrProvinceName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.issuer.localityName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.issuer.organizationName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.issuer.organizationalUnitName',
+                       pymongo.ASCENDING)],
+                     {"sparse": True,
+                      "name":
+                      "ivre.hosts.$ports.scripts.ssl-cert.issuer.fields_1"}),
+                    ([('ports.scripts.ssl-cert.subject.commonName',
+                       pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('ports.scripts.ssl-cert.subject.countryName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.subject.stateOrProvinceName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.subject.localityName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.subject.organizationName',
+                       pymongo.ASCENDING),
+                      ('ports.scripts.ssl-cert.subject.organizationalUnitName',
+                       pymongo.ASCENDING)],
+                     {"sparse": True,
+                      "name":
+                      "ivre.hosts.$ports.scripts.ssl-cert.subject.fields_1"}),
+                    ([('ports.scripts.ssl-cert.pubkey.md5',
+                       pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('ports.scripts.ssl-cert.pubkey.sha1',
+                       pymongo.ASCENDING)],
+                     {"sparse": True}),
+                    ([('ports.scripts.ssl-cert.pubkey.sha256',
+                       pymongo.ASCENDING)],
+                     {"sparse": True}),
+                ]
+            }
         },
     ]
     schema_latest_versions = [
@@ -866,6 +976,7 @@ class MongoDBActive(MongoDB, DBActive):
                 13: (14, self.migrate_schema_hosts_13_14),
                 14: (15, self.migrate_schema_hosts_14_15),
                 15: (16, self.migrate_schema_hosts_15_16),
+                16: (17, self.migrate_schema_hosts_16_17),
             },
         ]
 
@@ -1361,6 +1472,42 @@ versions reported `{"Server": "value"}`, while recent versions report
                             ) if line.startswith('Server:')
                         ]
                         updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_16_17(doc):
+        """Converts a record from version 16 to version 17. Version 17 uses a
+list for ssl-cert output, since several certificates may exist on a
+single port.
+
+The parsing has been improved and more data gets stored, so while we
+do this, we use the opportunity to parse the certificate again.
+
+        """
+        assert doc["schema_version"] == 16
+        update = {"$set": {"schema_version": 17}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if script['id'] == "ssl-cert" and "ssl-cert" in script:
+                    table = script['ssl-cert']
+                    if 'pem' in table:
+                        data = ''.join(
+                            table['pem'].splitlines()[1:-1]
+                        ).encode()
+                        try:
+                            output, table = xmlnmap.create_ssl_cert(
+                                data
+                            )
+                            script['output'] = '\n'.join(output)
+                        except Exception:
+                            utils.LOGGER.warning('Cannot parse certificate %r',
+                                                 data, exc_info=True)
+                            table = [table]
+                    script['ssl-cert'] = table
+                    updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
         return update
@@ -1960,7 +2107,7 @@ it is not expected)."""
             req['id'] = name
         if output is not None:
             req['output'] = output
-        if values is not None:
+        if values:
             if not isinstance(name, basestring):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
@@ -3254,7 +3401,7 @@ class MongoDBPassive(MongoDB, DBPassive):
              {"sparse": True}),
             ([('infos.subject_text', pymongo.ASCENDING)],
              {"sparse": True}),
-            ([('infos.pubkeyalgo', pymongo.ASCENDING)],
+            ([('infos.pubkey.type', pymongo.ASCENDING)],
              {"sparse": True}),
         ],
     ]
@@ -3294,6 +3441,16 @@ class MongoDBPassive(MongoDB, DBPassive):
                      {"sparse": True}),
                 ],
             },
+            2: {
+                "drop": [
+                    ([('infos.pubkeyalgo', pymongo.ASCENDING)],
+                     {"sparse": True}),
+                ],
+                "ensure": [
+                    ([('infos.pubkey.type', pymongo.ASCENDING)],
+                     {"sparse": True}),
+                ],
+            },
         }
     ]
     schema_latest_versions = [
@@ -3316,6 +3473,7 @@ class MongoDBPassive(MongoDB, DBPassive):
             # passive
             {
                 None: (1, self.migrate_schema_passive_0_1),
+                1: (2, self.migrate_schema_passive_1_2),
             },
         ]
 
@@ -3381,6 +3539,25 @@ Also, the structured data for SSL certificates has been updated.
             doc.update(passive._getinfos_cert(doc))
         return doc
 
+    @classmethod
+    def migrate_schema_passive_1_2(cls, doc):
+        """Converts a record from version 1 to version 2. In version 2 the
+structured data for SSL certificates has been updated.
+
+        """
+        assert doc["schema_version"] == 1
+        doc = cls.internal2rec(doc)
+        doc["schema_version"] = 2
+        if (
+                doc["recontype"] == "SSL_SERVER" and
+                doc["source"] == "cert"
+        ):
+            info = utils.get_cert_info(doc["value"])
+            if info:
+                doc['infos'] = info
+            doc['value'] = utils.encode_b64(doc['value']).decode()
+        return doc
+
     def _get(self, flt, **kargs):
         """Like .get(), but returns a MongoDB cursor (suitable for use with
 e.g.  .explain()).
@@ -3400,7 +3577,7 @@ inserted in the database.
         except (KeyError, ValueError):
             pass
         if rec.get('recontype') == 'SSL_SERVER' and \
-           rec.get('source') == 'cert':
+           rec.get('source') in {'cert', 'cacert'}:
             rec['value'] = cls.to_binary(
                 utils.decode_b64(rec['value'].encode())
             )
@@ -3875,18 +4052,31 @@ setting values according to the keyword arguments.
         return res
 
     @staticmethod
-    def searchcert(keytype=None, md5=None, sha1=None, sha256=None):
+    def searchcert(keytype=None, md5=None, sha1=None, sha256=None,
+                   subject=None, issuer=None, self_signed=None,
+                   pkmd5=None, pksha1=None, pksha256=None, cacert=False):
         res = {'recontype': 'SSL_SERVER',
-               'source': 'cert'}
+               'source': 'cacert' if cacert else 'cert'}
         if keytype is not None:
-            res['infos.pubkeyalgo'] = utils.PUBKEY_REV_TYPES.get(keytype,
-                                                                 keytype)
+            res['infos.pubkey.type'] = keytype
         if md5 is not None:
             res['infos.md5'] = md5
         if sha1 is not None:
             res['infos.sha1'] = sha1
         if sha256 is not None:
             res['infos.sha256'] = sha256
+        if subject is not None:
+            res['infos.subject_text'] = subject
+        if issuer is not None:
+            res['infos.issuer_text'] = issuer
+        if self_signed is not None:
+            res['infos.self_signed'] = self_signed
+        if pkmd5 is not None:
+            res['infos.pubkey.md5'] = pkmd5
+        if pksha1 is not None:
+            res['infos.pubkey.sha1'] = pksha1
+        if pksha256 is not None:
+            res['infos.pubkey.sha256'] = pksha256
         return res
 
     @classmethod
@@ -3920,22 +4110,6 @@ setting values according to the keyword arguments.
         return {'recontype': 'SSH_SERVER_HOSTKEY',
                 'source': 'SSHv2',
                 'infos.algo': 'ssh-' + keytype}
-
-    @staticmethod
-    def searchcertsubject(expr, issuer=None):
-        res = {'recontype': 'SSL_SERVER',
-               'source': 'cert',
-               'infos.subject_text': expr}
-        if issuer is None:
-            return res
-        res["infos.issuer_text"] = issuer
-        return res
-
-    @staticmethod
-    def searchcertissuer(expr):
-        return {'recontype': 'SSL_SERVER',
-                'source': 'cert',
-                'infos.issuer_text': expr}
 
     @staticmethod
     def searchbasicauth():

@@ -313,6 +313,22 @@ var HELP_FILTERS = {
 	    "title": "xp445",
 	    "content": "Look for Windows XP machines with TCP/445 port open.",
 	},
+        "cert.keytype:": {
+            "title": "cert.keytype:[exact value or /regexp/]",
+            "content": "Look for a particular certificate public key type.",
+        },
+        "cert.self_signed": {
+            "title": "<b>(!)</b>cert.self_signed",
+            "content": "Look for self signed certificates.",
+        },
+        "cert.subject:": {
+            "title": "cert.subject:[exact value or /regexp/]",
+            "content": "Look for a particular certificate subject.",
+        },
+        "cert.issuer:": {
+            "title": "cert.subject:[exact value or /regexp/]",
+            "content": "Look for a particular certificate issuer.",
+        },
         "cert.md5:": {
             "title": "cert.md5:[MD5 hash or /MD5 hash regexp/]",
             "content": "Look for a particular certificate, based on the MD5 hash.",
@@ -324,6 +340,18 @@ var HELP_FILTERS = {
         "cert.sha256:": {
             "title": "cert.sha256:[SHA256 hash or /SHA256 hash regexp/]",
             "content": "Look for a particular certificate, based on the SHA256 hash.",
+        },
+        "cert.pkmd5:": {
+            "title": "cert.pkmd5:[MD5 hash or /MD5 hash regexp/]",
+            "content": "Look for a particular certificate public key, based on the MD5 hash.",
+        },
+        "cert.pksha1:": {
+            "title": "cert.pksha1:[SHA1 hash or /SHA1 hash regexp/]",
+            "content": "Look for a particular certificate public key, based on the SHA1 hash.",
+        },
+        "cert.pksha256:": {
+            "title": "cert.pksha256:[SHA256 hash or /SHA256 hash regexp/]",
+            "content": "Look for a particular certificate public key, based on the SHA256 hash.",
         },
 	"ssl-ja3-client": {
 	    "title": "(!)ssl-ja3-client<b>[:JA3]</b>",

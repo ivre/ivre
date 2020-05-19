@@ -452,12 +452,22 @@ def flt_from_query(dbase, query, base_flt=None):
                 add_unused(neg, param, value)
         elif not neg and param == 'cert':
             flt = dbase.flt_and(flt, dbase.searchcert())
-        elif not neg and param.startswith('cert.'):
+        elif param.startswith('cert.'):
             subfield = param.split('.', 1)[1]
-            if subfield in ['md5', 'sha1', 'sha256']:
-                flt = dbase.flt_and(flt, dbase.searchcert(**{
-                    subfield: utils.str2regexp(value),
-                }))
+            if subfield == 'self_signed' and value is None:
+                flt = dbase.flt_and(flt, dbase.searchcert(self_signed=not neg))
+            elif not neg:
+                if subfield in ['md5', 'sha1', 'sha256', 'subject', 'issuer']:
+                    flt = dbase.flt_and(flt, dbase.searchcert(**{
+                        subfield: utils.str2regexp(value),
+                    }))
+                elif subfield in ['pubkey.md5', 'pubkey.sha1',
+                                  'pubkey.sha256']:
+                    flt = dbase.flt_and(flt, dbase.searchcert(**{
+                        'pk%s' % subfield[7:]: utils.str2regexp(value),
+                    }))
+                else:
+                    add_unused(neg, param, value)
             else:
                 add_unused(neg, param, value)
         elif not neg and param == 'httphdr':

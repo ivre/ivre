@@ -33,7 +33,7 @@ from future.utils import viewitems
 from ivre import utils, config
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 DNSBL_START = re.compile(
     '^(?:'
@@ -352,7 +352,7 @@ records.
 
     """
     source = spec.get('source')
-    if source == 'cert':
+    if source in {'cert', 'cacert'}:
         return _getinfos_cert(spec)
     if source.startswith('ja3-'):
         return _getinfos_ja3(spec)

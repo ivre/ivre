@@ -143,8 +143,10 @@ def disp_recs_json(flt, sort, limit, skip):
                 del rec[fld]
             except KeyError:
                 pass
-        if rec.get('recontype') == 'SSL_SERVER' and \
-           rec.get('source') == 'cert':
+        if (
+                rec.get('recontype') == 'SSL_SERVER' and
+                rec.get('source') in {'cert', 'cacert'}
+        ):
             rec['value'] = utils.encode_b64(rec['value']).decode()
         print(json.dumps(rec, indent=indent, default=db.passive.serialize))
 

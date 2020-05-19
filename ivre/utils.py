@@ -44,6 +44,7 @@ import shutil
 import socket
 import struct
 import subprocess
+import sys
 import time
 
 
@@ -52,6 +53,8 @@ from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 try:
     from OpenSSL import crypto as osslc
+    from cryptography.hazmat.primitives.serialization import \
+        Encoding, PublicFormat
 except ImportError:
     USE_PYOPENSSL = False
 else:
@@ -79,9 +82,11 @@ from ivre import config
 # seen, it seems that (1) is right.
 MAXVALLEN = 1000
 
+
 LOGGER = logging.getLogger("ivre")
 REGEXP_T = type(re.compile(''))
 HEX = re.compile('^[a-f0-9]+$', re.IGNORECASE)
+STRPTIME_SUPPORTS_TZ = (sys.version_info >= (3, 7))
 
 
 # IP address regexp, based on
@@ -1732,9 +1737,13 @@ _CERTINFOS = [
         b'\n *'
         b'Issuer: (?P<issuer>.*)'
         b'\n(?:.*\n)* *'
+        b'Not Before *: (?P<not_before>.*)'
+        b'\n(?:.*\n)* *'
+        b'Not After *: (?P<not_after>.*)'
+        b'\n(?:.*\n)* *'
         b'Subject: (?P<subject>.*)'
         b'\n(?:.*\n)* *'
-        b'Public Key Algorithm: (?P<pubkeyalgo>rsaEncryption)'
+        b'Public Key Algorithm: (?P<type>rsaEncryption)'
         b'\n *'
         b'(?:RSA )?Public-Key: \\((?P<bits>[0-9]+) bit\\)'
         b'\n *'
@@ -1747,16 +1756,26 @@ _CERTINFOS = [
         b'\n *'
         b'Issuer: (?P<issuer>.*)'
         b'\n(?:.*\n)* *'
+        b'Not Before *: (?P<not_before>.*)'
+        b'\n(?:.*\n)* *'
+        b'Not After *: (?P<not_after>.*)'
+        b'\n(?:.*\n)* *'
         b'Subject: (?P<subject>.*)'
         b'\n(?:.*\n)* *'
-        b'Public Key Algorithm: (?P<pubkeyalgo>.*)'
+        b'Public Key Algorithm: (?P<type>.*)'
         b'(?:\n|$)'
     ),
 ]
 
-_CERTINFOS_SAN = re.compile(
+_CERTINFOS_EXT_SAN = re.compile(
     b'\n *'
     b'X509v3 Subject Alternative Name: *(?:critical *)?\n *(?P<san>.*)'
+    b'(?:\n|$)'
+)
+
+_CERTINFOS_EXT_BC = re.compile(
+    b'\n *'
+    b'X509v3 Basic Constraints: *(?:critical *)?\n *(?P<bc>.*)'
     b'(?:\n|$)'
 )
 
@@ -1776,6 +1795,13 @@ _CERTALGOS = {
     408: 'id-ecPublicKey',
     116: 'id-dsa',
     28: 'dhpublicnumber',
+}
+
+_CERTKEYTYPES = {
+    6: 'rsa',
+    408: 'ec',
+    116: 'dsa',
+    28: 'dh',
 }
 
 PUBKEY_TYPES = {
@@ -1862,6 +1888,24 @@ text and a dict suitable for use by get_cert_info().
             dict(components))
 
 
+if STRPTIME_SUPPORTS_TZ:
+    def _parse_datetime(value):
+        try:
+            return datetime.datetime.strptime(value.decode(), '%Y%m%d%H%M%S%z')
+        except Exception:
+            LOGGER.warning('Cannot parse datetime value %r', value,
+                           exc_info=True)
+else:
+    def _parse_datetime(value):
+        try:
+            return datetime.datetime.strptime(value.decode()[:14],
+                                              '%Y%m%d%H%M%S')
+        except Exception:
+            LOGGER.warning('Cannot parse datetime value %r', value,
+                           exc_info=True)
+            return None
+
+
 def _get_cert_info_pyopenssl(cert):
     """Extract info from a certificate (hash values, issuer, subject,
     algorithm) in an handy-to-index-and-query form.
@@ -1881,20 +1925,44 @@ This version relies on the pyOpenSSL module.
         ext = cert.get_extension(i)
         if ext.get_short_name() == b'subjectAltName':
             try:
+                # XXX str() / encoding
                 result['san'] = [x.strip() for x in str(ext).split(', ')]
             except Exception:
                 LOGGER.warning('Cannot decode subjectAltName %r for %r', ext,
                                result['subject_text'], exc_info=True)
             break
+    result['self_signed'] = result['issuer_text'] == result['subject_text']
+    not_before = _parse_datetime(cert.get_notBefore())
+    not_after = _parse_datetime(cert.get_notAfter())
+    if not_before is not None:
+        result['not_before'] = not_before
+        if not_after is not None:
+            result['not_after'] = not_after
+            lifetime = not_after - not_before
+            try:
+                result['lifetime'] = int(lifetime.total_seconds())
+            except AttributeError:
+                # .total_seconds() does not exist in Python 2.6
+                result['lifetime'] = lifetime.days * 86400 + lifetime.seconds
+    elif not_after is not None:
+        result['not_after'] = not_after
+    result['pubkey'] = {}
     pubkey = cert.get_pubkey()
     pubkeytype = pubkey.type()
-    result['pubkeyalgo'] = _CERTALGOS.get(pubkeytype, pubkeytype)
-    result['bits'] = pubkey.bits()
+    result['pubkey']['type'] = _CERTKEYTYPES.get(pubkeytype, pubkeytype)
+    result['pubkey']['bits'] = pubkey.bits()
     if pubkeytype == 6:
         # RSA
         numbers = pubkey.to_cryptography_key().public_numbers()
-        result['exponent'] = numbers.e
-        result['modulus'] = str(numbers.n)
+        result['pubkey']['exponent'] = numbers.e
+        result['pubkey']['modulus'] = str(numbers.n)
+    pubkey = pubkey.to_cryptography_key().public_bytes(
+        Encoding.DER,
+        PublicFormat.SubjectPublicKeyInfo,
+    )
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        result['pubkey'][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
+    result['pubkey']['raw'] = encode_b64(pubkey).decode()
     return result
 
 
@@ -1910,21 +1978,22 @@ and is a fallback when pyOpenSSL cannot be imported.
     for hashtype in ['md5', 'sha1', 'sha256']:
         result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
     proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
-                             '-inform', 'DER'], stdin=subprocess.PIPE,
-                            stdout=subprocess.PIPE)
+                             '-inform', 'DER', '-pubkey'],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     proc.stdin.write(cert)
     proc.stdin.close()
-    data = proc.stdout.read()
+    data, pubkey = proc.stdout.read().split(b'-----BEGIN PUBLIC KEY-----')
     for expr in _CERTINFOS:
         match = expr.search(data)
         if match is not None:
             break
     else:
-        LOGGER.info("Cannot parse certificate %r - no matching expression",
-                    cert)
+        LOGGER.info("Cannot parse certificate %r - "
+                    "no matching expression in %r",
+                    cert, data)
         return result
-    try:
-        for field, fdata in viewitems(match.groupdict()):
+    for field, fdata in viewitems(match.groupdict()):
+        try:
             fdata = fdata.decode()
             if field in ['issuer', 'subject']:
                 fdata = [(_CERTKEYS.get(key, key), value)
@@ -1941,17 +2010,50 @@ and is a fallback when pyOpenSSL cannot be imported.
                                         .replace(' ', '')
                                         .replace(':', '')
                                         .replace('\n', ''), 16))
+            elif field in ['not_before', 'not_after']:
+                if STRPTIME_SUPPORTS_TZ:
+                    result[field] = datetime.datetime.strptime(
+                        fdata,
+                        '%b %d %H:%M:%S %Y %Z',
+                    )
+                else:
+                    result[field] = datetime.datetime.strptime(
+                        fdata[:-4],
+                        '%b %d %H:%M:%S %Y',
+                    )
             else:
                 result[field] = fdata
-    except Exception:
-        LOGGER.info("Cannot parse certificate %r", cert, exc_info=True)
-    san = _CERTINFOS_SAN.search(data)
+        except Exception:
+            LOGGER.info(
+                "Error when parsing certificate %r with field %r (value %r)",
+                cert, field, fdata, exc_info=True,
+            )
+    result['self_signed'] = result['issuer_text'] == result['subject_text']
+    if 'not_before' in result and 'not_after' in result:
+        lifetime = result['not_after'] - result['not_before']
+        try:
+            result['lifetime'] = int(lifetime.total_seconds())
+        except AttributeError:
+            # .total_seconds() does not exist in Python 2.6
+            result['lifetime'] = lifetime.days * 86400 + lifetime.seconds
+    san = _CERTINFOS_EXT_SAN.search(data)
     if san is not None:
         try:
             result['san'] = san.groups()[0].decode().split(', ')
         except Exception:
             LOGGER.info("Cannot parse subjectAltName in certificate %r", cert,
                         exc_info=True)
+    result['pubkey'] = {}
+    for fld in ['modulus', 'exponent', 'bits']:
+        if fld in result:
+            result['pubkey'][fld] = result.pop(fld)
+    if 'type' in result:
+        pubkeytype = result.pop('type')
+        result['pubkey']['type'] = PUBKEY_TYPES.get(pubkeytype, pubkeytype)
+    pubkey = decode_b64(b''.join(pubkey.splitlines()[1:-1]))
+    for hashtype in ['md5', 'sha1', 'sha256']:
+        result['pubkey'][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
+    result['pubkey']['raw'] = encode_b64(pubkey)
     return result
 
 

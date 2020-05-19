@@ -27,6 +27,7 @@ import datetime
 import time
 
 
+from past.builtins import basestring
 from sqlalchemy import ARRAY, Column, Index, LargeBinary, String, Table, \
     and_, cast, column, delete, desc, exists, func, insert, join, not_, \
     nullsfirst, select, text, tuple_, update
@@ -587,13 +588,11 @@ insert structures.
             subfield = field[5:]
             field = self._topstructure(
                 self.tables.script,
-                [self.tables.script.data['ssl-cert'][subfield]],
-                and_(
-                    self.tables.script.name == 'ssl-cert',
-                    self.tables.script.data[
-                        'ssl-cert'
-                    ].has_key(subfield),  # noqa: W601
-                )
+                [func.jsonb_array_elements(
+                    self.tables.script.data['ssl-cert'],
+                ).op('->' if subfield in ['subject', 'issuer', 'pubkey'] else
+                     '->>')(subfield)],
+                self.tables.script.name == 'ssl-cert',
             )
         elif field == 'useragent' or field.startswith('useragent:'):
             if field == 'useragent':
@@ -1096,6 +1095,19 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
             ).fetchone()[0]
             for script in scripts:
                 name, output = script.pop('id'), script.pop('output')
+                if 'ssl-cert' in script:
+                    for cert in script['ssl-cert']:
+                        for fld in ['not_before', 'not_after']:
+                            if fld not in cert:
+                                continue
+                            if isinstance(cert[fld], datetime.datetime):
+                                cert[fld] = utils.datetime2timestamp(
+                                    cert[fld]
+                                )
+                            elif isinstance(cert[fld], basestring):
+                                cert[fld] = utils.datetime2timestamp(
+                                    utils.all2datetime(cert[fld])
+                                )
                 self.bulk.append(insert(self.tables.script).values(
                     port=portid,
                     name=name,
@@ -1238,6 +1250,19 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
             ).fetchone()[0]
             for script in scripts:
                 name, output = script.pop('id'), script.pop('output')
+                if 'ssl-cert' in script:
+                    for cert in script['ssl-cert']:
+                        for fld in ['not_before', 'not_after']:
+                            if fld not in cert:
+                                continue
+                            if isinstance(cert[fld], datetime.datetime):
+                                cert[fld] = utils.datetime2timestamp(
+                                    cert[fld]
+                                )
+                            elif isinstance(cert[fld], basestring):
+                                cert[fld] = utils.datetime2timestamp(
+                                    utils.all2datetime(cert[fld])
+                                )
                 if newest:
                     insrt = postgresql.insert(self.tables.script)
                     self.bulk.append(insrt
