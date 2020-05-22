@@ -1184,7 +1184,11 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                     if len(set(output)) < 100:
                         continue
                 doc = softmatch if fingerprint['soft'] else result
-                doc['service_name'] = service
+                if service.startswith('ssl/'):
+                    doc['service_name'] = service[4:]
+                    doc['service_tunnel'] = 'ssl'
+                else:
+                    doc['service_name'] = service
                 for elt, key in viewitems(NMAP_FINGERPRINT_IVRE_KEY):
                     if elt in fingerprint:
                         data = nmap_svc_fp_format_data(
