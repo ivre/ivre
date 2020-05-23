@@ -1067,22 +1067,28 @@ def guess_srv_port(port1, port2, proto="tcp"):
 _NMAP_PROBES = {}
 _NMAP_PROBES_POPULATED = False
 _NMAP_CUR_PROBE = None
+_NAMP_CUR_FALLBACK = None
 
 
 def _read_nmap_probes():
-    global _NMAP_CUR_PROBE, _NMAP_PROBES_POPULATED
+    global _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK, _NMAP_PROBES_POPULATED
     _NMAP_CUR_PROBE = None
+    _NMAP_CUR_FALLBACK = None
 
     def parse_line(line):
-        global _NMAP_PROBES, _NMAP_CUR_PROBE
+        global _NMAP_PROBES, _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
         if line.startswith(b'match '):
             line = line[6:]
             soft = False
         elif line.startswith(b'softmatch '):
             line = line[10:]
             soft = True
+        elif line.startswith(b'fallback '):
+            _NMAP_CUR_FALLBACK.append(line[9:].decode())
+            return
         elif line.startswith(b'Probe '):
             _NMAP_CUR_PROBE = []
+            _NMAP_CUR_FALLBACK = []
             proto, name, probe = line[6:].split(b' ', 2)
             if not (len(probe) >= 3 and probe[:2] == b'q|' and
                     probe[-1:] == b'|'):
@@ -1092,7 +1098,8 @@ def _read_nmap_probes():
                                          arbitrary_escapes=True)
             _NMAP_PROBES.setdefault(proto.lower().decode(),
                                     {})[name.decode()] = {
-                "probe": probe, "fp": _NMAP_CUR_PROBE
+                "probe": probe, "fp": _NMAP_CUR_PROBE,
+                "fallbacks": _NMAP_CUR_FALLBACK,
             }
             return
         else:
@@ -1146,7 +1153,7 @@ def _read_nmap_probes():
     except (AttributeError, TypeError, IOError):
         LOGGER.warning('Cannot read Nmap service fingerprint file.',
                        exc_info=True)
-    del _NMAP_CUR_PROBE
+    del _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
     _NMAP_PROBES_POPULATED = True
 
 
@@ -1163,13 +1170,15 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
     softmatch = {}
     result = {}
     try:
-        fingerprints = get_nmap_svc_fp(
+        probe_data = get_nmap_svc_fp(
             proto=proto,
             probe=probe,
-        )['fp']
+        )
+        fingerprints = probe_data['fp']
     except KeyError:
         pass
     else:
+        fallbacks = probe_data.get('fallbacks')
         for service, fingerprint in fingerprints:
             match = fingerprint['m'][0].search(output)
             if match is not None:
@@ -1198,6 +1207,28 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                             doc[key] = data
                 if not fingerprint['soft']:
                     return result
+        if fallbacks:
+            for fallback in fallbacks:
+                # Hack: in Nmap fingerprint file, nothing specifies
+                # the protocol of the fallback probe. However, the
+                # same probe may exist with different
+                # protcols. Usually, the fallback probes use the same
+                # protocol than the original probe; the only
+                # exceptions so far are DNSStatusRequestTCP (fallback
+                # DNSStatusRequest) and DNSVersionBindReqTCP (fallback
+                # DNSVersionBindReq)
+                if proto == 'tcp' and fallback + 'TCP' == probe:
+                    fallback_result = match_nmap_svc_fp(output, proto='udp',
+                                                        probe=fallback,
+                                                        soft=soft)
+                else:
+                    fallback_result = match_nmap_svc_fp(output, proto=proto,
+                                                        probe=fallback,
+                                                        soft=soft)
+                if fallback_result.get('soft'):
+                    softmatch = fallback_result
+                else:
+                    return fallback_result
     if softmatch and soft:
         return dict(softmatch, soft=True)
     return softmatch
