@@ -183,6 +183,7 @@ setup(
         ('share/ivre/zeek/ivre/passiverecon',
          ['zeek/ivre/passiverecon/__load__.zeek',
           'zeek/ivre/passiverecon/bare.zeek',
+          'zeek/ivre/passiverecon/hassh.zeek',
           'zeek/ivre/passiverecon/ja3.zeek']),
         ('share/ivre/honeyd', ['data/.empty']),
         ('share/ivre/geoip', ['data/.empty']),

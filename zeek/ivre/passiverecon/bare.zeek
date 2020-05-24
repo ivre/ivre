@@ -28,7 +28,6 @@ event zeek_init() {
     Log::disable_stream(Conn::LOG);
     Log::disable_stream(Files::LOG);
     Log::disable_stream(Notice::LOG);
-    Log::disable_stream(Reporter::LOG);
     Log::disable_stream(Tunnel::LOG);
     Log::disable_stream(Weird::LOG);
     Log::disable_stream(X509::LOG);
