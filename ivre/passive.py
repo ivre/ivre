@@ -223,6 +223,11 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 "md5",
                 clientvalue.encode(),
             ).hexdigest()
+    # SSH_{CLIENT,SERVER}_HASSH
+    elif spec['recontype'] in ['SSH_CLIENT_HASSH', 'SSH_SERVER_HASSH']:
+        value = spec['value']
+        spec.setdefault('infos', {})['raw'] = value
+        spec['value'] = hashlib.new("md5", value.encode()).hexdigest()
     # Check DNS Blacklist answer
     elif spec['recontype'] == 'DNS_ANSWER':
         if any((spec.get('value') or "").endswith(dnsbl)
@@ -355,7 +360,7 @@ records.
     if source in {'cert', 'cacert'}:
         return _getinfos_cert(spec)
     if source.startswith('ja3-'):
-        return _getinfos_ja3(spec)
+        return _getinfos_ja3_hassh(spec)
     return {}
 
 
@@ -378,8 +383,8 @@ def _getinfos_cert(spec):
     return res
 
 
-def _getinfos_ja3(spec):
-    """Extract hashes from JA3 fingerprint strings.
+def _getinfos_ja3_hassh(spec):
+    """Extract hashes from JA3 & HASSH fingerprint strings.
 
     """
     value = spec['infos']['raw']
@@ -449,11 +454,13 @@ _GETINFOS_FUNCTIONS = {
     'DNS_ANSWER': _getinfos_dns,
     'DNS_BLACKLIST': _getinfos_dns_blacklist,
     'SSL_SERVER': _getinfos_sslsrv,
-    'SSL_CLIENT': {'ja3': _getinfos_ja3},
+    'SSL_CLIENT': {'ja3': _getinfos_ja3_hassh},
     'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,
     'SSH_CLIENT': _getinfos_ssh,
     'SSH_SERVER': _getinfos_ssh,
     'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
+    'SSH_CLIENT_HASSH': _getinfos_ja3_hassh,
+    'SSH_SERVER_HASSH': _getinfos_ja3_hassh,
 }
 
 

@@ -22,6 +22,7 @@
 @load base/protocols/ftp
 @load base/protocols/pop3
 
+@load ./hassh
 @load ./ja3
 
 module PassiveRecon;
@@ -43,6 +44,8 @@ export {
         SSH_CLIENT_ALGOS,
         SSH_SERVER_ALGOS,
         SSH_SERVER_HOSTKEY,
+        SSH_CLIENT_HASSH,
+        SSH_SERVER_HASSH,
         SSL_CLIENT,
         SSL_SERVER,
         DNS_ANSWER,
@@ -227,6 +230,15 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
             $host=c$id$resp_h,
             $srvport=c$id$resp_p,
             $recon_type=SSH_SERVER_ALGOS,
+            $source="kex_algorithms",
+            $value=join_string_vec(capabilities$kex_algorithms, " ")
+        ]);
+        Log::write(LOG, [
+            $ts=c$start_time,
+            $uid=c$uid,
+            $host=c$id$resp_h,
+            $srvport=c$id$resp_p,
+            $recon_type=SSH_SERVER_ALGOS,
             $source="server_host_key_algorithms",
             $value=join_string_vec(capabilities$server_host_key_algorithms, " ")
         ]);
@@ -257,6 +269,15 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
             $source="compression_algorithms",
             $value=join_string_vec(capabilities$compression_algorithms$server_to_client, " ")
         ]);
+        if (c$ssh?$ivrehasshs) {
+            Log::write(LOG, [$ts=c$start_time,
+                             $uid=c$uid,
+                             $host=c$id$resp_h,
+                             $srvport=c$id$resp_p,
+                             $recon_type=SSH_SERVER_HASSH,
+                             $source=fmt("hassh-v%s", c$ssh$ivrehasshv),
+                             $value=c$ssh$ivrehasshs]);
+        }
     }
     else {
         Log::write(LOG, [
@@ -299,6 +320,14 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
             $source="compression_algorithms",
             $value=join_string_vec(capabilities$compression_algorithms$client_to_server, " ")
         ]);
+        if (c$ssh?$ivrehasshc) {
+            Log::write(LOG, [$ts=c$start_time,
+                             $uid=c$uid,
+                             $host=c$id$orig_h,
+                             $recon_type=SSH_CLIENT_HASSH,
+                             $source=fmt("hassh-v%s", c$ssh$ivrehasshv),
+                             $value=c$ssh$ivrehasshc]);
+        }
     }
 }
 

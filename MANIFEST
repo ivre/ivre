@@ -569,4 +569,5 @@ zeek/ivre/__load__.zeek
 zeek/ivre/arp/__load__.zeek
 zeek/ivre/passiverecon/__load__.zeek
 zeek/ivre/passiverecon/bare.zeek
+zeek/ivre/passiverecon/hassh.zeek
 zeek/ivre/passiverecon/ja3.zeek
