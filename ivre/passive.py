@@ -414,9 +414,14 @@ def _getinfos_tcp_srv_banner(spec):
     return _getinfos_from_banner(utils.nmap_decode_data(spec['value']))
 
 
-def _getinfos_ssh_server(spec):
+def _getinfos_ssh(spec):
     """Convert an SSH server banner to a TCP banner and use
-_getinfos_tcp_srv_banner()"""
+    _getinfos_tcp_srv_banner().
+
+    Since client and server banners are essentially the same thing, we
+    use this for both client and server banners.
+
+    """
     return _getinfos_from_banner(utils.nmap_decode_data(
         spec['value']
     ) + b'\r\n')
@@ -446,7 +451,8 @@ _GETINFOS_FUNCTIONS = {
     'SSL_SERVER': _getinfos_sslsrv,
     'SSL_CLIENT': {'ja3': _getinfos_ja3},
     'TCP_SERVER_BANNER': _getinfos_tcp_srv_banner,
-    'SSH_SERVER': _getinfos_ssh_server,
+    'SSH_CLIENT': _getinfos_ssh,
+    'SSH_SERVER': _getinfos_ssh,
     'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
 }
 
