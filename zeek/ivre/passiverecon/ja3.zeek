@@ -1,7 +1,7 @@
 # This file is part of IVRE.
 #
 # Copyright 2017 salesforce.com, inc.
-# Copyright 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2018 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,7 +20,6 @@
 # (<https://github.com/salesforce/ja3>), reworked and integrated to
 # the passiverecon module.
 
-@load base/misc/version
 @load base/protocols/ssl
 
 module PassiveRecon;
