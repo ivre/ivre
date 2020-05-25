@@ -49,17 +49,22 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
         return;
     }
     c$ssh$ivrehasshv = IvreHASSHVersion;
-    local hassh: string = fmt(
-        "%s;%s;%s;%s",
-        join_string_vec(capabilities$kex_algorithms,","),
-        join_string_vec(capabilities$encryption_algorithms$client_to_server,","),
-        join_string_vec(capabilities$mac_algorithms$client_to_server,","),
-        join_string_vec(capabilities$compression_algorithms$client_to_server,",")
-    );
     if (capabilities$is_server) {
-        c$ssh$ivrehasshs = hassh;
+        c$ssh$ivrehasshs = fmt(
+            "%s;%s;%s;%s",
+            join_string_vec(capabilities$kex_algorithms,","),
+            join_string_vec(capabilities$encryption_algorithms$server_to_client,","),
+            join_string_vec(capabilities$mac_algorithms$server_to_client,","),
+            join_string_vec(capabilities$compression_algorithms$server_to_client,",")
+        );
     }
     else {
-        c$ssh$ivrehasshc = hassh;
+        c$ssh$ivrehasshc = fmt(
+            "%s;%s;%s;%s",
+            join_string_vec(capabilities$kex_algorithms,","),
+            join_string_vec(capabilities$encryption_algorithms$client_to_server,","),
+            join_string_vec(capabilities$mac_algorithms$client_to_server,","),
+            join_string_vec(capabilities$compression_algorithms$client_to_server,",")
+        );
     }
 }
