@@ -977,6 +977,7 @@ class MongoDBActive(MongoDB, DBActive):
                 14: (15, self.migrate_schema_hosts_14_15),
                 15: (16, self.migrate_schema_hosts_15_16),
                 16: (17, self.migrate_schema_hosts_16_17),
+                17: (18, self.migrate_schema_hosts_17_18),
             },
         ]
 
@@ -1507,6 +1508,33 @@ do this, we use the opportunity to parse the certificate again.
                                                  data, exc_info=True)
                             table = [table]
                     script['ssl-cert'] = table
+                    updated = True
+        if updated:
+            update["$set"]["ports"] = doc['ports']
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_17_18(doc):
+        """Converts a record from version 17 to version 18. Version 18
+introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
+
+        """
+        assert doc["schema_version"] == 17
+        update = {"$set": {"schema_version": 18}}
+        updated = False
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if (
+                        script['id'] == "ssh2-enum-algos" and
+                        'ssh2-enum-algos' in script
+                ):
+                    (
+                        script['output'],
+                        script['ssh2-enum-algos']
+                    ) = xmlnmap.change_ssh2_enum_algos(
+                        script['output'],
+                        script['ssh2-enum-algos']
+                    )
                     updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']

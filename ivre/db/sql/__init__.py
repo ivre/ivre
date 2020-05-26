@@ -770,6 +770,8 @@ class SQLDBActive(SQLDB, DBActive):
             failed += self._migrate_schema_14_15()
         if (version or 0) < 16:
             failed += self._migrate_schema_15_16()
+        if (version or 0) < 18:
+            failed += self._migrate_schema_17_18()
         return failed
 
     def _migrate_schema_8_9(self):
@@ -1093,6 +1095,48 @@ versions reported `{"Server": "value"}`, while recent versions report
             .where(and_(self.tables.scan.schema_version == 15,
                         self.tables.scan.id.notin_(failed)))
             .values(schema_version=16)
+        )
+        return len(failed)
+
+    def _migrate_schema_17_18(self):
+        """Converts a record from version 17 to version 18. Version 18
+introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
+
+        """
+        failed = set()
+        req = (select([self.tables.scan.id,
+                       self.tables.script.name,
+                       self.tables.script.port,
+                       self.tables.script.output,
+                       self.tables.script.data])
+               .select_from(join(join(self.tables.scan, self.tables.port),
+                                 self.tables.script))
+               .where(and_(self.tables.scan.schema_version == 17,
+                           self.tables.script.name == "ssh2-enum-algos")))
+        for rec in self.db.execute(req):
+            if rec.name in rec.data:
+                try:
+                    output, data = xmlnmap.change_ssh2_enum_algos(
+                        rec.output,
+                        rec.data[rec.name],
+                    )
+                except Exception:
+                    utils.LOGGER.warning("Cannot migrate host %r", rec.id,
+                                         exc_info=True)
+                    failed.add(rec.id)
+                else:
+                    if data:
+                        self.db.execute(
+                            update(self.tables.script)
+                            .where(and_(self.tables.script.port == rec.port,
+                                        self.tables.script.name == rec.name))
+                            .values(output=output, data={rec.name: data})
+                        )
+        self.db.execute(
+            update(self.tables.scan)
+            .where(and_(self.tables.scan.schema_version == 17,
+                        self.tables.scan.id.notin_(failed)))
+            .values(schema_version=18)
         )
         return len(failed)
 

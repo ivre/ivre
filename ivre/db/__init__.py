@@ -729,6 +729,7 @@ class DBActive(DB):
                 14: (15, self.__migrate_schema_hosts_14_15),
                 15: (16, self.__migrate_schema_hosts_15_16),
                 16: (17, self.__migrate_schema_hosts_16_17),
+                17: (18, self.__migrate_schema_hosts_17_18),
             },
         }
         self.argparser.add_argument(
@@ -1223,6 +1224,29 @@ do this, we use the opportunity to parse the certificate again.
                             data = [data]
                     script['ssl-cert'] = data
                     script['output'] = out
+
+    @staticmethod
+    def __migrate_schema_hosts_17_18(doc):
+        """Converts a record from version 17 to version 18. Version 18
+introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
+
+        """
+        assert doc["schema_version"] == 17
+        doc["schema_version"] = 18
+        for port in doc.get('ports', []):
+            for script in port.get('scripts', []):
+                if (
+                        script['id'] == "ssh2-enum-algos" and
+                        'ssh2-enum-algos' in script
+                ):
+                    (
+                        script['output'],
+                        script['ssh2-enum-algos']
+                    ) = xmlnmap.change_ssh2_enum_algos(
+                        script['output'],
+                        script['ssh2-enum-algos']
+                    )
+        return doc
 
     @staticmethod
     def json2dbrec(host):

@@ -157,6 +157,61 @@ def _extract_passive_SSH_SERVER_HOSTKEY(rec):
     }]}
 
 
+def _extract_passive_SSH_HASSH(rec):
+    """Handle SSH HASSH data to build an output somehow similar to
+ssh2-enum-algos Nmap script (with less data).
+
+    """
+    script = {'id': 'ssh2-enum-algos'}
+    script_structured = {}
+    try:
+        (
+            script_structured['kex_algorithms'],
+            script_structured['encryption_algorithms'],
+            script_structured['mac_algorithms'],
+            script_structured['compression_algorithms'],
+        ) = (v.split(',') for v in rec['infos']['raw'].split(';'))
+    except (KeyError, TypeError, ValueError):
+        return {}
+    script_output = []
+    for key in [
+            'kex_algorithms',
+            'encryption_algorithms',
+            'mac_algorithms',
+            'compression_algorithms',
+    ]:
+        if key in script_structured:
+            value = script_structured[key]
+            script_output.append('  %s (%d)' % (key, len(value)))
+            script_output.extend('      %s' % v for v in value)
+    script_structured['hassh'] = {
+        'version': '1.1',
+        'raw': rec['infos']['raw'],
+        'md5': rec['value'],
+        'sha1': rec['infos']['sha1'],
+        'sha256': rec['infos']['sha256'],
+    }
+    script_output.extend(['', '  HASSH', '    version: 1.1',
+                          '    raw: %s' % rec['infos']['raw'],
+                          '    md5: %s' % rec['value'],
+                          '    sha1: %s' % rec['infos']['sha1'],
+                          '    sha256: %s' % rec['infos']['sha256']])
+    script['output'] = '\n'.join(script_output)
+    script['ssh2-enum-algos'] = script_structured
+    port = {
+        'service_name': 'ssh',
+        'scripts': [script],
+    }
+    if rec.get('port'):
+        port['port'] = rec['port']
+        port['protocol'] = rec.get('protocol', 'tcp')
+        port['state_state'] = 'open'
+        port['state_reason'] = "passive"
+    else:
+        port['port'] = -1
+    return {'ports': [port]}
+
+
 def _extract_passive_SSL_SERVER(rec):
     """Handle ssl server headers."""
     source = rec.get('source')
@@ -293,6 +348,8 @@ _EXTRACTORS = {
     'DNS_ANSWER': _extract_passive_DNS_ANSWER,
     'SSH_SERVER': _extract_passive_TCP_SERVER_BANNER,
     'SSH_SERVER_HOSTKEY': _extract_passive_SSH_SERVER_HOSTKEY,
+    'SSH_CLIENT_HASSH': _extract_passive_SSH_HASSH,
+    'SSH_SERVER_HASSH': _extract_passive_SSH_HASSH,
     'TCP_SERVER_BANNER': _extract_passive_TCP_SERVER_BANNER,
     'MAC_ADDRESS': _extract_passive_MAC_ADDRESS,
     'OPEN_PORT': _extract_passive_OPEN_PORT,

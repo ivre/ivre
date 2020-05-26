@@ -664,6 +664,8 @@ purposes to feed Elasticsearch view.
         if DATABASE != "elastic":
             return
         subprocess.check_call(["mongorestore", "--db", "ivre", "../backup/"])
+        for cmd in ["scancli", "ipinfo"]:
+            RUN(["ivre", cmd, "--update-schema"])
 
     def test_30_nmap(self):
 
