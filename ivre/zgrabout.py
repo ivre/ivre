@@ -90,8 +90,9 @@ The output is a port dict (i.e., the content of the "ports" key of an
     if resp.get('headers'):
         headers = resp['headers']
         # the order will be incorrect!
-        http_hdrs = [{'name': '_status', 'value': resp['status_line']}]
-        output = [resp['status_line']]
+        line = '%s %s' % (resp['protocol']['name'], resp['status_line'])
+        http_hdrs = [{'name': '_status', 'value': line}]
+        output = [line]
         if 'unknown' in headers:
             for unk in headers.pop('unknown'):
                 headers[unk['key']] = unk['value']
