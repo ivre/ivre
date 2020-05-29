@@ -573,7 +573,7 @@ want to do something special here, e.g., mix with other records.
             cond['$and'] = cond1['$and']
         if '$and' in cond2:
             cond2k.remove('$and')
-            cond['$and'] = cond.get('$and', []) + cond2['$and']
+            cond.setdefault('$and', []).extend(cond2['$and'])
         for k in cond1k.difference(cond2k):
             cond[k] = cond1[k]
         for k in cond2k.difference(cond1k):
@@ -582,8 +582,8 @@ want to do something special here, e.g., mix with other records.
             if cond1[k] == cond2[k]:
                 cond[k] = cond1[k]
             else:
-                cond['$and'] = cond.get('$and', []) + [{k: cond1[k]},
-                                                       {k: cond2[k]}]
+                cond.setdefault('$and', []).extend([{k: cond1[k]},
+                                                    {k: cond2[k]}])
         return cond
 
     @staticmethod
