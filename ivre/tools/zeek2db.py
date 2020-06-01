@@ -32,8 +32,12 @@ def _zeek2flow(rec):
     """Prepares a document for db.flow.*add_flow()."""
     if "id_orig_h" in rec:
         rec["src"] = rec.pop("id_orig_h")
+    elif "pkt_src" in rec:
+        rec["src"] = rec.pop("pkt_src")
     if "id_resp_h" in rec:
         rec["dst"] = rec.pop("id_resp_h")
+    elif "pkt_dst" in rec:
+        rec["dst"] = rec.pop("pkt_dst")
     if "ts" in rec:
         rec["start_time"] = rec["end_time"] = rec.pop("ts")
     if rec.get('proto', None) == 'icmp':
@@ -42,6 +46,11 @@ def _zeek2flow(rec):
     elif 'id_orig_p' in rec and 'id_resp_p' in rec:
         rec['sport'], rec['dport'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
     return rec
+
+
+def arp2flow(bulk, rec):
+    rec['proto'] = 'arp'
+    db.flow.any2flow(bulk, 'arp', rec)
 
 
 def http2flow(bulk, rec):
@@ -97,6 +106,7 @@ def dns2flow(bulk, rec):
 
 
 FUNCTIONS = {
+    "arp": arp2flow,
     "conn": db.flow.conn2flow,
     "http": http2flow,
     "ssh": ssh2flow,

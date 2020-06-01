@@ -2844,12 +2844,17 @@ purposes to feed Elasticsearch view.
             dport_443["flows"],
             tcp_dport_443["flows"] + udp_dport_443["flows"])
 
-        union = self.check_flow_count_value(
+        flt = 'proto = tcp OR proto = udp OR proto = icmp'
+        self.check_flow_count_value(
             "flow_count_tcp_udp_icmp",
-            {"edges": ['proto = tcp OR proto = udp OR proto = icmp']},
-            ["--flow-filters", "proto = tcp OR proto = udp OR proto = icmp"],
-            {"edges": ["proto = tcp OR proto = udp OR proto = icmp"]})
-        self.assertEqual(union, total)
+            {"edges": [flt]}, ["--flow-filters", flt], {"edges": [flt]},
+        )
+        # all protocols count == total count
+        flt = 'proto = tcp OR proto = udp OR proto = icmp OR proto = arp'
+        self.check_flow_count_value(
+            "flow_count",
+            {"edges": [flt]}, ["--flow-filters", flt], {"edges": [flt]},
+        )
 
         # Test operators
         sport = self.check_flow_count_value(
