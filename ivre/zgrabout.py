@@ -33,7 +33,7 @@ from ivre.xmlnmap import create_ssl_cert, create_http_ls
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
 
 
-def zgrap_parser_http(data):
+def zgrap_parser_http(data, addr):
     """This function handles data from `{"data": {"http": [...]}}`
 records. `data` should be the content, i.e. the `[...]`. It should
 consist of simple dictionary, that may contain a `"response"` key
@@ -62,9 +62,10 @@ The output is a port dict (i.e., the content of the "ports" key of an
         )
         return {}
     req = resp['request']
-    res = {"service_name": "http", "service_method": "probed",
-           "state_state": "open", "state_reason": "syn-ack", "protocol": "tcp"}
     url = req.get('url')
+    res = {"service_name": "http", "service_method": "probed",
+           "state_state": "open", "state_reason": "response",
+           "protocol": "tcp"}
     if url:
         port = None
         if ':' in url.get('host', ''):
@@ -77,6 +78,24 @@ The output is a port dict (i.e., the content of the "ports" key of an
                 port = 443
             else:
                 port = 80
+        # Specific paths
+        if url.get('path').endswith('/.git/index'):
+            if resp.get('status_code') != 200:
+                return {}
+            if not resp.get('body', '').startswith('DIRC'):
+                return {}
+            # Due to an issue with ZGrab2 output, we cannot, for now,
+            # process the content of the file. See
+            # <https://github.com/zmap/zgrab2/issues/263>.
+            repository = '%s:%d%s' % (addr, port, url['path'][:-5])
+            res['port'] = port
+            res['scripts'] = [{
+                'id': 'http-git',
+                'output': '\n  %s\n    Git repository found!\n' % repository,
+                'http-git': [{'repository': repository,
+                              'files-found': [".git/index"]}],
+            }]
+            return res
     elif req.get('tls_handshake') or req.get('tls_log'):
         # zgrab / zgrab2
         port = 443
