@@ -101,9 +101,9 @@ def parse_message(data):
             'Non zero padding: probably not a DICOM message [%r]', data,
         )
         return res
-    if rlen != len(data) - 6:
+    if rlen > len(data) - 6:
         utils.LOGGER.debug(
-            'Inconsistent length value: probably not a DICOM message [%r]',
+            'Message too short: probably not a DICOM message [%r]',
             data,
         )
         return res
