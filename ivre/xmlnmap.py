@@ -1667,13 +1667,10 @@ argument (a dict object).
                         # "ERR unknown responseERROR(UNKNOWN)"
                         banner = banner[20:]
                     if banner.startswith('ERROR'):
-                        self._curhost.setdefault('ports', []).append({
-                            'port': -1,
-                            'scripts': [{
-                                'id': 'smb-os-discovery',
-                                'output': banner,
-                                'masscan': masscan_data,
-                            }],
+                        self._curport.setdefault('scripts', []).append({
+                            'id': 'smb-os-discovery',
+                            'output': banner,
+                            'masscan': masscan_data,
                         })
                         return
                     data = {}
