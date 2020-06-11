@@ -135,7 +135,7 @@ before_script:
   # add wireshark manuf DB
   - mkdir -p usr/local/wireshark/share/wireshark
   - LD_LIBRARY_PATH= wget -q https://raw.githubusercontent.com/wireshark/wireshark/master/manuf -O usr/local/wireshark/share/wireshark/manuf
-  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/7edcc70ebbf7416dc4127b181d855ea08458550f.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
+  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/36c6591395b86435ae3b0e9a7ab8c397bb1d33f7.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
   # install Zeek & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
   - ZEEK_VERSION="3.$((RANDOM % 2))"; echo "ZEEK_VERSION $ZEEK_VERSION"; for archive in tools-travis-ivre zeek-${ZEEK_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise nfdump-1.6.17; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
