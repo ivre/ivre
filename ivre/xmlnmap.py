@@ -29,6 +29,10 @@ import re
 import struct
 import sys
 from textwrap import wrap
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 from xml.sax.handler import ContentHandler, EntityResolver
 
 
@@ -891,6 +895,26 @@ CHANGE_OUTPUT_TABLE_ELEMS = {
 }
 
 
+def post_smb_os_discovery(script, port, host):
+    if 'smb-os-discovery' not in script:
+        return
+    data = script['smb-os-discovery']
+    if 'fqdn' not in data:
+        return
+    add_hostname(data['fqdn'], 'smb', host.setdefault('hostnames', []))
+
+
+def post_ssl_cert(script, port, host):
+    for cert in script.get('ssl-cert', []):
+        add_cert_hostnames(cert, host.setdefault('hostnames', []))
+
+
+POST_PROCESS = {
+    "smb-os-discovery": post_smb_os_discovery,
+    "ssl-cert": post_ssl_cert,
+}
+
+
 IGNORE_SCRIPTS = {
     'mcafee-epo-agent': set(['ePO Agent not found']),
     'ftp-bounce': set(['no banner']),
@@ -1451,6 +1475,53 @@ def cpe2dict(cpe_str):
     return ret
 
 
+# This is not a real hostname regexp, but a simple way to exclude
+# obviously wrong values.
+_HOSTNAME = re.compile('^[a-z0-9\\.\\*-]+$', re.I)
+
+
+def add_hostname(name, name_type, hostnames):
+    name = name.rstrip('.').lower()
+    if not _HOSTNAME.search(name):
+        return
+    # exclude IPv4 addresses
+    if utils.IPV4ADDR.search(name):
+        return
+    if any(hn['name'] == name and hn['type'] == name_type
+           for hn in hostnames):
+        return
+    hostnames.append({
+        'type': name_type,
+        'name': name,
+        'domains': list(utils.get_domains(name)),
+    })
+
+
+def add_cert_hostnames(cert, hostnames):
+    if 'commonName' in cert.get('subject', {}):
+        add_hostname(cert['subject']['commonName'], 'cert-subject-cn',
+                     hostnames)
+    for san in cert.get('san', []):
+        if san.startswith('DNS:'):
+            add_hostname(san[4:], 'cert-san-dns', hostnames)
+            continue
+        if san.startswith('URI:'):
+            try:
+                netloc = urlparse(san[4:]).netloc
+            except Exception:
+                utils.LOGGER.warning('Invalid URL in SAN %r', san,
+                                     exc_info=True)
+                continue
+            if not netloc:
+                continue
+            if netloc.startswith('['):
+                # IPv6
+                continue
+            if ':' in netloc:
+                netloc = netloc.split(':', 1)[0]
+            add_hostname(netloc, 'cert-san-uri', hostnames)
+
+
 class NoExtResolver(EntityResolver):
 
     """A simple EntityResolver that will prevent any external
@@ -1798,6 +1869,9 @@ argument (a dict object).
                                     humankey,
                                     data[masscankey],
                                 ))
+                    if 'fqdn' in smb_os_disco:
+                        add_hostname(smb_os_disco['fqdn'], 'smb',
+                                     self._curhost.setdefault('hostnames', []))
                     scripts = self._curport.setdefault('scripts', [])
                     if 'time' in data:
                         smb2_time = {}
@@ -1913,6 +1987,9 @@ argument (a dict object).
                     except KeyError:
                         pass
                     self._curport.update(match)
+                    if 'service_hostname' in match:
+                        add_hostname(match['service_hostname'], 'service',
+                                     self._curhost.setdefault('hostnames', []))
                 return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]
@@ -2114,8 +2191,8 @@ argument (a dict object).
                 self._curtable = {}
                 self._curscript = None
                 return
-            infokey = self._curscript.get('id', None)
-            infokey = ALIASES_TABLE_ELEMS.get(infokey, infokey)
+            key = self._curscript.get('id', None)
+            infokey = ALIASES_TABLE_ELEMS.get(key, key)
             if self._curtable:
                 if self._curtablepath:
                     utils.LOGGER.warning("self._curtablepath should be empty, "
@@ -2150,6 +2227,8 @@ argument (a dict object).
                     infos = infos(self._curscript)
                     if infos is not None:
                         self._curscript[infokey] = infos
+            if key in POST_PROCESS:
+                POST_PROCESS[key](self._curhost, current, self._curscript)
             current.setdefault('scripts', []).append(self._curscript)
             self._curscript = None
         elif name in ['table', 'elem']:
@@ -2396,6 +2475,9 @@ argument (a dict object).
         if output_data:
             script["output"] = "\n".join(output_text)
             script["ssl-cert"] = output_data
+            for cert in output_data:
+                add_cert_hostnames(cert,
+                                   self._curhost.setdefault('hostnames', []))
 
     def masscan_post_http(self, script):
         raw = self._from_binary(script['masscan']['raw'])
