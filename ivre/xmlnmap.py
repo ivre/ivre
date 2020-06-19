@@ -1331,6 +1331,8 @@ def create_ssl_output(info):
             out.append('%s%s' % (name, info[key]))
         except KeyError:
             pass
+    for san in info.get('san', []):
+        out.append('Subject Alternative Name: %s' % san)
     for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:'),
                       ('sha256', 'SHA-256:')]:
         # NB: SHA-256 is not (yet) reported by Nmap, but it might help.
