@@ -1936,6 +1936,8 @@ class DBNmap(DBActive):
                         port = parser(value, host['addr'])
                         if port:
                             host.setdefault('ports', []).append(port)
+                if not host.get('ports'):
+                    continue
                 openports = host['openports'] = {'count': 0}
                 for port in host.get('ports', []):
                     if port.get('state_state') != 'open':
