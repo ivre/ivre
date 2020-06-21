@@ -679,6 +679,7 @@ class DBActive(DB):
         "ports.scripts.dns-zone-transfer.records",
         "ports.scripts.fcrdns",
         "ports.scripts.fcrdns.addresses",
+        "ports.scripts.http-app",
         "ports.scripts.http-headers",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
