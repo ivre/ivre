@@ -679,6 +679,7 @@ class DBActive(DB):
         "ports.scripts.dns-zone-transfer.records",
         "ports.scripts.fcrdns",
         "ports.scripts.fcrdns.addresses",
+        "ports.scripts.http-app",
         "ports.scripts.http-headers",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
@@ -1935,6 +1936,8 @@ class DBNmap(DBActive):
                         port = parser(value, host['addr'])
                         if port:
                             host.setdefault('ports', []).append(port)
+                if not host.get('ports'):
+                    continue
                 openports = host['openports'] = {'count': 0}
                 for port in host.get('ports', []):
                     if port.get('state_state') != 'open':

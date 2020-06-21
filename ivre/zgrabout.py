@@ -31,6 +31,7 @@ from ivre.xmlnmap import create_ssl_cert, create_http_ls
 
 
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
+_EXPR_OWA_VERSION = re.compile('/owa/(?:auth/)?([0-9\\.]+)/')
 
 
 def zgrap_parser_http(data, addr):
@@ -66,6 +67,29 @@ The output is a port dict (i.e., the content of the "ports" key of an
     res = {"service_name": "http", "service_method": "probed",
            "state_state": "open", "state_reason": "response",
            "protocol": "tcp"}
+    tls = None
+    try:
+        tls = req['tls_handshake']
+    except KeyError:
+        # zgrab2
+        try:
+            tls = req['tls_log']['handshake_log']
+        except KeyError:
+            pass
+    if tls is not None:
+        res['service_tunnel'] = 'ssl'
+        try:
+            cert = tls['server_certificates']['certificate']['raw']
+        except KeyError:
+            pass
+        else:
+            output, info = create_ssl_cert(cert.encode(), b64encoded=True)
+            if info:
+                res.setdefault('scripts', []).append({
+                    'id': 'ssl-cert',
+                    'output': "\n".join(output),
+                    'ssl-cert': info,
+                })
     if url:
         port = None
         if ':' in url.get('host', ''):
@@ -89,12 +113,42 @@ The output is a port dict (i.e., the content of the "ports" key of an
             # <https://github.com/zmap/zgrab2/issues/263>.
             repository = '%s:%d%s' % (addr, port, url['path'][:-5])
             res['port'] = port
-            res['scripts'] = [{
+            res.setdefault('scripts', []).append({
                 'id': 'http-git',
                 'output': '\n  %s\n    Git repository found!\n' % repository,
                 'http-git': [{'repository': repository,
                               'files-found': [".git/index"]}],
-            }]
+            })
+            return res
+        if url.get('path').endswith('/owa/auth/logon.aspx'):
+            if resp.get('status_code') != 200:
+                return {}
+            version = set(
+                m.group(1)
+                for m in _EXPR_OWA_VERSION.finditer(resp.get('body', ''))
+            )
+            if not version:
+                return {}
+            version = sorted(version,
+                             key=lambda v: [int(x) for x in v.split('.')])
+            res['port'] = port
+            path = url['path'][:-15]
+            if len(version) > 1:
+                output = (
+                    'OWA: path %s, version %s (multiple versions found!)' % (
+                        path,
+                        ' / '.join(version),
+                    )
+                )
+            else:
+                output = 'OWA: path %s, version %s' % (path, version[0])
+            res.setdefault('scripts', []).append({
+                'id': 'http-app',
+                'output': output,
+                'http-app': [{'path': path,
+                              'application': 'OWA',
+                              'version': version[0]}],
+            })
             return res
     elif req.get('tls_handshake') or req.get('tls_log'):
         # zgrab / zgrab2
@@ -156,29 +210,6 @@ The output is a port dict (i.e., the content of the "ports" key of an
         script_http_ls = create_http_ls(body, url=url)
         if script_http_ls is not None:
             res.setdefault('scripts', []).append(script_http_ls)
-    tls = None
-    try:
-        tls = req['tls_handshake']
-    except KeyError:
-        # zgrab2
-        try:
-            tls = req['tls_log']['handshake_log']
-        except KeyError:
-            pass
-    if tls is not None:
-        res['service_tunnel'] = 'ssl'
-        try:
-            cert = tls['server_certificates']['certificate']['raw']
-        except KeyError:
-            pass
-        else:
-            output, info = create_ssl_cert(cert.encode(), b64encoded=True)
-            if info:
-                res.setdefault('scripts', []).append({
-                    'id': 'ssl-cert',
-                    'output': "\n".join(output),
-                    'ssl-cert': info,
-                })
     return res
 
 
