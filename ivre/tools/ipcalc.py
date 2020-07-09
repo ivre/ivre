@@ -40,6 +40,13 @@ def main():
         help='Display results for specified IP addresses or ranges.',
     )
     args = parser.parse_args()
+    while '-' in args.ips:
+        idx = args.ips.index('-')
+        args.ips = (
+            args.ips[:idx - 1] +
+            ['%s-%s' % (args.ips[idx - 1], args.ips[idx + 1])] +
+            args.ips[idx + 2:]
+        )
 
     for a in args.ips:
         if '/' in a:
