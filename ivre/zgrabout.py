@@ -31,7 +31,7 @@ from ivre.xmlnmap import create_ssl_cert, create_http_ls
 
 
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
-_EXPR_OWA_VERSION = re.compile('/owa/(?:auth/)?([0-9\\.]+)/')
+_EXPR_OWA_VERSION = re.compile('"/owa/(?:auth/)?((?:[0-9]+\\.)+[0-9]+)/')
 
 
 def zgrap_parser_http(data, addr):
