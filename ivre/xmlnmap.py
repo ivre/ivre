@@ -2485,9 +2485,12 @@ argument (a dict object).
         if output_data:
             script["output"] = "\n".join(output_text)
             script["ssl-cert"] = output_data
-            for cert in output_data:
-                add_cert_hostnames(cert,
-                                   self._curhost.setdefault('hostnames', []))
+            if script['id'] == 'ssl-cert':
+                for cert in output_data:
+                    add_cert_hostnames(
+                        cert,
+                        self._curhost.setdefault('hostnames', []),
+                    )
 
     def masscan_post_http(self, script):
         raw = self._from_binary(script['masscan']['raw'])
