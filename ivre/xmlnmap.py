@@ -1990,7 +1990,15 @@ argument (a dict object).
                         pass
                     self._curport.update(match)
                     if 'service_hostname' in match:
-                        add_hostname(match['service_hostname'], 'service',
+                        name = match['service_hostname']
+                        if 'service_extrainfo' in match:
+                            for data in match[
+                                    'service_extrainfo'
+                            ].lower().split(', '):
+                                if data.startswith('domain:'):
+                                    name += '.' + data[7:].strip()
+                                    break
+                        add_hostname(name, 'service',
                                      self._curhost.setdefault('hostnames', []))
                 return
             for attr in attrs.keys():
@@ -2477,9 +2485,12 @@ argument (a dict object).
         if output_data:
             script["output"] = "\n".join(output_text)
             script["ssl-cert"] = output_data
-            for cert in output_data:
-                add_cert_hostnames(cert,
-                                   self._curhost.setdefault('hostnames', []))
+            if script['id'] == 'ssl-cert':
+                for cert in output_data:
+                    add_cert_hostnames(
+                        cert,
+                        self._curhost.setdefault('hostnames', []),
+                    )
 
     def masscan_post_http(self, script):
         raw = self._from_binary(script['masscan']['raw'])
