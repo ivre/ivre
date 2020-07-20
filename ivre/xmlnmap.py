@@ -1478,8 +1478,10 @@ def cpe2dict(cpe_str):
 
 
 # This is not a real hostname regexp, but a simple way to exclude
-# obviously wrong values.
-_HOSTNAME = re.compile('^[a-z0-9\\.\\*-]+$', re.I)
+# obviously wrong values. Underscores should not exist in (DNS)
+# hostnames, but since they happen to exist anyway, we allow them
+# here.
+_HOSTNAME = re.compile('^[a-z0-9_\\.\\*\\-]+$', re.I)
 
 
 def add_hostname(name, name_type, hostnames):
