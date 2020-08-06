@@ -1933,7 +1933,7 @@ class DBNmap(DBActive):
                             key,
                         )
                     else:
-                        port = parser(value, host['addr'])
+                        port = parser(value, host)
                         if port:
                             host.setdefault('ports', []).append(port)
                 if not host.get('ports'):

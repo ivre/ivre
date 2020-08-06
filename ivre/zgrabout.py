@@ -27,14 +27,14 @@ import re
 
 
 from ivre import utils
-from ivre.xmlnmap import create_ssl_cert, create_http_ls
+from ivre.xmlnmap import add_cert_hostnames, create_ssl_cert, create_http_ls
 
 
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
 _EXPR_OWA_VERSION = re.compile('"/owa/(?:auth/)?((?:[0-9]+\\.)+[0-9]+)/')
 
 
-def zgrap_parser_http(data, addr):
+def zgrap_parser_http(data, hostrec):
     """This function handles data from `{"data": {"http": [...]}}`
 records. `data` should be the content, i.e. the `[...]`. It should
 consist of simple dictionary, that may contain a `"response"` key
@@ -90,6 +90,9 @@ The output is a port dict (i.e., the content of the "ports" key of an
                     'output': "\n".join(output),
                     'ssl-cert': info,
                 })
+                for cert in info:
+                    add_cert_hostnames(cert,
+                                       hostrec.setdefault('hostnames', []))
     if url:
         port = None
         if ':' in url.get('host', ''):
@@ -111,7 +114,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
             # Due to an issue with ZGrab2 output, we cannot, for now,
             # process the content of the file. See
             # <https://github.com/zmap/zgrab2/issues/263>.
-            repository = '%s:%d%s' % (addr, port, url['path'][:-5])
+            repository = '%s:%d%s' % (hostrec['addr'], port, url['path'][:-5])
             res['port'] = port
             res.setdefault('scripts', []).append({
                 'id': 'http-git',
