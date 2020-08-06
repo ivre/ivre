@@ -27,6 +27,11 @@ import warnings
 
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
+# because some "dev" of the cryptography module decided that
+# CryptographyDeprecationWarning should **not** inherit from
+# DeprecationWarning
+warnings.filterwarnings("ignore", message='^Python 2 is no longer supported',
+                        module='cryptography')
 
 
 from ivre import utils, tools  # noqa: E402
