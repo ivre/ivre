@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM ivre/base
-LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
+LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # Tools
 ## non-free: s3270
@@ -31,8 +31,8 @@ RUN apt-get -qy install rsync screen ipython openssl tesseract-ocr \
 # #34 (https://github.com/nmap/nmap/issues/34) since we do not know
 # which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-ADD https://nmap.org/dist/nmap-7.70.tgz ./nmap.tar.gz
-RUN apt-get -qy install build-essential libssl-dev && \
+ADD https://nmap.org/dist/nmap-7.80.tgz ./nmap.tar.gz
+RUN apt-get -qy install build-essential libssl-dev flex bison && \
     tar zxf nmap.tar.gz && \
     mv nmap-* nmap && \
     cd nmap && \
@@ -41,7 +41,7 @@ RUN apt-get -qy install build-essential libssl-dev && \
                 --with-libpcap=included && \
     make && make install && \
     cd ../ && rm -rf nmap nmap.tar.gz && \
-    apt-get -qy --purge autoremove build-essential libssl-dev
+    apt-get -qy --purge autoremove build-essential libssl-dev flex bison
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
 ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.8-linux-x86_64.tar.bz2 ./phantomjs-1.9.8-linux-x86_64.tar.bz2
