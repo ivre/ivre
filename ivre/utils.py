@@ -1632,6 +1632,10 @@ def parse_ssh_key(data):
             # (e.g., "MongoDB can only handle up to 8-byte ints")
             for val in ["exponent", "modulus"]:
                 info[val] = str(info[val])
+    elif keytype == 'ssh-dss':
+        info["bits"] = int(math.ceil(
+            math.log(int(encode_hex(next(parsed)), 16), 2)
+        ))
     elif keytype == 'ecdsa-sha2-nistp256':
         info['bits'] = 256
     elif keytype == 'ssh-ed25519':
