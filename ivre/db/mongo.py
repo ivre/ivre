@@ -1757,7 +1757,12 @@ it is not expected)."""
                 "type": "Point",
                 "coordinates": host['infos'].pop('coordinates')[::-1],
             }
-        ident = self.db[self.columns[self.column_hosts]].insert(host)
+        try:
+            ident = self.db[self.columns[self.column_hosts]].insert(host)
+        except Exception:
+            utils.LOGGER.warning("Cannot insert host %r", host,
+                                 exc_info=True)
+            return None
         utils.LOGGER.debug("HOST STORED: %r in %r", ident,
                            self.columns[self.column_hosts])
         return ident
