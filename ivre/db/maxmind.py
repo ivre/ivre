@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,8 @@ files.
 
 
 import codecs
-from functools import reduce
+from functools import partial, reduce
+from multiprocessing import Pool
 import os
 import sys
 import struct
@@ -461,31 +462,56 @@ class MaxMindDBData(DBData):
             ))
 
     def build_dumps(self, force=False):
-        for attr, func in [
-                ("db_asn", self.dump_as_ranges),
-                ("db_country", self.dump_country_ranges),
-                ("db_city", self.dump_city_ranges),
-        ]:
-            try:
-                subdb = getattr(self, attr)
-            except AttributeError:
-                continue
-            if not subdb.path.endswith('.mmdb'):
-                continue
-            csv_file = subdb.path[:-4] + 'dump-IPv4.csv'
-            if not force:
-                mmdb_mtime = os.path.getmtime(subdb.path)
-                try:
-                    csv_mtime = os.path.getmtime(csv_file)
-                except OSError:
-                    pass
-                else:
-                    if csv_mtime > mmdb_mtime:
-                        utils.LOGGER.info('Skipping %r since %r is newer',
-                                          os.path.basename(subdb.path),
-                                          os.path.basename(csv_file))
-                        continue
-            utils.LOGGER.info('Dumping %r to %r', os.path.basename(subdb.path),
-                              os.path.basename(csv_file))
-            with codecs.open(csv_file, mode="w", encoding='utf-8') as fdesc:
-                func(fdesc)
+        """Produces CSV dump (.dump-IPv4.csv) files from Maxmind database
+(.mmdb) files.
+
+This function creates uses multiprocessing pool and makes several
+calls to self._build_dump().
+
+        """
+        for _ in Pool().imap(
+                partial(_build_dump, self, force),
+                ["db_asn", "db_country", "db_city"],
+                chunksize=1,
+        ):
+            pass
+
+
+def _build_dump(instance, force, attr):
+    """Helper function used by MaxMindDBData.build_dumps() to create a
+dump (.dump-IPv4.csv) file from a Maxmind database (.mmdb) file.
+
+This is a function rather than a method of MaxMindDBData because
+Python 2 won't allow multiprocessing.Pool with class instances. This
+is a hack and this function should become a method of MaxMindDBData as
+soon as we drop Python 2 support.
+
+    """
+    dumper = {
+        "db_asn": instance.dump_as_ranges,
+        "db_country": instance.dump_country_ranges,
+        "db_city": instance.dump_city_ranges,
+    }[attr]
+    try:
+        subdb = getattr(instance, attr)
+    except AttributeError:
+        return
+    if not subdb.path.endswith('.mmdb'):
+        return
+    csv_file = subdb.path[:-4] + 'dump-IPv4.csv'
+    if not force:
+        mmdb_mtime = os.path.getmtime(subdb.path)
+        try:
+            csv_mtime = os.path.getmtime(csv_file)
+        except OSError:
+            pass
+        else:
+            if csv_mtime > mmdb_mtime:
+                utils.LOGGER.info('Skipping %r since %r is newer',
+                                  os.path.basename(subdb.path),
+                                  os.path.basename(csv_file))
+                return
+    utils.LOGGER.info('Dumping %r to %r', os.path.basename(subdb.path),
+                      os.path.basename(csv_file))
+    with codecs.open(csv_file, mode="w", encoding='utf-8') as fdesc:
+        dumper(fdesc)
