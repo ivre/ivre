@@ -1070,6 +1070,72 @@ _NMAP_CUR_PROBE = None
 _NAMP_CUR_FALLBACK = None
 
 
+def _ungreedify(expr):
+    """Convert a regexp (bytes or str instance) to a non-greedy pattern by
+adding '?' modifiers when needed.
+
+    """
+    pattern = expr.pattern
+    (
+        status_std, status_protected, status_group_begin, status_char_group,
+        status_char_group_protected, status_needs_ungreed,
+    ) = range(6)
+    status = status_std
+    protect = b'\\' if isinstance(pattern, bytes) else u'\\'
+    group_begin = b'(' if isinstance(pattern, bytes) else u'('
+    char_group_begin = b'[' if isinstance(pattern, bytes) else u'['
+    char_group_end = b']' if isinstance(pattern, bytes) else u']'
+    ungreed = b'?' if isinstance(pattern, bytes) else u'?'
+    need_ungreed = (
+        {b'?', b'*', b'+', b'}'}
+        if isinstance(pattern, bytes) else
+        {'?', '*', '+', '}'}
+    )
+    result = []
+    for c in (pattern[i:i + 1] for i in range(len(pattern))):
+        if status == status_needs_ungreed:
+            result.append(ungreed)
+            status = status_std
+            if c == ungreed:
+                continue
+        result.append(c)
+        if status == status_protected:
+            status = status_std
+            continue
+        if status == status_char_group_protected:
+            status = status_char_group
+            continue
+        if status == status_needs_ungreed:
+            status = status_std
+            continue
+        if c == protect:
+            status = (
+                status_char_group_protected
+                if status == status_char_group else
+                status_protected
+            )
+            continue
+        if c == char_group_begin:
+            status = status_char_group
+            continue
+        if c == group_begin:
+            status = status_group_begin
+            continue
+        if status == status_group_begin:
+            continue
+        if status == status_char_group:
+            if c == char_group_end:
+                status = status_std
+            continue
+        if c in need_ungreed:
+            status = status_needs_ungreed
+            continue
+    if status == status_needs_ungreed:
+        result.append(ungreed)
+    return re.compile((b'' if isinstance(pattern, bytes) else '').join(result),
+                      expr.flags)
+
+
 def _read_nmap_probes():
     global _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK, _NMAP_PROBES_POPULATED
     _NMAP_CUR_PROBE = None
@@ -1182,6 +1248,9 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
         for service, fingerprint in fingerprints:
             match = fingerprint['m'][0].search(output)
             if match is not None:
+                match2 = _ungreedify(fingerprint['m'][0]).search(output)
+                if match2 is not None:
+                    match = match2
                 if probe == 'NULL' and service == 'landesk-rc':
                     # This Nmap fingerprint sucks: it is just a size
                     # check with a simple rule to exclude values
