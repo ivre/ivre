@@ -124,10 +124,10 @@ setup(
     description='Network recon framework',
     long_description=long_description,
     long_description_content_type=long_description_content_type,
-    keywords=["network", "network recon", "network cartography",
-              "nmap", "masscan", "zmap", "bro", "zeek"],
+    keywords=["network", "network recon", "network cartography", "nmap",
+              "masscan", "zmap", "zgrab", "zdns", "bro", "zeek"],
     classifiers=[
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Environment :: Console",
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
@@ -169,8 +169,8 @@ setup(
         '3D traceroute graphs': ["dbus-python"],
         'Plots': ["matplotlib"],
     },
-    packages=['ivre', 'ivre/analyzer', 'ivre/db', 'ivre/db/sql', 'ivre/parser',
-              'ivre/tools', 'ivre/web'],
+    packages=['ivre', 'ivre/active', 'ivre/analyzer', 'ivre/db', 'ivre/db/sql',
+              'ivre/parser', 'ivre/tools', 'ivre/web'],
     scripts=['bin/ivre'],
     data_files=[
         ('', ['README.md']),  # needed for the package description

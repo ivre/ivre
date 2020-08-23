@@ -16,16 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Put selected results in views."""
+
 
 from datetime import datetime
 from textwrap import wrap
 
-from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, \
-    create_ssl_output
-from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
+
+from ivre.active.data import create_ssl_output
 from ivre.db import db
+from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
+from ivre import utils
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):

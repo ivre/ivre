@@ -37,6 +37,8 @@ from sqlalchemy import and_, cast, column, create_engine, delete, desc, func, \
     exists, join, not_, nullsfirst, or_, select, update
 from sqlalchemy.dialects.postgresql import JSONB
 
+
+from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBFlow, DBNmap, DBPassive, DBView
 from ivre import config, utils, xmlnmap
 from ivre.db.sql.tables import N_Association_Scan_Category, \
@@ -959,7 +961,7 @@ field from having different data types.
         failed = set()
         scripts = [
             script_name
-            for script_name, alias in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
+            for script_name, alias in viewitems(ALIASES_TABLE_ELEMS)
             if alias == 'ls'
         ]
         scripts.append('ssh-hostkey')
@@ -1605,7 +1607,7 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            basekey = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
+            basekey = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, (basestring, utils.REGEXP_T)):
                 needunwind = sorted(set(cls.needunwind_script(basekey)))
             else:
