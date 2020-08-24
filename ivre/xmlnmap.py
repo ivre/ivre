@@ -1365,8 +1365,7 @@ X509 "service" tag.
     pem.append('-----END CERTIFICATE-----')
     pem.append('')
     info['pem'] = '\n'.join(pem)
-    newout = create_ssl_output(info)
-    return newout, [info]
+    return '\n'.join(create_ssl_output(info)), [info]
 
 
 _EXPR_INDEX_OF = re.compile(
@@ -2485,7 +2484,7 @@ argument (a dict object).
                                  exc_info=True)
             return
         if output_data:
-            script["output"] = "\n".join(output_text)
+            script["output"] = output_text
             script["ssl-cert"] = output_data
             if script['id'] == 'ssl-cert':
                 for cert in output_data:
