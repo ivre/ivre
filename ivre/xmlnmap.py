@@ -1501,6 +1501,20 @@ def add_hostname(name, name_type, hostnames):
     })
 
 
+def add_service_hostname(service_info, hostnames):
+    if 'service_hostname' not in service_info:
+        return
+    name = service_info['service_hostname']
+    if 'service_extrainfo' in service_info:
+        for data in service_info[
+                'service_extrainfo'
+        ].lower().split(', '):
+            if data.startswith('domain:'):
+                name += '.' + data[7:].strip()
+                break
+    add_hostname(name, 'service', hostnames)
+
+
 def add_cert_hostnames(cert, hostnames):
     if 'commonName' in cert.get('subject', {}):
         add_hostname(cert['subject']['commonName'], 'cert-subject-cn',
@@ -1991,17 +2005,10 @@ argument (a dict object).
                     except KeyError:
                         pass
                     self._curport.update(match)
-                    if 'service_hostname' in match:
-                        name = match['service_hostname']
-                        if 'service_extrainfo' in match:
-                            for data in match[
-                                    'service_extrainfo'
-                            ].lower().split(', '):
-                                if data.startswith('domain:'):
-                                    name += '.' + data[7:].strip()
-                                    break
-                        add_hostname(name, 'service',
-                                     self._curhost.setdefault('hostnames', []))
+                    add_service_hostname(
+                        match,
+                        self._curhost.setdefault('hostnames', []),
+                    )
                 return
             for attr in attrs.keys():
                 self._curport['service_%s' % attr] = attrs[attr]
@@ -2009,6 +2016,8 @@ argument (a dict object).
                           'service_lowver', 'service_highver']:
                 if field in self._curport:
                     self._curport[field] = int(self._curport[field])
+            add_service_hostname(self._curport,
+                                 self._curhost.setdefault('hostnames', []))
         elif name == 'script':
             if self._curscript is not None:
                 utils.LOGGER.warning("self._curscript should be None at this "
@@ -2240,7 +2249,7 @@ argument (a dict object).
                     if infos is not None:
                         self._curscript[infokey] = infos
             if key in POST_PROCESS:
-                POST_PROCESS[key](self._curhost, current, self._curscript)
+                POST_PROCESS[key](self._curscript, current, self._curhost)
             current.setdefault('scripts', []).append(self._curscript)
             self._curscript = None
         elif name in ['table', 'elem']:
