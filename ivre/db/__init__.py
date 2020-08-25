@@ -1910,8 +1910,9 @@ class DBNmap(DBActive):
                     continue
                 try:
                     # [:19]: remove timezone info
-                    host['starttime'] = (rec.pop('timestamp')[:19]
-                                         .replace('T', ' '))
+                    host['starttime'] = host['endtime'] = (
+                        rec.pop('timestamp')[:19].replace('T', ' ')
+                    )
                 except KeyError:
                     pass
                 if categories:
@@ -1919,12 +1920,22 @@ class DBNmap(DBActive):
                 if source is not None:
                     host["source"] = source
                 for key, value in viewitems(rec.pop('data', {})):
-                    if 'timestamp' in value:
-                        tstamp = value.pop('timestamp')
-                        if 'starttime' in rec:
-                            rec['starttime'] = min(rec['starttime'], tstamp)
+                    try:
+                        timestamp = (
+                            value.pop('timestamp')[:19].replace('T', ' ')
+                        )
+                    except KeyError:
+                        pass
+                    else:
+                        if 'starttime' in host:
+                            host['starttime'] = min(host['starttime'],
+                                                    timestamp)
                         else:
-                            rec['starttime'] = tstamp
+                            host['starttime'] = timestamp
+                        if 'endtime' in host:
+                            host['endtime'] = max(host['endtime'], timestamp)
+                        else:
+                            host['endtime'] = timestamp
                     try:
                         parser = ZGRAB_PARSERS[key]
                     except KeyError:
