@@ -87,7 +87,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
             if info:
                 res.setdefault('scripts', []).append({
                     'id': 'ssl-cert',
-                    'output': "\n".join(output),
+                    'output': output,
                     'ssl-cert': info,
                 })
                 for cert in info:
