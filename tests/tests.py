@@ -401,7 +401,7 @@ class IvreTests(unittest.TestCase):
                              **kwargs):
         res, out, err = RUN(["ivre", command, "--top", field, "--limit",
                              str(count)])
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         listval = []
         for line in out.decode().split('\n'):
@@ -472,7 +472,7 @@ class IvreTests(unittest.TestCase):
             cmd += ['--collect'] + collect_fields
         res, out, err = RUN(cmd)
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         # Check only fields and count
         result = out.decode().rsplit('|', 1)[0]
         self.check_value(name, result)
@@ -875,17 +875,17 @@ purposes to feed Elasticsearch view.
         # JSON
         res, out, err = RUN(['ivre', 'scancli', '--json'])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(len(out.splitlines()), hosts_count)
         # SHORT
         res, out, err = RUN(['ivre', 'scancli', '--short'])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(len(out.splitlines()), hosts_count)
         # GNMAP
         res, out, err = RUN(['ivre', 'scancli', '--gnmap'])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
         self.assertEqual(count, hosts_count)
 
@@ -1560,7 +1560,7 @@ purposes to feed Elasticsearch view.
 
         res, out, err = RUN(["ivre", "scancli", "--count"], env=newenv)
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.check_value("nmap_get_count", int(out))
 
         addr = next(iter(ivre.db.db.nmap.get(
@@ -1568,7 +1568,7 @@ purposes to feed Elasticsearch view.
         )))['addr']
         res, out, err = RUN(["ivre", "scancli", "--host", addr], env=newenv)
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         found = False
         for line in out.splitlines():
             if line.startswith(b'Host '):
@@ -1640,19 +1640,19 @@ purposes to feed Elasticsearch view.
         # MAC addresses
         ret, out, err = RUN(["ivre", "macinfo", "--count"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         out = int(out.strip())
         self.assertGreater(out, 0)
         self.check_value("passive_count_mac", out)
         ret, out, err = RUN(["ivre", "macinfo", "-s", "TEST", "--count"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         out = int(out.strip())
         self.assertGreater(out, 0)
         self.check_value("passive_count_mac", out)
         ret, out, err = RUN(["ivre", "macinfo"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         out = out.splitlines()
         self.check_value("passive_count_mac", len(out))
         out = out[0].split()
@@ -1662,22 +1662,22 @@ purposes to feed Elasticsearch view.
         mac_addr = out[2]
         ret, out, err = RUN(["ivre", "macinfo", "-r"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.check_value("passive_count_mac", len(out.splitlines()))
         ret, out, err = RUN(["ivre", "macinfo", ip_addr.decode()])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertTrue(ip_addr in out)
         self.assertTrue(mac_addr in out)
         ret, out, err = RUN(["ivre", "macinfo", mac_addr.decode()])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertTrue(ip_addr in out)
         self.assertTrue(mac_addr in out)
         ret, out, err = RUN(["ivre", "macinfo", ip_addr.decode(),
                              mac_addr.decode()])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertTrue(ip_addr in out)
         self.assertTrue(mac_addr in out)
         ret, out, err = RUN([
@@ -1685,14 +1685,14 @@ purposes to feed Elasticsearch view.
             '/^%s:/' % ':'.join(mac_addr.decode().split(':', 4)[:4])
         ])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertTrue(ip_addr in out)
         self.assertTrue(mac_addr in out)
         # Multicast addresses should not be seen as belonging to hosts
         ret, out, err = RUN(["ivre", "macinfo", "/^01:/"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
-        self.assertTrue(not out)
+        self.assertFalse(err)
+        self.assertFalse(out)
 
         # Filters
         addr = ivre.db.db.passive.get_one(
@@ -1707,7 +1707,7 @@ purposes to feed Elasticsearch view.
             addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr),
         ])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(int(out.strip()), result)
         ret, out, err = RUN([
             "ivre", "ipinfo",
@@ -1716,7 +1716,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ret, 0)
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertGreater(out.count(b'\n'), result)
 
         result = ivre.db.db.passive.count(
@@ -1939,28 +1939,28 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(out, b'')
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "10000000000"])
         self.assertEqual(res, 0)
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertNotEqual(out, b'')
 
         res, out, err = RUN(["ivre", "ipinfo", "--timeago", "0", "--count"])
         self.assertEqual(res, 0)
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(out, b'0\n')
 
         res, out, err = RUN(["ivre", "ipinfo",
                              "--timeago", "10000000000",
                              "--count"])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertNotEqual(out, b'')
         self.check_value("passive_count", int(out))
 
@@ -2075,7 +2075,7 @@ purposes to feed Elasticsearch view.
                     res, out, err = RUN(["ivre", "ipinfo", "--ssl-ja3-client",
                                          str(clival)])
                     self.assertEqual(res, 0)
-                    self.assertTrue(not err)
+                    self.assertFalse(err)
                     out = out.decode().splitlines()
                     self.assertTrue(len(out) >= 1)
                 # Test to find server with cli
@@ -2083,7 +2083,7 @@ purposes to feed Elasticsearch view.
                     res, out, err = RUN(["ivre", "ipinfo", "--ssl-ja3-server",
                                          str(value)])
                     self.assertEqual(res, 0)
-                    self.assertTrue(not err)
+                    self.assertFalse(err)
                     out = out.decode().splitlines()
                     self.assertTrue(len(out) >= 1)
                 # Test to find (client, server) with cli
@@ -2091,7 +2091,7 @@ purposes to feed Elasticsearch view.
                     res, out, err = RUN(["ivre", "ipinfo", "--ssl-ja3-server",
                                          "%s:%s" % (value, clival)])
                     self.assertEqual(res, 0)
-                    self.assertTrue(not err)
+                    self.assertFalse(err)
                     out = out.decode().splitlines()
                     self.assertTrue(len(out) >= 1)
                 # Run a new test for raw values using regular
@@ -2120,13 +2120,13 @@ purposes to feed Elasticsearch view.
 
         # Top values (CLI)
         res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         out = out.decode().splitlines()
         self.assertEqual(len(out), 10)
         res, out, err = RUN(["ivre", "ipinfo", "--limit", "2", "--top",
                              "addr"])
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         out = out.decode().splitlines()
         self.assertEqual(len(out), 2)
@@ -2135,7 +2135,7 @@ purposes to feed Elasticsearch view.
         self.check_value("passive_top_addr_distinct", addr)
         self.check_value("passive_top_addr_distinct_count", int(count))
         res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(res, 0)
         addr, count = next(elt for elt in out.decode().splitlines()
                            if not elt.startswith('None: ')).split(': ')
@@ -2147,7 +2147,7 @@ purposes to feed Elasticsearch view.
         res, _, err = RUN(["ivre", "ipinfo", "--limit", "1"])
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(res, 0)
         # Using --limit n with --json should produce at most n JSON
         # lines
@@ -2156,7 +2156,7 @@ purposes to feed Elasticsearch view.
                                  "--json"])
             if DATABASE not in ['postgres', 'sqlite']:
                 # There is a warning in postgresql for unused argument.
-                self.assertTrue(not err)
+                self.assertFalse(err)
             self.assertEqual(res, 0)
             out = out.decode().splitlines()
             self.assertEqual(len(out), count)
@@ -2169,7 +2169,7 @@ purposes to feed Elasticsearch view.
                                      "--skip", str(skip), "--json"])
                 if DATABASE not in ['postgres', 'sqlite']:
                     # There is a warning in postgresql for unused argument.
-                    self.assertTrue(not err)
+                    self.assertFalse(err)
                 self.assertEqual(res, 0)
                 out = out.decode().splitlines()
                 self.assertEqual(len(out), count)
@@ -2178,20 +2178,20 @@ purposes to feed Elasticsearch view.
         res, out1, err = RUN(["ivre", "ipinfo", "--limit", "1", "--json"])
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(res, 0)
         res, out2, err = RUN(["ivre", "ipinfo", "--limit", "1", "--skip", "1",
                               "--json"])
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(res, 0)
         self.assertFalse(out1 == out2)
         # Test --sort
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "port"])
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(res, 0)
         port = 0
         for line in out.decode().splitlines():
@@ -2201,7 +2201,7 @@ purposes to feed Elasticsearch view.
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "~port"])
         if DATABASE not in ['postgres', 'sqlite']:
             # There is a warning in postgresql for unused argument.
-            self.assertTrue(not err)
+            self.assertFalse(err)
         self.assertEqual(res, 0)
         port = 65536
         for line in out.decode().splitlines():
@@ -2259,7 +2259,7 @@ purposes to feed Elasticsearch view.
             res, out, err = RUN(["ivre", "ipinfo", "--count", "--asnum",
                                  str(asnum)])
             self.assertEqual(ret, 0)
-            self.assertTrue(not err)
+            self.assertFalse(err)
             self.check_value("passive_count_as%d" % asnum, int(out))
         for cname in ['US', 'FR', 'DE', 'KP', 'XX']:
             if DATABASE in ["sqlite", "tinydb"] and \
@@ -2278,7 +2278,7 @@ purposes to feed Elasticsearch view.
             res, out, err = RUN(["ivre", "ipinfo", "--count", "--country",
                                  cname])
             self.assertEqual(ret, 0)
-            self.assertTrue(not err)
+            self.assertFalse(err)
             self.check_value("passive_count_country_%s" % cname, int(out))
 
         ret, out, _ = RUN(["ivre", "ipinfo", "--short"])
@@ -2445,7 +2445,7 @@ purposes to feed Elasticsearch view.
         os.unlink(fdesc.name)
 
         self.assertEqual(res, 0)
-        self.assertTrue(not out)
+        self.assertFalse(out)
 
         if DATABASE == "tinydb":
             ivre.db.db.passive.invalidate_cache()
@@ -2465,7 +2465,7 @@ purposes to feed Elasticsearch view.
             res, out, err = RUN(["ivre", "ipinfo", "--count", "--dnstype",
                                 dnstype])
             self.assertEqual(res, 0)
-            self.assertTrue(not err)
+            self.assertFalse(err)
             self.check_value("passive_count_dnstype_%s" % dnstype, int(out))
 
         if DATABASE == "sqlite":
@@ -2657,12 +2657,12 @@ purposes to feed Elasticsearch view.
         res, out, err = RUN(["ivre", "flowcli", "--init"],
                             stdin=open(os.devnull))
         self.assertEqual(res, 0)
-        self.assertTrue(not out)
-        self.assertTrue(not err)
+        self.assertFalse(out)
+        self.assertFalse(err)
         res, out, err = RUN(["ivre", "flowcli", "--count"])
         self.assertEqual(res, 0)
         self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
-        self.assertTrue(not err)
+        self.assertFalse(err)
         for pcapfname in self.pcap_files:
             # Only Python 3.2+
             # with tempfile.TemporaryDirectory() as tmpdir:
@@ -2682,7 +2682,7 @@ purposes to feed Elasticsearch view.
                 if fname.endswith('.log')
             ])
             self.assertEqual(res, 0)
-            self.assertTrue(not out)
+            self.assertFalse(out)
             ivre.utils.cleandir(tmpdir)
         total = self.check_flow_count_value("flow_count", {}, [], None)
 
@@ -2929,7 +2929,7 @@ purposes to feed Elasticsearch view.
         # Notice: this depends on the local timezone!
         res, out, err = RUN(['ivre', 'flowcli', '--flow-daily'])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         lines = out.decode().split('\n')[:-1]
         for i, line in enumerate(lines):
             data = line.split('|')
@@ -3046,7 +3046,7 @@ purposes to feed Elasticsearch view.
             # Test precision
             res, out, err = RUN(['ivre', 'flowcli', '--precision'])
             self.assertEqual(res, 0)
-            self.assertTrue(not err)
+            self.assertFalse(err)
             numbers = out.decode().split('\n')[:-1]
             self.assertEqual(len(numbers), 1)
             self.assertEqual(int(numbers[0]), ivre.config.FLOW_TIME_PRECISION)
@@ -3097,18 +3097,18 @@ purposes to feed Elasticsearch view.
         res, out, err = RUN(["ivre", "flowcli", "--init"],
                             stdin=open(os.devnull))
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         res, out, err = RUN(['ivre', 'zeek2db', os.path.join(os.getcwd(),
                              "samples", "mongo_conn.log")])
         self.assertEqual(res, 0)
-        self.assertTrue(not out)
+        self.assertFalse(out)
         self.check_flow_count_value("flow_count_cleanup", {}, [], None)
 
         # Test netflow capture insertion
         res, out, err = RUN(["ivre", "flowcli", "--init"],
                             stdin=open(os.devnull))
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
 
         res, out, err = RUN(['ivre', 'flow2db',
                              os.path.join(os.getcwd(), "samples", "nfcapd")])
@@ -3314,14 +3314,14 @@ purposes to feed Elasticsearch view.
         # Version / help
         res, out1, err = RUN(["ivre"])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         res, out2, err = RUN(["ivre", "help"])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(out1, out2)
         res, _, err = RUN(["ivre", "version"])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         res, _, _ = RUN(["ivre", "inexistent"])
         self.assertTrue(res)
 
@@ -4157,24 +4157,24 @@ purposes to feed Elasticsearch view.
                                                  [], None)
         ret, out, err = RUN(["ivre", "view"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
 
         print('Outputs')
         # JSON
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(len(out.splitlines()), view_count)
         # GNMAP
         ret, out, err = RUN(["ivre", "view", "--gnmap"])
         self.assertEqual(ret, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         count = sum(1 for line in out.splitlines() if b'Status: Up' in line)
         self.check_value("view_gnmap_up_count", count)
         # SHORT
         res, out, err = RUN(['ivre', 'view', '--short'])
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.assertEqual(len(out.splitlines()), view_count)
 
         res, out, _ = RUN(["ivre", "view", "--count", "--category", "PASSIVE"])
@@ -4741,7 +4741,7 @@ purposes to feed Elasticsearch view.
 
         res, out, err = RUN(["ivre", "view", "--count"], env=newenv)
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         self.check_value("view_count_total", int(out))
 
         addr = next(iter(ivre.db.db.view.get(
@@ -4749,7 +4749,7 @@ purposes to feed Elasticsearch view.
         )))['addr']
         res, out, err = RUN(["ivre", "view", "--host", addr], env=newenv)
         self.assertEqual(res, 0)
-        self.assertTrue(not err)
+        self.assertFalse(err)
         found = False
         for line in out.splitlines():
             if line.startswith(b'Host '):
