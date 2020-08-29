@@ -58,7 +58,8 @@ except ImportError:
 
 
 from ivre import config, geoiputils, nmapout, utils, xmlnmap, flow
-from ivre.active.data import ALIASES_TABLE_ELEMS, merge_host_docs
+from ivre.active.data import ALIASES_TABLE_ELEMS, merge_host_docs, \
+    set_openports_attribute
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
@@ -1949,16 +1950,7 @@ class DBNmap(DBActive):
                             host.setdefault('ports', []).append(port)
                 if not host.get('ports'):
                     continue
-                openports = host['openports'] = {'count': 0}
-                for port in host.get('ports', []):
-                    if port.get('state_state') != 'open':
-                        continue
-                    openports['count'] += 1
-                    cur = openports.setdefault(port['protocol'],
-                                               {"count": 0, "ports": []})
-                    if port['port'] not in cur['ports']:
-                        cur["count"] += 1
-                        cur["ports"].append(port['port'])
+                set_openports_attribute(host)
                 host = self.json2dbrec(host)
                 if ((needports and 'ports' not in host) or
                     (needopenports and

@@ -192,7 +192,24 @@ Host scripts (port == -1) are also considered True.
     return False
 
 
-def cleanup_synack_honeypot_host(host):
+def set_openports_attribute(host):
+    """This function sets the "openports" value in the `host` record,
+based on the elements of the "ports" list. This is used in MongoDB to
+speed up queries based on open ports.
+
+    """
+    openports = host['openports'] = {'count': 0}
+    for port in host.get('ports', []):
+        if port.get('state_state') != 'open':
+            continue
+        cur = openports.setdefault(port['protocol'], {'count': 0, 'ports': []})
+        if port['port'] not in cur['ports']:
+            openports['count'] += 1
+            cur['count'] += 1
+            cur['ports'].append(port['port'])
+
+
+def cleanup_synack_honeypot_host(host, update_openports=True):
     """This function will clean the `host` record if it has too many (at
 least `VIEW_SYNACK_HONEYPOT_COUNT`) open ports that may be "syn-ack"
 honeypots (which means, ports for which is_real_service_port() returns
@@ -212,6 +229,8 @@ False).
         # honeypots"
         host['ports'] = newports
         host["synack_honeypot"] = True
+        if update_openports:
+            set_openports_attribute(host)
 
 
 def merge_ja3_scripts(curscript, script, script_id):
@@ -468,26 +487,8 @@ def merge_host_docs(rec1, rec2):
             port.get('protocol') or '~', port.get('port'),
         ))
     if not sa_honeypot:
-        cleanup_synack_honeypot_host(rec)
-    rec["openports"] = {}
-    for record in [rec1, rec2]:
-        for proto in record.get('openports', {}):
-            if proto == 'count':
-                continue
-            rec['openports'].setdefault(
-                proto, {}).setdefault(
-                    'ports', set()).update(
-                        record['openports'][proto]['ports'])
-    if rec['openports']:
-        for proto in list(rec['openports']):
-            count = len(rec['openports'][proto]['ports'])
-            rec['openports'][proto]['count'] = count
-            rec['openports']['count'] = rec['openports'].get(
-                'count', 0) + count
-            rec['openports'][proto]['ports'] = list(
-                rec['openports'][proto]['ports'])
-    else:
-        rec['openports']["count"] = 0
+        cleanup_synack_honeypot_host(rec, update_openports=False)
+    set_openports_attribute(rec)
     for field in ["traces", "infos", "ports"]:
         if not rec[field]:
             del rec[field]

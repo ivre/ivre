@@ -24,7 +24,7 @@ from datetime import datetime
 from textwrap import wrap
 
 
-from ivre.active.data import create_ssl_output
+from ivre.active.data import create_ssl_output, set_openports_attribute
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
@@ -391,15 +391,7 @@ def passive_record_to_view(rec, category=None):
     if isinstance(function, dict):
         function = function.get(rec['source'], lambda _: {})
     outrec.update(function(rec))
-    openports = outrec['openports'] = {'count': 0}
-    for port in outrec.get('ports', []):
-        if port.get('state_state') != 'open':
-            continue
-        openports['count'] += 1
-        cur = openports.setdefault(port['protocol'], {'count': 0, 'ports': []})
-        if port['port'] not in cur['ports']:
-            cur["count"] += 1
-            cur["ports"].append(port['port'])
+    set_openports_attribute(outrec)
     if category is not None:
         outrec['categories'] = [category]
     return outrec
