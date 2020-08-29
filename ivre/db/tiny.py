@@ -44,12 +44,13 @@ from tinydb.database import Document
 from tinydb.operations import add, increment
 
 
+from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBAgent, DBNmap, DBPassive, DBView, DBFlow, \
     DBFlowMeta, LockError
 from ivre import config
 from ivre import flow
 from ivre import utils
-from ivre.xmlnmap import ALIASES_TABLE_ELEMS, Nmap2DB
+from ivre.xmlnmap import Nmap2DB
 
 
 try:

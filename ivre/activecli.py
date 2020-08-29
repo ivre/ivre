@@ -35,7 +35,11 @@ from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 
 
-from ivre import utils, db, graphroute, config, xmlnmap
+from ivre.active.data import ALIASES_TABLE_ELEMS
+from ivre.config import HONEYD_IVRE_SCRIPTS_PATH
+from ivre.db import db
+from ivre import graphroute
+from ivre import utils
 
 
 HONEYD_ACTION_FROM_NMAP_STATE = {
@@ -87,7 +91,7 @@ def _nmap_port2honeyd_action(port):
                               if k != 'SSH']),
                 )
             return '''"%s %s"''' % (
-                os.path.join(config.HONEYD_IVRE_SCRIPTS_PATH, 'sshd'),
+                os.path.join(HONEYD_IVRE_SCRIPTS_PATH, 'sshd'),
                 banner
             )
     return 'open'
@@ -234,7 +238,7 @@ def _display_xml_script(s, out=sys.stdout):
     out.write('<script id=%s' % saxutils.quoteattr(s['id']))
     if 'output' in s:
         out.write(' output=%s' % saxutils.quoteattr(s['output']))
-    key = xmlnmap.ALIASES_TABLE_ELEMS.get(s['id'], s['id'])
+    key = ALIASES_TABLE_ELEMS.get(s['id'], s['id'])
     if key in s:
         out.write('>')
         _display_xml_table_elem(s[key], first=True, out=out)
@@ -488,14 +492,14 @@ def displayfunction_graphroute(cur, arg, gr_include, gr_dont_reset):
     if arg == "dot":
         if arg == "AS":
             def cluster(ipaddr):
-                res = db.db.data.as_byip(ipaddr)
+                res = db.data.as_byip(ipaddr)
                 if res is None:
                     return None
                 return (res['as_num'],
                         "%(as_num)d\n[%(as_name)s]" % res)
         elif arg == "Country":
             def cluster(ipaddr):
-                res = db.db.data.country_byip(ipaddr)
+                res = db.data.country_byip(ipaddr)
                 if res is None:
                     return None
                 return (res['country_code'],

@@ -36,8 +36,10 @@ from elasticsearch_dsl.query import Query
 from future.utils import viewitems
 from past.builtins import basestring
 
+
+from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBView
-from ivre import utils, xmlnmap
+from ivre import utils
 
 
 PAGESIZE = 250
@@ -1050,7 +1052,7 @@ return result;
             if name is None:
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            subfield = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
+            subfield = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, Query):
                 req.append(values)
             elif isinstance(values, basestring):

@@ -173,6 +173,17 @@ MAXMIND_LICENSE_KEY = None
 
 GEOIP_LANG = "en"
 
+# Some IP ranges send syn-ack answers for any
+# port. VIEW_SYNACK_HONEYPOT_COUNT is the number of open ports with
+# only syn-ack (no script, no service identified). The value you need
+# to set here highly depends on the number of ports you usually scan
+# and/or see.
+#
+# The default value, 200 seems high enough to work fine with most
+# situations. None means that no host should be treated as a "syn-ack
+# honeypot".
+VIEW_SYNACK_HONEYPOT_COUNT = 200
+
 WEB_ALLOWED_REFERERS = None
 WEB_NOTES_BASE = "/dokuwiki/#IP#"
 WEB_MAXRESULTS = None

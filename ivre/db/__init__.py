@@ -27,7 +27,6 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from functools import reduce
 from importlib import import_module
-from itertools import chain
 import json
 import os
 import pickle
@@ -59,6 +58,8 @@ except ImportError:
 
 
 from ivre import config, geoiputils, nmapout, utils, xmlnmap, flow
+from ivre.active.data import ALIASES_TABLE_ELEMS, merge_host_docs, \
+    set_openports_attribute
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
@@ -929,7 +930,7 @@ insert structures.
         assert doc["schema_version"] == 5
         doc["schema_version"] = 6
         migrate_scripts = set(script for script, alias
-                              in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
+                              in viewitems(ALIASES_TABLE_ELEMS)
                               if alias == 'vulns')
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
@@ -1136,7 +1137,7 @@ field from having different data types.
                     script['ssh-hostkey'] = xmlnmap.change_ssh_hostkey(
                         script["ssh-hostkey"]
                     )
-                elif (xmlnmap.ALIASES_TABLE_ELEMS.get(script['id']) == 'ls' and
+                elif (ALIASES_TABLE_ELEMS.get(script['id']) == 'ls' and
                       "ls" in script):
                     script[
                         "ls"
@@ -1949,16 +1950,7 @@ class DBNmap(DBActive):
                             host.setdefault('ports', []).append(port)
                 if not host.get('ports'):
                     continue
-                openports = host['openports'] = {'count': 0}
-                for port in host.get('ports', []):
-                    if port.get('state_state') != 'open':
-                        continue
-                    openports['count'] += 1
-                    cur = openports.setdefault(port['protocol'],
-                                               {"count": 0, "ports": []})
-                    if port['port'] not in cur['ports']:
-                        cur["count"] += 1
-                        cur["ports"].append(port['port'])
+                set_openports_attribute(host)
                 host = self.json2dbrec(host)
                 if ((needports and 'ports' not in host) or
                     (needopenports and
@@ -2106,263 +2098,8 @@ class DBView(DBActive):
         return flt
 
     @staticmethod
-    def merge_ja3_scripts(curscript, script, script_id):
-
-        def is_server(script_id):
-            return script_id == 'ssl-ja3-server'
-
-        def ja3_equals(a, b, script_id):
-            return (a['raw'] == b['raw'] and
-                    (not is_server(script_id) or
-                     a['client']['raw'] == b['client']['raw']))
-
-        def ja3_output(ja3, script_id):
-            output = ja3['md5']
-            if is_server(script_id):
-                output += ' - ' + ja3['client']['md5']
-            return output
-        return DBView._merge_scripts(curscript, script, script_id,
-                                     ja3_equals, ja3_output)
-
-    @staticmethod
-    def merge_ua_scripts(curscript, script, script_id):
-
-        def ua_equals(a, b, script_id):
-            return a == b
-
-        def ua_output(ua, script_id):
-            return ua
-
-        return DBView._merge_scripts(curscript, script, script_id,
-                                     ua_equals, ua_output)
-
-    @staticmethod
-    def merge_ssl_cert_scripts(curscript, script, script_id):
-
-        def cert_equals(a, b, script_id):
-            return a['sha256'] == b['sha256']
-
-        def cert_output(cert, script_id):
-            return '\n'.join(xmlnmap.create_ssl_output(cert))
-
-        return DBView._merge_scripts(
-            curscript, script, script_id, cert_equals, cert_output,
-            outsep="\n---------------------------------------------"
-            "-------------------\n"
-        )
-
-    @staticmethod
-    def merge_axfr_scripts(curscript, script, script_id):
-        # If one results has no structured output, keep the other
-        # one. Prefer curscript over script.
-        if script_id not in script:
-            return curscript
-        if script_id not in curscript:
-            curscript['output'] = script['output']
-            curscript[script_id] = script[script_id]
-            return script
-        res = []
-        for data in chain(curscript[script_id], script[script_id]):
-            if any(data['domain'] == r['domain'] for r in res):
-                continue
-            res.append(data)
-        res = sorted(res,
-                     key=lambda r: tuple(reversed(r['domain'].split('.'))))
-        line_fmt = "| %%-%ds  %%-%ds  %%s" % (
-            max(len(r['name']) for data in res for r in data['records']),
-            max(len(r['type']) for data in res for r in data['records']),
-        )
-        curscript['output'] = "\n".join(
-            "\nDomain: %s\n%s\n\\\n" % (
-                data['domain'],
-                "\n".join(line_fmt % (r['name'], r['type'], r['data'])
-                          for r in data['records'])
-            )
-            for data in res
-        )
-        curscript[script_id] = res
-        return curscript
-
-    @staticmethod
-    def _merge_scripts(curscript, script, script_id, script_equals,
-                       script_output, outsep="\n"):
-        """Merge two scripts and return the result. Avoid duplicates.
-        """
-        to_merge_list = []
-        script_id_alias = xmlnmap.ALIASES_TABLE_ELEMS.get(script_id, script_id)
-        for to_add in script.setdefault(script_id_alias, []):
-            to_merge = True
-            for cur in curscript.get(script_id_alias, []):
-                if script_equals(to_add, cur, script_id):
-                    to_merge = False
-                    break
-            if to_merge:
-                to_merge_list.append(to_add)
-        curscript.setdefault(script_id_alias, []).extend(to_merge_list)
-        # Compute output from curscript[script_id_alias]
-        output = []
-        for el in curscript[script_id_alias]:
-            output.append(script_output(el, script_id))
-        if output:
-            curscript['output'] = outsep.join(output) + '\n'
-        else:
-            curscript['output'] = ''
-        return curscript
-
-    @staticmethod
-    def merge_scripts(curscript, script, script_id):
-        if script_id.startswith('ssl-ja3-'):
-            return DBView.merge_ja3_scripts(curscript, script, script_id)
-        if script_id == 'http-user-agent':
-            return DBView.merge_ua_scripts(curscript, script, script_id)
-        if script_id == 'dns-zone-transfer':
-            return DBView.merge_axfr_scripts(curscript, script, script_id)
-        if script_id in ['ssl-cert', 'ssl-cacert']:
-            return DBView.merge_ssl_cert_scripts(curscript, script, script_id)
-        return {}
-
-    @staticmethod
     def merge_host_docs(rec1, rec2):
-        """Merge two host records and return the result. Unmergeable /
-        hard-to-merge fields are lost (e.g., extraports).
-
-        """
-        if rec1.get("schema_version") != rec2.get("schema_version"):
-            raise ValueError("Cannot merge host documents. "
-                             "Schema versions differ (%r != %r)" % (
-                                 rec1.get("schema_version"),
-                                 rec2.get("schema_version")))
-        rec = {}
-        if "schema_version" in rec1:
-            rec["schema_version"] = rec1["schema_version"]
-        # When we have different values, we will use the one from the
-        # most recent scan, rec2. If one result has no "endtime", we
-        # consider it as older.
-        if (
-                (rec1.get("endtime") or datetime.fromtimestamp(0)) >
-                (rec2.get("endtime") or datetime.fromtimestamp(0))
-        ):
-            rec1, rec2 = rec2, rec1
-        for fname, function in [("starttime", min), ("endtime", max)]:
-            try:
-                rec[fname] = function(record[fname] for record in [rec1, rec2]
-                                      if fname in record)
-            except ValueError:
-                pass
-        rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
-        if rec["state"] is None:
-            del rec["state"]
-        rec["categories"] = list(
-            set(rec1.get("categories", [])).union(
-                rec2.get("categories", []))
-        )
-        for field in ["addr", "os"]:
-            rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
-            if not rec[field]:
-                del rec[field]
-        rec['source'] = list(set(rec1.get('source', []))
-                             .union(set(rec2.get('source', []))))
-        rec["traces"] = rec2.get("traces", [])
-        for trace in rec1.get("traces", []):
-            # Skip this result (from rec1) if a more recent traceroute
-            # result exists using the same protocol and port in the
-            # most recent scan (rec2).
-            if any(other['protocol'] == trace['protocol'] and
-                   other.get('port') == trace.get('port')
-                   for other in rec['traces']):
-                continue
-        rec["infos"] = {}
-        for record in [rec1, rec2]:
-            rec["infos"].update(record.get("infos", {}))
-        # We want to make sure of (type, name) unicity
-        hostnames = dict(((h['type'], h['name']), h.get('domains'))
-                         for h in (rec1.get("hostnames", []) +
-                                   rec2.get("hostnames", [])))
-        rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                            for h, d in viewitems(hostnames)]
-        addresses = rec1.get('addresses', {})
-        for atype, addrs in viewitems(rec2.get('addresses', {})):
-            cur_addrs = addresses.setdefault(atype, [])
-            for addr in addrs:
-                if addr not in cur_addrs:
-                    cur_addrs.append(addr)
-        if addresses:
-            rec["addresses"] = addresses
-        ports = dict(((port.get("protocol"), port["port"]), port.copy())
-                     for port in rec2.get("ports", []))
-        for port in rec1.get("ports", []):
-            if (port.get('protocol'), port['port']) in ports:
-                curport = ports[(port.get('protocol'), port['port'])]
-                if 'scripts' in curport:
-                    curport['scripts'] = curport['scripts'][:]
-                else:
-                    curport['scripts'] = []
-                present_scripts = set(
-                    script['id'] for script in curport['scripts']
-                )
-                for script in port.get("scripts", []):
-                    if script['id'] not in present_scripts:
-                        curport['scripts'].append(script)
-                    elif (script['id'] in ['ssl-ja3-server',
-                                           'ssl-ja3-client',
-                                           'http-user-agent',
-                                           'dns-zone-transfer',
-                                           'ssl-cacert',
-                                           'ssl-cert']):
-                        # Merge scripts
-                        curscript = next(x for x in curport['scripts']
-                                         if x['id'] == script['id'])
-                        DBView.merge_scripts(curscript, script, script['id'])
-                if not curport['scripts']:
-                    del curport['scripts']
-                if 'service_name' in port:
-                    if 'service_name' not in curport:
-                        for key in port:
-                            if key.startswith("service_"):
-                                curport[key] = port[key]
-                    elif port['service_name'] == curport['service_name']:
-                        # if the "old" record has information missing
-                        # from the "new" record and information from
-                        # both records is consistent, let's keep the
-                        # "old" data.
-                        for key in port:
-                            if (
-                                    key.startswith("service_") and
-                                    key not in curport
-                            ):
-                                curport[key] = port[key]
-                if 'screenshot' in port and 'screenshot' not in curport:
-                    for key in ['screenshot', 'screendata', 'screenwords']:
-                        if key in port:
-                            curport[key] = port[key]
-            else:
-                ports[(port.get('protocol'), port['port'])] = port
-        rec["ports"] = sorted(viewvalues(ports), key=lambda port: (
-            port.get('protocol') or '~', port.get('port'),
-        ))
-        rec["openports"] = {}
-        for record in [rec1, rec2]:
-            for proto in record.get('openports', {}):
-                if proto == 'count':
-                    continue
-                rec['openports'].setdefault(
-                    proto, {}).setdefault(
-                        'ports', set()).update(
-                            record['openports'][proto]['ports'])
-        if rec['openports']:
-            for proto in list(rec['openports']):
-                count = len(rec['openports'][proto]['ports'])
-                rec['openports'][proto]['count'] = count
-                rec['openports']['count'] = rec['openports'].get(
-                    'count', 0) + count
-                rec['openports'][proto]['ports'] = list(
-                    rec['openports'][proto]['ports'])
-        else:
-            rec['openports']["count"] = 0
-        for field in ["traces", "infos", "ports"]:
-            if not rec[field]:
-                del rec[field]
-        return rec
+        return merge_host_docs(rec1, rec2)
 
     def merge_host(self, host):
         """Attempt to merge `host` with an existing record.

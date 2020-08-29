@@ -39,6 +39,7 @@ except ImportError:
     from urllib import unquote
 import uuid
 
+
 import bson
 from future.builtins import bytes, range, zip
 from future.utils import viewitems, with_metaclass
@@ -46,6 +47,8 @@ from past.builtins import basestring
 from pymongo.errors import BulkWriteError
 import pymongo
 
+
+from ivre.active.data import ALIASES_TABLE_ELEMS
 from ivre.db import DB, DBActive, DBNmap, DBPassive, DBAgent, DBView, DBFlow, \
     DBFlowMeta, LockError
 from ivre import config, passive, utils, xmlnmap, flow
@@ -1144,7 +1147,7 @@ class MongoDBActive(MongoDB, DBActive):
         update = {"$set": {"schema_version": 6}}
         updated = False
         migrate_scripts = set(script for script, alias
-                              in viewitems(xmlnmap.ALIASES_TABLE_ELEMS)
+                              in viewitems(ALIASES_TABLE_ELEMS)
                               if alias == 'vulns')
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
@@ -1410,7 +1413,7 @@ field from having different data types.
                         script["ssh-hostkey"]
                     )
                     updated = True
-                elif (xmlnmap.ALIASES_TABLE_ELEMS.get(script['id']) == 'ls' and
+                elif (ALIASES_TABLE_ELEMS.get(script['id']) == 'ls' and
                       "ls" in script):
                     script[
                         "ls"
@@ -2144,7 +2147,7 @@ it is not expected)."""
             if not isinstance(name, basestring):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
-            key = xmlnmap.ALIASES_TABLE_ELEMS.get(name, name)
+            key = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, (basestring, utils.REGEXP_T)):
                 req[key] = values
             else:

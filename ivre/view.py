@@ -16,16 +16,19 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """Put selected results in views."""
+
 
 from datetime import datetime
 from textwrap import wrap
 
-from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, \
-    create_ssl_output
-from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
+
+from ivre.active.data import create_ssl_output, set_openports_attribute
 from ivre.db import db
+from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
+from ivre import utils
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -388,15 +391,7 @@ def passive_record_to_view(rec, category=None):
     if isinstance(function, dict):
         function = function.get(rec['source'], lambda _: {})
     outrec.update(function(rec))
-    openports = outrec['openports'] = {'count': 0}
-    for port in outrec.get('ports', []):
-        if port.get('state_state') != 'open':
-            continue
-        openports['count'] += 1
-        cur = openports.setdefault(port['protocol'], {'count': 0, 'ports': []})
-        if port['port'] not in cur['ports']:
-            cur["count"] += 1
-            cur["ports"].append(port['port'])
+    set_openports_attribute(outrec)
     if category is not None:
         outrec['categories'] = [category]
     return outrec

@@ -41,8 +41,10 @@ from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 
 
-from ivre import utils
+from ivre.active.data import ALIASES_TABLE_ELEMS, \
+    cleanup_synack_honeypot_host, create_ssl_output
 from ivre.analyzer import dicom, ike
+from ivre import utils
 
 
 SCHEMA_VERSION = 18
@@ -50,93 +52,6 @@ SCHEMA_VERSION = 18
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
 IGNORE_TABLE_ELEMS = set(['xmpp-info', 'sslv2', 'sslv2-drown'])
-
-ALIASES_TABLE_ELEMS = {
-    # Use the same structured output for both ssl-cert and ssl-cacert
-    "ssl-cacert": "ssl-cert",
-    # ls unified output (ls NSE module + ftp-anon)
-    #   grep -lF 'ls.new_vol' * | sed 's#^#    "#;s#.nse$#": "ls",#'
-    "afp-ls": "ls",
-    "http-ls": "ls",
-    "nfs-ls": "ls",
-    "smb-ls": "ls",
-    #   + ftp-anon
-    "ftp-anon": "ls",
-    # vulns unified output (vulns NSE module)
-    #   grep -l -F vulns.Report * | sed 's#^#    "#;s#.nse$#": "vulns",#'
-    "afp-path-vuln": "vulns",
-    "clamav-exec": "vulns",
-    "distcc-cve2004-2687": "vulns",
-    "ftp-libopie": "vulns",
-    "ftp-vsftpd-backdoor": "vulns",
-    "ftp-vuln-cve2010-4221": "vulns",
-    "http-avaya-ipoffice-users": "vulns",
-    "http-cross-domain-policy": "vulns",
-    "http-dlink-backdoor": "vulns",
-    "http-frontpage-login": "vulns",
-    "http-huawei-hg5xx-vuln": "vulns",
-    "http-iis-short-name-brute": "vulns",
-    "http-method-tamper": "vulns",
-    "http-phpmyadmin-dir-traversal": "vulns",
-    "http-phpself-xss": "vulns",
-    "http-sap-netweaver-leak": "vulns",
-    "http-shellshock": "vulns",
-    "http-slowloris-check": "vulns",
-    "http-tplink-dir-traversal": "vulns",
-    "http-vuln-cve2006-3392": "vulns",
-    "http-vuln-cve2009-3960": "vulns",
-    "http-vuln-cve2010-2861": "vulns",
-    "http-vuln-cve2011-3192": "vulns",
-    "http-vuln-cve2011-3368": "vulns",
-    "http-vuln-cve2012-1823": "vulns",
-    "http-vuln-cve2013-0156": "vulns",
-    "http-vuln-cve2013-6786": "vulns",
-    "http-vuln-cve2013-7091": "vulns",
-    "http-vuln-cve2014-2126": "vulns",
-    "http-vuln-cve2014-2127": "vulns",
-    "http-vuln-cve2014-2128": "vulns",
-    "http-vuln-cve2014-2129": "vulns",
-    "http-vuln-cve2014-3704": "vulns",
-    "http-vuln-cve2014-8877": "vulns",
-    "http-vuln-cve2015-1427": "vulns",
-    "http-vuln-cve2015-1635": "vulns",
-    "http-vuln-cve2017-1001000": "vulns",
-    "http-vuln-cve2017-5638": "vulns",
-    "http-vuln-cve2017-5689": "vulns",
-    "http-vuln-cve2017-8917": "vulns",
-    "http-vuln-misfortune-cookie": "vulns",
-    "http-vuln-wnr1000-creds": "vulns",
-    "ipmi-cipher-zero": "vulns",
-    "mysql-vuln-cve2012-2122": "vulns",
-    "qconn-exec": "vulns",
-    "rdp-vuln-ms12-020": "vulns",
-    "realvnc-auth-bypass": "vulns",
-    "rmi-vuln-classloader": "vulns",
-    "rsa-vuln-roca": "vulns",
-    "samba-vuln-cve-2012-1182": "vulns",
-    "smb2-vuln-uptime": "vulns",
-    "smb-double-pulsar-backdoor": "vulns",
-    "smb-vuln-conficker": "vulns",
-    "smb-vuln-cve2009-3103": "vulns",
-    "smb-vuln-cve-2017-7494": "vulns",
-    "smb-vuln-ms06-025": "vulns",
-    "smb-vuln-ms07-029": "vulns",
-    "smb-vuln-ms08-067": "vulns",
-    "smb-vuln-ms10-054": "vulns",
-    "smb-vuln-ms10-061": "vulns",
-    "smb-vuln-ms17-010": "vulns",
-    "smb-vuln-regsvc-dos": "vulns",
-    "smb-vuln-webexec": "vulns",
-    "smtp-vuln-cve2011-1720": "vulns",
-    "smtp-vuln-cve2011-1764": "vulns",
-    "ssl-ccs-injection": "vulns",
-    "ssl-dh-params": "vulns",
-    "ssl-heartbleed": "vulns",
-    "ssl-poodle": "vulns",
-    "sslv2-drown": "vulns",
-    "supermicro-ipmi-conf": "vulns",
-    "tls-ticketbleed": "vulns",
-}
 
 SCREENSHOT_PATTERN = re.compile('^ *Saved to (.*)$', re.MULTILINE)
 RTSP_SCREENSHOT_PATTERN = re.compile('^ *Saved [^ ]* to (.*)$', re.MULTILINE)
@@ -1304,49 +1219,6 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
-def create_ssl_output(info):
-    out = []
-    for key, name in [('subject_text', 'Subject'),
-                      ('issuer_text', 'Issuer')]:
-        try:
-            out.append('%s: %s' % (name, info[key]))
-        except KeyError:
-            pass
-    try:
-        pubkey = info['pubkey']
-    except KeyError:
-        pass
-    else:
-        try:
-            out.append('Public Key type: %s' % pubkey['type'])
-        except KeyError:
-            pass
-        try:
-            out.append('Public Key bits: %d' % pubkey['bits'])
-        except KeyError:
-            pass
-    for key, name in [('not_before', 'Not valid before: '),
-                      ('not_after', 'Not valid after:  ')]:
-        try:
-            out.append('%s%s' % (name, info[key]))
-        except KeyError:
-            pass
-    for san in info.get('san', []):
-        out.append('Subject Alternative Name: %s' % san)
-    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:'),
-                      ('sha256', 'SHA-256:')]:
-        # NB: SHA-256 is not (yet) reported by Nmap, but it might help.
-        try:
-            out.append('%-7s%s' % (name, ' '.join(wrap(info[key], 4))))
-        except KeyError:
-            pass
-    try:
-        out.append(info['pem'])
-    except KeyError:
-        pass
-    return out
-
-
 def create_ssl_cert(data, b64encoded=True):
     """Produces an output similar to Nmap script ssl-cert from Masscan
 X509 "service" tag.
@@ -2129,6 +2001,7 @@ argument (a dict object).
                     # hosts with an open port are marked as up by
                     # default (masscan)
                     self._curhost['state'] = 'up'
+                cleanup_synack_honeypot_host(self._curhost)
                 self._pre_addhost()
                 self._addhost()
             self._curhost = None
