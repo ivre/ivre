@@ -1744,6 +1744,8 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_zgrab
                 elif 'name' in firstres:
                     store_scan_function = self.store_scan_json_zdns
+                elif 'altered_name' in firstres:
+                    store_scan_function = self.store_scan_json_zdns_recursion
                 else:
                     raise ValueError("Unknown file type %s" % fname)
             else:
@@ -1981,9 +1983,9 @@ class DBNmap(DBActive):
                              categories=None, source=None,
                              add_addr_infos=True, force_info=False,
                              callback=None, **_):
-        """This method parses a JSON scan result produced by zdns, displays
-        the parsing result, and return True if everything went fine,
-        False otherwise.
+        """This method parses a JSON scan result produced by zdns to create
+        hosts PTR entries, displays the parsing result, and return
+        True if everything went fine, False otherwise.
 
         In backend-specific subclasses, this method stores the result
         instead of displaying it, thanks to the `store_host`
@@ -2020,12 +2022,14 @@ class DBNmap(DBActive):
                 ]
                 if not hostnames:
                     continue
+                timestamp = rec.pop('timestamp')[:19].replace('T', ' ')
                 host = {
                     "addr": rec.pop('name'),
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
                     # [:19]: remove timezone info
-                    "starttime": rec.pop('timestamp')[:19].replace('T', ' '),
+                    "starttime": timestamp,
+                    "endtime": timestamp,
                     "hostnames": hostnames,
                 }
                 if categories:
@@ -2044,7 +2048,117 @@ class DBNmap(DBActive):
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
-                    self.store_scan_doc({'_id': filehash, 'scanner': 'zgrab'})
+                    self.store_scan_doc({'_id': filehash, 'scanner': 'zdns'})
+                    scan_doc_saved = True
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_zdns_recursion(self, fname, filehash=None,
+                                       needports=False, needopenports=False,
+                                       categories=None, source=None,
+                                       add_addr_infos=True, force_info=False,
+                                       callback=None, masscan_probes=None,
+                                       **_):
+        """This method parses a JSON scan result produced by zdns for
+        recursion test, displays the parsing result, and return True
+        if everything went fine, False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        answers = set()
+        for probe in masscan_probes or []:
+            if probe.startswith('ZDNS:'):
+                answers.add(probe[5:])
+        if not answers:
+            utils.LOGGER.warning(
+                "No ZDNS probe has been defined. Please use "
+                "\"--masscan-probes ZDNS:<query>:<type>:<expected result>\" "
+                "(example: \"ZDNS:ivre.rocks:A:1.2.3.4\")"
+            )
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                rec = json.loads(line.decode())
+                if rec.get('status') == 'TIMEOUT':
+                    continue
+                try:
+                    data = rec['data']
+                except KeyError:
+                    utils.LOGGER.warning(
+                        'Zdns record has no data entry [%r]', rec,
+                    )
+                    continue
+                try:
+                    resolver = data['resolver']
+                except KeyError:
+                    utils.LOGGER.warning(
+                        'Zdns record has no resolver entry [%r]', rec,
+                    )
+                    continue
+                try:
+                    addr, port = resolver.split(':', 1)
+                    port = int(port)
+                except Exception:
+                    utils.LOGGER.warning(
+                        'Zdns record has invalid resolver entry [%r]', rec,
+                        exc_info=True
+                    )
+                    continue
+                # Now we know for sure we have a DNS server here
+                timestamp = rec.pop('timestamp')[:19].replace('T', ' ')
+                port = {
+                    "protocol": data.get('protocol', 'udp'),
+                    "port": port,
+                    "state_state": "open",
+                    "state_reason": "response",
+                    "service_name": "domain",
+                    "service_method": "probed",
+                }
+                host = {
+                    "addr": addr,
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    # [:19]: remove timezone info
+                    "starttime": timestamp,
+                    "endtime": timestamp,
+                    "ports": [port]
+                }
+                if rec.get('status') == 'NOERROR' and "answers" in data:
+                    # the DNS server **did** answer our request
+                    script = {
+                        "id": "dns-recursion",
+                        "output": "Recursion appears to be enabled",
+                    }
+                    if set(
+                        "%(name)s:%(type)s:%(answer)s" % ans
+                        for ans in data["answers"]
+                    ) != answers:
+                        script["output"] += (
+                            "\nAnswer may be incorrect!\n%s" % (
+                                "\n".join(
+                                    "%(name)s    %(type)s    %(answer)s" % ans
+                                    for ans in data["answers"]
+                                )
+                            )
+                        )
+                    port["scripts"] = [script]
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({'_id': filehash, 'scanner': 'zdns'})
                     scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
