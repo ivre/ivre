@@ -2155,6 +2155,19 @@ class DBNmap(DBActive):
                             )
                         )
                     port["scripts"] = [script]
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                if add_addr_infos and self.globaldb is not None and (
+                        force_info or 'infos' not in host or not host['infos']
+                ):
+                    host['infos'] = {}
+                    for func in [self.globaldb.data.country_byip,
+                                 self.globaldb.data.as_byip,
+                                 self.globaldb.data.location_byip]:
+                        host['infos'].update(func(host['addr']) or {})
                 # We are about to insert data based on this file,
                 # so we want to save the scan document
                 if not scan_doc_saved:
