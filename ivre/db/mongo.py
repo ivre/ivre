@@ -281,15 +281,13 @@ the default indexes.
 
     def create_indexes(self):
         for colnum, indexes in enumerate(self.indexes):
-            colname = self.columns[colnum]
-            for index in indexes:
-                self.db[colname].create_index(index[0], **index[1])
+            self.db[self.columns[colnum]].create_indexes([
+                pymongo.IndexModel(idx[0], **idx[1])
+                for idx in indexes
+            ])
 
     def ensure_indexes(self):
-        for colnum, indexes in enumerate(self.indexes):
-            colname = self.columns[colnum]
-            for index in indexes:
-                self.db[colname].ensure_index(index[0], **index[1])
+        return self.create_indexes()
 
     def _migrate_update_record(self, colname, recid, update):
         """Define how an update is handled. Purpose-specific subclasses may
