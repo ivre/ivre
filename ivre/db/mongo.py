@@ -4410,7 +4410,7 @@ class MongoDBFlow(with_metaclass(DBFlowMeta, MongoDB, DBFlow)):
             ([('count', pymongo.ASCENDING)], {}),
             ([('cspkts', pymongo.ASCENDING)], {}),
             ([('scpkts', pymongo.ASCENDING)], {}),
-            ([('scbytes', pymongo.ASCENDING)], {}),
+            ([('csbytes', pymongo.ASCENDING)], {}),
             ([('scbytes', pymongo.ASCENDING)], {}),
         ],
     ]
