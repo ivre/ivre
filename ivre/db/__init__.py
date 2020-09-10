@@ -2159,6 +2159,7 @@ class DBNmap(DBActive):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
+                set_openports_attribute(host)
                 host = self.json2dbrec(host)
                 if add_addr_infos and self.globaldb is not None and (
                         force_info or 'infos' not in host or not host['infos']
