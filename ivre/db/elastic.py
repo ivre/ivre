@@ -291,8 +291,18 @@ class ElasticDBActive(ElasticDB, DBActive):
 
         """
         self.db_client.delete(
-            id=host['_id'],
             index=self.indexes[0],
+            id=host['_id'],
+        )
+
+    def remove_many(self, flt):
+        """Removes the host from the active column. `host` must be the record as
+        returned by .get().
+
+        """
+        self.db_client.delete_by_query(
+            index=self.indexes[0],
+            body={"query": flt.to_dict()},
         )
 
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
