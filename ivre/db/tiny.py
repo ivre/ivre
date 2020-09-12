@@ -211,7 +211,11 @@ class TinyDB(DB):
                 fullfield = '%s.%s' % (base, field)
             else:
                 fullfield = field
-            if fullfield in cls.list_fields:
+            if fullfield in cls.list_fields or (
+                    # Hack: this field may or may not be a list (this
+                    # needs to be changed in a near future)
+                    fullfield == "scanid" and isinstance(record[field], list)
+            ):
                 for val in record[field]:
                     if countval is not None:
                         yield val, countval
@@ -280,13 +284,20 @@ class TinyDB(DB):
         ))
 
     def remove(self, rec):
-        """Removes the record from the active column. `rec` must be the
-        record as returned by `.get()` or the record id.
+        """Removes the record from the active column. `rec` must be the record
+as returned by `.get()` or the record id.
 
         """
         if isinstance(rec, dict):
             rec = rec['_id']
         self.db.remove(cond=Query()._id == rec)
+
+    def remove_many(self, flt):
+        """Removes the record from the active column. `flt` must be a valid
+filter.
+
+        """
+        self.db.remove(cond=flt)
 
     @staticmethod
     def str2id(string):
@@ -1859,8 +1870,8 @@ class TinyDBNmap(TinyDBActive, DBNmap):
             self.db_scans.purge_tables()
 
     def remove(self, rec):
-        """Removes the record from the active column. `rec` must be the
-        record as returned by `.get()` or the record id.
+        """Removes the record from the active column. `rec` must be the record
+as returned by `.get()` or the record id.
 
         """
         q = Query()
@@ -1874,6 +1885,20 @@ class TinyDBNmap(TinyDBActive, DBNmap):
         super(TinyDBNmap, self).remove(rec)
         for scanid in scanids:
             if not self.db.get(q.scanid.any([scanid])):
+                self.db_scans.remove(cond=Query()._id == scanid)
+
+    def remove_many(self, flt):
+        """Removes hosts from the active column, based on the filter `flt`.
+
+If the hosts removed had `scanid` attributes, and if some of them
+refer to scans that have no more host record after the deletion of the
+hosts, then the scan records are also removed.
+
+        """
+        scanids = list(self.distinct('scanid', flt=flt))
+        super(TinyDBNmap, self).remove_many(flt)
+        for scanid in scanids:
+            if not self.db.get(Query().scanid.any([scanid])):
                 self.db_scans.remove(cond=Query()._id == scanid)
 
     def store_or_merge_host(self, host):
