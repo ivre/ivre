@@ -128,7 +128,7 @@ def run_passiverecon_worker(bulk_mode=None):
     pid = os.fork()
     if pid < 0:
         raise Exception("Cannot fork")
-    elif pid:
+    if pid:
         # Wait for child process to handle every file in "logs"
         while any(walk[2] for walk in os.walk("logs")):
             print(u"Waiting for passivereconworker")
