@@ -1593,6 +1593,15 @@ purposes to feed Elasticsearch view.
             ivre.db.db.nmap.searchhost(addr)
         )
         self.assertEqual(count, 0)
+        addr = next(iter(ivre.db.db.nmap.get(
+            ivre.db.db.nmap.flt_empty,
+            sort=[('addr', -1)])
+        ))['addr']
+        ivre.db.db.nmap.remove_many(ivre.db.db.nmap.searchhost(addr))
+        count = ivre.db.db.nmap.count(
+            ivre.db.db.nmap.searchhost(addr)
+        )
+        self.assertEqual(count, 0)
 
     def test_40_passive(self):
 
@@ -4760,6 +4769,34 @@ purposes to feed Elasticsearch view.
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
 
+    def test_55_view_delete(self):
+        # Remove
+        addr = next(iter(ivre.db.db.view.get(
+            ivre.db.db.view.flt_empty,
+            sort=[('addr', -1)])
+        ))['addr']
+        for result in ivre.db.db.view.get(
+            ivre.db.db.view.searchhost(addr)
+        ):
+            ivre.db.db.view.remove(result)
+        if DATABASE == 'elastic':
+            time.sleep(ELASTIC_INSERT_TEMPO)
+        count = ivre.db.db.view.count(
+            ivre.db.db.view.searchhost(addr)
+        )
+        self.assertEqual(count, 0)
+        addr = next(iter(ivre.db.db.view.get(
+            ivre.db.db.view.flt_empty,
+            sort=[('addr', -1)])
+        ))['addr']
+        ivre.db.db.view.remove_many(ivre.db.db.view.searchhost(addr))
+        if DATABASE == 'elastic':
+            time.sleep(ELASTIC_INSERT_TEMPO)
+        count = ivre.db.db.view.count(
+            ivre.db.db.view.searchhost(addr)
+        )
+        self.assertEqual(count, 0)
+
     def test_conf(self):
         # Ensure env var IVRE_CONF is taken into account
         has_env_conf = "IVRE_CONF" in os.environ
@@ -4785,20 +4822,21 @@ purposes to feed Elasticsearch view.
 
 
 TESTS = set(["10_data", "30_nmap", "40_passive", "50_view", "53_nmap_delete",
-             "54_passive_delete", "60_flow", "90_cleanup", "conf", "scans",
-             "utils"])
+             "54_passive_delete", "55_view_delete", "60_flow", "90_cleanup",
+             "conf", "scans", "utils"])
 
 
 DATABASES = {
     # **excluded** tests
     "mongo": ["utils"],
     "postgres": ["60_flow", "scans", "utils"],
-    "sqlite": ["30_nmap", "53_nmap_delete", "50_view", "60_flow", "scans",
-               "utils"],
+    "sqlite": ["30_nmap", "50_view", "53_nmap_delete", "55_view_delete",
+               "60_flow", "scans", "utils"],
     "elastic": ["30_nmap", "40_passive", "53_nmap_delete", "54_passive_delete",
                 "60_flow", "90_cleanup", "scans", "utils"],
     "maxmind": ["30_nmap", "40_passive", "50_view", "53_nmap_delete",
-                "54_passive_delete", "60_flow", "90_cleanup", "scans"],
+                "54_passive_delete", "55_view_delete", "60_flow", "90_cleanup",
+                "scans"],
     "tinydb": ["utils"],
 }
 

@@ -1322,17 +1322,19 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
             yield rec
 
     def remove(self, host):
-        """Removes the host scan result. "host" must be a record as yielded by
-        .get() or a valid NmapFilter() instance.
-
-        The scan files that are no longer linked to a scan are removed
-        at the end of the call.
+        """Removes the host scan result. `host` must be a record as yielded by
+.get().
 
         """
-        if isinstance(host, dict):
-            base = [host['_id']]
-        else:
-            base = host.query(select([self.tables.scan.id])).cte("base")
+        self.db.execute(delete(self.tables.scan)
+                        .where(self.tables.scan.id == host['_id']))
+
+    def remove_many(self, flt):
+        """Removes the host scan result. `flt` must be a valid NmapFilter()
+instance.
+
+        """
+        base = flt.query(select([self.tables.scan.id])).cte("base")
         self.db.execute(delete(self.tables.scan)
                         .where(self.tables.scan.id.in_(base)))
 
@@ -1918,14 +1920,38 @@ class SQLDBNmap(SQLDBActive, DBNmap):
             ]
             yield rec
 
-    def remove(self, host):
-        super(SQLDBNmap, self).remove(host)
-        # remove unused scan files
+    def _remove_unused_scan_files(self):
+        """Removes unused scan files, useful when some scan results have been
+removed.
+
+        """
         base = select(
             [self.tables.association_scan_scanfile.scan_file]
         ).cte('base')
         self.db.execute(delete(self.tables.scanfile)
                         .where(self.tables.scanfile.sha256.notin_(base)))
+
+    def remove(self, host):
+        """Removes the host scan result. `host` must be a record as yielded by
+.get().
+
+The scan files that are no longer linked to a scan are removed at the
+end of the call.
+
+        """
+        super(SQLDBNmap, self).remove(host)
+        self._remove_unused_scan_files()
+
+    def remove_many(self, flt):
+        """Removes the host scan result. `flt` must be a valid NmapFilter()
+instance.
+
+The scan files that are no longer linked to a scan are removed at the
+end of the call.
+
+        """
+        super(SQLDBNmap, self).remove_many(flt)
+        self._remove_unused_scan_files()
 
     @staticmethod
     def getscanids(host):

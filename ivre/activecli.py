@@ -478,9 +478,8 @@ def displayfunction_explain(flt, dbase):
     sys.stdout.write(dbase.explain(dbase._get(flt), indent=4) + '\n')
 
 
-def displayfunction_remove(cur, dbase):
-    for h in cur:
-        dbase.remove(h)
+def displayfunction_remove(flt, dbase):
+    dbase.remove_many(flt)
 
 
 def displayfunction_graphroute(cur, arg, gr_include, gr_dont_reset):

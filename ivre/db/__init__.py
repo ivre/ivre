@@ -1263,6 +1263,10 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
     def remove(self, host):
         raise NotImplementedError
 
+    def remove_many(self, flt):
+        for rec in self.get(flt):
+            self.remove(rec)
+
     def get_mean_open_ports(self, flt):
         """This method returns for a specific query `flt` a list of
         dictionary objects whose keys are `id` and `mean`; the value

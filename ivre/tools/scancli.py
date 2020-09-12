@@ -129,6 +129,9 @@ def main():
     if args.explain:
         displayfunction_explain(hostfilter, db.db.nmap)
         sys.exit(0)
+    if args.delete:
+        displayfunction_remove(hostfilter, db.db.nmap)
+        sys.exit(0)
     if args.json:
         def displayfunction(x):
             return displayfunction_json(
@@ -146,9 +149,6 @@ def main():
                 x, args.graphroute, args.graphroute_include,
                 args.graphroute_dont_reset
             )
-    elif args.delete:
-        def displayfunction(x):
-            return displayfunction_remove(x, db.db.nmap)
     elif args.csv is not None:
         def displayfunction(x):
             return displayfunction_csv(

@@ -1789,7 +1789,15 @@ it is not expected)."""
         as returned by `.get()`.
 
         """
-        self.db[self.columns[self.column_hosts]].remove(spec_or_id=host['_id'])
+        self.db[self.columns[self.column_hosts]].delete_one(
+            {'_id': host['_id']}
+        )
+
+    def remove_many(self, flt):
+        """Removes hosts from the active column, based on the filter `flt`.
+
+        """
+        self.db[self.columns[self.column_hosts]].delete_many(flt)
 
     def store_or_merge_host(self, host):
         raise NotImplementedError
@@ -3374,8 +3382,25 @@ record is also removed.
         for scanid in self.getscanids(host):
             if self.find_one(self.columns[self.column_hosts],
                              {'scanid': scanid}) is None:
-                self.db[self.columns[self.column_scans]].remove(
-                    spec_or_id=scanid
+                self.db[self.columns[self.column_scans]].delete_one(
+                    {'_id': scanid}
+                )
+
+    def remove_many(self, flt):
+        """Removes hosts from the active column, based on the filter `flt`.
+
+If the hosts removed had `scanid` attributes, and if some of them
+refer to scans that have no more host record after the deletion of the
+hosts, then the scan records are also removed.
+
+        """
+        scanids = list(self.distinct('scanid', flt=flt))
+        super(MongoDBNmap, self).remove_many(flt)
+        for scanid in scanids:
+            if self.find_one(self.columns[self.column_hosts],
+                             {'scanid': scanid}) is None:
+                self.db[self.columns[self.column_scans]].delete_one(
+                    {'_id': scanid}
                 )
 
 
