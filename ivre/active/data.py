@@ -417,6 +417,7 @@ def merge_host_docs(rec1, rec2):
                 cur_addrs.append(addr)
     if addresses:
         rec["addresses"] = addresses
+    sa_honeypot_check = False
     if sa_honeypot:
         rec['synack_honeypot'] = True
         for record in [rec1, rec2]:
