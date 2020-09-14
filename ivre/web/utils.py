@@ -482,6 +482,21 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(flt, dbase.searchhttphdr(
                     name=utils.str2regexp(value)
                 ))
+        elif not neg and param == 'httpapp':
+            if value is None:
+                flt = dbase.flt_and(fltr, dbase.searchscript(name='http-app'))
+            elif ':' in value:
+                name, value = (utils.str2regexp(string) for
+                               string in value.split(':', 1))
+                flt = dbase.flt_and(flt, dbase.searchscript(
+                    name='http-app',
+                    values={'name': name, 'version': version},
+                ))
+            else:
+                flt = dbase.flt_and(flt, dbase.searchscript(
+                    name='http-app',
+                    values={'name': utils.str2regexp(value)},
+                ))
         elif not neg and param == 'owa':
             flt = dbase.flt_and(flt, dbase.searchowa())
         elif param == 'phpmyadmin':
