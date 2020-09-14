@@ -32,6 +32,12 @@ from ivre.xmlnmap import add_cert_hostnames, create_ssl_cert, create_http_ls
 
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
 _EXPR_OWA_VERSION = re.compile('"/owa/(?:auth/)?((?:[0-9]+\\.)+[0-9]+)/')
+_EXPR_CENTREON_VERSION = re.compile(
+    re.escape('<td class="LoginInvitVersion"><br />') +
+    '\\s+((?:[0-9]+\\.)+[0-9]+)\\s+' + re.escape('</td>') + '|' +
+    re.escape('<span>') + '\\s+v\\.\\ ((?:[0-9]+\\.)+[0-9]+)\\s+' +
+    re.escape('</span>')
+)
 
 
 def zgrap_parser_http(data, hostrec):
@@ -153,6 +159,41 @@ The output is a port dict (i.e., the content of the "ports" key of an
                               'version': version[0]}],
             })
             return res
+        if url.get('path').endswith('/centreon/'):
+            if resp.get('status_code') != 200:
+                return {}
+            if not resp.get('body'):
+                return {}
+            body = resp['body']
+            res['port'] = port
+            path = url['path']
+            match = _EXPR_TITLE.search(body)
+            if match is None:
+                return {}
+            if match.groups()[0] != "Centreon - IT & Network Monitoring":
+                return {}
+            match = _EXPR_CENTREON_VERSION.search(body)
+            if match is None:
+                version = None
+            else:
+                version = match.group(1) or match.group(2)
+            res.setdefault('scripts', []).append({
+                'id': 'http-app',
+                'output': 'Centreon: path %s%s' % (
+                    path,
+                    '' if version is None else (', version %s' % version),
+                ),
+                'http-app': [dict(
+                    {'path': path,
+                     'application': 'Centreon'},
+                    **({} if version is None else {'version': version})
+                )],
+            })
+            return res
+        if url.get('path') != '/':
+            utils.LOGGER.warning('URL path not supported yet: %s',
+                                 url.get('path'))
+            return {}
     elif req.get('tls_handshake') or req.get('tls_log'):
         # zgrab / zgrab2
         port = 443
