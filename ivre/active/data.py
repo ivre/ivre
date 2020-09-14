@@ -252,6 +252,26 @@ def merge_ja3_scripts(curscript, script, script_id):
     return _merge_scripts(curscript, script, script_id, ja3_equals, ja3_output)
 
 
+def merge_http_app_scripts(curscript, script, script_id):
+
+    def http_app_equals(a, b, script_id):
+        return (a['application'] == b['application'] and
+                a['path'] == b['path'])
+
+    def http_app_output(app, script_id):
+        return '%s: path %s%s' % (
+            app['application'],
+            app['path'],
+            (
+                '' if app.get('version') is None else
+                (', version %s' % app['version'])
+            ),
+        )
+
+    return _merge_scripts(curscript, script, script_id, http_app_equals,
+                          http_app_output)
+
+
 def merge_ua_scripts(curscript, script, script_id):
 
     def ua_equals(a, b, script_id):
@@ -341,11 +361,13 @@ def merge_scripts(curscript, script, script_id):
     """Merge curscript with script"""
     if script_id.startswith('ssl-ja3-'):
         return merge_ja3_scripts(curscript, script, script_id)
+    if script_id == 'http-app':
+        return merge_http_app_scripts(curscript, script, script_id)
     if script_id == 'http-user-agent':
         return merge_ua_scripts(curscript, script, script_id)
     if script_id == 'dns-zone-transfer':
         return merge_axfr_scripts(curscript, script, script_id)
-    if script_id in ['ssl-cert', 'ssl-cacert']:
+    if script_id in {'ssl-cert', 'ssl-cacert'}:
         return merge_ssl_cert_scripts(curscript, script, script_id)
     return {}
 
@@ -442,12 +464,12 @@ def merge_host_docs(rec1, rec2):
             for script in port.get("scripts", []):
                 if script['id'] not in present_scripts:
                     curport['scripts'].append(script)
-                elif (script['id'] in ['ssl-ja3-server',
-                                       'ssl-ja3-client',
-                                       'http-user-agent',
-                                       'dns-zone-transfer',
-                                       'ssl-cacert',
-                                       'ssl-cert']):
+                elif (script['id'] in {
+                        'ssl-ja3-server', 'ssl-ja3-client',
+                        'http-app', 'http-user-agent',
+                        'ssl-cacert', 'ssl-cert',
+                        'dns-zone-transfer',
+                }):
                     # Merge scripts
                     curscript = next(x for x in curport['scripts']
                                      if x['id'] == script['id'])
