@@ -177,6 +177,8 @@ Filters
   the ``root`` account.
 - ``httphdr``, ``httphdr:[header]``, ``httphdr:[header]:[value]`` look
   for HTTP headers.
+- ``httpapp``, ``httpapp:[application]``,
+  ``httphdr:[application]:[version]`` look for HTTP applications.
 - ``owa`` look for OWA (Outlook Web App) servers.
 - ``phpmyadmin`` look for phpMyAdmin servers.
 - ``smb.dnsdomain:[FQDN]`` search results with SMB service in a
