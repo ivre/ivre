@@ -236,10 +236,12 @@ interesting values to try here:</p>
 <div><ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">category</span></code>, <code class="docutils literal notranslate"><span class="pre">source</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">country</span></code>, <code class="docutils literal notranslate"><span class="pre">city</span></code>, <code class="docutils literal notranslate"><span class="pre">as</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">net</span></code>, <code class="docutils literal notranslate"><span class="pre">net:[mask]</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">domains</span></code>, <code class="docutils literal notranslate"><span class="pre">domains:[level]</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">hop</span></code>, <code class="docutils literal notranslate"><span class="pre">hop:[number]</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">port</span></code>, <code class="docutils literal notranslate"><span class="pre">port:[open/closed/filtered]</span></code>, <code class="docutils literal notranslate"><span class="pre">port:[service]</span></code>
-<code class="docutils literal notranslate"><span class="pre">portlist:[open/closed/filtered]</span></code></p></li>
+<code class="docutils literal notranslate"><span class="pre">portlist:[open/closed/filtered]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">countports:[open/closed/filtered]</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">service</span></code>, <code class="docutils literal notranslate"><span class="pre">service:[port]</span></code>, <code class="docutils literal notranslate"><span class="pre">product</span></code>, <code class="docutils literal notranslate"><span class="pre">product:[port]</span></code>,
 <code class="docutils literal notranslate"><span class="pre">version</span></code>, <code class="docutils literal notranslate"><span class="pre">version:[port]</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cpe</span></code>, <code class="docutils literal notranslate"><span class="pre">cpe.[type/vendor/product/version]</span></code>, <code class="docutils literal notranslate"><span class="pre">cpe:[cpe</span>
@@ -256,9 +258,19 @@ will show top vendor names in CPEs that start with an <code class="docutils lite
 <code class="docutils literal notranslate"><span class="pre">smb.dnsdomain</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.forest</span></code>, <code class="docutils literal notranslate"><span class="pre">smb.workgroup</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">cert.issuer</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.subject</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.md5</span></code>, <code class="docutils literal notranslate"><span class="pre">cert.sha1</span></code>,
 <code class="docutils literal notranslate"><span class="pre">cert.sha256</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sshkey.type</span></code>, <code class="docutils literal notranslate"><span class="pre">sshkey.bits</span></code>, <code class="docutils literal notranslate"><span class="pre">sshkey.fingerprint</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ike.notification</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.transforms</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ike.transforms.Authentication</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.transforms.Encryption</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ike.transforms.GroupDesc</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.transforms.Hash</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ike.transforms.LifeDuration</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.transforms.LifeType</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ike.vendor_ids</span></code>, <code class="docutils literal notranslate"><span class="pre">ike.vendor_ids.name</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ike.vendor_ids.value</span></code></p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">modbus.deviceid</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.vendor</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.product</span></code>,
 <code class="docutils literal notranslate"><span class="pre">enip.serial</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.devtype</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.prodcode</span></code>,
 <code class="docutils literal notranslate"><span class="pre">enip.rev</span></code>, <code class="docutils literal notranslate"><span class="pre">enip.ip</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">httphdr</span></code>, <code class="docutils literal notranslate"><span class="pre">httphdr.name</span></code>, <code class="docutils literal notranslate"><span class="pre">httphdr.value</span></code>,
+<code class="docutils literal notranslate"><span class="pre">httphdr:[header]</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">httpapp</span></code>, <code class="docutils literal notranslate"><span class="pre">httpapp:[application]</span></code></p></li>
 </ul>
 </div></blockquote>
 </li>
@@ -365,7 +377,7 @@ the <code class="docutils literal notranslate"><span class="pre">root</span></co
 <li><p><code class="docutils literal notranslate"><span class="pre">httphdr</span></code>, <code class="docutils literal notranslate"><span class="pre">httphdr:[header]</span></code>, <code class="docutils literal notranslate"><span class="pre">httphdr:[header]:[value]</span></code> look
 for HTTP headers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">httpapp</span></code>, <code class="docutils literal notranslate"><span class="pre">httpapp:[application]</span></code>,
-<code class="docutils literal notranslate"><span class="pre">httphdr:[application]:[version]</span></code> look for HTTP applications.</p></li>
+<code class="docutils literal notranslate"><span class="pre">httpapp:[application]:[version]</span></code> look for HTTP applications.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">owa</span></code> look for OWA (Outlook Web App) servers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">phpmyadmin</span></code> look for phpMyAdmin servers.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">smb.dnsdomain:[FQDN]</span></code> search results with SMB service in a

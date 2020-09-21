@@ -877,6 +877,10 @@ var HELP_TOPVALUES = {
 	    "title": "httphdr.value",
 	    "content": "Top HTTP header values seen, regardless of the header name",
 	},
+	"httpapp:": {
+	    "title": "httpapp<b>(:[name])",
+	    "content": "Top HTTP applications (and versions) seen",
+	},
 	"useragent:": {
 	    "title": "<b>(!)<b>useragent<b>[:[value]]</b>",
 	    "content": "Top HTTP User-Agent values seen."
