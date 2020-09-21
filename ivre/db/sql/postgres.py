@@ -811,7 +811,7 @@ insert structures.
                 ),
             )
         elif field == 'httphdr':
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')('name').label("name"),
@@ -823,7 +823,7 @@ insert structures.
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr.'):
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')(field[8:]).label("topvalue")],
@@ -834,12 +834,13 @@ insert structures.
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr:'):
-            flt = self.flt_and(flt, self.searchhttphdr(name=field[8:].lower()))
+            subfield = field[8:].lower()
+            flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')("value").label("value")],
                 and_(self.tables.script.name == 'http-headers',
-                     column("hdr").op('->>')("name") == field[8:].lower()),
+                     column("hdr").op('->>')("name") == subfield),
                 [column("value")],
                 func.jsonb_array_elements(
                     self.tables.script.data['http-headers']
@@ -858,13 +859,14 @@ insert structures.
                 ).alias('app'),
             )
         elif field.startswith('httpapp:'):
-            flt = self.flt_and(flt, self.searchhttpapp(name=field[8:].lower()))
+            subfield = field[8:]
+            flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
             field = self._topstructure(
                 self.tables.script,
                 [column("app").op('->>')("version").label("version")],
                 and_(
                     self.tables.script.name == 'http-app',
-                    column("app").op('->>')("application") == field[8:].lower()
+                    column("app").op('->>')("application") == subfield
                 ),
                 [column("version")],
                 func.jsonb_array_elements(

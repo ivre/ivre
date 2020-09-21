@@ -657,7 +657,7 @@ return result;
         elif field == 'httphdr':
             def outputproc(value):
                 return tuple(value.split(':', 1))
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             nested = {
                 "nested": {"path": "ports"},
                 "aggs": {"patterns": {
@@ -680,7 +680,7 @@ return result;
                 }},
             }
         elif field.startswith('httphdr.'):
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = "ports.scripts.http-headers.%s" % field[8:]
             nested = {
                 "nested": {"path": "ports"},
@@ -699,9 +699,7 @@ return result;
             }
         elif field.startswith('httphdr:'):
             subfield = field[8:].lower()
-            flt = self.flt_and(flt,
-                               self.searchscript(name="http-headers",
-                                                 values={"name": subfield}))
+            flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
             nested = {
                 "nested": {"path": "ports"},
                 "aggs": {"patterns": {

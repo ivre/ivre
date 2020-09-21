@@ -3089,7 +3089,7 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
         elif field == 'httphdr':
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
             specialflt = [{"$project": {
@@ -3105,13 +3105,11 @@ it is not expected)."""
                         '_id': tuple(x['_id'])}
             field = "ports.scripts.http-headers"
         elif field.startswith('httphdr.'):
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = "ports.scripts.http-headers.%s" % field[8:]
         elif field.startswith('httphdr:'):
             subfield = field[8:].lower()
-            flt = self.flt_and(flt,
-                               self.searchscript(name="http-headers",
-                                                 values={"name": subfield}))
+            flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
             specialflt = [
@@ -3136,7 +3134,7 @@ it is not expected)."""
                         '_id': tuple(x['_id'])}
             field = "ports.scripts.http-app"
         elif field.startswith('httpapp:'):
-            subfield = field[8:].lower()
+            subfield = field[8:]
             flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
             specialproj = {"_id": 0, "ports.scripts.http-app.application": 1,
                            "ports.scripts.http-app.version": 1}

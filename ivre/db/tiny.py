@@ -1634,7 +1634,7 @@ This will be used by TinyDBNmap & TinyDBView
         elif field == 'httphdr':
 
             def _newflt(field):
-                return self.searchscript(name="http-headers")
+                return self.searchhttphdr()
 
             def _extractor(flt, field):
                 for rec in self._get(
@@ -1648,12 +1648,14 @@ This will be used by TinyDBNmap & TinyDBView
                                        hdr.get("value"))
         elif field.startswith('httphdr.'):
             field = "ports.scripts.http-headers.%s" % field[8:]
+
+            def _newflt(field):
+                return self.searchhttphdr()
         elif field.startswith('httphdr:'):
             subfield = field[8:].lower()
 
             def _newflt(field):
-                return self.searchscript(name="http-headers",
-                                         values={"name": subfield})
+                return self.searchhttphdr(name=subfield)
 
             def _extractor(flt, field):
                 for rec in self._get(
@@ -1681,7 +1683,7 @@ This will be used by TinyDBNmap & TinyDBView
                                 yield (app.get("application"),
                                        app.get("version"))
         elif field.startswith('httpapp:'):
-            subfield = field[8:].lower()
+            subfield = field[8:]
 
             def _newflt(field):
                 return self.searchhttpapp(name=subfield)
@@ -1695,7 +1697,7 @@ This will be used by TinyDBNmap & TinyDBView
                         for script in port.get('scripts', []):
                             for app in script.get('http-headers', []):
                                 if app.get("application", "") == subfield:
-                                    yield hdr.get("version")
+                                    yield app.get("version")
         elif field.startswith('modbus.'):
             field = 'ports.scripts.modbus-discover.' + field[7:]
         elif field.startswith('s7.'):
