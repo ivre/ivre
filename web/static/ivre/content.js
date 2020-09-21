@@ -205,6 +205,10 @@ var HELP_FILTERS = {
 	    "title": "httphdr<b>(:[header](:[value]))</b>",
 	    "content": "Look for HTTP headers."
 	},
+	"httpapp": {
+	    "title": "httpapp<b>(:[name](:[version]))</b>",
+	    "content": "Look for HTTP applications."
+	},
 	"owa": {
 	    "title": "owa",
 	    "content": "Look for OWA (Outlook Web App) servers.",
@@ -354,15 +358,15 @@ var HELP_FILTERS = {
             "content": "Look for a particular certificate public key, based on the SHA256 hash.",
         },
 	"ssl-ja3-client": {
-	    "title": "(!)ssl-ja3-client<b>[:JA3]</b>",
+	    "title": "(!)ssl-ja3-client<b>(:[JA3])</b>",
 	    "content": "Look for hosts with a JA3 or with the given JA3.",
 	},
 	"ssl-ja3-server": {
-	    "title": "(!)ssl-ja3-server<b>[:[JA3S][:JA3]]</b>",
+	    "title": "(!)ssl-ja3-server<b>(:[JA3S](:[JA3]))</b>",
 	    "content": "Look for hosts with a JA3S, with the given JA3S, with a JA3S corresponding to the given JA3 or with the given JA3S corresponding to the given JA3",
 	},
 	"useragent": {
-	    "title": "(!)useragent<b>[:[exact_value or /regexp/]]</b>",
+	    "title": "(!)useragent<b>(:[exact_value or /regexp/])</b>",
 	    "content": "Look for hosts using a User-Agent matching the argument."
 	},
 	/* OS fingerprint */
@@ -654,11 +658,7 @@ var HELP_TOPVALUES = {
 	    "title": "<b>(!)</b>city"
 	},
 	"net": {
-	    "content": "net",
-	    "title": "<b>(!)</b>net",
-	},
-	"net:": {
-	    "content": "net[:mask]",
+	    "content": "net(:mask)",
 	    "title": "<b>(!)</b>net:",
 	},
 	"screenwords": {
@@ -865,8 +865,8 @@ var HELP_TOPVALUES = {
 	    "content": "ike.vendor_ids.value",
 	    "title": "<b>(!)</b>ike.vendor_ids.value"
 	},
-	"httphdr:": {
-	    "title": "httphdr<b>(:[name])",
+	"httphdr": {
+	    "title": "httphdr<b>(:[name])</b>",
 	    "content": "Top HTTP header values seen",
 	},
 	"httphdr.name": {
@@ -877,28 +877,32 @@ var HELP_TOPVALUES = {
 	    "title": "httphdr.value",
 	    "content": "Top HTTP header values seen, regardless of the header name",
 	},
-	"useragent:": {
-	    "title": "<b>(!)<b>useragent<b>[:[value]]</b>",
+	"httpapp": {
+	    "title": "httpapp<b>(:[name])</b>",
+	    "content": "Top HTTP applications (and versions) seen",
+	},
+	"useragent": {
+	    "title": "<b>(!)<b>useragent<b>(:[value])</b>",
 	    "content": "Top HTTP User-Agent values seen."
 	},
-	"ja3-client:": {
-	    "title": "<b>(!)<b>ja3-client<b>[:[value]]</b>",
+	"ja3-client": {
+	    "title": "<b>(!)<b>ja3-client<b>(:[value])</b>",
 	    "content": "Top JA3 client values (MD5)."
 	},
-	"ja3-client.md5:": {
-	    "title": "<b>(!)<b>ja3-client.md5<b>[:[value]]</b>",
+	"ja3-client.md5": {
+	    "title": "<b>(!)<b>ja3-client.md5<b>(:[value])</b>",
 	    "content": "Top JA3 client values (MD5)."
 	},
-	"ja3-client.sha1:": {
-	    "title": "<b>(!)<b>ja3-client.sha1<b>[:[value]]</b>",
+	"ja3-client.sha1": {
+	    "title": "<b>(!)<b>ja3-client.sha1<b>(:[value])</b>",
 	    "content": "Top JA3 client values (SHA1)."
 	},
-	"ja3-client.sha256:": {
-	    "title": "<b>(!)<b>ja3-client.sha256<b>[:[value]]</b>",
+	"ja3-client.sha256": {
+	    "title": "<b>(!)<b>ja3-client.sha256<b>(:[value])</b>",
 	    "content": "Top JA3 client values (SHA256)."
 	},
-	"ja3-client.raw:": {
-	    "title": "<b>(!)<b>ja3-client.raw<b>[:[value]]</b>",
+	"ja3-client.raw": {
+	    "title": "<b>(!)<b>ja3-client.raw<b>(:[value])</b>",
 	    "content": "Top JA3 client values (raw fingerprint)."
 	},
     }

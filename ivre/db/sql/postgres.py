@@ -283,6 +283,7 @@ insert structures.
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.*
           - httphdr / httphdr.{name,value} / httphdr:<name>
+          - httpapp / httpapp:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -810,7 +811,7 @@ insert structures.
                 ),
             )
         elif field == 'httphdr':
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')('name').label("name"),
@@ -822,7 +823,7 @@ insert structures.
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr.'):
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')(field[8:]).label("topvalue")],
@@ -833,16 +834,44 @@ insert structures.
                 ).alias('hdr'),
             )
         elif field.startswith('httphdr:'):
-            flt = self.flt_and(flt, self.searchhttphdr(name=field[8:].lower()))
+            subfield = field[8:].lower()
+            flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
             field = self._topstructure(
                 self.tables.script,
                 [column("hdr").op('->>')("value").label("value")],
                 and_(self.tables.script.name == 'http-headers',
-                     column("hdr").op('->>')("name") == field[8:].lower()),
+                     column("hdr").op('->>')("name") == subfield),
                 [column("value")],
                 func.jsonb_array_elements(
                     self.tables.script.data['http-headers']
                 ).alias('hdr'),
+            )
+        elif field == 'httpapp':
+            flt = self.flt_and(flt, self.searchhttpapp())
+            field = self._topstructure(
+                self.tables.script,
+                [column("app").op('->>')('application').label("application"),
+                 column("app").op('->>')('version').label("version")],
+                self.tables.script.name == 'http-app',
+                [column("application"), column("version")],
+                func.jsonb_array_elements(
+                    self.tables.script.data['http-app']
+                ).alias('app'),
+            )
+        elif field.startswith('httpapp:'):
+            subfield = field[8:]
+            flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
+            field = self._topstructure(
+                self.tables.script,
+                [column("app").op('->>')("version").label("version")],
+                and_(
+                    self.tables.script.name == 'http-app',
+                    column("app").op('->>')("application") == subfield
+                ),
+                [column("version")],
+                func.jsonb_array_elements(
+                    self.tables.script.data['http-app']
+                ).alias('app'),
             )
         else:
             raise NotImplementedError()

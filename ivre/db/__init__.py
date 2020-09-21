@@ -778,6 +778,7 @@ class DBActive(DB):
         self.argparser.add_argument('--x11', action='store_true')
         self.argparser.add_argument('--xp445', action='store_true')
         self.argparser.add_argument('--httphdr')
+        self.argparser.add_argument('--httpapp')
         self.argparser.add_argument('--owa', action='store_true')
         self.argparser.add_argument('--vuln-boa', '--vuln-intersil',
                                     action='store_true')
@@ -1500,6 +1501,20 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
         return cls.searchscript(name="http-headers",
                                 values={"name": name, "value": value})
 
+    @classmethod
+    def searchhttpapp(cls, name=None, version=None):
+        if name is None and version is None:
+            return cls.searchscript(name="http-app")
+        if version is None:
+            return cls.searchscript(name="http-app",
+                                    values={"application": name})
+        if name is None:
+            return cls.searchscript(name="http-app",
+                                    values={"version": version})
+        return cls.searchscript(name="http-app",
+                                values={"application": name,
+                                        "version": version})
+
     def searchgeovision(self):
         return self.searchproduct(product=re.compile('^GeoVision', re.I))
 
@@ -1679,6 +1694,20 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
             else:
                 flt = self.flt_and(flt, self.searchhttphdr(
                     name=utils.str2regexp(args.httphdr.lower())
+                ))
+        if args.httpapp is not None:
+            if not args.httpapp:
+                flt = self.flt_and(flt, self.searchhttpapp())
+            elif ":" in args.httpapp:
+                name, version = (utils.str2regexp(v)
+                                 for v in args.httpapp.split(':', 1))
+                flt = self.flt_and(flt, self.searchhttpapp(
+                    name=name or None,
+                    version=version or None,
+                ))
+            else:
+                flt = self.flt_and(flt, self.searchhttpapp(
+                    name=utils.str2regexp(args.httpapp)
                 ))
         if args.owa:
             flt = self.flt_and(flt, self.searchowa())

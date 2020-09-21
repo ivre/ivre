@@ -44,10 +44,12 @@ displayed in the rightmost part of the screen.
 
    - ``category``, ``source``
    - ``country``, ``city``, ``as``
+   - ``net``, ``net:[mask]``
    - ``domains``, ``domains:[level]``
    - ``hop``, ``hop:[number]``
    - ``port``, ``port:[open/closed/filtered]``, ``port:[service]``
-     ``portlist:[open/closed/filtered]``
+     ``portlist:[open/closed/filtered]``,
+     ``countports:[open/closed/filtered]``
    - ``service``, ``service:[port]``, ``product``, ``product:[port]``,
      ``version``, ``version:[port]``
    - ``cpe``, ``cpe.[type/vendor/product/version]``, ``cpe:[cpe
@@ -64,9 +66,19 @@ displayed in the rightmost part of the screen.
      ``smb.dnsdomain``, ``smb.forest``, ``smb.workgroup``
    - ``cert.issuer``, ``cert.subject``, ``cert.md5``, ``cert.sha1``,
      ``cert.sha256``
+   - ``sshkey.type``, ``sshkey.bits``, ``sshkey.fingerprint``
+   - ``ike.notification``, ``ike.transforms``,
+     ``ike.transforms.Authentication``, ``ike.transforms.Encryption``,
+     ``ike.transforms.GroupDesc``, ``ike.transforms.Hash``,
+     ``ike.transforms.LifeDuration``, ``ike.transforms.LifeType``,
+     ``ike.vendor_ids``, ``ike.vendor_ids.name``,
+     ``ike.vendor_ids.value``
    - ``modbus.deviceid``, ``enip.vendor``, ``enip.product``,
      ``enip.serial``, ``enip.devtype``, ``enip.prodcode``,
      ``enip.rev``, ``enip.ip``
+   - ``httphdr``, ``httphdr.name``, ``httphdr.value``,
+     ``httphdr:[header]``
+   - ``httpapp``, ``httpapp:[application]``
 
 - The *Address space* button displays a graphical representation of
   the filtered addresses. The abscissa axis represents the two high
@@ -177,6 +189,8 @@ Filters
   the ``root`` account.
 - ``httphdr``, ``httphdr:[header]``, ``httphdr:[header]:[value]`` look
   for HTTP headers.
+- ``httpapp``, ``httpapp:[application]``,
+  ``httpapp:[application]:[version]`` look for HTTP applications.
 - ``owa`` look for OWA (Outlook Web App) servers.
 - ``phpmyadmin`` look for phpMyAdmin servers.
 - ``smb.dnsdomain:[FQDN]`` search results with SMB service in a

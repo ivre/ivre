@@ -474,12 +474,25 @@ def flt_from_query(dbase, query, base_flt=None):
             if value is None:
                 flt = dbase.flt_and(flt, dbase.searchhttphdr())
             elif ':' in value:
-                name, value = (utils.str2regexp(string) for
-                               string in value.split(':', 1))
+                name, value = value.split(':', 1)
+                name = utils.str2regexp(name.lower())
+                value = utils.str2regexp(value)
                 flt = dbase.flt_and(flt, dbase.searchhttphdr(name=name,
                                                              value=value))
             else:
                 flt = dbase.flt_and(flt, dbase.searchhttphdr(
+                    name=utils.str2regexp(value.lower())
+                ))
+        elif not neg and param == 'httpapp':
+            if value is None:
+                flt = dbase.flt_and(flt, dbase.searchhttpapp())
+            elif ':' in value:
+                name, version = (utils.str2regexp(string) for
+                                 string in value.split(':', 1))
+                flt = dbase.flt_and(flt, dbase.searchhttpapp(name=name,
+                                                             version=version))
+            else:
+                flt = dbase.flt_and(flt, dbase.searchhttpapp(
                     name=utils.str2regexp(value)
                 ))
         elif not neg and param == 'owa':

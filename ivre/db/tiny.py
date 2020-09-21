@@ -1021,6 +1021,7 @@ This will be used by TinyDBNmap & TinyDBView
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.* / ike.*
           - httphdr / httphdr.{name,value} / httphdr:<name>
+          - httpapp / httpapp:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -1633,7 +1634,7 @@ This will be used by TinyDBNmap & TinyDBView
         elif field == 'httphdr':
 
             def _newflt(field):
-                return self.searchscript(name="http-headers")
+                return self.searchhttphdr()
 
             def _extractor(flt, field):
                 for rec in self._get(
@@ -1647,12 +1648,14 @@ This will be used by TinyDBNmap & TinyDBView
                                        hdr.get("value"))
         elif field.startswith('httphdr.'):
             field = "ports.scripts.http-headers.%s" % field[8:]
+
+            def _newflt(field):
+                return self.searchhttphdr()
         elif field.startswith('httphdr:'):
             subfield = field[8:].lower()
 
             def _newflt(field):
-                return self.searchscript(name="http-headers",
-                                         values={"name": subfield})
+                return self.searchhttphdr(name=subfield)
 
             def _extractor(flt, field):
                 for rec in self._get(
@@ -1664,6 +1667,37 @@ This will be used by TinyDBNmap & TinyDBView
                             for hdr in script.get('http-headers', []):
                                 if hdr.get("name", "").lower() == subfield:
                                     yield hdr.get("value")
+        elif field == 'httpapp':
+
+            def _newflt(field):
+                return self.searchhttpapp()
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                        flt, sort=sort, limit=limit, skip=skip,
+                        fields=["ports.scripts.http-app"],
+                ):
+                    for port in rec['ports']:
+                        for script in port.get('scripts', []):
+                            for app in script.get('http-app', []):
+                                yield (app.get("application"),
+                                       app.get("version"))
+        elif field.startswith('httpapp:'):
+            subfield = field[8:]
+
+            def _newflt(field):
+                return self.searchhttpapp(name=subfield)
+
+            def _extractor(flt, field):
+                for rec in self._get(
+                        flt, sort=sort, limit=limit, skip=skip,
+                        fields=["ports.scripts.http-app"],
+                ):
+                    for port in rec['ports']:
+                        for script in port.get('scripts', []):
+                            for app in script.get('http-headers', []):
+                                if app.get("application", "") == subfield:
+                                    yield app.get("version")
         elif field.startswith('modbus.'):
             field = 'ports.scripts.modbus-discover.' + field[7:]
         elif field.startswith('s7.'):

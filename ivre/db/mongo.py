@@ -2476,6 +2476,7 @@ it is not expected)."""
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.* / ike.*
           - httphdr / httphdr.{name,value} / httphdr:<name>
+          - httpapp / httpapp:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -3088,7 +3089,7 @@ it is not expected)."""
             flt = self.flt_and(flt, self.searchscript(name="ike-info"))
             field = "ports.scripts.ike-info." + field[4:]
         elif field == 'httphdr':
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
             specialflt = [{"$project": {
@@ -3104,13 +3105,11 @@ it is not expected)."""
                         '_id': tuple(x['_id'])}
             field = "ports.scripts.http-headers"
         elif field.startswith('httphdr.'):
-            flt = self.flt_and(flt, self.searchscript(name="http-headers"))
+            flt = self.flt_and(flt, self.searchhttphdr())
             field = "ports.scripts.http-headers.%s" % field[8:]
         elif field.startswith('httphdr:'):
             subfield = field[8:].lower()
-            flt = self.flt_and(flt,
-                               self.searchscript(name="http-headers",
-                                                 values={"name": subfield}))
+            flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
             specialproj = {"_id": 0, "ports.scripts.http-headers.name": 1,
                            "ports.scripts.http-headers.value": 1}
             specialflt = [
@@ -3118,6 +3117,32 @@ it is not expected)."""
                             subfield}}
             ]
             field = "ports.scripts.http-headers.value"
+        elif field == 'httpapp':
+            flt = self.flt_and(flt, self.searchhttpapp())
+            specialproj = {"_id": 0, "ports.scripts.http-app.application": 1,
+                           "ports.scripts.http-app.version": 1}
+            specialflt = [{"$project": {
+                "_id": 0,
+                "ports.scripts.http-app": [
+                    "$ports.scripts.http-app.application",
+                    "$ports.scripts.http-app.version",
+                ],
+            }}]
+
+            def outputproc(x):
+                return {'count': x['count'],
+                        '_id': tuple(x['_id'])}
+            field = "ports.scripts.http-app"
+        elif field.startswith('httpapp:'):
+            subfield = field[8:]
+            flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
+            specialproj = {"_id": 0, "ports.scripts.http-app.application": 1,
+                           "ports.scripts.http-app.version": 1}
+            specialflt = [
+                {"$match": {"ports.scripts.http-app.application":
+                            subfield}}
+            ]
+            field = "ports.scripts.http-app.version"
         elif field.startswith('modbus.'):
             flt = self.flt_and(flt, self.searchscript(name="modbus-discover"))
             field = 'ports.scripts.modbus-discover.' + field[7:]
