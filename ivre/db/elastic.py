@@ -233,6 +233,7 @@ class ElasticDBActive(ElasticDB, DBActive):
     nested_fields = [
         "ports",
         "ports.scripts",
+        "ports.scripts.http-app",
         "ports.scripts.http-headers",
         "ports.scripts.ssl-ja3-client",
         "ports.scripts.ssl-ja3-server",
@@ -381,6 +382,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.* / ike.*
           - httphdr / httphdr.{name,value} / httphdr:<name>
+          - httpapp / httpapp:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -714,6 +716,54 @@ return result;
                                 "terms": dict(
                                     baseterms,
                                     field='ports.scripts.http-headers.value',
+                                ),
+                            }},
+                        }},
+                    }},
+                }},
+            }
+        elif field == 'httpapp':
+            def outputproc(value):
+                return tuple(value.split(':', 1))
+            flt = self.flt_and(flt, self.searchhttpapp())
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.http-app"},
+                        "aggs": {"patterns": {
+                            "terms": dict(
+                                baseterms,
+                                script={
+                                    "lang": "painless",
+                                    "source":
+                                    "doc['ports.scripts.http-app.application']"
+                                    ".value + ':' + doc['ports.scripts.http-"
+                                    "app.version'].value"
+                                },
+                            )
+                        }},
+                    }},
+                }},
+            }
+        elif field.startswith('httpapp:'):
+            subfield = field[8:].lower()
+            flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
+            nested = {
+                "nested": {"path": "ports"},
+                "aggs": {"patterns": {
+                    "nested": {"path": "ports.scripts"},
+                    "aggs": {"patterns": {
+                        "nested": {"path": "ports.scripts.http-app"},
+                        "aggs": {"patterns": {
+                            "filter": {"match": {
+                                "ports.scripts.http-app.application": subfield,
+                            }},
+                            "aggs": {"patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    field='ports.scripts.http-app.version',
                                 ),
                             }},
                         }},

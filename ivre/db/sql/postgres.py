@@ -283,6 +283,7 @@ insert structures.
             / script:host:<scriptid>
           - cert.* / smb.* / sshkey.*
           - httphdr / httphdr.{name,value} / httphdr:<name>
+          - httpapp / httpapp:<name>
           - modbus.* / s7.* / enip.*
           - mongo.dbs.*
           - vulns.*
@@ -843,6 +844,32 @@ insert structures.
                 func.jsonb_array_elements(
                     self.tables.script.data['http-headers']
                 ).alias('hdr'),
+            )
+        elif field == 'httpapp':
+            flt = self.flt_and(flt, self.searchhttpapp())
+            field = self._topstructure(
+                self.tables.script,
+                [column("app").op('->>')('application').label("application"),
+                 column("app").op('->>')('version').label("version")],
+                self.tables.script.name == 'http-app',
+                [column("application"), column("version")],
+                func.jsonb_array_elements(
+                    self.tables.script.data['http-app']
+                ).alias('app'),
+            )
+        elif field.startswith('httpapp:'):
+            flt = self.flt_and(flt, self.searchhttpapp(name=field[8:].lower()))
+            field = self._topstructure(
+                self.tables.script,
+                [column("app").op('->>')("version").label("version")],
+                and_(
+                    self.tables.script.name == 'http-app',
+                    column("app").op('->>')("application") == field[8:].lower()
+                ),
+                [column("version")],
+                func.jsonb_array_elements(
+                    self.tables.script.data['http-app']
+                ).alias('app'),
             )
         else:
             raise NotImplementedError()
