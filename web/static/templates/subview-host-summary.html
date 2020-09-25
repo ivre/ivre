@@ -71,7 +71,7 @@
 	 ng-attr-title="{{::host.infos.as_name}}"
 	 >AS{{::host.infos.as_num}}</a>
     </span>
-    <span ng-if="::host.source">from
+    <span ng-if="::host.source.length > 0">from
       <span ng-repeat="src in ::host.source">
         <a class="category clickable"
        ng-click="setparam('source', src)"

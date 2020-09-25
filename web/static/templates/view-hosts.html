@@ -1,6 +1,6 @@
 <!--
   This file is part of IVRE.
-  Copyright 2011 - 2015 Pierre LALET <pierre.lalet@cea.fr>
+  Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 
   IVRE is free software: you can redistribute it and/or modify it
   under the terms of the GNU General Public License as published by
@@ -24,6 +24,12 @@
      ng-mousemove="clear_timer_toggle_preview($event)"
      >
   <div host-summary=""></div>
+<!-- SYN-ACK honeypot -->
+<dd ng-if="::host.synack_honeypot"
+    class="label label-status label-danger"
+    title="Some ports may be missing.">
+  SYN-ACK honeypot
+</dd>
 <!-- Next div is only displayed in summary mode-->
 <div class="summary"
      ng-hide="host.fulldisplay"
