@@ -54,7 +54,7 @@ SYMANTEC_SEP_UA = re.compile(
     '[A-F0-9]{12}\\},? SID/[0-9]+(?: SEQ/[0-9]+)?(.*)$'
 )
 KASPERSKY_UA = re.compile('AAAAA[a-zA-Z0-9_-]{1,2}AB$')
-DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop)=')
+DIGEST_AUTH_INFOS = re.compile('(username|realm|algorithm|qop|domain)=')
 
 
 def _fix_mysql_banner(match):
@@ -180,10 +180,11 @@ def _prepare_rec(spec, ignorenets, neverignore):
     # try to recover the passwords, but on the other hand we store
     # specs with different challenges but the same username, realm,
     # host and sensor in the same records.
-    elif spec['recontype'] in ['HTTP_CLIENT_HEADER',
-                               'HTTP_CLIENT_HEADER_SERVER'] and \
-        spec.get('source') in ['AUTHORIZATION',
-                               'PROXY-AUTHORIZATION']:
+    elif (
+            spec['recontype'] in {'HTTP_CLIENT_HEADER',
+                                  'HTTP_CLIENT_HEADER_SERVER'} and
+            spec.get('source') in {'AUTHORIZATION', 'PROXY-AUTHORIZATION'}
+    ):
         value = spec['value']
         if value:
             authtype = value.split(None, 1)[0]
@@ -198,8 +199,29 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 except Exception:
                     utils.LOGGER.warning("Cannot parse digest error for %r",
                                          spec, exc_info=True)
-            elif authtype.lower() in ['negotiate', 'kerberos', 'oauth',
-                                      'ntlm']:
+            elif authtype.lower() in {'negotiate', 'kerberos', 'oauth',
+                                      'ntlm'}:
+                spec['value'] = authtype
+    elif (
+            spec['recontype'] == 'HTTP_SERVER_HEADER' and
+            spec.get('source') in {'WWW-AUTHENTICATE', 'PROXY-AUTHENTICATE'}
+    ):
+        value = spec['value']
+        if value:
+            authtype = value.split(None, 1)[0]
+            if authtype.lower() == 'digest':
+                try:
+                    # we only keep relevant info
+                    spec['value'] = '%s %s' % (authtype, ','.join(
+                        val for val in
+                        _split_digest_auth(value[6:].strip())
+                        if DIGEST_AUTH_INFOS.match(val)
+                    ))
+                except Exception:
+                    utils.LOGGER.warning("Cannot parse digest error for %r",
+                                         spec, exc_info=True)
+            elif authtype.lower() in {'negotiate', 'kerberos', 'oauth',
+                                      'ntlm'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
     elif spec['recontype'] == 'TCP_SERVER_BANNER':
