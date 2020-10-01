@@ -105,6 +105,8 @@ export {
         "VIA",
         "X-GENERATOR",
         # "SET-COOKIE",
+	"WWW-AUTHENTICATE",
+	"PROXY-AUTHENTICATE",
     };
 
     const FTP_COMMANDS: set[string] = {
