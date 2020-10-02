@@ -574,7 +574,7 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
                             challenge$version$minor,
                             challenge$version$build
                             ));
-        value += fmt(",ntlm-version:%d",challenge$version$ntlmssp);
+        value += fmt(",ntlm-version:%d", challenge$version$ntlmssp);
     }
 
     if (challenge$target_info?$dns_computer_name) {
@@ -616,7 +616,7 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
                             request$version$minor,
                             request$version$build
                             ));
-        value += fmt(",ntlm-version:%d",request$version$ntlmssp);
+        value += fmt(",ntlm-version:%d", request$version$ntlmssp);
     }
     value += _get_protocol_version(c);
 
