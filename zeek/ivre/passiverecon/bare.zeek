@@ -31,6 +31,10 @@ event zeek_init() {
     Log::disable_stream(Tunnel::LOG);
     Log::disable_stream(Weird::LOG);
     Log::disable_stream(X509::LOG);
+    Log::disable_stream(NTLM::LOG);
+    Log::disable_stream(SMB::MAPPING_LOG);
+    Log::disable_stream(SMB::FILES_LOG);
+    Log::disable_stream(DCE_RPC::LOG);
 
     local filter = Log::get_filter(PassiveRecon::LOG, "default");
     filter$path = getenv("LOG_PATH") == "" ? "/dev/stdout" : getenv("LOG_PATH");
