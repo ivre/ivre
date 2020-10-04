@@ -37,7 +37,7 @@
     
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="IVRE: GPL v3" href="../license.html" />
+    <link rel="next" title="Code linting" href="linting.html" />
     <link rel="prev" title="Web API" href="web-api.html" /> 
 </head>
 
@@ -108,8 +108,10 @@
 <li class="toctree-l3"><a class="reference internal" href="#first-run">First run</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#improving-the-test-case">Improving the test case</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#failures">Failures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#travis-ci">Travis CI</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="linting.html">Code linting</a></li>
 </ul>
 </li>
 </ul>
@@ -191,8 +193,7 @@ contribute to IVRE and want to make sure their changes do not break
 IVRE.</p>
 <div class="section" id="dependencies">
 <h2>Dependencies<a class="headerlink" href="#dependencies" title="Permalink to this headline">¶</a></h2>
-<p>To run IVRE tests you will need <a class="reference external" href="http://nedbatchelder.com/code/coverage/">coverage.py</a>. Under Debian, run
-<code class="docutils literal notranslate"><span class="pre">apt-get</span> <span class="pre">install</span> <span class="pre">python-coverage</span></code>.</p>
+<p>To run IVRE tests you will need <a class="reference external" href="http://nedbatchelder.com/code/coverage/">coverage.py</a>.</p>
 </div>
 <div class="section" id="test-case">
 <h2>Test case<a class="headerlink" href="#test-case" title="Permalink to this headline">¶</a></h2>
@@ -261,6 +262,13 @@ here are some reasons that can explain test failures:</p>
 better than the stored ones.</p></li>
 </ul>
 </div>
+<div class="section" id="travis-ci">
+<h2>Travis CI<a class="headerlink" href="#travis-ci" title="Permalink to this headline">¶</a></h2>
+<p>Tests are run with several MongoDB and PostgreSQL versions, as well as
+TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
+with Python 2.7 and 3.4 to 3.8.</p>
+<p>The configuration is in the <cite>.travis.yml</cite> YAML file.</p>
+</div>
 </div>
 
 
@@ -271,7 +279,7 @@ better than the stored ones.</p></li>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../license.html" class="btn btn-neutral float-right" title="IVRE: GPL v3" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="linting.html" class="btn btn-neutral float-right" title="Code linting" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="web-api.html" class="btn btn-neutral float-left" title="Web API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>

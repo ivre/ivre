@@ -9,8 +9,7 @@ Dependencies
 ------------
 
 To run IVRE tests you will need `coverage.py
-<http://nedbatchelder.com/code/coverage/>`_. Under Debian, run
-``apt-get install python-coverage``.
+<http://nedbatchelder.com/code/coverage/>`_.
 
 Test case
 ---------
@@ -82,3 +81,12 @@ here are some reasons that can explain test failures:
 -  Your samples do not match the minimum requirements detailed above.
 -  A new feature has been added to IVRE and the new results are actually
    better than the stored ones.
+
+Travis CI
+---------
+
+Tests are run with several MongoDB and PostgreSQL versions, as well as
+TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
+with Python 2.7 and 3.4 to 3.8.
+
+The configuration is in the `.travis.yml` YAML file.

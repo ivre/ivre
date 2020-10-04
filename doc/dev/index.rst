@@ -6,4 +6,5 @@ Development
 .. toctree::
 
   web-api
-  tests 
+  tests
+  linting

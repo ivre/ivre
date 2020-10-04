@@ -17,8 +17,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 PIP_INSTALL_OPTIONS=""
-pip install -U $PIP_INSTALL_OPTIONS flake8
 # We only run codespell and pylint once, with Python 3.8
-test "$TRAVIS_PYTHON_VERSION" = 3.8 && \
-    pip install -U $PIP_INSTALL_OPTIONS codespell pylint
-true
+if [ "$TRAVIS_PYTHON_VERSION" = 3.8 ]; then
+    pip install -U $PIP_INSTALL_OPTIONS -r requirements-linting.txt
+else
+    pip install -U $PIP_INSTALL_OPTIONS flake8
+fi
