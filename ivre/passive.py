@@ -464,6 +464,20 @@ def _getinfos_ssh_hostkey(spec):
     return {'infos': info}
 
 
+def _getinfos_ntlm(spec):
+    """
+    Get infos from the NTLMSSP_CHALLENGE matching the smb-os-discovery scripts
+    form Masscan and Nmap
+    """
+    return {'infos': {
+        k: (int(v)
+            if k == 'ntlm-version' else
+            utils.decode_b64(v.encode()).decode())
+        for k, v in (item.split(':', 1) for item in spec['value'].split(','))
+        if v
+    }}
+
+
 _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
@@ -484,6 +498,8 @@ _GETINFOS_FUNCTIONS = {
     'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
     'SSH_CLIENT_HASSH': _getinfos_ja3_hassh,
     'SSH_SERVER_HASSH': _getinfos_ja3_hassh,
+    'NTLM_CHALLENGE': _getinfos_ntlm,
+    'NTLM_AUTHENTICATE': _getinfos_ntlm,
 }
 
 

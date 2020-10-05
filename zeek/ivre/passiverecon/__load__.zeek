@@ -21,6 +21,9 @@
 @load base/protocols/dns
 @load base/protocols/ftp
 @load base/protocols/pop3
+@load base/protocols/ntlm
+@load base/protocols/smb
+@load base/protocols/dce-rpc
 
 @load ./hassh
 @load ./ja3
@@ -57,6 +60,9 @@ export {
         TCP_SERVER_BANNER,
         OPEN_PORT,
         MAC_ADDRESS,
+        NTLM_NEGOTIATE,
+        NTLM_CHALLENGE,
+        NTLM_AUTHENTICATE,
     };
 
     type Info: record {
@@ -533,5 +539,91 @@ event connection_established(c: connection) {
                          $srvport=c$id$resp_p,
                          $value=fmt("tcp/%d", c$id$resp_p),
                          $uid=c$uid]);
+    }}
+
+# Get the exact version of the protocol using NTLM
+# For now, only handles SMB
+function _get_protocol_version(c: connection): string {
+
+    if (c?$smb_state) {
+        return ",protocol:" + encode_base64(c$smb_state$current_cmd$version);
     }
+    return "";
+}
+
+# Returns a string made from the list of protocols detected by Zeek
+function _get_ntlm_source(c: connection): string {
+
+    local protocols = vector();
+    for (p in c$service) {
+        protocols += p;
+    }
+
+    return join_string_vec(sort(protocols, strcmp), "-");
+}
+
+event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
+
+    # Build a string with all the host information found with NTLM
+    # (the resulting string is a list of "field:val" with values encoded in b64)
+    local value = fmt("target:%s", encode_base64(challenge$target_name));
+
+    if (challenge?$version) {
+        value += ",ntlm-os:" + encode_base64(fmt("%s.%s.%s",
+                            challenge$version$major,
+                            challenge$version$minor,
+                            challenge$version$build
+                            ));
+        value += fmt(",ntlm-version:%d", challenge$version$ntlmssp);
+    }
+
+    if (challenge$target_info?$dns_computer_name) {
+        value += ",name-dns:" +
+            encode_base64(challenge$target_info$dns_computer_name);
+    }
+    if (challenge$target_info?$dns_domain_name) {
+        value += ",domain-dns:" +
+            encode_base64(challenge$target_info$dns_domain_name);
+    }
+    if (challenge$target_info?$nb_computer_name) {
+        value += ",name:" +
+            encode_base64(challenge$target_info$nb_computer_name);
+    }
+    if (challenge$target_info?$nb_domain_name) {
+        value += ",domain:" +
+            encode_base64(challenge$target_info$nb_domain_name);
+    }
+    value += _get_protocol_version(c);
+
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$resp_h,
+                     $recon_type=NTLM_CHALLENGE,
+                     $source=_get_ntlm_source(c),
+                     $srvport=c$id$resp_p,
+                     $value=fmt("%s", value)]);
+}
+
+event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
+
+    local value = fmt("workgroup:%s,user_name:%s,workstation:%s",
+                        encode_base64(request$domain_name),
+                        encode_base64(request$user_name),
+                        encode_base64(request$workstation));
+    if (request?$version) {
+        value += ",ntlm-os:" + encode_base64(fmt("%s.%s.%s",
+                            request$version$major,
+                            request$version$minor,
+                            request$version$build
+                            ));
+        value += fmt(",ntlm-version:%d", request$version$ntlmssp);
+    }
+    value += _get_protocol_version(c);
+
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$orig_h,
+                     $recon_type=NTLM_AUTHENTICATE,
+                     $source=_get_ntlm_source(c),
+                     $value=fmt("%s", value)]);
 }
