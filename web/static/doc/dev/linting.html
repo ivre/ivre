@@ -7,7 +7,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Development &mdash; IVRE  documentation</title>
+  <title>Code linting &mdash; IVRE  documentation</title>
   
 
   
@@ -37,8 +37,8 @@
     
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Web API" href="web-api.html" />
-    <link rel="prev" title="IVRE with Kibana" href="../usage/kibana.html" /> 
+    <link rel="next" title="IVRE: GPL v3" href="../license.html" />
+    <link rel="prev" title="Tests" href="tests.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
@@ -100,10 +100,14 @@
 <li class="toctree-l1"><a class="reference internal" href="../usage/index.html">Usage</a></li>
 </ul>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Development</a><ul>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Development</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="web-api.html">Web API</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tests.html">Tests</a></li>
-<li class="toctree-l2"><a class="reference internal" href="linting.html">Code linting</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Code linting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#running-the-linters">Running the linters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#travis-ci">Travis CI</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -157,13 +161,15 @@
     
       <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
         
-      <li>Development</li>
+          <li><a href="index.html">Development</a> &raquo;</li>
+        
+      <li>Code linting</li>
     
     
       <li class="wy-breadcrumbs-aside">
         
             
-            <a href="../_sources/dev/index.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/dev/linting.rst.txt" rel="nofollow"> View page source</a>
           
         
       </li>
@@ -176,26 +182,30 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
             
-  <div class="section" id="development">
-<h1>Development<a class="headerlink" href="#development" title="Permalink to this headline">¶</a></h1>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="web-api.html">Web API</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tests.html">Tests</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="tests.html#dependencies">Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tests.html#test-case">Test case</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tests.html#first-run">First run</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tests.html#improving-the-test-case">Improving the test case</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tests.html#failures">Failures</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tests.html#travis-ci">Travis CI</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="linting.html">Code linting</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="linting.html#running-the-linters">Running the linters</a></li>
-<li class="toctree-l2"><a class="reference internal" href="linting.html#travis-ci">Travis CI</a></li>
-</ul>
-</li>
-</ul>
+  <div class="section" id="code-linting">
+<h1>Code linting<a class="headerlink" href="#code-linting" title="Permalink to this headline">¶</a></h1>
+<p>IVRE uses code linters to prevent some easy-to-spot (for a computer)
+mistakes and to enforce a consistent code style (or at least, attempt
+to do so).</p>
+<p>So far, only the Python code uses such linters (<a class="reference external" href="https://flake8.pycqa.org">Flake8</a> and <a class="reference external" href="https://www.pylint.org/">Pylint</a>). Adding similar code linting capabilities
+to the Zeek scripts (<cite>zeek/</cite>), LUA (<cite>nmap_scripts/</cite>) and JavaScript /
+HTML (<cite>web/static/</cite>) could be a good PR idea!</p>
+<p>For all the code and the documentation, we also use <a class="reference external" href="https://github.com/codespell-project/codespell">Codespell</a> to prevent typos.</p>
+<div class="section" id="running-the-linters">
+<h2>Running the linters<a class="headerlink" href="#running-the-linters" title="Permalink to this headline">¶</a></h2>
+<p>To install the Python code linters and Codespell you can simply use
+the <cite>requirements-linting.txt</cite> file with Pip, or use any method to
+install the latest versions of the <cite>codespell</cite>, <cite>flake8</cite> and <cite>pylint</cite>
+Python modules.</p>
+<p>The script <cite>pkg/runchecks</cite> will run all the tests for you with the
+expected options and exceptions.</p>
+</div>
+<div class="section" id="travis-ci">
+<h2>Travis CI<a class="headerlink" href="#travis-ci" title="Permalink to this headline">¶</a></h2>
+<p>Code linting and spell checking is performed in Travis CI (see
+<a class="reference internal" href="tests.html#travis-ci"><span class="std std-ref">Travis CI</span></a>), togethter with the Maxmind tests. Pylint
+and Codespell only run with Python 3.8, while Flake8 runs with all
+Python versions.</p>
 </div>
 </div>
 
@@ -207,10 +217,10 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="web-api.html" class="btn btn-neutral float-right" title="Web API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="../license.html" class="btn btn-neutral float-right" title="IVRE: GPL v3" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="../usage/kibana.html" class="btn btn-neutral float-left" title="IVRE with Kibana" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="tests.html" class="btn btn-neutral float-left" title="Tests" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   
