@@ -63,6 +63,7 @@ export {
         NTLM_NEGOTIATE,
         NTLM_CHALLENGE,
         NTLM_AUTHENTICATE,
+        SMB,
     };
 
     type Info: record {
@@ -552,7 +553,7 @@ function _get_protocol_version(c: connection): string {
 }
 
 # Returns a string made from the list of protocols detected by Zeek
-function _get_ntlm_source(c: connection): string {
+function _get_source(c: connection): string {
 
     local protocols = vector();
     for (p in c$service) {
@@ -599,7 +600,7 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
                      $uid=c$uid,
                      $host=c$id$resp_h,
                      $recon_type=NTLM_CHALLENGE,
-                     $source=_get_ntlm_source(c),
+                     $source=_get_source(c),
                      $srvport=c$id$resp_p,
                      $value=fmt("%s", value)]);
 }
@@ -624,6 +625,38 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=NTLM_AUTHENTICATE,
-                     $source=_get_ntlm_source(c),
+                     $source=_get_source(c),
+                     $value=fmt("%s", value)]);
+}
+
+event smb1_session_setup_andx_request(c: connection, hdr: SMB1::Header, request: SMB1::SessionSetupAndXRequest) {
+
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$orig_h,
+                     $recon_type=SMB,
+                     $source=_get_source(c),
+                     $value=fmt("os:%s,lanmanager:%s",
+                        encode_base64(request$native_os),
+                        encode_base64(request$native_lanman))
+                     ]);
+}
+
+event smb1_session_setup_andx_response(c: connection, hdr: SMB1::Header, response: SMB1::SessionSetupAndXResponse) {
+
+    local value = "";
+    if (response?$native_os) {
+        value += fmt("os:%s", encode_base64(response$native_os));
+    }
+
+    if (response?$native_lanman) {
+        value += fmt(",lanmanager:%s", encode_base64(response$native_lanman));
+    }
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$resp_h,
+                     $srvport=c$id$resp_p,
+                     $recon_type=SMB,
+                     $source=_get_source(c),
                      $value=fmt("%s", value)]);
 }
