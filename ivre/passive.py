@@ -478,6 +478,18 @@ def _getinfos_ntlm(spec):
     }}
 
 
+def _getinfos_smb(spec):
+    """
+    Get information on an OS from SMB `Session Setup Request` and
+    `Session Setup Response`
+    """
+    return {'infos': {
+        k: (utils.decode_b64(v.encode()).decode())
+        for k, v in (item.split(':', 1) for item in spec['value'].split(','))
+        if v
+    }}
+
+
 _GETINFOS_FUNCTIONS = {
     'HTTP_CLIENT_HEADER':
     {'AUTHORIZATION': _getinfos_http_client_authorization,
@@ -500,6 +512,7 @@ _GETINFOS_FUNCTIONS = {
     'SSH_SERVER_HASSH': _getinfos_ja3_hassh,
     'NTLM_CHALLENGE': _getinfos_ntlm,
     'NTLM_AUTHENTICATE': _getinfos_ntlm,
+    'SMB': _getinfos_smb,
 }
 
 
