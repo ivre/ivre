@@ -27,7 +27,8 @@ import re
 
 
 from ivre import utils
-from ivre.xmlnmap import add_cert_hostnames, create_ssl_cert, create_http_ls
+from ivre.xmlnmap import add_cert_hostnames, add_hostname, cpe2dict, \
+    create_elasticsearch_service, create_http_ls, create_ssl_cert
 
 
 _EXPR_TITLE = re.compile('<title[^>]*>([^<]*)</title>', re.I)
@@ -254,6 +255,26 @@ The output is a port dict (i.e., the content of the "ports" key of an
         script_http_ls = create_http_ls(body, url=url)
         if script_http_ls is not None:
             res.setdefault('scripts', []).append(script_http_ls)
+        service_elasticsearch = create_elasticsearch_service(body)
+        if service_elasticsearch:
+            if 'hostname' in service_elasticsearch:
+                add_hostname(service_elasticsearch.pop('hostname'), 'service',
+                             hostrec.setdefault('hostnames', []))
+            # TODO: handle CPE values
+            for cpe in service_elasticsearch.pop('cpe', []):
+                path = 'ports.port:%s' % port
+                cpes = hostrec.setdefault('cpes', {})
+                if cpe not in cpes:
+                    try:
+                        cpeobj = cpe2dict(cpe)
+                    except ValueError:
+                        utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
+                        continue
+                    cpes[cpe] = cpeobj
+                else:
+                    cpeobj = cpes[cpe]
+                cpeobj.setdefault('origins', []).append(path)
+            res.update(service_elasticsearch)
     return res
 
 
