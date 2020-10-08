@@ -1986,6 +1986,8 @@ class DBNmap(DBActive):
                 if not host.get('ports'):
                     continue
                 set_openports_attribute(host)
+                if 'cpes' in host:
+                    host['cpes'] = list(viewvalues(host['cpes']))
                 host = self.json2dbrec(host)
                 if ((needports and 'ports' not in host) or
                     (needopenports and

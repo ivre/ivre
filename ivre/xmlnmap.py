@@ -24,6 +24,7 @@
 
 import datetime
 import hashlib
+import json
 import os
 import re
 import struct
@@ -1293,6 +1294,67 @@ results.
     }
 
 
+def create_elasticsearch_service(data):
+    """Produces the service_* attributes from the (JSON) content of an
+HTTP response. Used for Zgrab and Masscan results.
+
+    """
+    try:
+        data = json.loads(data)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    if 'tagline' not in data:
+        if 'error' not in data:
+            return None
+        error = data['error']
+        if isinstance(error, str):
+            if (
+                    data.get('status') == 401 and
+                    error.startswith('AuthenticationException')
+            ):
+                return {'service_name': 'http',
+                        'service_product': 'Elasticsearch REST API',
+                        'service_extrainfo': 'Authentication required',
+                        'cpe': ['cpe:/a:elasticsearch:elasticsearch']}
+            return None
+        if not isinstance(error, dict):
+            return None
+        if not (data.get('status') == 401 or error.get('status') == 401):
+            return None
+        if 'root_cause' in error:
+            return {'service_name': 'http',
+                    'service_product': 'Elasticsearch REST API',
+                    'service_extrainfo': 'Authentication required',
+                    'cpe': ['cpe:/a:elasticsearch:elasticsearch']}
+        return None
+    if data['tagline'] != 'You Know, for Search':
+        return None
+    result = {'service_name': 'http',
+              'service_product': 'Elasticsearch REST API'}
+    cpe = []
+    if 'version' in data and 'number' in data['version']:
+        result['service_version'] = data['version']['number']
+        cpe.append('cpe:/a:elasticsearch:elasticsearch:%s' %
+                   data['version']['number'])
+    extrainfo = []
+    if 'name' in data:
+        extrainfo.append('name: %s' % data['name'])
+        result['hostname'] = data['name']
+    if 'cluster_name' in data:
+        extrainfo.append('cluster: %s' % data['cluster_name'])
+    if 'version' in data and 'lucene_version' in data['version']:
+        extrainfo.append('Lucene %s' % data['version']['lucene_version'])
+        cpe.append('cpe:/a:apache:lucene:%s' %
+                   data['version']['lucene_version'])
+    if extrainfo:
+        result['service_extrainfo'] = '; '.join(extrainfo)
+    if cpe:
+        result['cpe'] = cpe
+    return result
+
+
 def ignore_script(script):
     """Predicate that decides whether an Nmap script should be ignored
     or not, based on IGNORE_* constants. Nmap scripts are ignored when
@@ -1469,8 +1531,7 @@ class NmapHandler(ContentHandler):
     def _pre_addhost(self):
         """Executed before _addhost for host object post-treatment"""
         if 'cpes' in self._curhost:
-            cpes = self._curhost['cpes']
-            self._curhost['cpes'] = list(viewvalues(cpes))
+            self._curhost['cpes'] = list(viewvalues(self._curhost['cpes']))
 
     def _addhost(self):
         """Subclasses may store self._curhost here."""
@@ -2421,17 +2482,26 @@ argument (a dict object).
         self._curport['service_name'] = 'http'
         raw = self._from_binary(script['masscan']['raw'])
         script_http_ls = create_http_ls(script['output'])
+        service_elasticsearch = create_elasticsearch_service(script['output'])
         script['output'] = utils.nmap_encode_data(raw)
         if script_http_ls:
             self._curport.setdefault('scripts', []).append(script_http_ls)
+        if service_elasticsearch:
+            if 'hostname' in service_elasticsearch:
+                add_hostname(service_elasticsearch.pop('hostname'), 'service',
+                             self._curhost.setdefault('hostnames', []))
+            for cpe in service_elasticsearch.pop('cpe', []):
+                self._add_cpe_to_host(cpe=cpe)
+            self._curport.update(service_elasticsearch)
 
-    def _add_cpe_to_host(self):
-        """Adds the cpe in self._curdata to the host-wide cpe list, taking
-        port/script/osmatch context into account.
+    def _add_cpe_to_host(self, cpe=None):
+        """Adds the cpe (from `cpe` or from self._curdata) to the host-wide
+        cpe list, taking port/script/osmatch context into account.
 
         """
-        cpe = self._curdata
-        self._curdata = None
+        if cpe is None:
+            cpe = self._curdata
+            self._curdata = None
         path = None
 
         # What is the path to reach this CPE?
