@@ -24,11 +24,14 @@ from datetime import datetime
 from textwrap import wrap
 
 
+from future.utils import viewvalues
+
+
 from ivre.active.data import create_ssl_output, set_openports_attribute
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, cpe2dict
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -61,6 +64,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
         'protocol': rec.get('protocol', 'tcp'),
         'service_name': 'http',
     }
+    host = {'ports': [port]}
     # TODO: handle other header values and merge them
     if rec.get('source') != 'SERVER':
         return {'ports': [port]}
@@ -69,12 +73,29 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
     port['scripts'] = [script]
     banner = (b"HTTP/1.1 200 OK\r\nServer: " + utils.nmap_decode_data(value) +
               b"\r\n\r\n")
-    port.update(
-        utils.match_nmap_svc_fp(output=banner,
-                                proto=rec.get('protocol', 'tcp'),
-                                probe="GetRequest")
-    )
-    return {'ports': [port]}
+    nmap_info = utils.match_nmap_svc_fp(output=banner,
+                                        proto=rec.get('protocol', 'tcp'),
+                                        probe="GetRequest")
+    path = 'ports.port:%s' % port
+    cpes = host.setdefault('cpes', {})
+    for cpe in nmap_info.pop('cpe', []):
+        if cpe not in cpes:
+            try:
+                cpeobj = cpe2dict(cpe)
+            except ValueError:
+                utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
+                continue
+            cpes[cpe] = cpeobj
+        else:
+            cpeobj = cpes[cpe]
+        cpeobj.setdefault('origins', set()).add(path)
+    host['cpes'] = list(viewvalues(host['cpes']))
+    for cpe in host['cpes']:
+        cpe['origins'] = sorted(cpe['origins'])
+    if not host['cpes']:
+        del host['cpes']
+    port.update(nmap_info)
+    return host
 
 
 def _extract_passive_HTTP_CLIENT_HEADER(rec):
@@ -103,13 +124,31 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
         'scripts': [{"id": "banner",
                      "output": value}],
     }
+    host = {'ports': [port]}
     port.update(rec.get('infos', {}))
-    port.update(
-        utils.match_nmap_svc_fp(output=utils.nmap_decode_data(value),
-                                proto=rec.get('protocol', 'tcp'),
-                                probe="NULL")
-    )
-    return {'ports': [port]}
+    nmap_info = utils.match_nmap_svc_fp(output=utils.nmap_decode_data(value),
+                                        proto=rec.get('protocol', 'tcp'),
+                                        probe="NULL")
+    path = 'ports.port:%s' % port
+    cpes = host.setdefault('cpes', {})
+    for cpe in nmap_info.pop('cpe', []):
+        if cpe not in cpes:
+            try:
+                cpeobj = cpe2dict(cpe)
+            except ValueError:
+                utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
+                continue
+            cpes[cpe] = cpeobj
+        else:
+            cpeobj = cpes[cpe]
+        cpeobj.setdefault('origins', set()).add(path)
+    host['cpes'] = list(viewvalues(host['cpes']))
+    for cpe in host['cpes']:
+        cpe['origins'] = sorted(cpe['origins'])
+    if not host['cpes']:
+        del host['cpes']
+    port.update(nmap_info)
+    return host
 
 
 _KEYS = {

@@ -1532,6 +1532,10 @@ class NmapHandler(ContentHandler):
         """Executed before _addhost for host object post-treatment"""
         if 'cpes' in self._curhost:
             self._curhost['cpes'] = list(viewvalues(self._curhost['cpes']))
+            for cpe in self._curhost['cpes']:
+                cpe['origins'] = sorted(cpe['origins'])
+            if not self._curhost['cpes']:
+                del self._curhost['cpes']
 
     def _addhost(self):
         """Subclasses may store self._curhost here."""
@@ -1936,6 +1940,8 @@ argument (a dict object).
                         del match['soft']
                     except KeyError:
                         pass
+                    for cpe in match.pop('cpe', []):
+                        self._add_cpe_to_host(cpe=cpe)
                     self._curport.update(match)
                     add_service_hostname(
                         match,
@@ -2338,6 +2344,8 @@ argument (a dict object).
                                             proto=self._curport['protocol'],
                                             probe="NULL")
             if match:
+                for cpe in match.pop('cpe', []):
+                    self._add_cpe_to_host(cpe=cpe)
                 self._curport.update(match)
         # this requires a patched version of masscan
         for msgtype, msg in self._read_ssh_msgs(data[idx + 1:]):
@@ -2439,9 +2447,13 @@ argument (a dict object).
     def masscan_post_http(self, script):
         raw = self._from_binary(script['masscan']['raw'])
         self._curport['service_name'] = 'http'
-        self._curport.update(utils.match_nmap_svc_fp(
+        match = utils.match_nmap_svc_fp(
             raw, proto="tcp", probe="GetRequest",
-        ))
+        )
+        if match:
+            for cpe in match.pop('cpe', []):
+                self._add_cpe_to_host(cpe=cpe)
+        self._curport.update(match)
         try:
             script['http-headers'] = [
                 {
@@ -2535,7 +2547,7 @@ argument (a dict object).
             cpes[cpe] = cpeobj
         else:
             cpeobj = cpes[cpe]
-        cpeobj.setdefault('origins', []).append(path)
+        cpeobj.setdefault('origins', set()).add(path)
 
     def characters(self, content):
         if self._curdata is not None:

@@ -428,7 +428,11 @@ def _getinfos_ja3_hassh(spec):
 
 
 def _getinfos_from_banner(banner, proto="tcp", probe="NULL"):
-    infos = utils.match_nmap_svc_fp(banner, proto=proto, probe=probe)
+    infos = utils.match_nmap_svc_fp(banner, proto=proto, probe=probe) or {}
+    try:
+        del infos['cpe']
+    except KeyError:
+        pass
     if not infos:
         return {}
     return {'infos': infos}
