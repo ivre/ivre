@@ -594,7 +594,10 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
         value += "domain:" +
             encode_base64(challenge$target_info$nb_domain_name);
     }
-    value += _get_protocol_version(c);
+    local proto = _get_protocol_version(c);
+    if (proto != "") {
+        value += proto;
+    }
 
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
@@ -624,7 +627,10 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
                                                 request$version$build));
         value += fmt("ntlm-version:%d", request$version$ntlmssp);
     }
-    value += _get_protocol_version(c);
+    local proto = _get_protocol_version(c);
+    if (proto != "") {
+        value += proto;
+    }
 
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
@@ -639,6 +645,20 @@ event smb1_session_setup_andx_request(c: connection, hdr: SMB1::Header, request:
     local value = vector(
         fmt("os:%s", encode_base64(request$native_os)),
         fmt("lanmanager:%s", encode_base64(request$native_lanman)));
+
+    if (request?$primary_domain) {
+        value += "domain:" + encode_base64(request$primary_domain);
+    }
+    if (request?$account_name) {
+        value += "account_name:" + encode_base64(request$account_name);
+    }
+    if (request?$account_password) {
+        value += "account_password:" + encode_base64(request$account_password);
+    }
+    if (request?$case_insensitive_password) {
+        value += "account_password:" +
+            encode_base64(request$case_insensitive_password);
+    }
 
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
@@ -656,6 +676,17 @@ event smb1_session_setup_andx_response(c: connection, hdr: SMB1::Header, respons
     }
     if (response?$native_lanman) {
         value += "lanmanager:" + encode_base64(response$native_lanman);
+    }
+    if (response?$primary_domain) {
+        value += "domain:" + encode_base64(response$primary_domain);
+    }
+    if (response?$is_guest) {
+        if (response$is_guest) {
+            value += "is_guest:true";
+        }
+        else {
+            value += "is_guest:false";
+        }
     }
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,

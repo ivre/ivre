@@ -484,7 +484,9 @@ def _getinfos_smb(spec):
     `Session Setup Response`
     """
     return {'infos': {
-        k: (utils.decode_b64(v.encode()).decode())
+        k: (v == "true"
+            if k == "is_guest" else
+            utils.decode_b64(v.encode()).decode())
         for k, v in (item.split(':', 1) for item in spec['value'].split(','))
         if v
     }}
