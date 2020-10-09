@@ -161,13 +161,13 @@ IPV4ADDR = re.compile(
 )
 
 NMAP_FINGERPRINT_IVRE_KEY = {
-    # TODO: cpe
     'd': 'service_devicetype',
     'h': 'service_hostname',
     'i': 'service_extrainfo',
     'o': 'service_ostype',
     'p': 'service_product',
     'v': 'service_version',
+    'cpe': 'cpe',
 }
 
 logging.basicConfig()
@@ -1142,7 +1142,10 @@ def _read_nmap_probes():
                     value = value.decode('utf-8')
                 except UnicodeDecodeError:
                     value = repr(value)
-            info[key] = (value, flag)
+            if key == 'cpe':
+                info.setdefault(key, []).append(value)
+            else:
+                info[key] = (value, flag)
             data = data.lstrip(b' ')
         _NMAP_CUR_PROBE.append((service.decode(), info))
     try:
@@ -1200,10 +1203,17 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                     doc['service_name'] = service
                 for elt, key in viewitems(NMAP_FINGERPRINT_IVRE_KEY):
                     if elt in fingerprint:
-                        data = nmap_svc_fp_format_data(
-                            fingerprint[elt][0], match
-                        )
-                        if data is not None:
+                        if elt == 'cpe':
+                            data = [
+                                'cpe:/%s' %
+                                nmap_svc_fp_format_data(value, match)
+                                for value in fingerprint[elt]
+                            ]
+                        else:
+                            data = nmap_svc_fp_format_data(
+                                fingerprint[elt][0], match
+                            )
+                        if data:
                             doc[key] = data
                 if not fingerprint['soft']:
                     return result

@@ -238,6 +238,19 @@ The output is a port dict (i.e., the content of the "ports" key of an
                        b"\r\n\r\n")
     info = utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
     if info:
+        path = 'ports.port:%s' % port
+        cpes = hostrec.setdefault('cpes', {})
+        for cpe in info.pop('cpe', []):
+            if cpe not in cpes:
+                try:
+                    cpeobj = cpe2dict(cpe)
+                except ValueError:
+                    utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
+                    continue
+                cpes[cpe] = cpeobj
+            else:
+                cpeobj = cpes[cpe]
+            cpeobj.setdefault('origins', set()).add(path)
         res.update(info)
     if resp.get('body'):
         body = resp['body']
@@ -273,7 +286,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
                     cpes[cpe] = cpeobj
                 else:
                     cpeobj = cpes[cpe]
-                cpeobj.setdefault('origins', []).append(path)
+                cpeobj.setdefault('origins', set()).add(path)
             res.update(service_elasticsearch)
     return res
 
