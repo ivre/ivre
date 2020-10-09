@@ -547,7 +547,7 @@ event connection_established(c: connection) {
 function _get_protocol_version(c: connection): string {
 
     if (c?$smb_state) {
-        return ",protocol:" + encode_base64(c$smb_state$current_cmd$version);
+        return "protocol:" + encode_base64(c$smb_state$current_cmd$version);
     }
     return "";
 }
@@ -567,34 +567,37 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
 
     # Build a string with all the host information found with NTLM
     # (the resulting string is a list of "field:val" with values encoded in b64)
-    local value = fmt("target:%s", encode_base64(challenge$target_name));
+    local value = vector(fmt("target:%s",
+                             encode_base64(challenge$target_name)));
 
     if (challenge?$version) {
-        value += ",ntlm-os:" + encode_base64(fmt("%s.%s.%s",
-                            challenge$version$major,
-                            challenge$version$minor,
-                            challenge$version$build
-                            ));
-        value += fmt(",ntlm-version:%d", challenge$version$ntlmssp);
+        value += "ntlm-os:" + encode_base64(fmt("%s.%s.%s",
+                                                challenge$version$major,
+                                                challenge$version$minor,
+                                                challenge$version$build));
+        value += fmt("ntlm-version:%d", challenge$version$ntlmssp);
     }
 
     if (challenge$target_info?$dns_computer_name) {
-        value += ",name-dns:" +
+        value += "name-dns:" +
             encode_base64(challenge$target_info$dns_computer_name);
     }
     if (challenge$target_info?$dns_domain_name) {
-        value += ",domain-dns:" +
+        value += "domain-dns:" +
             encode_base64(challenge$target_info$dns_domain_name);
     }
     if (challenge$target_info?$nb_computer_name) {
-        value += ",name:" +
+        value += "name:" +
             encode_base64(challenge$target_info$nb_computer_name);
     }
     if (challenge$target_info?$nb_domain_name) {
-        value += ",domain:" +
+        value += "domain:" +
             encode_base64(challenge$target_info$nb_domain_name);
     }
-    value += _get_protocol_version(c);
+    local proto = _get_protocol_version(c);
+    if (proto != "") {
+        value += proto;
+    }
 
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
@@ -602,55 +605,88 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
                      $recon_type=NTLM_CHALLENGE,
                      $source=_get_source(c),
                      $srvport=c$id$resp_p,
-                     $value=fmt("%s", value)]);
+                     $value=join_string_vec(value, ",")]);
 }
 
 event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
 
-    local value = fmt("workgroup:%s,user_name:%s,workstation:%s",
-                        encode_base64(request$domain_name),
-                        encode_base64(request$user_name),
-                        encode_base64(request$workstation));
-    if (request?$version) {
-        value += ",ntlm-os:" + encode_base64(fmt("%s.%s.%s",
-                            request$version$major,
-                            request$version$minor,
-                            request$version$build
-                            ));
-        value += fmt(",ntlm-version:%d", request$version$ntlmssp);
+    local value = vector();
+    if (request?$domain_name) {
+        value += "workgroup:" + encode_base64(request$domain_name);
     }
-    value += _get_protocol_version(c);
+    if (request?$user_name) {
+        value += "user-name:" + encode_base64(request$user_name);
+    }
+    if (request?$workstation) {
+        value += "worstation:" + encode_base64(request$workstation);
+    }
+    if (request?$version) {
+        value += "ntlm-os:" + encode_base64(fmt("%s.%s.%s",
+                                                request$version$major,
+                                                request$version$minor,
+                                                request$version$build));
+        value += fmt("ntlm-version:%d", request$version$ntlmssp);
+    }
+    local proto = _get_protocol_version(c);
+    if (proto != "") {
+        value += proto;
+    }
 
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=NTLM_AUTHENTICATE,
                      $source=_get_source(c),
-                     $value=fmt("%s", value)]);
+                     $value=join_string_vec(value, ",")]);
 }
 
 event smb1_session_setup_andx_request(c: connection, hdr: SMB1::Header, request: SMB1::SessionSetupAndXRequest) {
+
+    local value = vector(
+        fmt("os:%s", encode_base64(request$native_os)),
+        fmt("lanmanager:%s", encode_base64(request$native_lanman)));
+
+    if (request?$primary_domain) {
+        value += "domain:" + encode_base64(request$primary_domain);
+    }
+    if (request?$account_name) {
+        value += "account_name:" + encode_base64(request$account_name);
+    }
+    if (request?$account_password) {
+        value += "account_password:" + encode_base64(request$account_password);
+    }
+    if (request?$case_insensitive_password) {
+        value += "account_password:" +
+            encode_base64(request$case_insensitive_password);
+    }
 
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=SMB,
                      $source=_get_source(c),
-                     $value=fmt("os:%s,lanmanager:%s",
-                        encode_base64(request$native_os),
-                        encode_base64(request$native_lanman))
-                     ]);
+                     $value=join_string_vec(value, ",")]);
 }
 
 event smb1_session_setup_andx_response(c: connection, hdr: SMB1::Header, response: SMB1::SessionSetupAndXResponse) {
 
-    local value = "";
+    local value = vector();
     if (response?$native_os) {
-        value += fmt("os:%s", encode_base64(response$native_os));
+        value += "os:" + encode_base64(response$native_os);
     }
-
     if (response?$native_lanman) {
-        value += fmt(",lanmanager:%s", encode_base64(response$native_lanman));
+        value += "lanmanager:" + encode_base64(response$native_lanman);
+    }
+    if (response?$primary_domain) {
+        value += "domain:" + encode_base64(response$primary_domain);
+    }
+    if (response?$is_guest) {
+        if (response$is_guest) {
+            value += "is_guest:true";
+        }
+        else {
+            value += "is_guest:false";
+        }
     }
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
@@ -658,5 +694,5 @@ event smb1_session_setup_andx_response(c: connection, hdr: SMB1::Header, respons
                      $srvport=c$id$resp_p,
                      $recon_type=SMB,
                      $source=_get_source(c),
-                     $value=fmt("%s", value)]);
+                     $value=join_string_vec(value, ",")]);
 }
