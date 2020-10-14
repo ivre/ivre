@@ -586,6 +586,10 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
         value += "domain-dns:" +
             encode_base64(challenge$target_info$dns_domain_name);
     }
+    if (challenge$target_info?$dns_tree_name) {
+        value += "tree-dns:" +
+            encode_base64(challenge$target_info$dns_tree_name);
+    }
     if (challenge$target_info?$nb_computer_name) {
         value += "name:" +
             encode_base64(challenge$target_info$nb_computer_name);

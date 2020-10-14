@@ -49,6 +49,7 @@ import time
 
 
 from builtins import bytes, int as int_types, object, range, str
+from future.builtins import zip
 from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 try:
@@ -2213,3 +2214,101 @@ def deep_sort_dict_list(elt):
             value.sort()
         elif isinstance(value, dict):
             deep_sort_dict_list(value)
+
+
+def _extract_substr(ntlm_msg, offset, ln):
+    """
+    Extract the string at te given offset and of the given length from an
+    NTLM message
+    """
+    s, = struct.unpack('{}s'.format(ln), ntlm_msg[offset:offset + ln])
+    try:
+        res = s.decode('utf-16').encode()
+        if len(res) == ln // 2:
+            return res
+
+        LOGGER.warning("Size too small %r", s)
+        return None
+
+    except UnicodeDecodeError:
+        LOGGER.warning("Cannot decode %r", s)
+        return None
+
+
+# The positions of `Negotiate Version` and `Negotiate Target Info`
+# in the NTLM flags
+flag_version = 0b10000000000000000000000000
+flag_targetinfo = 0b100000000000000000000000
+
+
+def _ntlm_challenge_extract(challenge):
+    """
+    Extract host information in a NTLM_CHALLENGE message
+    """
+    flags = struct.unpack('I', challenge[20:24])[0]
+
+    # Get target name
+    lntarget, offset = struct.unpack('HH', challenge[12:14] + challenge[16:18])
+    name = _extract_substr(challenge, offset, lntarget)
+    value = "NTLM target:" + encode_b64(name).decode()
+
+    # Multiple versions of NTLM Challenge messages exist (they can be deduced
+    # thanks to the target offset)
+    #   V1: No context, no target information and no OS version are provided
+    #       - offset 32
+    #   V2: Context and target informatio are provided but not the OS version
+    #       - offset 48
+    #   V3: The context, target information and OS Version are all provided
+    #       - offset >= 56
+    # cf http://davenport.sourceforge.net/ntlm.html#osVersionStructure
+
+    # Get OS Version if the version of NTLM handles it
+    # and the `Negotiate version` flag is set
+    if offset == 56 and flags & flag_version:
+        maj, minor, bld, n_version = struct.unpack('BBHI', challenge[48:49] +
+                                                   challenge[49:50] +
+                                                   challenge[50:54] +
+                                                   challenge[54:56])
+
+        n_os = encode_b64("{}.{}.{}".format(maj, minor, bld).encode()).decode()
+        value += ",ntlm-os:{},ntlm-version:{}".format(n_os, n_version,)
+
+    # Get target information if the version of NTLM handles it
+    # and the `Negotiate Target Info` is set
+    if offset >= 48 and flags & flag_targetinfo:
+        off, = struct.unpack('H', challenge[44:46])
+        challenge = challenge[off:]
+
+        def _get_targetinfo(challenge):
+            # Target info types :
+            #  - 1: NetBIOS Computer Name
+            #  - 2: NetBIOS Domain Name
+            #  - 3: DNS Computer Name
+            #  - 4: DNS Domain Name
+            #  - 5: DNS Tree Name
+            typ = 0
+            while challenge and typ <= 5:
+                typ, ln = struct.unpack('HH', challenge[0:2] + challenge[2:4])
+                if typ <= 5:
+                    value = _extract_substr(challenge, 4, ln)
+                    challenge = challenge[4 + ln:]
+                    yield value
+
+        for k, v in zip(['domain', 'name', 'domain-dns', 'name-dns',
+                         'tree-dns'], _get_targetinfo(challenge)):
+            value += ",{}:{}".format(k, encode_b64(v).decode())
+
+    return value
+
+
+def ntlm_extract_info(value):
+    """
+    Extract valuable host information from an NTLM message
+    """
+    ntlm_type, = struct.unpack('I', value[8:12])
+
+    if ntlm_type == 2:
+        return _ntlm_challenge_extract(value)
+
+    # NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages are not handled yet
+    return "NTLM"
