@@ -49,7 +49,6 @@ import time
 
 
 from builtins import bytes, int as int_types, object, range, str
-from future.builtins import zip
 from future.utils import PY3, viewitems, viewvalues
 from past.builtins import basestring
 try:
@@ -2221,15 +2220,13 @@ def _extract_substr(ntlm_msg, offset, ln):
     Extract the string at te given offset and of the given length from an
     NTLM message
     """
-    s, = struct.unpack('{}s'.format(ln), ntlm_msg[offset:offset + ln])
-    try:
-        res = s.decode('utf-16').encode()
-        if len(res) == ln // 2:
-            return res
-
-        LOGGER.warning("Size too small %r", s)
+    s = ntlm_msg[offset:offset + ln]
+    if len(s) < ln:
+        LOGGER.warning("Data too small at offset %s [%r, size %d]",
+                       offset, ntlm_msg, ln)
         return None
-
+    try:
+        return s.decode('utf-16').encode()
     except UnicodeDecodeError:
         LOGGER.warning("Cannot decode %r", s)
         return None
@@ -2237,14 +2234,28 @@ def _extract_substr(ntlm_msg, offset, ln):
 
 # The positions of `Negotiate Version` and `Negotiate Target Info`
 # in the NTLM flags
-flag_version = 0b10000000000000000000000000
-flag_targetinfo = 0b100000000000000000000000
+flag_version = 0x2000000
+flag_targetinfo = 0x800000
+
+# Target info types :
+#  - 1: NetBIOS Computer Name
+#  - 2: NetBIOS Domain Name
+#  - 3: DNS Computer Name
+#  - 4: DNS Domain Name
+#  - 5: DNS Tree Name
+info_types = {1: 'name', 2: 'domain', 3: 'name-dns', 4: 'domain-dns',
+              5: 'tree-dns'}
 
 
 def _ntlm_challenge_extract(challenge):
     """
-    Extract host information in a NTLM_CHALLENGE message
+    Extract host information in an NTLM_CHALLENGE message
     """
+    if len(challenge) < 24:
+        LOGGER.warning("NTLM message is abnormally short [%r, size %d]",
+                       challenge, len(challenge))
+        return None
+
     flags = struct.unpack('I', challenge[20:24])[0]
 
     # Get target name
@@ -2264,7 +2275,13 @@ def _ntlm_challenge_extract(challenge):
 
     # Get OS Version if the version of NTLM handles it
     # and the `Negotiate version` flag is set
-    if offset == 56 and flags & flag_version:
+    if offset >= 56 and flags & flag_version:
+        if len(challenge) < 56:
+            LOGGER.warning("NTLM message should contain version info at "
+                           "offset 56 but is too short (size %d)",
+                           len(challenge))
+            return value
+
         maj, minor, bld, n_version = struct.unpack('BBHI', challenge[48:49] +
                                                    challenge[49:50] +
                                                    challenge[50:54] +
@@ -2276,27 +2293,28 @@ def _ntlm_challenge_extract(challenge):
     # Get target information if the version of NTLM handles it
     # and the `Negotiate Target Info` is set
     if offset >= 48 and flags & flag_targetinfo:
-        off, = struct.unpack('H', challenge[44:46])
+        if len(challenge) < 46:
+            LOGGER.warning("NTLM message should contain target info at "
+                           "offset 48 but is too short (size %d)",
+                           len(challenge))
+            return value
+
+        ln_info, off = struct.unpack('HH', challenge[42:44] + challenge[44:46])
         challenge = challenge[off:]
+        # Return if the target info block is shorter than it is supposed to be
+        if len(challenge) < ln_info:
+            LOGGER.warning("NTLM target info should be of size %d but is "
+                           "too short (size %d)", ln_info, len(challenge))
+            return value
 
-        def _get_targetinfo(challenge):
-            # Target info types :
-            #  - 1: NetBIOS Computer Name
-            #  - 2: NetBIOS Domain Name
-            #  - 3: DNS Computer Name
-            #  - 4: DNS Domain Name
-            #  - 5: DNS Tree Name
-            typ = 0
-            while challenge and typ <= 5:
-                typ, ln = struct.unpack('HH', challenge[0:2] + challenge[2:4])
-                if typ <= 5:
-                    value = _extract_substr(challenge, 4, ln)
-                    challenge = challenge[4 + ln:]
-                    yield value
-
-        for k, v in zip(['domain', 'name', 'domain-dns', 'name-dns',
-                         'tree-dns'], _get_targetinfo(challenge)):
-            value += ",{}:{}".format(k, encode_b64(v).decode())
+        while len(challenge) <= ln_info:
+            typ, ln = struct.unpack('HH', challenge[0:2] + challenge[2:4])
+            if 1 <= typ <= 5:
+                value += ',' + info_types[typ] + ':' + \
+                    encode_b64(_extract_substr(challenge, 4, ln)).decode()
+                challenge = challenge[4 + ln:]
+            else:
+                return value
 
     return value
 
