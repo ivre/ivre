@@ -199,8 +199,12 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 except Exception:
                     utils.LOGGER.warning("Cannot parse digest error for %r",
                                          spec, exc_info=True)
-            elif authtype.lower() in {'negotiate', 'kerberos', 'oauth',
-                                      'ntlm'}:
+            elif authtype.lower() == 'ntlm':
+                # NTLM_NEGOTIATE and NTLM_AUTHENTICATE
+                if value[5:]:
+                    ntlm_auth = utils.decode_b64(value[5:].strip().encode())
+                    spec['value'] = utils.ntlm_extract_info(ntlm_auth)
+            elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
             spec['recontype'] == 'HTTP_SERVER_HEADER' and
@@ -220,8 +224,12 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 except Exception:
                     utils.LOGGER.warning("Cannot parse digest error for %r",
                                          spec, exc_info=True)
-            elif authtype.lower() in {'negotiate', 'kerberos', 'oauth',
-                                      'ntlm'}:
+            elif authtype.lower() == 'ntlm':
+                # NTLM_CHALLENGE
+                if value[5:]:
+                    ntlm_auth = utils.decode_b64(value[5:].strip().encode())
+                    spec['value'] = utils.ntlm_extract_info(ntlm_auth)
+            elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
     elif spec['recontype'] == 'TCP_SERVER_BANNER':
@@ -468,16 +476,28 @@ def _getinfos_ssh_hostkey(spec):
     return {'infos': info}
 
 
+def _getinfos_authentication(spec):
+    """
+    Parse value of *-AUTHENTICATE headers depending on the protocol used
+    """
+    if spec['value'][:4] == 'NTLM' and len(spec['value']) > 4:
+        spec['value'] = spec['value'][4:].strip()
+        return _getinfos_ntlm(spec)
+
+    return {}
+
+
 def _getinfos_ntlm(spec):
     """
     Get infos from the NTLMSSP_CHALLENGE matching the smb-os-discovery scripts
     form Masscan and Nmap
     """
+    value = spec['value']
     return {'infos': {
         k: (int(v)
             if k == 'ntlm-version' else
             utils.decode_b64(v.encode()).decode())
-        for k, v in (item.split(':', 1) for item in spec['value'].split(','))
+        for k, v in (item.split(':', 1) for item in value.split(','))
         if v
     }}
 
@@ -504,7 +524,9 @@ _GETINFOS_FUNCTIONS = {
     {'AUTHORIZATION': _getinfos_http_client_authorization,
      'PROXY-AUTHORIZATION': _getinfos_http_client_authorization},
     'HTTP_SERVER_HEADER':
-    {'SERVER': _getinfos_http_server},
+    {'SERVER': _getinfos_http_server,
+     'WWW-AUTHENTICATE': _getinfos_authentication,
+     'PROXY-AUTHENTICATE': _getinfos_authentication},
     'DNS_ANSWER': _getinfos_dns,
     'DNS_BLACKLIST': _getinfos_dns_blacklist,
     'SSL_SERVER': _getinfos_sslsrv,

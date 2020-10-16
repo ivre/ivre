@@ -2213,3 +2213,120 @@ def deep_sort_dict_list(elt):
             value.sort()
         elif isinstance(value, dict):
             deep_sort_dict_list(value)
+
+
+def _extract_substr(ntlm_msg, offset, ln):
+    """
+    Extract the string at te given offset and of the given length from an
+    NTLM message
+    """
+    s = ntlm_msg[offset:offset + ln]
+    if len(s) < ln:
+        LOGGER.warning("Data too small at offset %s [%r, size %d]",
+                       offset, ntlm_msg, ln)
+        return None
+    try:
+        return s.decode('utf-16').encode()
+    except UnicodeDecodeError:
+        LOGGER.warning("Cannot decode %r", s)
+        return None
+
+
+# The positions of `Negotiate Version` and `Negotiate Target Info`
+# in the NTLM flags
+flag_version = 0x2000000
+flag_targetinfo = 0x800000
+
+# Target info types :
+#  - 1: NetBIOS Computer Name
+#  - 2: NetBIOS Domain Name
+#  - 3: DNS Computer Name
+#  - 4: DNS Domain Name
+#  - 5: DNS Tree Name
+info_types = {1: 'name', 2: 'domain', 3: 'name-dns', 4: 'domain-dns',
+              5: 'tree-dns'}
+
+
+def _ntlm_challenge_extract(challenge):
+    """
+    Extract host information in an NTLM_CHALLENGE message
+    """
+    if len(challenge) < 24:
+        LOGGER.warning("NTLM message is abnormally short [%r, size %d]",
+                       challenge, len(challenge))
+        return None
+
+    flags = struct.unpack('I', challenge[20:24])[0]
+
+    # Get target name
+    lntarget, offset = struct.unpack('HH', challenge[12:14] + challenge[16:18])
+    name = _extract_substr(challenge, offset, lntarget)
+    value = "NTLM target:" + encode_b64(name).decode()
+
+    # Multiple versions of NTLM Challenge messages exist (they can be deduced
+    # thanks to the target offset)
+    #   V1: No context, no target information and no OS version are provided
+    #       - offset 32
+    #   V2: Context and target informatio are provided but not the OS version
+    #       - offset 48
+    #   V3: The context, target information and OS Version are all provided
+    #       - offset >= 56
+    # cf http://davenport.sourceforge.net/ntlm.html#osVersionStructure
+
+    # Get OS Version if the version of NTLM handles it
+    # and the `Negotiate version` flag is set
+    if offset >= 56 and flags & flag_version:
+        if len(challenge) < 56:
+            LOGGER.warning("NTLM message should contain version info at "
+                           "offset 56 but is too short (size %d)",
+                           len(challenge))
+            return value
+
+        maj, minor, bld, n_version = struct.unpack('BBHI', challenge[48:49] +
+                                                   challenge[49:50] +
+                                                   challenge[50:54] +
+                                                   challenge[54:56])
+
+        n_os = encode_b64("{}.{}.{}".format(maj, minor, bld).encode()).decode()
+        value += ",ntlm-os:{},ntlm-version:{}".format(n_os, n_version,)
+
+    # Get target information if the version of NTLM handles it
+    # and the `Negotiate Target Info` is set
+    if offset >= 48 and flags & flag_targetinfo:
+        if len(challenge) < 46:
+            LOGGER.warning("NTLM message should contain target info at "
+                           "offset 48 but is too short (size %d)",
+                           len(challenge))
+            return value
+
+        ln_info, off = struct.unpack('HH', challenge[42:44] + challenge[44:46])
+        challenge = challenge[off:]
+        # Return if the target info block is shorter than it is supposed to be
+        if len(challenge) < ln_info:
+            LOGGER.warning("NTLM target info should be of size %d but is "
+                           "too short (size %d)", ln_info, len(challenge))
+            return value
+
+        while len(challenge) <= ln_info:
+            typ, ln = struct.unpack('HH', challenge[0:2] + challenge[2:4])
+            if 1 <= typ <= 5:
+                value += ',' + info_types[typ] + ':' + \
+                    encode_b64(_extract_substr(challenge, 4, ln)).decode()
+                challenge = challenge[4 + ln:]
+            else:
+                return value
+
+    return value
+
+
+def ntlm_extract_info(value):
+    """
+    Extract valuable host information from an NTLM message
+    """
+    ntlm_type, = struct.unpack('I', value[8:12])
+
+    if ntlm_type == 2:
+        return _ntlm_challenge_extract(value)
+
+    # NTLM_NEGOTIATE and NTLM_AUTHENTICATE messages are not handled yet
+    return "NTLM"
