@@ -697,12 +697,11 @@ class FileOpener(object):
 
     """
     FILE_OPENERS_MAGIC = {
-        b"\x1f\x8b": (config.GZ_CMD, gzip.open),
-        b"BZ": (config.BZ2_CMD, bz2.BZ2File),
+        b"\x1f\x8b": gzip.open,
+        b"BZ": bz2.BZ2File,
     }
 
     def __init__(self, fname):
-        self.proc = None
         if not isinstance(fname, basestring):
             self.fdesc = fname
             self.needsclose = False
@@ -711,23 +710,11 @@ class FileOpener(object):
         with open(fname, 'rb') as fdesc:
             magic = fdesc.read(2)
         try:
-            cmd_opener, py_opener = self.FILE_OPENERS_MAGIC[magic]
+            py_opener = self.FILE_OPENERS_MAGIC[magic]
         except KeyError:
             # Not a compressed file
             self.fdesc = open(fname, 'rb')
             return
-        try:
-            # By default we try to use zcat / bzcat, since they seem to be
-            # (a lot) faster
-            self.proc = subprocess.Popen([cmd_opener, fname],
-                                         stdout=subprocess.PIPE,
-                                         stderr=open(os.devnull, 'w'))
-            self.fdesc = self.proc.stdout
-            return
-        except OSError as exc:
-            if exc.errno != errno.ENOENT:
-                raise
-        # Fallback to the appropriate python opener
         self.fdesc = py_opener(fname)
 
     def read(self, *args):
@@ -743,8 +730,6 @@ class FileOpener(object):
         # since .close() is explicitly called, we close self.fdesc
         # even when self.close is False.
         self.fdesc.close()
-        if self.proc is not None:
-            self.proc.wait()
 
     def __enter__(self):
         return self
@@ -752,8 +737,6 @@ class FileOpener(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.needsclose:
             self.fdesc.close()
-        if self.proc is not None:
-            self.proc.wait()
 
     def __iter__(self):
         return self
