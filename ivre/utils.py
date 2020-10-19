@@ -2323,46 +2323,43 @@ def _ntlm_authenticate_info(request):
     """
     Extract host information in an NTLM_AUTH message
     """
-    if (len(request) < 52):
+    if len(request) < 52:
         LOGGER.warning("NTLM message is too short (%d) but should be at least "
                        "52 char long", len(request))
         return None
 
     value = []
-    offset, ln = struct.unpack('IH', request[32:36] + request[28:30])
-    if ln > 0:
-        value.append("domain:" + \
-            encode_b64(_extract_substr(request, offset, ln)).decode())
+    ln, offset = struct.unpack('H2xI', request[28:36])
+    if ln:
+        value.append("domain:%s" %
+                     encode_b64(_extract_substr(request, offset, ln)).decode())
 
     has_version = False
-    # Flags are not present in a NTLM_AUTH message when the data block starts
+    # Flags are not present in an NTLM_AUTH message when the data block starts
     # before index 64
-    if offset >= 64 and len(request) > 64:
+    if offset >= 64 and request[64:]:
         flags, = struct.unpack('I', request[60:64])
         has_version = flags & flag_version
 
-    off, ln = struct.unpack('IH', request[40:44] + request[36:38])
-    if ln > 0:
-        value.append("user-name:" + \
-            encode_b64(_extract_substr(request, off, ln)).decode())
-    off, ln = struct.unpack('IH', request[48:52] + request[44:46])
-    if ln > 0:
-        value.append("workstation:" + \
-            encode_b64(_extract_substr(request, off, ln)).decode())
+    ln, off = struct.unpack('H2xI', request[36:44])
+    if ln:
+        value.append("user-name:%s" %
+                     encode_b64(_extract_substr(request, off, ln)).decode())
+    ln, off = struct.unpack('H2xI', request[44:52])
+    if ln:
+        value.append("workstation:%s" %
+                     encode_b64(_extract_substr(request, off, ln)).decode())
 
     # Get OS Version if the `Negotiate Version` is set
     # (NTLM_AUTH messages with a data block starting before index 72 do not
     # contain information on the version)
-    if offset >= 72 and len(request) > 72 and has_version:
-        maj, minor, bld, ntlm_ver = struct.unpack('BBHB', request[64:65] +
-                                                  request[65:66] +
-                                                  request[66:68] +
-                                                  request[71:72])
+    if has_version and offset >= 72 and request[72:]:
+        maj, minor, bld, ntlm_ver = struct.unpack('BBH3xB', request[64:72])
         version = "{}.{}.{}".format(maj, minor, bld).encode()
         value.append("ntlm-os:{}".format(encode_b64(version).decode()))
         value.append("ntlm-version:{}".format(ntlm_ver))
 
-    return 'NTLM ' + ','.join(value)
+    return 'NTLM %s' % ','.join(value)
 
 
 def ntlm_extract_info(value):
