@@ -40,6 +40,12 @@ _EXPR_CENTREON_VERSION = re.compile(
     re.escape('</span>')
 )
 
+ntlm_values = ['Target_Name', 'NetBIOS_Domain_Name', 'NetBIOS_Computer_Name',
+               'DNS_Domain_Name', 'DNS_Computer_Name', 'DNS_Tree_Name',
+               'Product_Version', 'NTLM_Version']
+ntlm_keys = ['target', 'domain', 'name', 'domain-dns', 'name-dns', 'tree-dns',
+             'ntlm-os', 'ntlm-version']
+
 
 def zgrap_parser_http(data, hostrec):
     """This function handles data from `{"data": {"http": [...]}}`
@@ -75,6 +81,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
            "state_state": "open", "state_reason": "response",
            "protocol": "tcp"}
     tls = None
+
     try:
         tls = req['tls_handshake']
     except KeyError:
@@ -207,6 +214,26 @@ The output is a port dict (i.e., the content of the "ports" key of an
               utils.nmap_decode_data(resp['status_line']) + b"\r\n")
     if resp.get('headers'):
         headers = resp['headers']
+        # Check the Authenticate header first: if we requested it with
+        # an Authorization header, we don't want to gather other information
+        if headers.get('www_authenticate'):
+            auths = headers.get('www_authenticate')
+            for auth in auths:
+                if auth[:4].lower() == 'ntlm' and auth[5:]:
+                    infos = utils.ntlm_extract_info(
+                        utils.decode_b64(auth[4:].strip().encode()))
+                    keyvals = zip(ntlm_values,
+                                  [infos.get(k) for k in ntlm_keys])
+                    output = '\n'.join("{}: {}".format(k, v)
+                                       for k, v in keyvals if v)
+                    res.setdefault('scripts', []).append({
+                        'id': 'http-ntlm-info',
+                        'output': output,
+                        'http-ntlm-info': infos
+                    })
+        if any(val.lower().startswith('ntlm')
+               for val in req.get('headers', {}).get('authorization', [])):
+            return res
         # the order will be incorrect!
         line = '%s %s' % (resp['protocol']['name'], resp['status_line'])
         http_hdrs = [{'name': '_status', 'value': line}]
