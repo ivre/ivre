@@ -202,8 +202,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
             elif authtype.lower() == 'ntlm':
                 # NTLM_NEGOTIATE and NTLM_AUTHENTICATE
                 if value[5:]:
-                    ntlm_auth = utils.decode_b64(value[5:].strip().encode())
-                    spec['value'] = utils.ntlm_extract_info(ntlm_auth)
+                    auth = utils.decode_b64(value[5:].strip().encode())
+                    spec['value'] = "NTLM %s" % \
+                        utils._ntlm_dict2string(utils.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
@@ -227,8 +228,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
             elif authtype.lower() == 'ntlm':
                 # NTLM_CHALLENGE
                 if value[5:]:
-                    ntlm_auth = utils.decode_b64(value[5:].strip().encode())
-                    spec['value'] = utils.ntlm_extract_info(ntlm_auth)
+                    auth = utils.decode_b64(value[5:].strip().encode())
+                    spec['value'] = "NTLM %s" % \
+                        utils._ntlm_dict2string(utils.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
