@@ -31,14 +31,14 @@ def _extract_substr(ntlm_msg, offset, ln):
     """
     s = ntlm_msg[offset:offset + ln]
     if len(s) < ln:
-        LOGGER.warning("Data too small at offset %s [%r, size %d]",
-                       offset, ntlm_msg, ln)
-        return None
+        utils.LOGGER.warning("Data too small at offset %s [%r, size %d]",
+                             offset, ntlm_msg, ln)
+        raise ValueError
     try:
         return s.decode('utf-16')
     except UnicodeDecodeError:
-        LOGGER.warning("Cannot decode %r", s)
-        return None
+        utils.LOGGER.warning("Cannot decode %r", s)
+        raise ValueError
 
 
 # The positions of `Negotiate Version` and `Negotiate Target Info`
@@ -56,14 +56,13 @@ info_types = {1: 'name', 2: 'domain', 3: 'name-dns', 4: 'domain-dns',
               5: 'tree-dns'}
 
 
-
 def _ntlm_challenge_extract(challenge):
     """
     Extract host information in an NTLM_CHALLENGE message
     """
     if len(challenge) < 24:
-        LOGGER.warning("NTLM message is abnormally short [%r, size %d]",
-                       challenge, len(challenge))
+        utils.LOGGER.warning("NTLM message is abnormally short [%r, size %d]",
+                             challenge, len(challenge))
         return None
 
     value = {}
@@ -71,7 +70,10 @@ def _ntlm_challenge_extract(challenge):
 
     # Get target name
     lntarget, offset = struct.unpack('H2xH', challenge[12:18])
-    value['target'] = _extract_substr(challenge, offset, lntarget)
+    try:
+        value['target'] = _extract_substr(challenge, offset, lntarget)
+    except ValueError:
+        pass
 
     # Multiple versions of NTLM Challenge messages exist (they can be deduced
     # thanks to the target offset)
@@ -87,36 +89,46 @@ def _ntlm_challenge_extract(challenge):
     # and the `Negotiate version` flag is set
     if offset >= 56 and flags & flag_version:
         if len(challenge) < 56:
-            LOGGER.warning("NTLM message should contain version info at "
-                           "offset 56 but is too short (size %d)",
-                           len(challenge))
+            utils.LOGGER.warning("NTLM message should contain version info at "
+                                 "offset 56 but is too short (size %d)",
+                                 len(challenge))
             return value
 
         maj, minor, bld, ntlm_ver = struct.unpack('BBH3xB', challenge[48:56])
-        value['ntlm-os'] = "{}.{}.{}".format(maj, minor, bld)
-        value['ntlm-version'] = ntlm_ver
+        try:
+            value['ntlm-os'] = "{}.{}.{}".format(maj, minor, bld)
+        except ValueError:
+            pass
+        try:
+            value['ntlm-version'] = ntlm_ver
+        except ValueError:
+            pass
 
     # Get target information if the version of NTLM handles it
     # and the `Negotiate Target Info` is set
     if offset >= 48 and flags & flag_targetinfo:
         if len(challenge) < 46:
-            LOGGER.warning("NTLM message should contain target info at "
-                           "offset 48 but is too short (size %d)",
-                           len(challenge))
+            utils.LOGGER.warning("NTLM message should contain target info at "
+                                 "offset 48 but is too short (size %d)",
+                                 len(challenge))
             return value
 
         ln_info, off = struct.unpack('HH', challenge[42:46])
         challenge = challenge[off:]
         # Return if the target info block is shorter than it is supposed to be
         if len(challenge) < ln_info:
-            LOGGER.warning("NTLM target info should be of size %d but is "
-                           "too short (size %d)", ln_info, len(challenge))
+            utils.LOGGER.warning("NTLM target info should be of size %d but "
+                                 "is too short (size %d)", ln_info,
+                                 len(challenge))
             return value
 
         while len(challenge) <= ln_info:
             typ, ln = struct.unpack('HH', challenge[0:4])
             if 1 <= typ <= 5:
-                value[info_types[typ]] = _extract_substr(challenge, 4, ln)
+                try:
+                    value[info_types[typ]] = _extract_substr(challenge, 4, ln)
+                except ValueError:
+                    pass
                 challenge = challenge[4 + ln:]
             else:
                 return value
@@ -129,14 +141,17 @@ def _ntlm_authenticate_info(request):
     Extract host information in an NTLM_AUTH message
     """
     if len(request) < 52:
-        LOGGER.warning("NTLM message is too short (%d) but should be at least "
-                       "52 char long", len(request))
+        utils.LOGGER.warning("NTLM message is too short (%d) but should be "
+                             "at least 52 char long", len(request))
         return None
 
     value = {}
     ln, offset = struct.unpack('H2xI', request[28:36])
     if ln:
-        value['domain'] = _extract_substr(request, offset, ln)
+        try:
+            value['domain'] = _extract_substr(request, offset, ln)
+        except ValueError:
+            pass
     has_version = False
     # Flags are not present in an NTLM_AUTH message when the data block starts
     # before index 64
@@ -146,18 +161,30 @@ def _ntlm_authenticate_info(request):
 
     ln, off = struct.unpack('H2xI', request[36:44])
     if ln:
-        value['user-name'] = _extract_substr(request, off, ln)
+        try:
+            value['user-name'] = _extract_substr(request, off, ln)
+        except ValueError:
+            pass
     ln, off = struct.unpack('H2xI', request[44:52])
     if ln:
-        value['workstation'] = _extract_substr(request, off, ln)
+        try:
+            value['workstation'] = _extract_substr(request, off, ln)
+        except ValueError:
+            pass
 
     # Get OS Version if the `Negotiate Version` is set
     # (NTLM_AUTH messages with a data block starting before index 72 do not
     # contain information on the version)
     if has_version and offset >= 72 and request[72:]:
         maj, minor, bld, ntlm_ver = struct.unpack('BBH3xB', request[64:72])
-        value['ntlm-os'] = "{}.{}.{}".format(maj, minor, bld)
-        value['ntlm-version'] = ntlm_ver
+        try:
+            value['ntlm-os'] = "{}.{}.{}".format(maj, minor, bld)
+        except ValueError:
+            pass
+        try:
+            value['ntlm-version'] = ntlm_ver
+        except ValueError:
+            pass
 
     return value
 
@@ -185,5 +212,5 @@ def _ntlm_dict2string(dic):
     """
     return ','.join("{}:{}".format(k, (v if k == 'ntlm-version'
                                        else utils.encode_b64(
-                                            v.encode()).decode()))
+                                           v.encode()).decode()))
                     for k, v in dic.items())
