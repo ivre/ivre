@@ -27,6 +27,7 @@ import re
 
 
 from ivre import utils
+from ivre.analyzer import ntlm
 from ivre.xmlnmap import add_cert_hostnames, add_hostname, cpe2dict, \
     create_elasticsearch_service, create_http_ls, create_ssl_cert
 
@@ -219,7 +220,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
             auths = headers.get('www_authenticate')
             for auth in auths:
                 if auth[:4].lower() == 'ntlm' and auth[5:]:
-                    infos = utils.ntlm_extract_info(
+                    infos = ntlm.ntlm_extract_info(
                         utils.decode_b64(auth[4:].strip().encode()))
                     keyvals = zip(ntlm_values,
                                   [infos.get(k) for k in ntlm_keys])
