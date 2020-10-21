@@ -825,9 +825,20 @@ def post_ssl_cert(script, port, host):
         add_cert_hostnames(cert, host.setdefault('hostnames', []))
 
 
+def post_ntlm_info(script, port, host):
+    if 'ntlm-info' not in script:
+        return
+    data = script['ntlm-info']
+    if 'DNS_Computer_Name' not in data:
+        return
+    add_hostname(data['DNS_Computer_Name'], 'ntlm',
+                 host.setdefault('hostnames', []))
+
+
 POST_PROCESS = {
     "smb-os-discovery": post_smb_os_discovery,
     "ssl-cert": post_ssl_cert,
+    "ntlm-info": post_ntlm_info,
 }
 
 
@@ -2187,8 +2198,8 @@ argument (a dict object).
                     infos = infos(self._curscript)
                     if infos is not None:
                         self._curscript[infokey] = infos
-            if key in POST_PROCESS:
-                POST_PROCESS[key](self._curscript, current, self._curhost)
+            if infokey in POST_PROCESS:
+                POST_PROCESS[infokey](self._curscript, current, self._curhost)
             current.setdefault('scripts', []).append(self._curscript)
             self._curscript = None
         elif name in ['table', 'elem']:
