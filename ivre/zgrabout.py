@@ -81,7 +81,6 @@ The output is a port dict (i.e., the content of the "ports" key of an
            "state_state": "open", "state_reason": "response",
            "protocol": "tcp"}
     tls = None
-
     try:
         tls = req['tls_handshake']
     except KeyError:
@@ -229,8 +228,11 @@ The output is a port dict (i.e., the content of the "ports" key of an
                     res.setdefault('scripts', []).append({
                         'id': 'http-ntlm-info',
                         'output': output,
-                        'http-ntlm-info': infos
+                        'ntlm-info': infos
                     })
+                    if 'name-dns' in infos:
+                        add_hostname(infos['name-dns'], 'ntlm',
+                                     hostrec.setdefault('hostnames', []))
         if any(val.lower().startswith('ntlm')
                for val in req.get('headers', {}).get('authorization', [])):
             return res
