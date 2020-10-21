@@ -202,8 +202,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
             elif authtype.lower() == 'ntlm':
                 # NTLM_NEGOTIATE and NTLM_AUTHENTICATE
                 if value[5:]:
-                    ntlm_auth = utils.decode_b64(value[5:].strip().encode())
-                    spec['value'] = utils.ntlm_extract_info(ntlm_auth)
+                    auth = utils.decode_b64(value[5:].strip().encode())
+                    spec['value'] = "NTLM %s" % \
+                        utils._ntlm_dict2string(utils.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
@@ -227,8 +228,9 @@ def _prepare_rec(spec, ignorenets, neverignore):
             elif authtype.lower() == 'ntlm':
                 # NTLM_CHALLENGE
                 if value[5:]:
-                    ntlm_auth = utils.decode_b64(value[5:].strip().encode())
-                    spec['value'] = utils.ntlm_extract_info(ntlm_auth)
+                    auth = utils.decode_b64(value[5:].strip().encode())
+                    spec['value'] = "NTLM %s" % \
+                        utils._ntlm_dict2string(utils.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
@@ -329,6 +331,9 @@ def _getinfos_http_client_authorization(spec):
                         infos[key] = value[1:-1]
             except Exception:
                 pass
+        elif data[0].lower() == 'ntlm':
+            spec['value'] = spec['value'][4:].strip()
+            return _getinfos_ntlm(spec)
     res = {}
     if infos:
         res['infos'] = infos
@@ -480,7 +485,7 @@ def _getinfos_authentication(spec):
     """
     Parse value of *-AUTHENTICATE headers depending on the protocol used
     """
-    if spec['value'][:4] == 'NTLM' and len(spec['value']) > 4:
+    if spec['value'][:4].lower() == 'ntlm' and spec['value'][4:]:
         spec['value'] = spec['value'][4:].strip()
         return _getinfos_ntlm(spec)
 
@@ -489,8 +494,7 @@ def _getinfos_authentication(spec):
 
 def _getinfos_ntlm(spec):
     """
-    Get infos from the NTLMSSP_CHALLENGE matching the smb-os-discovery scripts
-    form Masscan and Nmap
+    Get information from NTLM_CHALLENGE and NTLM_AUTHENTICATE messages
     """
     value = spec['value']
     return {'infos': {

@@ -616,7 +616,7 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
 
     local value = vector();
     if (request?$domain_name) {
-        value += "workgroup:" + encode_base64(request$domain_name);
+        value += "domain:" + encode_base64(request$domain_name);
     }
     if (request?$user_name) {
         value += "user-name:" + encode_base64(request$user_name);
