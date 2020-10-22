@@ -459,7 +459,6 @@ def _getinfos_http_client_authorization(spec):
         elif (value[:4].lower() == "ntlm" and value[4:].strip()) or (
             value[:9].lower() == "negotiate" and value[9:].strip()
         ):
-            spec["value"] = spec["value"].split(None, 1)[1]
             return _getinfos_ntlm(spec)
     res = {}
     if infos:
@@ -623,9 +622,12 @@ def _getinfos_ntlm(spec):
     """
     Get information from NTLMSSP messages
     """
+    value = spec["value"]
+    if value.split(None, 1)[0].lower() in {"ntlm", "negotiate"}:
+        value = value.split(None, 1)[1]
     info = {}
     try:
-        for k, v in (item.split(":", 1) for item in spec["value"].split(",")):
+        for k, v in (item.split(":", 1) for item in value.split(",")):
             if k == "NTLM_Version":
                 try:
                     info[k] = int(v)

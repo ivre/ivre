@@ -60,6 +60,13 @@ def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
 
 def _extract_passive_HTTP_SERVER_HEADER(rec):
     """Handle http server headers."""
+    if (
+        rec["value"]
+        and rec.get("source") in ["WWW-AUTHENTICATE", "PROXY-AUTHENTICATE"]
+        and rec["value"].split(None, 1)[0].lower() in {"ntlm", "negotiate"}
+        and len(rec["value"].split(None, 1)) > 1
+    ):
+        return _extract_passive_NTLM(rec, service="http")
     port = {
         "state_state": "open",
         "state_reason": "passive",
@@ -116,6 +123,13 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
 def _extract_passive_HTTP_CLIENT_HEADER(rec):
     """Handle http client headers."""
     # TODO: handle other header values
+    if (
+        rec["value"]
+        and rec.get("source") in ["AUTHORIZATION", "PROXY-AUTHORIZATION"]
+        and rec["value"].split(None, 1)[0].lower() in {"ntlm", "negotiate"}
+        and len(rec["value"].split(None, 1)) > 1
+    ):
+        return _extract_passive_NTLM(rec, service="http")
     if rec.get("source") != "USER-AGENT":
         return {}
     scripts = [
@@ -499,6 +513,35 @@ def _extract_passive_OPEN_PORT(rec):
     return {"ports": [port]}
 
 
+def _extract_passive_NTLM(rec, service=None):
+    """Handle NTLM """
+    script = {}
+    port = {"protocol": rec["source"], "scripts": [script]}
+    if "port" in rec:
+        port["state_state"] = "open"
+        port["state_reason"] = "passive"
+        port["port"] = rec["port"]
+    else:
+        port["port"] = -1
+    if service is None:
+        services = set(rec.get("source", "").split("-"))
+        if "SMB" in services:
+            script["id"] = "smb-ntlm-info"
+        elif "DCE_RPC" in services:
+            script["id"] = "dcerpc-ntlm-info"
+        else:
+            utils.LOGGER.warning("Unknown NTLM services: %r", rec.get("source"))
+            script["id"] = "unknown-ntlm-info"
+    else:
+        port["service_name"] = service
+        script["id"] = "{}-ntlm-info".format(service)
+    script["ntlm-info"] = rec["infos"]
+
+    script["output"] = "\n".join("{}: {}".format(k, v) for k, v in rec["infos"].items())
+
+    return {"ports": [port]}
+
+
 smb_values = ["OS", "LAN Manager"]
 smb_keys = ["os", "lanmanager"]
 
@@ -544,6 +587,8 @@ _EXTRACTORS = {
     "TCP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "UDP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "HTTP_HONEYPOT_REQUEST": _extract_passive_HTTP_HONEYPOT_REQUEST,
+    "NTLM_CHALLENGE": _extract_passive_NTLM,
+    "NTLM_AUTHENTICATE": _extract_passive_NTLM,
     "SMB": _extract_passive_SMB_SESSION_SETUP,
 }
 
