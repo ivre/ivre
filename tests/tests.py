@@ -963,44 +963,49 @@ purposes to feed Elasticsearch view.
                                     ivre.db.db.nmap.searchhost("127.12.34.56"),
                                     ["--host", "127.12.34.56"], "127.12.34.56")
 
-        generator = iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty))
-        addrrange = sorted((x['addr'] for x in [next(generator),
-                                                next(generator)]),
-                           key=ivre.utils.force_ip2int)
-        addr_range_count = self.check_nmap_count_value(
-            None, ivre.db.db.nmap.searchrange(*addrrange),
-            ["--range"] + addrrange,
-            "range:%s-%s" % tuple(addrrange),
-        )
-        self.assertGreaterEqual(addr_range_count, 2)
-        self.check_count_value_api(
-            hosts_count - addr_range_count,
-            ivre.db.db.nmap.searchrange(*addrrange, neg=True),
-            database=ivre.db.db.nmap
-        )
-        count = sum(
-            ivre.db.db.nmap.count(ivre.db.db.nmap.searchnet(net))
-            for net in ivre.utils.range2nets(addrrange)
-        )
-        self.assertEqual(count, addr_range_count)
-
-        addrs = set(
-            addr
-            for net in ivre.utils.range2nets(addrrange)
-            for addr in ivre.db.db.nmap.distinct(
-                "addr", flt=ivre.db.db.nmap.searchnet(net),
+        for flt in [ivre.db.db.nmap.searchipv4(),
+                    ivre.db.db.nmap.searchipv6()]:
+            generator = iter(ivre.db.db.nmap.get(flt))
+            try:
+                addrrange = sorted((x['addr'] for x in [next(generator),
+                                                        next(generator)]),
+                                   key=ivre.utils.force_ip2int)
+            except StopIteration:
+                continue
+            addr_range_count = self.check_nmap_count_value(
+                None, ivre.db.db.nmap.searchrange(*addrrange),
+                ["--range"] + addrrange,
+                "range:%s-%s" % tuple(addrrange),
             )
-        )
-        self.assertTrue(len(addrs) <= addr_range_count)
+            self.assertGreaterEqual(addr_range_count, 2)
+            self.check_count_value_api(
+                hosts_count - addr_range_count,
+                ivre.db.db.nmap.searchrange(*addrrange, neg=True),
+                database=ivre.db.db.nmap
+            )
+            count = sum(
+                ivre.db.db.nmap.count(ivre.db.db.nmap.searchnet(net))
+                for net in ivre.utils.range2nets(addrrange)
+            )
+            self.assertEqual(count, addr_range_count)
 
-        count = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchhosts(addrrange)
-        )
-        self.assertEqual(count, 2)
-        count_cmpl = ivre.db.db.nmap.count(
-            ivre.db.db.nmap.searchhosts(addrrange, neg=True)
-        )
-        self.assertEqual(count + count_cmpl, hosts_count)
+            addrs = set(
+                addr
+                for net in ivre.utils.range2nets(addrrange)
+                for addr in ivre.db.db.nmap.distinct(
+                    "addr", flt=ivre.db.db.nmap.searchnet(net),
+                )
+            )
+            self.assertTrue(len(addrs) <= addr_range_count)
+
+            count = ivre.db.db.nmap.count(
+                ivre.db.db.nmap.searchhosts(addrrange)
+            )
+            self.assertEqual(count, 2)
+            count_cmpl = ivre.db.db.nmap.count(
+                ivre.db.db.nmap.searchhosts(addrrange, neg=True)
+            )
+            self.assertEqual(count + count_cmpl, hosts_count)
 
         count = ivre.db.db.nmap.count(
             ivre.db.db.nmap.searchtimerange(
@@ -1147,7 +1152,7 @@ purposes to feed Elasticsearch view.
 
         # Indexes
         addr = next(iter(ivre.db.db.nmap.get(
-            ivre.db.db.nmap.flt_empty
+            ivre.db.db.nmap.searchipv4()
         )))['addr']
         addr_net = '.'.join(addr.split('.')[:3]) + '.0/24'
         queries = [
@@ -4412,7 +4417,7 @@ purposes to feed Elasticsearch view.
         print('Web /view URLs')
         # Check Web /view
         addr = next(iter(ivre.db.db.view.get(
-            ivre.db.db.view.flt_empty, fields=['addr']
+            ivre.db.db.view.searchipv4(), fields=['addr']
         )))['addr']
         addr_i = ivre.utils.force_ip2int(addr)
         addr = ivre.utils.force_int2ip(addr)
