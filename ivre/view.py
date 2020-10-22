@@ -499,6 +499,32 @@ def _extract_passive_OPEN_PORT(rec):
     return {"ports": [port]}
 
 
+smb_values = ["OS", "LAN Manager"]
+smb_keys = ["os", "lanmanager"]
+
+
+def _extract_passive_SMB_SESSION_SETUP(rec):
+    """Handle SMB Session Setup Request and Response"""
+    keyvals = zip(
+        smb_values, (rec["infos"][k] if k in rec["infos"] else "" for k in smb_keys)
+    )
+    script = {"id": "smb-os-discovery"}
+    script["smb-os-discovery"] = rec["infos"]
+    script["output"] = "\n".join(
+        ("{}: {}".format(k, v) if v else "") for k, v in keyvals
+    )
+    port = {}
+    if "port" in rec:
+        port["state_state"] = "open"
+        port["state_reason"] = "passive"
+        port["port"] = rec["port"]
+    else:
+        port["port"] = -1
+    port["protocol"] = rec["source"].split("-", 1)[0]
+    port["scripts"] = [script]
+    return {"ports": [port]}
+
+
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
     "HTTP_CLIENT_HEADER": _extract_passive_HTTP_CLIENT_HEADER,
@@ -518,6 +544,7 @@ _EXTRACTORS = {
     "TCP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "UDP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "HTTP_HONEYPOT_REQUEST": _extract_passive_HTTP_HONEYPOT_REQUEST,
+    "SMB": _extract_passive_SMB_SESSION_SETUP,
 }
 
 
