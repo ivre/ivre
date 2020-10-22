@@ -118,6 +118,16 @@ ALIASES_TABLE_ELEMS = {
     "sslv2-drown": "vulns",
     "supermicro-ipmi-conf": "vulns",
     "tls-ticketbleed": "vulns",
+    # ntlm unified output (*-ntlm-info modules)
+    #   ls *ntlm* | sed 's#^#    "#;s#.nse$#": "ntlm-info",#'
+    "http-ntlm-info": "ntlm-info",
+    "imap-ntlm-info": "ntlm-info",
+    "ms-sql-ntlm-info": "ntlm-info",
+    "nntp-ntlm-info": "ntlm-info",
+    "pop3-ntlm-info": "ntlm-info",
+    "rdp-ntlm-info": "ntlm-info",
+    "smtp-ntlm-info": "ntlm-info",
+    "telnet-ntlm-info": "ntlm-info",
 }
 
 
