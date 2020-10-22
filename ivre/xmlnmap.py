@@ -821,6 +821,9 @@ def post_smb_os_discovery(script, port, host):
 
 
 def post_ssl_cert(script, port, host):
+    # We do not want to add hostnames from ssl-cacert results
+    if script['id'] != 'ssl-cert':
+        return
     for cert in script.get('ssl-cert', []):
         add_cert_hostnames(cert, host.setdefault('hostnames', []))
 
