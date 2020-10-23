@@ -31,6 +31,7 @@ from future.utils import viewitems
 
 
 from ivre import utils, config
+from ivre.analyzer import ntlm
 
 
 SCHEMA_VERSION = 2
@@ -204,7 +205,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 if value[5:]:
                     auth = utils.decode_b64(value[5:].strip().encode())
                     spec['value'] = "NTLM %s" % \
-                        utils._ntlm_dict2string(utils.ntlm_extract_info(auth))
+                        ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
@@ -230,7 +231,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 if value[5:]:
                     auth = utils.decode_b64(value[5:].strip().encode())
                     spec['value'] = "NTLM %s" % \
-                        utils._ntlm_dict2string(utils.ntlm_extract_info(auth))
+                        ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
