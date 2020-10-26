@@ -547,7 +547,7 @@ event connection_established(c: connection) {
 function _get_protocol_version(c: connection): string {
 
     if (c?$smb_state) {
-        return "protocol:" + encode_base64(c$smb_state$current_cmd$version);
+        return "Protocol:" + encode_base64(c$smb_state$current_cmd$version);
     }
     return "";
 }
@@ -567,37 +567,37 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
 
     # Build a string with all the host information found with NTLM
     # (the resulting string is a list of "field:val" with values encoded in b64)
-    local value = vector(fmt("target:%s",
+    local value = vector(fmt("Target_Name:%s",
                              encode_base64(challenge$target_name)));
 
+    if (challenge$target_info?$nb_domain_name) {
+        value += "NetBIOS_Domain_Name:" +
+            encode_base64(challenge$target_info$nb_domain_name);
+    }
+    if (challenge$target_info?$nb_computer_name) {
+        value += "NetBIOS_Computer_Name:" +
+            encode_base64(challenge$target_info$nb_computer_name);
+    }
+    if (challenge$target_info?$dns_domain_name) {
+        value += "DNS_Domain_Name:" +
+            encode_base64(challenge$target_info$dns_domain_name);
+    }
+    if (challenge$target_info?$dns_computer_name) {
+        value += "DNS_Computer_Name:" +
+            encode_base64(challenge$target_info$dns_computer_name);
+    }
+    if (challenge$target_info?$dns_tree_name) {
+        value += "DNS_Tree_Name:" +
+            encode_base64(challenge$target_info$dns_tree_name);
+    }
     if (challenge?$version) {
-        value += "ntlm-os:" + encode_base64(fmt("%s.%s.%s",
+        value += "Product_Version:" + encode_base64(fmt("%s.%s.%s",
                                                 challenge$version$major,
                                                 challenge$version$minor,
                                                 challenge$version$build));
-        value += fmt("ntlm-version:%d", challenge$version$ntlmssp);
+        value += fmt("NTLM_Version:%d", challenge$version$ntlmssp);
     }
 
-    if (challenge$target_info?$dns_computer_name) {
-        value += "name-dns:" +
-            encode_base64(challenge$target_info$dns_computer_name);
-    }
-    if (challenge$target_info?$dns_domain_name) {
-        value += "domain-dns:" +
-            encode_base64(challenge$target_info$dns_domain_name);
-    }
-    if (challenge$target_info?$dns_tree_name) {
-        value += "tree-dns:" +
-            encode_base64(challenge$target_info$dns_tree_name);
-    }
-    if (challenge$target_info?$nb_computer_name) {
-        value += "name:" +
-            encode_base64(challenge$target_info$nb_computer_name);
-    }
-    if (challenge$target_info?$nb_domain_name) {
-        value += "domain:" +
-            encode_base64(challenge$target_info$nb_domain_name);
-    }
     local proto = _get_protocol_version(c);
     if (proto != "") {
         value += proto;
@@ -616,20 +616,20 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
 
     local value = vector();
     if (request?$domain_name) {
-        value += "domain:" + encode_base64(request$domain_name);
+        value += "NetBIOS_Domain_Name:" + encode_base64(request$domain_name);
     }
     if (request?$user_name) {
-        value += "user-name:" + encode_base64(request$user_name);
+        value += "User_Name:" + encode_base64(request$user_name);
     }
     if (request?$workstation) {
-        value += "worstation:" + encode_base64(request$workstation);
+        value += "Worstation:" + encode_base64(request$workstation);
     }
     if (request?$version) {
-        value += "ntlm-os:" + encode_base64(fmt("%s.%s.%s",
+        value += "Product_Version:" + encode_base64(fmt("%s.%s.%s",
                                                 request$version$major,
                                                 request$version$minor,
                                                 request$version$build));
-        value += fmt("ntlm-version:%d", request$version$ntlmssp);
+        value += fmt("NTLM_Version:%d", request$version$ntlmssp);
     }
     local proto = _get_protocol_version(c);
     if (proto != "") {

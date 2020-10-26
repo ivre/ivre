@@ -52,8 +52,8 @@ flag_targetinfo = 0x800000
 #  - 3: DNS Computer Name
 #  - 4: DNS Domain Name
 #  - 5: DNS Tree Name
-info_types = {1: 'name', 2: 'domain', 3: 'name-dns', 4: 'domain-dns',
-              5: 'tree-dns'}
+info_types = {1: 'NetBIOS_Computer_Name', 2: 'NetBIOS_Domain_Name',
+              3: 'DNS_Computer_Name', 4: 'DNS_Domain_Name', 5: 'DNS_Tree_Name'}
 
 
 def _ntlm_challenge_extract(challenge):
@@ -71,7 +71,7 @@ def _ntlm_challenge_extract(challenge):
     # Get target name
     lntarget, offset = struct.unpack('H2xH', challenge[12:18])
     try:
-        value['target'] = _extract_substr(challenge, offset, lntarget)
+        value['Target_Name'] = _extract_substr(challenge, offset, lntarget)
     except ValueError:
         pass
 
@@ -96,11 +96,11 @@ def _ntlm_challenge_extract(challenge):
 
         maj, minor, bld, ntlm_ver = struct.unpack('BBH3xB', challenge[48:56])
         try:
-            value['ntlm-os'] = "{}.{}.{}".format(maj, minor, bld)
+            value['Product_Version'] = "{}.{}.{}".format(maj, minor, bld)
         except ValueError:
             pass
         try:
-            value['ntlm-version'] = ntlm_ver
+            value['NTLM_Version'] = ntlm_ver
         except ValueError:
             pass
 
@@ -149,7 +149,7 @@ def _ntlm_authenticate_info(request):
     ln, offset = struct.unpack('H2xI', request[28:36])
     if ln:
         try:
-            value['domain'] = _extract_substr(request, offset, ln)
+            value['NetBIOS_Domain_Name'] = _extract_substr(request, offset, ln)
         except ValueError:
             pass
     has_version = False
@@ -162,13 +162,13 @@ def _ntlm_authenticate_info(request):
     ln, off = struct.unpack('H2xI', request[36:44])
     if ln:
         try:
-            value['user-name'] = _extract_substr(request, off, ln)
+            value['User_Name'] = _extract_substr(request, off, ln)
         except ValueError:
             pass
     ln, off = struct.unpack('H2xI', request[44:52])
     if ln:
         try:
-            value['workstation'] = _extract_substr(request, off, ln)
+            value['Workstation'] = _extract_substr(request, off, ln)
         except ValueError:
             pass
 
@@ -178,11 +178,11 @@ def _ntlm_authenticate_info(request):
     if has_version and offset >= 72 and request[72:]:
         maj, minor, bld, ntlm_ver = struct.unpack('BBH3xB', request[64:72])
         try:
-            value['ntlm-os'] = "{}.{}.{}".format(maj, minor, bld)
+            value['Product_Version'] = "{}.{}.{}".format(maj, minor, bld)
         except ValueError:
             pass
         try:
-            value['ntlm-version'] = ntlm_ver
+            value['NTLM_Version'] = ntlm_ver
         except ValueError:
             pass
 
@@ -210,7 +210,7 @@ def _ntlm_dict2string(dic):
     Returns a string with the keys and values (encoded in base64)
     of the given dict, in the format
     """
-    return ','.join("{}:{}".format(k, (v if k == 'ntlm-version'
+    return ','.join("{}:{}".format(k, (v if k == 'NTLM_Version'
                                        else utils.encode_b64(
                                            v.encode()).decode()))
                     for k, v in dic.items())
