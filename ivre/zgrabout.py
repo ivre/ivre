@@ -44,8 +44,6 @@ _EXPR_CENTREON_VERSION = re.compile(
 ntlm_values = ['Target_Name', 'NetBIOS_Domain_Name', 'NetBIOS_Computer_Name',
                'DNS_Domain_Name', 'DNS_Computer_Name', 'DNS_Tree_Name',
                'Product_Version', 'NTLM_Version']
-ntlm_keys = ['target', 'domain', 'name', 'domain-dns', 'name-dns', 'tree-dns',
-             'ntlm-os', 'ntlm-version']
 
 
 def zgrap_parser_http(data, hostrec):
@@ -223,7 +221,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
                     infos = ntlm.ntlm_extract_info(
                         utils.decode_b64(auth[4:].strip().encode()))
                     keyvals = zip(ntlm_values,
-                                  [infos.get(k) for k in ntlm_keys])
+                                  [infos.get(k) for k in ntlm_values])
                     output = '\n'.join("{}: {}".format(k, v)
                                        for k, v in keyvals if v)
                     res.setdefault('scripts', []).append({

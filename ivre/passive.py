@@ -500,7 +500,7 @@ def _getinfos_ntlm(spec):
     value = spec['value']
     return {'infos': {
         k: (int(v)
-            if k == 'ntlm-version' else
+            if k == 'NTLM_Version' else
             utils.decode_b64(v.encode()).decode())
         for k, v in (item.split(':', 1) for item in value.split(','))
         if v
