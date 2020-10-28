@@ -200,12 +200,11 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 except Exception:
                     utils.LOGGER.warning("Cannot parse digest error for %r",
                                          spec, exc_info=True)
-            elif authtype.lower() == 'ntlm':
+            elif ntlm._is_ntlm_message(value):
                 # NTLM_NEGOTIATE and NTLM_AUTHENTICATE
-                if value[5:]:
-                    auth = utils.decode_b64(value[5:].strip().encode())
-                    spec['value'] = "NTLM %s" % \
-                        ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
+                auth = utils.decode_b64(value.split(' ', 1)[1].encode())
+                spec['value'] = "NTLM %s" % \
+                    ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
@@ -226,12 +225,11 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 except Exception:
                     utils.LOGGER.warning("Cannot parse digest error for %r",
                                          spec, exc_info=True)
-            elif authtype.lower() == 'ntlm':
+            elif ntlm._is_ntlm_message(value):
                 # NTLM_CHALLENGE
-                if value[5:]:
-                    auth = utils.decode_b64(value[5:].strip().encode())
-                    spec['value'] = "NTLM %s" % \
-                        ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
+                auth = utils.decode_b64(value.split(' ', 1)[1].encode())
+                spec['value'] = "NTLM %s" % \
+                    ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
@@ -332,8 +330,8 @@ def _getinfos_http_client_authorization(spec):
                         infos[key] = value[1:-1]
             except Exception:
                 pass
-        elif data[0].lower() == 'ntlm':
-            spec['value'] = spec['value'][4:].strip()
+        elif ntlm._is_ntlm_message(spec['value']):
+            spec['value'] = spec['value'].split(' ', 1)[1]
             return _getinfos_ntlm(spec)
     res = {}
     if infos:
@@ -486,8 +484,8 @@ def _getinfos_authentication(spec):
     """
     Parse value of *-AUTHENTICATE headers depending on the protocol used
     """
-    if spec['value'][:4].lower() == 'ntlm' and spec['value'][4:]:
-        spec['value'] = spec['value'][4:].strip()
+    if ntlm._is_ntlm_message(spec['value']):
+        spec['value'] = spec['value'].split(' ', 1)[1]
         return _getinfos_ntlm(spec)
 
     return {}

@@ -214,3 +214,16 @@ def _ntlm_dict2string(dic):
                                        else utils.encode_b64(
                                            v.encode()).decode()))
                     for k, v in dic.items())
+
+
+def _is_ntlm_message(message):
+    """
+    Checks whether the given string is an NTLM message
+    """
+    if message[:4].lower() == 'ntlm' and message.split(' ', 1)[1:]:
+        return True
+    if message[:9].lower() == 'negotiate':
+        message = message.split(' ', 1)
+        if message[1:]:
+            return utils.decode_b64(message[1].encode())[:7] == b'NTLMSSP'
+    return False
