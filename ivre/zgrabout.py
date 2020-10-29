@@ -24,6 +24,7 @@
 
 from future.utils import viewitems
 import re
+import binascii
 
 
 from ivre import utils
@@ -218,8 +219,12 @@ The output is a port dict (i.e., the content of the "ports" key of an
             auths = headers.get('www_authenticate')
             for auth in auths:
                 if ntlm._is_ntlm_message(auth):
-                    infos = ntlm.ntlm_extract_info(
-                        utils.decode_b64(auth.split(' ', 1)[1].encode()))
+                    try:
+                        infos = ntlm.ntlm_extract_info(
+                            utils.decode_b64(auth.split(None, 1)[1].encode()))
+                    except (UnicodeDecodeError, TypeError, ValueError,
+                            binascii.Error):
+                        pass
                     keyvals = zip(ntlm_values,
                                   [infos.get(k) for k in ntlm_values])
                     output = '\n'.join("{}: {}".format(k, v)

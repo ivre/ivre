@@ -25,6 +25,7 @@
 import hashlib
 import re
 import struct
+import binascii
 
 
 from future.utils import viewitems
@@ -202,9 +203,14 @@ def _prepare_rec(spec, ignorenets, neverignore):
                                          spec, exc_info=True)
             elif ntlm._is_ntlm_message(value):
                 # NTLM_NEGOTIATE and NTLM_AUTHENTICATE
-                auth = utils.decode_b64(value.split(' ', 1)[1].encode())
-                spec['value'] = "NTLM %s" % \
-                    ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
+                try:
+                    auth = utils.decode_b64(value.split(None, 1)[1].encode())
+                except (UnicodeDecodeError, TypeError, ValueError,
+                        binascii.Error):
+                    pass
+                spec['value'] = "%s %s" % \
+                    (value.split(None, 1)[0],
+                     ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
@@ -227,9 +233,14 @@ def _prepare_rec(spec, ignorenets, neverignore):
                                          spec, exc_info=True)
             elif ntlm._is_ntlm_message(value):
                 # NTLM_CHALLENGE
-                auth = utils.decode_b64(value.split(' ', 1)[1].encode())
-                spec['value'] = "NTLM %s" % \
-                    ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth))
+                try:
+                    auth = utils.decode_b64(value.split(None, 1)[1].encode())
+                except (UnicodeDecodeError, TypeError, ValueError,
+                        binascii.Error):
+                    pass
+                spec['value'] = "%s %s" % \
+                    (value.split(None, 1)[0],
+                     ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)))
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
@@ -311,6 +322,7 @@ def _getinfos_http_client_authorization(spec):
     """
     infos = {}
     data = spec['value'].split(None, 1)
+    value = spec['value']
     if data[1:]:
         if data[0].lower() == 'basic':
             try:
@@ -330,8 +342,9 @@ def _getinfos_http_client_authorization(spec):
                         infos[key] = value[1:-1]
             except Exception:
                 pass
-        elif ntlm._is_ntlm_message(spec['value']):
-            spec['value'] = spec['value'].split(' ', 1)[1]
+        elif (value[:4].lower() == 'ntlm' and value[4:].strip()) or \
+             (value[:9].lower() == 'negotiate' and value[9:].strip()):
+            spec['value'] = spec['value'].split(None, 1)[1]
             return _getinfos_ntlm(spec)
     res = {}
     if infos:
@@ -484,8 +497,10 @@ def _getinfos_authentication(spec):
     """
     Parse value of *-AUTHENTICATE headers depending on the protocol used
     """
-    if ntlm._is_ntlm_message(spec['value']):
-        spec['value'] = spec['value'].split(' ', 1)[1]
+    value = spec['value']
+    if (value[:4].lower() == 'ntlm' and value[4:].strip()) or \
+       (value[:9].lower() == 'negotiate' and value[9:].strip()):
+        spec['value'] = spec['value'].split(None, 1)[1]
         return _getinfos_ntlm(spec)
 
     return {}
@@ -495,14 +510,29 @@ def _getinfos_ntlm(spec):
     """
     Get information from NTLM_CHALLENGE and NTLM_AUTHENTICATE messages
     """
-    value = spec['value']
-    return {'infos': {
-        k: (int(v)
-            if k == 'NTLM_Version' else
-            utils.decode_b64(v.encode()).decode())
-        for k, v in (item.split(':', 1) for item in value.split(','))
-        if v
-    }}
+    info = {}
+    try:
+        for k, v in (item.split(':', 1) for item in spec['value'].split(',')):
+            if k == 'NTLM_Version':
+                try:
+                    info[k] = int(v)
+                except ValueError:
+                    utils.LOGGER.warning(
+                        "Incorrect value for field %r in record %r", k, spec
+                    )
+            else:
+                try:
+                    info[k] = utils.decode_b64(v.encode()).decode()
+                except (UnicodeDecodeError, TypeError, ValueError,
+                        binascii.Error):
+                    utils.LOGGER.warning(
+                        "Incorrect value for field %r in record %r", k, spec
+                    )
+    except ValueError:
+        utils.LOGGER.warning("Incorrect value in message: %r", spec)
+        return {}
+
+    return {'infos': info}
 
 
 def _getinfos_smb(spec):
@@ -510,13 +540,29 @@ def _getinfos_smb(spec):
     Get information on an OS from SMB `Session Setup Request` and
     `Session Setup Response`
     """
-    return {'infos': {
-        k: (v == "true"
-            if k == "is_guest" else
-            utils.decode_b64(v.encode()).decode())
-        for k, v in (item.split(':', 1) for item in spec['value'].split(','))
-        if v
-    }}
+    info = {}
+    try:
+        for k, v in (item.split(':', 1) for item in spec['value'].split(',')):
+            if k == 'is_guest':
+                try:
+                    info[k] = v == 'true'
+                except ValueError:
+                    utils.LOGGER.warning(
+                        "Incorrect value for field %r in record %r", k, spec
+                    )
+            else:
+                try:
+                    info[k] = utils.decode_b64(v.encode()).decode()
+                except (UnicodeDecodeError, TypeError, ValueError,
+                        binascii.Error):
+                    utils.LOGGER.warning(
+                        "Incorrect value for field %r in record %r", k, spec
+                    )
+    except ValueError:
+        utils.LOGGER.warning("Incorrect value in message: %r", spec)
+        return {}
+
+    return {'infos': info}
 
 
 _GETINFOS_FUNCTIONS = {
