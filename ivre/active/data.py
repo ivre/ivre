@@ -434,6 +434,19 @@ def merge_host_docs(rec1, rec2):
                other.get('port') == trace.get('port')
                for other in rec['traces']):
             continue
+        rec["traces"].append(trace)
+    rec["cpes"] = rec2.get("cpes", [])
+    for cpe in rec1.get("cpes", []):
+        origins = cpe.pop("origins")
+        cpe["origins"] = None
+        try:
+            other = next(
+                ocpe for ocpe in rec["cpes"] if dict(ocpe, origins=None) == cpe
+            )
+        except StopIteration:
+            rec["cpes"].append(dict(cpe, origins=origins))
+        else:
+            other.setdefault("origins", set()).union(origins)
     rec["infos"] = {}
     for record in [rec1, rec2]:
         rec["infos"].update(record.get("infos", {}))
@@ -524,7 +537,7 @@ def merge_host_docs(rec1, rec2):
     if not sa_honeypot:
         cleanup_synack_honeypot_host(rec, update_openports=False)
     set_openports_attribute(rec)
-    for field in ["traces", "infos", "ports"]:
+    for field in ["traces", "infos", "ports", "cpes"]:
         if not rec[field]:
             del rec[field]
     return rec
