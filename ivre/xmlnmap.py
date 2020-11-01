@@ -44,7 +44,7 @@ from past.builtins import basestring
 
 from ivre.active.cpe import cpe2dict
 from ivre.active.data import ALIASES_TABLE_ELEMS, \
-    cleanup_synack_honeypot_host, create_ssl_output, merge_http_app_scripts
+    cleanup_synack_honeypot_host, create_ssl_output, handle_http_headers
 from ivre.analyzer import dicom, ike
 from ivre import utils
 
@@ -839,7 +839,15 @@ def post_ntlm_info(script, port, host):
                  host.setdefault('hostnames', []))
 
 
+def post_http_headers(script, port, host):
+    if 'http-headers' not in script:
+        return
+    handle_http_headers(host, port, script['http-headers'],
+                        handle_server=False)
+
+
 POST_PROCESS = {
+    "http-headers": post_http_headers,
     "smb-os-discovery": post_smb_os_discovery,
     "ssl-cert": post_ssl_cert,
     "ntlm-info": post_ntlm_info,
@@ -2460,21 +2468,8 @@ argument (a dict object).
                 ) if m
             )
         )
-        headers = [utils.nmap_decode_data(h['value'])
-                   for h in script['http-headers']
-                   if h['name'] == 'server']
-        if not (headers and headers[0]):
-            return
-        self._curport.setdefault('scripts', []).append({
-            "id": "http-server-header",
-            "output": '\n'.join(utils.nmap_encode_data(hdr)
-                                for hdr in headers),
-            "http-server-header": [utils.nmap_encode_data(hdr)
-                                   for hdr in headers],
-            "masscan": {
-                "raw": self._to_binary(headers[0]),
-            },
-        })
+        handle_http_headers(self._curhost, self._curport,
+                            script['http-headers'])
 
     def masscan_post_http_content(self, script):
         self._curport['service_name'] = 'http'
