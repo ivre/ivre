@@ -27,11 +27,12 @@ from textwrap import wrap
 from future.utils import viewvalues
 
 
+from ivre.active.cpe import add_cpe_values
 from ivre.active.data import create_ssl_output, set_openports_attribute
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, cpe2dict
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -76,19 +77,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
     nmap_info = utils.match_nmap_svc_fp(output=banner,
                                         proto=rec.get('protocol', 'tcp'),
                                         probe="GetRequest")
-    path = 'ports.port:%s' % port
-    cpes = host.setdefault('cpes', {})
-    for cpe in nmap_info.pop('cpe', []):
-        if cpe not in cpes:
-            try:
-                cpeobj = cpe2dict(cpe)
-            except ValueError:
-                utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
-                continue
-            cpes[cpe] = cpeobj
-        else:
-            cpeobj = cpes[cpe]
-        cpeobj.setdefault('origins', set()).add(path)
+    add_cpe_values(host, 'ports.port:%s' % port, nmap_info.pop('cpe', []))
     host['cpes'] = list(viewvalues(host['cpes']))
     for cpe in host['cpes']:
         cpe['origins'] = sorted(cpe['origins'])
@@ -129,19 +118,7 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
     nmap_info = utils.match_nmap_svc_fp(output=utils.nmap_decode_data(value),
                                         proto=rec.get('protocol', 'tcp'),
                                         probe="NULL")
-    path = 'ports.port:%s' % port
-    cpes = host.setdefault('cpes', {})
-    for cpe in nmap_info.pop('cpe', []):
-        if cpe not in cpes:
-            try:
-                cpeobj = cpe2dict(cpe)
-            except ValueError:
-                utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
-                continue
-            cpes[cpe] = cpeobj
-        else:
-            cpeobj = cpes[cpe]
-        cpeobj.setdefault('origins', set()).add(path)
+    add_cpe_values(host, 'ports.port:%s' % port, nmap_info.pop('cpe', []))
     host['cpes'] = list(viewvalues(host['cpes']))
     for cpe in host['cpes']:
         cpe['origins'] = sorted(cpe['origins'])

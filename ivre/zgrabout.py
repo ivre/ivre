@@ -28,7 +28,8 @@ import re
 
 from ivre import utils
 from ivre.analyzer import ntlm
-from ivre.xmlnmap import add_cert_hostnames, add_hostname, cpe2dict, \
+from ivre.active.cpe import add_cpe_values
+from ivre.xmlnmap import add_cert_hostnames, add_hostname, \
     create_elasticsearch_service, create_http_ls, create_ssl_cert
 
 
@@ -266,19 +267,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
                        b"\r\n\r\n")
     info = utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
     if info:
-        path = 'ports.port:%s' % port
-        cpes = hostrec.setdefault('cpes', {})
-        for cpe in info.pop('cpe', []):
-            if cpe not in cpes:
-                try:
-                    cpeobj = cpe2dict(cpe)
-                except ValueError:
-                    utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
-                    continue
-                cpes[cpe] = cpeobj
-            else:
-                cpeobj = cpes[cpe]
-            cpeobj.setdefault('origins', set()).add(path)
+        add_cpe_values(hostrec, 'ports.port:%s' % port, info.pop('cpe', []))
         res.update(info)
     if resp.get('body'):
         body = resp['body']
@@ -301,20 +290,8 @@ The output is a port dict (i.e., the content of the "ports" key of an
             if 'hostname' in service_elasticsearch:
                 add_hostname(service_elasticsearch.pop('hostname'), 'service',
                              hostrec.setdefault('hostnames', []))
-            # TODO: handle CPE values
-            for cpe in service_elasticsearch.pop('cpe', []):
-                path = 'ports.port:%s' % port
-                cpes = hostrec.setdefault('cpes', {})
-                if cpe not in cpes:
-                    try:
-                        cpeobj = cpe2dict(cpe)
-                    except ValueError:
-                        utils.LOGGER.warning("Invalid cpe format (%s)", cpe)
-                        continue
-                    cpes[cpe] = cpeobj
-                else:
-                    cpeobj = cpes[cpe]
-                cpeobj.setdefault('origins', set()).add(path)
+            add_cpe_values(hostrec, 'ports.port:%s' % port,
+                           service_elasticsearch.pop('cpe', []))
             res.update(service_elasticsearch)
     return res
 

@@ -42,8 +42,9 @@ from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 
 
+from ivre.active.cpe import cpe2dict
 from ivre.active.data import ALIASES_TABLE_ELEMS, \
-    cleanup_synack_honeypot_host, create_ssl_output
+    cleanup_synack_honeypot_host, create_ssl_output, merge_http_app_scripts
 from ivre.analyzer import dicom, ike
 from ivre import utils
 
@@ -1393,35 +1394,6 @@ def ignore_script(script):
                                   for expr in IGNORE_SCRIPT_OUTPUTS_REGEXP):
         return True
     return False
-
-
-def cpe2dict(cpe_str):
-    """Helper function to parse CPEs. This is a very partial/simple parser.
-
-    Raises:
-        ValueError if the cpe string is not parsable.
-
-    """
-    # Remove prefix
-    if not cpe_str.startswith("cpe:/"):
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_body = cpe_str[5:]
-    parts = cpe_body.split(":", 3)
-    nparts = len(parts)
-    if nparts < 2:
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_type = parts[0]
-    cpe_vend = parts[1]
-    cpe_prod = parts[2] if nparts > 2 else ""
-    cpe_vers = parts[3] if nparts > 3 else ""
-
-    ret = {
-        "type": cpe_type,
-        "vendor": cpe_vend,
-        "product": cpe_prod,
-        "version": cpe_vers,
-    }
-    return ret
 
 
 # This is not a real hostname regexp, but a simple way to exclude
