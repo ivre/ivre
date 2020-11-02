@@ -45,7 +45,7 @@ from ivre.analyzer import dicom, ike
 from ivre import utils
 
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 # Scripts that mix elem/table tags with and without key attributes,
 # which is not supported for now
@@ -882,6 +882,51 @@ POST_PROCESS = {
     "smb-os-discovery": post_smb_os_discovery,
     "ssl-cert": post_ssl_cert,
     "ntlm-info": post_ntlm_info,
+}
+
+
+def split_smb_os_discovery(script):
+    value = script["smb-os-discovery"]
+    smb_values = {
+        "os": "OS",
+        "lanmanager": "LAN Manager",
+        "date": "System Time",
+        "cpe": "OS CPE",
+        "smb-version": "SMB Version",
+        "guid": "GUID",
+    }
+    yield {
+        "id": "smb-os-discovery",
+        "smb-os-discovery": {k: value.get(k) for k in smb_values if k in value},
+        "output": "\n".join(
+            "  {}: {}".format(f, value.get(k))
+            for k, f in smb_values.items()
+            if k in value
+        ),
+    }
+    ntlm_values = {
+        "domain": "NetBIOS_Domain_Name",
+        "server": "NetBIOS_Computer_Name",
+        "fqdn": "DNS_Computer_Name",
+        "domain_dns": "DNS_Domain_Name",
+        "forest_dns": "DNS_Tree_Name",
+        "workgroup": "Workgroup",
+        "ntlm-os": "Product_Version",
+        "ntlm-version": "NTLM_Version",
+    }
+    yield {
+        "id": "smb-ntlm-info",
+        "ntlm-info": {k: value.get(k) for k in ntlm_values if k in value},
+        "output": "\n".join(
+            "  {}: {}".format(f, value.get(k))
+            for k, f in ntlm_values.items()
+            if k in value
+        ),
+    }
+
+
+SPLIT_SCRIPTS = {
+    "smb-os-discovery": split_smb_os_discovery,
 }
 
 
@@ -1928,14 +1973,7 @@ class NmapHandler(ContentHandler):
                         smb_os_disco_output.append("  OS: - (%s)" % data["ver"])
                         smb_os_disco["lanmanager"] = data["ver"]
                     for masscankey, nmapkey, humankey in [
-                        ("name", "server", "NetBIOS computer name"),
-                        ("domain", "workgroup", "Workgroup"),
-                        ("name-dns", "fqdn", "FQDN"),
-                        ("domain-dns", "domain_dns", "Domain name"),
-                        ("forest", "forest_dns", "Forest name"),
-                        ("version", "ntlm-os", "Version (from NTLM)"),
-                        ("ntlm-ver", "ntlm-version", "NTLM version"),
-                        ("smb-version", "smb-version", "SMB version"),
+                        ("smb-version", "smb-version", "SMB Version"),
                         ("guid", "guid", "GUID"),
                     ]:
                         if masscankey in data:
@@ -1948,9 +1986,30 @@ class NmapHandler(ContentHandler):
                                         data[masscankey],
                                     )
                                 )
-                    if "fqdn" in smb_os_disco:
+                    ntlm_info = {}
+                    ntlm_info_output = [""]
+                    for masscankey, humankey in [
+                        ("name", "NetBIOS_Computer_Name"),
+                        ("domain", "Workgroup"),
+                        ("name-dns", "DNS_Computer_Name"),
+                        ("domain-dns", "DNS_Domain_Name"),
+                        ("forest", "DNS_Tree_Name"),
+                        ("version", "Product_Version"),
+                        ("ntlm-ver", "NTLM_Version"),
+                    ]:
+                        if masscankey in data:
+                            ntlm_info[nmapkey] = data[masscankey]
+                            if humankey is not None:
+                                ntlm_info_output.append(
+                                    "  %s: %s"
+                                    % (
+                                        humankey,
+                                        data[masscankey],
+                                    )
+                                )
+                    if "fqdn" in ntlm_info:
                         add_hostname(
-                            smb_os_disco["fqdn"],
+                            ntlm_info["fqdn"],
                             "smb",
                             self._curhost.setdefault("hostnames", []),
                         )
@@ -1973,8 +2032,7 @@ class NmapHandler(ContentHandler):
                             smb2_time["date"] = str(data["time"])
                             smb2_time_out.append("  date: %s" % data["time"])
                         if "boottime" in data:
-                            # Masscan has to be patched to report
-                            # this.
+                            # Masscan has to be patched to report this.
                             smb2_time["start_time"] = str(data["boottime"])
                             smb2_time_out.append("  start_time: %s" % data["boottime"])
                         if smb2_time:
@@ -1991,6 +2049,15 @@ class NmapHandler(ContentHandler):
                             "id": "smb-os-discovery",
                             "smb-os-discovery": smb_os_disco,
                             "output": "\n".join(smb_os_disco_output),
+                            "masscan": masscan_data,
+                        }
+                    )
+                    ntlm_info["protocol"] = "smb"
+                    scripts.append(
+                        {
+                            "id": "ntlm-info",
+                            "ntlm-info": ntlm_info,
+                            "output": "\n".join(ntlm_info_output),
                             "masscan": masscan_data,
                         }
                     )
@@ -2335,7 +2402,11 @@ class NmapHandler(ContentHandler):
                         self._curscript[infokey] = infos
             if infokey in POST_PROCESS:
                 POST_PROCESS[infokey](self._curscript, current, self._curhost)
-            current.setdefault("scripts", []).append(self._curscript)
+            if infokey in SPLIT_SCRIPTS:
+                for scr in SPLIT_SCRIPTS[infokey](self._curscript):
+                    current.setdefault("scripts", []).append(scr)
+            else:
+                current.setdefault("scripts", []).append(self._curscript)
             self._curscript = None
         elif name in ["table", "elem"]:
             if self._curscript.get("id") in IGNORE_TABLE_ELEMS:
