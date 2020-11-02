@@ -87,7 +87,7 @@ The field ``starttime`` can be used as the "Time Filter field name".
 You are all set! Now, explore this data set as you would explore any
 other one.
 
-For a couple of examples of how Kiban can be used to explore IVRE's
+For a couple of examples of how Kibana can be used to explore IVRE's
 data see the :ref:`overview/screenshots:Kibana exploration` part of
 the screenshot gallery for examples of useful visualizations.
 
