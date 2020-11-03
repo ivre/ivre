@@ -749,31 +749,13 @@ def open_file(fname):
     return FileOpener(fname)
 
 
-_HASH_COMMANDS = {
-    'md5': config.MD5_CMD,
-    'sha1': config.SHA1_CMD,
-    'sha256': config.SHA256_CMD,
-}
-
-
 def hash_file(fname, hashtype="sha1"):
     """Compute a hash of data from a given file"""
     with open_file(fname) as fdesc:
-        if hashtype in _HASH_COMMANDS:
-            try:
-                # By default we try to use {md5,sha1,sha256}sum
-                # command, since they seem to be (a lot) faster
-                return subprocess.Popen(
-                    [_HASH_COMMANDS[hashtype]], stdin=fdesc,
-                    stdout=subprocess.PIPE, stderr=open(os.devnull, 'w')
-                ).communicate()[0].split()[0]
-            except OSError as exc:
-                if exc.errno != errno.ENOENT:
-                    raise
         result = hashlib.new(hashtype)
         for data in iter(lambda: fdesc.read(1048576), b""):
             result.update(data)
-        return result.hexdigest()
+        return result.hexdigest().encode()
 
 
 def serialize(obj):
