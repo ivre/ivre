@@ -30,9 +30,11 @@ information about IP addresses (mostly from Maxmind GeoIP files).
 from __future__ import print_function
 import codecs
 import csv
-import os.path
+import datetime
+import os
 import sys
 import tarfile
+import time
 try:
     from urllib.request import build_opener
 except ImportError:
@@ -123,23 +125,23 @@ def rename(src, dst):
 
 PARSERS = [
     (unzip_all, ['GeoLite2-City-CSV.zip'],
-     {"cond": lambda fdesc: fdesc.filename.endswith('.csv')}),
+     {"cond": lambda fdesc: fdesc.filename.endswith('.csv'), "clean": False}),
     (unzip_all, ['GeoLite2-Country-CSV.zip'],
-     {"cond": lambda fdesc: fdesc.filename.endswith('.csv')}),
+     {"cond": lambda fdesc: fdesc.filename.endswith('.csv'), "clean": False}),
     (unzip_all, ['GeoLite2-ASN-CSV.zip'],
-     {"cond": lambda fdesc: fdesc.filename.endswith('.csv')}),
-    (gunzip, ['GeoLite2-City.tar.gz'], {}),
+     {"cond": lambda fdesc: fdesc.filename.endswith('.csv'), "clean": False}),
+    (gunzip, ['GeoLite2-City.tar.gz'], {"clean": False}),
     (untar_all, ['GeoLite2-City.tar'],
-     {"cond": lambda fdesc: fdesc.name.endswith('.mmdb')}),
-    (gunzip, ['GeoLite2-Country.tar.gz'], {}),
+     {"cond": lambda fdesc: fdesc.name.endswith('.mmdb'), "clean": False}),
+    (gunzip, ['GeoLite2-Country.tar.gz'], {"clean": False}),
     (untar_all, ['GeoLite2-Country.tar'],
-     {"cond": lambda fdesc: fdesc.name.endswith('.mmdb')}),
-    (gunzip, ['GeoLite2-ASN.tar.gz'], {}),
+     {"cond": lambda fdesc: fdesc.name.endswith('.mmdb'), "clean": False}),
+    (gunzip, ['GeoLite2-ASN.tar.gz'], {"clean": False}),
     (untar_all, ['GeoLite2-ASN.tar'],
-     {"cond": lambda fdesc: fdesc.name.endswith('.mmdb')}),
-    (gunzip, ['GeoLite2-dumps.tar.gz'], {}),
+     {"cond": lambda fdesc: fdesc.name.endswith('.mmdb'), "clean": False}),
+    (gunzip, ['GeoLite2-dumps.tar.gz'], {"clean": False}),
     (untar_all, ['GeoLite2-dumps.tar'],
-     {"cond": lambda fdesc: fdesc.name.endswith('.csv')}),
+     {"cond": lambda fdesc: fdesc.name.endswith('.csv'), "clean": False}),
     (bgp_raw_to_csv, ['BGP.raw', 'BGP.csv'], {}),
 ]
 
@@ -162,13 +164,42 @@ def download_all(verbose=False):
                    ))
         outfile = os.path.join(config.GEOIP_PATH, fname)
         if verbose:
+            sys.stdout.write("Check last modified of %s\n" % url)
+            sys.stdout.flush()
+        handle = opener.open(url)
+        download_needed = True
+        metadata = handle.info()
+        file_size = metadata.get('Content-Length', None)
+        if file_size is not None:
+            file_size = int(file_size)
+        if os.access(outfile, os.R_OK):
+            # Check the cache file time against the remote
+            last_modified_file = os.path.getmtime(outfile)
+            last_modified_str = metadata.get('Last-Modified', None)
+            if last_modified_str is not None:
+                last_modified_remote = time.mktime(
+                    datetime.datetime.strptime(
+                        last_modified_str, "%a, %d %b %Y %X GMT"
+                    ).timetuple()
+                )
+                sys.stdout.flush()
+                if last_modified_remote < last_modified_file:
+                    download_needed = False
+        if not download_needed:
+            if verbose:
+                sys.stdout.write("Cache file %s is up to date\n" % outfile)
+                sys.stdout.flush()
+            continue
+        if verbose:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
             sys.stdout.flush()
+        data = handle.read()
+        if file_size is not None and file_size != len(data):
+            raise RuntimeError("Bad file size during download of %s" % fname)
         with open(outfile, 'wb') as wdesc:
-            udesc = opener.open(url)
-            wdesc.write(udesc.read())
-            if verbose:
-                sys.stdout.write("done.\n")
+            wdesc.write(data)
+        if verbose:
+            sys.stdout.write("done.\n")
     if verbose:
         sys.stdout.write("Unpacking: ")
         sys.stdout.flush()
@@ -177,11 +208,13 @@ def download_all(verbose=False):
             func(*args, **kargs)
         except Exception:
             utils.LOGGER.warning(
-                "A parser failed: %s(%s, %s)", func.__name__,
+                "A parser failed: %s(%s, %s), deleting file", func.__name__,
                 ', '.join(args),
                 ', '.join('%s=%r' % k_v for k_v in viewitems(kargs)),
                 exc_info=True,
             )
+            os.unlink(os.path.join(config.GEOIP_PATH, args[0]))
+
     if verbose:
         sys.stdout.write("done.\n")
 
