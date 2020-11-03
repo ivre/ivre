@@ -42,8 +42,9 @@ from future.utils import viewitems, viewvalues
 from past.builtins import basestring
 
 
+from ivre.active.cpe import cpe2dict
 from ivre.active.data import ALIASES_TABLE_ELEMS, \
-    cleanup_synack_honeypot_host, create_ssl_output
+    cleanup_synack_honeypot_host, create_ssl_output, handle_http_headers
 from ivre.analyzer import dicom, ike
 from ivre import utils
 
@@ -838,7 +839,15 @@ def post_ntlm_info(script, port, host):
                  host.setdefault('hostnames', []))
 
 
+def post_http_headers(script, port, host):
+    if 'http-headers' not in script:
+        return
+    handle_http_headers(host, port, script['http-headers'],
+                        handle_server=False)
+
+
 POST_PROCESS = {
+    "http-headers": post_http_headers,
     "smb-os-discovery": post_smb_os_discovery,
     "ssl-cert": post_ssl_cert,
     "ntlm-info": post_ntlm_info,
@@ -1393,35 +1402,6 @@ def ignore_script(script):
                                   for expr in IGNORE_SCRIPT_OUTPUTS_REGEXP):
         return True
     return False
-
-
-def cpe2dict(cpe_str):
-    """Helper function to parse CPEs. This is a very partial/simple parser.
-
-    Raises:
-        ValueError if the cpe string is not parsable.
-
-    """
-    # Remove prefix
-    if not cpe_str.startswith("cpe:/"):
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_body = cpe_str[5:]
-    parts = cpe_body.split(":", 3)
-    nparts = len(parts)
-    if nparts < 2:
-        raise ValueError("invalid cpe format (%s)\n" % cpe_str)
-    cpe_type = parts[0]
-    cpe_vend = parts[1]
-    cpe_prod = parts[2] if nparts > 2 else ""
-    cpe_vers = parts[3] if nparts > 3 else ""
-
-    ret = {
-        "type": cpe_type,
-        "vendor": cpe_vend,
-        "product": cpe_prod,
-        "version": cpe_vers,
-    }
-    return ret
 
 
 # This is not a real hostname regexp, but a simple way to exclude
@@ -2488,21 +2468,8 @@ argument (a dict object).
                 ) if m
             )
         )
-        headers = [utils.nmap_decode_data(h['value'])
-                   for h in script['http-headers']
-                   if h['name'] == 'server']
-        if not (headers and headers[0]):
-            return
-        self._curport.setdefault('scripts', []).append({
-            "id": "http-server-header",
-            "output": '\n'.join(utils.nmap_encode_data(hdr)
-                                for hdr in headers),
-            "http-server-header": [utils.nmap_encode_data(hdr)
-                                   for hdr in headers],
-            "masscan": {
-                "raw": self._to_binary(headers[0]),
-            },
-        })
+        handle_http_headers(self._curhost, self._curport,
+                            script['http-headers'])
 
     def masscan_post_http_content(self, script):
         self._curport['service_name'] = 'http'

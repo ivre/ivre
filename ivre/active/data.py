@@ -30,7 +30,9 @@ from textwrap import wrap
 from future.utils import viewitems, viewvalues
 
 
+from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
+from ivre.utils import nmap_decode_data, nmap_encode_data
 
 
 ALIASES_TABLE_ELEMS = {
@@ -432,6 +434,19 @@ def merge_host_docs(rec1, rec2):
                other.get('port') == trace.get('port')
                for other in rec['traces']):
             continue
+        rec["traces"].append(trace)
+    rec["cpes"] = rec2.get("cpes", [])
+    for cpe in rec1.get("cpes", []):
+        origins = cpe.pop("origins")
+        cpe["origins"] = None
+        try:
+            other = next(
+                ocpe for ocpe in rec["cpes"] if dict(ocpe, origins=None) == cpe
+            )
+        except StopIteration:
+            rec["cpes"].append(dict(cpe, origins=origins))
+        else:
+            other.setdefault("origins", set()).union(origins)
     rec["infos"] = {}
     for record in [rec1, rec2]:
         rec["infos"].update(record.get("infos", {}))
@@ -522,7 +537,55 @@ def merge_host_docs(rec1, rec2):
     if not sa_honeypot:
         cleanup_synack_honeypot_host(rec, update_openports=False)
     set_openports_attribute(rec)
-    for field in ["traces", "infos", "ports"]:
+    for field in ["traces", "infos", "ports", "cpes"]:
         if not rec[field]:
             del rec[field]
     return rec
+
+
+def handle_http_headers(host, port, headers, path='/', handle_server=True):
+    """This function enriches scan results based on HTTP headers reported
+by the Nmap script http-headers or any similar report, such as
+Masscan or Zgrab(2).
+
+    """
+    # 1. add a script "http-server-header" if it does not exist
+    if handle_server:
+        srv_headers = [nmap_decode_data(h['value']) for h in headers
+                       if h['name'] == 'server' and h['value']]
+        if srv_headers and not any(s['id'] == 'http-server-header'
+                                   for s in port.get('scripts', [])):
+            port.setdefault('scripts', []).append({
+                "id": "http-server-header",
+                "output": '\n'.join(nmap_encode_data(hdr)
+                                    for hdr in srv_headers),
+                "http-server-header": [nmap_encode_data(hdr)
+                                       for hdr in srv_headers],
+            })
+    # 2. add a script "http-app" for MS SharePoint, and merge it if
+    # necessary
+    try:
+        header = next(
+            nmap_decode_data(h['value']) for h in headers
+            if h['name'] == 'microsoftsharepointteamservices' and h['value']
+        )
+    except StopIteration:
+        pass
+    else:
+        version = nmap_encode_data(header.split(b':', 1)[0])
+        add_cpe_values(host, 'ports.port:%s' % port.get('port', -1),
+                       ["cpe:/a:microsoft:sharepoint_server:%s/" % version])
+        script = {
+            'id': 'http-app',
+            'output': 'SharePoint: path %s, version %s' % (path, version),
+            'http-app': {'path': path,
+                         'application': 'SharePoint',
+                         'version': version},
+        }
+        try:
+            cur_script = next(s for s in port.get('scripts', [])
+                              if s['id'] == 'http-app')
+        except StopIteration:
+            port.setdefault('scripts', []).append(script)
+        else:
+            merge_http_app_scripts(cur_script, script, 'http-app')
