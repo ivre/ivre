@@ -19,6 +19,7 @@
 
 
 import struct
+import binascii
 
 
 from ivre import utils
@@ -214,3 +215,19 @@ def _ntlm_dict2string(dic):
                                        else utils.encode_b64(
                                            v.encode()).decode()))
                     for k, v in dic.items())
+
+
+def _is_ntlm_message(message):
+    """
+    Checks whether the given string is an NTLM message
+    """
+    if message[:4].lower() == 'ntlm' and message[4:].strip():
+        return True
+    if message[:9].lower() == 'negotiate':
+        message = message.split(None, 1)
+        if message[1:]:
+            try:
+                return utils.decode_b64(message[1].encode())[:7] == b'NTLMSSP'
+            except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
+                pass
+    return False
