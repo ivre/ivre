@@ -57,11 +57,6 @@ NMAP_SHARE_PATH = None
 WIRESHARK_SHARE_PATH = None
 # Begin commands
 TESSERACT_CMD = "tesseract"
-GZ_CMD = "zcat"
-BZ2_CMD = "bzcat"
-MD5_CMD = "md5sum"
-SHA1_CMD = "sha1sum"
-SHA256_CMD = "sha256sum"
 OPENSSL_CMD = "openssl"
 # End commands
 
