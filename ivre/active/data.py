@@ -437,7 +437,7 @@ def merge_host_docs(rec1, rec2):
         rec["traces"].append(trace)
     rec["cpes"] = rec2.get("cpes", [])
     for cpe in rec1.get("cpes", []):
-        origins = cpe.pop("origins")
+        origins = set(cpe.pop("origins", []))
         cpe["origins"] = None
         try:
             other = next(
@@ -446,7 +446,9 @@ def merge_host_docs(rec1, rec2):
         except StopIteration:
             rec["cpes"].append(dict(cpe, origins=origins))
         else:
-            other.setdefault("origins", set()).union(origins)
+            other["origins"] = set(other.get("origins", [])).union(origins)
+    for cpe in rec["cpes"]:
+        cpe["origins"] = list(cpe.get("origins", []))
     rec["infos"] = {}
     for record in [rec1, rec2]:
         rec["infos"].update(record.get("infos", {}))
