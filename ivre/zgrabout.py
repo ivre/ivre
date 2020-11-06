@@ -236,8 +236,8 @@ The output is a port dict (i.e., the content of the "ports" key of an
                         'output': output,
                         'ntlm-info': infos
                     })
-                    if 'name-dns' in infos:
-                        add_hostname(infos['name-dns'], 'ntlm',
+                    if 'DNS_Computer_Name' in infos:
+                        add_hostname(infos['DNS_Computer_Name'], 'ntlm',
                                      hostrec.setdefault('hostnames', []))
         if any(val.lower().startswith('ntlm')
                for val in req.get('headers', {}).get('authorization', [])):
