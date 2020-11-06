@@ -1592,11 +1592,17 @@ argument (a dict object).
                     'addresses', {}).setdefault(
                         attrs['addrtype'], []).append(attrs['addr'])
         elif name == 'hostnames':
+            if self._curhost is None:
+                # We do not want to handle hostnames in hosthint tags,
+                # as they will be repeated inside an host tag
+                return
             if self._curhostnames is not None:
                 utils.LOGGER.warning("self._curhostnames should be None at "
                                      "this point (got %r)", self._curhostnames)
             self._curhostnames = []
         elif name == 'hostname':
+            if self._curhost is None:
+                return
             if self._curhostnames is None:
                 utils.LOGGER.warning("self._curhostnames should NOT be "
                                      "None at this point")
@@ -2067,6 +2073,8 @@ argument (a dict object).
                 self._addhost()
             self._curhost = None
         elif name == 'hostnames':
+            if self._curhost is None:
+                return
             self._curhost['hostnames'] = self._curhostnames
             self._curhostnames = None
         elif name == 'extraports':

@@ -702,6 +702,9 @@ purposes to feed Elasticsearch view.
                 options.extend(["--masscan-probes", fname.split('-probe-')[1]])
             options.extend(["--", fname])
             res, _, err = RUN(options)
+            print("Inserting %r" % fname)
+            if res:
+                print("Error: %r" % err)
             self.assertEqual(res, 0)
             host_counter += sum(1 for _ in host_stored.finditer(err))
             scan_counter += sum(1 for _ in scan_stored.finditer(err))
