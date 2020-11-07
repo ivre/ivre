@@ -580,9 +580,9 @@ Masscan or Zgrab(2).
         script = {
             'id': 'http-app',
             'output': 'SharePoint: path %s, version %s' % (path, version),
-            'http-app': {'path': path,
-                         'application': 'SharePoint',
-                         'version': version},
+            'http-app': [{'path': path,
+                          'application': 'SharePoint',
+                          'version': version}],
         }
         try:
             cur_script = next(s for s in port.get('scripts', [])
