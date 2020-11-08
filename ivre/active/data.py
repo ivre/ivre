@@ -576,7 +576,7 @@ Masscan or Zgrab(2).
     else:
         version = nmap_encode_data(header.split(b':', 1)[0])
         add_cpe_values(host, 'ports.port:%s' % port.get('port', -1),
-                       ["cpe:/a:microsoft:sharepoint_server:%s/" % version])
+                       ["cpe:/a:microsoft:sharepoint_server:%s" % version])
         script = {
             'id': 'http-app',
             'output': 'SharePoint: path %s, version %s' % (path, version),
