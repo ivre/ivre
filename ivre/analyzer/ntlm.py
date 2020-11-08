@@ -36,10 +36,10 @@ def _extract_substr(ntlm_msg, offset, ln):
                              offset, ntlm_msg, ln)
         raise ValueError
     try:
-        return s.decode('utf-16')
+        return utils.nmap_encode_data(s.decode('utf-16').encode('utf-8'))
     except UnicodeDecodeError:
         utils.LOGGER.warning("Cannot decode %r", s)
-        raise ValueError
+        return utils.nmap_encode_data(s)
 
 
 # The positions of `Negotiate Version` and `Negotiate Target Info`
