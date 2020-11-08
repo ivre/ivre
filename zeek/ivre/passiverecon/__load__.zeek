@@ -114,6 +114,7 @@ export {
         # "SET-COOKIE",
 	"WWW-AUTHENTICATE",
 	"PROXY-AUTHENTICATE",
+	"MICROSOFTSHAREPOINTTEAMSERVICES",
     };
 
     const FTP_COMMANDS: set[string] = {

@@ -66,9 +66,23 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
         'service_name': 'http',
     }
     host = {'ports': [port]}
+    if rec.get('source') == 'MICROSOFTSHAREPOINTTEAMSERVICES':
+        version = rec['value'].split(':', 1)[0]
+        add_cpe_values(host, 'ports.port:%s' % port['port'],
+                       ["cpe:/a:microsoft:sharepoint_server:%s" % version])
+        host['cpes'] = list(viewvalues(host['cpes']))
+        # Let's pretend the application is on '/UNKNOWN/'
+        port['scripts'] = [{
+            'id': 'http-app',
+            'output': 'SharePoint: path /UNKNOWN/, version %s' % (version),
+            'http-app': [{'path': '/UNKNOWN/',
+                          'application': 'SharePoint',
+                          'version': version}],
+        }]
+        return host
     # TODO: handle other header values and merge them
     if rec.get('source') != 'SERVER':
-        return {'ports': [port]}
+        return host
     value = rec['value']
     script = {'id': 'http-server-header', 'output': value}
     port['scripts'] = [script]
