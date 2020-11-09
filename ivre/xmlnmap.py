@@ -895,7 +895,7 @@ def split_smb_os_discovery(script):
         "smb-version": "SMB Version",
         "guid": "GUID",
     }
-    yield {
+    smb = {
         "id": "smb-os-discovery",
         "smb-os-discovery": {k: value.get(k) for k in smb_values if k in value},
         "output": "\n".join(
@@ -904,6 +904,9 @@ def split_smb_os_discovery(script):
             if k in value
         ),
     }
+    if "masscan" in script:
+        smb["masscan"] = script["masscan"]
+    yield smb
     ntlm_values = {
         "domain": "NetBIOS_Domain_Name",
         "server": "NetBIOS_Computer_Name",
@@ -2058,7 +2061,6 @@ class NmapHandler(ContentHandler):
                             "id": "ntlm-info",
                             "ntlm-info": ntlm_info,
                             "output": "\n".join(ntlm_info_output),
-                            "masscan": masscan_data,
                         }
                     )
                     return

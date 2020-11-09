@@ -1182,6 +1182,7 @@ class MongoDBActive(MongoDB, DBActive):
                 15: (16, self.migrate_schema_hosts_15_16),
                 16: (17, self.migrate_schema_hosts_16_17),
                 17: (18, self.migrate_schema_hosts_17_18),
+                18: (19, self.migrate_schema_hosts_18_19),
             },
         ]
 
@@ -1722,6 +1723,28 @@ class MongoDBActive(MongoDB, DBActive):
                     ) = xmlnmap.change_ssh2_enum_algos(
                         script["output"], script["ssh2-enum-algos"]
                     )
+                    updated = True
+        if updated:
+            update["$set"]["ports"] = doc["ports"]
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_18_19(doc):
+        """Converts a record from version 18 to version 19. Version 19
+        splits smb-os-discovery scripts into two, a ntlm-info one that contains all
+        the information the original smb-os-discovery script got from NTLM, and a
+        smb-os-discovery script with only the information regarding SMB
+
+        """
+        assert doc["schema_version"] == 18
+        update = {"$set": {"schema_version": 19}}
+        updated = False
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"] == "smb-os-discovery":
+                    smb, ntlm = xmlnmap.split_smb_os_discovery(script)
+                    script.update(smb)
+                    port["scripts"].append(ntlm)
                     updated = True
         if updated:
             update["$set"]["ports"] = doc["ports"]
