@@ -341,6 +341,33 @@ event ssh_capabilities(c: connection, cookie: string, capabilities: SSH::Capabil
     }
 }
 
+event ssl_client_hello(c: connection, version: count, record_version: count, possible_ts: time, client_random: string, session_id: string, ciphers: index_vec, comp_methods: index_vec) {
+    if (c$ssl?$ivreja3c) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=SSL_CLIENT,
+                         $source="ja3",
+                         $value=c$ssl$ivreja3c]);
+    }
+}
+
+event ssl_server_hello(c: connection, version: count, record_version: count, possible_ts: time, server_random: string, session_id: string, cipher: count, comp_method: count) {
+    if (c$ssl?$ivreja3s) {
+        local ja3c = "UNKNOWN";
+        if (c$ssl?$ivreja3c) {
+            ja3c = c$ssl$ivreja3c;
+        }
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$resp_h,
+                         $srvport=c$id$resp_p,
+                         $recon_type=SSL_SERVER,
+                         $source=fmt("ja3-%s", c$ssl$ivreja3c),
+                         $value=c$ssl$ivreja3s]);
+    }
+}
+
 event ssl_established(c: connection) {
     local cacert = F;
     if (c$ssl?$cert_chain) {
@@ -370,22 +397,6 @@ event ssl_established(c: connection) {
             ]);
             cacert = T;
         }
-    }
-    if (c$ssl?$ivreja3c) {
-        Log::write(LOG, [$ts=c$start_time,
-                         $uid=c$uid,
-                         $host=c$id$orig_h,
-                         $recon_type=SSL_CLIENT,
-                         $source="ja3",
-                         $value=c$ssl$ivreja3c]);
-        if (c$ssl?$ivreja3s)
-            Log::write(LOG, [$ts=c$start_time,
-                             $uid=c$uid,
-                             $host=c$id$resp_h,
-                             $srvport=c$id$resp_p,
-                             $recon_type=SSL_SERVER,
-                             $source=fmt("ja3-%s", c$ssl$ivreja3c),
-                             $value=c$ssl$ivreja3s]);
     }
 }
 
