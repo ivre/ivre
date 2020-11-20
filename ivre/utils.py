@@ -1132,6 +1132,13 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
     return _NMAP_PROBES[proto][probe]
 
 
+def get_nmap_probes(proto):
+    if not _NMAP_PROBES_POPULATED:
+        _read_nmap_probes()
+    return {value['probe']: name
+            for name, value in viewitems(_NMAP_PROBES[proto])}
+
+
 def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
     """Take output from a given probe and return the closest nmap
     fingerprint."""
@@ -1207,6 +1214,73 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
     if softmatch and soft:
         return dict(softmatch, soft=True)
     return softmatch
+
+
+_NMAP_PAYLOADS = {}
+_NMAP_PAYLOADS_POPULATED = False
+
+
+def _read_nmap_payloads():
+    global _NMAP_PAYLOADS_POPULATED
+
+    def _parse_line(line):
+        status = 0
+        for c in line:
+            if status == 0:
+                if c in {'#', '\r', '\n'}:
+                    return
+                yield c
+                if c == '"':
+                    status = 1
+            elif status == 1:
+                if c in {'\r', '\n'}:
+                    LOGGER.warning('Unexpected EOL while reading line %r',
+                                   line)
+                    return
+                yield c
+                if c == '"':
+                    status = 0
+    try:
+        cur_probe = None
+        cur_line = []
+        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-payloads'),
+                  'r') as fdesc:
+            for line in fdesc:
+                line = ''.join(_parse_line(line.strip()))
+                if not line.strip():
+                    continue
+                if line.startswith('source '):
+                    continue
+                if line.startswith('udp '):
+                    line = line.strip().split(' ', 2)[1:]
+                    if cur_probe is not None:
+                        _NMAP_PAYLOADS[
+                            nmap_decode_data("".join(cur_line))
+                        ] = cur_probe
+                    cur_probe = line.pop(0)
+                    if line:
+                        line = line[0]
+                        if len(line) > 3 and line[0] == line[-1] == '"':
+                            line = line[1:-1]
+                        cur_line = [line]
+                    else:
+                        cur_line = []
+                elif line.startswith('"'):
+                    if len(line.strip()) > 1 and line[-1] == '"':
+                        line = line[1:-1]
+                    cur_line.append(line)
+        if cur_probe is not None:
+            _NMAP_PAYLOADS[nmap_decode_data("".join(cur_line))] = cur_probe
+    except (AttributeError, TypeError, IOError):
+        LOGGER.warning('Cannot read Nmap service fingerprint file.',
+                       exc_info=True)
+    _NMAP_PAYLOADS_POPULATED = True
+
+
+def get_nmap_udp_payloads():
+    if not _NMAP_PAYLOADS_POPULATED:
+        _read_nmap_payloads()
+    return _NMAP_PAYLOADS
 
 
 _IKESCAN_VENDOR_IDS = {}
