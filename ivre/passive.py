@@ -353,9 +353,11 @@ def _getinfos_http_client_authorization(spec):
     if data[1:]:
         if data[0].lower() == 'basic':
             try:
-                infos['username'], infos['password'] = utils.decode_b64(
-                    data[1].strip().encode()
-                ).decode('latin-1').split(':', 1)
+                infos['username'], infos['password'] = (
+                    utils.nmap_encode_data(v) for v in utils.decode_b64(
+                        data[1].strip().encode()
+                    ).split(b':', 1)
+                )
             except Exception:
                 pass
         elif data[0].lower() == 'digest':
@@ -549,7 +551,7 @@ def _getinfos_ntlm(spec):
                     )
             else:
                 try:
-                    info[k] = utils.decode_b64(v.encode()).decode()
+                    info[k] = utils.nmap_encode_data(utils.decode_b64(v.encode()))
                 except (UnicodeDecodeError, TypeError, ValueError,
                         binascii.Error):
                     utils.LOGGER.warning(
@@ -579,7 +581,7 @@ def _getinfos_smb(spec):
                     )
             else:
                 try:
-                    info[k] = utils.decode_b64(v.encode()).decode()
+                    info[k] = utils.nmap_encode_data(utils.decode_b64(v.encode()))
                 except (UnicodeDecodeError, TypeError, ValueError,
                         binascii.Error):
                     utils.LOGGER.warning(
