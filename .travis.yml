@@ -48,8 +48,6 @@ matrix:
     - python: 3.5
       env: DB=postgres POSTGRES_VERSION=9.5.10
     - python: 3.5
-      env: DB=postgres POSTGRES_VERSION=9.6.6
-    - python: 3.5
       env: DB=postgres POSTGRES_VERSION=10.1
   include:
     - python: 3.4
@@ -66,22 +64,10 @@ matrix:
       env: DB=postgres POSTGRES_VERSION=9.5.10
     - python: 3.4
       dist: xenial
-      env: DB=postgres POSTGRES_VERSION=9.6.6
-    - python: 3.4
-      dist: xenial
       env: DB=postgres POSTGRES_VERSION=10.1
     - python: 3.4
       dist: xenial
       env: DB=mongo MONGODB_VERSION=3.2.21
-    - python: 3.4
-      dist: xenial
-      env: DB=mongo MONGODB_VERSION=3.4.17
-    - python: 3.4
-      dist: xenial
-      env: DB=mongo MONGODB_VERSION=3.6.8
-    - python: 3.4
-      dist: xenial
-      env: DB=mongo MONGODB_VERSION=4.0.2
     - python: 3.4
       dist: xenial
       env: DB=mongo MONGODB_VERSION=4.1.3
