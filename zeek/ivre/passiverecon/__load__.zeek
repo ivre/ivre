@@ -42,6 +42,7 @@ export {
         HTTP_CLIENT_HEADER,
         HTTP_SERVER_HEADER,
         HTTP_CLIENT_HEADER_SERVER,
+        HTTP_HONEYPOT_REQUEST,
         SSH_CLIENT,
         SSH_SERVER,
         SSH_CLIENT_ALGOS,
@@ -58,6 +59,8 @@ export {
         POP_SERVER,
         TCP_CLIENT_BANNER,
         TCP_SERVER_BANNER,
+        TCP_HONEYPOT_HIT,
+        UDP_HONEYPOT_HIT,
         OPEN_PORT,
         MAC_ADDRESS,
         NTLM_NEGOTIATE,
@@ -112,9 +115,9 @@ export {
         "VIA",
         "X-GENERATOR",
         # "SET-COOKIE",
-	"WWW-AUTHENTICATE",
-	"PROXY-AUTHENTICATE",
-	"MICROSOFTSHAREPOINTTEAMSERVICES",
+        "WWW-AUTHENTICATE",
+        "PROXY-AUTHENTICATE",
+        "MICROSOFTSHAREPOINTTEAMSERVICES",
     };
 
     const FTP_COMMANDS: set[string] = {
@@ -142,6 +145,8 @@ export {
     # Ignore thttpd UNKNOWN timeout answer
     # Ignore SSH banners (from scripts/base/protocols/ssh/dpd.sig)
     const TCP_SERVER_BANNER_IGNORE: pattern = /^(HTTP\/[0-9]|UNKNOWN 408|[sS][sS][hH]-[12]\.)/;
+
+    option HONEYPOTS: set[addr] = {};
 }
 
 event zeek_init() {
@@ -500,6 +505,7 @@ event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
                              $uid=c$uid,
                              $host=c$id$orig_h,
                              $recon_type=TCP_CLIENT_BANNER,
+                             $source=fmt("tcp/%d", c$id$resp_p),
                              $value=contents]);
         else if (c$orig$size == 0 && c$history == TCP_BANNER_HISTORY &&
              ! (TCP_SERVER_BANNER_IGNORE in contents))
@@ -543,7 +549,15 @@ event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: a
 }
 
 event connection_established(c: connection) {
-    if ("ftp-data" !in c$service && "gridftp-data" !in c$service &&
+    if (c$id$resp_h in HONEYPOTS) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=TCP_HONEYPOT_HIT,
+                         $source="TCP",
+                         $value=fmt("tcp/%d", c$id$resp_p)]);
+    }
+    else if ("ftp-data" !in c$service && "gridftp-data" !in c$service &&
         "irc-dcc-data" !in c$service) {
         Log::write(LOG, [$ts=c$start_time,
                          $host=c$id$resp_h,
@@ -552,7 +566,41 @@ event connection_established(c: connection) {
                          $srvport=c$id$resp_p,
                          $value=fmt("tcp/%d", c$id$resp_p),
                          $uid=c$uid]);
-    }}
+    }
+}
+
+event connection_attempt(c: connection) {
+    if (c$id$resp_h in HONEYPOTS) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=TCP_HONEYPOT_HIT,
+                         $source="TCP",
+                         $value=fmt("tcp/%d", c$id$resp_p)]);
+    }
+}
+
+event udp_contents (u: connection, is_orig: bool, contents: string) {
+    if (is_orig && u$id$resp_h in HONEYPOTS) {
+        Log::write(LOG, [$ts=u$start_time,
+                         $uid=u$uid,
+                         $host=u$id$orig_h,
+                         $recon_type=UDP_HONEYPOT_HIT,
+                         $source=fmt("udp/%d", u$id$resp_p),
+                         $value=contents]);
+    }
+}
+
+event http_request (c: connection, method: string, original_URI: string, unescaped_URI: string, version: string) {
+    if (c$id$resp_h in HONEYPOTS) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=HTTP_HONEYPOT_REQUEST,
+                         $source=fmt("%s-tcp/%d", method, c$id$resp_p),
+                         $value=original_URI]);
+    }
+}
 
 # Get the exact version of the protocol using NTLM
 # For now, only handles SMB
