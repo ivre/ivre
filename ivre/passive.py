@@ -551,7 +551,9 @@ def _getinfos_ntlm(spec):
                     )
             else:
                 try:
-                    info[k] = utils.nmap_encode_data(utils.decode_b64(v.encode()))
+                    info[k] = utils.nmap_encode_data(utils.decode_b64(
+                        v.encode()
+                    ))
                 except (UnicodeDecodeError, TypeError, ValueError,
                         binascii.Error):
                     utils.LOGGER.warning(
@@ -581,7 +583,9 @@ def _getinfos_smb(spec):
                     )
             else:
                 try:
-                    info[k] = utils.nmap_encode_data(utils.decode_b64(v.encode()))
+                    info[k] = utils.nmap_encode_data(utils.decode_b64(
+                        v.encode()
+                    ))
                 except (UnicodeDecodeError, TypeError, ValueError,
                         binascii.Error):
                     utils.LOGGER.warning(
