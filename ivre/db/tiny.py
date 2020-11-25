@@ -1536,6 +1536,25 @@ class TinyDBActive(TinyDB, DBActive):
                 field = "ports.scripts.smb-os-discovery.forest_dns"
             else:
                 field = "ports.scripts.smb-os-discovery." + field[4:]
+        elif field.startswith("ntlm"):
+
+            def _newflt(field):
+                return self.searchntlm(name=re.compile("[a-z]*-ntlm-info"))
+
+            if field[5:] and field[4] == ".":
+                field = "ports.scripts.ntlm-info." + field[5:]
+            else:
+                field = "ports.scripts.ntlm-info"
+        elif "-ntlm" in field:
+            proto, msg = field.split("-", 1)
+
+            def _newflt(field):
+                return self.searchntlm(proto=proto)
+
+            if msg[5:] and msg[4] == ".":
+                field = "ports.scripts.ntlm-info." + msg[5:]
+            else:
+                field = "ports.scripts.ntlm-info"
         elif field == "script":
             field = "ports.scripts.id"
         elif field.startswith("script:"):

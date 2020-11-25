@@ -911,6 +911,14 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {"sparse": True},
             ),
+            (
+                [("ports.scripts.ntlm-info.NetBIOS_Domain", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
+                [("ports.scripts.ntlm-info.Product_Version", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
             ([("infos.as_num", pymongo.ASCENDING)], {}),
             (
                 [
@@ -2380,7 +2388,10 @@ class MongoDBActive(MongoDB, DBActive):
         """Search a particular content in the scripts results."""
         req = {}
         if name is not None:
-            req["id"] = name
+            if isinstance(name, list):
+                req["id"] = {"$in": name}
+            else:
+                req["id"] = name
         if output is not None:
             req["output"] = output
         if values:
@@ -3205,13 +3216,27 @@ class MongoDBActive(MongoDB, DBActive):
             ]
             field = "ports.service_devicetype"
         elif field.startswith("smb."):
-            flt = self.flt_and(flt, self.searchscript(name="smb-os-discovery"))
+            flt = self.flt_and(flt, self.searchsmb())
             if field == "smb.dnsdomain":
                 field = "ports.scripts.smb-os-discovery.domain_dns"
             elif field == "smb.forest":
                 field = "ports.scripts.smb-os-discovery.forest_dns"
             else:
                 field = "ports.scripts.smb-os-discovery." + field[4:]
+        elif field.startswith("ntlm"):
+            flt = self.flt_and(flt, self.searchntlm())
+            if field[5:] and field[4] == ".":
+                field = "ports.scripts.ntlm-info." + field[5:]
+            else:
+                field = "ports.scripts.ntlm-info"
+        elif "-ntlm" in field:
+            # ex: field = "http-ntlm" or field = "rdp-ntlm.Product_Version"
+            proto, msg = field.split("-", 1)
+            flt = self.flt_and(flt, self.searchntlm(proto=proto))
+            if msg[5:] and msg[4] == ".":
+                field = "ports.scripts.ntlm-info." + msg[5:]
+            else:
+                field = "ports.scripts.ntlm-info"
         elif field == "script":
             flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
             field = "ports.scripts.id"
