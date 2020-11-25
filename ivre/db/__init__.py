@@ -1619,6 +1619,30 @@ class DBActive(DB):
         return cls.searchscript(name="smb-os-discovery", values=args)
 
     @classmethod
+    def searchntlm(cls, proto=None, name=None, **args):
+        """Search particular results from ntlm-info host script. Example:
+
+        .searchntlm(Product_Version="10.0.17763")
+        .searchntlm(proto="http", Product_Version="10.0.17763")
+
+        """
+        if not name and not proto:
+            name = [
+                "http-ntlm-info",
+                "imap-ntlm-info",
+                "ms-sql-ntlm-info",
+                "nntp-ntlm-info",
+                "pop3-ntlm-info",
+                "rdp-ntlm-info",
+                "smtp-ntlm-info",
+                "telnet-ntlm-info",
+                "smb-ntlm-info",
+            ]
+        elif proto:
+            name = "%s-ntlm-info" % proto
+        return cls.searchscript(name=name, values=args)
+
+    @classmethod
     def searchuseragent(cls, useragent=None, neg=False):
         if useragent is None:
             return cls.searchscript(name="http-user-agent", neg=neg)
