@@ -531,6 +531,24 @@ def flt_from_query(dbase, query, base_flt=None):
             flt = dbase.flt_and(
                 flt, dbase.searchsmb(**{param[4:]: utils.str2regexp(value)})
             )
+        elif not neg and param.startswith("ntlm."):
+            key = {
+                "name": "Target_Name",
+                "server": "NetBIOS_Computer_Name",
+                "domain": "NetBIOS_Domain_Name",
+                "workgroup": "Workgroup",
+                "domain_dns": "DNS_Domain_Name",
+                "forest": "DNS_Tree_Name",
+                "fqdn": "DNS_Computer_Name",
+                "os": "Product_Version",
+                "version": "NTLM_Version",
+            }
+            flt = dbase.flt_and(
+                flt,
+                dbase.searchntlm(
+                    **{key.get(param[5:], param[5:]): utils.str2regexp(value)}
+                ),
+            )
         elif not neg and param == "smbshare":
             flt = dbase.flt_and(
                 flt,

@@ -2390,6 +2390,8 @@ class MongoDBActive(MongoDB, DBActive):
         if name is not None:
             if isinstance(name, list):
                 req["id"] = {"$in": name}
+                # Used to find the corresponding alias if 'values' is given
+                name = name[0]
             else:
                 req["id"] = name
         if output is not None:

@@ -255,11 +255,11 @@ var HELP_FILTERS = {
 	},
 	"smb.ntlm-version:": {
 	    "title": "smb.ntlm-version:[Version]",
-	    "content": "Search results with a specific versioln of the NTLM protocol in SMB service.",
+	    "content": "Search results with a specific version of the NTLM protocol in SMB service.",
 	},
 	"smb.smb-version:": {
 	    "title": "smb.smb-version:[Version]",
-	    "content": "Search results with a specific versioln of the SMB protocol.",
+	    "content": "Search results with a specific version of the SMB protocol.",
 	},
 	"smb.server:": {
 	    "title": "smb.server:[NetBIOS]",
@@ -272,6 +272,74 @@ var HELP_FILTERS = {
 	"smb.guid:": {
 	    "title": "smb.guid:[GUID]",
 	    "content": "Search results with SMB service with a specific GUID.",
+	},
+	"ntlm.domain_dns:": {
+	    "title": "ntlm.domain_dns:[DNS]",
+	    "content": "Search results with NTLM protocol in a specific DNS domain.",
+	},
+	"ntlm.domain:": {
+	    "title": "ntlm.domain:[NetBIOS]",
+	    "content": "Search results with NTLM protocol in a specific NetBIOS domain.",
+	},
+	"ntlm.fqdn:": {
+	    "title": "ntlm.fqdn:[FQDN]",
+	    "content": "Search results with NTLM protocol in a specific host name (FQDN).",
+	},
+	"ntlm.forest:": {
+	    "title": "ntlm.forest:[DNS]",
+	    "content": "Search results with NTLM protocol in a specific forest (DNS tree name).",
+	},
+	"ntlm.os:": {
+	    "title": "ntlm.os:[Version]",
+	    "content": "Search results with NTLM protocol reporting a specific OS.",
+	},
+	"ntlm.version:": {
+	    "title": "ntlm.version:[Version]",
+	    "content": "Search results with a specific version of the NTLM protocol.",
+	},
+	"ntlm.server:": {
+	    "title": "ntlm.server:[NetBIOS]",
+	    "content": "Search results with NTLM protocol with a specific host name (NetBIOS).",
+	},
+	"ntlm.name:": {
+	    "title": "ntlm.name:[NetBIOS]",
+	    "content": "Search results with NTLM protocol with a specific host name (NetBIOS).",
+	},
+	"ntlm.workgroup:": {
+	    "title": "ntlm.workgroup:[NetBIOS]",
+	    "content": "Search results with NTLM protocol in a specific workgroup (NetBIOS).",
+	},
+	"ntlm.DNS_Domain_Name:": {
+	    "title": "ntlm.DNS_Domain_Name:[DNS]",
+	    "content": "Search results with NTLM protocol in a specific DNS domain.",
+	},
+	"ntlm.NetBIOS_Domain_Name:": {
+	    "title": "ntlm.NetBIOS_Domain_Name:[NetBIOS]",
+	    "content": "Search results with NTLM protocol in a specific NetBIOS domain.",
+	},
+	"ntlm.DNS_Computer_Name:": {
+	    "title": "ntlm.DNS_Computer_Name:[FQDN]",
+	    "content": "Search results with NTLM protocol in a specific host name (FQDN).",
+	},
+	"ntlm.DNS_Tree_Name:": {
+	    "title": "ntlm.DNS_Tree_Name:[DNS]",
+	    "content": "Search results with NTLM protocol in a specific forest (DNS tree name).",
+	},
+	"ntlm.Product_Version:": {
+	    "title": "ntlm.Product_Version:[Version]",
+	    "content": "Search results with NTLM protocol reporting a specific OS.",
+	},
+	"ntlm.NTLM_Version:": {
+	    "title": "ntlm.NTLM_Version:[Version]",
+	    "content": "Search results with a specific version of the NTLM protocol.",
+	},
+	"ntlm.NetBIOS_Computer_Name:": {
+	    "title": "ntlm.NetBIOS_Computer_Name:[NetBIOS]",
+	    "content": "Search results with NTLM protocol with a specific host name (NetBIOS).",
+	},
+	"ntlm.Workgroup:": {
+	    "title": "ntlm.Workgroup:[NetBIOS]",
+	    "content": "Search results with NTLM protocol in a specific workgroup (NetBIOS).",
 	},
 	"smbshare": {
 	    "title": "smbshare<b>(:[access mode])</b>",

@@ -273,6 +273,38 @@ function add_param_objects(filter, p, pp) {
 	);
 
     }
+    else if (p.substr(0, 5) === 'ntlm.') {
+	var subfield = p.substr(5);
+	var subfieldend = subfield.indexOf(':');
+	if (subfieldend !== -1) {
+	    value = subfield.substr(subfieldend + 1);
+	    value_flags = regexp2pattern(str2regexp(value));
+	    value = value_flags[0];
+	    flags = value_flags[1] + "m";
+	    subfield = subfield.substr(0, subfieldend);
+	}
+	else {
+	    value = "";
+	    flags = "m";
+	}
+	key = {
+	    'name': 'Target_Name',
+	    'server': 'NetBIOS_Computer_Name',
+	    'domain': 'NetBIOS_Domain_Name',
+	    'workgroup': 'Workgroup',
+	    'domain_dns': 'DNS_Domain_Name',
+	    'forest': 'DNS_Tree_Name',
+	    'fqdn': 'DNS_Computer_Name',
+	    'os': 'Product_Version',
+	    'version': 'NTLM_Version',
+	}[subfield] || subfield;
+    console.log(key);
+	add_param_object(
+	    filter.parametersobjunalias, 'script',
+	    [b, 'ntlm-info:/^' + key + ': (' + value + '|.*)$/' + flags]
+	);
+
+    }
     else if (p.substr(0, 4) === "tcp/" || p.substr(0, 4) === "udp/") {
 	add_param_object(filter.parametersobjunalias, 'open', [b, p]);
     }
