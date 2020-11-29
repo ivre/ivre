@@ -1891,7 +1891,7 @@ class DBNmap(DBActive):
                               needports=False, needopenports=False,
                               categories=None, source=None,
                               add_addr_infos=True, force_info=False,
-                              callback=None, **_):
+                              callback=None, zgrab_port=None, **_):
         """This method parses a JSON scan result produced by zgrab, displays
         the parsing result, and return True if everything went fine,
         False otherwise.
@@ -1909,6 +1909,8 @@ class DBNmap(DBActive):
             categories = []
         scan_doc_saved = False
         self.start_store_hosts()
+        if zgrab_port is not None:
+            zgrab_port = int(zgrab_port)
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
                 rec = json.loads(line.decode())
@@ -1980,7 +1982,7 @@ class DBNmap(DBActive):
                             key,
                         )
                     else:
-                        port = parser(value, host)
+                        port = parser(value, host, port=zgrab_port)
                         if port:
                             host.setdefault('ports', []).append(port)
                 if not host.get('ports'):

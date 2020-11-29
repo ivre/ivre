@@ -49,7 +49,7 @@ ntlm_values = ['Target_Name', 'NetBIOS_Domain_Name', 'NetBIOS_Computer_Name',
                'Product_Version', 'NTLM_Version']
 
 
-def zgrap_parser_http(data, hostrec):
+def zgrap_parser_http(data, hostrec, port=None):
     """This function handles data from `{"data": {"http": [...]}}`
 records. `data` should be the content, i.e. the `[...]`. It should
 consist of simple dictionary, that may contain a `"response"` key
@@ -109,17 +109,27 @@ The output is a port dict (i.e., the content of the "ports" key of an
                     add_cert_hostnames(cert,
                                        hostrec.setdefault('hostnames', []))
     if url:
-        port = None
+        guessed_port = None
         if ':' in url.get('host', ''):
             try:
-                port = int(url['host'].split(':', 1)[1])
+                guessed_port = int(url['host'].split(':', 1)[1])
             except ValueError:
                 pass
         if port is None:
-            if url.get('scheme') == 'https':
-                port = 443
+            if guessed_port is None:
+                if url.get('scheme') == 'https':
+                    port = 443
+                else:
+                    port = 80
             else:
-                port = 80
+                port = guessed_port
+        elif port != guessed_port:
+            utils.LOGGER.warning(
+                'Port %d found from the URL %s differs from the provided port '
+                'value %d',
+                guessed_port, url.get('path'), port
+            )
+            port = guessed_port
         # Specific paths
         if url.get('path').endswith('/.git/index'):
             if resp.get('status_code') != 200:
@@ -203,11 +213,11 @@ The output is a port dict (i.e., the content of the "ports" key of an
             utils.LOGGER.warning('URL path not supported yet: %s',
                                  url.get('path'))
             return {}
-    elif req.get('tls_handshake') or req.get('tls_log'):
-        # zgrab / zgrab2
-        port = 443
-    else:
-        port = 80
+    elif port is None:
+        if req.get('tls_handshake') or req.get('tls_log'):
+            port = 443
+        else:
+            port = 80
     res['port'] = port
     # Since Zgrab does not preserve the order of the headers, we need
     # to reconstruct a banner to use Nmap fingerprints
@@ -300,4 +310,47 @@ The output is a port dict (i.e., the content of the "ports" key of an
     return res
 
 
-ZGRAB_PARSERS = {'http': zgrap_parser_http}
+def zgrap_parser_jarm(data, hostrec, port=None):
+    """This function handles data from `{"data": {"jarm": [...]}}`
+records. `data` should be the content, i.e. the `[...]`. It should
+consist of simple dictionary, that must contain a `"status"` key and a
+`"fingerprint"` key (that may be in a `"result"` sub-document).
+
+The output is a port dict (i.e., the content of the "ports" key of an
+`nmap` of `view` record in IVRE), that may be empty.
+
+    """
+    if not data:
+        return {}
+    # for zgrab2 results
+    if 'result' in data:
+        data.update(data.pop('result'))
+    if data.get('status') != 'success':
+        return {}
+    if 'fingerprint' not in data:
+        utils.LOGGER.warning(
+            'Missing "fingerprint" field in zgrab JARM result'
+        )
+        return {}
+    if (
+            data['fingerprint'] ==
+            '00000000000000000000000000000000000000000000000000000000000000'
+    ):
+        utils.LOGGER.warning('Null "fingerprint" in zgrab JARM result')
+        return {}
+    if port is None:
+        port = 443  # default
+        utils.LOGGER.warning(
+            'No port provided; using default %d. '
+            'Use --zgrab-port to change it.',
+            port,
+        )
+    return {"state_state": "open", "state_reason": "response",
+            "port": port, "protocol": "tcp", "service_tunnel": "ssl",
+            "scripts": [{'id': 'ssl-jarm', 'output': data['fingerprint']}]}
+
+
+ZGRAB_PARSERS = {
+    'http': zgrap_parser_http,
+    'jarm': zgrap_parser_jarm,
+}
