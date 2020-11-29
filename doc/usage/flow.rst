@@ -147,7 +147,7 @@ The ``[src.|dst.]`` part is only available for node filters.
 The special keywords ``ANY``, ``ALL``, ``ONE`` and ``LEN`` are for
 working with array attributes:
 
--  ALL: matches if all the elements of the array fullfil the predicate
+-  ALL: matches if all the elements of the array fulfil the predicate
 -  ANY: the same if any of the elements match
 -  ONE: the same if exactly one of the elements match
 -  LEN: the predicate will use the len of the array
