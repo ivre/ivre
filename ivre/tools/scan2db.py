@@ -73,6 +73,10 @@ def main():
                         help='Additional Nmap probes to use when trying to '
                         'match Masscan results against Nmap service '
                         'fingerprints.')
+    parser.add_argument('--zgrab-port', metavar='PORT',
+                        help='Port used for the zgrab scan. This might be '
+                        'needed since the port number does not appear in the'
+                        'result.')
     parser.add_argument('--force-info', action='store_true',
                         help='Force information (AS, country, city, etc.)'
                         ' renewal (only useful with JSON format)')
@@ -120,6 +124,7 @@ def main():
                     needports=args.ports, needopenports=args.open_ports,
                     force_info=args.force_info,
                     masscan_probes=args.masscan_probes, callback=callback,
+                    zgrab_port=args.zgrab_port,
             ):
                 count += 1
         except Exception:
