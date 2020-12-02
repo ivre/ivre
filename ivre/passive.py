@@ -248,16 +248,17 @@ def _prepare_rec(spec, ignorenets, neverignore):
                 newvalue = pattern.sub(replace, newvalue)
         if newvalue != value:
             spec['value'] = utils.nmap_encode_data(newvalue)
-    elif spec['recontype'] == 'TCP_CLIENT_BANNER':
-        probe = utils.get_nmap_probes('tcp').get(
-            utils.nmap_decode_data(spec['value'])
-        )
-        if probe is not None:
-            spec.setdefault('infos', {}).update({
-                'service_name': 'scanner',
-                'service_product': 'Nmap',
-                'service_extrainfo': 'TCP probe %s' % probe,
-            })
+    elif spec['recontype'] in {'TCP_CLIENT_BANNER', 'TCP_HONEYPOT_HIT'}:
+        if spec['value']:
+            probe = utils.get_nmap_probes('tcp').get(
+                utils.nmap_decode_data(spec['value'])
+            )
+            if probe is not None:
+                spec.setdefault('infos', {}).update({
+                    'service_name': 'scanner',
+                    'service_product': 'Nmap',
+                    'service_extrainfo': 'TCP probe %s' % probe,
+                })
     elif spec['recontype'] == 'UDP_HONEYPOT_HIT':
         data = utils.nmap_decode_data(spec['value'])
         probe = utils.get_nmap_probes('udp').get(data)
