@@ -1428,10 +1428,20 @@ _RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\', '0': b'\x00'}
 
 
 def nmap_encode_data(data):
+    """Encode binary data (bytes) to a string (str) as Nmap would encode it."""
     return "".join(
         _REPRS[d] if d in _REPRS else
         chr(d) if 32 <= d <= 126 else '\\x%02x' % d
         for d in data
+    )
+
+
+def zeek_encode_data(data):
+    """Encode binary data (bytes) to a string (str) as Zeek would encode it."""
+    return "".join(
+        '\\\\' if d == b'\\' else d.decode() if b" " <= d <= b"~" else
+        '\\x%02x' % ord(d)
+        for d in (data[i:i + 1] for i in range(len(data)))
     )
 
 
