@@ -25,7 +25,7 @@ import binascii
 from ivre import utils
 
 
-def _extract_substr(ntlm_msg, offset, ln):
+def _extract_substr(ntlm_msg, offset, ln, uses_unicode):
     """
     Extract the string at te given offset and of the given length from an
     NTLM message
@@ -35,10 +35,25 @@ def _extract_substr(ntlm_msg, offset, ln):
         utils.LOGGER.warning("Data too small at offset %s [%r, size %d]",
                              offset, ntlm_msg, ln)
         raise ValueError
-    try:
-        return utils.nmap_encode_data(s.decode('utf-16').encode('utf-8'))
-    except UnicodeDecodeError:
-        utils.LOGGER.warning("Cannot decode %r", s)
+    if uses_unicode:
+        try:
+            return utils.nmap_encode_data(s.decode('utf-16').encode('utf-8'))
+        except UnicodeDecodeError:
+            utils.LOGGER.warning("Cannot decode %r", s)
+            return utils.nmap_encode_data(s)
+    else:
+        # Test whether the string is in UTF-16 encoding
+        if set(s[1::2]) in [{0}, {b'\x00'}]:
+            try:
+                return utils.nmap_encode_data(
+                    s.decode('utf-16').encode('utf-8')
+                )
+            except UnicodeDecodeError:
+                pass
+            else:
+                utils.LOGGER.warning("NTLM message should use code page "
+                                     "encoding but one of its fields (%r) is "
+                                     "encoded in UTF-16", s)
         return utils.nmap_encode_data(s)
 
 
@@ -46,6 +61,20 @@ def _extract_substr(ntlm_msg, offset, ln):
 # in the NTLM flags
 flag_version = 0x2000000
 flag_targetinfo = 0x800000
+flag_unicode = 0x1
+flag_oem = 0x2
+
+
+# https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
+# p34
+def is_unicode(msg, flags):
+    if flags & flag_unicode:
+        return True
+    if flags & flag_oem:
+        return False
+    utils.LOGGER.warning("NTLM message (%r) has no encoding specified", msg)
+    return False
+
 
 # Target info types :
 #  - 1: NetBIOS Computer Name
@@ -69,10 +98,13 @@ def _ntlm_challenge_extract(challenge):
     value = {}
     flags = struct.unpack('I', challenge[20:24])[0]
 
+    uses_unicode = is_unicode(challenge, flags)
+
     # Get target name
     lntarget, offset = struct.unpack('H2xH', challenge[12:18])
     try:
-        value['Target_Name'] = _extract_substr(challenge, offset, lntarget)
+        value['Target_Name'] = _extract_substr(challenge, offset, lntarget,
+                                               uses_unicode)
     except ValueError:
         pass
 
@@ -127,7 +159,8 @@ def _ntlm_challenge_extract(challenge):
             typ, ln = struct.unpack('HH', challenge[0:4])
             if 1 <= typ <= 5:
                 try:
-                    value[info_types[typ]] = _extract_substr(challenge, 4, ln)
+                    value[info_types[typ]] = _extract_substr(challenge, 4, ln,
+                                                             uses_unicode)
                 except ValueError:
                     pass
                 challenge = challenge[4 + ln:]
@@ -148,28 +181,34 @@ def _ntlm_authenticate_info(request):
 
     value = {}
     ln, offset = struct.unpack('H2xI', request[28:36])
-    if ln:
-        try:
-            value['NetBIOS_Domain_Name'] = _extract_substr(request, offset, ln)
-        except ValueError:
-            pass
     has_version = False
     # Flags are not present in an NTLM_AUTH message when the data block starts
     # before index 64
+    flags = 0x0
     if offset >= 64 and request[64:]:
         flags, = struct.unpack('I', request[60:64])
         has_version = flags & flag_version
 
+    uses_unicode = is_unicode(request, flags)
+    if ln:
+        try:
+            value['NetBIOS_Domain_Name'] = _extract_substr(request, offset, ln,
+                                                           uses_unicode)
+        except ValueError:
+            pass
+
     ln, off = struct.unpack('H2xI', request[36:44])
     if ln:
         try:
-            value['User_Name'] = _extract_substr(request, off, ln)
+            value['User_Name'] = _extract_substr(request, off, ln,
+                                                 uses_unicode)
         except ValueError:
             pass
     ln, off = struct.unpack('H2xI', request[44:52])
     if ln:
         try:
-            value['Workstation'] = _extract_substr(request, off, ln)
+            value['Workstation'] = _extract_substr(request, off, ln,
+                                                   uses_unicode)
         except ValueError:
             pass
 
