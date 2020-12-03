@@ -24,6 +24,7 @@ active (nmap & view) purposes.
 
 from datetime import datetime
 from itertools import chain
+import re
 from textwrap import wrap
 
 
@@ -133,6 +134,10 @@ ALIASES_TABLE_ELEMS = {
 }
 
 
+BIG_IP_ERROR_BANNER = re.compile('^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ')
+SONICWALL_ERROR_BANNER = re.compile('^\\(Ref.Id: \\?.*\\?\\)$')
+
+
 def create_ssl_output(info):
     out = []
     for key, name in [('subject_text', 'Subject'),
@@ -200,6 +205,22 @@ Host scripts (port == -1) are also considered True.
     if port.get('service_name'):
         return True
     if port.get('scripts'):
+        # Ports with scripts usually are "real" service ports, **but**
+        # when a port only has a banner script, the output of which
+        # matches a known SYN-ACK responder answser, we consider it is
+        # **possibly** a SYN-ACK "honeypot" (or responder) and return
+        # False
+        if (
+                len(port['scripts']) == 1 and
+                port['scripts'][0]['id'] == 'banner'
+        ):
+            banner = port['scripts'][0]['output']
+            if banner == '\n':
+                return False
+            if BIG_IP_ERROR_BANNER.search(banner):
+                return False
+            if SONICWALL_ERROR_BANNER.search(banner):
+                return False
         return True
     return False
 
