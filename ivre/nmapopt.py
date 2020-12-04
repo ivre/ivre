@@ -59,9 +59,7 @@ class Scan(object):
         self.top_ports=top_ports
         self.host_timeout = host_timeout
         self.script_timeout = script_timeout
-        if not self.ports :
-            self.ports = None
-        if self.ports is not None:
+        if self.ports:
             self.top_ports = None
         if scripts_categories is None:
             self.scripts_categories = []
