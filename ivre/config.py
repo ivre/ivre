@@ -73,6 +73,7 @@ NMAP_SCAN_TEMPLATES = {
         # "resolve": 1,
         # "verbosity": 2,
         # "ports": None,
+        # "top_ports": None,
         "host_timeout": "15m",  # default value: None
         "script_timeout": "2m",  # default value: None
         "scripts_categories": ['default', 'discovery',
