@@ -56,7 +56,7 @@ class Scan(object):
         self.resolve = resolve
         self.verbosity = verbosity
         self.ports = ports
-        self.top_ports=top_ports
+        self.top_ports = top_ports
         self.host_timeout = host_timeout
         self.script_timeout = script_timeout
         if self.ports:
