@@ -127,7 +127,7 @@ class Scan(object):
             options.append('-%s' % ('v' * self.verbosity))
         options.extend(NMAP_OPT_PORTS.get(self.ports, ['-p', self.ports]))
         if self.top_ports is not None:
-                options.extend(['--top-ports', self.top_ports])
+            options.extend(['--top-ports', self.top_ports])
         if self.host_timeout is not None:
             options.extend(['--host-timeout', self.host_timeout])
         if self.script_timeout is not None:
