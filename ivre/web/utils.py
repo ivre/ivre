@@ -690,6 +690,16 @@ def flt_from_query(dbase, query, base_flt=None):
                                                           neg=neg))
             elif param == "openport":
                 flt = dbase.flt_and(flt, dbase.searchopenport(neg=neg))
+            elif param == "ipv4":
+                if neg:
+                    flt = dbase.flt_and(flt, dbase.searchipv6())
+                else:
+                    flt = dbase.flt_and(flt, dbase.searchipv4())
+            elif param == "ipv6":
+                if neg:
+                    flt = dbase.flt_and(flt, dbase.searchipv4())
+                else:
+                    flt = dbase.flt_and(flt, dbase.searchipv6())
             elif param.isdigit():
                 flt = dbase.flt_and(flt, dbase.searchport(int(param),
                                                           neg=neg))

@@ -107,6 +107,8 @@ class DB(object):
         self.argparser.add_argument('--host', metavar='IP')
         self.argparser.add_argument('--range', metavar='IP', nargs=2)
         self.argparser.add_argument('--net', metavar='IP/MASK')
+        self.argparser.add_argument('--ipv4', action='store_true')
+        self.argparser.add_argument('--ipv6', action='store_true')
         self.argparser.add_argument('ips', nargs='*',
                                     help='Display results for specified IP '
                                     'addresses or ranges.')
@@ -164,6 +166,10 @@ class DB(object):
             flt = self.flt_and(flt, self.searchnet(args.net))
         if args.range is not None:
             flt = self.flt_and(flt, self.searchrange(*args.range))
+        if args.ipv4:
+            flt = self.flt_and(flt, self.searchipv4())
+        if args.ipv6:
+            flt = self.flt_and(flt, self.searchipv6())
         if args.ips:
             def _updtflt_(oflt, nflt):
                 if not oflt:
