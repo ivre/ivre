@@ -45,7 +45,7 @@ NMAP_OPT_PORTS = {
 class Scan(object):
     def __init__(self, nmap="nmap", pings='SE', scans='SV', osdetect=True,
                  traceroute=True, resolve=1, verbosity=2, ports=None,
-                 host_timeout=None, script_timeout=None,
+                 top_ports=None, host_timeout=None, script_timeout=None,
                  scripts_categories=None, scripts_exclude=None,
                  scripts_force=None, extra_options=None):
         self.nmap = nmap
@@ -56,8 +56,11 @@ class Scan(object):
         self.resolve = resolve
         self.verbosity = verbosity
         self.ports = ports
+        self.top_ports = top_ports
         self.host_timeout = host_timeout
         self.script_timeout = script_timeout
+        if self.ports:
+            self.top_ports = None
         if scripts_categories is None:
             self.scripts_categories = []
         else:
@@ -123,6 +126,8 @@ class Scan(object):
         if self.verbosity:
             options.append('-%s' % ('v' * self.verbosity))
         options.extend(NMAP_OPT_PORTS.get(self.ports, ['-p', self.ports]))
+        if self.top_ports is not None:
+            options.extend(['--top-ports', str(self.top_ports)])
         if self.host_timeout is not None:
             options.extend(['--host-timeout', self.host_timeout])
         if self.script_timeout is not None:
