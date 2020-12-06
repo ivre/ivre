@@ -22,6 +22,9 @@ import struct
 import binascii
 
 
+from builtins import range
+
+
 from ivre import utils
 
 
@@ -180,7 +183,11 @@ def _ntlm_authenticate_info(request):
         return None
 
     value = {}
-    ln, offset = struct.unpack('H2xI', request[28:36])
+    offset = min(
+        off for off in (
+            struct.unpack('I', request[i:i + 4])[0] for i in range(16, 49, 8)
+        ) if off != 0
+    )
     has_version = False
     # Flags are not present in an NTLM_AUTH message when the data block starts
     # before index 64
@@ -190,13 +197,13 @@ def _ntlm_authenticate_info(request):
         has_version = flags & flag_version
 
     uses_unicode = is_unicode(request, flags)
+    ln, off = struct.unpack('H2xI', request[28:36])
     if ln:
         try:
-            value['NetBIOS_Domain_Name'] = _extract_substr(request, offset, ln,
+            value['NetBIOS_Domain_Name'] = _extract_substr(request, off, ln,
                                                            uses_unicode)
         except ValueError:
             pass
-
     ln, off = struct.unpack('H2xI', request[36:44])
     if ln:
         try:
