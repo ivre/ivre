@@ -92,6 +92,14 @@ var HELP_FILTERS = {
 	    "title": "<b>(!)</b>range:<b>[IP address]-[IP address]</b>",
 	    "content": "Look for results within a specific IP range.",
 	},
+	"ipv4": {
+	    "title": "<b>(!)</b>ipv4",
+	    "content": "Look for results within the IPv4 range.",
+	},
+	"ipv6": {
+	    "title": "<b>(!)</b>ipv6",
+	    "content": "Look for results within the IPv6 range.",
+	},
 	"hostname:": {
 	    "title": "<b>(!)</b>hostname:<b>[FQDN]</b>",
 	    "content": "Look for results with a matching hostname ([FQDN] can be specified as the exact value or a /regexp/).",
