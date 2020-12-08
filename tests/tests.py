@@ -4882,7 +4882,7 @@ def parse_env():
         )
     # Elasticsearch insertion is asynchronous, this hack "ensures" the
     # data has been inserted before continuing.
-    ELASTIC_INSERT_TEMPO = int(os.getenv("ES_INSERT_TEMPO", 1))
+    ELASTIC_INSERT_TEMPO = int(os.getenv("ES_INSERT_TEMPO", 2))
 
 
 if __name__ == '__main__':
