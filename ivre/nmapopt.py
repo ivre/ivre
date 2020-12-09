@@ -42,7 +42,7 @@ NMAP_OPT_PORTS = {
 }
 
 
-class Scan(object):
+class Scan:
     def __init__(self, nmap="nmap", pings='SE', scans='SV', osdetect=True,
                  traceroute=True, resolve=1, verbosity=2, ports=None,
                  top_ports=None, host_timeout=None, script_timeout=None,

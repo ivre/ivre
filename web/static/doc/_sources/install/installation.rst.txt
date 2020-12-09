@@ -40,12 +40,11 @@ your needs:
 Python
 ~~~~~~
   
-To install IVRE, you'll need `Python <http://www.python.org/>`__ 2.7
-or 3 (version 3.4 minimum), with the following modules:
+To install IVRE, you'll need `Python <http://www.python.org/>`__ 3.6
+minimum, with the following modules:
 
 - `bottle <https://bottlepy.org/>`_.
 - `cryptography <https://cryptography.io/en/latest/>`_.
-- `future <https://python-future.org/>`_.
 - `pymongo <http://api.mongodb.org/python/>`_ version 2.7.2 minimum.
 - `tinydb <https://tinydb.readthedocs.io/>`_, to use the
   **experimental** TinyDB backend (this does not require a database
@@ -132,13 +131,11 @@ The installation of IVRE itself can be done:
 
    - ``ivre``: the main package, which depends on ``python-ivre``.
 
-   - ``python-ivre`` and ``python2-ivre``: the Python 3 and Python 2
-     libraries. You don't need ``python2-ivre`` unless you have Python
-     2 only code relying on IVRE.
+   - ``python-ivre`` the Python library.
 
-   - ``ivre-web``: the Web application
+   - ``ivre-web``: the Web application.
 
-   - ``ivre-docs``: the documentation
+   - ``ivre-docs``: the documentation.
 
   These packages are based on the latest stable version; they all have
   a ``-git`` version, based on the current development code from the

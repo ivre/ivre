@@ -20,14 +20,14 @@
 
 pkgbase=ivre-git
 _pkgname=ivre
-pkgname=('ivre-git' 'ivre-web-git' 'ivre-docs-git' 'python-ivre-git' 'python2-ivre-git')
-pkgver=0.9.14.dev_fixes_113
+pkgname=('ivre-git' 'ivre-web-git' 'ivre-docs-git' 'python-ivre-git')
+pkgver=0.9.16
 pkgrel=1
 pkgdesc='Network recon framework based on Nmap, Masscan, Zeek (Bro), Argus, Netflow,...'
 arch=('any')
 url='https://ivre.rocks/'
 license=('GPL3')
-makedepends=('git' 'python' 'python2')
+makedepends=('git' 'python')
 branch="`git branch | awk '/^*/ {print $2}'`"
 source=("git+file://`readlink -f ../../../`#branch=$branch")
 sha512sums=('SKIP')
@@ -43,16 +43,9 @@ prepare() {
 }
 
 build() {
-  (
-    cd "$srcdir/$_pkgname"
+  cd "$srcdir/$_pkgname"
 
-    python setup.py build
-  )
-  (
-    cd "$srcdir/$_pkgname-py2"
-
-    python2 setup.py build
-  )
+  python setup.py build
 }
 
 package_ivre-git() {
@@ -128,7 +121,7 @@ package_ivre-web-git() {
 }
 
 package_python-ivre-git() {
-  depends=('python' 'python-pymongo' 'python-future')
+  depends=('python' 'python-pymongo')
   optdepends=('python-sqlalchemy: experimental PostgreSQL & SQLite backends'
               'python-psycopg2: experimental PostgreSQL backend'
               'python-elasticsearch: experimental Elasticsearch backend'
@@ -157,37 +150,5 @@ package_python-ivre-git() {
   install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
   sed -i "s/\.dev/.dev_${branch//-/_}_/" \
       "$pkgdir"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
-}
-
-package_python2-ivre-git() {
-  depends=('python2' 'python2-pymongo' 'python2-future')
-  optdepends=('python2-sqlalchemy: experimental PostgreSQL & SQLite backends'
-              'python2-psycopg2: experimental PostgreSQL backend'
-              'python2-elasticsearch: experimental Elasticsearch backend'
-              'python2-elasticsearch-dsl: experimental Elasticsearch backend'
-              'python2-tinydb: experimental file-based backend (no DB server)'
-              'python2-pillow: trim screenshots on insertion'
-              'tesseract: extract words from screenshots on insertion'
-              'python2-cryptography: extract data from public keys ("ivre getmoduli")'
-              'python2-scapy: parse PCAP files for ARP inspection (flow analysis)'
-              'python2-matplotlib: create graphs from command line tools'
-              'python2-dbus: 3D traceroute graphs'
-              'mongodb: database server'
-              'postgresql: database server (experimental backend)')
-  provides=('python2-ivre')
-  conflicts=('python2-ivre')
-  pkgdesc+=' (library)'
-
-  cd "$srcdir/$_pkgname-py2"
-
-  python2 setup.py install --root="$pkgdir" --prefix=/usr --optimize=1
-
-  rm -r "$pkgdir/usr/bin" \
-     "$pkgdir/usr/share" \
-     "$pkgdir/etc/bash_completion.d"
-
-  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" doc/license*
-  sed -i "s/\.dev/.dev_${branch//-/_}_/" \
-      "${pkgdir}"/usr/lib/python*/site-packages/ivre/{VERSION,__init__.py}
 }
 

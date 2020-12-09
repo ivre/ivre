@@ -23,18 +23,7 @@ AS number and country information.
 """
 
 
-from __future__ import print_function
 from argparse import ArgumentParser
-import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
-
-
-from future.utils import viewitems
 
 
 from ivre.db import db
@@ -68,5 +57,5 @@ def main():
         if info:
             print('    address_type %s' % info)
         for info in [db.data.as_byip(addr), db.data.location_byip(addr)]:
-            for key, value in viewitems(info or {}):
+            for key, value in (info or {}).items():
                 print('    %s %s' % (key, value))

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,9 +27,6 @@ import re
 import sqlite3
 
 
-from future.utils import PY3
-
-
 from sqlalchemy import event, func, Column, ForeignKey, Index, DateTime, \
     Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
 from sqlalchemy.dialects import postgresql
@@ -42,9 +39,6 @@ from sqlalchemy.engine import Engine
 
 
 from ivre import passive, utils, xmlnmap
-
-
-INTERNAL_IP_PY2 = re.compile('^[0-9a-fA-F]{32}$')
 
 
 # sqlite
@@ -184,30 +178,16 @@ class DefaultINET(UserDefinedType):
         return self.__visit_name__
 
     def bind_processor(self, dialect):
-        if PY3:
-            def process(value):
-                return self.python_type(
-                    b"" if not value else utils.ip2bin(value)
-                )
-        else:
-            def process(value):
-                if not value:
-                    return self.python_type(b"")
-                if isinstance(value, str) and INTERNAL_IP_PY2.search(value):
-                    return self.python_type(value)
-                return self.python_type(utils.encode_hex(utils.ip2bin(value)))
+        def process(value):
+            return self.python_type(
+                b"" if not value else utils.ip2bin(value)
+            )
         return process
 
     @staticmethod
     def result_processor(dialect, coltype):
-        if PY3:
-            def process(value):
-                return None if not value else utils.bin2ip(value)
-        else:
-            def process(value):
-                return None if not value else utils.bin2ip(
-                    utils.decode_hex(value)
-                )
+        def process(value):
+            return None if not value else utils.bin2ip(value)
         return process
 
 
@@ -265,12 +245,12 @@ class Flow(Base):
 
 
 # Active
-class _Association_Scan_ScanFile(object):
+class _Association_Scan_ScanFile:
     scan = Column(Integer, primary_key=True)
     scan_file = Column(LargeBinary(32), primary_key=True)
 
 
-class _ScanFile(object):
+class _ScanFile:
     sha256 = Column(LargeBinary(32), primary_key=True)
     args = Column(Text)
     scaninfo = Column(SQLJSONB)
@@ -282,24 +262,24 @@ class _ScanFile(object):
     xmloutputversion = Column(String(16))
 
 
-class _Association_Scan_Category(object):
+class _Association_Scan_Category:
     scan = Column(Integer, primary_key=True)
     category = Column(Integer, primary_key=True)
 
 
-class _Category(object):
+class _Category:
     id = Column(Integer, primary_key=True)
     name = Column(String(32))
 
 
-class _Script(object):
+class _Script:
     port = Column(Integer, primary_key=True)
     name = Column(String(64), primary_key=True)
     output = Column(Text)
     data = Column(SQLJSONB)
 
 
-class _Port(object):
+class _Port:
     id = Column(Integer, primary_key=True)
     scan = Column(Integer)
     port = Column(Integer)
@@ -320,7 +300,7 @@ class _Port(object):
     service_fp = Column(Text)
 
 
-class _Hostname(object):
+class _Hostname:
     id = Column(Integer, primary_key=True)
     scan = Column(Integer)
     domains = Column(SQLARRAY(String(255)), index=True)
@@ -328,20 +308,20 @@ class _Hostname(object):
     type = Column(String(16), index=True)
 
 
-class _Association_Scan_Hostname(object):
+class _Association_Scan_Hostname:
     __tablename__ = 'association_scan_hostname'
     scan = Column(Integer, primary_key=True)
     hostname = Column(Integer, primary_key=True)
 
 
-class _Trace(object):
+class _Trace:
     id = Column(Integer, primary_key=True)
     scan = Column(Integer, nullable=False)
     port = Column(Integer)
     protocol = Column(String(16))
 
 
-class _Hop(object):
+class _Hop:
     id = Column(Integer, primary_key=True)
     trace = Column(Integer, nullable=False)
     ipaddr = Column(SQLINET)
@@ -351,7 +331,7 @@ class _Hop(object):
     domains = Column(SQLARRAY(String(255)), index=True)
 
 
-class _Scan(object):
+class _Scan:
     id = Column(Integer, primary_key=True)
     addr = Column(SQLINET, nullable=False)
     # source = Column()

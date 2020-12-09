@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,10 +19,6 @@
 """Support for NetFlow files"""
 
 import datetime
-
-
-from builtins import zip
-from past.builtins import basestring
 
 
 from ivre import utils
@@ -65,7 +61,7 @@ class NetFlow(CmdParser):
         """
         cmd = ["nfdump", "-aq", "-o", self.fmt]
         cmdkargs = {}
-        if isinstance(fdesc, basestring):
+        if isinstance(fdesc, str):
             with open(fdesc, 'rb') as fde:
                 if fde.read(2) not in utils.FileOpener.FILE_OPENERS_MAGIC:
                     cmd.extend(["-r", fdesc])

@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.9.15.dev
+                0.9.16.dev
               </div>
             
           
@@ -199,18 +199,18 @@ the case, you will have to install those programs on you own,
 referring to their documentation (see <a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-debian/">MongoDB on Debian</a>
 or <a class="reference external" href="http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/">MongoDB on Ubuntu</a>
 and <a class="reference external" href="https://pypi.python.org/pypi/pymongo/">pymongo</a>), instead of
-<code class="docutils literal notranslate"><span class="pre">apt-get</span></code>-ting them.</p>
+getting them via <code class="docutils literal notranslate"><span class="pre">apt</span></code>.</p>
 <p>You might also want to adapt it to your needs, architecture, etc.</p>
 <p>For another way to run IVRE easily (probably even more easily), see
 <a class="reference internal" href="docker.html#docker"><span class="std std-ref">Docker</span></a>.</p>
 <div class="section" id="install">
 <h2>Install<a class="headerlink" href="#install" title="Permalink to this headline">¶</a></h2>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt-get -y install mongodb python-pymongo python-crypto \
-&gt;   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
+&gt;   python3-crypto python3-bottle apache2 libapache2-mod-wsgi-py3 dokuwiki
 $ git clone https://github.com/cea-sec/ivre
 $ cd ivre
-$ python setup.py build
-$ sudo python setup.py install
+$ python3 setup.py build
+$ sudo python3 setup.py install
 </pre></div>
 </div>
 </div>

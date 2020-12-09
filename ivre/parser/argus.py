@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2016 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,10 +20,6 @@
 
 
 import datetime
-
-
-from builtins import zip
-from past.builtins import basestring
 
 
 from ivre.parser import CmdParser
@@ -51,11 +47,11 @@ class Argus(CmdParser):
         cmd.extend(self.aggregation)
         cmd.append("-s")
         cmd.extend(self.fields)
-        cmd.extend(["-r", fdesc if isinstance(fdesc, basestring) else "-"])
+        cmd.extend(["-r", fdesc if isinstance(fdesc, str) else "-"])
         if pcap_filter is not None:
             cmd.extend(["--", pcap_filter])
         super(Argus, self).__init__(
-            cmd, {} if isinstance(fdesc, basestring) else {"stdin": fdesc},
+            cmd, {} if isinstance(fdesc, str) else {"stdin": fdesc},
         )
         self.fdesc.readline()
 

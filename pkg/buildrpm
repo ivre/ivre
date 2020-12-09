@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,5 +20,5 @@ RELEASE=1
 DISTRIB="`rpmbuild --eval \"%{?dist}\"`"
 VERSION="`python setup.py --version`"
 
-python setup.py bdist_rpm --release=$RELEASE --distribution-name=$DISTRIB --requires=pymongo,python-crypto,python-future --obsoletes=IVRE
+python setup.py bdist_rpm --release=$RELEASE --distribution-name=$DISTRIB --requires=pymongo,python-crypto --obsoletes=IVRE
 mv dist/ivre-$VERSION-$RELEASE.noarch.rpm dist/ivre-$VERSION-${RELEASE}${DISTRIB}.noarch.rpm

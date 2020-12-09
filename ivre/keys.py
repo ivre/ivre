@@ -30,7 +30,6 @@ import subprocess
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
-from past.builtins import long
 
 
 from ivre.db import db
@@ -45,7 +44,7 @@ def _rsa_construct(exp, mod):
     return RSAPublicNumbers(exp, mod).public_key(default_backend())
 
 
-class DBKey(object):
+class DBKey:
     """Base class for a key lookup tool"""
 
     def __init__(self, dbc, baseflt=None):
@@ -89,7 +88,7 @@ class PassiveKey(DBKey):
         DBKey.__init__(self, db.passive, baseflt=baseflt)
 
 
-class SSLKey(object):
+class SSLKey:
     """Base class for a key lookup tool specialized for the Keys from
     SSL certificates.
 
@@ -174,14 +173,14 @@ class SSLPassiveKey(PassiveKey, SSLKey):
 
         yield Key(record['addr'], record["port"], "ssl", certtext['type'],
                   int(certtext['len']),
-                  _rsa_construct(long(certtext['exponent']),
-                                 long(self.modulus_badchars.sub(
+                  _rsa_construct(int(certtext['exponent']),
+                                 int(self.modulus_badchars.sub(
                                      b"", certtext['modulus']
                                  ), 16)),
                   utils.decode_hex(record['infos']['md5']))
 
 
-class SSHKey(object):
+class SSHKey:
     """Base class for a key lookup tool specialized for the Keys from
     SSH hosts.
 
@@ -233,12 +232,12 @@ class SSHPassiveKey(PassiveKey, SSHKey):
     def getkeys(self, record):
         yield Key(record['addr'], record["port"], "ssh",
                   record['infos']['algo'][4:], record['infos']['bits'],
-                  _rsa_construct(long(record['infos']['exponent']),
-                                 long(record['infos']['modulus'])),
+                  _rsa_construct(int(record['infos']['exponent']),
+                                 int(record['infos']['modulus'])),
                   utils.decode_hex(record['infos']['md5']))
 
 
-class RSAKey(object):
+class RSAKey:
     """Base class for the RSA Keys.
 
     """
@@ -262,16 +261,16 @@ class RSAKey(object):
     def pem2key(cls, pem):
         certtext = cls._pem2key(pem)
         return None if certtext is None else _rsa_construct(
-            long(certtext['exponent']),
-            long(cls.modulus_badchars.sub(b"", certtext['modulus']), 16),
+            int(certtext['exponent']),
+            int(cls.modulus_badchars.sub(b"", certtext['modulus']), 16),
         )
 
     @staticmethod
     def data2key(data):
         data = utils._parse_ssh_key(data)
         _, exp, mod = (next(data),  # noqa: F841 (_)
-                       long(utils.encode_hex(next(data)), 16),
-                       long(utils.encode_hex(next(data)), 16))
+                       int(utils.encode_hex(next(data)), 16),
+                       int(utils.encode_hex(next(data)), 16))
         return _rsa_construct(exp, mod)
 
 
@@ -291,8 +290,8 @@ class SSLRsaNmapKey(SSLNmapKey, RSAKey):
                 key = cert['pubkey']
                 yield Key(host['addr'], script["port"], "ssl", key['type'],
                           key['bits'],
-                          _rsa_construct(long(key['exponent']),
-                                         long(key['modulus'])),
+                          _rsa_construct(int(key['exponent']),
+                                         int(key['modulus'])),
                           utils.decode_hex(cert['md5']))
 
 

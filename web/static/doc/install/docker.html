@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.9.15.dev
+                0.9.16.dev
               </div>
             
           
@@ -268,7 +268,7 @@ the <em>tarball</em> from GitHub, by creating it locally and using the
 <code class="docutils literal notranslate"><span class="pre">base-local</span></code> directory instead of <code class="docutils literal notranslate"><span class="pre">base</span></code>. From the repository root,
 run:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
-$ tmp=`mktemp | sed &#39;s#^/##&#39;`; python2 setup.py --version | tr -d &#39;\n&#39; &gt; &quot;/$tmp&quot;
+$ tmp=`mktemp | sed &#39;s#^/##&#39;`; python setup.py --version | tr -d &#39;\n&#39; &gt; &quot;/$tmp&quot;
 $ tar rf docker/base-local/ivre.tar --transform=&quot;s#$tmp#ivre/ivre/VERSION#&quot; /$tmp
 $ rm &quot;/$tmp&quot;
 $ docker pull debian:stable

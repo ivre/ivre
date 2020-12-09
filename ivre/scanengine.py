@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,12 +17,8 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
 
-This sub-module is responsible for handling scanning agents.
-"""
+"""This sub-module is responsible for handling scanning agents."""
 
 
 import glob
@@ -33,13 +29,10 @@ import subprocess
 import time
 
 
-from builtins import range
-
-
 from ivre import utils
 
 
-class Agent(object):
+class Agent:
 
     """An Agent instance is a (possibly remote) scanner."""
 
@@ -157,7 +150,7 @@ class Agent(object):
             campaign.sync(self)
 
 
-class Campaign(object):
+class Campaign:
 
     """A Campaign instance is basically the association of a targets
     container (an instance of `target.Target`) with a list of agents

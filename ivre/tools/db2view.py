@@ -20,14 +20,11 @@
 """Create views from nmap and passive databases."""
 
 
-from __future__ import print_function
+import argparse
 
 
 from ivre.db import db, DB
 from ivre.view import from_passive, from_nmap, to_view
-
-
-import argparse
 
 
 def main():

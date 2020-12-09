@@ -24,9 +24,6 @@ import subprocess
 import sys
 
 
-from builtins import input
-
-
 import ivre.target
 import ivre.utils
 import ivre.scanengine

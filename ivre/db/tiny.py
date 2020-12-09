@@ -36,9 +36,6 @@ import struct
 from uuid import uuid1, UUID
 
 
-from future.builtins import int as int_types, zip
-from future.utils import viewitems, with_metaclass
-from past.builtins import basestring
 from tinydb import TinyDB as TDB, Query
 from tinydb.database import Document
 from tinydb.operations import add, increment
@@ -123,7 +120,7 @@ class TinyDB(DB):
                     res = Document({}, doc_id=rec.doc_id)
                 else:
                     res = {}
-                for fld, value in viewitems(wanted_fields):
+                for fld, value in wanted_fields.items():
                     if fld not in rec:
                         continue
                     if value is True:
@@ -313,7 +310,7 @@ filter.
 
     @staticmethod
     def ip2internal(addr):
-        if isinstance(addr, int_types):
+        if isinstance(addr, int):
             return addr
         val1, val2 = struct.unpack(
             '!QQ', utils.ip2bin(addr)
@@ -482,11 +479,11 @@ This will be used by TinyDBNmap & TinyDBView
                         if fld not in cert:
                             continue
                         if isinstance(cert[fld], datetime):
-                            cert[fld] = utils.datetime2timestamp(cert[fld])
-                        elif isinstance(cert[fld], basestring):
-                            cert[fld] = utils.datetime2timestamp(
-                                utils.all2datetime(cert[fld])
-                            )
+                            cert[fld] = cert[fld].timestamp()
+                        elif isinstance(cert[fld], str):
+                            cert[fld] = utils.all2datetime(
+                                cert[fld]
+                            ).timestamp()
         for trace in host.get('traces', []):
             for hop in trace.get('hops', []):
                 if 'ipaddr' in hop:
@@ -498,11 +495,9 @@ This will be used by TinyDBNmap & TinyDBView
             if fld not in host:
                 continue
             if isinstance(host[fld], datetime):
-                host[fld] = utils.datetime2timestamp(host[fld])
-            elif isinstance(host[fld], basestring):
-                host[fld] = utils.datetime2timestamp(
-                    utils.all2datetime(host[fld])
-                )
+                host[fld] = host[fld].timestamp()
+            elif isinstance(host[fld], str):
+                host[fld] = utils.all2datetime(host[fld]).timestamp()
         if '_id' not in host:
             _id = host['_id'] = str(uuid1())
         self.db.insert(host)
@@ -575,7 +570,7 @@ This will be used by TinyDBNmap & TinyDBView
 
         """
         q = Query()
-        if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
+        if not isinstance(asnum, str) and hasattr(asnum, '__iter__'):
             res = q.infos.as_num.one_of([int(val) for val in asnum])
             if neg:
                 return ~res
@@ -731,12 +726,12 @@ This will be used by TinyDBNmap & TinyDBView
         if output is not None:
             res.append(cls._searchstring_re(q.output, output))
         if values:
-            if not isinstance(name, basestring):
+            if not isinstance(name, str):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             key = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, dict):
-                for field, value in viewitems(values):
+                for field, value in values.items():
                     if 'ports.scripts.%s' % key in cls.list_fields:
                         base = q
                         for subfld in field.split('.'):
@@ -816,7 +811,7 @@ This will be used by TinyDBNmap & TinyDBView
             return q.ports.any(q.scripts.any(q.ls.volumes.any(
                 q.files.any(fname)
             )))
-        if isinstance(scripts, basestring):
+        if isinstance(scripts, str):
             scripts = [scripts]
         if len(scripts) == 1:
             return q.ports.any(q.scripts.any(
@@ -930,7 +925,7 @@ This will be used by TinyDBNmap & TinyDBView
     def searchtimeago(delta, neg=False):
         if not isinstance(delta, timedelta):
             delta = timedelta(seconds=delta)
-        tstamp = utils.datetime2timestamp(datetime.now() - delta)
+        tstamp = (datetime.now() - delta).timestamp()
         q = Query().endtime
         if neg:
             return q < tstamp
@@ -939,9 +934,9 @@ This will be used by TinyDBNmap & TinyDBView
     @staticmethod
     def searchtimerange(start, stop, neg=False):
         if isinstance(start, datetime):
-            start = utils.datetime2timestamp(start)
+            start = start.timestamp()
         if isinstance(stop, datetime):
-            stop = utils.datetime2timestamp(stop)
+            stop = stop.timestamp()
         q = Query()
         if neg:
             return (q.endtime < start) | (q.starttime > stop)
@@ -1428,7 +1423,7 @@ This will be used by TinyDBNmap & TinyDBView
                     for rec in self._get(flt, sort=sort, limit=limit,
                                          skip=skip, fields=[field]):
                         for val in self._generate_field_values(rec, field):
-                            yield tuple(sorted(viewitems(val)))
+                            yield tuple(sorted(val.items()))
 
                 def _outputproc(val):
                     return dict(val)
@@ -1844,7 +1839,7 @@ This will be used by TinyDBNmap & TinyDBView
                 continue
             c = tuple(c)
             res[c] += 1
-        for rec, count in viewitems(res):
+        for rec, count in res.items():
             yield {'_id': rec, 'count': count}
 
     def get_ips_ports(self, flt, limit=None, skip=None):
@@ -2008,11 +2003,9 @@ inserted in the database.
             if fld not in rec:
                 continue
             if isinstance(rec[fld], datetime):
-                rec[fld] = utils.datetime2timestamp(rec[fld])
-            elif isinstance(rec[fld], basestring):
-                rec[fld] = utils.datetime2timestamp(
-                    utils.all2datetime(rec[fld])
-                )
+                rec[fld] = rec[fld].timestamp()
+            elif isinstance(rec[fld], str):
+                rec[fld] = utils.all2datetime(rec[fld]).timestamp()
             if '_id' in rec:
                 del rec['_id']
         return rec
@@ -2086,17 +2079,15 @@ None) is returned.
             pass
         count = spec.pop("count", 1)
         spec_cond = self.flt_and(*(getattr(q, key) == value
-                                   for key, value in viewitems(spec)))
+                                   for key, value in spec.items()))
         if isinstance(timestamp, datetime):
-            timestamp = utils.datetime2timestamp(timestamp)
-        elif isinstance(timestamp, basestring):
-            timestamp = utils.datetime2timestamp(utils.all2datetime(timestamp))
+            timestamp = timestamp.timestamp()
+        elif isinstance(timestamp, str):
+            timestamp = utils.all2datetime(timestamp).timestamp()
         if isinstance(lastseen, datetime):
-            lastseen = utils.datetime2timestamp(lastseen)
-        elif isinstance(lastseen, basestring):
-            lastseen = utils.datetime2timestamp(
-                utils.all2datetime(lastseen)
-            )
+            lastseen = lastseen.timestamp()
+        elif isinstance(lastseen, str):
+            lastseen = utils.all2datetime(lastseen).timestamp()
         current = self.get_one(spec_cond, fields=[])
         if current is not None:
             self.db.update(op_update(count, timestamp, lastseen or timestamp),
@@ -2119,16 +2110,16 @@ None) is returned.
                             continue
                         info = doc['infos']
                         if isinstance(info[fld], datetime):
-                            info[fld] = utils.datetime2timestamp(info[fld])
-                        elif isinstance(info[fld], basestring):
-                            info[fld] = utils.datetime2timestamp(
-                                utils.all2datetime(info[fld])
-                            )
+                            info[fld] = info[fld].timestamp()
+                        elif isinstance(info[fld], str):
+                            info[fld] = utils.all2datetime(
+                                info[fld]
+                            ).timestamp()
                 # upsert() won't handle operations
             self.db.upsert(doc, spec_cond)
 
     def remove(self, spec_or_id):
-        if isinstance(spec_or_id, int_types):
+        if isinstance(spec_or_id, int):
             self.db.remove(doc_ids=[spec_or_id])
         else:
             self.db.remove(cond=spec_or_id)
@@ -2524,7 +2515,7 @@ None) is returned.
     def searchtimeago(delta, neg=False, new=True):
         if not isinstance(delta, timedelta):
             delta = timedelta(seconds=delta)
-        tstamp = utils.datetime2timestamp(datetime.now() - delta)
+        tstamp = (datetime.now() - delta).timestamp()
         req = getattr(Query(), 'firstseen' if new else 'lastseen')
         if neg:
             return req < tstamp
@@ -2533,11 +2524,9 @@ None) is returned.
     @staticmethod
     def searchnewer(timestamp, neg=False, new=True):
         if isinstance(timestamp, datetime):
-            timestamp = utils.datetime2timestamp(timestamp)
-        elif isinstance(timestamp, basestring):
-            timestamp = utils.datetime2timestamp(
-                utils.all2datetime(timestamp)
-            )
+            timestamp = timestamp.timestamp()
+        elif isinstance(timestamp, str):
+            timestamp = utils.all2datetime(timestamp).timestamp()
         req = getattr(Query(), 'firstseen' if new else 'lastseen')
         if neg:
             return req <= timestamp
@@ -2801,7 +2790,7 @@ def combine_ops(*ops):
     return _transform
 
 
-class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
+class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
 
     """A Flow-specific DB using TinyDB backend"""
 
@@ -2877,7 +2866,7 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
                 )
             for tslot in generator:
                 tslot = dict(tslot)
-                tslot['start'] = utils.datetime2timestamp(tslot['start'])
+                tslot['start'] = tslot['start'].timestamp()
                 updatespec.append(add_to_set_op("times", tslot))
                 lst = insertspec.setdefault("times", [])
                 if tslot not in lst:
@@ -2895,21 +2884,20 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
         # Insert in flows
         findspec, insertspec = self._get_flow_key(rec)
         updatespec = [
-            min_op('firstseen', utils.datetime2timestamp(rec['start_time'])),
-            max_op('lastseen', utils.datetime2timestamp(rec['end_time'])),
+            min_op('firstseen', rec['start_time'].timestamp()),
+            max_op('lastseen', rec['end_time'].timestamp()),
             inc_op('meta.%s.count' % name),
         ]
         insertspec.update({
-            'firstseen': utils.datetime2timestamp(rec['start_time']),
-            'lastseen': utils.datetime2timestamp(rec['end_time']),
+            'firstseen': rec['start_time'].timestamp(),
+            'lastseen': rec['end_time'].timestamp(),
             'meta.%s.count' % name: 1
         })
 
         # metadata storage can be disabled.
         if config.FLOW_STORE_METADATA:
-            for kind, op in viewitems(self.meta_kinds):
-                for key, value in viewitems(self.meta_desc[name].get(kind,
-                                                                     {})):
+            for kind, op in self.meta_kinds.items():
+                for key, value in self.meta_desc[name].get(kind, {}).items():
                     if not rec[value]:
                         continue
                     if ("%s.%s.%s" % (name, kind, key)
@@ -2978,8 +2966,8 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
         findspec, insertspec = self._get_flow_key(rec)
 
         updatespec = [
-            min_op('firstseen', utils.datetime2timestamp(rec['start_time'])),
-            max_op('lastseen', utils.datetime2timestamp(rec['end_time'])),
+            min_op('firstseen', rec['start_time'].timestamp()),
+            max_op('lastseen', rec['end_time'].timestamp()),
             inc_op('cspkts', value=rec['orig_pkts']),
             inc_op('scpkts', value=rec['resp_pkts']),
             inc_op('csbytes', value=rec['orig_ip_bytes']),
@@ -2987,8 +2975,8 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
             inc_op('count'),
         ]
         insertspec.update({
-            'firstseen': utils.datetime2timestamp(rec['start_time']),
-            'lastseen': utils.datetime2timestamp(rec['end_time']),
+            'firstseen': rec['start_time'].timestamp(),
+            'lastseen': rec['end_time'].timestamp(),
             'cspkts': rec['orig_pkts'],
             'scpkts': rec['resp_pkts'],
             'csbytes': rec['orig_ip_bytes'],
@@ -3020,8 +3008,8 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
         findspec, insertspec = self._get_flow_key(rec)
 
         updatespec = [
-            min_op('firstseen', utils.datetime2timestamp(rec['start_time'])),
-            max_op('lastseen', utils.datetime2timestamp(rec['end_time'])),
+            min_op('firstseen', rec['start_time'].timestamp()),
+            max_op('lastseen', rec['end_time'].timestamp()),
             inc_op('cspkts', value=rec['cspkts']),
             inc_op('scpkts', value=rec['scpkts']),
             inc_op('csbytes', value=rec['csbytes']),
@@ -3029,8 +3017,8 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
             inc_op('count'),
         ]
         insertspec.update({
-            'firstseen': utils.datetime2timestamp(rec['start_time']),
-            'lastseen': utils.datetime2timestamp(rec['end_time']),
+            'firstseen': rec['start_time'].timestamp(),
+            'lastseen': rec['end_time'].timestamp(),
             'cspkts': rec['cspkts'],
             'scpkts': rec['scpkts'],
             'csbytes': rec['csbytes'],
@@ -3152,7 +3140,7 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
                 if tslot not in lst_times:
                     lst_times.append(tslot)
         counter = 0
-        for flw_id, flw in viewitems(res):
+        for flw_id, flw in res.items():
             if not self.should_switch_hosts(flw_id, flw):
                 continue
             new_rec = {
@@ -3231,6 +3219,7 @@ class TinyDBFlow(with_metaclass(DBFlowMeta, TinyDB, DBFlow)):
                     array_mode=clause['array_mode'],
                 )
         if clause['neg']:
+            # pylint: disable=invalid-unary-operand-type
             return ~res
         return res
 
@@ -3257,9 +3246,8 @@ addresses.
         else:
             value = clause['value']
             if clause['attr'] in cls.datefields:
-                value = utils.datetime2timestamp(
-                    datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
-                )
+                value = datetime.strptime(value,
+                                          "%Y-%m-%d %H:%M:%S.%f").timestamp()
             res = cls._base_from_attr(
                 clause['attr'],
                 op=lambda val: clause['operator'](val, value),
@@ -3413,9 +3401,9 @@ addresses.
         q = Query()
         timeflt = q.duration == precision
         if after:
-            timeflt &= q.start >= utils.datetime2timestamp(after)
+            timeflt &= q.start >= after.timestamp()
         if before:
-            timeflt &= q.start < utils.datetime2timestamp(before)
+            timeflt &= q.start < before.timestamp()
         try:
             if flt == self.flt_empty:
                 flt = q.times.any(timeflt)
@@ -3450,7 +3438,7 @@ addresses.
                     entry_name = field['proto']
                 flows[entry_name] = flows.get(entry_name, 0) + 1
             yield {
-                'flows': list(viewitems(flows)),
+                'flows': list(flows.items()),
                 'time_in_day': time(hour=entry[0], minute=entry[1],
                                     second=entry[2])
             }
@@ -3546,7 +3534,7 @@ addresses.
             ({"fields": key,
               "count": val[0],
               "collected": tuple(tuple(col) for col in val[1])}
-             for key, val in viewitems(res)),
+             for key, val in res.items()),
             key=lambda elt: elt['count'],
             reverse=True,
         )

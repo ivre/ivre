@@ -20,16 +20,8 @@
 'Query the passive database to perform ARP resolutions.'
 
 
-from __future__ import print_function
 import argparse
 import re
-import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
 
 
 from ivre.db import db

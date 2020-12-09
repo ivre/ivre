@@ -23,21 +23,12 @@ See doc/FLOW.md for more information.
 """
 
 
-from __future__ import print_function
 from argparse import ArgumentParser
 import datetime
 import os
 import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
 
 
-from builtins import input
-from future.utils import viewitems
 try:
     import matplotlib
     import matplotlib.pyplot as plt
@@ -329,7 +320,7 @@ def main():
                 t = t + datetime.timedelta(seconds=precision)
             ax = plt.subplots()[1]
             fmt = matplotlib.dates.DateFormatter('%H:%M:%S')
-            for flow, data in viewitems(plot_data):
+            for flow, data in plot_data.items():
                 values = [(data[ti] if ti in data else 0) for ti in times]
                 plt.step(times, values, '.-', where='post', label=flow)
             plt.legend(loc='best')

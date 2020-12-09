@@ -102,7 +102,7 @@ run:
 ::
 
    $ git archive --format=tar --prefix=ivre/ HEAD -o docker/base-local/ivre.tar
-   $ tmp=`mktemp | sed 's#^/##'`; python2 setup.py --version | tr -d '\n' > "/$tmp"
+   $ tmp=`mktemp | sed 's#^/##'`; python setup.py --version | tr -d '\n' > "/$tmp"
    $ tar rf docker/base-local/ivre.tar --transform="s#$tmp#ivre/ivre/VERSION#" /$tmp
    $ rm "/$tmp"
    $ docker pull debian:stable

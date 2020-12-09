@@ -82,12 +82,7 @@ def main():
             ivre.db.DBPassive.insert_or_update_bulk,
             ivre.db.db.passive,
         )
-    # Python 2/3 compat: read stdin as binary in Python 3 with .buffer
-    try:
-        stdin = sys.stdin.buffer
-    except AttributeError:
-        stdin = sys.stdin
-    zeek_parser = ivre.parser.zeek.ZeekFile(stdin)
+    zeek_parser = ivre.parser.zeek.ZeekFile(sys.stdin.buffer)
     function(
         rec_iter(zeek_parser, args.sensor, ignore_rules),
         getinfos=ivre.passive.getinfos

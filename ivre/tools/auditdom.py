@@ -28,15 +28,6 @@ import json
 import pipes
 import subprocess
 import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
-
-
-from future.utils import viewitems
 
 
 from ivre import VERSION
@@ -74,7 +65,7 @@ def _dns_query(name, rtype=None, srv=None, getall=False, getfull=False):
                 yield ans.data
 
 
-class Checker(object):
+class Checker:
 
     def __init__(self, domain):
         self.domain = domain
@@ -179,7 +170,7 @@ class AXFRChecker(Checker):
                 if r.rtype in ['A', 'AAAA']:
                     name = r.name.rstrip('.')
                     hosts.setdefault(r.data, set()).add((r.rtype, name))
-            for host, records in viewitems(hosts):
+            for host, records in hosts.items():
                 yield {
                     "addr": host,
                     "hostnames": [{"name": rec[1], "type": rec[0],

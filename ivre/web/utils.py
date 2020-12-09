@@ -37,12 +37,9 @@ except ImportError:
 
 
 from bottle import request
-from future.utils import viewitems
-from past.builtins import basestring
 
 
 from ivre import config, utils
-from ivre.db import db
 
 
 def js_alert(ident, level, message):
@@ -186,12 +183,12 @@ def get_init_flt(dbase):
     privileges.
 
     """
-    init_queries = dict([key, _parse_query(dbase, value)]
-                        for key, value in viewitems(config.WEB_INIT_QUERIES))
+    init_queries = {key: _parse_query(dbase, value)
+                    for key, value in config.WEB_INIT_QUERIES.items()}
     user = get_user()
     if user in init_queries:
         return init_queries[user]
-    if isinstance(user, basestring) and '@' in user:
+    if isinstance(user, str) and '@' in user:
         realm = user[user.index('@'):]
         if realm in init_queries:
             return init_queries[realm]
@@ -570,12 +567,10 @@ def flt_from_query(dbase, query, base_flt=None):
         elif param == 'hop':
             if ':' in value:
                 hop, ttl = value.split(':', 1)
-                flt = dbase.flt_and(flt,
-                                    dbase.searchhop(hop, ttl=int(ttl),
-                                                    neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchhop(hop, ttl=int(ttl),
+                                                         neg=neg))
             else:
-                flt = dbase.flt_and(flt,
-                                    db.view.searchhop(value, neg=neg))
+                flt = dbase.flt_and(flt, dbase.searchhop(value, neg=neg))
         elif param == 'hopname':
             flt = dbase.flt_and(flt,
                                 dbase.searchhopname(value, neg=neg))
@@ -618,7 +613,7 @@ def flt_from_query(dbase, query, base_flt=None):
                 else:
                     proto = "tcp"
                 protos.setdefault(proto, []).append(int(port))
-            for proto, ports in viewitems(protos):
+            for proto, ports in protos.items():
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchport(ports[0], protocol=proto, state=param)

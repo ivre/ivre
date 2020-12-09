@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,10 +15,12 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM ivre/base
-LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
+LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # Install & configure Nginx
-RUN apt-get -qy install nginx spawn-fcgi php-fpm php-gd fcgiwrap uwsgi-plugin-python
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install nginx spawn-fcgi php-fpm php-gd fcgiwrap uwsgi-plugin-python3 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 COPY nginx-default-site /etc/nginx/sites-available/default
 RUN echo '\ndaemon off;' >> /etc/nginx/nginx.conf
 RUN mkdir /var/run/uwsgi
@@ -28,9 +30,11 @@ ADD http://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz ./dokuwiki-sta
 RUN tar --transform='s#^dokuwiki-\([^/]*\)#var/www/dokuwiki#' -zxf ./dokuwiki-stable.tgz && rm ./dokuwiki-stable.tgz
 
 # IVRE-specific
-RUN apt-get -qy install patch && \
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install patch && \
     patch var/www/dokuwiki/inc/html.php usr/local/share/ivre/dokuwiki/backlinks.patch && \
-    apt-get -qy --purge autoremove patch
+    apt-get -qy --purge autoremove patch && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 RUN ln -s /usr/local/share/ivre/dokuwiki/doc var/www/dokuwiki/data/pages/doc && \
     ln -s /usr/local/share/ivre/dokuwiki/media/logo.png var/www/dokuwiki/data/media/wiki/logo.png && \
     mkdir var/www/dokuwiki/data/media/doc && \
@@ -55,7 +59,7 @@ CMD service php-fpm start && \
     service fcgiwrap start && \
     for d in "" /local; do if [ -f "/usr$d/share/ivre/web/wsgi/app.wsgi" ]; \
       then APP="/usr$d/share/ivre/web/wsgi/app.wsgi"; break; fi; done && \
-    uwsgi --plugin /usr/lib/uwsgi/plugins/python_plugin.so \
+    uwsgi --plugin /usr/lib/uwsgi/plugins/python3_plugin.so \
       --daemonize /var/log/nginx/uwsgi.log \
       --socket /var/run/uwsgi/sock \
       --processes 4 --threads 2 \

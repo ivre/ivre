@@ -20,19 +20,21 @@ LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 # Tools
 ## non-free: s3270
 RUN sed -i 's/ main/ main non-free/' /etc/apt/sources.list
-RUN apt-get -q update
 ## openssl: IVRE depends on openssl exec + libssl needed for Nmap
 ## libfreetype6 libfontconfig1 fonts-dejavu: screenshots w/ phantomjs
-RUN apt-get -qy install rsync screen ipython openssl tesseract-ocr \
-    libfreetype6 libfontconfig1 fonts-dejavu imagemagick ffmpeg s3270 \
-    patch bash-completion bzip2 bro python-pil nfdump
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install rsync screen ipython3 openssl \
+        tesseract-ocr libfreetype6 libfontconfig1 fonts-dejavu imagemagick \
+        ffmpeg s3270 patch bash-completion bzip2 python3-pil nfdump && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Nmap. Use included libpcap as a workaround for Nmap issue
 # #34 (https://github.com/nmap/nmap/issues/34) since we do not know
 # which kernel version will be used
 # ADD https://github.com/nmap/nmap/tarball/master ./nmap.tar.gz
-ADD https://nmap.org/dist/nmap-7.80.tgz ./nmap.tar.gz
-RUN apt-get -qy install build-essential libssl-dev flex bison && \
+ADD https://nmap.org/dist/nmap-7.91.tgz ./nmap.tar.gz
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install build-essential libssl-dev flex bison && \
     tar zxf nmap.tar.gz && \
     mv nmap-* nmap && \
     cd nmap && \
@@ -41,7 +43,17 @@ RUN apt-get -qy install build-essential libssl-dev flex bison && \
                 --with-libpcap=included && \
     make && make install && \
     cd ../ && rm -rf nmap nmap.tar.gz && \
-    apt-get -qy --purge autoremove build-essential libssl-dev flex bison
+    apt-get -qy --purge autoremove build-essential libssl-dev flex bison && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Zeek
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install gnupg wget && \
+    echo 'deb http://download.opensuse.org/repositories/security:/zeek/Debian_10/ /' > /etc/apt/sources.list.d/zeek.list && \
+    wget -qO - https://download.opensuse.org/repositories/security:zeek/Raspbian_10/Release.key | apt-key add - && \
+    apt-get -q update && apt-get -qy --no-install-recommends install zeek && \
+    apt-get -qy --purge autoremove gnupg wget && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # "Install" phantomjs for our http-screenshot NSE script replacement
 ADD https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-1.9.8-linux-x86_64.tar.bz2 ./phantomjs-1.9.8-linux-x86_64.tar.bz2

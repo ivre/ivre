@@ -22,9 +22,6 @@ import struct
 import binascii
 
 
-from builtins import range
-
-
 from ivre import utils
 
 

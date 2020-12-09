@@ -17,31 +17,19 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
-
-This sub-module contains the classes and functions to handle
+"""This sub-module contains the classes and functions to handle
 information about IP addresses (mostly from Maxmind GeoIP files).
 
 """
 
 
-from __future__ import print_function
 import codecs
 import csv
 import os.path
 import sys
 import tarfile
-try:
-    from urllib.request import build_opener
-except ImportError:
-    from urllib2 import build_opener
+from urllib.request import build_opener
 import zipfile
-
-
-from builtins import range
-from future.utils import viewitems, viewvalues
 
 
 from ivre import VERSION, utils, config
@@ -149,7 +137,7 @@ def download_all(verbose=False):
     opener = build_opener()
     opener.addheaders = [('User-agent',
                           'IVRE/%s +https://ivre.rocks/' % VERSION)]
-    for fname, url in viewitems(config.IPDATA_URLS):
+    for fname, url in config.IPDATA_URLS.items():
         if url is None:
             if not fname.startswith('GeoLite2-'):
                 continue
@@ -179,7 +167,7 @@ def download_all(verbose=False):
             utils.LOGGER.warning(
                 "A parser failed: %s(%s, %s)", func.__name__,
                 ', '.join(args),
-                ', '.join('%s=%r' % k_v for k_v in viewitems(kargs)),
+                ', '.join('%s=%r' % k_v for k_v in kargs.items()),
                 exc_info=True,
             )
     if verbose:
@@ -220,7 +208,7 @@ def locids_by_region(country_code, reg_code):
             yield int(line['geoname_id'])
 
 
-class IPRanges(object):
+class IPRanges:
 
     def __init__(self, ranges=None):
         """ranges must be given in the "correct" order *and* not
@@ -291,21 +279,21 @@ class IPRanges(object):
         return res
 
     def iter_int_ranges(self):
-        for start, length in sorted(viewvalues(self.ranges)):
+        for start, length in sorted(self.ranges.values()):
             yield start, start + length - 1
 
     def iter_ranges(self):
-        for start, length in sorted(viewvalues(self.ranges)):
+        for start, length in sorted(self.ranges.values()):
             yield utils.int2ip(start), utils.int2ip(start + length - 1)
 
     def iter_nets(self):
-        for start, length in sorted(viewvalues(self.ranges)):
+        for start, length in sorted(self.ranges.values()):
             for net in utils.range2nets((utils.int2ip(start),
                                          utils.int2ip(start + length - 1))):
                 yield net
 
     def iter_addrs(self):
-        for start, length in sorted(viewvalues(self.ranges)):
+        for start, length in sorted(self.ranges.values()):
             for val in range(start, start + length):
                 yield utils.int2ip(val)
 

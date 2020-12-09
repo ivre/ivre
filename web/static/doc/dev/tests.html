@@ -65,7 +65,7 @@
             
             
               <div class="version">
-                0.9.15.dev
+                0.9.16.dev
               </div>
             
           
@@ -226,7 +226,7 @@ place your samples there (the PCAP files must have the extension
 <code class="docutils literal notranslate"><span class="pre">.pcap</span></code>, the Nmap XML result files must have the extension <code class="docutils literal notranslate"><span class="pre">.xml</span></code>,
 and the Nmap JSON results must have the extension <code class="docutils literal notranslate"><span class="pre">.json</span></code>).</p>
 <p>Then, run <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">./tests.py</span></code> (optionally replace <code class="docutils literal notranslate"><span class="pre">python</span></code> by the
-alternative interpreter you want to use, e.g., <code class="docutils literal notranslate"><span class="pre">python2.7</span></code>; note
+alternative interpreter you want to use, e.g., <code class="docutils literal notranslate"><span class="pre">python3.9</span></code>; note
 that <code class="docutils literal notranslate"><span class="pre">coverage.py</span></code> must be installed for this interpreter).  The
 first run will create a <code class="docutils literal notranslate"><span class="pre">samples/results</span></code> file with the expected
 values for some results. The next runs will use those values to check
@@ -266,7 +266,7 @@ better than the stored ones.</p></li>
 <h2>Travis CI<a class="headerlink" href="#travis-ci" title="Permalink to this headline">¶</a></h2>
 <p>Tests are run with several MongoDB and PostgreSQL versions, as well as
 TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
-with Python 2.7 and 3.4 to 3.8.</p>
+with Python 3.6 to 3.9.</p>
 <p>The configuration is in the <cite>.travis.yml</cite> YAML file.</p>
 </div>
 </div>

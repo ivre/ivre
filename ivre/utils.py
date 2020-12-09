@@ -48,9 +48,6 @@ import sys
 import time
 
 
-from builtins import bytes, int as int_types, object, range, str
-from future.utils import PY3, viewitems, viewvalues
-from past.builtins import basestring
 try:
     from OpenSSL import crypto as osslc
     from cryptography.hazmat.primitives.serialization import \
@@ -538,7 +535,7 @@ def all2datetime(arg):
     """
     if isinstance(arg, datetime.datetime):
         return arg
-    if isinstance(arg, basestring):
+    if isinstance(arg, str):
         for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f',
                     '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f']:
             try:
@@ -546,7 +543,7 @@ def all2datetime(arg):
             except ValueError:
                 pass
         raise ValueError('time data %r does not match standard formats' % arg)
-    if isinstance(arg, (int_types, float)):
+    if isinstance(arg, (int, float)):
         return datetime.datetime.fromtimestamp(arg)
     raise TypeError("%s is of unknown type." % repr(arg))
 
@@ -580,8 +577,7 @@ def isfinal(elt):
     that does not contain other elements)
 
     """
-    return isinstance(elt, (basestring, int_types, float, datetime.datetime,
-                            REGEXP_T))
+    return isinstance(elt, (str, int, float, datetime.datetime, REGEXP_T))
 
 
 def diff(doc1, doc2):
@@ -632,7 +628,7 @@ def fields2csv_head(fields, prefix=''):
 
     """
     line = []
-    for field, subfields in viewitems(fields):
+    for field, subfields in fields.items():
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
@@ -647,7 +643,7 @@ def doc2csv(doc, fields, nastr="NA"):
 
     """
     lines = [[]]
-    for field, subfields in viewitems(fields):
+    for field, subfields in fields.items():
         if subfields is True:
             value = doc.get(field)
             if isinstance(value, list):
@@ -689,7 +685,7 @@ def doc2csv(doc, fields, nastr="NA"):
     return lines
 
 
-class FileOpener(object):
+class FileOpener:
     """A file-like object, working with gzip or bzip2 compressed files.
 
     Uses subprocess.Popen() to call zcat or bzcat by default (much
@@ -702,7 +698,7 @@ class FileOpener(object):
     }
 
     def __init__(self, fname):
-        if not isinstance(fname, basestring):
+        if not isinstance(fname, str):
             self.fdesc = fname
             self.needsclose = False
             return
@@ -866,7 +862,7 @@ def country_unalias(country):
         previous Maxmind GeoIP databases.
 
     """
-    if isinstance(country, basestring):
+    if isinstance(country, str):
         return COUNTRY_ALIASES.get(country, country)
     if hasattr(country, '__iter__'):
         return functools.reduce(
@@ -1008,8 +1004,8 @@ def _set_ports():
                 continue
             _PORTS.setdefault(proto, {})[port] = freq
         fdesc.close()
-    for proto, entry in viewitems(config.KNOWN_PORTS):
-        for port, proba in viewitems(entry):
+    for proto, entry in config.KNOWN_PORTS.items():
+        for port, proba in entry.items():
             _PORTS.setdefault(proto, {})[port] = proba
     _PORTS_POPULATED = True
 
@@ -1136,7 +1132,7 @@ def get_nmap_probes(proto):
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return {value['probe']: name
-            for name, value in viewitems(_NMAP_PROBES[proto])}
+            for name, value in _NMAP_PROBES[proto].items()}
 
 
 def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
@@ -1173,7 +1169,7 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                     doc['service_tunnel'] = 'ssl'
                 else:
                     doc['service_name'] = service
-                for elt, key in viewitems(NMAP_FINGERPRINT_IVRE_KEY):
+                for elt, key in NMAP_FINGERPRINT_IVRE_KEY.items():
                     if elt in fingerprint:
                         if elt == 'cpe':
                             data = [
@@ -1427,15 +1423,15 @@ def mac2manuf(mac):
 # Nmap (and Zeek) encoding & decoding
 
 
-_REPRS = {b'\r': '\\r', b'\n': '\\n', b'\t': '\\t', b'\\': '\\\\'}
+_REPRS = {13: '\\r', 10: '\\n', 9: '\\t', 92: '\\\\'}
 _RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\', '0': b'\x00'}
 
 
 def nmap_encode_data(data):
     return "".join(
-        _REPRS[d] if d in _REPRS else d.decode() if b" " <= d <= b"~" else
-        '\\x%02x' % ord(d)
-        for d in (data[i:i + 1] for i in range(len(data)))
+        _REPRS[d] if d in _REPRS else
+        chr(d) if 32 <= d <= 126 else '\\x%02x' % d
+        for d in data
     )
 
 
@@ -1551,31 +1547,19 @@ def normalize_props(props, braces=True):
         props = dict.fromkeys(props)
     # Remove braces if necessary
     if not braces:
-        for key, value in viewitems(props):
-            if (isinstance(value, basestring) and value.startswith('{') and
-                    value.endswith('}')):
+        for key, value in props.items():
+            if (
+                    isinstance(value, str) and value.startswith('{') and
+                    value.endswith('}')
+            ):
                 props[key] = value[1:-1]
     form = "{%s}" if braces else "%s"
     props = dict(
-        (key, (value if isinstance(value, basestring) else
+        (key, (value if isinstance(value, str) else
                (form % key) if value is None else
-               str(value))) for key, value in viewitems(props)
+               str(value))) for key, value in props.items()
     )
     return props
-
-
-def datetime2timestamp(dtm):
-    """Returns the timestamp (as a float value) corresponding to the
-datetime.datetime instance `dtm`"""
-    # Python 2/3 compat: python 3 has datetime.timestamp()
-    try:
-        return dtm.timestamp()
-    except AttributeError:
-        try:
-            return time.mktime(dtm.timetuple()) + dtm.microsecond / (1000000.)
-        except ValueError:
-            # year out of range might happen
-            return (dtm - datetime.datetime.fromtimestamp(0)).total_seconds()
 
 
 def tz_offset(timestamp=None):
@@ -1594,7 +1578,7 @@ def datetime2utcdatetime(dtm):
     Returns the given datetime in UTC. dtm is expected to be in local
     timezone.
     """
-    offset = tz_offset(timestamp=datetime2timestamp(dtm))
+    offset = tz_offset(timestamp=dtm.timestamp())
     delta = datetime.timedelta(seconds=offset)
     return dtm - delta
 
@@ -1640,13 +1624,13 @@ def encode_b64(value):
 
 
 def printable(string):
-    if PY3 and isinstance(string, bytes):
+    if isinstance(string, bytes):
         return bytes(c if 32 <= c <= 126 else 46 for c in string)
     return "".join(c if ' ' <= c <= '~' else '.' for c in string)
 
 
 def only_printable(string):
-    if PY3 and isinstance(string, bytes):
+    if isinstance(string, bytes):
         return bytes(c for c in string if 32 <= c <= 126)
     return "".join(c for c in string if ' ' <= c <= '~')
 
@@ -1899,7 +1883,7 @@ PUBKEY_TYPES = {
     'dhpublicnumber': 'dh',
 }
 
-PUBKEY_REV_TYPES = dict((val, key) for key, val in viewitems(PUBKEY_TYPES))
+PUBKEY_REV_TYPES = dict((val, key) for key, val in PUBKEY_TYPES.items())
 
 
 def _parse_cert_subject(subject):
@@ -1980,6 +1964,9 @@ if STRPTIME_SUPPORTS_TZ:
     def _parse_datetime(value):
         try:
             return datetime.datetime.strptime(value.decode(), '%Y%m%d%H%M%S%z')
+        except ValueError:
+            return datetime.datetime.strptime(value.decode()[:14],
+                                              '%Y%m%d%H%M%S')
         except Exception:
             LOGGER.warning('Cannot parse datetime value %r', value,
                            exc_info=True)
@@ -2027,11 +2014,7 @@ This version relies on the pyOpenSSL module.
         if not_after is not None:
             result['not_after'] = not_after
             lifetime = not_after - not_before
-            try:
-                result['lifetime'] = int(lifetime.total_seconds())
-            except AttributeError:
-                # .total_seconds() does not exist in Python 2.6
-                result['lifetime'] = lifetime.days * 86400 + lifetime.seconds
+            result['lifetime'] = int(lifetime.total_seconds())
     elif not_after is not None:
         result['not_after'] = not_after
     result['pubkey'] = {}
@@ -2080,7 +2063,7 @@ and is a fallback when pyOpenSSL cannot be imported.
                     "no matching expression in %r",
                     cert, data)
         return result
-    for field, fdata in viewitems(match.groupdict()):
+    for field, fdata in match.groupdict().items():
         try:
             fdata = fdata.decode()
             if field in ['issuer', 'subject']:
@@ -2100,10 +2083,16 @@ and is a fallback when pyOpenSSL cannot be imported.
                                         .replace('\n', ''), 16))
             elif field in ['not_before', 'not_after']:
                 if STRPTIME_SUPPORTS_TZ:
-                    result[field] = datetime.datetime.strptime(
-                        fdata,
-                        '%b %d %H:%M:%S %Y %Z',
-                    )
+                    try:
+                        result[field] = datetime.datetime.strptime(
+                            fdata,
+                            '%b %d %H:%M:%S %Y %Z',
+                        )
+                    except ValueError:
+                        result[field] = datetime.datetime.strptime(
+                            fdata[:-4],
+                            '%b %d %H:%M:%S %Y',
+                        )
                 else:
                     result[field] = datetime.datetime.strptime(
                         fdata[:-4],
@@ -2119,11 +2108,7 @@ and is a fallback when pyOpenSSL cannot be imported.
     result['self_signed'] = result['issuer_text'] == result['subject_text']
     if 'not_before' in result and 'not_after' in result:
         lifetime = result['not_after'] - result['not_before']
-        try:
-            result['lifetime'] = int(lifetime.total_seconds())
-        except AttributeError:
-            # .total_seconds() does not exist in Python 2.6
-            result['lifetime'] = lifetime.days * 86400 + lifetime.seconds
+        result['lifetime'] = int(lifetime.total_seconds())
     san = _CERTINFOS_EXT_SAN.search(data)
     if san is not None:
         try:
@@ -2187,39 +2172,31 @@ def display_top(db, arg, flt, lmt):
         print("%(_id)s: %(count)d" % entry)
 
 
-if PY3:
+# https://stackoverflow.com/a/26348624
+@functools.total_ordering
+class MinValue:
+    def __le__(self, other):
+        return True
 
-    # https://stackoverflow.com/a/26348624
-    @functools.total_ordering
-    class MinValue(object):
-        def __le__(self, other):
-            return True
+    def __eq__(self, other):
+        return self is other
 
-        def __eq__(self, other):
-            return self is other
 
-    MIN_VALUE = MinValue()
+MIN_VALUE = MinValue()
 
-    def key_sort_none(value):
-        """This function can be used as `key=` argument for sorted() and
+
+def key_sort_none(value):
+    """This function can be used as `key=` argument for sorted() and
 .sort(), in order to sort values that can be of a certain type (e.g.,
 str), or None, so that None is always lower.
 
 We just need to replace None with MIN_VALUE, which is an object that
 happily compares with anything, and is lower than anything.
 
-        """
-        if value is None:
-            return MIN_VALUE
-        return value
-
-else:
-    def key_sort_none(value):
-        """In Python 2, None is lower than most types (int, str, etc.), so we
-have nothing to do here.
-
-        """
-        return value
+    """
+    if value is None:
+        return MIN_VALUE
+    return value
 
 
 def ptr2addr(ptr):
@@ -2247,7 +2224,7 @@ def deep_sort_dict_list(elt):
     elt must be a dictionary
     Notice: It does not sort nested lists.
     """
-    for value in viewvalues(elt):
+    for value in elt.values():
         if isinstance(value, list):
             value.sort()
         elif isinstance(value, dict):

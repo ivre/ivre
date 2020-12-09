@@ -28,9 +28,6 @@ import struct
 import binascii
 
 
-from future.utils import viewitems
-
-
 from ivre import utils, config
 from ivre.analyzer import ntlm
 
@@ -366,7 +363,7 @@ def _getinfos_http_client_authorization(spec):
                     value.split('=', 1) if '=' in value else [value, None]
                     for value in _split_digest_auth(data[1].strip())
                 )
-                for key, value in list(viewitems(infos)):
+                for key, value in list(infos.items()):
                     if value.startswith('"') and value.endswith('"'):
                         infos[key] = value[1:-1]
             except Exception:

@@ -35,7 +35,6 @@ import tempfile
 
 
 from bottle import abort, request, response, Bottle
-from future.utils import viewitems
 
 
 from ivre import config, utils, VERSION
@@ -187,10 +186,10 @@ def get_nmap_action(subdb, action):
         result, count = subdb.get_open_port_count(flt_params.flt)
         if request.params.get("modulo") is None:
             def r2time(r):
-                return int(utils.datetime2timestamp(r['starttime']))
+                return int(r['starttime'].timestamp())
         else:
             def r2time(r):
-                return (int(utils.datetime2timestamp(r['starttime']))
+                return (int(r['starttime'].timestamp())
                         % int(request.params.get("modulo")))
         if flt_params.ipsasnumbers:
             def r2res(r):
@@ -270,7 +269,7 @@ def get_nmap_action(subdb, action):
                 result.setdefault(utils.int2ip(res["addr"]),
                                   []).append([res['port'], res['value']])
                 count += 1
-        result = viewitems(result)
+        result = result.items()
 
     if flt_params.fmt == "txt":
         for rec in result:
@@ -465,7 +464,7 @@ def get_nmap(subdb):
         for field in ['starttime', 'endtime']:
             if field in rec:
                 if not flt_params.datesasstrings:
-                    rec[field] = int(utils.datetime2timestamp(rec[field]))
+                    rec[field] = int(rec[field].timestamp())
         for port in rec.get('ports', []):
             if 'screendata' in port:
                 port['screendata'] = utils.encode_b64(port['screendata'])
@@ -520,7 +519,7 @@ def get_nmap(subdb):
                            'IVRE!' % (count, 's' if count > 1 else '',
                                       've' if count > 1 else 's')),
     }
-    for mismatch, count in viewitems(version_mismatch):
+    for mismatch, count in version_mismatch.items():
         message = messages[mismatch](count)
         if flt_params.callback is not None:
             yield webutils.js_alert(

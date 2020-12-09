@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,9 +22,6 @@
 import subprocess
 
 
-from builtins import object
-
-
 from ivre.utils import FileOpener
 
 
@@ -35,7 +32,7 @@ class Parser(FileOpener):
         return self.parse_line(super(Parser, self).__next__())
 
 
-class CmdParser(object):
+class CmdParser:
     """Parent class for file parsers with commands"""
 
     def __init__(self, cmd, cmdkargs):
