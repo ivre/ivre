@@ -672,6 +672,35 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
                      $value=join_string_vec(value, ",")]);
 }
 
+event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
+
+    local value = vector();
+    if (negotiate?$domain_name) {
+        value += "NetBIOS_Domain_Name:" + encode_base64(negotiate$domain_name);
+    }
+    if (negotiate?$workstation) {
+        value += "Worstation:" + encode_base64(negotiate$workstation);
+    }
+    if (negotiate?$version) {
+        value += "Product_Version:" + encode_base64(fmt("%s.%s.%s",
+                                                negotiate$version$major,
+                                                negotiate$version$minor,
+                                                negotiate$version$build));
+        value += fmt("NTLM_Version:%d", negotiate$version$ntlmssp);
+    }
+    local proto = _get_protocol_version(c);
+    if (proto != "") {
+        value += proto;
+    }
+
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$orig_h,
+                     $recon_type=NTLM_NEGOTIATE,
+                     $source=_get_source(c),
+                     $value=join_string_vec(value, ",")]);
+}
+
 event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
 
     local value = vector();
