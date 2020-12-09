@@ -47,8 +47,6 @@ import uuid
 import xml.sax
 
 
-from builtins import range
-from future.utils import viewitems, viewvalues
 # tests: I don't want to depend on cluster for now
 try:
     import cluster
@@ -63,7 +61,7 @@ from ivre.active.data import ALIASES_TABLE_ELEMS, merge_host_docs, \
 from ivre.zgrabout import ZGRAB_PARSERS
 
 
-class DB(object):
+class DB:
     """The base database object. Must remain backend-independent and
     purpose-independent.
 
@@ -299,12 +297,8 @@ See .features_addr_list() for the number and meaning of the features.
             return result + [utils.ip2int(addr)]
         addrbin = utils.ip2bin(addr)
         if use_ipv6:
-            return result + [
-                ord(addrbin[i:i + 1]) for i in range(len(addrbin))
-            ]
-        return result + [
-            ord(addrbin[i:i + 1]) for i in range(len(addrbin))
-        ][-4:]
+            return result + list(addrbin)
+        return result + list(addrbin)[-4:]
 
     def features_port_list(self, flt, yieldall, use_service, use_product,
                            use_version):
@@ -924,8 +918,7 @@ insert structures.
         for port in doc.get('ports', []):
             if port['port'] == 'host':
                 port['port'] = -1
-        for state, (total, counts) in list(viewitems(doc.get('extraports',
-                                                             {}))):
+        for state, (total, counts) in list(doc.get('extraports', {}).items()):
             doc['extraports'][state] = {"total": total, "reasons": counts}
 
     @staticmethod
@@ -937,7 +930,7 @@ insert structures.
         assert doc["schema_version"] == 5
         doc["schema_version"] = 6
         migrate_scripts = set(script for script, alias
-                              in viewitems(ALIASES_TABLE_ELEMS)
+                              in ALIASES_TABLE_ELEMS.items()
                               if alias == 'vulns')
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
@@ -987,7 +980,7 @@ insert structures.
                     else:
                         script['vulns'] = [dict(tab, id=vulnid)
                                            for vulnid, tab in
-                                           viewitems(script['vulns'])]
+                                           script['vulns'].items()]
 
     @staticmethod
     def __migrate_schema_hosts_8_9(doc):
@@ -1963,7 +1956,7 @@ class DBNmap(DBActive):
                     host["categories"] = categories
                 if source is not None:
                     host["source"] = source
-                for key, value in viewitems(rec.pop('data', {})):
+                for key, value in rec.pop('data', {}).items():
                     try:
                         timestamp = (
                             value.pop('timestamp')[:19].replace('T', ' ')
@@ -1995,7 +1988,7 @@ class DBNmap(DBActive):
                     continue
                 set_openports_attribute(host)
                 if 'cpes' in host:
-                    host['cpes'] = list(viewvalues(host['cpes']))
+                    host['cpes'] = list(host['cpes'].values())
                     for cpe in host['cpes']:
                         cpe['origins'] = sorted(cpe['origins'])
                     if not host['cpes']:
@@ -2325,7 +2318,7 @@ class DBView(DBActive):
         )
 
 
-class _RecInfo(object):
+class _RecInfo:
     __slots__ = ["count", "firstseen", "infos", "lastseen"]
 
     def __init__(self, infos):
@@ -2508,7 +2501,7 @@ class DBPassive(DB):
         """
         def _bulk_execute(records):
             utils.LOGGER.debug("DB:local bulk upsert: %d", len(records))
-            for spec, metadata in viewitems(records):
+            for spec, metadata in records.items():
                 self.insert_or_update(metadata.firstseen,
                                       dict(spec, **metadata.data),
                                       getinfos=getinfos,
@@ -2972,9 +2965,6 @@ class DBAgent(DB):
             else:
                 itertarget.fdesc = (True, fdesc.tell())
         scan = {
-            # We need to explicitly call self.to_binary() because with
-            # MongoDB, Python 2 will store a unicode string that it
-            # won't be able un pickle.loads() later
             "target": self.to_binary(pickle.dumps(itertarget)),
             "target_info": target.infos,
             "agents": [],
@@ -3011,14 +3001,7 @@ and raises a LockError on failure.
         lockid = uuid.uuid1()
         scan = self._lock_scan(scanid, None, lockid.bytes)
         if scan['lock'] is not None:
-            # This might be a bug in uuid module, Python 2 only
-            #    File "/opt/python/2.6.9/lib/python2.6/uuid.py", line 145,
-            #   in __init__
-            #      int = long(('%02x'*16) % tuple(map(ord, bytes)), 16)
-            # scan['lock'] = uuid.UUID(bytes=scan['lock'])
-            scan['lock'] = uuid.UUID(
-                hex=utils.encode_hex(scan['lock']).decode()
-            )
+            scan['lock'] = uuid.UUID(bytes=scan['lock'])
         if scan['lock'] == lockid:
             return scan
         return None
@@ -3061,9 +3044,6 @@ LockError on failure.
                 target.fdesc = (False, 0)
             else:
                 target.fdesc = (True, fdesc.tell())
-        # We need to explicitly call self.to_binary() because with
-        # MongoDB, Python 2 will store a unicode string that it
-        # won't be able un pickle.loads() later
         return self._update_scan_target(scanid,
                                         self.to_binary(pickle.dumps(target)))
 
@@ -3127,9 +3107,9 @@ class DBFlowMeta(type):
         once at class initialization.
         """
         meta_desc = {}
-        for proto, configs in viewitems(flow.META_DESC):
+        for proto, configs in flow.META_DESC.items():
             meta_desc[proto] = {}
-            for kind, values in viewitems(configs):
+            for kind, values in configs.items():
                 meta_desc[proto][kind] = (
                     utils.normalize_props(values, braces=False)
                 )
@@ -3141,8 +3121,8 @@ class DBFlowMeta(type):
         Computes list_fields from meta_desc.
         """
         list_fields = ['sports', 'codes', 'times']
-        for proto, kinds in viewitems(meta_desc):
-            for kind, values in viewitems(kinds):
+        for proto, kinds in meta_desc.items():
+            for kind, values in kinds.items():
                 if kind == 'keys':
                     for name in values:
                         list_fields.append('meta.%s.%s' % (proto, name))
@@ -3155,7 +3135,7 @@ class DBFlow(DB):
     @classmethod
     def date_round(cls, date):
         if isinstance(date, datetime):
-            ts = utils.datetime2timestamp(date)
+            ts = date.timestamp()
         else:
             ts = date
         ts = ts - (ts % config.FLOW_TIME_PRECISION)
@@ -3200,7 +3180,7 @@ class DBFlow(DB):
 
     @staticmethod
     def _get_timeslot(time, precision, base):
-        ts = utils.datetime2timestamp(time)
+        ts = time.timestamp()
         ts += utils.tz_offset(ts)
         new_ts = ts - (((ts % precision) - base) % precision)
         new_ts -= utils.tz_offset(new_ts)
@@ -3440,9 +3420,9 @@ class DBFlow(DB):
                         host["data"]["lastseen"])
                 else:
                     hosts[host["id"]] = host
-        g["nodes"] = list(viewvalues(hosts))
+        g["nodes"] = list(hosts.values())
         if mode in ["flow_map", "talk_map"]:
-            g["edges"] = list(viewvalues(edges))
+            g["edges"] = list(edges.values())
         return g
 
     def to_graph(self, flt, limit=None, skip=None, orderby=None, mode=None,
@@ -3516,7 +3496,7 @@ class DBFlow(DB):
         raise NotImplementedError
 
 
-class MetaDB(object):
+class MetaDB:
 
     # Backend-specific purpose-specific sub-classes (e.g.,
     # MongoDBNmap) must be "registered" in this dict.

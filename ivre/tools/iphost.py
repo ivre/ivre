@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,15 +20,8 @@
 'Query the passive database to perform DNS resolutions (passive DNS).'
 
 
-from __future__ import print_function
 import getopt
 import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
 
 
 from ivre.db import db

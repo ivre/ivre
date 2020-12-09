@@ -20,22 +20,12 @@
 'Access and query the passive database.'
 
 
-from __future__ import print_function
 import functools
 import json
 import os
 import time
 import argparse
 import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
-
-
-from builtins import input
 
 
 from ivre.db import db

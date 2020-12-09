@@ -17,22 +17,11 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import print_function
 import json
 import os
 from xml.sax import saxutils
 from collections import OrderedDict
 import sys
-try:
-    reload(sys)
-except NameError:
-    pass
-else:
-    sys.setdefaultencoding('utf-8')
-
-
-from future.utils import viewitems, viewvalues
-from past.builtins import basestring
 
 
 from ivre.active.data import ALIASES_TABLE_ELEMS
@@ -105,8 +94,8 @@ def _display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
     if 'extraports' in host:
         extra = host['extraports']
         defaction = max(
-            max(viewvalues(extra),
-                key=lambda state: viewitems(state['total'])['reasons']),
+            max(extra.values(),
+                key=lambda state: state['total'].items()['reasons']),
             key=lambda reason: reason[1],
         )[0]
         defaction = HONEYD_ACTION_FROM_NMAP_STATE.get(defaction)
@@ -188,7 +177,7 @@ def _display_xml_scan(scan, out=sys.stdout):
               'scaninfo.numservices', 'scaninfo.services']:
         if k not in scan:
             scan[k] = ''
-        elif isinstance(scan[k], basestring):
+        elif isinstance(scan[k], str):
             scan[k] = scan[k].replace('"', '&quot;').replace('--', '-&#45;')
     out.write('<!DOCTYPE nmaprun PUBLIC '
               '"-//IDN nmap.org//DTD Nmap XML 1.04//EN" '
@@ -222,7 +211,7 @@ def _display_xml_table_elem(doc, first=False, name=None, out=sys.stdout):
     elif isinstance(doc, dict):
         if not first:
             out.write('<table%s>\n' % name)
-        for key, subdoc in viewitems(doc):
+        for key, subdoc in doc.items():
             _display_xml_table_elem(subdoc, name=key, out=out)
         if not first:
             out.write('</table>\n')
@@ -269,7 +258,7 @@ def _display_xml_host(h, out=sys.stdout):
             h['addr'],
             6 if ':' in h['addr'] else 4,
         ))
-    for atype, addrs in viewitems(h.get('addresses', {})):
+    for atype, addrs in h.get('addresses', {}).items():
         for addr in addrs:
             extra = ""
             if atype == "mac":
@@ -294,11 +283,11 @@ def _display_xml_host(h, out=sys.stdout):
             out.write('/>\n')
         out.write('</hostnames>\n')
     out.write('<ports>')
-    for state, counts in viewitems(h.get('extraports', {})):
+    for state, counts in h.get('extraports', {}).items():
         out.write('<extraports state="%s" count="%d">\n' % (
             state, counts['total']
         ))
-        for reason, count in viewitems(counts['reasons']):
+        for reason, count in counts['reasons'].items():
             out.write('<extrareasons reason="%s" count="%d"/>\n' % (
                 reason, count
             ))
@@ -324,7 +313,7 @@ def _display_xml_host(h, out=sys.stdout):
                       'ostype', 'method', 'conf']:
                 kk = "service_%s" % k
                 if kk in p:
-                    if isinstance(p[kk], basestring):
+                    if isinstance(p[kk], str):
                         out.write(' %s=%s' % (
                             k, saxutils.quoteattr(p[kk])
                         ))
@@ -390,7 +379,7 @@ def _display_gnmap_scan(scan, out=sys.stdout):
     for k in ['version', 'startstr', 'args']:
         if k not in scan:
             scan[k] = ''
-        elif isinstance(scan[k], basestring):
+        elif isinstance(scan[k], str):
             scan[k] = scan[k].replace('"', '&quot;').replace('--', '-&#45;')
     out.write('# Nmap %(version)s scan initiated %(startstr)s as: %(args)s\n')
 
@@ -433,7 +422,7 @@ def _display_gnmap_host(host, out=sys.stdout):
     if ports:
         info.append('Ports: %s' % ', '.join(ports))
     extraports = []
-    for state, counts in viewitems(host.get('extraports', {})):
+    for state, counts in host.get('extraports', {}).items():
         extraports.append('%s (%d)' % (state, counts['total']))
     if extraports:
         info.append('Ignored State: %s' % ', '.join(extraports))

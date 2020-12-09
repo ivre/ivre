@@ -17,9 +17,6 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-from __future__ import print_function
-
-
 from ast import literal_eval
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -42,20 +39,13 @@ import sys
 import tarfile
 import tempfile
 import time
+import unittest
 try:
     from urllib.request import HTTPError, Request, urlopen
     from urllib.parse import quote
 except ImportError:
     from urllib2 import HTTPError, Request, urlopen
     from urllib import quote
-
-
-from future.builtins import int as int_types, range
-from past.builtins import basestring
-if sys.version_info[:2] < (2, 7):
-    import unittest2 as unittest
-else:
-    import unittest
 
 
 import ivre
@@ -154,7 +144,7 @@ def run_passiverecon_worker(bulk_mode=None):
                   "ivre passiverecon2db %s" % bulk_mode)
 
 
-class AgentScanner(object):
+class AgentScanner:
     """This builds an agent, runs it in the background, runs a feed
 process (also in the background) and provides an object that can be
 used to .scan() targets.
@@ -312,7 +302,7 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.check_value(name, [line for line in out.decode().split('\n')
                                 if line],
-                         check=self.assertItemsEqual)
+                         check=self.assertCountEqual)
 
     def check_int_value_cmd(self, name, cmd, errok=False):
         res, out, err = RUN(cmd)
@@ -395,7 +385,7 @@ class IvreTests(unittest.TestCase):
         values = self._sort_top_values(
             database.topvalues(field, topnbr=count)
         )
-        self.check_value(name, values, check=self.assertItemsEqual)
+        self.check_value(name, values, check=self.assertCountEqual)
 
     def _check_top_value_cli(self, name, field, count=10, command="",
                              **kwargs):
@@ -417,7 +407,7 @@ class IvreTests(unittest.TestCase):
                     break
             listval.append({'_id': value, 'count': int(count)})
         self.check_value(name, self._sort_top_values(listval),
-                         check=self.assertItemsEqual)
+                         check=self.assertCountEqual)
 
     def _check_top_value_cgi(self, name, field, count=10, webroute="",
                              **kwargs):
@@ -430,7 +420,7 @@ class IvreTests(unittest.TestCase):
         for elem in json.loads(urlopen(req).read().decode()):
             listval.append({'_id': elem['label'], 'count': elem['value']})
         self.check_value(name, self._sort_top_values(listval),
-                         check=self.assertItemsEqual)
+                         check=self.assertCountEqual)
 
     def check_nmap_top_value(self, name, field, count=10):
         for method in ['api', 'cli', 'cgi']:
@@ -593,8 +583,7 @@ class IvreTests(unittest.TestCase):
         """ Convert the given string formatted UTC date into a
         string formatted local timezone date"""
         date = datetime.strptime(date_fmt, "%Y-%m-%d %H:%M:%S.%f")
-        utc_offset_sec = ivre.utils.tz_offset(
-            timestamp=ivre.utils.datetime2timestamp(date))
+        utc_offset_sec = ivre.utils.tz_offset(timestamp=date.timestamp())
         tz_delta = timedelta(seconds=utc_offset_sec)
         date += tz_delta
         return date.strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -1401,7 +1390,7 @@ purposes to feed Elasticsearch view.
         self.assertTrue(all(len(elt['_id']) == 2 for elt in locations))
         self.assertTrue(all(all(isinstance(sub, float) for sub in elt['_id'])
                             for elt in locations))
-        self.assertTrue(all(isinstance(elt['count'], int_types)
+        self.assertTrue(all(isinstance(elt['count'], int)
                             for elt in locations))
         self.check_value('nmap_location_count', len(locations))
 
@@ -1721,14 +1710,14 @@ purposes to feed Elasticsearch view.
         self.assertGreater(result, 0)
         ret, out, err = RUN([
             "ivre", "ipinfo", "--count",
-            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr),
+            addr if isinstance(addr, str) else ivre.utils.int2ip(addr),
         ])
         self.assertEqual(ret, 0)
         self.assertFalse(err)
         self.assertEqual(int(out.strip()), result)
         ret, out, err = RUN([
             "ivre", "ipinfo",
-            addr if isinstance(addr, basestring) else ivre.utils.int2ip(addr),
+            addr if isinstance(addr, str) else ivre.utils.int2ip(addr),
         ])
         self.assertEqual(ret, 0)
         if DATABASE not in ['postgres', 'sqlite']:
@@ -1777,7 +1766,7 @@ purposes to feed Elasticsearch view.
                     flt=ivre.db.db.passive.searchnet(net),
                 )
             )
-        self.assertItemsEqual(addresses_1, addresses_2)
+        self.assertCountEqual(addresses_1, addresses_2)
         count = 0
         for net in nets:
             result = ivre.db.db.passive.count(
@@ -2029,7 +2018,7 @@ purposes to feed Elasticsearch view.
                     "passive_top_%s_%sdistinct" % (key,
                                                    "" if distinct else "not_"),
                     top_values,
-                    check=self.assertItemsEqual,
+                    check=self.assertCountEqual,
                 )
                 self.check_value(
                     "passive_top_%s_%sdistinct_count" % (
@@ -2659,7 +2648,7 @@ purposes to feed Elasticsearch view.
                 }
             }
         ]
-        base = ivre.utils.datetime2timestamp(datetime(2019, 7, 15))
+        base = datetime(2019, 7, 15).timestamp()
         base += ivre.utils.tz_offset(base)
         base %= new_duration
         for test_timeslot in test_timeslots:
@@ -2681,26 +2670,23 @@ purposes to feed Elasticsearch view.
         self.assertEqual(out, b"0 clients\n0 servers\n0 flows\n")
         self.assertFalse(err)
         for pcapfname in self.pcap_files:
-            # Only Python 3.2+
-            # with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = tempfile.mkdtemp()
-            zeekprocess = subprocess.Popen(
-                ['zeek', '-C', '-r', os.path.join(os.getcwd(), pcapfname),
-                 os.path.join(ivre.config.guess_prefix('zeek'), 'ivre'),
-                 '-e',
-                 'redef tcp_content_deliver_all_resp = T; '
-                 'redef tcp_content_deliver_all_orig = T;'],
-                cwd=tmpdir)
-            zeekprocess.wait()
-            res, out, _ = RUN(['ivre', 'zeek2db'] + [
-                os.path.join(dirname, fname)
-                for dirname, _, fnames in os.walk(tmpdir)
-                for fname in fnames
-                if fname.endswith('.log')
-            ])
-            self.assertEqual(res, 0)
-            self.assertFalse(out)
-            ivre.utils.cleandir(tmpdir)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                zeekprocess = subprocess.Popen(
+                    ['zeek', '-C', '-r', os.path.join(os.getcwd(), pcapfname),
+                     os.path.join(ivre.config.guess_prefix('zeek'), 'ivre'),
+                     '-e',
+                     'redef tcp_content_deliver_all_resp = T; '
+                     'redef tcp_content_deliver_all_orig = T;'],
+                    cwd=tmpdir)
+                zeekprocess.wait()
+                res, out, _ = RUN(['ivre', 'zeek2db'] + [
+                    os.path.join(dirname, fname)
+                    for dirname, _, fnames in os.walk(tmpdir)
+                    for fname in fnames
+                    if fname.endswith('.log')
+                ])
+                self.assertEqual(res, 0)
+                self.assertFalse(out)
         total = self.check_flow_count_value("flow_count", {}, [], None)
 
         # Test basic filters
@@ -3253,7 +3239,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
-        self.assertItemsEqual(out1, out2)
+        self.assertCountEqual(out1, out2)
         res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
                             "--region", "WF", "UV"])
         self.assertEqual(res, 0)
@@ -3262,7 +3248,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
-        self.assertItemsEqual(out1, out2)
+        self.assertCountEqual(out1, out2)
         res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
                             "--city", "FR", "Carcassonne"])
         self.assertEqual(res, 0)
@@ -3271,7 +3257,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
-        self.assertItemsEqual(out1, out2)
+        self.assertCountEqual(out1, out2)
         res, out1, _ = RUN(["ivre", "runscans", "--output", "ListAll",
                             "--asnum", "12345"])
         self.assertEqual(res, 0)
@@ -3280,7 +3266,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(res, 0)
         out1, out2 = out1.split(b'\n'), out2.split(b'\n')
         self.assertGreater(len(out1), 0)
-        self.assertItemsEqual(out1, out2)
+        self.assertCountEqual(out1, out2)
 
         # Web API (JSON) vs Python API
         for addr in ['8.8.8.8', '2003::1']:
@@ -3301,7 +3287,7 @@ purposes to feed Elasticsearch view.
         # targets manipulation
         targ1 = ivre.target.TargetCountry('PN')
         targ2 = ivre.target.TargetCountry('BV')
-        self.assertItemsEqual(set(targ1).union(targ2), set(targ1 + targ2))
+        self.assertCountEqual(set(targ1).union(targ2), set(targ1 + targ2))
         count_t1_t2 = len(targ1 + targ2)
 
         res, out1, err = RUN(["ivre", "runscans", "--output", "Count",
@@ -3372,7 +3358,7 @@ purposes to feed Elasticsearch view.
             (b'.*' + re.escape(teststr) + b'.*', 0))
         self.assertEqual(ivre.utils.str2list(teststr), teststr)
         teststr = "1,2|3"
-        self.assertItemsEqual(ivre.utils.str2list(teststr),
+        self.assertCountEqual(ivre.utils.str2list(teststr),
                               ["1", "2", "3"])
         self.assertTrue(ivre.utils.isfinal(1))
         self.assertTrue(ivre.utils.isfinal("1"))
@@ -3521,14 +3507,14 @@ purposes to feed Elasticsearch view.
                          datetime(2014, 9, 12, 14, 37, 43))
 
         # fields2csv_head
-        self.assertItemsEqual(ivre.utils.fields2csv_head(
+        self.assertCountEqual(ivre.utils.fields2csv_head(
             {"field": {"subfield": {"subsubfield": True,
                                     "subsubfunc": lambda: None,
                                     "notsubsubfield": False}}}),
             ['field.subfield.subsubfield', 'field.subfield.subsubfunc']
         )
         # doc2csv
-        self.assertItemsEqual(
+        self.assertCountEqual(
             ivre.utils.doc2csv(
                 {"field": {
                     "subfield": {"subsubfield": 1},
@@ -3639,7 +3625,7 @@ purposes to feed Elasticsearch view.
         self.assertEqual(ivre.utils.guess_srv_port(65432, 80), -1)
         self.assertEqual(ivre.utils.guess_srv_port(666, 666), 0)
         # Certificate argument parsing
-        self.assertItemsEqual(
+        self.assertCountEqual(
             list(ivre.utils._parse_cert_subject('O = "Test\\", Inc."')),
             [('O', 'Test", Inc.')]
         )
@@ -4901,11 +4887,6 @@ if __name__ == '__main__':
     else:
         RUN = python_run
         RUN_ITER = python_run_iter
-    try:
-        # Python 2 & 3 compatibility
-        IvreTests.assertItemsEqual = IvreTests.assertCountEqual
-    except AttributeError:
-        pass
     result = unittest.TextTestRunner(verbosity=2).run(
         unittest.TestLoader().loadTestsFromTestCase(IvreTests),
     )

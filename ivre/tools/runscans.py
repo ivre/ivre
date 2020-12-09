@@ -23,7 +23,6 @@ ivre scan2db.
 """
 
 
-from __future__ import print_function
 import argparse
 import atexit
 import fcntl
@@ -38,9 +37,6 @@ import subprocess
 import sys
 import termios
 import time
-
-
-from future.utils import viewitems
 
 
 import ivre.agent
@@ -60,11 +56,11 @@ NMAP_LIMITS = {}
 
 def setnmaplimits():
     """Enforces limits from NMAP_LIMITS global variable."""
-    for limit, value in viewitems(NMAP_LIMITS):
+    for limit, value in NMAP_LIMITS.items():
         resource.setrlimit(limit, value)
 
 
-class XmlProcess(object):
+class XmlProcess:
     addrrec = re.compile(b'<address\\s+addr="([0-9\\.]+)" addrtype="ipv4"/>')
 
     def target_status(self, _):
@@ -161,7 +157,7 @@ class XmlProcessWritefile(XmlProcess):
         return True
 
     def target_status(self, target):
-        for status, statuscode in viewitems(self.status_paths):
+        for status, statuscode in self.status_paths.items():
             try:
                 os.stat(os.path.join(self.path, status,
                                      target.replace('.', '/') + '.xml'))

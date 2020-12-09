@@ -41,9 +41,6 @@ import uuid
 
 
 import bson
-from future.builtins import bytes, range, zip
-from future.utils import viewitems, with_metaclass
-from past.builtins import basestring
 from pymongo.errors import BulkWriteError
 import pymongo
 
@@ -130,7 +127,7 @@ class MongoDB(DB):
         suitable to be passed to Cursor.hint().
 
         """
-        for fieldname, hint in viewitems(cls.hint_indexes[cls.column_passive]):
+        for fieldname, hint in cls.hint_indexes[cls.column_passive].items():
             if fieldname in spec:
                 return hint
         return None
@@ -364,11 +361,9 @@ want to do something special here, e.g., mix with other records.
             utils.LOGGER.info(
                 "  Performing other actions on indexes...",
             )
-            for action, indexes in viewitems(
-                    self.schema_migrations_indexes[colnum].get(
-                        new_version, {}
-                    )
-            ):
+            for action, indexes in self.schema_migrations_indexes[colnum].get(
+                    new_version, {}
+            ).items():
                 if action == "ensure":
                     continue
                 function = getattr(self.db[self.columns[colnum]],
@@ -605,7 +600,7 @@ want to do something special here, e.g., mix with other records.
         or an `ObjectID`s.
 
         """
-        if isinstance(oid, (basestring, bson.objectid.ObjectId)):
+        if isinstance(oid, (str, bytes, bson.objectid.ObjectId)):
             oid = [bson.objectid.ObjectId(oid)]
         else:
             oid = [bson.objectid.ObjectId(elt) for elt in oid]
@@ -1135,8 +1130,7 @@ class MongoDBActive(MongoDB, DBActive):
                 updated_ports = True
         if updated_ports:
             update["$set"]["ports"] = doc['ports']
-        for state, (total, counts) in list(viewitems(doc.get('extraports',
-                                                             {}))):
+        for state, (total, counts) in list(doc.get('extraports', {}).items()):
             doc['extraports'][state] = {"total": total, "reasons": counts}
             updated_extraports = True
         if updated_extraports:
@@ -1153,7 +1147,7 @@ class MongoDBActive(MongoDB, DBActive):
         update = {"$set": {"schema_version": 6}}
         updated = False
         migrate_scripts = set(script for script, alias
-                              in viewitems(ALIASES_TABLE_ELEMS)
+                              in ALIASES_TABLE_ELEMS.items()
                               if alias == 'vulns')
         for port in doc.get('ports', []):
             for script in port.get('scripts', []):
@@ -1214,7 +1208,7 @@ class MongoDBActive(MongoDB, DBActive):
                     else:
                         script['vulns'] = [dict(tab, id=vulnid)
                                            for vulnid, tab in
-                                           viewitems(script['vulns'])]
+                                           script['vulns'].items()]
                     updated = True
         if updated:
             update["$set"]["ports"] = doc['ports']
@@ -1986,7 +1980,7 @@ it is not expected)."""
         particular AS number(s).
 
         """
-        if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
+        if not isinstance(asnum, str) and hasattr(asnum, '__iter__'):
             return {'infos.as_num':
                     {'$nin' if neg else '$in': [int(val) for val in asnum]}}
         asnum = int(asnum)
@@ -2087,7 +2081,7 @@ it is not expected)."""
         if neg:
             return {'$or': [{'openports.count': cond} for cond in flt]}
         # return {'openports.count':
-        #         dict(item for cond in flt for item in viewitems(cond))}
+        #         dict(item for cond in flt for item in cond.items())}
         return {'openports.count': {'$lte': maxn, '$gte': minn}}
 
     @staticmethod
@@ -2144,7 +2138,7 @@ it is not expected)."""
         if protocol is not None:
             flt['protocol'] = protocol
         if len(flt) == 1:
-            return {'ports.%s' % key: value for key, value in viewitems(flt)}
+            return {'ports.%s' % key: value for key, value in flt.items()}
         return {'ports': {'$elemMatch': flt}}
 
     @classmethod
@@ -2158,23 +2152,23 @@ it is not expected)."""
         if output is not None:
             req['output'] = output
         if values:
-            if not isinstance(name, basestring):
+            if not isinstance(name, str):
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             key = ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, (basestring, utils.REGEXP_T)):
+            if isinstance(values, (str, utils.REGEXP_T)):
                 req[key] = values
             else:
                 if len(values) >= 2 and \
                    'ports.scripts.%s' % key in cls.list_fields:
                     req[key] = {'$elemMatch': values}
                 else:
-                    for field, value in viewitems(values):
+                    for field, value in values.items():
                         req["%s.%s" % (key, field)] = value
         if not req:
             return {"ports.scripts": {"$exists": not neg}}
         if len(req) == 1:
-            field, value = next(iter(viewitems(req)))
+            field, value = next(iter(req.items()))
             if neg:
                 return {"ports.scripts.%s" % field: {"$ne": value}}
             return {"ports.scripts.%s" % field: value}
@@ -2213,7 +2207,7 @@ it is not expected)."""
             fname = {"$exists": True}
         if scripts is None:
             return {"ports.scripts.ls.volumes.files.filename": fname}
-        if isinstance(scripts, basestring):
+        if isinstance(scripts, str):
             scripts = [scripts]
         return {"ports.scripts": {"$elemMatch": {
             "id": scripts.pop() if len(scripts) == 1 else {"$in": scripts},
@@ -3755,7 +3749,7 @@ setting values according to the keyword arguments.
                              for idx, _ in idxes if idx.startswith('infos')):
                 continue
             value = spec["infos"][field]
-            if isinstance(value, basestring) and \
+            if isinstance(value, str) and \
                len(value) > utils.MAXVALLEN // 10:
                 spec.setdefault("fullinfos", {})[field] = value
                 spec["infos"][field] = value[:utils.MAXVALLEN // 10]
@@ -4433,7 +4427,7 @@ scan object on success, and raises a LockError on failure.
                               fields=["_id"])))
 
 
-class MongoDBFlow(with_metaclass(DBFlowMeta, MongoDB, DBFlow)):
+class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
     column_flow = 0
 
     datefields = [
@@ -4546,8 +4540,8 @@ class MongoDBFlow(with_metaclass(DBFlowMeta, MongoDB, DBFlow)):
 
         # metadata storage can be disabled.
         if config.FLOW_STORE_METADATA:
-            for kind, op in viewitems(cls.meta_kinds):
-                for key, value in viewitems(cls.meta_desc[name].get(kind, {})):
+            for kind, op in cls.meta_kinds.items():
+                for key, value in cls.meta_desc[name].get(kind, {}).items():
                     if not rec[value]:
                         continue
                     if ("%s.%s.%s" % (name, kind, key)
@@ -5352,7 +5346,7 @@ class MongoDBFlow(with_metaclass(DBFlowMeta, MongoDB, DBFlow)):
                 flows.setdefault(entry_name, 0)
                 flows[entry_name] += 1
             res = {
-                'flows': list(viewitems(flows)),
+                'flows': list(flows.items()),
                 'time_in_day': datetime.time(
                     hour=entry['_id']['hour'],
                     minute=entry['_id']['minute'],

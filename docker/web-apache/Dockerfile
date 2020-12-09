@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,10 +15,13 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM ivre/base
-LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
+LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 # Install Apache2 & Dokuwiki
-RUN apt-get -qy install apache2 libapache2-mod-wsgi dokuwiki
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install apache2 libapache2-mod-wsgi-py3 \
+        dokuwiki && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add links for IVRE Web UI
 RUN rm var/www/html/index.html && \
@@ -41,10 +44,12 @@ RUN rm var/www/html/index.html && \
 RUN echo 'WEB_GET_NOTEPAD_PAGES = "localdokuwiki"' >> /etc/ivre.conf
 
 # Patch Dokuwiki for backlinks to IVRE results
-RUN apt-get -qy install patch && \
+RUN apt-get update && \
+    apt-get -qy --no-install-recommends install patch && \
     cd usr/share/dokuwiki && \
     patch -p0 < /usr/local/share/ivre/dokuwiki/backlinks.patch && \
-    apt-get -qy --purge autoremove patch
+    apt-get -qy --purge autoremove patch && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Configure Apache for server-side URL rewrite
 RUN sed -i 's/^\(\s*\)#Rewrite/\1Rewrite/' etc/dokuwiki/apache.conf

@@ -17,12 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
-
-This sub-module contains functions used for flow.
-"""
+"""This sub-module contains functions used for flow."""
 
 import re
 
@@ -176,7 +171,7 @@ def _compute_available_fields():
             _ALL_FIELDS["meta.%s.%s" % (meta, name)] = meta_enabled
 
 
-class Query(object):
+class Query:
     # The order matters because regex pipe is ungreedy
     operators_chars = [':', '==', '=~', '=', '!=', '<=', '<', '>=', '>']
     operators_re = re.compile('|'.join(re.escape(x) for x in operators_chars))

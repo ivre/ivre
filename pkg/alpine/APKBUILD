@@ -1,10 +1,10 @@
-# Contributor: Pierre LALET <pierre.lalet@cea.fr>
-# Maintainer: Pierre LALET <pierre.lalet@cea.fr>
+# Contributor: Pierre LALET <pierre@droids-corp.org>
+# Maintainer: Pierre LALET <pierre@droids-corp.org>
 #
 # Alpine Linux package file
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ pkgdesc="Network recon framework"
 url="https://ivre.rocks/"
 arch="noarch"
 license="GPL3"
-depends="python py-crypto py-mongo py-future py-bottle"
+depends="python py-crypto py-mongo py-bottle"
 makedepends="py-setuptools"
 install=""
 subpackages="$pkgname-doc"

@@ -20,9 +20,6 @@
 import struct
 
 
-from future.utils import viewitems
-
-
 from ivre import utils
 
 
@@ -138,7 +135,7 @@ def parse_message(data):
                 "config": msg,
             },
         }
-        for key, value in viewitems(extra_info):
+        for key, value in extra_info.items():
             script['output'] += '\n  %s: %s' % (key, value)
             script['dicom-ping'][key] = value
         res['scripts'] = [script]

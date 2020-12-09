@@ -20,7 +20,6 @@
 """Parse NMAP scan results and add them in DB."""
 
 
-from __future__ import print_function
 from argparse import ArgumentParser
 import os
 import sys
@@ -28,9 +27,8 @@ import sys
 
 import ivre.db
 import ivre.utils
-import ivre.xmlnmap
-
 from ivre.view import nmap_record_to_view
+import ivre.xmlnmap
 
 
 def recursive_filelisting(base_directories, error):

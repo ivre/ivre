@@ -27,7 +27,6 @@ import datetime
 import time
 
 
-from past.builtins import basestring
 from sqlalchemy import ARRAY, Column, Index, LargeBinary, String, Table, \
     and_, cast, column, delete, desc, exists, func, insert, join, not_, \
     nullsfirst, select, text, tuple_, update
@@ -86,7 +85,7 @@ class PostgresDB(SQLDB):
         return "\n".join(map(" ".join, req_cur.fetchall()))
 
 
-class BulkInsert(object):
+class BulkInsert:
     """A PostgreSQL transaction, with automatic commits"""
 
     def __init__(self, db, size=None, retries=0):
@@ -1130,13 +1129,11 @@ class PostgresDBNmap(PostgresDBActive, SQLDBNmap):
                             if fld not in cert:
                                 continue
                             if isinstance(cert[fld], datetime.datetime):
-                                cert[fld] = utils.datetime2timestamp(
+                                cert[fld] = cert[fld].timestamp()
+                            elif isinstance(cert[fld], str):
+                                cert[fld] = utils.all2datetime(
                                     cert[fld]
-                                )
-                            elif isinstance(cert[fld], basestring):
-                                cert[fld] = utils.datetime2timestamp(
-                                    utils.all2datetime(cert[fld])
-                                )
+                                ).timestamp()
                 self.bulk.append(insert(self.tables.script).values(
                     port=portid,
                     name=name,
@@ -1285,13 +1282,11 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                             if fld not in cert:
                                 continue
                             if isinstance(cert[fld], datetime.datetime):
-                                cert[fld] = utils.datetime2timestamp(
+                                cert[fld] = cert[fld].timestamp()
+                            elif isinstance(cert[fld], str):
+                                cert[fld] = utils.all2datetime(
                                     cert[fld]
-                                )
-                            elif isinstance(cert[fld], basestring):
-                                cert[fld] = utils.datetime2timestamp(
-                                    utils.all2datetime(cert[fld])
-                                )
+                                ).timestamp()
                 if newest:
                     insrt = postgresql.insert(self.tables.script)
                     self.bulk.append(insrt

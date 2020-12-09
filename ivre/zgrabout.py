@@ -22,7 +22,6 @@
 """
 
 
-from future.utils import viewitems
 import re
 import binascii
 
@@ -258,7 +257,7 @@ The output is a port dict (i.e., the content of the "ports" key of an
         output = [line]
         for unk in headers.pop('unknown', []):
             headers[unk['key']] = unk['value']
-        for hdr, values in viewitems(headers):
+        for hdr, values in headers.items():
             hdr = hdr.replace('_', '-')
             for val in values:
                 http_hdrs.append({'name': hdr, 'value': val})

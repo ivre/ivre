@@ -38,15 +38,10 @@ import subprocess
 import tempfile
 
 
-from builtins import object
-from future.utils import viewvalues
-from past.builtins import basestring
-
-
 from ivre import utils, geoiputils, mathutils
 
 
-class Target(object):
+class Target:
     """This is the base class for a Target object, which is,
     basically, a set of IP selected according specific criteria
     (selection is implemented in the subclasses) that we will be able
@@ -106,7 +101,7 @@ class Target(object):
         return self.union(other)
 
 
-class IterTarget(object):
+class IterTarget:
     """The iterator object returned by `Target.__iter__()`"""
 
     def __iter__(self):
@@ -127,7 +122,6 @@ class IterTarget(object):
             self.previous = random.randint(0, self.lcg_m - 1)
             # GCD(c, m) == 1
             self.lcg_c = random.randint(1, self.lcg_m - 1)
-            # pylint: disable=deprecated-method
             while gcd(self.lcg_c, self.lcg_m) != 1:
                 self.lcg_c = random.randint(1, self.lcg_m - 1)
             # a - 1 is divisible by all prime factors of m
@@ -224,7 +218,7 @@ class TargetAS(Target):
 
     def __init__(self, asnum, categories=None, rand=True, maxnbr=None,
                  state=None):
-        if isinstance(asnum, basestring) and asnum.upper().startswith('AS'):
+        if isinstance(asnum, str) and asnum.upper().startswith('AS'):
             asnum = int(asnum[2:])
         else:
             asnum = int(asnum)
@@ -323,7 +317,7 @@ class TargetFile(Target):
         pass
 
 
-class IterTargetFile(object):
+class IterTargetFile:
     """The iterator object returned by `TargetFile.__iter__()`"""
 
     def __iter__(self):
@@ -376,7 +370,7 @@ class TargetZMapPreScan(TargetFile):
         self.infos['zmap_pre_scan'] = zmap_opts[:]
         zmap_opts = [zmap] + zmap_opts + ['-o', '-']
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        for start, count in viewvalues(target.targets.ranges):
+        for start, count in target.targets.ranges.values():
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()
@@ -424,7 +418,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
         # using a temporary file
         self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode='w')
         nmap_opts = [nmap, '-iL', self.tmpfile.name, '-oG', '-'] + nmap_opts
-        for start, count in viewvalues(target.targets.ranges):
+        for start, count in target.targets.ranges.values():
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()

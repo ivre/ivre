@@ -24,9 +24,6 @@ from datetime import datetime
 from textwrap import wrap
 
 
-from future.utils import viewvalues
-
-
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import create_ssl_output, set_openports_attribute
 from ivre.db import db
@@ -70,7 +67,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
         version = rec['value'].split(':', 1)[0]
         add_cpe_values(host, 'ports.port:%s' % port['port'],
                        ["cpe:/a:microsoft:sharepoint_server:%s" % version])
-        host['cpes'] = list(viewvalues(host['cpes']))
+        host['cpes'] = list(host['cpes'].values())
         # Let's pretend the application is on '/UNKNOWN/'
         port['scripts'] = [{
             'id': 'http-app',
@@ -92,7 +89,7 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
                                         proto=rec.get('protocol', 'tcp'),
                                         probe="GetRequest")
     add_cpe_values(host, 'ports.port:%s' % port, nmap_info.pop('cpe', []))
-    host['cpes'] = list(viewvalues(host['cpes']))
+    host['cpes'] = list(host['cpes'].values())
     for cpe in host['cpes']:
         cpe['origins'] = sorted(cpe['origins'])
     if not host['cpes']:
@@ -133,7 +130,7 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
                                         proto=rec.get('protocol', 'tcp'),
                                         probe="NULL")
     add_cpe_values(host, 'ports.port:%s' % port, nmap_info.pop('cpe', []))
-    host['cpes'] = list(viewvalues(host['cpes']))
+    host['cpes'] = list(host['cpes'].values())
     for cpe in host['cpes']:
         cpe['origins'] = sorted(cpe['origins'])
     if not host['cpes']:

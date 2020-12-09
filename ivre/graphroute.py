@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,17 +18,9 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2014 Pierre LALET <pierre.lalet@cea.fr>
-
-This sub-module builds graphs of traceroute results.
-
-"""
+"""This sub-module builds graphs of traceroute results."""
 
 
-from future.utils import viewitems
-from past.builtins import basestring
 # to build graphs with rtgraph3d
 try:
     import dbus
@@ -102,7 +94,7 @@ def writedotgraph(graph, out, cluster=None):
             if node not in nodes:
                 nodes.add(node)
                 clusters.setdefault(cluster(node), set()).update([node])
-    for node, node_edges in viewitems(graph):
+    for node, node_edges in graph.items():
         _add_node(node)
         for destnode in node_edges:
             _add_node(destnode)
@@ -113,8 +105,8 @@ def writedotgraph(graph, out, cluster=None):
         if None in clusters:
             for node in clusters.pop(None):
                 out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
-        for clu, nodes in viewitems(clusters):
-            if isinstance(clu, basestring):
+        for clu, nodes in clusters.items():
+            if isinstance(clu, str):
                 clu = (clu, clu)
             out.write('\tsubgraph cluster_%s {\n' % clu[0])
             out.write('\t\tlabel = "%s";\n' % clu[1])
@@ -137,7 +129,7 @@ if HAVE_DBUS:
         graph3d = dbus.Interface(control, "org.secdev.rtgraph3d.command")
         if reset_world:
             graph3d.reset_world()
-        for node, node_edges in viewitems(graph):
+        for node, node_edges in graph.items():
             for destnode in node_edges:
                 if destnode == node:
                     continue

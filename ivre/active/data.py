@@ -28,9 +28,6 @@ import re
 from textwrap import wrap
 
 
-from future.utils import viewitems, viewvalues
-
-
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
 from ivre.utils import nmap_decode_data, nmap_encode_data
@@ -478,9 +475,9 @@ def merge_host_docs(rec1, rec2):
                      for h in (rec1.get("hostnames", []) +
                                rec2.get("hostnames", [])))
     rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                        for h, d in viewitems(hostnames)]
+                        for h, d in hostnames.items()]
     addresses = rec1.get('addresses', {})
-    for atype, addrs in viewitems(rec2.get('addresses', {})):
+    for atype, addrs in rec2.get('addresses', {}).items():
         cur_addrs = addresses.setdefault(atype, [])
         for addr in addrs:
             if addr not in cur_addrs:
@@ -548,13 +545,13 @@ def merge_host_docs(rec1, rec2):
             ports[(port.get('protocol'), port['port'])] = port
     if sa_honeypot and sa_honeypot_check:
         rec["ports"] = sorted(
-            (port for port in viewvalues(ports) if is_real_service_port(port)),
+            (port for port in ports.values() if is_real_service_port(port)),
             key=lambda port: (
                 port.get('protocol') or '~', port.get('port'),
             )
         )
     else:
-        rec["ports"] = sorted(viewvalues(ports), key=lambda port: (
+        rec["ports"] = sorted(ports.values(), key=lambda port: (
             port.get('protocol') or '~', port.get('port'),
         ))
     if not sa_honeypot:

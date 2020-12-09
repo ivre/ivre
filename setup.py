@@ -16,11 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-"""
-This module is part of IVRE.
-Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
-
-Standard setup.py file. Run
+"""Standard setup.py file. Run
 
 $ python setup.py build
 # python setup.py install
@@ -137,26 +133,22 @@ setup(
         "Intended Audience :: Telecommunications Industry",
         "License :: OSI Approved :: "
         "GNU General Public License v3 or later (GPLv3+)",
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Security",
         "Topic :: System :: Networking",
         "Topic :: System :: Networking :: Monitoring",
         "Topic :: System :: Software Distribution",
     ],
-    python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, <4',
+    python_requires='>=3.6, <4',
     install_requires=[
         'cryptography',
         'pymongo>=2.7.2',
         'pyOpenSSL>=16.1.0',
-        'future',
         'bottle',
     ],
     extras_require={

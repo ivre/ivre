@@ -20,15 +20,11 @@
 """Manage scans run on remote agents."""
 
 
-from __future__ import print_function
 import argparse
 import os
 import signal
 import sys
 import time
-
-
-from builtins import input
 
 
 import ivre.target

@@ -30,9 +30,6 @@ import json
 import re
 
 
-from builtins import int, object, range
-from future.utils import PY3, viewitems, viewvalues
-from past.builtins import basestring
 from sqlalchemy import and_, cast, column, create_engine, delete, desc, func, \
     exists, join, not_, nullsfirst, or_, select, update
 from sqlalchemy.dialects.postgresql import JSONB
@@ -46,12 +43,12 @@ from ivre.db.sql.tables import N_Association_Scan_Category, \
     N_Hop, N_Hostname, N_Port, N_Scan, N_ScanFile, N_Script, N_Trace, \
     V_Association_Scan_Category, V_Association_Scan_Hostname, V_Category, \
     V_Hop, V_Hostname, V_Port, V_Scan, V_Script, V_Trace, Flow, Passive, \
-    Point, INTERNAL_IP_PY2
+    Point
 
 
 # Data
 
-class CSVFile(object):
+class CSVFile:
     """A file like object generating CSV lines suitable for use with
 PostgresDB.copy_from(). Reads (at most `limit`, when it's not None)
 lines from `fname`, skipping `skip` first lines.
@@ -122,7 +119,7 @@ class ScanCSVFile(CSVFile):
             line.pop(field, None)
         line["addr"] = self.ip2internal(line['addr'])
         scanfileid = line.pop('scanid')
-        if isinstance(scanfileid, basestring):
+        if isinstance(scanfileid, str):
             scanfileid = [scanfileid]
         line["scanfileid"] = '{%s}' % ','.join('"\\x%s"' % fid
                                                for fid in scanfileid)
@@ -144,13 +141,11 @@ class ScanCSVFile(CSVFile):
                             if fld not in cert:
                                 continue
                             if isinstance(cert[fld], datetime.datetime):
-                                cert[fld] = utils.datetime2timestamp(
+                                cert[fld] = cert[fld].timestamp()
+                            elif isinstance(cert[fld], str):
+                                cert[fld] = utils.all2datetime(
                                     cert[fld]
-                                )
-                            elif isinstance(cert[fld], basestring):
-                                cert[fld] = utils.datetime2timestamp(
-                                    utils.all2datetime(cert[fld])
-                                )
+                                ).timestamp()
             if 'screendata' in port:
                 port['screendata'] = utils.encode_b64(port['screendata'])
         for field in ["hostnames", "ports", "info"]:
@@ -208,22 +203,18 @@ class PassiveCSVFile(CSVFile):
                 if fld not in line:
                     continue
                 if isinstance(line[fld], datetime.datetime):
-                    line[fld] = utils.datetime2timestamp(line[fld])
-                elif isinstance(line[fld], basestring):
-                    line[fld] = utils.datetime2timestamp(
-                        utils.all2datetime(line[fld])
-                    )
-        for key, value in viewitems(line):
+                    line[fld] = line[fld].timestamp()
+                elif isinstance(line[fld], str):
+                    line[fld] = utils.all2datetime(line[fld]).timestamp()
+        for key, value in line.items():
             if key not in ["info", "moreinfo"] and \
-               isinstance(value, basestring):
+               isinstance(value, str):
                 try:
                     value = value.encode('latin-1')
                 except Exception:
                     pass
                 line[key] = "".join(
-                    c.decode() if b' ' <= c <= b'~' else
-                    ('\\x%02x' % ord(c))
-                    for c in (value[i:i + 1] for i in range(len(value)))
+                    chr(c) if 32 <= c <= 126 else '\\x%02x' % c for c in value
                 ).replace('\\', '\\\\')
         line["info"] = "%s" % json.dumps(
             dict((key, line.pop(key)) for key in list(line)
@@ -291,11 +282,7 @@ class SQLDB(DB):
         # their own methods.
         if not addr:
             return b""
-        if PY3:
-            return utils.ip2bin(addr)
-        if isinstance(addr, str) and INTERNAL_IP_PY2.search(addr):
-            return addr
-        return utils.encode_hex(utils.ip2bin(addr))
+        return utils.ip2bin(addr)
 
     @staticmethod
     def internal2ip(addr):
@@ -304,11 +291,7 @@ class SQLDB(DB):
         # their own methods.
         if not addr:
             return None
-        if PY3:
-            return utils.bin2ip(addr)
-        if ':' in addr or '.' in addr:
-            return addr
-        return utils.bin2ip(utils.decode_hex(addr))
+        return utils.bin2ip(addr)
 
     @staticmethod
     def to_binary(data):
@@ -321,7 +304,7 @@ class SQLDB(DB):
     @staticmethod
     def flt2str(flt):
         result = {}
-        for queryname, queries in viewitems(flt.all_queries):
+        for queryname, queries in flt.all_queries.items():
             outqueries = []
             if not isinstance(queries, list):
                 queries = [queries]
@@ -365,7 +348,7 @@ class SQLDB(DB):
     @classmethod
     def _date_round(cls, date):
         if isinstance(date, datetime.datetime):
-            ts = utils.datetime2timestamp(date)
+            ts = date.timestamp()
         else:
             ts = date
         ts = ts - (ts % config.FLOW_TIME_PRECISION)
@@ -385,7 +368,7 @@ class SQLDB(DB):
         or an `ObjectID`s.
 
         """
-        if isinstance(oid, (int, basestring)):
+        if isinstance(oid, (int, str)):
             oid = [int(oid)]
         else:
             oid = [int(suboid) for suboid in oid]
@@ -407,12 +390,12 @@ class SQLDB(DB):
 field.
 
         """
-        if isinstance(field, basestring):
+        if isinstance(field, str):
             field = self.fields[field]
         if flt is None:
             flt = self.flt_empty
         sort = [
-            (self.fields[key] if isinstance(key, basestring) else key, way)
+            (self.fields[key] if isinstance(key, str) else key, way)
             for key, way in sort or []
         ]
         req = self._distinct_req(field, flt, **kargs)
@@ -422,7 +405,7 @@ field.
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        return (next(iter(viewvalues(res))) for res in self.db.execute(req))
+        return (next(iter(res.values())) for res in self.db.execute(req))
 
     @staticmethod
     def _flt_and(cond1, cond2):
@@ -464,7 +447,7 @@ field.
 
     @staticmethod
     def _searchstring_list(field, value, neg=False, map_=None):
-        if not isinstance(value, basestring) and hasattr(value, '__iter__'):
+        if not isinstance(value, str) and hasattr(value, '__iter__'):
             if map_ is not None:
                 value = [map_(elt) for elt in value]
             if neg:
@@ -535,7 +518,7 @@ class SQLDBFlow(SQLDB, DBFlow):
         raise NotImplementedError()
 
 
-class Filter(object):
+class Filter:
 
     @staticmethod
     def fltand(flt1, flt2):
@@ -960,8 +943,7 @@ field from having different data types.
         """
         failed = set()
         scripts = [
-            script_name
-            for script_name, alias in viewitems(ALIASES_TABLE_ELEMS)
+            script_name for script_name, alias in ALIASES_TABLE_ELEMS.items()
             if alias == 'ls'
         ]
         scripts.append('ssh-hostkey')
@@ -1216,7 +1198,7 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
              self.tables.scan.schema_version]
         ).select_from(flt.select_from))
         for key, way in sort or []:
-            if isinstance(key, basestring) and key in self.fields:
+            if isinstance(key, str) and key in self.fields:
                 key = self.fields[key]
             req = req.order_by(key if way >= 0 else desc(key))
         if skip is not None:
@@ -1271,7 +1253,7 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
                     )
                 except ValueError:
                     pass
-                for fld, value in list(viewitems(recp)):
+                for fld, value in list(recp.items()):
                     if value is None:
                         del recp[fld]
                 for script in self.db.execute(
@@ -1360,7 +1342,7 @@ instance.
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             key = cls.fields[key]
         return cls.base_filter(main=key.op(cmpop)(val))
 
@@ -1610,7 +1592,7 @@ instance.
                 raise TypeError(".searchscript() needs a `name` arg "
                                 "when using a `values` arg")
             basekey = ALIASES_TABLE_ELEMS.get(name, name)
-            if isinstance(values, (basestring, utils.REGEXP_T)):
+            if isinstance(values, (str, utils.REGEXP_T)):
                 needunwind = sorted(set(cls.needunwind_script(basekey)))
             else:
                 needunwind = sorted(set(
@@ -1645,10 +1627,10 @@ instance.
                     result = {key.pop(): result}
                 return result
 
-            if isinstance(values, (basestring, utils.REGEXP_T)):
+            if isinstance(values, (str, utils.REGEXP_T)):
                 kv_generator = [(None, values)]
             else:
-                kv_generator = viewitems(values)
+                kv_generator = values.items()
 
             for key, value in kv_generator:
                 subkey = _find_subkey(key)
@@ -1785,7 +1767,7 @@ instance.
             ))
         if scripts is None:
             return cls.base_filter(script=[(True, req)])
-        if isinstance(scripts, basestring):
+        if isinstance(scripts, str):
             scripts = [scripts]
         if len(scripts) == 1:
             return cls.base_filter(script=[(True, and_(
@@ -1958,7 +1940,7 @@ end of the call.
         return host['scanid']
 
     def getscan(self, scanid):
-        if isinstance(scanid, basestring) and len(scanid) == 64:
+        if isinstance(scanid, (str, bytes)) and len(scanid) == 64:
             scanid = utils.decode_hex(scanid)
         return self.db.execute(
             select([self.tables.scanfile])
@@ -2171,7 +2153,7 @@ returns a generator.
         """
         req = self._get(flt, limit=limit, skip=skip, sort=sort, fields=fields)
         for rec in self.db.execute(req):
-            rec = dict((key, value) for key, value in viewitems(rec)
+            rec = dict((key, value) for key, value in rec.items()
                        if value is not None)
             try:
                 rec['addr'] = self.internal2ip(rec['addr'])
@@ -2227,11 +2209,9 @@ returns the first result, or None if no result exists."""
                 if fld not in spec:
                     continue
                 if isinstance(spec[fld], datetime.datetime):
-                    spec[fld] = utils.datetime2timestamp(spec[fld])
-                elif isinstance(spec[fld], basestring):
-                    spec[fld] = utils.datetime2timestamp(
-                        utils.all2datetime(spec[fld])
-                    )
+                    spec[fld] = spec[fld].timestamp()
+                elif isinstance(spec[fld], str):
+                    spec[fld] = utils.all2datetime(spec[fld]).timestamp()
         otherfields = dict(
             (key, spec.pop(key, ""))
             for key in ["sensor", "source", "targetval", "recontype", "value"]
@@ -2282,7 +2262,7 @@ passive table."""
                 except KeyError:
                     pass
                 line.update(line.pop('infos', {}))
-                for key, value in viewitems(line):
+                for key, value in line.items():
                     if isinstance(value, dict) and len(value) == 1 \
                        and "$numberLong" in value:
                         line[key] = int(value['$numberLong'])
@@ -2325,7 +2305,7 @@ passive table."""
             # def more_filter(base):
             #     return base.field.op('~')('^([^\\.]+\\.){%d}[^\\.]+$' %
             #                               level)
-        if isinstance(field, basestring):
+        if isinstance(field, str):
             field = self.fields[field]
 
         if field is not None and field == self.fields['addr']:
@@ -2415,7 +2395,7 @@ passive table."""
 
     @classmethod
     def searchcmp(cls, key, val, cmpop):
-        if isinstance(key, basestring):
+        if isinstance(key, str):
             key = cls.fields[key]
         return PassiveFilter(main=key.op(cmpop)(val))
 

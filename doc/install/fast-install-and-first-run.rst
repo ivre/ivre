@@ -14,7 +14,7 @@ referring to their documentation (see `MongoDB on Debian
 or `MongoDB on Ubuntu
 <http://docs.mongodb.org/manual/tutorial/install-mongodb-on-ubuntu/>`__
 and `pymongo <https://pypi.python.org/pypi/pymongo/>`__), instead of
-``apt-get``-ting them.
+getting them via ``apt``.
 
 You might also want to adapt it to your needs, architecture, etc.
 
@@ -26,12 +26,12 @@ Install
 
 ::
 
-   $ sudo apt-get -y install mongodb python-pymongo python-crypto \
-   >   python-future python-bottle apache2 libapache2-mod-wsgi dokuwiki
+   $ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
+   >   python3-crypto python3-bottle apache2 libapache2-mod-wsgi-py3 dokuwiki
    $ git clone https://github.com/cea-sec/ivre
    $ cd ivre
-   $ python setup.py build
-   $ sudo python setup.py install
+   $ python3 setup.py build
+   $ sudo python3 setup.py install
 
 Setup
 -----

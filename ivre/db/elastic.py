@@ -33,8 +33,6 @@ except ImportError:
 from elasticsearch import Elasticsearch, helpers
 from elasticsearch_dsl import Q
 from elasticsearch_dsl.query import Query
-from future.utils import viewitems
-from past.builtins import basestring
 
 
 from ivre.active.data import ALIASES_TABLE_ELEMS
@@ -1032,7 +1030,7 @@ return result;
         particular AS number(s).
 
         """
-        if not isinstance(asnum, basestring) and hasattr(asnum, '__iter__'):
+        if not isinstance(asnum, str) and hasattr(asnum, '__iter__'):
             res = Q("terms", infos__as_num=[int(val) for val in asnum])
         else:
             res = Q("match", infos__as_num=int(asnum))
@@ -1113,7 +1111,7 @@ return result;
             subfield = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, Query):
                 req.append(values)
-            elif isinstance(values, basestring):
+            elif isinstance(values, str):
                 req.append(Q("match",
                              **{"ports.scripts.%s" % subfield: values}))
             elif isinstance(values, utils.REGEXP_T):
@@ -1121,7 +1119,7 @@ return result;
                              **{"ports.scripts.%s" % subfield:
                                 cls._get_pattern(values)}))
             else:
-                for field, value in viewitems(values):
+                for field, value in values.items():
                     if isinstance(value, utils.REGEXP_T):
                         req.append(Q("regexp",
                                      **{"ports.scripts.%s.%s" % (subfield,

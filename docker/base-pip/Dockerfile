@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,14 +15,15 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM debian:stable
-LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
+LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
 # Install pip, get IVRE, uninstall pip
-RUN apt-get -q update
-RUN apt-get -qy install python python-dev python-pip && \
-    pip install ivre && \
-    apt-get -qy autoremove python-dev python-pip
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install python3 python3-dev python3-pip python3-setuptools && \
+        pip3 install ivre && \
+    apt-get -qy autoremove python3-dev python3-pip python3-setuptools && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN echo 'DB = "mongodb://ivredb/"' > /etc/ivre.conf

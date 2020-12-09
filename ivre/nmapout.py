@@ -28,10 +28,6 @@ import os
 import json
 
 
-from builtins import input
-from future.utils import viewitems
-
-
 from ivre import utils
 
 
@@ -90,11 +86,11 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
     if 'starttime' in record and 'endtime' in record:
         out.write("\tscan %s - %s\n" %
                   (record['starttime'], record['endtime']))
-    for state, counts in viewitems(record.get('extraports', {})):
+    for state, counts in record.get('extraports', {}).items():
         out.write("\t%d ports %s (%s)\n" %
                   (counts["total"], state,
                    ", ".join("%d %s" % (count, reason)
-                             for reason, count in viewitems(counts["reasons"])
+                             for reason, count in counts["reasons"].items()
                              if reason != "total")))
     ports = record.get('ports', [])
     ports.sort(key=lambda x: (utils.key_sort_none(x.get('protocol')),
@@ -108,7 +104,7 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
             reason = " (%s)" % ', '.join(
                 [port['state_reason']] +
                 ["%s=%s" % (field[13:], value)
-                 for field, value in viewitems(port)
+                 for field, value in port.items()
                  if field.startswith('state_reason_')]
             )
         else:

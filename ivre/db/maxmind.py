@@ -30,15 +30,11 @@ import sys
 import struct
 
 
-from builtins import object, range
-from future.utils import viewitems
-
-
 from ivre import config, utils
 from ivre.db import DBData
 
 
-class MaxMindFileIter(object):
+class MaxMindFileIter:
 
     """Iterator for MaxMindFile"""
 
@@ -85,7 +81,7 @@ class MaxMindFileIter(object):
         raise StopIteration()
 
 
-class EmptyMaxMindFile(object):
+class EmptyMaxMindFile:
 
     """Stub to replace MaxMind databases parsers. Used when a file is
 missing to emit a warning message and return empty results.
@@ -99,7 +95,7 @@ missing to emit a warning message and return empty results.
         return {}
 
 
-class MaxMindFile(object):
+class MaxMindFile:
 
     """Parser for MaxMind databases.
 
@@ -134,7 +130,7 @@ class MaxMindFile(object):
         return self._data
 
     def read_byte(self, pos):
-        return ord(self.data[pos:pos + 1])
+        return self.data[pos]
 
     def read_value(self, pos, size):
         return reduce(
@@ -147,7 +143,7 @@ class MaxMindFile(object):
         )
 
     def decode(self, pos, base_pos):
-        ctrl = ord(self.data[pos + base_pos:pos + base_pos + 1])
+        ctrl = self.data[pos + base_pos]
         pos += 1
         type_ = ctrl >> 5
         if type_ == 1:
@@ -358,10 +354,8 @@ class MaxMindDBData(DBData):
                 setattr(self, "_db_%s" % name, subdb)
 
     def as_byip(self, addr):
-        return dict(
-            (self.AS_KEYS.get(key, key), value)
-            for key, value in viewitems(self.db_asn.lookup(addr))
-        )
+        return {self.AS_KEYS.get(key, key): value
+                for key, value in self.db_asn.lookup(addr).items()}
 
     def location_byip(self, addr):
         raw = self.db_city.lookup(addr)
@@ -470,48 +464,42 @@ calls to self._build_dump().
 
         """
         for _ in Pool().imap(
-                partial(_build_dump, self, force),
+                partial(self._build_dump, force),
                 ["db_asn", "db_country", "db_city"],
                 chunksize=1,
         ):
             pass
 
-
-def _build_dump(instance, force, attr):
-    """Helper function used by MaxMindDBData.build_dumps() to create a
+    def _build_dump(self, force, attr):
+        """Helper function used by MaxMindDBData.build_dumps() to create a
 dump (.dump-IPv4.csv) file from a Maxmind database (.mmdb) file.
 
-This is a function rather than a method of MaxMindDBData because
-Python 2 won't allow multiprocessing.Pool with class instances. This
-is a hack and this function should become a method of MaxMindDBData as
-soon as we drop Python 2 support.
-
-    """
-    dumper = {
-        "db_asn": instance.dump_as_ranges,
-        "db_country": instance.dump_country_ranges,
-        "db_city": instance.dump_city_ranges,
-    }[attr]
-    try:
-        subdb = getattr(instance, attr)
-    except AttributeError:
-        return
-    if not subdb.path.endswith('.mmdb'):
-        return
-    csv_file = subdb.path[:-4] + 'dump-IPv4.csv'
-    if not force:
-        mmdb_mtime = os.path.getmtime(subdb.path)
+        """
+        dumper = {
+            "db_asn": self.dump_as_ranges,
+            "db_country": self.dump_country_ranges,
+            "db_city": self.dump_city_ranges,
+        }[attr]
         try:
-            csv_mtime = os.path.getmtime(csv_file)
-        except OSError:
-            pass
-        else:
-            if csv_mtime > mmdb_mtime:
-                utils.LOGGER.info('Skipping %r since %r is newer',
-                                  os.path.basename(subdb.path),
-                                  os.path.basename(csv_file))
-                return
-    utils.LOGGER.info('Dumping %r to %r', os.path.basename(subdb.path),
-                      os.path.basename(csv_file))
-    with codecs.open(csv_file, mode="w", encoding='utf-8') as fdesc:
-        dumper(fdesc)
+            subdb = getattr(self, attr)
+        except AttributeError:
+            return
+        if not subdb.path.endswith('.mmdb'):
+            return
+        csv_file = subdb.path[:-4] + 'dump-IPv4.csv'
+        if not force:
+            mmdb_mtime = os.path.getmtime(subdb.path)
+            try:
+                csv_mtime = os.path.getmtime(csv_file)
+            except OSError:
+                pass
+            else:
+                if csv_mtime > mmdb_mtime:
+                    utils.LOGGER.info('Skipping %r since %r is newer',
+                                      os.path.basename(subdb.path),
+                                      os.path.basename(csv_file))
+                    return
+        utils.LOGGER.info('Dumping %r to %r', os.path.basename(subdb.path),
+                          os.path.basename(csv_file))
+        with codecs.open(csv_file, mode="w", encoding='utf-8') as fdesc:
+            dumper(fdesc)

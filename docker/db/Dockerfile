@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,17 +15,19 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 FROM debian:buster
-LABEL maintainer="Pierre LALET <pierre.lalet@cea.fr>"
+LABEL maintainer="Pierre LALET <pierre@droids-corp.org>"
 
 ENV DEBIAN_FRONTEND noninteractive
 
 # MongoDB
 # https://docs.mongodb.com/manual/tutorial/install-mongodb-on-debian/
-RUN apt-get -q update && apt-get -qy install --no-install-recommends gnupg && \
-    apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 4B7C549A058F8B6B && \
-    echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.2 main" | tee /etc/apt/sources.list.d/mongodb-org-4.2.list && \
-    apt-get -q update && apt-get -qy install --no-install-recommends mongodb-org && \
-    apt-get -qy --purge autoremove gnupg && \
+RUN apt-get -q update && \
+    apt-get -qy --no-install-recommends install gnupg wget ca-certificates && \
+    wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add - && \
+    echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.4 main" > /etc/apt/sources.list.d/mongodb-org-4.4.list && \
+    ln -s /bin/true /usr/bin/systemctl && \
+    apt-get -q update && apt-get -qy --no-install-recommends install mongodb-org && \
+    apt-get -qy --purge autoremove gnupg wget ca-certificates && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Data & log directories
