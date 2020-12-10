@@ -87,6 +87,7 @@ def _ntlm_negotiate_extract(negotiate):
     value = {}
 
     flags = struct.unpack('I', negotiate[12:16])[0]
+    value['ntlm-fingerprint'] = "0x%08x" % flags
     uses_unicode = is_unicode(negotiate, flags)
     if len(negotiate) > 32:
         ln_dom, off_dom, ln_work, off_work = struct.unpack('H2xIH2xI',
@@ -129,7 +130,7 @@ def _ntlm_challenge_extract(challenge):
 
     value = {}
     flags = struct.unpack('I', challenge[20:24])[0]
-
+    value['ntlm-fingerprint'] = "0x%08x" % flags
     uses_unicode = is_unicode(challenge, flags)
 
     # Get target name
@@ -224,6 +225,7 @@ def _ntlm_authenticate_info(request):
     if offset >= 64 and request[64:]:
         flags, = struct.unpack('I', request[60:64])
         has_version = flags & flag_version
+    value['ntlm-fingerprint'] = "0x%08x" % flags
 
     uses_unicode = is_unicode(request, flags)
     ln, off = struct.unpack('H2xI', request[28:36])

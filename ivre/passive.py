@@ -563,6 +563,14 @@ def _getinfos_ntlm(spec):
     return {'infos': info}
 
 
+def _getinfos_ntlm_flags(spec):
+    """
+    Get the Negotiate Flags information from an NTLMSSP message
+    """
+    k, v = spec['value'].split(':', 1)
+    return {'infos': {k: v}}
+
+
 def _getinfos_smb(spec):
     """
     Get information on an OS from SMB `Session Setup Request` and
@@ -620,6 +628,8 @@ _GETINFOS_FUNCTIONS = {
     'NTLM_NEGOTIATE': _getinfos_ntlm,
     'NTLM_CHALLENGE': _getinfos_ntlm,
     'NTLM_AUTHENTICATE': _getinfos_ntlm,
+    'NTLM_SERVER_FLAGS': _getinfos_ntlm_flags,
+    'NTLM_CLIENT_FLAGS': _getinfos_ntlm_flags,
     'SMB': _getinfos_smb,
 }
 

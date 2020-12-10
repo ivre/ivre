@@ -67,6 +67,8 @@ export {
         NTLM_NEGOTIATE,
         NTLM_CHALLENGE,
         NTLM_AUTHENTICATE,
+        NTLM_SERVER_FLAGS,
+        NTLM_CLIENT_FLAGS,
         SMB,
     };
 
@@ -647,6 +649,13 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
                      $source=_get_source(c),
                      $srvport=c$id$resp_p,
                      $value=join_string_vec(value, ",")]);
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$resp_h,
+                     $recon_type=NTLM_SERVER_FLAGS,
+                     $source=_get_source(c),
+                     $srvport=c$id$resp_p,
+                     $value=_get_hex_flags(challenge$flags)]);
 }
 
 event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
@@ -675,6 +684,13 @@ event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
                      $recon_type=NTLM_NEGOTIATE,
                      $source=_get_source(c),
                      $value=join_string_vec(value, ",")]);
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$resp_h,
+                     $recon_type=NTLM_CLIENT_FLAGS,
+                     $source=_get_source(c),
+                     $srvport=c$id$resp_p,
+                     $value=_get_hex_flags(negotiate$flags)]);
 }
 
 event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
@@ -700,7 +716,6 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
     if (proto != "") {
         value += proto;
     }
-
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$orig_h,
