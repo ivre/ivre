@@ -76,6 +76,38 @@ def is_unicode(msg, flags):
     return False
 
 
+def _ntlm_negotiate_extract(negotiate):
+    """
+    Extract host information in an NTLMSSP_NEGOTIATE message
+    """
+    if len(negotiate) < 12:
+        utils.LOGGER.warning("NTLM message is abnormally short [%r, size %d]",
+                             negotiate, len(negotiate))
+        return None
+    value = {}
+
+    flags = struct.unpack('I', negotiate[12:16])[0]
+    uses_unicode = is_unicode(negotiate, flags)
+    if len(negotiate) > 32:
+        ln_dom, off_dom, ln_work, off_work = struct.unpack('H2xIH2xI',
+                                                           negotiate[16:32])
+        if ln_dom and off_dom:
+            try:
+                value['NetBIOS_Domain_Name'] = _extract_substr(negotiate,
+                                                               off_dom, ln_dom,
+                                                               uses_unicode)
+            except ValueError:
+                pass
+        if ln_work and off_work:
+            try:
+                value['Workstation'] = _extract_substr(negotiate, off_work,
+                                                       ln_work, uses_unicode)
+            except ValueError:
+                pass
+
+    return value
+
+
 # Target info types :
 #  - 1: NetBIOS Computer Name
 #  - 2: NetBIOS Domain Name
@@ -88,7 +120,7 @@ info_types = {1: 'NetBIOS_Computer_Name', 2: 'NetBIOS_Domain_Name',
 
 def _ntlm_challenge_extract(challenge):
     """
-    Extract host information in an NTLM_CHALLENGE message
+    Extract host information in an NTLMSSP_CHALLENGE message
     """
     if len(challenge) < 24:
         utils.LOGGER.warning("NTLM message is abnormally short [%r, size %d]",
@@ -172,7 +204,7 @@ def _ntlm_challenge_extract(challenge):
 
 def _ntlm_authenticate_info(request):
     """
-    Extract host information in an NTLM_AUTH message
+    Extract host information in an NTLMSSP_AUTH message
     """
     if len(request) < 52:
         utils.LOGGER.warning("NTLM message is too short (%d) but should be "
@@ -238,14 +270,14 @@ def ntlm_extract_info(value):
     Extract valuable host information from an NTLM message
     """
     ntlm_type, = struct.unpack('I', value[8:12])
-
     if ntlm_type == 2:
         return _ntlm_challenge_extract(value)
-
     if ntlm_type == 3:
         return _ntlm_authenticate_info(value)
-
-    # NTLM_NEGOTIATE messages are not handled yet
+    if ntlm_type == 1:
+        return _ntlm_negotiate_extract(value)
+    utils.LOGGER.warning("The following NTLM message %r has an unknown "
+                         "message type: %d", value, ntlm_type)
     return {}
 
 

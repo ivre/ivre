@@ -534,7 +534,7 @@ def _getinfos_authentication(spec):
 
 def _getinfos_ntlm(spec):
     """
-    Get information from NTLM_CHALLENGE and NTLM_AUTHENTICATE messages
+    Get information from NTLMSSP messages
     """
     info = {}
     try:
@@ -617,6 +617,7 @@ _GETINFOS_FUNCTIONS = {
     'SSH_SERVER_HOSTKEY': _getinfos_ssh_hostkey,
     'SSH_CLIENT_HASSH': _getinfos_ja3_hassh,
     'SSH_SERVER_HASSH': _getinfos_ja3_hassh,
+    'NTLM_NEGOTIATE': _getinfos_ntlm,
     'NTLM_CHALLENGE': _getinfos_ntlm,
     'NTLM_AUTHENTICATE': _getinfos_ntlm,
     'SMB': _getinfos_smb,
