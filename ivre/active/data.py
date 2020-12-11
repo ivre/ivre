@@ -30,7 +30,7 @@ from textwrap import wrap
 
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
-from ivre.utils import nmap_decode_data, nmap_encode_data
+from ivre.utils import nmap_decode_data, nmap_encode_data, ports2nmapspec
 
 
 ALIASES_TABLE_ELEMS = {
@@ -359,6 +359,67 @@ def merge_axfr_scripts(curscript, script, script_id):
     return curscript
 
 
+def merge_scanner_scripts(curscript, script, script_id):
+    # If one results has no structured output, keep the other
+    # one. Prefer curscript over script.
+    if script_id not in script:
+        return curscript
+    if script_id not in curscript:
+        curscript['output'] = script['output']
+        curscript[script_id] = script[script_id]
+        return script
+    res = {}
+    for data in [curscript[script_id], script[script_id]]:
+        for proto, ports in data.get('ports', {}).items():
+            if proto == 'count':
+                continue
+            res.setdefault('ports', {}).setdefault(proto, {}).setdefault(
+                'ports', set()
+            ).update(ports.get('ports', []))
+        for scanner in data.get('scanners', []):
+            res.setdefault('scanners', {}).setdefault(
+                scanner['name'], set()
+            ).update((probe['proto'], probe['name'])
+                     for probe in scanner.get('probes', []))
+        res.setdefault('probes', set()).update(
+            (probe['proto'], probe['value'])
+            for probe in data.get('probes', [])
+        )
+    for proto, ports in list(res.get('ports', {}).items()):
+        res['ports'][proto]['ports'] = sorted(ports['ports'])
+        nports = len(ports['ports'])
+        res['ports'][proto]['count'] = nports
+        res['ports']['count'] = res['ports'].get('count', 0) + nports
+    scanners = []
+    for name, probes in res.get('scanners', {}).items():
+        scanner = {'name': name}
+        if probes:
+            scanner['probes'] = [{'proto': proto, 'name': name}
+                                 for proto, name in sorted(probes)]
+        scanners.append(scanner)
+    if scanners:
+        res['scanners'] = scanners
+    if 'probes' in res:
+        res['probes'] = [{'proto': proto, 'value': value}
+                         for proto, value in sorted(res['probes'])]
+    curscript[script_id] = res
+    output = []
+    if res.get('ports'):
+        output.append("Scanned port%s: %s" % (
+            's' if res['ports']['count'] > 1 else '',
+            ', '.join('%s: %s' % (proto, ports2nmapspec(ports['ports']))
+                      for proto, ports in res.get('ports', {}).items()
+                      if proto != 'count'),
+        ))
+    if scanners:
+        output.append("Scanner%s: %s" % (
+            's' if len(scanners) > 1 else '',
+            ', '.join(scanner['name'] for scanner in scanners),
+        ))
+    curscript['output'] = '\n'.join(output)
+    return curscript
+
+
 def _merge_scripts(curscript, script, script_id, script_equals, script_output,
                    outsep="\n"):
     """Helper function to merge two scripts and return the result, using
@@ -387,19 +448,25 @@ specific functions `script_equals` and `script_output`.
     return curscript
 
 
+_SCRIPT_MERGE = {
+    'dns-zone-transfer': merge_axfr_scripts,
+    'scanner': merge_scanner_scripts,
+    'http-app': merge_http_app_scripts,
+    'http-user-agent': merge_ua_scripts,
+    'ssl-cacert': merge_ssl_cert_scripts,
+    'ssl-cert': merge_ssl_cert_scripts,
+    'ssl-ja3-client': merge_ja3_scripts,
+    'ssl-ja3-server': merge_ja3_scripts,
+}
+
+
 def merge_scripts(curscript, script, script_id):
     """Merge curscript with script"""
-    if script_id.startswith('ssl-ja3-'):
-        return merge_ja3_scripts(curscript, script, script_id)
-    if script_id == 'http-app':
-        return merge_http_app_scripts(curscript, script, script_id)
-    if script_id == 'http-user-agent':
-        return merge_ua_scripts(curscript, script, script_id)
-    if script_id == 'dns-zone-transfer':
-        return merge_axfr_scripts(curscript, script, script_id)
-    if script_id in {'ssl-cert', 'ssl-cacert'}:
-        return merge_ssl_cert_scripts(curscript, script, script_id)
-    return {}
+    try:
+        func = _SCRIPT_MERGE[script_id]
+    except KeyError:
+        return {}
+    return func(curscript, script, script_id)
 
 
 def merge_host_docs(rec1, rec2):
@@ -509,12 +576,7 @@ def merge_host_docs(rec1, rec2):
             for script in port.get("scripts", []):
                 if script['id'] not in present_scripts:
                     curport['scripts'].append(script)
-                elif (script['id'] in {
-                        'ssl-ja3-server', 'ssl-ja3-client',
-                        'http-app', 'http-user-agent',
-                        'ssl-cacert', 'ssl-cert',
-                        'dns-zone-transfer',
-                }):
+                elif script['id'] in _SCRIPT_MERGE:
                     # Merge scripts
                     curscript = next(x for x in curport['scripts']
                                      if x['id'] == script['id'])

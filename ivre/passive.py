@@ -30,6 +30,7 @@ import binascii
 
 from ivre import utils, config
 from ivre.analyzer import ntlm
+from ivre.data import scanners
 
 
 SCHEMA_VERSION = 2
@@ -250,32 +251,51 @@ def _prepare_rec(spec, ignorenets, neverignore):
             spec['value'] = utils.nmap_encode_data(newvalue)
     elif spec['recontype'] in {'TCP_CLIENT_BANNER', 'TCP_HONEYPOT_HIT'}:
         if spec['value']:
-            probe = utils.get_nmap_probes('tcp').get(
-                utils.nmap_decode_data(spec['value'])
-            )
+            data = utils.nmap_decode_data(spec['value'])
+            if data in scanners.TCP_PROBES:
+                scanner, probe = scanners.TCP_PROBES[data]
+                info = {
+                    'service_name': 'scanner',
+                    'service_product': scanner,
+                }
+                if probe is not None:
+                    info['service_extrainfo'] = 'TCP probe %s' % probe
+                spec.setdefault('infos', {}).update(info)
+            else:
+                probe = utils.get_nmap_probes('tcp').get(data)
+                if probe is not None:
+                    spec.setdefault('infos', {}).update({
+                        'service_name': 'scanner',
+                        'service_product': 'Nmap',
+                        'service_extrainfo': 'TCP probe %s' % probe,
+                    })
+    elif spec['recontype'] == 'UDP_HONEYPOT_HIT':
+        data = utils.nmap_decode_data(spec['value'])
+        if data in scanners.UDP_PROBES:
+            scanner, probe = scanners.UDP_PROBES[data]
+            info = {
+                'service_name': 'scanner',
+                'service_product': scanner,
+            }
+            if probe is not None:
+                info['service_extrainfo'] = 'UDP probe %s' % probe
+            spec.setdefault('infos', {}).update(info)
+        else:
+            probe = utils.get_nmap_probes('udp').get(data)
             if probe is not None:
                 spec.setdefault('infos', {}).update({
                     'service_name': 'scanner',
                     'service_product': 'Nmap',
-                    'service_extrainfo': 'TCP probe %s' % probe,
+                    'service_extrainfo': 'UDP probe %s' % probe,
                 })
-    elif spec['recontype'] == 'UDP_HONEYPOT_HIT':
-        data = utils.nmap_decode_data(spec['value'])
-        probe = utils.get_nmap_probes('udp').get(data)
-        if probe is not None:
-            spec.setdefault('infos', {}).update({
-                'service_name': 'scanner',
-                'service_product': 'Nmap',
-                'service_extrainfo': 'UDP probe %s' % probe,
-            })
-        else:
-            payload = utils.get_nmap_udp_payloads().get(data)
-            if payload is not None:
-                spec.setdefault('infos', {}).update({
-                    'service_name': 'scanner',
-                    'service_product': 'Nmap',
-                    'service_extrainfo': 'UDP payload %s' % payload,
-                })
+            else:
+                payload = utils.get_nmap_udp_payloads().get(data)
+                if payload is not None:
+                    spec.setdefault('infos', {}).update({
+                        'service_name': 'scanner',
+                        'service_product': 'Nmap',
+                        'service_extrainfo': 'UDP payload %s' % payload,
+                    })
     # SSL_{CLIENT,SERVER} JA3
     elif ((spec['recontype'] == 'SSL_CLIENT' and spec['source'] == 'ja3') or
           (spec['recontype'] == 'SSL_SERVER' and

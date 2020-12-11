@@ -161,8 +161,8 @@ setup(
         '3D traceroute graphs': ["dbus-python"],
         'Plots': ["matplotlib"],
     },
-    packages=['ivre', 'ivre/active', 'ivre/analyzer', 'ivre/db', 'ivre/db/sql',
-              'ivre/parser', 'ivre/tools', 'ivre/web'],
+    packages=['ivre', 'ivre/active', 'ivre/analyzer', 'ivre/data', 'ivre/db',
+              'ivre/db/sql', 'ivre/parser', 'ivre/tools', 'ivre/web'],
     scripts=['bin/ivre'],
     data_files=[
         ('', ['README.md']),  # needed for the package description
