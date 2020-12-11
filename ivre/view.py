@@ -26,6 +26,7 @@ from textwrap import wrap
 
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import create_ssl_output, set_openports_attribute
+from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
@@ -103,12 +104,23 @@ def _extract_passive_HTTP_CLIENT_HEADER(rec):
     # TODO: handle other header values
     if rec.get('source') != 'USER-AGENT':
         return {}
-    return {'ports': [{
-        'port': -1,
-        'scripts': [{'id': 'http-user-agent',
-                     'output': rec['value'],
-                     'http-user-agent': [rec['value']]}],
-    }]}
+    scripts = [{'id': 'http-user-agent',
+                'output': rec['value'],
+                'http-user-agent': [rec['value']]}]
+    if rec['value'] in scanners.USER_AGENT_VALUES:
+        scanner, probe = scanners.USER_AGENT_VALUES[rec['value']]
+        structured_output = {'scanners': [{'name': scanner}]}
+        if probe is not None:
+            structured_output['scanners'][0]['probes'] = [{'proto': 'http',
+                                                           'name': probe}]
+        structured_output['probes'] = [{'proto': 'http',
+                                        'value': rec['value']}]
+        scripts.append({
+            'id': 'scanner',
+            'output': 'Scanner: %s' % scanner,
+            'scanner': structured_output,
+        })
+    return {'ports': [{'port': -1, 'scripts': scripts}]}
 
 
 def _extract_passive_TCP_SERVER_BANNER(rec):
@@ -137,6 +149,39 @@ def _extract_passive_TCP_SERVER_BANNER(rec):
         del host['cpes']
     port.update(nmap_info)
     return host
+
+
+def _extract_passive_HONEYPOT_HIT(rec):
+    """Handle {TCP,UDP}_HONEYPOT_HIT records"""
+    try:
+        scanned_proto, scanned_port = rec['source'].split('/', 1)
+    except ValueError:
+        utils.LOGGER.warning('Unknown source in record [%r]', rec)
+        return {}
+    scanned_port = int(scanned_port)
+    output = 'Scanned port: %s' % rec['source'].replace('/', ': ')
+    structured_output = {
+        'ports': {'count': 1,
+                  scanned_proto: {'count': 1, 'ports': [scanned_port]}}
+    }
+    if rec.get('infos', {}).get('service_name') == 'scanner':
+        structured_output['scanners'] = [{
+            'name': rec['infos']['service_product'],
+            'probes': [{'proto': scanned_proto,
+                        'name': rec['infos']['service_extrainfo']}],
+        }]
+        output += '\nScanner: %s' % rec['infos']['service_product']
+    if rec.get('value'):
+        structured_output['probes'] = [{'proto': scanned_proto,
+                                        'value': rec['value']}]
+    return {'ports': [{
+        'port': -1,
+        'scripts': [{
+            'id': 'scanner',
+            'output': output,
+            'scanner': structured_output,
+        }],
+    }]}
 
 
 _KEYS = {
@@ -340,14 +385,24 @@ def _extract_passive_SSL_CLIENT_ja3(rec):
         'raw': rec['infos']['raw'],
         'sha256': rec['infos']['sha256'],
         'sha1': rec['infos']['sha1'],
-        'md5': rec['value']
+        'md5': rec['value'],
     }]
-
     port = {
         'port': -1,
         'scripts': [script]
     }
-
+    if rec['value'] in scanners.JA3_CLIENT_VALUES:
+        scanner, probe = scanners.JA3_CLIENT_VALUES[rec['value']]
+        structured_output = {'scanners': [{'name': scanner}]}
+        if probe is not None:
+            structured_output['scanners'][0]['probes'] = [{'proto': 'tls',
+                                                           'name': probe}]
+        structured_output['probes'] = [{'proto': 'tls', 'value': rec['value']}]
+        port['scripts'].append({
+            'id': 'scanner',
+            'output': 'Scanner: %s' % scanner,
+            'scanner': structured_output,
+        })
     return {'ports': [port]}
 
 
@@ -383,6 +438,8 @@ _EXTRACTORS = {
     'TCP_SERVER_BANNER': _extract_passive_TCP_SERVER_BANNER,
     'MAC_ADDRESS': _extract_passive_MAC_ADDRESS,
     'OPEN_PORT': _extract_passive_OPEN_PORT,
+    'TCP_HONEYPOT_HIT': _extract_passive_HONEYPOT_HIT,
+    'UDP_HONEYPOT_HIT': _extract_passive_HONEYPOT_HIT,
 }
 
 

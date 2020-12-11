@@ -499,16 +499,28 @@ event pop3_request(c: connection, is_orig: bool, command: string, arg: string) {
 event tcp_contents(c: connection, is_orig: bool, seq: count, contents: string) {
     if (seq == 1 && "ftp-data" !in c$service && "gridftp-data" !in c$service &&
         "irc-dcc-data" !in c$service) {
-        if (is_orig && c$resp$size == 0 && c$history == TCP_BANNER_HISTORY &&
-            ! (TCP_CLIENT_BANNER_IGNORE in contents))
-            Log::write(LOG, [$ts=c$start_time,
-                             $uid=c$uid,
-                             $host=c$id$orig_h,
-                             $recon_type=TCP_CLIENT_BANNER,
-                             $source=fmt("tcp/%d", c$id$resp_p),
-                             $value=contents]);
+        if (is_orig) {
+	    if (c$resp$size == 0 && c$history == TCP_BANNER_HISTORY) {
+                if (c$id$resp_h in HONEYPOTS) {
+                    Log::write(LOG, [$ts=c$start_time,
+                                     $uid=c$uid,
+                                     $host=c$id$orig_h,
+                                     $recon_type=TCP_HONEYPOT_HIT,
+                                     $source=fmt("tcp/%d", c$id$resp_p),
+                                     $value=contents]);
+                }
+                else if (! (TCP_CLIENT_BANNER_IGNORE in contents)) {
+                    Log::write(LOG, [$ts=c$start_time,
+                                     $uid=c$uid,
+                                     $host=c$id$orig_h,
+                                     $recon_type=TCP_CLIENT_BANNER,
+                                     $source=fmt("tcp/%d", c$id$resp_p),
+                                     $value=contents]);
+                }
+            }
+	}
         else if (c$orig$size == 0 && c$history == TCP_BANNER_HISTORY &&
-             ! (TCP_SERVER_BANNER_IGNORE in contents))
+                 ! (TCP_SERVER_BANNER_IGNORE in contents))
             Log::write(LOG, [$ts=c$start_time,
                              $uid=c$uid,
                              $host=c$id$resp_h,
@@ -554,8 +566,8 @@ event connection_established(c: connection) {
                          $uid=c$uid,
                          $host=c$id$orig_h,
                          $recon_type=TCP_HONEYPOT_HIT,
-                         $source="TCP",
-                         $value=fmt("tcp/%d", c$id$resp_p)]);
+                         $source=fmt("tcp/%d", c$id$resp_p),
+                         $value=""]);
     }
     else if ("ftp-data" !in c$service && "gridftp-data" !in c$service &&
         "irc-dcc-data" !in c$service) {
@@ -575,8 +587,8 @@ event connection_attempt(c: connection) {
                          $uid=c$uid,
                          $host=c$id$orig_h,
                          $recon_type=TCP_HONEYPOT_HIT,
-                         $source="TCP",
-                         $value=fmt("tcp/%d", c$id$resp_p)]);
+                         $source=fmt("tcp/%d", c$id$resp_p),
+                         $value=""]);
     }
 }
 
