@@ -868,7 +868,18 @@ purposes to feed Elasticsearch view.
         res, out, err = RUN(['ivre', 'scancli', '--json'])
         self.assertEqual(res, 0)
         self.assertFalse(err)
-        self.assertEqual(len(out.splitlines()), hosts_count)
+        count = 0
+        for line in out.splitlines():
+            self.assertIn('addr', json.loads(line.decode()))
+            count += 1
+        self.assertEqual(count, hosts_count)
+        # HONEYD
+        res, out, err = RUN(['ivre', 'scancli', '--honeyd'])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        count = sum(1 for line in out.splitlines()
+                    if line.decode().startswith('bind '))
+        self.assertEqual(count, hosts_count)
         # SHORT
         res, out, err = RUN(['ivre', 'scancli', '--short'])
         self.assertEqual(res, 0)
@@ -4176,7 +4187,18 @@ purposes to feed Elasticsearch view.
         ret, out, err = RUN(["ivre", "view", "--json"])
         self.assertEqual(ret, 0)
         self.assertFalse(err)
-        self.assertEqual(len(out.splitlines()), view_count)
+        count = 0
+        for line in out.splitlines():
+            self.assertIn('addr', json.loads(line.decode()))
+            count += 1
+        self.assertEqual(count, view_count)
+        # HONEYD
+        ret, out, err = RUN(["ivre", "view", "--honeyd"])
+        self.assertEqual(ret, 0)
+        self.assertFalse(err)
+        count = sum(1 for line in out.splitlines()
+                    if line.decode().startswith('bind '))
+        self.assertEqual(count, view_count)
         # GNMAP
         ret, out, err = RUN(["ivre", "view", "--gnmap"])
         self.assertEqual(ret, 0)
