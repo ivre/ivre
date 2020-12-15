@@ -95,7 +95,7 @@ def _display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
         extra = host['extraports']
         defaction = max(
             max(extra.values(),
-                key=lambda state: state['total'].items()['reasons']),
+                key=lambda state: state['total']),
             key=lambda reason: reason[1],
         )[0]
         defaction = HONEYD_ACTION_FROM_NMAP_STATE.get(defaction)
@@ -110,7 +110,7 @@ def _display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
             # let's skip pseudo-port records that are only containers for host
             # scripts.
             pass
-    if 'traces' in host and host['traces'] > 0:
+    if host.get('traces'):
         trace = max(host['traces'], key=lambda x: len(x['hops']))['hops']
         if trace:
             trace.sort(key=lambda x: x['ttl'])
