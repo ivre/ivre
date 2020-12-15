@@ -87,8 +87,8 @@ def _nmap_port2honeyd_action(port):
 
 
 def _display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
-    addr = utils.int2ip(host['addr'])
-    hname = "host_%s" % addr.replace('.', '_')
+    addr = host['addr']
+    hname = "host_%s" % addr.replace('.', '_').replace(':', '_')
     out.write("create %s\n" % hname)
     defaction = HONEYD_DEFAULT_ACTION
     if 'extraports' in host:
@@ -145,18 +145,14 @@ def _display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
 
 def _display_honeyd_epilogue(honeyd_routes, honeyd_entries, out=sys.stdout):
     for r in honeyd_entries:
-        out.write('route entry %s\n' % utils.int2ip(r))
-        out.write('route %s link %s/32\n' % (utils.int2ip(r),
-                                             utils.int2ip(r)))
+        out.write('route entry %s\n' % r)
+        out.write('route %s link %s/32\n' % (r, r))
     out.write('\n')
     for r in honeyd_routes:
-        out.write('route %s link %s/32\n' % (utils.int2ip(r[0]),
-                                             utils.int2ip(r[1])))
+        out.write('route %s link %s/32\n' % (r[0], r[1]))
         for t in honeyd_routes[r]['targets']:
             out.write('route %s add net %s/32 %s latency %dms\n' % (
-                utils.int2ip(r[0]), utils.int2ip(t),
-                utils.int2ip(r[1]),
-                int(round(honeyd_routes[r]['mean'])),
+                r[0], t, r[1], int(round(honeyd_routes[r]['mean'])),
             ))
 
 
@@ -502,21 +498,21 @@ def displayfunction_graphroute(cur, arg, gr_include, gr_dont_reset):
             reset_world=not gr_dont_reset
         )
         for n in entry_nodes:
-            g.glow(utils.int2ip(n))
+            g.glow(n)
 
 
 def displayfunction_csv(cur, arg, csv_sep, csv_na_str, add_infos):
     fields = {
         "ports": OrderedDict([
-            ["addr", utils.int2ip],
+            ["addr", True],
             ["ports", OrderedDict([
                 ["port", str],
                 ["state_state", True]])]]),
         "hops": OrderedDict([
-            ["addr", utils.int2ip],
+            ["addr", True],
             ["traces", OrderedDict([
                 ["hops", OrderedDict([
-                    ["ipaddr", utils.int2ip],
+                    ["ipaddr", True],
                     ["ttl", str],
                     ["rtt", lambda x: (csv_na_str if x == '--'
                                        else str(x))],
@@ -524,7 +520,7 @@ def displayfunction_csv(cur, arg, csv_sep, csv_na_str, add_infos):
             ])]
         ]),
         "rtt": OrderedDict([
-            ["addr", utils.int2ip],
+            ["addr", True],
             ["traces", OrderedDict([
                 ["hops", OrderedDict([
                     ["rtt", lambda x: (csv_na_str if x == '--'
