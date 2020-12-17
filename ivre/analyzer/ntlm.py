@@ -225,7 +225,6 @@ def _ntlm_authenticate_info(request):
     if offset >= 64 and request[64:]:
         flags, = struct.unpack('I', request[60:64])
         has_version = flags & flag_version
-    value['ntlm-fingerprint'] = "0x%08x" % flags
 
     uses_unicode = is_unicode(request, flags)
     ln, off = struct.unpack('H2xI', request[28:36])
@@ -288,7 +287,8 @@ def _ntlm_dict2string(dic):
     Returns a string with the keys and values (encoded in base64)
     of the given dict, in the format
     """
-    return ','.join("{}:{}".format(k, (v if k == 'NTLM_Version'
+    return ','.join("{}:{}".format(k, (v if k in ['NTLM_Version',
+                                                  'ntlm-fingerprint']
                                        else utils.encode_b64(
                                            v.encode()).decode()))
                     for k, v in dic.items())

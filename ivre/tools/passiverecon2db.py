@@ -52,7 +52,7 @@ def rec_iter(zeek_parser, sensor, ignore_rules):
         line["timestamp"] = line.pop("ts")
         # skip PassiveRecon::
         line["recon_type"] = line["recon_type"][14:]
-        yield ivre.passive.handle_rec(
+        yield from ivre.passive.handle_rec(
             sensor,
             ignore_rules.get('IGNORENETS', {}),
             ignore_rules.get('NEVERIGNORE', {}),

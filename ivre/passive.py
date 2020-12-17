@@ -154,6 +154,35 @@ def _split_digest_auth(data):
     return values
 
 
+def _prepare_rec_ntlm(spec, new_recontype):
+    """
+    Decode NTLM messages in HTTP headers and split fingerprint from the other
+    NTLM info in the spec
+    """
+    try:
+        auth = utils.decode_b64(spec['value'].split(None, 1)[1].encode())
+    except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
+        pass
+    spec['value'] = "%s %s" % \
+        (spec['value'].split(None, 1)[0],
+         ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)))
+    # Separate the NTLM flags from the rest of the message's info
+    # for NTLMSSP_NEGOTIAGE and NTLMSSP_CHALLENGE messages
+    if spec['value'].startswith('NTLM ntlm-fingerprint'):
+        fingerprint = spec.copy()
+        fingerprint['recontype'] = new_recontype
+        try:
+            fingerprint['value'], spec['value'] = \
+                spec['value'].split(',', 1)
+        except ValueError:
+            spec['value'] = ''
+        else:
+            spec['value'] = "NTLM %s" % spec['value']
+        fingerprint['value'] = fingerprint['value'][5:]
+        yield fingerprint
+    yield spec
+
+
 def _prepare_rec(spec, ignorenets, neverignore):
     # First of all, let's see if we are supposed to ignore this spec,
     # and if so, do so.
@@ -161,7 +190,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
        spec.get('source') not in neverignore.get(spec['recontype'], []):
         for start, stop in ignorenets.get(spec['recontype'], ()):
             if start <= utils.force_ip2int(spec['addr']) <= stop:
-                return None
+                return
     # Then, let's clean up the records.
     # Change Symantec's random user agents (matching SYMANTEC_UA) to
     # the constant string 'SymantecRandomUserAgent'.
@@ -201,14 +230,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
                                          spec, exc_info=True)
             elif ntlm._is_ntlm_message(value):
                 # NTLM_NEGOTIATE and NTLM_AUTHENTICATE
-                try:
-                    auth = utils.decode_b64(value.split(None, 1)[1].encode())
-                except (UnicodeDecodeError, TypeError, ValueError,
-                        binascii.Error):
-                    pass
-                spec['value'] = "%s %s" % \
-                    (value.split(None, 1)[0],
-                     ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)))
+                yield from _prepare_rec_ntlm(spec, 'NTLM_CLIENT_FLAGS')
+                return
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     elif (
@@ -231,14 +254,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
                                          spec, exc_info=True)
             elif ntlm._is_ntlm_message(value):
                 # NTLM_CHALLENGE
-                try:
-                    auth = utils.decode_b64(value.split(None, 1)[1].encode())
-                except (UnicodeDecodeError, TypeError, ValueError,
-                        binascii.Error):
-                    pass
-                spec['value'] = "%s %s" % \
-                    (value.split(None, 1)[0],
-                     ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)))
+                yield from _prepare_rec_ntlm(spec, 'NTLM_SERVER_FLAGS')
+                return
             elif authtype.lower() in {'negotiate', 'kerberos', 'oauth'}:
                 spec['value'] = authtype
     # TCP server banners: try to normalize data
@@ -335,7 +352,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
                     spec['addr'] = utils.int2ip6(int(addr
                                                      .replace('.', '')[::-1],
                                                      16))
-    return spec
+    yield spec
 
 
 def handle_rec(sensor, ignorenets, neverignore,
@@ -357,8 +374,8 @@ def handle_rec(sensor, ignorenets, neverignore,
         spec['port'] = srvport
     if source is not None:
         spec['source'] = source
-    spec = _prepare_rec(spec, ignorenets, neverignore)
-    return timestamp, spec
+    for rec in _prepare_rec(spec, ignorenets, neverignore):
+        yield timestamp, rec
 
 
 def _getinfos_http_client_authorization(spec):
