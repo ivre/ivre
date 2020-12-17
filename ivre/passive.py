@@ -324,8 +324,8 @@ def _prepare_rec(spec, ignorenets, neverignore):
             if match is not None:
                 spec['recontype'] = 'DNS_BLACKLIST'
                 spec['value'] = spec.get('addr')
-                spec.update({'source': "%s-%s" %
-                             (dnsbl_val[match.end():], spec['source'])})
+                spec['source'] = "%s-%s" % (dnsbl_val[match.end():],
+                                            spec['source'])
                 addr = match.group()
                 # IPv4
                 if addr.count('.') == 4:
@@ -352,11 +352,11 @@ def handle_rec(sensor, ignorenets, neverignore,
     else:
         spec['addr'] = host
     if sensor is not None:
-        spec.update({'sensor': sensor})
+        spec['sensor'] = sensor
     if srvport is not None:
-        spec.update({'port': srvport})
+        spec['port'] = srvport
     if source is not None:
-        spec.update({'source': source})
+        spec['source'] = source
     spec = _prepare_rec(spec, ignorenets, neverignore)
     return timestamp, spec
 
