@@ -4307,9 +4307,9 @@ class MongoDBAgent(MongoDB, DBAgent):
                      force=False):
         flt = {"_id": agentid}
         if only_if_unassigned:
-            flt.update({"scan": None})
+            flt['scan'] = None
         elif not force:
-            flt.update({"scan": {"$ne": False}})
+            flt['scan'] = {"$ne": False}
         self.db[self.columns[self.column_agents]].update(
             flt,
             {"$set": {"scan": scanid}}
