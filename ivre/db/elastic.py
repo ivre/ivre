@@ -24,10 +24,7 @@ databases.
 
 import json
 import re
-try:
-    from urllib.parse import unquote
-except ImportError:
-    from urllib import unquote
+from urllib.parse import unquote
 
 
 from elasticsearch import Elasticsearch, helpers

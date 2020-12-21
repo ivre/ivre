@@ -23,10 +23,7 @@ instance via an HTTP server.
 
 
 import json
-try:
-    from urllib.request import URLopener
-except ImportError:
-    from urllib import URLopener
+from urllib.request import URLopener
 
 
 from ivre.db import DB, DBActive, DBNmap, DBView
