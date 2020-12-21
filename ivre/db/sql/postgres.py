@@ -182,7 +182,7 @@ changes.
                             .where(and_(self.tables.script.port == rec.port,
                                         self.tables.script.name == "ssl-cert"))
                             .values(data={"ssl-cert": newinfo},
-                                    output='\n'.join(newout))
+                                    output=newout)
                         )
                         continue
                     try:
