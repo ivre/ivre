@@ -1053,14 +1053,15 @@ they are stored as canonical string representations.
                             script['ssl-cert']['pem'].splitlines()[1:-1]
                         ).encode()
                         try:
-                            newout, newinfo = xmlnmap.create_ssl_cert(data)
+                            (
+                                script['output'],
+                                script['ssl-cert'],
+                            ) = xmlnmap.create_ssl_cert(data)
                         except Exception:
                             utils.LOGGER.warning('Cannot parse certificate %r',
                                                  data,
                                                  exc_info=True)
                         else:
-                            script['output'] = '\n'.join(newout)
-                            script['ssl-cert'] = newinfo
                             continue
                     try:
                         algo = script['ssl-cert'].pop('pubkeyalgo')
@@ -1221,7 +1222,6 @@ do this, we use the opportunity to parse the certificate again.
                             out, data = xmlnmap.create_ssl_cert(
                                 rawdata.encode()
                             )
-                            out = '\n'.join(out)
                         except Exception:
                             utils.LOGGER.warning(
                                 'Cannot parse certificate data [%r]',
