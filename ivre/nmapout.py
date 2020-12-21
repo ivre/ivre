@@ -109,20 +109,24 @@ def displayhost(record, showscripts=True, showtraceroute=True, showos=True,
             )
         else:
             reason = ""
+        srv = []
         if 'service_name' in port:
-            srv = port['service_name']
+            srv.append("")
+            if 'service_tunnel' in port:
+                srv.append('%s/%s' % (port['service_name'],
+                                      port['service_tunnel']))
+            else:
+                srv.append(port['service_name'])
             if 'service_method' in port:
-                srv += ' (%s)' % port['service_method']
+                srv.append('(%s)' % port['service_method'])
             for field in ['service_product', 'service_version',
                           'service_extrainfo', 'service_ostype',
                           'service_hostname']:
                 if field in port:
-                    srv += ' %s' % port[field]
-        else:
-            srv = ""
+                    srv.append(port[field])
         out.write("\t%-10s%-8s%-22s%s\n" %
                   ('%s/%d' % (port.get('protocol'), port['port']),
-                   port.get('state_state', ''), reason, srv))
+                   port.get('state_state', ''), reason, " ".join(srv)))
         if showscripts:
             out.writelines(_scriptoutput(port))
     if showscripts:
