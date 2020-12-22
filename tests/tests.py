@@ -40,12 +40,8 @@ import tarfile
 import tempfile
 import time
 import unittest
-try:
-    from urllib.request import HTTPError, Request, urlopen
-    from urllib.parse import quote
-except ImportError:
-    from urllib2 import HTTPError, Request, urlopen
-    from urllib import quote
+from urllib.request import HTTPError, Request, urlopen
+from urllib.parse import quote
 
 
 import ivre

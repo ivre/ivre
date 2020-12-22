@@ -25,10 +25,7 @@ lists.
 
 from argparse import ArgumentParser
 from functools import reduce
-try:
-    from math import gcd
-except ImportError:
-    from fractions import gcd
+from math import gcd
 from operator import add, mul
 import os
 import random

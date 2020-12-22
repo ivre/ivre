@@ -30,10 +30,7 @@ import re
 import struct
 import sys
 from textwrap import wrap
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from urllib.parse import urlparse
 from xml.sax.handler import ContentHandler, EntityResolver
 
 
