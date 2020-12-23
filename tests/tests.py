@@ -3172,7 +3172,7 @@ purposes to feed Elasticsearch view.
         # Files are downloaded from ivre.rocks in .travis.yml instead,
         # and "touched" here to make sure they are newer than the
         # .mmdb files. Only the Country file is created.
-        for sub in ['ASN', 'City']:
+        for sub in ['ASN', 'City', 'RegisteredCountry']:
             fname = os.path.join(ivre.config.GEOIP_PATH,
                                  'GeoLite2-%s.dump-IPv4.csv' % sub)
             if os.path.isfile(fname):

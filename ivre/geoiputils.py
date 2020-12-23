@@ -331,6 +331,13 @@ def get_ranges_by_country(code):
     )
 
 
+def get_ranges_by_registered_country(code):
+    return get_ranges_by_data(
+        "GeoLite2-RegisteredCountry.dump-IPv4.csv",
+        lambda line: line[2] == code,
+    )
+
+
 def get_ranges_by_location(locid):
     return get_ranges_by_data(
         'GeoLite2-City.dump-IPv4.csv',

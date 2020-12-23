@@ -438,6 +438,15 @@ class MaxMindDBData(DBData):
                 break
             fdesc.write('%d,%d,%s\n' % data)
 
+    def dump_registered_country_ranges(self, fdesc):
+        for data in self.db_country.get_ranges(
+                ["registered_country->iso_code"],
+                cond=lambda line: line[2] is not None,
+        ):
+            if data[0] > 0xffffffff:  # only IPv4
+                break
+            fdesc.write('%d,%d,%s\n' % data)
+
     def dump_city_ranges(self, fdesc):
         for data in self.db_city.get_ranges(
                 ["country->iso_code", "subdivisions->0->iso_code",
@@ -465,7 +474,7 @@ calls to self._build_dump().
         """
         for _ in Pool().imap(
                 partial(self._build_dump, force),
-                ["db_asn", "db_country", "db_city"],
+                ["db_asn", "db_country", "db_registered_country", "db_city"],
                 chunksize=1,
         ):
             pass
@@ -478,15 +487,26 @@ dump (.dump-IPv4.csv) file from a Maxmind database (.mmdb) file.
         dumper = {
             "db_asn": self.dump_as_ranges,
             "db_country": self.dump_country_ranges,
+            "db_registered_country": self.dump_registered_country_ranges,
             "db_city": self.dump_city_ranges,
         }[attr]
         try:
-            subdb = getattr(self, attr)
+            subdb = getattr(
+                self,
+                {"db_registered_country": "db_country"}.get(attr, attr),
+            )
         except AttributeError:
             return
         if not subdb.path.endswith('.mmdb'):
             return
         csv_file = subdb.path[:-4] + 'dump-IPv4.csv'
+        if attr == "db_registered_country":
+            if 'Country' not in csv_file:
+                utils.LOGGER.error(
+                    'Cannot build RegisteredCountry dump since filename %r '
+                    'does not contain "Country"',
+                    subdb.path)
+            csv_file = csv_file.replace('Country', 'RegisteredCountry')
         if not force:
             mmdb_mtime = os.path.getmtime(subdb.path)
             try:
