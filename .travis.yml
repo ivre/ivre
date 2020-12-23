@@ -78,13 +78,13 @@ before_script:
   # add wireshark manuf DB
   - mkdir -p usr/local/wireshark/share/wireshark
   - LD_LIBRARY_PATH= wget -q https://raw.githubusercontent.com/wireshark/wireshark/master/manuf -O usr/local/wireshark/share/wireshark/manuf
-  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/36c6591395b86435ae3b0e9a7ab8c397bb1d33f7.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
+  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/a3b758e4ae01b0e93aeadc63d2cc47ca695be2b0.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
   # install Zeek & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
   - ZEEK_VERSION="3.$((RANDOM % 2))"; echo "ZEEK_VERSION $ZEEK_VERSION"; for archive in tools-travis-ivre zeek-${ZEEK_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise nfdump-1.6.17; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
   # get GeoIP CSV files -- we are supposed to build them, but that's
   # disabled in Travis since that's too slow
-  - mv tests/geoip/GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2 `python -c 'from ivre import config; print(config.GEOIP_PATH)'`; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country}.dump-IPv4.csv.bz2
+  - mv tests/geoip/GeoLite2-{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2 `python -c 'from ivre import config; print(config.GEOIP_PATH)'`; bunzip2 "/`python -c 'from ivre import config; print(config.GEOIP_PATH)'`/"GeoLite2-{ASN,City,Country,RegisteredCountry}.dump-IPv4.csv.bz2
   - export PATH="`pwd`/usr/local/zeek/bin:`pwd`/usr/local/nmap/bin:`pwd`/usr/local/nfdump/bin:$PATH"
   - export LD_LIBRARY_PATH="`pwd`/usr/local/zeek/lib:`pwd`/usr/local/nfdump/lib"
   - export ZEEKPATH=".:`pwd`/usr/local/zeek/share/zeek:`pwd`/usr/local/zeek/share/zeek/policy:`pwd`/usr/local/zeek/share/zeek/site"

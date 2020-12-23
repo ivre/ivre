@@ -162,6 +162,21 @@ class TargetTest(Target):
         )
 
 
+class TargetRegisteredCountry(Target):
+    """This class can be used to get IP addresses from a country, based on
+    the "registered_country" fields from Maxmind GeoIP.
+
+    """
+
+    def __init__(self, country, categories=None, rand=True, maxnbr=None,
+                 state=None):
+        super(TargetRegisteredCountry, self).__init__(
+            geoiputils.get_ranges_by_registered_country(country), rand=rand,
+            maxnbr=maxnbr, state=state, name='REGISTERED_COUNTRY-%s' % country,
+            categories=categories,
+        )
+
+
 class TargetCountry(Target):
     """This class can be used to get IP addresses from a country,
     according to the data from Maxmind GeoIP.
@@ -428,6 +443,8 @@ ARGPARSER.add_argument('--categories', metavar='CAT', nargs='+',
                        help='tag scan results with these categories')
 ARGPARSER.add_argument('--country', '-c', metavar='CODE[,CODE[,...]]',
                        help='select a country')
+ARGPARSER.add_argument('--registered-country', metavar='CODE[,CODE[,...]]',
+                       help='select a registered country')
 ARGPARSER.add_argument('--city', nargs=2,
                        metavar=('COUNTRY_CODE', 'CITY'),
                        help='select a region')
@@ -471,6 +488,24 @@ def target_from_args(args):
                               categories=args.categories,
                               maxnbr=args.limit,
                               state=args.state)
+                for country in countries
+            ),
+        )
+    elif args.registered_country is not None:
+        countries = set()
+        for country in args.registered_country.split(','):
+            ccodes = utils.country_unalias(country)
+            if isinstance(ccodes, list):
+                countries.update(ccodes)
+            else:
+                countries.add(ccodes)
+        target = reduce(
+            add,
+            (
+                TargetRegisteredCountry(country,
+                                        categories=args.categories,
+                                        maxnbr=args.limit,
+                                        state=args.state)
                 for country in countries
             ),
         )
