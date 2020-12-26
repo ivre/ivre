@@ -698,10 +698,9 @@ event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
                      $value=join_string_vec(value, ",")]);
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
-                     $host=c$id$resp_h,
+                     $host=c$id$orig_h,
                      $recon_type=NTLM_CLIENT_FLAGS,
                      $source=_get_source(c),
-                     $srvport=c$id$resp_p,
                      $value=_get_hex_flags(negotiate$flags)]);
 }
 
