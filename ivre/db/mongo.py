@@ -694,6 +694,10 @@ want to do something special here, e.g., mix with other records.
             return {key: {'$gt': val}}
         if cmpop == '>=':
             return {key: {'$gte': val}}
+        if cmpop in {'=', '=='}:
+            return {key: val}
+        if cmpop == '!=':
+            return {key: {'$ne': val}}
         raise Exception('Unknown operator %r (for key %r and val %r)' % (
             cmpop,
             key,
@@ -3758,7 +3762,8 @@ setting values according to the keyword arguments.
         spec = self.rec2internal(spec)
         self.db[self.columns[self.column_passive]].insert(spec)
 
-    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None,
+                         replacecount=False):
         if spec is None:
             return
         orig = deepcopy(spec)
@@ -3774,10 +3779,13 @@ setting values according to the keyword arguments.
         except StopIteration:
             current = None
         updatespec = {
-            '$inc': {'count': spec.pop("count", 1)},
             '$min': {'firstseen': timestamp},
             '$max': {'lastseen': lastseen or timestamp},
         }
+        if replacecount:
+            updatespec['$set'] = {'count': spec.pop("count", 1)}
+        else:
+            updatespec['$inc'] = {'count': spec.pop("count", 1)}
         if current is not None:
             self.db[self.columns[self.column_passive]].update(
                 {'_id': current['_id']},
@@ -3800,7 +3808,7 @@ setting values according to the keyword arguments.
             )
 
     def insert_or_update_bulk(self, specs, getinfos=None,
-                              separated_timestamps=True):
+                              separated_timestamps=True, replacecount=False):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of (timestamp, spec) values. This will perform bulk
         MongoDB inserts with the major drawback that the `getinfos`
@@ -3833,10 +3841,13 @@ setting values according to the keyword arguments.
                 if spec is None:
                     continue
                 updatespec = {
-                    '$inc': {'count': 1},
                     '$min': {'firstseen': firstseen},
                     '$max': {'lastseen': lastseen},
                 }
+                if replacecount:
+                    updatespec['$set'] = {'count': spec.pop("count", 1)}
+                else:
+                    updatespec['$inc'] = {'count': spec.pop("count", 1)}
                 if getinfos is not None:
                     spec.update(getinfos(spec))
                     try:
@@ -3867,7 +3878,7 @@ setting values according to the keyword arguments.
             utils.LOGGER.debug("DB:MongoDB bulk upsert: %d (final)", count)
             bulk.execute()
 
-    def insert_or_update_mix(self, spec, getinfos=None):
+    def insert_or_update_mix(self, spec, getinfos=None, replacecount=False):
         """Updates the first record matching "spec" (without
         "firstseen", "lastseen" and "count") by mixing "firstseen",
         "lastseen" and "count" from "spec" and from the database.
@@ -3881,10 +3892,10 @@ setting values according to the keyword arguments.
             updatespec['$min'] = {'firstseen': spec.pop('firstseen')}
         if 'lastseen' in spec:
             updatespec['$max'] = {'lastseen': spec.pop('lastseen')}
-        if 'count' in spec:
-            updatespec['$inc'] = {'count': spec.pop('count')}
+        if replacecount:
+            updatespec['$set'] = {'count': spec.pop("count", 1)}
         else:
-            updatespec['$inc'] = {'count': 1}
+            updatespec['$inc'] = {'count': spec.pop("count", 1)}
         if 'infos' in spec:
             updatespec['$setOnInsert'] = {'infos': spec.pop('infos')}
         if 'fullinfos' in spec:

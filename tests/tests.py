@@ -2431,6 +2431,97 @@ purposes to feed Elasticsearch view.
                 if 'source' in rec
             ))
 
+        # Test record updates
+        rec = next(iter(ivre.db.db.passive.get(ivre.db.db.passive.flt_empty)))
+        count = rec.pop('count')
+        firstseen = rec.pop('firstseen')
+        lastseen = rec.pop('lastseen')
+        self.assertGreaterEqual(count, 1)
+        rec = {
+            k: v for k, v in rec.items()
+            if k in {'addr', 'sensor', 'recontype', 'port',
+                     'source', 'value', 'targetval'}
+        }
+        flt = [
+            ivre.db.db.passive.searchval(k, v)
+            for k, v in rec.items()
+            if k in {'sensor', 'recontype', 'port',
+                     'source', 'value', 'targetval'}
+        ]
+        if 'addr' in rec:
+            flt.append(ivre.db.db.passive.searchhost(rec['addr']))
+        flt = ivre.db.db.passive.flt_and(*flt)
+        ivre.db.db.passive.insert_or_update(
+            firstseen,
+            dict(rec, count=1),
+            lastseen=lastseen,
+        )
+        self.assertEqual(
+            count + 1,
+            next(iter(ivre.db.db.passive.get(flt)))['count'],
+        )
+        ivre.db.db.passive.insert_or_update_local_bulk(
+            iter([dict(rec, count=1, firstseen=firstseen, lastseen=lastseen)]),
+            separated_timestamps=False,
+        )
+        self.assertEqual(
+            count + 2,
+            next(iter(ivre.db.db.passive.get(flt)))['count'],
+        )
+        if DATABASE != 'postgres':
+            # There is an error with postgresql CSV insert to temp table
+            ivre.db.db.passive.insert_or_update_bulk(
+                iter([dict(rec, count=1, firstseen=firstseen,
+                           lastseen=lastseen)]),
+                separated_timestamps=False,
+            )
+            self.assertEqual(
+                count + 3,
+                next(iter(ivre.db.db.passive.get(flt)))['count'],
+            )
+        ivre.db.db.passive.insert_or_update(
+            firstseen,
+            dict(rec, count=count * 2),
+            lastseen=lastseen,
+            replacecount=True,
+        )
+        self.assertEqual(
+            count * 2,
+            next(iter(ivre.db.db.passive.get(flt)))['count'],
+        )
+        ivre.db.db.passive.insert_or_update_local_bulk(
+            iter([dict(rec, count=count * 2, firstseen=firstseen,
+                       lastseen=lastseen)]),
+            separated_timestamps=False,
+            replacecount=True,
+        )
+        self.assertEqual(
+            count * 2,
+            next(iter(ivre.db.db.passive.get(flt)))['count'],
+        )
+        if DATABASE != 'postgres':
+            # There is an error with postgresql CSV insert to temp table
+            ivre.db.db.passive.insert_or_update_bulk(
+                iter([dict(rec, count=count * 2, firstseen=firstseen,
+                           lastseen=lastseen)]),
+                separated_timestamps=False,
+                replacecount=True,
+            )
+            self.assertEqual(
+                count * 2,
+                next(iter(ivre.db.db.passive.get(flt)))['count'],
+            )
+        ivre.db.db.passive.insert_or_update(
+            firstseen,
+            dict(rec, count=count),
+            lastseen=lastseen,
+            replacecount=True
+        )
+        self.assertEqual(
+            count,
+            next(iter(ivre.db.db.passive.get(flt)))['count'],
+        )
+
         # Test DNSBL
 
         count = ivre.db.db.passive.count(

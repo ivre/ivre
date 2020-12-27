@@ -62,7 +62,8 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
             sqlite_where=self.tables.passive.addr == None,  # noqa: E711
         )
 
-    def _insert_or_update(self, timestamp, values, lastseen=None):
+    def _insert_or_update(self, timestamp, values, lastseen=None,
+                          replacecount=False):
         stmt = insert(self.tables.passive)\
             .values(dict(values, addr=utils.force_int2ip(values['addr'])))
         try:
@@ -87,7 +88,10 @@ class SqliteDBPassive(SqliteDB, SQLDBPassive):
                     self.tables.passive.lastseen,
                     lastseen or timestamp,
                 ),
-                'count': self.tables.passive.count + values['count'],
+                'count': (
+                    values['count'] if replacecount else
+                    self.tables.passive.count + values['count']
+                ),
             }
             updt = update(
                 self.tables.passive

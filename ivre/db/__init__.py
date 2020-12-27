@@ -491,6 +491,10 @@ To use this to create a pandas DataFrame, you can run:
     def searchipv6(cls):
         return cls.searchnet('0.0.0.0/0', neg=True)
 
+    @classmethod
+    def searchval(cls, key, val):
+        return cls.searchcmp(key, val, '=')
+
     def searchphpmyadmin(self):
         """Finds phpMyAdmin instances based on its cookies."""
         return self.searchcookie('phpMyAdmin')
@@ -2476,11 +2480,12 @@ class DBPassive(DB):
 
         return flt
 
-    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None,
+                         replacecount=False):
         raise NotImplementedError
 
     def insert_or_update_bulk(self, specs, getinfos=None,
-                              separated_timestamps=True):
+                              separated_timestamps=True, replacecount=False):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of (timestamp, spec) values. This generic
         implementation does not use the bulk capacity of the
@@ -2490,17 +2495,20 @@ class DBPassive(DB):
         """
         if separated_timestamps:
             for tstamp, spec in specs:
-                self.insert_or_update(tstamp, spec, getinfos=getinfos)
+                self.insert_or_update(tstamp, spec, getinfos=getinfos,
+                                      replacecount=replacecount)
         else:
             for spec in specs:
                 timestamp = spec.pop("firstseen", None)
                 lastseen = spec.pop("lastseen", None)
                 self.insert_or_update(timestamp or lastseen, spec,
                                       getinfos=getinfos,
-                                      lastseen=lastseen or timestamp)
+                                      lastseen=lastseen or timestamp,
+                                      replacecount=replacecount)
 
     def insert_or_update_local_bulk(self, specs, getinfos=None,
-                                    separated_timestamps=True):
+                                    separated_timestamps=True,
+                                    replacecount=False):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of (timestamp, spec) values. This generic
         implementation does not use the bulk capacity of the
@@ -2514,7 +2522,8 @@ class DBPassive(DB):
                 self.insert_or_update(metadata.firstseen,
                                       dict(spec, **metadata.data),
                                       getinfos=getinfos,
-                                      lastseen=metadata.lastseen)
+                                      lastseen=metadata.lastseen,
+                                      replacecount=replacecount)
         records = {}
         utils.LOGGER.debug("DB: creating a local bulk upsert (%d records)",
                            config.LOCAL_BATCH_SIZE)
