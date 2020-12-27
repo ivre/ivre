@@ -1582,7 +1582,8 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
                 utils.str2list(args.category)))
         if args.asname is not None:
             flt = self.flt_and(flt, self.searchasname(
-                utils.str2regexp(args.asname)))
+                utils.str2regexp(args.asname)
+            ))
         if args.source is not None:
             flt = self.flt_and(flt, self.searchsource(args.source))
         if args.version is not None:
@@ -2436,9 +2437,15 @@ class DBPassive(DB):
                 self.searchcert(subject=utils.str2regexp(args.cert)),
             )
         if args.timeago is not None:
-            flt = self.flt_and(self.searchtimeago(args.timeago, new=False))
+            flt = self.flt_and(
+                flt,
+                self.searchtimeago(args.timeago, new=False),
+            )
         if args.timeagonew is not None:
-            flt = self.flt_and(self.searchtimeago(args.timeagonew, new=True))
+            flt = self.flt_and(
+                flt,
+                self.searchtimeago(args.timeagonew, new=True),
+            )
         if args.dnstype is not None:
             flt = self.flt_and(flt, self.searchdns(dnstype=args.dnstype))
         if args.ssl_ja3_client is not None:
