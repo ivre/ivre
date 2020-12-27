@@ -1368,7 +1368,8 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
             postgresql_where=self.tables.passive.addr == None,  # noqa: E711
         )
 
-    def _insert_or_update(self, timestamp, values, lastseen=None):
+    def _insert_or_update(self, timestamp, values, lastseen=None,
+                          replacecount=False):
         stmt = postgresql.insert(self.tables.passive).values(values)
         upsert = {
             'firstseen': func.least(
@@ -1379,7 +1380,10 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                 self.tables.passive.lastseen,
                 lastseen or timestamp,
             ),
-            'count': self.tables.passive.count + stmt.excluded.count,
+            'count': (
+                stmt.excluded.count if replacecount else
+                self.tables.passive.count + stmt.excluded.count
+            ),
         }
         if values.get('addr'):
             stmt = stmt.on_conflict_do_update(
@@ -1398,7 +1402,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
         self.db.execute(stmt)
 
     def insert_or_update_bulk(self, specs, getinfos=None,
-                              separated_timestamps=True):
+                              separated_timestamps=True, replacecount=False):
         """Like `.insert_or_update()`, but `specs` parameter has to be an
         iterable of `(timestamp, spec)` (if `separated_timestamps` is
         True) or `spec` (if it is False) values. This will perform
@@ -1468,8 +1472,10 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                             self.tables.passive.lastseen,
                             insrt.excluded.lastseen,
                         ),
-                        'count':
-                        self.tables.passive.count + insrt.excluded.count,
+                        'count': (
+                            insrt.excluded.count if replacecount else
+                            self.tables.passive.count + insrt.excluded.count
+                        ),
                     },
                 )
             )
@@ -1513,8 +1519,10 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                             self.tables.passive.lastseen,
                             insrt.excluded.lastseen,
                         ),
-                        'count':
-                        self.tables.passive.count + insrt.excluded.count,
+                        'count': (
+                            insrt.excluded.count if replacecount else
+                            self.tables.passive.count + insrt.excluded.count
+                        ),
                     },
                 )
             )

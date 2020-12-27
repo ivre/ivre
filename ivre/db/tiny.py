@@ -1982,6 +1982,20 @@ lastseen values.
     return transform
 
 
+def op_update_replacecount(count, firstseen, lastseen):
+    """A TinyDB operation to update a document with count, firstseen and
+lastseen values.
+
+    """
+    def transform(doc):
+        doc["count"] = count
+        if firstseen is not None:
+            doc["firstseen"] = min(doc.get('firstseen', firstseen), firstseen)
+        if lastseen is not None:
+            doc["lastseen"] = max(doc.get('lastseen', lastseen), lastseen)
+    return transform
+
+
 class TinyDBPassive(TinyDB, DBPassive):
 
     """A Passive-specific DB using TinyDB backend"""
@@ -2067,7 +2081,8 @@ None) is returned.
         spec = self.rec2internal(spec)
         self.db.insert(spec)
 
-    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None,
+                         replacecount=False):
         if spec is None:
             return
         q = Query()
@@ -2090,7 +2105,8 @@ None) is returned.
             lastseen = utils.all2datetime(lastseen).timestamp()
         current = self.get_one(spec_cond, fields=[])
         if current is not None:
-            self.db.update(op_update(count, timestamp, lastseen or timestamp),
+            op = op_update_replacecount if replacecount else op_update
+            self.db.update(op(count, timestamp, lastseen or timestamp),
                            doc_ids=[current.doc_id])
         else:
             doc = dict(spec, count=count, firstseen=timestamp,

@@ -2179,10 +2179,12 @@ returns a generator.
 returns the first result, or None if no result exists."""
         return next(self.get(flt, limit=1, skip=skip))
 
-    def _insert_or_update(self, timestamp, values, lastseen=None):
+    def _insert_or_update(self, timestamp, values, lastseen=None,
+                          replacecount=False):
         raise NotImplementedError()
 
-    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None):
+    def insert_or_update(self, timestamp, spec, getinfos=None, lastseen=None,
+                         replacecount=False):
         if spec is None:
             return
         try:
@@ -2234,45 +2236,8 @@ returns the first result, or None if no result exists."""
             'schema_version': spec.pop('schema_version', None),
         }
         vals.update(otherfields)
-        self._insert_or_update(timestamp, vals, lastseen=lastseen)
-
-    def migrate_from_db(self, db, flt=None, limit=None, skip=None, sort=None):
-        if flt is None:
-            flt = db.flt_empty
-        self.insert_or_update_bulk(db.get(flt, limit=limit, skip=skip,
-                                          sort=sort),
-                                   separated_timestamps=False, getinfos=None)
-
-    def migrate_from_mongodb_backup(self, backupfdesc):
-        """This function uses a MongoDB backup file as a source to feed the
-passive table."""
-        def _backupgen(fdesc):
-            for line in fdesc:
-                try:
-                    line = line.decode()
-                except AttributeError:
-                    pass
-                try:
-                    line = json.loads(line)
-                except ValueError:
-                    utils.LOGGER.warning("ignoring line [%r]", line)
-                    continue
-                try:
-                    del line['_id']
-                except KeyError:
-                    pass
-                line.update(line.pop('infos', {}))
-                for key, value in line.items():
-                    if isinstance(value, dict) and len(value) == 1 \
-                       and "$numberLong" in value:
-                        line[key] = int(value['$numberLong'])
-                yield line
-        self.insert_or_update_bulk(_backupgen(backupfdesc), getinfos=None,
-                                   separated_timestamps=False)
-
-    _topstructure = namedtuple("topstructure", ["fields", "where", "group_by",
-                                                "extraselectfrom"])
-    _topstructure.__new__.__defaults__ = (None,) * len(_topstructure._fields)
+        self._insert_or_update(timestamp, vals, lastseen=lastseen,
+                               replacecount=replacecount)
 
     def topvalues(self, field, flt=None, topnbr=10, sort=None,
                   limit=None, skip=None, least=False, distinct=True):
