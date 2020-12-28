@@ -1190,7 +1190,7 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                 # Hack: in Nmap fingerprint file, nothing specifies
                 # the protocol of the fallback probe. However, the
                 # same probe may exist with different
-                # protcols. Usually, the fallback probes use the same
+                # protocols. Usually, the fallback probes use the same
                 # protocol than the original probe; the only
                 # exceptions so far are DNSStatusRequestTCP (fallback
                 # DNSStatusRequest) and DNSVersionBindReqTCP (fallback
