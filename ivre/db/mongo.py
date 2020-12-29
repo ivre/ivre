@@ -3459,7 +3459,11 @@ class MongoDBPassive(MongoDB, DBPassive):
                 ('source', pymongo.ASCENDING)
             ], {}),
             ([('firstseen', pymongo.ASCENDING)], {}),
-            ([('lastseen', pymongo.ASCENDING)], {}),
+            ([
+                ('lastseen', pymongo.ASCENDING),
+                ('addr_0', pymongo.ASCENDING),
+                ('addr_1', pymongo.ASCENDING),
+            ], {}),
             ([('sensor', pymongo.ASCENDING)], {}),
             ([
                 ('addr_0', pymongo.ASCENDING),
