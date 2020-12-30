@@ -1064,6 +1064,7 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "vnc": "banner",
     "imap": "banner",
     "pop": "banner",
+    "smtp": "banner",
     "X509": "ssl-cert",
     "X509CA": "ssl-cacert",
     "s7comm": "s7-info",
