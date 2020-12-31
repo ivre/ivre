@@ -607,12 +607,12 @@ event udp_contents (u: connection, is_orig: bool, contents: string) {
 }
 
 event http_request (c: connection, method: string, original_URI: string, unescaped_URI: string, version: string) {
-    if (c$id$resp_h in HONEYPOTS) {
+    if (c$id$resp_h in HONEYPOTS && version != "0.9") {
         Log::write(LOG, [$ts=c$start_time,
                          $uid=c$uid,
                          $host=c$id$orig_h,
                          $recon_type=HTTP_HONEYPOT_REQUEST,
-                         $source=fmt("%s-tcp/%d", method, c$id$resp_p),
+                         $source=fmt("%s-%s-tcp/%d", method, version, c$id$resp_p),
                          $value=original_URI]);
     }
 }

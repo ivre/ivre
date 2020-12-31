@@ -376,6 +376,10 @@ def merge_scanner_scripts(curscript, script, script_id):
             res.setdefault('ports', {}).setdefault(proto, {}).setdefault(
                 'ports', set()
             ).update(ports.get('ports', []))
+        for uri in data.get('http_uris', []):
+            res.setdefault('http_uris', set()).add((
+                uri['uri'], uri['method'], uri['version'],
+            ))
         for scanner in data.get('scanners', []):
             res.setdefault('scanners', {}).setdefault(
                 scanner['name'], set()
@@ -390,6 +394,11 @@ def merge_scanner_scripts(curscript, script, script_id):
         nports = len(ports['ports'])
         res['ports'][proto]['count'] = nports
         res['ports']['count'] = res['ports'].get('count', 0) + nports
+    if 'http_uris' in res:
+        res['http_uris'] = [
+            {"uri": uri, "method": method, "version": version}
+            for uri, method, version in sorted(res['http_uris'])
+        ]
     scanners = []
     for name, probes in res.get('scanners', {}).items():
         scanner = {'name': name}
@@ -410,6 +419,20 @@ def merge_scanner_scripts(curscript, script, script_id):
             ', '.join('%s: %s' % (proto, ports2nmapspec(ports['ports']))
                       for proto, ports in res.get('ports', {}).items()
                       if proto != 'count'),
+        ))
+    if res.get('http_uris'):
+        uris_methods = {}
+        uris_versions = {}
+        for uri in res['http_uris']:
+            uris_methods.setdefault(uri['uri'], set()).add(uri['method'])
+            uris_versions.setdefault(uri['uri'], set()).add(uri['version'])
+        output.append("Scanned URI%s: %s" % (
+            's' if len(uris_versions) > 1 else '',
+            ', '.join('%s (%s %s)' % (
+                uri,
+                ', '.join(uris_methods[uri]),
+                ', '.join(uris_versions[uri]),
+            ) for uri in sorted(uris_versions)),
         ))
     if scanners:
         output.append("Scanner%s: %s" % (
@@ -500,6 +523,9 @@ def merge_host_docs(rec1, rec2):
     rec["state"] = "up" if rec1.get("state") == "up" else rec2.get("state")
     if rec["state"] is None:
         del rec["state"]
+    rec["state_reason"] = rec2.get("state_reason", rec1.get("state_reason"))
+    if rec["state_reason"] is None:
+        del rec["state_reason"]
     rec["categories"] = list(
         set(rec1.get("categories", [])).union(
             rec2.get("categories", []))
