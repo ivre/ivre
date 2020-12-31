@@ -184,6 +184,35 @@ def _extract_passive_HONEYPOT_HIT(rec):
     }]}
 
 
+def _extract_passive_HTTP_HONEYPOT_REQUEST(rec):
+    """Handle HTTP_HONEYPOT_REQUEST records"""
+    try:
+        method, version, proto_port = rec['source'].rsplit('-', 2)
+        proto, port = proto_port.split('/', 1)
+        port = int(port)
+    except ValueError:
+        utils.LOGGER.warning('Cannot parse record [%r]', rec)
+        return {}
+    port = int(port)
+    output = 'Scanned port: %s: %d\nScanned HTTP URI: %s (%s %s)' % (
+        proto, port, rec['value'], method, version,
+    )
+    structured_output = {
+        'ports': {'count': 1,
+                  proto: {'count': 1, 'ports': [port]}},
+        'http_uris': [{'method': method, 'version': version,
+                       'uri': rec['value']}],
+    }
+    return {'ports': [{
+        'port': -1,
+        'scripts': [{
+            'id': 'scanner',
+            'output': output,
+            'scanner': structured_output,
+        }],
+    }]}
+
+
 _KEYS = {
     'ecdsa-sha2-nistp256': 'ECDSA',
 }
@@ -440,6 +469,7 @@ _EXTRACTORS = {
     'OPEN_PORT': _extract_passive_OPEN_PORT,
     'TCP_HONEYPOT_HIT': _extract_passive_HONEYPOT_HIT,
     'UDP_HONEYPOT_HIT': _extract_passive_HONEYPOT_HIT,
+    'HTTP_HONEYPOT_REQUEST': _extract_passive_HTTP_HONEYPOT_REQUEST,
 }
 
 
