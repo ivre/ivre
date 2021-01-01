@@ -23,6 +23,10 @@ databases.
 """
 
 
+# Tests like "expr == None" should be used for BinaryExpression instances
+# pylint: disable=singleton-comparison
+
+
 from sqlalchemy import Index, and_, func, insert, update
 from sqlalchemy.exc import IntegrityError
 

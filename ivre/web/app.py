@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -79,7 +79,10 @@ based on the Referer: header.
             base_url = '/'.join(request.url.split('/', 3)[:3]) + '/'
             if referer.startswith(base_url):
                 return func(*args, **kargs)
-        elif referer in config.WEB_ALLOWED_REFERERS:
+        elif (
+                # pylint: disable=unsupported-membership-test
+                referer in config.WEB_ALLOWED_REFERERS
+        ):
             return func(*args, **kargs)
         return _die(referer)
 

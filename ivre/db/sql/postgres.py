@@ -23,6 +23,10 @@ databases.
 """
 
 
+# Tests like "expr == None" should be used for BinaryExpression instances
+# pylint: disable=singleton-comparison
+
+
 import datetime
 import time
 

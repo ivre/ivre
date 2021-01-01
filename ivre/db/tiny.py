@@ -23,6 +23,10 @@ databases.
 """
 
 
+# Tests like "expr == None" should be used for QueryInstance instances
+# pylint: disable=singleton-comparison
+
+
 from collections import defaultdict, Counter
 from copy import deepcopy
 from datetime import datetime, time, timedelta

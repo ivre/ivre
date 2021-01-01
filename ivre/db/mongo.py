@@ -584,7 +584,8 @@ want to do something special here, e.g., mix with other records.
     def flt_or(*args):
         return {'$or': args} if len(args) > 1 else args[0]
 
-    def _search_field_exists(self, field):
+    @staticmethod
+    def _search_field_exists(field):
         return {field: {"$exists": True}}
 
     @staticmethod
