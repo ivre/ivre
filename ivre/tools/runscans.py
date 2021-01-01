@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -63,7 +63,8 @@ def setnmaplimits():
 class XmlProcess:
     addrrec = re.compile(b'<address\\s+addr="([0-9\\.]+)" addrtype="ipv4"/>')
 
-    def target_status(self, _):
+    @staticmethod
+    def target_status(_):
         return STATUS_NEW
 
 

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ class Values(dict):
 
     def __getitem__(self, item):
         try:
-            return super(Values, self).__getitem__(item)
+            return super().__getitem__(item)
         except KeyError:
             return "UNKNOWN-%d" % item
 

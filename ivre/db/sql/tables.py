@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -197,6 +197,7 @@ SQLINET = postgresql.INET()\
 
 class Point(UserDefinedType):
 
+    # pylint: disable=no-self-use
     def get_col_spec(self):
         return "POINT"
 

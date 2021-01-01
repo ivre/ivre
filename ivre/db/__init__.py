@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -717,7 +717,7 @@ class DBActive(DB):
     ]
 
     def __init__(self):
-        super(DBActive, self).__init__()
+        super().__init__()
         self._schema_migrations = {
             "hosts": {
                 None: (1, self.__migrate_schema_hosts_0_1),
@@ -1580,7 +1580,7 @@ introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
         )
 
     def parse_args(self, args, flt=None):
-        flt = super(DBActive, self).parse_args(args, flt=flt)
+        flt = super().parse_args(args, flt=flt)
         if args.category is not None:
             flt = self.flt_and(flt, self.searchcategory(
                 utils.str2list(args.category)))
@@ -1740,7 +1740,7 @@ class DBNmap(DBActive):
     content_handler = xmlnmap.Nmap2Txt
 
     def __init__(self, output_mode="json", output=sys.stdout):
-        super(DBNmap, self).__init__()
+        super().__init__()
         self.output_function = {
             "normal": nmapout.displayhosts,
         }.get(output_mode, nmapout.displayhosts_json)
@@ -1808,7 +1808,8 @@ class DBNmap(DBActive):
         parser = xml.sax.make_parser()
         self.start_store_hosts()
         try:
-            content_handler = self.content_handler(fname, **kargs)
+            content_handler = self.content_handler(fname, self.globaldb,
+                                                   **kargs)
         except Exception:
             utils.LOGGER.warning('Exception (file %r)', fname, exc_info=True)
         else:
@@ -2231,7 +2232,7 @@ class DBNmap(DBActive):
 class DBView(DBActive):
 
     def __init__(self):
-        super(DBView, self).__init__()
+        super().__init__()
         self.argparser.add_argument('--ssl-ja3-server',
                                     metavar='JA3-SERVER[:JA3-CLIENT]',
                                     nargs='?',
@@ -2244,7 +2245,7 @@ class DBView(DBActive):
                                     default=None)
 
     def parse_args(self, args, flt=None):
-        flt = super(DBView, self).parse_args(args, flt=flt)
+        flt = super().parse_args(args, flt=flt)
         if args.ssl_ja3_client is not None:
             cli = args.ssl_ja3_client
             flt = self.flt_and(flt, self.searchja3client(
@@ -2375,7 +2376,7 @@ class DBPassive(DB):
                    "infos.san"]
 
     def __init__(self):
-        super(DBPassive, self).__init__()
+        super().__init__()
         self.argparser.add_argument('--sensor')
         self.argparser.add_argument('--torcert', action='store_true')
         self.argparser.add_argument('--dns')
@@ -2404,7 +2405,7 @@ class DBPassive(DB):
                                     default=None)
 
     def parse_args(self, args, flt=None):
-        flt = super(DBPassive, self).parse_args(args, flt=flt)
+        flt = super().parse_args(args, flt=flt)
         if args.sensor is not None:
             flt = self.flt_and(
                 flt,

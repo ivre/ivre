@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -778,7 +778,7 @@ config.DEBUG_DB) is True.
     MAX_WARNINGS_STORED = 100
 
     def __init__(self):
-        super(LogFilter, self).__init__()
+        super().__init__()
         self.warnings = set()
 
     def filter(self, record):
@@ -1607,8 +1607,8 @@ def num2readable(value):
     else:
         idx = 1000 ** idx
     if isinstance(value, float):
-        return '%.3f%s' % (value / idx, unit)
-    return '%d%s' % (value / idx, unit)
+        return '%.3f%s' % (value / float(idx), unit)
+    return '%d%s' % (value / float(idx), unit)
 
 
 _DECODE_HEX = codecs.getdecoder("hex_codec")

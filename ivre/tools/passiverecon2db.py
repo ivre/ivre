@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ dictionary.
     """
     ignore_rules = {}
     if ignore_spec is not None:
+        # pylint: disable=exec-used
         exec(compile(open(ignore_spec, "rb").read(), ignore_spec, 'exec'),
              ignore_rules)
     return ignore_rules

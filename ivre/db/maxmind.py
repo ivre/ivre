@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -91,7 +91,8 @@ missing to emit a warning message and return empty results.
     def __init__(self, _):
         utils.LOGGER.warning("Cannot find Maxmind database files")
 
-    def lookup(self, _):
+    @staticmethod
+    def lookup(_):
         return {}
 
 

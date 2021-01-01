@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -158,7 +158,7 @@ def add_mongodb_databases_data(script):
             continue
         length = len(line)
         line = line.lstrip()
-        indent = (length - len(line)) / 2
+        indent = (length - len(line)) // 2
 
         # Parse structure
         if indent == 1:
@@ -2540,9 +2540,11 @@ class Nmap2Txt(NmapHandler):
 
     """Simple "test" handler, outputs resulting JSON as text."""
 
-    def __init__(self, fname, **kargs):
+    def __init__(self, fname, _, **kargs):
+        # db argument is given for compatibility with Nmap2DB but
+        # unused here
         self._db = []
-        NmapHandler.__init__(self, fname, **kargs)
+        super().__init__(fname, **kargs)
 
     @staticmethod
     def _to_binary(data):
@@ -2560,10 +2562,9 @@ class Nmap2DB(NmapHandler):
 
     """Specific handler for MongoDB backend."""
 
-    def __init__(self, fname, categories=None, source=None, callback=None,
+    def __init__(self, fname, db, categories=None, source=None, callback=None,
                  add_addr_infos=True, **kargs):
-        from ivre import db
-        self._db = db.db
+        self._db = db
         if categories is None:
             self.categories = []
         else:

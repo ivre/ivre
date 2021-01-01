@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -20,6 +20,10 @@
 """This module contains functions to interact with *ANY* SQL database.
 
 """
+
+
+# Tests like "expr == None" should be used for BinaryExpression instances
+# pylint: disable=singleton-comparison
 
 
 import codecs
@@ -237,7 +241,7 @@ class SQLDB(DB):
     no_limit = None
 
     def __init__(self, url):
-        super(SQLDB, self).__init__()
+        super().__init__()
         self.dburl = url.geturl()
 
     @property
@@ -679,7 +683,7 @@ class NmapFilter(ActiveFilter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
                  script=None, tables=None, trace=None):
-        super(NmapFilter, self).__init__(
+        super().__init__(
             main=main,
             hostname=hostname,
             category=category,
@@ -694,7 +698,7 @@ class ViewFilter(ActiveFilter):
 
     def __init__(self, main=None, hostname=None, category=None, port=None,
                  script=None, tables=None, trace=None):
-        super(ViewFilter, self).__init__(
+        super().__init__(
             main=main,
             hostname=hostname,
             category=category,
@@ -724,7 +728,7 @@ class SQLDBActive(SQLDB, DBActive):
                 yield subkey
 
     def __init__(self, url):
-        super(SQLDBActive, self).__init__(url)
+        super().__init__(url)
         self.output_function = None
         self.bulk = None
 
@@ -1892,8 +1896,8 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         self.store_host(host)
 
     def get(self, flt, limit=None, skip=None, sort=None, **kargs):
-        for rec in super(SQLDBNmap, self).get(flt, limit=limit, skip=skip,
-                                              sort=sort, **kargs):
+        for rec in super().get(flt, limit=limit, skip=skip,
+                               sort=sort, **kargs):
             rec["scanid"] = [
                 scanfile[0] for scanfile in self.db.execute(
                     select([self.tables.association_scan_scanfile.scan_file])
@@ -1921,7 +1925,7 @@ The scan files that are no longer linked to a scan are removed at the
 end of the call.
 
         """
-        super(SQLDBNmap, self).remove(host)
+        super().remove(host)
         self._remove_unused_scan_files()
 
     def remove_many(self, flt):
@@ -1932,7 +1936,7 @@ The scan files that are no longer linked to a scan are removed at the
 end of the call.
 
         """
-        super(SQLDBNmap, self).remove_many(flt)
+        super().remove_many(flt)
         self._remove_unused_scan_files()
 
     @staticmethod

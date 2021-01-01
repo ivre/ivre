@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ class ElasticDB(DB):
     flt_empty = Q()
 
     def __init__(self, url):
-        super(ElasticDB, self).__init__()
+        super().__init__()
         self.username = ''
         self.password = ''
         self.hosts = None
@@ -316,7 +316,7 @@ class ElasticDBActive(ElasticDB, DBActive):
             base_query = {"field": field}
             if field in self.datetime_fields:
                 def fix_result(value):
-                    return utils.all2datetime(value / 1000)
+                    return utils.all2datetime(value / 1000.)
             else:
                 def fix_result(value):
                     return value
@@ -1185,7 +1185,7 @@ return result;
 class ElasticDBView(ElasticDBActive, DBView):
 
     def __init__(self, url):
-        super(ElasticDBView, self).__init__(url)
+        super().__init__(url)
         self.indexes = ['%s%s' % (self.index_prefix,
                                   self.params.pop('indexname_hosts', 'views'))]
 

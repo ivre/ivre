@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,6 +23,10 @@ databases.
 """
 
 
+# Tests like "expr == None" should be used for BinaryExpression instances
+# pylint: disable=singleton-comparison
+
+
 from sqlalchemy import Index, and_, func, insert, update
 from sqlalchemy.exc import IntegrityError
 
@@ -33,7 +37,7 @@ from ivre.db.sql import SQLDB, SQLDBPassive
 class SqliteDB(SQLDB):
 
     def __init__(self, url):
-        super(SqliteDB, self).__init__(url)
+        super().__init__(url)
         # url.geturl() removes two necessary '/' from url
         self.dburl = "%s://%s" % (url.scheme, url.path)
 
@@ -44,7 +48,7 @@ class SqliteDB(SQLDB):
 class SqliteDBPassive(SqliteDB, SQLDBPassive):
 
     def __init__(self, url):
-        super(SqliteDBPassive, self).__init__(url)
+        super().__init__(url)
         Index(
             'ix_passive_record', self.tables.passive.addr,
             self.tables.passive.sensor, self.tables.passive.recontype,

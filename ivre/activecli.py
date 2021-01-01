@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -135,7 +135,7 @@ def _display_honeyd_conf(host, honeyd_routes, honeyd_entries, out=sys.stdout):
                         'high': max(route['high'], latency),
                         'low': min(route['low'], latency),
                         'mean': (route['mean'] * route['count'] +
-                                 latency) / (route['count'] + 1),
+                                 latency) / float(route['count'] + 1),
                         'targets': route['targets'],
                     }
                 curhop = t

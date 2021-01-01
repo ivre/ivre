@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -155,7 +155,7 @@ class TargetTest(Target):
             raise ValueError('count must be greater than or equal to 0')
         if count > 16777216:
             raise ValueError('count must be lower than or equal to 16777216')
-        super(TargetTest, self).__init__(
+        super().__init__(
             geoiputils.IPRanges(ranges=[(2130706433, 2130706432 + count)]),
             rand=rand, maxnbr=maxnbr, state=state, name='TEST-%d' % count,
             categories=categories,
@@ -170,7 +170,7 @@ class TargetRegisteredCountry(Target):
 
     def __init__(self, country, categories=None, rand=True, maxnbr=None,
                  state=None):
-        super(TargetRegisteredCountry, self).__init__(
+        super().__init__(
             geoiputils.get_ranges_by_registered_country(country), rand=rand,
             maxnbr=maxnbr, state=state, name='REGISTERED_COUNTRY-%s' % country,
             categories=categories,
@@ -185,7 +185,7 @@ class TargetCountry(Target):
 
     def __init__(self, country, categories=None, rand=True, maxnbr=None,
                  state=None):
-        super(TargetCountry, self).__init__(
+        super().__init__(
             geoiputils.get_ranges_by_country(country), rand=rand,
             maxnbr=maxnbr, state=state, name='COUNTRY-%s' % country,
             categories=categories,
@@ -200,7 +200,7 @@ class TargetRegion(Target):
 
     def __init__(self, country, region, categories=None, rand=True,
                  maxnbr=None, state=None):
-        super(TargetRegion, self).__init__(
+        super().__init__(
             geoiputils.get_ranges_by_region(country, region), rand=rand,
             maxnbr=maxnbr, state=state,
             name='REGION-%s-%s' % (country, region), categories=categories,
@@ -215,7 +215,7 @@ class TargetCity(Target):
 
     def __init__(self, country_code, city, categories=None, rand=True,
                  maxnbr=None, state=None):
-        super(TargetCity, self).__init__(
+        super().__init__(
             geoiputils.get_ranges_by_city(country_code, city), rand=rand,
             maxnbr=maxnbr, state=state,
             name='CITY-%s-%s' % (country_code, city), categories=categories,
@@ -234,7 +234,7 @@ class TargetAS(Target):
             asnum = int(asnum[2:])
         else:
             asnum = int(asnum)
-        super(TargetAS, self).__init__(
+        super().__init__(
             geoiputils.get_ranges_by_asnum(asnum), rand=rand, maxnbr=maxnbr,
             state=state, name='AS-%d' % asnum, categories=categories,
         )
@@ -247,7 +247,7 @@ class TargetRoutable(Target):
     """
 
     def __init__(self, categories=None, rand=True, maxnbr=None, state=None):
-        super(TargetRoutable, self).__init__(
+        super().__init__(
             geoiputils.get_routable_ranges(), rand=rand, maxnbr=maxnbr,
             state=state, name='ROUTABLE', categories=categories
         )
@@ -261,7 +261,7 @@ class TargetRange(Target):
 
     def __init__(self, start, stop, categories=None, rand=True, maxnbr=None,
                  state=None, name=None):
-        super(TargetRange, self).__init__(
+        super().__init__(
             geoiputils.IPRanges(ranges=[(utils.ip2int(start),
                                          utils.ip2int(stop))]),
             rand=rand, maxnbr=maxnbr, state=state,
@@ -277,7 +277,7 @@ class TargetNetwork(TargetRange):
 
     def __init__(self, net, categories=None, rand=True, maxnbr=None,
                  state=None):
-        super(TargetNetwork, self).__init__(
+        super().__init__(
             *utils.net2range(net), rand=rand, maxnbr=maxnbr, state=state,
             name='NET-%s' % net.replace('/', '-'), categories=categories
         )

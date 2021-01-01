@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -121,7 +121,8 @@ class SSLKey:
         certtext = cls.keyincert.search(pem)
         return None if certtext is None else certtext.groupdict()
 
-    def read_der(self, der):
+    @staticmethod
+    def read_der(der):
         proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
                                  '-inform', 'DER'], stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE)
@@ -229,7 +230,8 @@ class SSHPassiveKey(PassiveKey, SSHKey):
         PassiveKey.__init__(self, baseflt=baseflt)
         SSHKey.__init__(self)
 
-    def getkeys(self, record):
+    @staticmethod
+    def getkeys(record):
         yield Key(record['addr'], record["port"], "ssh",
                   record['infos']['algo'][4:], record['infos']['bits'],
                   _rsa_construct(int(record['infos']['exponent']),
