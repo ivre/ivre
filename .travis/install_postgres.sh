@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -16,20 +16,22 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-wget -q "http://get.enterprisedb.com/postgresql/postgresql-${POSTGRES_VERSION}-1-linux-x64-binaries.tar.gz" -O - | tar zxf -
-export PATH="`pwd`/pgsql/bin:$PATH"
+sudo apt-get -qy install postgresql-${POSTGRES_VERSION} postgresql-client-${POSTGRES_VERSION} libpq-dev
+export PATH="/usr/lib/postgresql/${POSTGRES_VERSION}/bin:$PATH"
 if [ -z "$LD_LIBRARY_PATH" ]; then
-    export LD_LIBRARY_PATH="`pwd`/pgsql/lib"
+    export LD_LIBRARY_PATH="/usr/lib/postgresql/${POSTGRES_VERSION}/lib"
 else
-    export LD_LIBRARY_PATH="`pwd`/pgsql/lib:$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH="/usr/lib/postgresql/${POSTGRES_VERSION}/lib:$LD_LIBRARY_PATH"
 fi
-PIP_INSTALL_OPTIONS="--global-option=build_ext --global-option=-L`pwd`/pgsql/lib --global-option=-I`pwd`/pgsql/include"
+PIP_INSTALL_OPTIONS="--global-option=build_ext --global-option=-L/usr/lib/postgresql/${POSTGRES_VERSION}/lib"
+
 mkdir -p data/db
 sudo mount -t tmpfs tmpfs data/db -o users,uid=travis,gid=travis,mode=0700
 initdb -D data/db
 
 # Port 5432 is already in use (Travis-CI's PostgreSQL)
-pg_ctl -D data/db -l postgresql-logfile -o '-p 54321' start
+pg_ctl -D data/db -l postgresql-logfile -o '-p 54321 -c unix_socket_directories=""' start
+cat postgresql-logfile
 
 until nc -z localhost 54321 ; do echo Waiting for PostgreSQL; sleep 1; done
 sleep 2
