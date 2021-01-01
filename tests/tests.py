@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -117,7 +117,7 @@ def run_passiverecon_worker(bulk_mode=None):
     if pid:
         # Wait for child process to handle every file in "logs"
         while any(walk[2] for walk in os.walk("logs")):
-            print(u"Waiting for passivereconworker")
+            print("Waiting for passivereconworker")
             time.sleep(2)
         os.kill(pid, signal.SIGINT)
         os.waitpid(pid, 0)
@@ -228,7 +228,7 @@ Example:
                         for subdir in ['input', 'cur', 'output'])
         while any(walk[2] for dirname in dirnames
                   for walk in os.walk(dirname)):
-            print(u"Waiting for runscans sync & agent")
+            print("Waiting for runscans sync & agent")
             time.sleep(2)
 
     def scan(self, target_options):
@@ -3255,8 +3255,8 @@ purposes to feed Elasticsearch view.
         ivre.db.db.data.reload_files()
 
         if DATABASE != "maxmind":
-            print(u"Database files have been downloaded -- "
-                  u"other data tests won't run")
+            print("Database files have been downloaded -- "
+                  "other data tests won't run")
             return
 
         # CSV creation -- disabled on Travis CI: this is way too slow.
@@ -4070,7 +4070,7 @@ purposes to feed Elasticsearch view.
                           ivre.config.AGENT_MASTER_PATH, 'output', '')) or
                   (walk[0] == ivre.config.AGENT_MASTER_PATH and
                    walk[2] == ['whoami']))):
-            print(u"Waiting for runscans daemon & agent")
+            print("Waiting for runscans daemon & agent")
             time.sleep(2)
 
         # Kill the agent and the daemon

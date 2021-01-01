@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ class ZeekFile(Parser):
         self.types = []
         self.path = None
         self.nextlines = []
-        super(ZeekFile, self).__init__(fname)
+        super().__init__(fname)
         for line in self.fdesc:
             line = line.strip()
             if not line.startswith(b'#'):

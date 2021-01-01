@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ class Argus(CmdParser):
         cmd.extend(["-r", fdesc if isinstance(fdesc, str) else "-"])
         if pcap_filter is not None:
             cmd.extend(["--", pcap_filter])
-        super(Argus, self).__init__(
+        super().__init__(
             cmd, {} if isinstance(fdesc, str) else {"stdin": fdesc},
         )
         self.fdesc.readline()

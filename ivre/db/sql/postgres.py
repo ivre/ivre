@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -128,7 +128,7 @@ class BulkInsert:
             self.commited_counts[query] += l_params
         except KeyError:
             self.commited_counts[query] = l_params
-        rate = l_params / (newtime - self.start_time)
+        rate = float(l_params) / (newtime - self.start_time)
         utils.LOGGER.debug("DB:%s", query)
         utils.LOGGER.debug("DB:%d inserts, %f/sec (total %d)",
                            l_params, rate, self.commited_counts[query])
@@ -1350,7 +1350,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
 class PostgresDBPassive(PostgresDB, SQLDBPassive):
 
     def __init__(self, url):
-        super(PostgresDBPassive, self).__init__(url)
+        super().__init__(url)
         Index(
             'ix_passive_record', self.tables.passive.addr,
             self.tables.passive.sensor, self.tables.passive.recontype,
@@ -1536,9 +1536,11 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
                     "DB:PERFORMANCE STATS %s upserts, %f s, %s/s\n"
                     "\ttotal: %s upserts, %f s, %s/s",
                     utils.num2readable(count_upserted), time_spent,
-                    utils.num2readable(count_upserted / time_spent),
+                    utils.num2readable(float(count_upserted) / time_spent),
                     utils.num2readable(total_upserted), total_time_spent,
-                    utils.num2readable(total_upserted / total_time_spent),
+                    utils.num2readable(
+                        float(total_upserted) / total_time_spent
+                    ),
                 )
 
     def _features_port_get(self, features, flt, yieldall, use_service,

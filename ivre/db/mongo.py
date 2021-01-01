@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ from ivre import config, passive, utils, xmlnmap, flow
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
+
     @staticmethod
     def _to_binary(data):
         return bson.Binary(data)
@@ -70,7 +71,7 @@ class MongoDB(DB):
     no_limit = 0
 
     def __init__(self, url):
-        super(MongoDB, self).__init__()
+        super().__init__()
         self.username = None
         self.password = None
         self.mechanism = None
@@ -961,7 +962,7 @@ class MongoDBActive(MongoDB, DBActive):
     ]
 
     def __init__(self, url):
-        super(MongoDBActive, self).__init__(url)
+        super().__init__(url)
         self.schema_migrations = [
             # hosts
             {
@@ -1776,7 +1777,7 @@ it is not expected)."""
         hard-to-merge fields are lost (e.g., extraports).
 
         """
-        rec = super(MongoDBActive, self).merge_host_docs(rec1, rec2)
+        rec = super().merge_host_docs(rec1, rec2)
         scanid = set()
         for record in [rec1, rec2]:
             scanid.update(self.getscanids(record))
@@ -3358,7 +3359,7 @@ class MongoDBNmap(MongoDBActive, DBNmap):
     content_handler = Nmap2Mongo
 
     def __init__(self, url):
-        super(MongoDBNmap, self).__init__(url)
+        super().__init__(url)
         self.columns = [self.params.pop('colname_hosts', 'hosts'),
                         self.params.pop('colname_scans', 'scans')]
         self.schema_migrations.append({})  # scans
@@ -3406,7 +3407,7 @@ have no more host record after the deletion of `host`, then the scan
 record is also removed.
 
         """
-        super(MongoDBNmap, self).remove(host)
+        super().remove(host)
         for scanid in self.getscanids(host):
             if self.find_one(self.columns[self.column_hosts],
                              {'scanid': scanid}) is None:
@@ -3423,7 +3424,7 @@ hosts, then the scan records are also removed.
 
         """
         scanids = list(self.distinct('scanid', flt=flt))
-        super(MongoDBNmap, self).remove_many(flt)
+        super().remove_many(flt)
         for scanid in scanids:
             if self.find_one(self.columns[self.column_hosts],
                              {'scanid': scanid}) is None:
@@ -3435,7 +3436,7 @@ hosts, then the scan records are also removed.
 class MongoDBView(MongoDBActive, DBView):
 
     def __init__(self, url):
-        super(MongoDBView, self).__init__(url)
+        super().__init__(url)
         self.columns = [self.params.pop('colname_hosts', 'views')]
 
     def store_or_merge_host(self, host):
@@ -3558,7 +3559,7 @@ class MongoDBPassive(MongoDB, DBPassive):
     ]
 
     def __init__(self, url):
-        super(MongoDBPassive, self).__init__(url)
+        super().__init__(url)
         self.columns = [self.params.pop('colname_passive', 'passive')]
         self.schema_migrations = [
             # passive
@@ -3593,8 +3594,7 @@ want to do something special here, e.g., mix with other records.
             self.insert_or_update_mix(update, getinfos=passive.getinfos)
             self.remove(recid)
             return None
-        return super(MongoDBPassive,
-                     self)._migrate_update_record(colname, recid, update)
+        return super()._migrate_update_record(colname, recid, update)
 
     @classmethod
     def migrate_schema_passive_0_1(cls, doc):
@@ -4282,7 +4282,7 @@ class MongoDBAgent(MongoDB, DBAgent):
     ]
 
     def __init__(self, url):
-        super(MongoDBAgent, self).__init__(url)
+        super().__init__(url)
         self.columns = [self.params.pop('colname_agents', 'agents'),
                         self.params.pop('colname_scans', 'runningscans'),
                         self.params.pop('colname_masters', 'masters')]
@@ -4480,7 +4480,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
     ]
 
     def __init__(self, url):
-        super(MongoDBFlow, self).__init__(url)
+        super().__init__(url)
         self.columns = ["flows"]
 
     def start_bulk_insert(self):
@@ -4632,8 +4632,8 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             start_time = time.time()
             result = bulk.execute()
             newtime = time.time()
-            insert_rate = result.get('nInserted') / (newtime - start_time)
-            upsert_rate = result.get('nUpserted') / (newtime - start_time)
+            insert_rate = result.get('nInserted') / float(newtime - start_time)
+            upsert_rate = result.get('nUpserted') / float(newtime - start_time)
             utils.LOGGER.debug("%d inserts, %f/sec",
                                result.get('nInserted'), insert_rate)
             utils.LOGGER.debug("%d upserts, %f/sec",
@@ -5198,9 +5198,9 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         Note: limit, skip, orderby, mode, timeline are IGNORED. They are
         present only for compatibility reasons.
         """
-        query = (super(MongoDBFlow, cls)
-                 .from_filters(filters, limit=limit, skip=skip,
-                               orderby=orderby, mode=mode, timeline=timeline))
+        query = super().from_filters(filters, limit=limit, skip=skip,
+                                     orderby=orderby, mode=mode,
+                                     timeline=timeline)
         flt = cls.flt_from_query(query)
         times_filter = {}
         if after:
@@ -5423,7 +5423,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             start_time = time.time()
             result = bulk.execute()
             newtime = time.time()
-            update_rate = result.get('nModified') / (newtime - start_time)
+            update_rate = result.get('nModified') / float(newtime - start_time)
             utils.LOGGER.debug("%d updates, %f/sec",
                                result.get('nModified'), update_rate)
         except pymongo.errors.InvalidOperation:
@@ -5454,13 +5454,13 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             ratio = 0
             divisor = 0
             if flw['cspkts'] > 0:
-                ratio += flw['csbytes'] / flw['cspkts']
+                ratio += flw['csbytes'] / float(flw['cspkts'])
                 divisor += 1
             if flw['scpkts'] > 0:
-                ratio += flw['scbytes'] / flw['scpkts']
+                ratio += flw['scbytes'] / float(flw['scpkts'])
                 divisor += 1
 
-            avg = ratio / divisor
+            avg = ratio / float(divisor)
             if avg < 50:
                 # TCP segments were almost empty, which most of the time
                 # corresponds to an active scan.

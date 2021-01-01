@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ class Iptables(Parser):
 
     def __init__(self, fname, pcap_filter=None):
         """Init Ipatbles class."""
-        super(Iptables, self).__init__(fname)
+        super().__init__(fname)
 
     def parse_line(self, line):
         """Process current line in Parser.__next__."""

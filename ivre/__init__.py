@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -19,8 +19,7 @@
 
 
 """
-This module is part of IVRE.
-Copyright 2011 - 2019 Pierre LALET <pierre.lalet@cea.fr>
+IVRE is a network recon framework. See https://ivre.rocks/
 """
 
 
@@ -58,13 +57,13 @@ def _get_version_from_git():
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, err)
     tag = out.decode().strip()
-    match = re.match(u'^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
+    match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
     if match:
         # remove the 'v' prefix and add a '.devN' suffix
-        value = u'%s.dev%s' % match.groups()
+        value = '%s.dev%s' % match.groups()
     else:
         # just remove the 'v' prefix
-        value = tag[1:] if tag.startswith(u'v') else tag
+        value = tag[1:] if tag.startswith('v') else tag
     return value
 
 
@@ -85,15 +84,15 @@ def _version():
             return fdesc.read()
     except IOError:
         pass
-    hashval, refnames = u'$Format:%h %D$'.split(' ', 1)
+    hashval, refnames = '$Format:%h %D$'.split(' ', 1)
     try:
-        return next(ref[6:] for ref in refnames.split(u', ')
-                    if ref.startswith(u'tag: v'))
+        return next(ref[6:] for ref in refnames.split(', ')
+                    if ref.startswith('tag: v'))
     except StopIteration:
         pass
-    if hashval == u'$Format:%h':
-        return u'unknown.version'
-    return hashval if hashval else u'unknown.version'
+    if hashval == '$Format:%h':
+        return 'unknown.version'
+    return hashval if hashval else 'unknown.version'
 
 
 __version__ = VERSION = _version()

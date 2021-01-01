@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ class TinyDB(DB):
     no_limit = None
 
     def __init__(self, url):
-        super(TinyDB, self).__init__()
+        super().__init__()
         self.basepath = url.path
 
     @property
@@ -1877,7 +1877,7 @@ class TinyDBNmap(TinyDBActive, DBNmap):
     dbname_scans = "nmap_scans"
 
     def __init__(self, url):
-        super(TinyDBNmap, self).__init__(url)
+        super().__init__(url)
         self.output_function = None
 
     @property
@@ -1891,7 +1891,7 @@ class TinyDBNmap(TinyDBActive, DBNmap):
             return self._db_scans
 
     def init(self):
-        super(TinyDBNmap, self).init()
+        super().init()
         try:
             self.db_scans.drop_tables()
         except AttributeError:
@@ -1911,7 +1911,7 @@ as returned by `.get()` or the record id.
                 scanids = self.get(q._id == rec)[0].get("scanid", [])
             except IndexError:
                 scanids = []
-        super(TinyDBNmap, self).remove(rec)
+        super().remove(rec)
         for scanid in scanids:
             if not self.db.get(q.scanid.any([scanid])):
                 self.db_scans.remove(cond=Query()._id == scanid)
@@ -1925,7 +1925,7 @@ hosts, then the scan records are also removed.
 
         """
         scanids = list(self.distinct('scanid', flt=flt))
-        super(TinyDBNmap, self).remove_many(flt)
+        super().remove_many(flt)
         for scanid in scanids:
             if not self.db.get(Query().scanid.any([scanid])):
                 self.db_scans.remove(cond=Query()._id == scanid)
@@ -2580,7 +2580,7 @@ class TinyDBAgent(TinyDB, DBAgent):
             return self._db_masters
 
     def init(self):
-        super(TinyDBAgent, self).init()
+        super().init()
         try:
             self.db_scans.drop_tables()
         except AttributeError:
@@ -3117,13 +3117,13 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
             ratio = 0
             divisor = 0
             if flw['cspkts'] > 0:
-                ratio += flw['csbytes'] / flw['cspkts']
+                ratio += flw['csbytes'] / float(flw['cspkts'])
                 divisor += 1
             if flw['scpkts'] > 0:
-                ratio += flw['scbytes'] / flw['scpkts']
+                ratio += flw['scbytes'] / float(flw['scpkts'])
                 divisor += 1
 
-            avg = ratio / divisor
+            avg = ratio / float(divisor)
             if avg < 50:
                 # TCP segments were almost empty, which most of the time
                 # corresponds to an active scan.
@@ -3391,9 +3391,9 @@ addresses.
         are present only for compatibility reasons.
         """
         q = Query()
-        query = (super(TinyDBFlow, cls)
-                 .from_filters(filters, limit=limit, skip=skip,
-                               orderby=orderby, mode=mode, timeline=timeline))
+        query = super().from_filters(filters, limit=limit, skip=skip,
+                                     orderby=orderby, mode=mode,
+                                     timeline=timeline)
         flt = cls.flt_from_query(query)
         times_filter = []
         if after:
