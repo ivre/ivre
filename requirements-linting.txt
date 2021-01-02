@@ -1,3 +1,4 @@
+black
 codespell
 flake8
 pylint

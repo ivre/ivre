@@ -32,31 +32,33 @@ from ivre.db import db
 
 
 def reader(fname):
-    proc = subprocess.Popen(['tcpdump', '-n', '-r', fname, '-w', '-', 'arp'],
-                            stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        ["tcpdump", "-n", "-r", fname, "-w", "-", "arp"], stdout=subprocess.PIPE
+    )
     return PcapReader(proc.stdout)
 
 
 def main():
     """Update the flow database from ARP requests in PCAP files"""
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("files", nargs='*', metavar='FILE',
-                        help="PCAP files")
-    parser.add_argument("-v", "--verbose", help="verbose mode",
-                        action="store_true")
+    parser.add_argument("files", nargs="*", metavar="FILE", help="PCAP files")
+    parser.add_argument("-v", "--verbose", help="verbose mode", action="store_true")
     args = parser.parse_args()
 
     if args.verbose:
         config.DEBUG = True
 
     bulk = db.flow.start_bulk_insert()
-    query_cache = db.flow.add_flow(["Flow"], ('proto',))
+    query_cache = db.flow.add_flow(["Flow"], ("proto",))
     for fname in args.files:
         for pkt in reader(fname):
-            rec = {"dst": pkt.pdst, "src": pkt.psrc,
-                   "start_time": datetime.fromtimestamp(pkt.time),
-                   "end_time": datetime.fromtimestamp(pkt.time),
-                   "proto": "arp"}
+            rec = {
+                "dst": pkt.pdst,
+                "src": pkt.psrc,
+                "start_time": datetime.fromtimestamp(pkt.time),
+                "end_time": datetime.fromtimestamp(pkt.time),
+                "proto": "arp",
+            }
             if rec["dst"] != "0.0.0.0" and rec["src"] != "0.0.0.0":
                 bulk.append(query_cache, rec)
     bulk.close()

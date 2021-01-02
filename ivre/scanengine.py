@@ -36,8 +36,15 @@ class Agent:
 
     """An Agent instance is a (possibly remote) scanner."""
 
-    def __init__(self, host, remotepathbase, localpathbase,
-                 name=None, usetor=False, maxwaiting=60):
+    def __init__(
+        self,
+        host,
+        remotepathbase,
+        localpathbase,
+        name=None,
+        usetor=False,
+        maxwaiting=60,
+    ):
         self.host = host
         self.remotepathbase = remotepathbase
         self.localpathbase = localpathbase
@@ -45,58 +52,71 @@ class Agent:
         if host is None:
             self.rsyncbase = remotepathbase
         else:
-            self.rsyncbase = '%s:%s' % (host, remotepathbase)
-        if self.rsyncbase[-1] not in ':/':
-            self.rsyncbase += '/'
+            self.rsyncbase = "%s:%s" % (host, remotepathbase)
+        if self.rsyncbase[-1] not in ":/":
+            self.rsyncbase += "/"
         if name is None:
-            self.name = localpathbase.lstrip('./')
+            self.name = localpathbase.lstrip("./")
         else:
             self.name = name
         if usetor:
-            self.rsync = ['torify', 'rsync']
+            self.rsync = ["torify", "rsync"]
         else:
-            self.rsync = ['rsync']
+            self.rsync = ["rsync"]
         self.campaigns = []
 
     @classmethod
-    def from_string(cls, string, localbase='', maxwaiting=60):
+    def from_string(cls, string, localbase="", maxwaiting=60):
         """Builds an Agent instance from a description string of the
         form [tor:][hostname:]path.
 
         """
-        string = string.split(':', 1)
-        if string[0].lower() == 'tor':
-            string = string[1].split(':', 1)
+        string = string.split(":", 1)
+        if string[0].lower() == "tor":
+            string = string[1].split(":", 1)
             usetor = True
         else:
             usetor = False
         if len(string) == 1:
-            return cls(None, string[0],
-                       os.path.join(localbase, string[0].replace('/', '_')),
-                       maxwaiting=maxwaiting)
-        return cls(string[0], string[1],
-                   os.path.join(localbase, '%s_%s' % (
-                       string[0].replace('@', '_'),
-                       string[1].replace('/', '_'))),
-                   usetor=usetor, maxwaiting=maxwaiting)
+            return cls(
+                None,
+                string[0],
+                os.path.join(localbase, string[0].replace("/", "_")),
+                maxwaiting=maxwaiting,
+            )
+        return cls(
+            string[0],
+            string[1],
+            os.path.join(
+                localbase,
+                "%s_%s" % (string[0].replace("@", "_"), string[1].replace("/", "_")),
+            ),
+            usetor=usetor,
+            maxwaiting=maxwaiting,
+        )
 
     def get_local_path(self, dirname):
         """Get local storage path for directory `dirname`."""
-        return os.path.join(self.localpathbase, dirname) + '/'
+        return os.path.join(self.localpathbase, dirname) + "/"
 
     def get_remote_path(self, dirname):
         """Get remote storage path for directory `dirname` as an rsync
         address.
 
         """
-        if dirname and dirname[-1] != '/':
-            dirname += '/'
+        if dirname and dirname[-1] != "/":
+            dirname += "/"
         return self.rsyncbase + dirname
 
     def create_local_dirs(self):
         """Create local directories used to manage the agent"""
-        for dirname in ['input', 'remoteinput', 'remotecur', 'remoteoutput',
-                        'remotedata']:
+        for dirname in [
+            "input",
+            "remoteinput",
+            "remotecur",
+            "remoteoutput",
+            "remotedata",
+        ]:
             utils.makedirs(self.get_local_path(dirname))
 
     def may_receive(self):
@@ -105,8 +125,9 @@ class Agent:
         the `maxwaiting` attribute value).
 
         """
-        curwaiting = sum(len(os.listdir(self.get_local_path(p)))
-                         for p in ['input', 'remoteinput'])
+        curwaiting = sum(
+            len(os.listdir(self.get_local_path(p))) for p in ["input", "remoteinput"]
+        )
         return self.maxwaiting - curwaiting
 
     def add_target(self, category, addr):
@@ -115,11 +136,14 @@ class Agent:
         resolved from the agent).
 
         """
-        with open(os.path.join(self.get_local_path('input'),
-                               '%s.%s' % (category,
-                                          addr.replace('/', '_'))),
-                  'w') as fdesc:
-            fdesc.write('%s\n' % addr)
+        with open(
+            os.path.join(
+                self.get_local_path("input"),
+                "%s.%s" % (category, addr.replace("/", "_")),
+            ),
+            "w",
+        ) as fdesc:
+            fdesc.write("%s\n" % addr)
             return True
         return False
 
@@ -128,24 +152,55 @@ class Agent:
         relevant `Campaign`s.
 
         """
-        subprocess.call(self.rsync + ['-a',
-                                      self.get_local_path('input'),
-                                      self.get_local_path('remoteinput')])
-        subprocess.call(self.rsync + ['-a', '--remove-source-files',
-                                      self.get_local_path('input'),
-                                      self.get_remote_path('input')])
-        subprocess.call(self.rsync + ['-a', '--delete',
-                                      self.get_remote_path('input'),
-                                      self.get_local_path('remoteinput')])
-        subprocess.call(self.rsync + ['-a', '--delete',
-                                      self.get_remote_path('cur'),
-                                      self.get_local_path('remotecur')])
-        subprocess.call(self.rsync + ['-a', '--remove-source-files',
-                                      self.get_remote_path('output'),
-                                      self.get_local_path('remoteoutput')])
-        subprocess.call(self.rsync + ['-a', '--remove-source-files',
-                                      self.get_remote_path('data'),
-                                      self.get_local_path('remotedata')])
+        subprocess.call(
+            self.rsync
+            + ["-a", self.get_local_path("input"), self.get_local_path("remoteinput")]
+        )
+        subprocess.call(
+            self.rsync
+            + [
+                "-a",
+                "--remove-source-files",
+                self.get_local_path("input"),
+                self.get_remote_path("input"),
+            ]
+        )
+        subprocess.call(
+            self.rsync
+            + [
+                "-a",
+                "--delete",
+                self.get_remote_path("input"),
+                self.get_local_path("remoteinput"),
+            ]
+        )
+        subprocess.call(
+            self.rsync
+            + [
+                "-a",
+                "--delete",
+                self.get_remote_path("cur"),
+                self.get_local_path("remotecur"),
+            ]
+        )
+        subprocess.call(
+            self.rsync
+            + [
+                "-a",
+                "--remove-source-files",
+                self.get_remote_path("output"),
+                self.get_local_path("remoteoutput"),
+            ]
+        )
+        subprocess.call(
+            self.rsync
+            + [
+                "-a",
+                "--remove-source-files",
+                self.get_remote_path("data"),
+                self.get_local_path("remotedata"),
+            ]
+        )
         for campaign in self.campaigns:
             campaign.sync(self)
 
@@ -158,9 +213,17 @@ class Campaign:
 
     """
 
-    def __init__(self, targets, category, agents, outputpath,
-                 visiblecategory=None, maxfeed=None, sleep=2,
-                 storedown=True):
+    def __init__(
+        self,
+        targets,
+        category,
+        agents,
+        outputpath,
+        visiblecategory=None,
+        maxfeed=None,
+        sleep=2,
+        storedown=True,
+    ):
         self.targets = targets
         self.targiter = iter(targets)
         self.category = category
@@ -169,8 +232,9 @@ class Campaign:
         self.agents = agents
         self.outputpath = outputpath
         if visiblecategory is None:
-            self.visiblecategory = ''.join(chr(random.randrange(65, 91))
-                                           for _ in range(10))
+            self.visiblecategory = "".join(
+                chr(random.randrange(65, 91)) for _ in range(10)
+            )
         else:
             self.visiblecategory = visiblecategory
         self.maxfeed = maxfeed
@@ -184,43 +248,45 @@ class Campaign:
 
         """
         for remfname in glob.glob(
-                os.path.join(agent.get_local_path('remoteoutput'),
-                             self.visiblecategory + '.*.xml*')
+            os.path.join(
+                agent.get_local_path("remoteoutput"), self.visiblecategory + ".*.xml*"
+            )
         ):
-            locfname = os.path.basename(remfname).split('.', 4)
+            locfname = os.path.basename(remfname).split(".", 4)
             locfname[0] = self.category
-            status = 'unknown'
+            status = "unknown"
             with utils.open_file(remfname) as remfdesc:
                 remfcontent = remfdesc.read()
                 if b'<status state="up"' in remfcontent:
-                    status = 'up'
+                    status = "up"
                 elif b'<status state="down"' in remfcontent:
                     if not self.storedown:
                         remfdesc.close()
                         os.unlink(remfname)
                         continue
-                    status = 'down'
+                    status = "down"
                 del remfcontent
             locfname = os.path.join(
                 self.outputpath,
                 locfname[0],
                 status,
-                re.sub('[/@:]', '_', agent.name),
+                re.sub("[/@:]", "_", agent.name),
                 *locfname[1:]
             )
             utils.makedirs(os.path.dirname(locfname))
             os.rename(remfname, locfname)
         for remfname in glob.glob(
-                os.path.join(agent.get_local_path('remotedata'),
-                             self.visiblecategory + '.*.tar*')
+            os.path.join(
+                agent.get_local_path("remotedata"), self.visiblecategory + ".*.tar*"
+            )
         ):
-            locfname = os.path.basename(remfname).split('.', 4)
+            locfname = os.path.basename(remfname).split(".", 4)
             locfname[0] = self.category
             locfname = os.path.join(
                 self.outputpath,
                 locfname[0],
-                'data',
-                re.sub('[/@:]', '_', agent.name),
+                "data",
+                re.sub("[/@:]", "_", agent.name),
                 *locfname[1:]
             )
             utils.makedirs(os.path.dirname(locfname))
@@ -233,10 +299,14 @@ class Campaign:
         """
         for _ in range(max(agent.may_receive(), maxnbr or 0)):
             addr = utils.int2ip(next(self.targiter))
-            with open(os.path.join(agent.get_local_path('input'),
-                                   '%s.%s' % (self.visiblecategory, addr)),
-                      'w') as fdesc:
-                fdesc.write('%s\n' % addr)
+            with open(
+                os.path.join(
+                    agent.get_local_path("input"),
+                    "%s.%s" % (self.visiblecategory, addr),
+                ),
+                "w",
+            ) as fdesc:
+                fdesc.write("%s\n" % addr)
 
     def feedloop(self):
         """Feed periodically the agents affected to the `Campaign`

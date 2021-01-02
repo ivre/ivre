@@ -49,27 +49,31 @@ class ElasticDB(DB):
 
     def __init__(self, url):
         super().__init__()
-        self.username = ''
-        self.password = ''
+        self.username = ""
+        self.password = ""
         self.hosts = None
-        if '@' in url.netloc:
-            username, hostname = url.netloc.split('@', 1)
-            if ':' in username:
-                self.username, self.password = (unquote(val) for val in
-                                                username.split(':', 1))
+        if "@" in url.netloc:
+            username, hostname = url.netloc.split("@", 1)
+            if ":" in username:
+                self.username, self.password = (
+                    unquote(val) for val in username.split(":", 1)
+                )
             else:
                 self.username = unquote(username)
             if hostname:
                 self.hosts = [hostname]
         elif url.netloc:
             self.hosts = [url.netloc]
-        index_prefix = url.path.lstrip('/')
+        index_prefix = url.path.lstrip("/")
         if index_prefix:
-            self.index_prefix = index_prefix + '-'
+            self.index_prefix = index_prefix + "-"
         else:
-            self.index_prefix = 'ivre-'
-        self.params = dict(x.split('=', 1) if '=' in x else (x, None)
-                           for x in url.query.split('&') if x)
+            self.index_prefix = "ivre-"
+        self.params = dict(
+            x.split("=", 1) if "=" in x else (x, None)
+            for x in url.query.split("&")
+            if x
+        )
 
     def init(self):
         """Initializes the mappings."""
@@ -89,14 +93,18 @@ class ElasticDB(DB):
                         # specified in mapping) instead of default
                         # (text + keyword)
                         "dynamic_templates": [
-                            {"strings": {
-                                "match_mapping_type": "string",
-                                # prevent RequestError exceptions when
-                                # one term's UTF-8 encoding is bigger
-                                # than the max length 32766
-                                "mapping": {"type": "keyword",
-                                            "ignore_above": 32000},
-                            }},
+                            {
+                                "strings": {
+                                    "match_mapping_type": "string",
+                                    # prevent RequestError exceptions when
+                                    # one term's UTF-8 encoding is bigger
+                                    # than the max length 32766
+                                    "mapping": {
+                                        "type": "keyword",
+                                        "ignore_above": 32000,
+                                    },
+                                }
+                            },
                         ],
                     }
                 },
@@ -109,8 +117,7 @@ class ElasticDB(DB):
             return self._db_client
         except AttributeError:
             self._db_client = Elasticsearch(
-                hosts=self.hosts,
-                http_auth=(self.username, self.password)
+                hosts=self.hosts, http_auth=(self.username, self.password)
             )
             return self._db_client
 
@@ -141,14 +148,14 @@ class ElasticDB(DB):
 
     @staticmethod
     def searchnonexistent():
-        return Q('match', _id=0)
+        return Q("match", _id=0)
 
     @classmethod
     def searchhost(cls, addr, neg=False):
         """Filters (if `neg` == True, filters out) one particular host
         (IP address).
         """
-        return Q('match', addr=addr)
+        return Q("match", addr=addr)
 
     @classmethod
     def searchhosts(cls, hosts, neg=False):
@@ -165,9 +172,10 @@ class ElasticDB(DB):
             # is a flag, other than re.UNICODE, is set, issue a
             # warning as it will not be used
             utils.LOGGER.warning(
-                'Elasticsearch does not support flags in regular '
-                'expressions [%r with flags=%r]',
-                pattern, flags
+                "Elasticsearch does not support flags in regular "
+                "expressions [%r with flags=%r]",
+                pattern,
+                flags,
             )
         return pattern
 
@@ -189,34 +197,36 @@ def _create_mappings(nested, all_mappings):
     for fld in nested:
         cur = res
         curkey = None
-        for subkey in fld.split('.')[:-1]:
+        for subkey in fld.split(".")[:-1]:
             if curkey is not None:
                 subkey = "%s.%s" % (curkey, subkey)
-            if cur.get(subkey, {}).get('type') == 'nested':
-                cur = cur[subkey].setdefault('properties', {})
+            if cur.get(subkey, {}).get("type") == "nested":
+                cur = cur[subkey].setdefault("properties", {})
                 curkey = None
             else:
                 curkey = subkey
-        subkey = fld.rsplit('.', 1)[-1]
+        subkey = fld.rsplit(".", 1)[-1]
         if curkey is not None:
             subkey = "%s.%s" % (curkey, subkey)
-        cur[subkey] = {"type": 'nested',
-                       # This is needed to use the nested fields in
-                       # Kibana:
-                       "include_in_parent": True}
+        cur[subkey] = {
+            "type": "nested",
+            # This is needed to use the nested fields in
+            # Kibana:
+            "include_in_parent": True,
+        }
     for fldtype, fldnames in all_mappings:
         for fld in fldnames:
             cur = res
             curkey = None
-            for subkey in fld.split('.')[:-1]:
+            for subkey in fld.split(".")[:-1]:
                 if curkey is not None:
                     subkey = "%s.%s" % (curkey, subkey)
-                if cur.get(subkey, {}).get('type') == 'nested':
-                    cur = cur[subkey].setdefault('properties', {})
+                if cur.get(subkey, {}).get("type") == "nested":
+                    cur = cur[subkey].setdefault("properties", {})
                     curkey = None
                 else:
                     curkey = subkey
-            subkey = fld.rsplit('.', 1)[-1]
+            subkey = fld.rsplit(".", 1)[-1]
             if curkey is not None:
                 subkey = "%s.%s" % (curkey, subkey)
             cur.setdefault(subkey, {})["type"] = fldtype
@@ -241,7 +251,7 @@ class ElasticDBActive(ElasticDB, DBActive):
                 ("ip", DBActive.ipaddr_fields),
                 ("date", DBActive.datetime_fields),
                 ("geo_point", ["infos.coordinates"]),
-            ]
+            ],
         ),
     ]
     index_hosts = 0
@@ -250,32 +260,28 @@ class ElasticDBActive(ElasticDB, DBActive):
         raise NotImplementedError
 
     def store_host(self, host):
-        if 'coordinates' in host.get('infos', {}):
-            host['infos']['coordinates'] = host['infos']['coordinates'][::-1]
-        self.db_client.index(index=self.indexes[0],
-                             body=host)
+        if "coordinates" in host.get("infos", {}):
+            host["infos"]["coordinates"] = host["infos"]["coordinates"][::-1]
+        self.db_client.index(index=self.indexes[0], body=host)
 
     def count(self, flt):
         return self.db_client.count(
             body={"query": flt.to_dict()},
             index=self.indexes[0],
             ignore_unavailable=True,
-        )['count']
+        )["count"]
 
     def get(self, spec, fields=None, **kargs):
         """Queries the active index."""
         query = {"query": spec.to_dict()}
         if fields is not None:
-            query['_source'] = fields
-        for rec in helpers.scan(self.db_client,
-                                query=query,
-                                index=self.indexes[0],
-                                ignore_unavailable=True):
-            host = dict(rec['_source'], _id=rec['_id'])
-            if 'coordinates' in host.get('infos', {}):
-                host['infos']['coordinates'] = host['infos'][
-                    'coordinates'
-                ][::-1]
+            query["_source"] = fields
+        for rec in helpers.scan(
+            self.db_client, query=query, index=self.indexes[0], ignore_unavailable=True
+        ):
+            host = dict(rec["_source"], _id=rec["_id"])
+            if "coordinates" in host.get("infos", {}):
+                host["infos"]["coordinates"] = host["infos"]["coordinates"][::-1]
             for field in self.datetime_fields:
                 if field in host:
                     host[field] = utils.all2datetime(host[field])
@@ -288,7 +294,7 @@ class ElasticDBActive(ElasticDB, DBActive):
         """
         self.db_client.delete(
             index=self.indexes[0],
-            id=host['_id'],
+            id=host["_id"],
         )
 
     def remove_many(self, flt):
@@ -304,59 +310,75 @@ class ElasticDBActive(ElasticDB, DBActive):
     def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
         if flt is None:
             flt = self.flt_empty
-        if field == 'infos.coordinates':
+        if field == "infos.coordinates":
+
             def fix_result(value):
-                return tuple(float(v) for v in value.split(', '))
-            base_query = {"script": {
-                "lang": "painless",
-                "source": "doc['infos.coordinates'].value",
-            }}
+                return tuple(float(v) for v in value.split(", "))
+
+            base_query = {
+                "script": {
+                    "lang": "painless",
+                    "source": "doc['infos.coordinates'].value",
+                }
+            }
             flt = self.flt_and(flt, self.searchhaslocation())
         else:
             base_query = {"field": field}
             if field in self.datetime_fields:
+
                 def fix_result(value):
-                    return utils.all2datetime(value / 1000.)
+                    return utils.all2datetime(value / 1000.0)
+
             else:
+
                 def fix_result(value):
                     return value
+
         # https://techoverflow.net/2019/03/17/how-to-query-distinct-field-values-in-elasticsearch/
-        query = {"size": PAGESIZE,
-                 "sources": [{field: {"terms": base_query}}]}
+        query = {"size": PAGESIZE, "sources": [{field: {"terms": base_query}}]}
         while True:
             result = self.db_client.search(
-                body={"query": flt.to_dict(),
-                      "aggs": {"values": {"composite": query}}},
+                body={"query": flt.to_dict(), "aggs": {"values": {"composite": query}}},
                 index=self.indexes[0],
                 ignore_unavailable=True,
-                size=0
+                size=0,
             )
             for value in result["aggregations"]["values"]["buckets"]:
-                yield fix_result(value['key'][field])
-            if 'after_key' not in result["aggregations"]["values"]:
+                yield fix_result(value["key"][field])
+            if "after_key" not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
 
     def getlocations(self, flt):
-        query = {"size": PAGESIZE,
-                 "sources": [{"coords": {"terms": {"script": {
-                     "lang": "painless",
-                     "source": "doc['infos.coordinates'].value",
-                 }}}}]}
+        query = {
+            "size": PAGESIZE,
+            "sources": [
+                {
+                    "coords": {
+                        "terms": {
+                            "script": {
+                                "lang": "painless",
+                                "source": "doc['infos.coordinates'].value",
+                            }
+                        }
+                    }
+                }
+            ],
+        }
         flt = self.flt_and(flt & self.searchhaslocation())
         while True:
             result = self.db_client.search(
-                body={"query": flt.to_dict(),
-                      "aggs": {"values": {"composite": query}}},
+                body={"query": flt.to_dict(), "aggs": {"values": {"composite": query}}},
                 index=self.indexes[0],
                 ignore_unavailable=True,
-                size=0
+                size=0,
             )
             for value in result["aggregations"]["values"]["buckets"]:
-                yield {'_id': tuple(float(v) for v in
-                                    value['key']["coords"].split(', ')),
-                       'count': value['doc_count']}
-            if 'after_key' not in result["aggregations"]["values"]:
+                yield {
+                    "_id": tuple(float(v) for v in value["key"]["coords"].split(", ")),
+                    "count": value["doc_count"],
+                }
+            if "after_key" not in result["aggregations"]["values"]:
                 break
             query["after"] = result["aggregations"]["values"]["after_key"]
 
@@ -399,126 +421,173 @@ class ElasticDBActive(ElasticDB, DBActive):
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
             field = {"field": "infos.as_num"}
         elif field == "as":
+
             def outputproc(value):
-                return tuple(val if i else int(val)
-                             for i, val in enumerate(value.split(',', 1)))
+                return tuple(
+                    val if i else int(val) for i, val in enumerate(value.split(",", 1))
+                )
+
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
-            field = {"script": {
-                "lang": "painless",
-                "source":
-                "doc['infos.as_num'].value + ',' + "
-                "doc['infos.as_name'].value",
-            }}
+            field = {
+                "script": {
+                    "lang": "painless",
+                    "source": "doc['infos.as_num'].value + ',' + "
+                    "doc['infos.as_name'].value",
+                }
+            }
         elif field == "port" or field.startswith("port:"):
+
             def outputproc(value):
-                return tuple(int(val) if i else val
-                             for i, val in enumerate(value.rsplit('/', 1)))
+                return tuple(
+                    int(val) if i else val for i, val in enumerate(value.rsplit("/", 1))
+                )
+
             if field == "port":
-                flt = self.flt_and(flt,
-                                   Q('nested', path='ports',
-                                     query=Q('exists', field="ports.port")))
+                flt = self.flt_and(
+                    flt,
+                    Q("nested", path="ports", query=Q("exists", field="ports.port")),
+                )
                 nested = {
                     "nested": {"path": "ports"},
-                    "aggs": {"patterns": {
-                        "filter": {'bool': {'must_not': [
-                            {'match': {'ports.port': -1}},
-                        ]}},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                script={
-                                    "lang": "painless",
-                                    "source":
-                                    'doc["ports.protocol"].value + "/" + '
-                                    'doc["ports.port"].value',
-                                },
-                            ),
-                        }},
-                    }},
+                    "aggs": {
+                        "patterns": {
+                            "filter": {
+                                "bool": {
+                                    "must_not": [
+                                        {"match": {"ports.port": -1}},
+                                    ]
+                                }
+                            },
+                            "aggs": {
+                                "patterns": {
+                                    "terms": dict(
+                                        baseterms,
+                                        script={
+                                            "lang": "painless",
+                                            "source": 'doc["ports.protocol"].value + "/" + '
+                                            'doc["ports.port"].value',
+                                        },
+                                    ),
+                                }
+                            },
+                        }
+                    },
                 }
             else:
                 info = field[5:]
-                if info in ['open', 'filtered', 'closed']:
-                    flt = self.flt_and(flt,
-                                       Q('nested', path='ports',
-                                         query=Q('match',
-                                                 ports__state_state=info)))
+                if info in ["open", "filtered", "closed"]:
+                    flt = self.flt_and(
+                        flt,
+                        Q(
+                            "nested",
+                            path="ports",
+                            query=Q("match", ports__state_state=info),
+                        ),
+                    )
                     matchfield = "state_state"
                 else:
-                    flt = self.flt_and(flt,
-                                       Q('nested', path='ports',
-                                         query=Q('match',
-                                                 ports__service_name=info)))
+                    flt = self.flt_and(
+                        flt,
+                        Q(
+                            "nested",
+                            path="ports",
+                            query=Q("match", ports__service_name=info),
+                        ),
+                    )
                     matchfield = "service_name"
                 nested = {
                     "nested": {"path": "ports"},
-                    "aggs": {"patterns": {
-                        "filter": {'bool': {
-                            'must': [{'match': {'ports.%s' % matchfield:
-                                                info}}],
-                            'must_not': [{'match': {'ports.port': -1}}],
-                        }},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                script={
-                                    "lang": "painless",
-                                    "source":
-                                    'doc["ports.protocol"].value + "/" + '
-                                    'doc["ports.port"].value',
-                                },
-                            ),
-                        }},
-                    }},
+                    "aggs": {
+                        "patterns": {
+                            "filter": {
+                                "bool": {
+                                    "must": [
+                                        {"match": {"ports.%s" % matchfield: info}}
+                                    ],
+                                    "must_not": [{"match": {"ports.port": -1}}],
+                                }
+                            },
+                            "aggs": {
+                                "patterns": {
+                                    "terms": dict(
+                                        baseterms,
+                                        script={
+                                            "lang": "painless",
+                                            "source": 'doc["ports.protocol"].value + "/" + '
+                                            'doc["ports.port"].value',
+                                        },
+                                    ),
+                                }
+                            },
+                        }
+                    },
                 }
-        elif field == 'service':
+        elif field == "service":
+
             def outputproc(value):
                 return value or None
+
             flt = self.flt_and(flt, self.searchopenport())
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "filter": {"match": {"ports.state_state": "open"}},
-                    "aggs": {"patterns": {
-                        "terms": dict(
-                            baseterms,
-                            field="ports.service_name",
-                            missing="",
-                        ),
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "filter": {"match": {"ports.state_state": "open"}},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    field="ports.service_name",
+                                    missing="",
+                                ),
+                            }
+                        },
+                    }
+                },
             }
         elif field.startswith("service:"):
             port = int(field[8:])
             flt = self.flt_and(flt, self.searchport(port))
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "filter": {"bool": {"must": [
-                        {"match": {"ports.state_state": "open"}},
-                        {"match": {"ports.port": port}},
-                    ]}},
-                    "aggs": {"patterns": {
-                        "terms": dict(
-                            baseterms,
-                            field="ports.service_name",
-                            missing="",
-                        ),
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "filter": {
+                            "bool": {
+                                "must": [
+                                    {"match": {"ports.state_state": "open"}},
+                                    {"match": {"ports.port": port}},
+                                ]
+                            }
+                        },
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    field="ports.service_name",
+                                    missing="",
+                                ),
+                            }
+                        },
+                    }
+                },
             }
-        elif field == 'product':
+        elif field == "product":
+
             def outputproc(value):
-                return tuple(v or None for v in value.split('###', 1))
+                return tuple(v or None for v in value.split("###", 1))
+
             flt = self.flt_and(flt, self.searchopenport())
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "filter": {"match": {"ports.state_state": "open"}},
-                    "aggs": {"patterns": {
-                        "terms": dict(
-                            baseterms,
-                            script="""
+                "aggs": {
+                    "patterns": {
+                        "filter": {"match": {"ports.state_state": "open"}},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    script="""
 String result = "";
 if(doc['ports.service_name'].size() > 0) {
     result += doc['ports.service_name'].value;
@@ -529,14 +598,18 @@ if(doc['ports.service_product'].size() > 0) {
 }
 return result;
 """,
-                            missing="",
-                        ),
-                    }},
-                }},
+                                    missing="",
+                                ),
+                            }
+                        },
+                    }
+                },
             }
         elif field.startswith("product:"):
+
             def outputproc(value):
-                return tuple(v or None for v in value.split('###', 1))
+                return tuple(v or None for v in value.split("###", 1))
+
             info = field[8:]
             if info.isdigit():
                 info = int(info)
@@ -547,15 +620,21 @@ return result;
                 matchfield = "service_name"
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "filter": {"bool": {"must": [
-                        {"match": {"ports.state_state": "open"}},
-                        {"match": {"ports.%s" % matchfield: info}},
-                    ]}},
-                    "aggs": {"patterns": {
-                        "terms": dict(
-                            baseterms,
-                            script="""
+                "aggs": {
+                    "patterns": {
+                        "filter": {
+                            "bool": {
+                                "must": [
+                                    {"match": {"ports.state_state": "open"}},
+                                    {"match": {"ports.%s" % matchfield: info}},
+                                ]
+                            }
+                        },
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    script="""
 String result = "";
 if(doc['ports.service_name'].size() > 0) {
     result += doc['ports.service_name'].value;
@@ -566,22 +645,28 @@ if(doc['ports.service_product'].size() > 0) {
 }
 return result;
 """,
-                        ),
-                    }},
-                }},
+                                ),
+                            }
+                        },
+                    }
+                },
             }
-        elif field == 'version':
+        elif field == "version":
+
             def outputproc(value):
-                return tuple(v or None for v in value.split('###', 2))
+                return tuple(v or None for v in value.split("###", 2))
+
             flt = self.flt_and(flt, self.searchopenport())
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "filter": {"match": {"ports.state_state": "open"}},
-                    "aggs": {"patterns": {
-                        "terms": dict(
-                            baseterms,
-                            script="""
+                "aggs": {
+                    "patterns": {
+                        "filter": {"match": {"ports.state_state": "open"}},
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    script="""
 String result = "";
 if(doc['ports.service_name'].size() > 0) {
     result += doc['ports.service_name'].value;
@@ -596,28 +681,34 @@ if(doc['ports.service_version'].size() > 0) {
 }
 return result;
 """,
-                            missing="",
-                        ),
-                    }},
-                }},
+                                    missing="",
+                                ),
+                            }
+                        },
+                    }
+                },
             }
-        elif field.startswith('version:'):
+        elif field.startswith("version:"):
+
             def outputproc(value):
-                return tuple(v or None for v in value.split('###', 2))
+                return tuple(v or None for v in value.split("###", 2))
+
             info = field[8:]
             if info.isdigit():
                 port = int(info)
                 flt = self.flt_and(flt, self.searchport(port))
                 matchflt = Q("match", ports__port=port)
             elif ":" in info:
-                service, product = info.split(':', 1)
-                flt = self.flt_and(flt, self.searchproduct(
-                    product=product,
-                    service=service,
-                ))
-                matchflt = (
-                    Q("match", ports__service_name=service) &
-                    Q("match", ports__service_product=product)
+                service, product = info.split(":", 1)
+                flt = self.flt_and(
+                    flt,
+                    self.searchproduct(
+                        product=product,
+                        service=service,
+                    ),
+                )
+                matchflt = Q("match", ports__service_name=service) & Q(
+                    "match", ports__service_product=product
                 )
             else:
                 flt = self.flt_and(flt, self.searchservice(info))
@@ -625,12 +716,14 @@ return result;
             matchflt &= Q("match", ports__state_state="open")
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "filter": matchflt.to_dict(),
-                    "aggs": {"patterns": {
-                        "terms": dict(
-                            baseterms,
-                            script="""
+                "aggs": {
+                    "patterns": {
+                        "filter": matchflt.to_dict(),
+                        "aggs": {
+                            "patterns": {
+                                "terms": dict(
+                                    baseterms,
+                                    script="""
 String result = "";
 if(doc['ports.service_name'].size() > 0) {
     result += doc['ports.service_name'].value;
@@ -645,184 +738,233 @@ if(doc['ports.service_version'].size() > 0) {
 }
 return result;
 """,
-                        ),
-                    }},
-                }},
+                                ),
+                            }
+                        },
+                    }
+                },
             }
-        elif field == 'httphdr':
+        elif field == "httphdr":
+
             def outputproc(value):
-                return tuple(value.split(':', 1))
+                return tuple(value.split(":", 1))
+
             flt = self.flt_and(flt, self.searchhttphdr())
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.http-headers"},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                script={
-                                    "lang": "painless",
-                                    "source":
-                                    "doc['ports.scripts.http-headers.name']."
-                                    "value + ':' + doc['ports.scripts.http-"
-                                    "headers.value'].value"
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.http-headers"},
+                                "aggs": {
+                                    "patterns": {
+                                        "terms": dict(
+                                            baseterms,
+                                            script={
+                                                "lang": "painless",
+                                                "source": "doc['ports.scripts.http-headers.name']."
+                                                "value + ':' + doc['ports.scripts.http-"
+                                                "headers.value'].value",
+                                            },
+                                        )
+                                    }
                                 },
-                            )
-                        }},
-                    }},
-                }},
+                            }
+                        },
+                    }
+                },
             }
-        elif field.startswith('httphdr.'):
+        elif field.startswith("httphdr."):
             flt = self.flt_and(flt, self.searchhttphdr())
             field = "ports.scripts.http-headers.%s" % field[8:]
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.http-headers"},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                field=field
-                            ),
-                        }},
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.http-headers"},
+                                "aggs": {
+                                    "patterns": {
+                                        "terms": dict(baseterms, field=field),
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
             }
-        elif field.startswith('httphdr:'):
+        elif field.startswith("httphdr:"):
             subfield = field[8:].lower()
             flt = self.flt_and(flt, self.searchhttphdr(name=subfield))
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.http-headers"},
-                        "aggs": {"patterns": {
-                            "filter": {"match": {
-                                "ports.scripts.http-headers.name": subfield,
-                            }},
-                            "aggs": {"patterns": {
-                                "terms": dict(
-                                    baseterms,
-                                    field='ports.scripts.http-headers.value',
-                                ),
-                            }},
-                        }},
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.http-headers"},
+                                "aggs": {
+                                    "patterns": {
+                                        "filter": {
+                                            "match": {
+                                                "ports.scripts.http-headers.name": subfield,
+                                            }
+                                        },
+                                        "aggs": {
+                                            "patterns": {
+                                                "terms": dict(
+                                                    baseterms,
+                                                    field="ports.scripts.http-headers.value",
+                                                ),
+                                            }
+                                        },
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
             }
-        elif field == 'httpapp':
+        elif field == "httpapp":
+
             def outputproc(value):
-                return tuple(value.split(':', 1))
+                return tuple(value.split(":", 1))
+
             flt = self.flt_and(flt, self.searchhttpapp())
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.http-app"},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                script={
-                                    "lang": "painless",
-                                    "source":
-                                    "doc['ports.scripts.http-app.application']"
-                                    ".value + ':' + doc['ports.scripts.http-"
-                                    "app.version'].value"
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.http-app"},
+                                "aggs": {
+                                    "patterns": {
+                                        "terms": dict(
+                                            baseterms,
+                                            script={
+                                                "lang": "painless",
+                                                "source": "doc['ports.scripts.http-app.application']"
+                                                ".value + ':' + doc['ports.scripts.http-"
+                                                "app.version'].value",
+                                            },
+                                        )
+                                    }
                                 },
-                            )
-                        }},
-                    }},
-                }},
+                            }
+                        },
+                    }
+                },
             }
-        elif field.startswith('httpapp:'):
+        elif field.startswith("httpapp:"):
             subfield = field[8:].lower()
             flt = self.flt_and(flt, self.searchhttpapp(name=subfield))
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.http-app"},
-                        "aggs": {"patterns": {
-                            "filter": {"match": {
-                                "ports.scripts.http-app.application": subfield,
-                            }},
-                            "aggs": {"patterns": {
-                                "terms": dict(
-                                    baseterms,
-                                    field='ports.scripts.http-app.version',
-                                ),
-                            }},
-                        }},
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.http-app"},
+                                "aggs": {
+                                    "patterns": {
+                                        "filter": {
+                                            "match": {
+                                                "ports.scripts.http-app.application": subfield,
+                                            }
+                                        },
+                                        "aggs": {
+                                            "patterns": {
+                                                "terms": dict(
+                                                    baseterms,
+                                                    field="ports.scripts.http-app.version",
+                                                ),
+                                            }
+                                        },
+                                    }
+                                },
+                            }
+                        },
+                    }
+                },
             }
-        elif field == 'useragent' or field.startswith('useragent:'):
-            if field == 'useragent':
+        elif field == "useragent" or field.startswith("useragent:"):
+            if field == "useragent":
                 flt = self.flt_and(flt, self.searchuseragent())
                 nested = {
                     "nested": {"path": "ports"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts"},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                field="ports.scripts.http-user-agent",
-                            ),
-                        }},
-                    }},
+                    "aggs": {
+                        "patterns": {
+                            "nested": {"path": "ports.scripts"},
+                            "aggs": {
+                                "patterns": {
+                                    "terms": dict(
+                                        baseterms,
+                                        field="ports.scripts.http-user-agent",
+                                    ),
+                                }
+                            },
+                        }
+                    },
                 }
             else:
                 subfield = utils.str2regexp(field[10:])
-                flt = self.flt_and(flt,
-                                   self.searchuseragent(useragent=subfield))
+                flt = self.flt_and(flt, self.searchuseragent(useragent=subfield))
                 if isinstance(subfield, utils.REGEXP_T):
                     subfield = self._get_pattern(subfield)
                 else:
                     subfield = re.escape(subfield)
                 nested = {
                     "nested": {"path": "ports"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts"},
-                        "aggs": {"patterns": {
-                            "terms": dict(
-                                baseterms,
-                                field="ports.scripts.http-user-agent",
-                                include=subfield,
-                            ),
-                        }},
-                    }},
+                    "aggs": {
+                        "patterns": {
+                            "nested": {"path": "ports.scripts"},
+                            "aggs": {
+                                "patterns": {
+                                    "terms": dict(
+                                        baseterms,
+                                        field="ports.scripts.http-user-agent",
+                                        include=subfield,
+                                    ),
+                                }
+                            },
+                        }
+                    },
                 }
-        elif field == 'ja3-client' or (
-                field.startswith('ja3-client') and field[10] in ':.'
+        elif field == "ja3-client" or (
+            field.startswith("ja3-client") and field[10] in ":."
         ):
-            if ':' in field:
-                field, value = field.split(':', 1)
+            if ":" in field:
+                field, value = field.split(":", 1)
                 subkey, value = self._ja3keyvalue(utils.str2regexp(value))
                 if isinstance(value, utils.REGEXP_T):
                     include_value = self._get_pattern(value)
-                    filter_value = {'regexp': {
-                        "ports.scripts.ssl-ja3-client.%s" % subkey:
-                        include_value,
-                    }}
+                    filter_value = {
+                        "regexp": {
+                            "ports.scripts.ssl-ja3-client.%s" % subkey: include_value,
+                        }
+                    }
                 else:
                     include_value = re.escape(value)
-                    filter_value = {'match': {
-                        "ports.scripts.ssl-ja3-client.%s" % subkey: value,
-                    }}
+                    filter_value = {
+                        "match": {
+                            "ports.scripts.ssl-ja3-client.%s" % subkey: value,
+                        }
+                    }
             else:
                 value = None
                 subkey = None
-            if '.' in field:
-                field, subfield = field.split('.', 1)
+            if "." in field:
+                field, subfield = field.split(".", 1)
             else:
-                subfield = 'md5'
+                subfield = "md5"
             base = {
                 "terms": dict(
                     baseterms,
@@ -840,92 +982,102 @@ return result;
             flt = self.flt_and(flt, self.searchja3client(value_or_hash=value))
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.ssl-ja3-client"},
-                        "aggs": {"patterns": base},
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.ssl-ja3-client"},
+                                "aggs": {"patterns": base},
+                            }
+                        },
+                    }
+                },
             }
-        elif field == 'ja3-server' or (
-                field.startswith('ja3-server') and field[10] in ':.'
+        elif field == "ja3-server" or (
+            field.startswith("ja3-server") and field[10] in ":."
         ):
+
             def outputproc(value):
-                return tuple(value.split('/'))
-            if ':' in field:
-                field, values = field.split(':', 1)
-                if ':' in values:
-                    value1, value2 = values.split(':', 1)
+                return tuple(value.split("/"))
+
+            if ":" in field:
+                field, values = field.split(":", 1)
+                if ":" in values:
+                    value1, value2 = values.split(":", 1)
                     if value1:
-                        subkey1, value1 = self._ja3keyvalue(
-                            utils.str2regexp(value1)
-                        )
+                        subkey1, value1 = self._ja3keyvalue(utils.str2regexp(value1))
                         if isinstance(value1, utils.REGEXP_T):
-                            filter_value1 = {'regexp': {
-                                "ports.scripts.ssl-ja3-server.%s" % subkey1:
-                                self._get_pattern(value1),
-                            }}
+                            filter_value1 = {
+                                "regexp": {
+                                    "ports.scripts.ssl-ja3-server.%s"
+                                    % subkey1: self._get_pattern(value1),
+                                }
+                            }
                         else:
-                            filter_value1 = {'match': {
-                                "ports.scripts.ssl-ja3-server.%s" % subkey1:
-                                value1,
-                            }}
+                            filter_value1 = {
+                                "match": {
+                                    "ports.scripts.ssl-ja3-server.%s" % subkey1: value1,
+                                }
+                            }
                     else:
                         subkey1, value1 = None, None
                     if value2:
-                        subkey2, value2 = self._ja3keyvalue(
-                            utils.str2regexp(value2)
-                        )
+                        subkey2, value2 = self._ja3keyvalue(utils.str2regexp(value2))
                         if isinstance(value2, utils.REGEXP_T):
-                            filter_value2 = {'regexp': {
-                                "ports.scripts.ssl-ja3-server.client.%s" %
-                                subkey2:
-                                self._get_pattern(value2),
-                            }}
+                            filter_value2 = {
+                                "regexp": {
+                                    "ports.scripts.ssl-ja3-server.client.%s"
+                                    % subkey2: self._get_pattern(value2),
+                                }
+                            }
                         else:
-                            filter_value2 = {'match': {
-                                "ports.scripts.ssl-ja3-server.client.%s" %
-                                subkey2:
-                                value2,
-                            }}
+                            filter_value2 = {
+                                "match": {
+                                    "ports.scripts.ssl-ja3-server.client.%s"
+                                    % subkey2: value2,
+                                }
+                            }
                     else:
                         subkey2, value2 = None, None
                 else:
-                    subkey1, value1 = self._ja3keyvalue(
-                        utils.str2regexp(values)
-                    )
+                    subkey1, value1 = self._ja3keyvalue(utils.str2regexp(values))
                     if isinstance(value1, utils.REGEXP_T):
-                        filter_value1 = {'regexp': {
-                            "ports.scripts.ssl-ja3-server.%s" % subkey1:
-                            self._get_pattern(value1),
-                        }}
+                        filter_value1 = {
+                            "regexp": {
+                                "ports.scripts.ssl-ja3-server.%s"
+                                % subkey1: self._get_pattern(value1),
+                            }
+                        }
                     else:
-                        filter_value1 = {'match': {
-                            "ports.scripts.ssl-ja3-server.%s" % subkey1:
-                            value1,
-                        }}
+                        filter_value1 = {
+                            "match": {
+                                "ports.scripts.ssl-ja3-server.%s" % subkey1: value1,
+                            }
+                        }
                     subkey2, value2 = None, None
             else:
                 subkey1, value1 = None, None
                 subkey2, value2 = None, None
-            if '.' in field:
-                field, subfield = field.split('.', 1)
+            if "." in field:
+                field, subfield = field.split(".", 1)
             else:
-                subfield = 'md5'
-            flt = self.flt_and(flt, self.searchja3server(
-                value_or_hash=value1,
-                client_value_or_hash=value2,
-            ))
+                subfield = "md5"
+            flt = self.flt_and(
+                flt,
+                self.searchja3server(
+                    value_or_hash=value1,
+                    client_value_or_hash=value2,
+                ),
+            )
             base = {
                 "terms": dict(
                     baseterms,
                     script={
                         "lang": "painless",
-                        "source":
-                        "doc['ports.scripts.ssl-ja3-server.%s'].value + '/' + "
-                        "doc['ports.scripts.ssl-ja3-server.client.%s'].value" %
-                        (subfield, subfield),
+                        "source": "doc['ports.scripts.ssl-ja3-server.%s'].value + '/' + "
+                        "doc['ports.scripts.ssl-ja3-server.client.%s'].value"
+                        % (subfield, subfield),
                     },
                 ),
             }
@@ -939,24 +1091,31 @@ return result;
                     "filter": filter_value2,
                     "aggs": {"patterns": base},
                 }
-            flt = self.flt_and(flt, self.searchja3server(
-                value_or_hash=value1,
-                client_value_or_hash=value2,
-            ))
+            flt = self.flt_and(
+                flt,
+                self.searchja3server(
+                    value_or_hash=value1,
+                    client_value_or_hash=value2,
+                ),
+            )
             nested = {
                 "nested": {"path": "ports"},
-                "aggs": {"patterns": {
-                    "nested": {"path": "ports.scripts"},
-                    "aggs": {"patterns": {
-                        "nested": {"path": "ports.scripts.ssl-ja3-server"},
-                        "aggs": {"patterns": base},
-                    }},
-                }},
+                "aggs": {
+                    "patterns": {
+                        "nested": {"path": "ports.scripts"},
+                        "aggs": {
+                            "patterns": {
+                                "nested": {"path": "ports.scripts.ssl-ja3-server"},
+                                "aggs": {"patterns": base},
+                            }
+                        },
+                    }
+                },
             }
-        elif field.startswith('s7.'):
+        elif field.startswith("s7."):
             flt = self.flt_and(flt, self.searchscript(name="s7-info"))
             subfield = field[3:]
-            field = {'field': 'ports.scripts.s7-info.' + subfield}
+            field = {"field": "ports.scripts.s7-info." + subfield}
         else:
             field = {"field": field}
         body = {"query": flt.to_dict()}
@@ -966,26 +1125,22 @@ return result;
             body["aggs"] = {"patterns": nested}
         utils.LOGGER.debug("DB: Elasticsearch aggregation: %r", body)
         result = self.db_client.search(
-            body=body,
-            index=self.indexes[0],
-            ignore_unavailable=True,
-            size=0
+            body=body, index=self.indexes[0], ignore_unavailable=True, size=0
         )
         result = result["aggregations"]
-        while 'patterns' in result:
-            result = result['patterns']
-        result = result['buckets']
+        while "patterns" in result:
+            result = result["patterns"]
+        result = result["buckets"]
         if outputproc is None:
             for res in result:
-                yield {'_id': res['key'], 'count': res['doc_count']}
+                yield {"_id": res["key"], "count": res["doc_count"]}
         else:
             for res in result:
-                yield {'_id': outputproc(res['key']),
-                       'count': res['doc_count']}
+                yield {"_id": outputproc(res["key"]), "count": res["doc_count"]}
 
     @staticmethod
     def searchhaslocation(neg=False):
-        res = Q('exists', field='infos.coordinates')
+        res = Q("exists", field="infos.coordinates")
         if neg:
             return ~res
         return res
@@ -1027,7 +1182,7 @@ return result;
         particular AS number(s).
 
         """
-        if not isinstance(asnum, str) and hasattr(asnum, '__iter__'):
+        if not isinstance(asnum, str) and hasattr(asnum, "__iter__"):
             res = Q("terms", infos__as_num=[int(val) for val in asnum])
         else:
             res = Q("match", infos__as_num=int(asnum))
@@ -1052,14 +1207,13 @@ return result;
     @staticmethod
     def searchopenport(neg=False):
         "Filters records with at least one open port."
-        res = Q("nested", path="ports",
-                query=Q("match", ports__state_state="open"))
+        res = Q("nested", path="ports", query=Q("match", ports__state_state="open"))
         if neg:
             return ~res
         return res
 
     @staticmethod
-    def searchport(port, protocol='tcp', state='open', neg=False):
+    def searchport(port, protocol="tcp", state="open", neg=False):
         """Filters (if `neg` == True, filters out) records with
         specified protocol/port at required state. Be aware that when
         a host has a lot of ports filtered or closed, it will not
@@ -1073,68 +1227,88 @@ return result;
         elif state == "open":
             res = Q("match", **{"openports.%s.ports" % protocol: port})
         else:
-            res = Q("nested", path="ports", query=(
-                Q("match", ports__port=port) &
-                Q("match", ports__protocol=protocol) &
-                Q("match", ports__state_state=state)
-            ))
+            res = Q(
+                "nested",
+                path="ports",
+                query=(
+                    Q("match", ports__port=port)
+                    & Q("match", ports__protocol=protocol)
+                    & Q("match", ports__state_state=state)
+                ),
+            )
         if neg:
             return ~res
         return res
 
     @classmethod
     def searchscript(cls, name=None, output=None, values=None, neg=False):
-        """Search a particular content in the scripts results.
-
-        """
+        """Search a particular content in the scripts results."""
         req = []
         if name is not None:
             if isinstance(name, utils.REGEXP_T):
-                req.append(Q("regexp",
-                             **{"ports.scripts.id": cls._get_pattern(name)}))
+                req.append(Q("regexp", **{"ports.scripts.id": cls._get_pattern(name)}))
             else:
                 req.append(Q("match", **{"ports.scripts.id": name}))
         if output is not None:
             if isinstance(output, utils.REGEXP_T):
-                req.append(Q("regexp",
-                             **{"ports.scripts.output":
-                                cls._get_pattern(output)}))
+                req.append(
+                    Q("regexp", **{"ports.scripts.output": cls._get_pattern(output)})
+                )
             else:
                 req.append(Q("match", **{"ports.scripts.output": output}))
         if values:
             if name is None:
-                raise TypeError(".searchscript() needs a `name` arg "
-                                "when using a `values` arg")
+                raise TypeError(
+                    ".searchscript() needs a `name` arg " "when using a `values` arg"
+                )
             subfield = ALIASES_TABLE_ELEMS.get(name, name)
             if isinstance(values, Query):
                 req.append(values)
             elif isinstance(values, str):
-                req.append(Q("match",
-                             **{"ports.scripts.%s" % subfield: values}))
+                req.append(Q("match", **{"ports.scripts.%s" % subfield: values}))
             elif isinstance(values, utils.REGEXP_T):
-                req.append(Q("regexp",
-                             **{"ports.scripts.%s" % subfield:
-                                cls._get_pattern(values)}))
+                req.append(
+                    Q(
+                        "regexp",
+                        **{"ports.scripts.%s" % subfield: cls._get_pattern(values)}
+                    )
+                )
             else:
                 for field, value in values.items():
                     if isinstance(value, utils.REGEXP_T):
-                        req.append(Q("regexp",
-                                     **{"ports.scripts.%s.%s" % (subfield,
-                                                                 field):
-                                        cls._get_pattern(value)}))
+                        req.append(
+                            Q(
+                                "regexp",
+                                **{
+                                    "ports.scripts.%s.%s"
+                                    % (subfield, field): cls._get_pattern(value)
+                                }
+                            )
+                        )
                     else:
-                        req.append(Q("match",
-                                     **{"ports.scripts.%s.%s" % (subfield,
-                                                                 field):
-                                        value}))
+                        req.append(
+                            Q(
+                                "match",
+                                **{"ports.scripts.%s.%s" % (subfield, field): value}
+                            )
+                        )
         if not req:
-            res = Q('nested', path='ports',
-                    query=Q('nested', path='ports.scripts',
-                            query=Q("exists", field="ports.scripts")))
+            res = Q(
+                "nested",
+                path="ports",
+                query=Q(
+                    "nested",
+                    path="ports.scripts",
+                    query=Q("exists", field="ports.scripts"),
+                ),
+            )
         else:
             query = cls.flt_and(*req)
-            res = Q("nested", path="ports",
-                    query=Q("nested", path="ports.scripts", query=query))
+            res = Q(
+                "nested",
+                path="ports",
+                query=Q("nested", path="ports.scripts", query=query),
+            )
         if neg:
             return ~res
         return res
@@ -1143,17 +1317,18 @@ return result;
     def searchservice(srv, port=None, protocol=None):
         """Search an open port with a particular service."""
         if srv is False:
-            res = ~Q('exists', field="ports.service_name")
-        res = Q('match', ports__service_name=srv)
+            res = ~Q("exists", field="ports.service_name")
+        res = Q("match", ports__service_name=srv)
         if port is not None:
-            res &= Q('match', ports__port=port)
+            res &= Q("match", ports__port=port)
         if protocol is not None:
-            res &= Q('match', ports__protocol=protocol)
-        return Q('nested', path='ports', query=res)
+            res &= Q("match", ports__protocol=protocol)
+        return Q("nested", path="ports", query=res)
 
     @classmethod
-    def searchproduct(cls, product=None, version=None, service=None, port=None,
-                      protocol=None):
+    def searchproduct(
+        cls, product=None, version=None, service=None, port=None, protocol=None
+    ):
         """Search a port with a particular `product`. It is (much)
         better to provide the `service` name and/or `port` number
         since those fields are indexed.
@@ -1162,32 +1337,32 @@ return result;
         res = []
         if product is not None:
             if product is False:
-                res.append(~Q('exists', field="ports.service_product"))
+                res.append(~Q("exists", field="ports.service_product"))
             else:
-                res.append(Q('match', ports__service_product=product))
+                res.append(Q("match", ports__service_product=product))
         if version is not None:
             if version is False:
-                res.append(~Q('exists', field="ports.service_version"))
+                res.append(~Q("exists", field="ports.service_version"))
             else:
-                res.append(Q('match', ports__service_version=version))
+                res.append(Q("match", ports__service_version=version))
         if service is not None:
             if service is False:
-                res.append(~Q('exists', field="ports.service_name"))
+                res.append(~Q("exists", field="ports.service_name"))
             else:
-                res.append(Q('match', ports__service_name=service))
+                res.append(Q("match", ports__service_name=service))
         if port is not None:
-            res.append(Q('match', ports__port=port))
+            res.append(Q("match", ports__port=port))
         if protocol is not None:
-            res.append(Q('match', ports__protocol=protocol))
-        return Q('nested', path='ports', query=cls.flt_and(*res))
+            res.append(Q("match", ports__protocol=protocol))
+        return Q("nested", path="ports", query=cls.flt_and(*res))
 
 
 class ElasticDBView(ElasticDBActive, DBView):
-
     def __init__(self, url):
         super().__init__(url)
-        self.indexes = ['%s%s' % (self.index_prefix,
-                                  self.params.pop('indexname_hosts', 'views'))]
+        self.indexes = [
+            "%s%s" % (self.index_prefix, self.params.pop("indexname_hosts", "views"))
+        ]
 
     def store_or_merge_host(self, host):
         if not self.merge_host(host):

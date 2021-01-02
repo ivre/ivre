@@ -131,48 +131,48 @@ ALIASES_TABLE_ELEMS = {
 }
 
 
-BIG_IP_ERROR_BANNER = re.compile('^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ')
-SONICWALL_ERROR_BANNER = re.compile('^\\(Ref.Id: \\?.*\\?\\)$')
+BIG_IP_ERROR_BANNER = re.compile("^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ")
+SONICWALL_ERROR_BANNER = re.compile("^\\(Ref.Id: \\?.*\\?\\)$")
 
 
 def create_ssl_output(info):
     out = []
-    for key, name in [('subject_text', 'Subject'),
-                      ('issuer_text', 'Issuer')]:
+    for key, name in [("subject_text", "Subject"), ("issuer_text", "Issuer")]:
         try:
-            out.append('%s: %s' % (name, info[key]))
+            out.append("%s: %s" % (name, info[key]))
         except KeyError:
             pass
     try:
-        pubkey = info['pubkey']
+        pubkey = info["pubkey"]
     except KeyError:
         pass
     else:
         try:
-            out.append('Public Key type: %s' % pubkey['type'])
+            out.append("Public Key type: %s" % pubkey["type"])
         except KeyError:
             pass
         try:
-            out.append('Public Key bits: %d' % pubkey['bits'])
+            out.append("Public Key bits: %d" % pubkey["bits"])
         except KeyError:
             pass
-    for key, name in [('not_before', 'Not valid before: '),
-                      ('not_after', 'Not valid after:  ')]:
+    for key, name in [
+        ("not_before", "Not valid before: "),
+        ("not_after", "Not valid after:  "),
+    ]:
         try:
-            out.append('%s%s' % (name, info[key]))
+            out.append("%s%s" % (name, info[key]))
         except KeyError:
             pass
-    for san in info.get('san', []):
-        out.append('Subject Alternative Name: %s' % san)
-    for key, name in [('md5', 'MD5:'), ('sha1', 'SHA-1:'),
-                      ('sha256', 'SHA-256:')]:
+    for san in info.get("san", []):
+        out.append("Subject Alternative Name: %s" % san)
+    for key, name in [("md5", "MD5:"), ("sha1", "SHA-1:"), ("sha256", "SHA-256:")]:
         # NB: SHA-256 is not (yet) reported by Nmap, but it might help.
         try:
-            out.append('%-7s%s' % (name, ' '.join(wrap(info[key], 4))))
+            out.append("%-7s%s" % (name, " ".join(wrap(info[key], 4))))
         except KeyError:
             pass
     try:
-        out.append(info['pem'])
+        out.append(info["pem"])
     except KeyError:
         pass
     return out
@@ -180,39 +180,36 @@ def create_ssl_output(info):
 
 def is_real_service_port(port):
     """Decides whether a port has a "real" service (=> True) or if it is
-**possibly** a SYN-ACK "honeypot" (=> False).
+    **possibly** a SYN-ACK "honeypot" (=> False).
 
-The idea is that a port is "real" if it has a reason that is not
-"syn-ack" (or similar), or if it has a service_name, or if it has a
-least one script.
+    The idea is that a port is "real" if it has a reason that is not
+    "syn-ack" (or similar), or if it has a service_name, or if it has a
+    least one script.
 
-Host scripts (port == -1) are also considered True.
+    Host scripts (port == -1) are also considered True.
 
     """
-    if port.get('port') == -1:
+    if port.get("port") == -1:
         return True
-    if port.get('reason') and not (
-            # might be "syn-ack" but might as
-            # well be "syn-ack-cwr" or
-            # "syn-psh-ack"
-            port['reason'].startswith('syn-') or
-            port['reason'] == 'passive'
+    if port.get("reason") and not (
+        # might be "syn-ack" but might as
+        # well be "syn-ack-cwr" or
+        # "syn-psh-ack"
+        port["reason"].startswith("syn-")
+        or port["reason"] == "passive"
     ):
         return True
-    if port.get('service_name'):
+    if port.get("service_name"):
         return True
-    if port.get('scripts'):
+    if port.get("scripts"):
         # Ports with scripts usually are "real" service ports, **but**
         # when a port only has a banner script, the output of which
         # matches a known SYN-ACK responder answser, we consider it is
         # **possibly** a SYN-ACK "honeypot" (or responder) and return
         # False
-        if (
-                len(port['scripts']) == 1 and
-                port['scripts'][0]['id'] == 'banner'
-        ):
-            banner = port['scripts'][0]['output']
-            if banner == '\n':
+        if len(port["scripts"]) == 1 and port["scripts"][0]["id"] == "banner":
+            banner = port["scripts"][0]["output"]
+            if banner == "\n":
                 return False
             if BIG_IP_ERROR_BANNER.search(banner):
                 return False
@@ -224,26 +221,26 @@ Host scripts (port == -1) are also considered True.
 
 def set_openports_attribute(host):
     """This function sets the "openports" value in the `host` record,
-based on the elements of the "ports" list. This is used in MongoDB to
-speed up queries based on open ports.
+    based on the elements of the "ports" list. This is used in MongoDB to
+    speed up queries based on open ports.
 
     """
-    openports = host['openports'] = {'count': 0}
-    for port in host.get('ports', []):
-        if port.get('state_state') != 'open':
+    openports = host["openports"] = {"count": 0}
+    for port in host.get("ports", []):
+        if port.get("state_state") != "open":
             continue
-        cur = openports.setdefault(port['protocol'], {'count': 0, 'ports': []})
-        if port['port'] not in cur['ports']:
-            openports['count'] += 1
-            cur['count'] += 1
-            cur['ports'].append(port['port'])
+        cur = openports.setdefault(port["protocol"], {"count": 0, "ports": []})
+        if port["port"] not in cur["ports"]:
+            openports["count"] += 1
+            cur["count"] += 1
+            cur["ports"].append(port["port"])
 
 
 def cleanup_synack_honeypot_host(host, update_openports=True):
     """This function will clean the `host` record if it has too many (at
-least `VIEW_SYNACK_HONEYPOT_COUNT`) open ports that may be "syn-ack"
-honeypots (which means, ports for which is_real_service_port() returns
-False).
+    least `VIEW_SYNACK_HONEYPOT_COUNT`) open ports that may be "syn-ack"
+    honeypots (which means, ports for which is_real_service_port() returns
+    False).
 
     """
     if VIEW_SYNACK_HONEYPOT_COUNT is None:
@@ -253,57 +250,51 @@ False).
         return
     # check if we have too many open ports that could be "syn-ack
     # honeypots"...
-    newports = [port for port in host['ports'] if is_real_service_port(port)]
+    newports = [port for port in host["ports"] if is_real_service_port(port)]
     if n_ports - len(newports) > VIEW_SYNACK_HONEYPOT_COUNT:
         # ... if so, keep only the ports that cannot be "syn-ack
         # honeypots"
-        host['ports'] = newports
+        host["ports"] = newports
         host["synack_honeypot"] = True
         if update_openports:
             set_openports_attribute(host)
 
 
 def merge_ja3_scripts(curscript, script, script_id):
-
     def is_server(script_id):
-        return script_id == 'ssl-ja3-server'
+        return script_id == "ssl-ja3-server"
 
     def ja3_equals(a, b, script_id):
-        return (a['raw'] == b['raw'] and
-                (not is_server(script_id) or
-                 a['client']['raw'] == b['client']['raw']))
+        return a["raw"] == b["raw"] and (
+            not is_server(script_id) or a["client"]["raw"] == b["client"]["raw"]
+        )
 
     def ja3_output(ja3, script_id):
-        output = ja3['md5']
+        output = ja3["md5"]
         if is_server(script_id):
-            output += ' - ' + ja3['client']['md5']
+            output += " - " + ja3["client"]["md5"]
         return output
 
     return _merge_scripts(curscript, script, script_id, ja3_equals, ja3_output)
 
 
 def merge_http_app_scripts(curscript, script, script_id):
-
     def http_app_equals(a, b, script_id):
-        return (a['application'] == b['application'] and
-                a['path'] == b['path'])
+        return a["application"] == b["application"] and a["path"] == b["path"]
 
     def http_app_output(app, script_id):
-        return '%s: path %s%s' % (
-            app['application'],
-            app['path'],
-            (
-                '' if app.get('version') is None else
-                (', version %s' % app['version'])
-            ),
+        return "%s: path %s%s" % (
+            app["application"],
+            app["path"],
+            ("" if app.get("version") is None else (", version %s" % app["version"])),
         )
 
-    return _merge_scripts(curscript, script, script_id, http_app_equals,
-                          http_app_output)
+    return _merge_scripts(
+        curscript, script, script_id, http_app_equals, http_app_output
+    )
 
 
 def merge_ua_scripts(curscript, script, script_id):
-
     def ua_equals(a, b, script_id):
         return a == b
 
@@ -314,17 +305,20 @@ def merge_ua_scripts(curscript, script, script_id):
 
 
 def merge_ssl_cert_scripts(curscript, script, script_id):
-
     def cert_equals(a, b, script_id):
-        return a['sha256'] == b['sha256']
+        return a["sha256"] == b["sha256"]
 
     def cert_output(cert, script_id):
-        return '\n'.join(create_ssl_output(cert))
+        return "\n".join(create_ssl_output(cert))
 
     return _merge_scripts(
-        curscript, script, script_id, cert_equals, cert_output,
+        curscript,
+        script,
+        script_id,
+        cert_equals,
+        cert_output,
         outsep="\n------------------------------------------------------------"
-        "----\n"
+        "----\n",
     )
 
 
@@ -334,24 +328,26 @@ def merge_axfr_scripts(curscript, script, script_id):
     if script_id not in script:
         return curscript
     if script_id not in curscript:
-        curscript['output'] = script['output']
+        curscript["output"] = script["output"]
         curscript[script_id] = script[script_id]
         return script
     res = []
     for data in chain(curscript[script_id], script[script_id]):
-        if any(data['domain'] == r['domain'] for r in res):
+        if any(data["domain"] == r["domain"] for r in res):
             continue
         res.append(data)
-    res = sorted(res, key=lambda r: tuple(reversed(r['domain'].split('.'))))
+    res = sorted(res, key=lambda r: tuple(reversed(r["domain"].split("."))))
     line_fmt = "| %%-%ds  %%-%ds  %%s" % (
-        max(len(r['name']) for data in res for r in data['records']),
-        max(len(r['type']) for data in res for r in data['records']),
+        max(len(r["name"]) for data in res for r in data["records"]),
+        max(len(r["type"]) for data in res for r in data["records"]),
     )
-    curscript['output'] = "\n".join(
-        "\nDomain: %s\n%s\n\\\n" % (
-            data['domain'],
-            "\n".join(line_fmt % (r['name'], r['type'], r['data'])
-                      for r in data['records'])
+    curscript["output"] = "\n".join(
+        "\nDomain: %s\n%s\n\\\n"
+        % (
+            data["domain"],
+            "\n".join(
+                line_fmt % (r["name"], r["type"], r["data"]) for r in data["records"]
+            ),
         )
         for data in res
     )
@@ -365,88 +361,108 @@ def merge_scanner_scripts(curscript, script, script_id):
     if script_id not in script:
         return curscript
     if script_id not in curscript:
-        curscript['output'] = script['output']
+        curscript["output"] = script["output"]
         curscript[script_id] = script[script_id]
         return script
     res = {}
     for data in [curscript[script_id], script[script_id]]:
-        for proto, ports in data.get('ports', {}).items():
-            if proto == 'count':
+        for proto, ports in data.get("ports", {}).items():
+            if proto == "count":
                 continue
-            res.setdefault('ports', {}).setdefault(proto, {}).setdefault(
-                'ports', set()
-            ).update(ports.get('ports', []))
-        for uri in data.get('http_uris', []):
-            res.setdefault('http_uris', set()).add((
-                uri['uri'], uri['method'], uri['version'],
-            ))
-        for scanner in data.get('scanners', []):
-            res.setdefault('scanners', {}).setdefault(
-                scanner['name'], set()
-            ).update((probe['proto'], probe['name'])
-                     for probe in scanner.get('probes', []))
-        res.setdefault('probes', set()).update(
-            (probe['proto'], probe['value'])
-            for probe in data.get('probes', [])
+            res.setdefault("ports", {}).setdefault(proto, {}).setdefault(
+                "ports", set()
+            ).update(ports.get("ports", []))
+        for uri in data.get("http_uris", []):
+            res.setdefault("http_uris", set()).add(
+                (
+                    uri["uri"],
+                    uri["method"],
+                    uri["version"],
+                )
+            )
+        for scanner in data.get("scanners", []):
+            res.setdefault("scanners", {}).setdefault(scanner["name"], set()).update(
+                (probe["proto"], probe["name"]) for probe in scanner.get("probes", [])
+            )
+        res.setdefault("probes", set()).update(
+            (probe["proto"], probe["value"]) for probe in data.get("probes", [])
         )
-    for proto, ports in list(res.get('ports', {}).items()):
-        res['ports'][proto]['ports'] = sorted(ports['ports'])
-        nports = len(ports['ports'])
-        res['ports'][proto]['count'] = nports
-        res['ports']['count'] = res['ports'].get('count', 0) + nports
-    if 'http_uris' in res:
-        res['http_uris'] = [
+    for proto, ports in list(res.get("ports", {}).items()):
+        res["ports"][proto]["ports"] = sorted(ports["ports"])
+        nports = len(ports["ports"])
+        res["ports"][proto]["count"] = nports
+        res["ports"]["count"] = res["ports"].get("count", 0) + nports
+    if "http_uris" in res:
+        res["http_uris"] = [
             {"uri": uri, "method": method, "version": version}
-            for uri, method, version in sorted(res['http_uris'])
+            for uri, method, version in sorted(res["http_uris"])
         ]
     scanners = []
-    for name, probes in res.get('scanners', {}).items():
-        scanner = {'name': name}
+    for name, probes in res.get("scanners", {}).items():
+        scanner = {"name": name}
         if probes:
-            scanner['probes'] = [{'proto': proto, 'name': name}
-                                 for proto, name in sorted(probes)]
+            scanner["probes"] = [
+                {"proto": proto, "name": name} for proto, name in sorted(probes)
+            ]
         scanners.append(scanner)
     if scanners:
-        res['scanners'] = scanners
-    if 'probes' in res:
-        res['probes'] = [{'proto': proto, 'value': value}
-                         for proto, value in sorted(res['probes'])]
+        res["scanners"] = scanners
+    if "probes" in res:
+        res["probes"] = [
+            {"proto": proto, "value": value} for proto, value in sorted(res["probes"])
+        ]
     curscript[script_id] = res
     output = []
-    if res.get('ports'):
-        output.append("Scanned port%s: %s" % (
-            's' if res['ports']['count'] > 1 else '',
-            ', '.join('%s: %s' % (proto, ports2nmapspec(ports['ports']))
-                      for proto, ports in res.get('ports', {}).items()
-                      if proto != 'count'),
-        ))
-    if res.get('http_uris'):
+    if res.get("ports"):
+        output.append(
+            "Scanned port%s: %s"
+            % (
+                "s" if res["ports"]["count"] > 1 else "",
+                ", ".join(
+                    "%s: %s" % (proto, ports2nmapspec(ports["ports"]))
+                    for proto, ports in res.get("ports", {}).items()
+                    if proto != "count"
+                ),
+            )
+        )
+    if res.get("http_uris"):
         uris_methods = {}
         uris_versions = {}
-        for uri in res['http_uris']:
-            uris_methods.setdefault(uri['uri'], set()).add(uri['method'])
-            uris_versions.setdefault(uri['uri'], set()).add(uri['version'])
-        output.append("Scanned URI%s: %s" % (
-            's' if len(uris_versions) > 1 else '',
-            ', '.join('%s (%s %s)' % (
-                uri,
-                ', '.join(uris_methods[uri]),
-                ', '.join(uris_versions[uri]),
-            ) for uri in sorted(uris_versions)),
-        ))
+        for uri in res["http_uris"]:
+            uris_methods.setdefault(uri["uri"], set()).add(uri["method"])
+            uris_versions.setdefault(uri["uri"], set()).add(uri["version"])
+        output.append(
+            "Scanned URI%s: %s"
+            % (
+                "s" if len(uris_versions) > 1 else "",
+                ", ".join(
+                    "%s (%s %s)"
+                    % (
+                        uri,
+                        ", ".join(uris_methods[uri]),
+                        ", ".join(uris_versions[uri]),
+                    )
+                    for uri in sorted(uris_versions)
+                ),
+            )
+        )
     if scanners:
-        output.append("Scanner%s: %s" % (
-            's' if len(scanners) > 1 else '',
-            ', '.join(scanner['name'] for scanner in scanners),
-        ))
-    curscript['output'] = '\n'.join(output)
+        output.append(
+            "Scanner%s: %s"
+            % (
+                "s" if len(scanners) > 1 else "",
+                ", ".join(scanner["name"] for scanner in scanners),
+            )
+        )
+    curscript["output"] = "\n".join(output)
     return curscript
 
 
-def _merge_scripts(curscript, script, script_id, script_equals, script_output,
-                   outsep="\n"):
+def _merge_scripts(
+    curscript, script, script_id, script_equals, script_output, outsep="\n"
+):
     """Helper function to merge two scripts and return the result, using
-specific functions `script_equals` and `script_output`.
+    specific functions `script_equals` and `script_output`.
 
     """
     to_merge_list = []
@@ -465,21 +481,21 @@ specific functions `script_equals` and `script_output`.
     for el in curscript[script_id_alias]:
         output.append(script_output(el, script_id))
     if output:
-        curscript['output'] = outsep.join(output) + '\n'
+        curscript["output"] = outsep.join(output) + "\n"
     else:
-        curscript['output'] = ''
+        curscript["output"] = ""
     return curscript
 
 
 _SCRIPT_MERGE = {
-    'dns-zone-transfer': merge_axfr_scripts,
-    'scanner': merge_scanner_scripts,
-    'http-app': merge_http_app_scripts,
-    'http-user-agent': merge_ua_scripts,
-    'ssl-cacert': merge_ssl_cert_scripts,
-    'ssl-cert': merge_ssl_cert_scripts,
-    'ssl-ja3-client': merge_ja3_scripts,
-    'ssl-ja3-server': merge_ja3_scripts,
+    "dns-zone-transfer": merge_axfr_scripts,
+    "scanner": merge_scanner_scripts,
+    "http-app": merge_http_app_scripts,
+    "http-user-agent": merge_ua_scripts,
+    "ssl-cacert": merge_ssl_cert_scripts,
+    "ssl-cert": merge_ssl_cert_scripts,
+    "ssl-ja3-client": merge_ja3_scripts,
+    "ssl-ja3-server": merge_ja3_scripts,
 }
 
 
@@ -498,25 +514,26 @@ def merge_host_docs(rec1, rec2):
 
     """
     if rec1.get("schema_version") != rec2.get("schema_version"):
-        raise ValueError("Cannot merge host documents. "
-                         "Schema versions differ (%r != %r)" % (
-                             rec1.get("schema_version"),
-                             rec2.get("schema_version")))
+        raise ValueError(
+            "Cannot merge host documents. "
+            "Schema versions differ (%r != %r)"
+            % (rec1.get("schema_version"), rec2.get("schema_version"))
+        )
     rec = {}
     if "schema_version" in rec1:
         rec["schema_version"] = rec1["schema_version"]
     # When we have different values, we will use the one from the
     # most recent scan, rec2. If one result has no "endtime", we
     # consider it as older.
-    if (
-            (rec1.get("endtime") or datetime.fromtimestamp(0)) >
-            (rec2.get("endtime") or datetime.fromtimestamp(0))
+    if (rec1.get("endtime") or datetime.fromtimestamp(0)) > (
+        rec2.get("endtime") or datetime.fromtimestamp(0)
     ):
         rec1, rec2 = rec2, rec1
     for fname, function in [("starttime", min), ("endtime", max)]:
         try:
-            rec[fname] = function(record[fname] for record in [rec1, rec2]
-                                  if fname in record)
+            rec[fname] = function(
+                record[fname] for record in [rec1, rec2] if fname in record
+            )
         except ValueError:
             pass
     sa_honeypot = rec1.get("synack_honeypot") or rec2.get("synack_honeypot")
@@ -527,23 +544,23 @@ def merge_host_docs(rec1, rec2):
     if rec["state_reason"] is None:
         del rec["state_reason"]
     rec["categories"] = list(
-        set(rec1.get("categories", [])).union(
-            rec2.get("categories", []))
+        set(rec1.get("categories", [])).union(rec2.get("categories", []))
     )
     for field in ["addr", "os"]:
         rec[field] = rec2[field] if rec2.get(field) else rec1.get(field)
         if not rec[field]:
             del rec[field]
-    rec['source'] = list(set(rec1.get('source', []))
-                         .union(set(rec2.get('source', []))))
+    rec["source"] = list(set(rec1.get("source", [])).union(set(rec2.get("source", []))))
     rec["traces"] = rec2.get("traces", [])
     for trace in rec1.get("traces", []):
         # Skip this result (from rec1) if a more recent traceroute
         # result exists using the same protocol and port in the
         # most recent scan (rec2).
-        if any(other['protocol'] == trace['protocol'] and
-               other.get('port') == trace.get('port')
-               for other in rec['traces']):
+        if any(
+            other["protocol"] == trace["protocol"]
+            and other.get("port") == trace.get("port")
+            for other in rec["traces"]
+        ):
             continue
         rec["traces"].append(trace)
     rec["cpes"] = rec2.get("cpes", [])
@@ -564,13 +581,15 @@ def merge_host_docs(rec1, rec2):
     for record in [rec1, rec2]:
         rec["infos"].update(record.get("infos", {}))
     # We want to make sure of (type, name) unicity
-    hostnames = dict(((h['type'], h['name']), h.get('domains'))
-                     for h in (rec1.get("hostnames", []) +
-                               rec2.get("hostnames", [])))
-    rec["hostnames"] = [{"type": h[0], "name": h[1], "domains": d}
-                        for h, d in hostnames.items()]
-    addresses = rec1.get('addresses', {})
-    for atype, addrs in rec2.get('addresses', {}).items():
+    hostnames = dict(
+        ((h["type"], h["name"]), h.get("domains"))
+        for h in (rec1.get("hostnames", []) + rec2.get("hostnames", []))
+    )
+    rec["hostnames"] = [
+        {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
+    ]
+    addresses = rec1.get("addresses", {})
+    for atype, addrs in rec2.get("addresses", {}).items():
         cur_addrs = addresses.setdefault(atype, [])
         for addr in addrs:
             if addr not in cur_addrs:
@@ -579,69 +598,73 @@ def merge_host_docs(rec1, rec2):
         rec["addresses"] = addresses
     sa_honeypot_check = False
     if sa_honeypot:
-        rec['synack_honeypot'] = True
+        rec["synack_honeypot"] = True
         for record in [rec1, rec2]:
-            if not record.get('synack_honeypot'):
+            if not record.get("synack_honeypot"):
                 sa_honeypot_check = True
-                record['ports'] = [
-                    port for port in record.get('ports', [])
+                record["ports"] = [
+                    port
+                    for port in record.get("ports", [])
                     if is_real_service_port(port)
                 ]
-    ports = dict(((port.get("protocol"), port["port"]), port.copy())
-                 for port in rec2.get("ports", []))
+    ports = dict(
+        ((port.get("protocol"), port["port"]), port.copy())
+        for port in rec2.get("ports", [])
+    )
     for port in rec1.get("ports", []):
-        if (port.get('protocol'), port['port']) in ports:
-            curport = ports[(port.get('protocol'), port['port'])]
-            if 'scripts' in curport:
-                curport['scripts'] = curport['scripts'][:]
+        if (port.get("protocol"), port["port"]) in ports:
+            curport = ports[(port.get("protocol"), port["port"])]
+            if "scripts" in curport:
+                curport["scripts"] = curport["scripts"][:]
             else:
-                curport['scripts'] = []
-            present_scripts = set(
-                script['id'] for script in curport['scripts']
-            )
+                curport["scripts"] = []
+            present_scripts = set(script["id"] for script in curport["scripts"])
             for script in port.get("scripts", []):
-                if script['id'] not in present_scripts:
-                    curport['scripts'].append(script)
-                elif script['id'] in _SCRIPT_MERGE:
+                if script["id"] not in present_scripts:
+                    curport["scripts"].append(script)
+                elif script["id"] in _SCRIPT_MERGE:
                     # Merge scripts
-                    curscript = next(x for x in curport['scripts']
-                                     if x['id'] == script['id'])
-                    merge_scripts(curscript, script, script['id'])
-            if not curport['scripts']:
-                del curport['scripts']
-            if 'service_name' in port:
-                if 'service_name' not in curport:
+                    curscript = next(
+                        x for x in curport["scripts"] if x["id"] == script["id"]
+                    )
+                    merge_scripts(curscript, script, script["id"])
+            if not curport["scripts"]:
+                del curport["scripts"]
+            if "service_name" in port:
+                if "service_name" not in curport:
                     for key in port:
                         if key.startswith("service_"):
                             curport[key] = port[key]
-                elif port['service_name'] == curport['service_name']:
+                elif port["service_name"] == curport["service_name"]:
                     # if the "old" record has information missing
                     # from the "new" record and information from
                     # both records is consistent, let's keep the
                     # "old" data.
                     for key in port:
-                        if (
-                                key.startswith("service_") and
-                                key not in curport
-                        ):
+                        if key.startswith("service_") and key not in curport:
                             curport[key] = port[key]
-            if 'screenshot' in port and 'screenshot' not in curport:
-                for key in ['screenshot', 'screendata', 'screenwords']:
+            if "screenshot" in port and "screenshot" not in curport:
+                for key in ["screenshot", "screendata", "screenwords"]:
                     if key in port:
                         curport[key] = port[key]
         else:
-            ports[(port.get('protocol'), port['port'])] = port
+            ports[(port.get("protocol"), port["port"])] = port
     if sa_honeypot and sa_honeypot_check:
         rec["ports"] = sorted(
             (port for port in ports.values() if is_real_service_port(port)),
             key=lambda port: (
-                port.get('protocol') or '~', port.get('port'),
-            )
+                port.get("protocol") or "~",
+                port.get("port"),
+            ),
         )
     else:
-        rec["ports"] = sorted(ports.values(), key=lambda port: (
-            port.get('protocol') or '~', port.get('port'),
-        ))
+        rec["ports"] = sorted(
+            ports.values(),
+            key=lambda port: (
+                port.get("protocol") or "~",
+                port.get("port"),
+            ),
+        )
     if not sa_honeypot:
         cleanup_synack_honeypot_host(rec, update_openports=False)
     set_openports_attribute(rec)
@@ -651,49 +674,60 @@ def merge_host_docs(rec1, rec2):
     return rec
 
 
-def handle_http_headers(host, port, headers, path='/', handle_server=True):
+def handle_http_headers(host, port, headers, path="/", handle_server=True):
     """This function enriches scan results based on HTTP headers reported
-by the Nmap script http-headers or any similar report, such as
-Masscan or Zgrab(2).
+    by the Nmap script http-headers or any similar report, such as
+    Masscan or Zgrab(2).
 
     """
     # 1. add a script "http-server-header" if it does not exist
     if handle_server:
-        srv_headers = [nmap_decode_data(h['value']) for h in headers
-                       if h['name'] == 'server' and h['value']]
-        if srv_headers and not any(s['id'] == 'http-server-header'
-                                   for s in port.get('scripts', [])):
-            port.setdefault('scripts', []).append({
-                "id": "http-server-header",
-                "output": '\n'.join(nmap_encode_data(hdr)
-                                    for hdr in srv_headers),
-                "http-server-header": [nmap_encode_data(hdr)
-                                       for hdr in srv_headers],
-            })
+        srv_headers = [
+            nmap_decode_data(h["value"])
+            for h in headers
+            if h["name"] == "server" and h["value"]
+        ]
+        if srv_headers and not any(
+            s["id"] == "http-server-header" for s in port.get("scripts", [])
+        ):
+            port.setdefault("scripts", []).append(
+                {
+                    "id": "http-server-header",
+                    "output": "\n".join(nmap_encode_data(hdr) for hdr in srv_headers),
+                    "http-server-header": [
+                        nmap_encode_data(hdr) for hdr in srv_headers
+                    ],
+                }
+            )
     # 2. add a script "http-app" for MS SharePoint, and merge it if
     # necessary
     try:
         header = next(
-            nmap_decode_data(h['value']) for h in headers
-            if h['name'] == 'microsoftsharepointteamservices' and h['value']
+            nmap_decode_data(h["value"])
+            for h in headers
+            if h["name"] == "microsoftsharepointteamservices" and h["value"]
         )
     except StopIteration:
         pass
     else:
-        version = nmap_encode_data(header.split(b':', 1)[0])
-        add_cpe_values(host, 'ports.port:%s' % port.get('port', -1),
-                       ["cpe:/a:microsoft:sharepoint_server:%s" % version])
+        version = nmap_encode_data(header.split(b":", 1)[0])
+        add_cpe_values(
+            host,
+            "ports.port:%s" % port.get("port", -1),
+            ["cpe:/a:microsoft:sharepoint_server:%s" % version],
+        )
         script = {
-            'id': 'http-app',
-            'output': 'SharePoint: path %s, version %s' % (path, version),
-            'http-app': [{'path': path,
-                          'application': 'SharePoint',
-                          'version': version}],
+            "id": "http-app",
+            "output": "SharePoint: path %s, version %s" % (path, version),
+            "http-app": [
+                {"path": path, "application": "SharePoint", "version": version}
+            ],
         }
         try:
-            cur_script = next(s for s in port.get('scripts', [])
-                              if s['id'] == 'http-app')
+            cur_script = next(
+                s for s in port.get("scripts", []) if s["id"] == "http-app"
+            )
         except StopIteration:
-            port.setdefault('scripts', []).append(script)
+            port.setdefault("scripts", []).append(script)
         else:
-            merge_http_app_scripts(cur_script, script, 'http-app')
+            merge_http_app_scripts(cur_script, script, "http-app")

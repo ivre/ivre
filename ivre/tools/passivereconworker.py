@@ -45,8 +45,7 @@ def shutdown(signum, _):
 
     """
     global WANTDOWN
-    utils.LOGGER.info('SHUTDOWN: got signal %d, will halt after current file.',
-                      signum)
+    utils.LOGGER.info("SHUTDOWN: got signal %d, will halt after current file.", signum)
     WANTDOWN = True
 
 
@@ -62,8 +61,7 @@ def getnextfiles(directory, sensor=None, count=1):
         fmt = re.compile(FILEFORMAT % re.escape(sensor))
     files = (fmt.match(f) for f in os.listdir(directory))
     files = [f for f in files if f is not None]
-    files.sort(key=lambda x: [int(val) for val in
-                              x.groupdict()['datetime'].split('-')])
+    files.sort(key=lambda x: [int(val) for val in x.groupdict()["datetime"].split("-")])
     return files[:count]
 
 
@@ -73,11 +71,9 @@ def create_process(progname, sensor):
 
     """
     return subprocess.Popen(
-        CMDLINE % {
-            "progname": progname,
-            "sensor": SENSORS.get(sensor, sensor)
-        },
-        shell=True, stdin=subprocess.PIPE
+        CMDLINE % {"progname": progname, "sensor": SENSORS.get(sensor, sensor)},
+        shell=True,
+        stdin=subprocess.PIPE,
     )
 
 
@@ -97,7 +93,7 @@ def worker(progname, directory, sensor=None):
             time.sleep(SLEEPTIME)
             continue
         fname = fname[0]
-        fname_sensor = fname.groupdict()['sensor']
+        fname_sensor = fname.groupdict()["sensor"]
         if fname_sensor in procs:
             proc = procs[fname_sensor]
         else:
@@ -106,8 +102,9 @@ def worker(progname, directory, sensor=None):
         fname = fname.group()
         # Our "lock system": if we can move the file, it's ours
         try:
-            shutil.move(os.path.join(directory, fname),
-                        os.path.join(directory, "current"))
+            shutil.move(
+                os.path.join(directory, fname), os.path.join(directory, "current")
+            )
         except shutil.Error:
             continue
         if config.DEBUG:
@@ -119,8 +116,9 @@ def worker(progname, directory, sensor=None):
             try:
                 proc.stdin.write(line)
             except ValueError:
-                utils.LOGGER.warning("Error while handling line %r. "
-                                     "Trying again", line)
+                utils.LOGGER.warning(
+                    "Error while handling line %r. " "Trying again", line
+                )
                 proc = create_process(progname, fname_sensor)
                 procs[fname_sensor] = proc
                 # Second (and last) try
@@ -133,9 +131,9 @@ def worker(progname, directory, sensor=None):
         fdesc.close()
         if handled_ok:
             os.unlink(fname)
-            utils.LOGGER.debug('  ... OK')
+            utils.LOGGER.debug("  ... OK")
         else:
-            utils.LOGGER.debug('  ... KO')
+            utils.LOGGER.debug("  ... KO")
     # SHUTDOWN
     for sensorjob in procs:
         procs[sensorjob].stdin.close()
@@ -150,25 +148,34 @@ def main():
         signal.siginterrupt(s, False)
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(
-        '--sensor', metavar='SENSOR[:SENSOR]',
-        help='sensor to check, optionally with a long name, defaults to all.',
+        "--sensor",
+        metavar="SENSOR[:SENSOR]",
+        help="sensor to check, optionally with a long name, defaults to all.",
     )
     parser.add_argument(
-        '--directory', metavar='DIR',
-        help='base directory (defaults to /ivre/passiverecon/).',
+        "--directory",
+        metavar="DIR",
+        help="base directory (defaults to /ivre/passiverecon/).",
         default="/ivre/passiverecon/",
     )
     parser.add_argument(
-        '--progname', metavar='PROG',
-        help='Program to run (defaults to ivre passiverecon2db).',
+        "--progname",
+        metavar="PROG",
+        help="Program to run (defaults to ivre passiverecon2db).",
         default="ivre passiverecon2db",
     )
     args = parser.parse_args()
     if args.sensor is not None:
-        SENSORS.update(dict([args.sensor.split(':', 1)
-                             if ':' in args.sensor
-                             else [args.sensor, args.sensor]]))
-        sensor = args.sensor.split(':', 1)[0]
+        SENSORS.update(
+            dict(
+                [
+                    args.sensor.split(":", 1)
+                    if ":" in args.sensor
+                    else [args.sensor, args.sensor]
+                ]
+            )
+        )
+        sensor = args.sensor.split(":", 1)[0]
     else:
         sensor = None
     worker(args.progname, args.directory, sensor=sensor)

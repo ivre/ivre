@@ -42,48 +42,50 @@ from ivre.web import app as webapp
 # Index page
 #
 
-@get('/')
+
+@get("/")
 def server_index():
     """Needed to redirect / to index.html"""
-    return redirect('index.html')
+    return redirect("index.html")
 
 
-@get('/doc')
+@get("/doc")
 def server_doc_index():
     """Needed to redirect / to index.html"""
-    return redirect('doc/index.html')
+    return redirect("doc/index.html")
 
 
-@get('/doc/<subdir:re:dev|install|usage>')
+@get("/doc/<subdir:re:dev|install|usage>")
 def server_doc_subindex(subdir):
     """Needed to redirect / to index.html"""
-    return redirect('%s/index.html' % subdir)
+    return redirect("%s/index.html" % subdir)
 
 
-@get('/doc/')
-@get('/doc/<:re:dev|install|usage>/')
+@get("/doc/")
+@get("/doc/<:re:dev|install|usage>/")
 def server_doc_subindex2():
     """Needed to redirect / to index.html"""
-    return redirect('index.html')
+    return redirect("index.html")
 
 
 #
 # Static files
 #
 
-@get('/dokuwiki/<filepath:path>')
+
+@get("/dokuwiki/<filepath:path>")
 def server_doku(filepath):
     """This function serves Dokuwiki files as static text files. This is
-far from being great...
+    far from being great...
 
     """
-    filepath = filepath.lower().replace(':', '/')
-    if '.' not in os.path.basename(filepath):
-        filepath += '.txt'
+    filepath = filepath.lower().replace(":", "/")
+    if "." not in os.path.basename(filepath):
+        filepath += ".txt"
     return static_file(filepath, root=WEB_DOKU_PATH)
 
 
-@get('/<filepath:path>')
+@get("/<filepath:path>")
 def server_static(filepath):
     """Serve the static (HTML, JS, CSS, ...) content."""
     return static_file(filepath, root=WEB_STATIC_PATH)
@@ -96,11 +98,14 @@ def parse_args():
     """
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(
-        '--bind-address', '-b', default="127.0.0.1",
-        help='(IP) Address to bind the server to (defaults to 127.0.0.1).',
+        "--bind-address",
+        "-b",
+        default="127.0.0.1",
+        help="(IP) Address to bind the server to (defaults to 127.0.0.1).",
     )
-    parser.add_argument('--port', '-p', type=int, default=80,
-                        help='(TCP) Port to use (defaults to 80)')
+    parser.add_argument(
+        "--port", "-p", type=int, default=80, help="(TCP) Port to use (defaults to 80)"
+    )
     return parser.parse_args()
 
 
@@ -109,5 +114,5 @@ def main():
     args = parse_args()
     print(__doc__)
     application = default_app()
-    application.mount('/cgi/', webapp.application)
+    application.mount("/cgi/", webapp.application)
     run(host=args.bind_address, port=args.port, debug=DEBUG)

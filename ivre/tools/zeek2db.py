@@ -40,27 +40,27 @@ def _zeek2flow(rec):
         rec["dst"] = rec.pop("pkt_dst")
     if "ts" in rec:
         rec["start_time"] = rec["end_time"] = rec.pop("ts")
-    if rec.get('proto', None) == 'icmp':
+    if rec.get("proto", None) == "icmp":
         # FIXME incorrect: source & dest flow?
-        rec['type'], rec['code'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
-    elif 'id_orig_p' in rec and 'id_resp_p' in rec:
-        rec['sport'], rec['dport'] = rec.pop('id_orig_p'), rec.pop('id_resp_p')
+        rec["type"], rec["code"] = rec.pop("id_orig_p"), rec.pop("id_resp_p")
+    elif "id_orig_p" in rec and "id_resp_p" in rec:
+        rec["sport"], rec["dport"] = rec.pop("id_orig_p"), rec.pop("id_resp_p")
     return rec
 
 
 def arp2flow(bulk, rec):
-    rec['proto'] = 'arp'
-    db.flow.any2flow(bulk, 'arp', rec)
+    rec["proto"] = "arp"
+    db.flow.any2flow(bulk, "arp", rec)
 
 
 def http2flow(bulk, rec):
-    rec['proto'] = 'tcp'
-    db.flow.any2flow(bulk, 'http', rec)
+    rec["proto"] = "tcp"
+    db.flow.any2flow(bulk, "http", rec)
 
 
 def ssh2flow(bulk, rec):
-    rec['proto'] = 'tcp'
-    db.flow.any2flow(bulk, 'ssh', rec)
+    rec["proto"] = "tcp"
+    db.flow.any2flow(bulk, "ssh", rec)
 
 
 def _sip_paths_search_tcp(paths):
@@ -68,7 +68,7 @@ def _sip_paths_search_tcp(paths):
     Fills the given proto_dict with transport protocol info found in path
     """
     for elt in paths:
-        info = elt.split(' ')[0].split('/')
+        info = elt.split(" ")[0].split("/")
         if len(info) != 3:
             continue
         if info[2].lower() in ["tcp", "tls"]:
@@ -77,32 +77,34 @@ def _sip_paths_search_tcp(paths):
 
 
 def sip2flow(bulk, rec):
-    found_tcp = (_sip_paths_search_tcp(rec['response_path']) or
-                 _sip_paths_search_tcp(rec['request_path']))
+    found_tcp = _sip_paths_search_tcp(rec["response_path"]) or _sip_paths_search_tcp(
+        rec["request_path"]
+    )
     rec["proto"] = "tcp" if found_tcp else "udp"
-    db.flow.any2flow(bulk, 'sip', rec)
+    db.flow.any2flow(bulk, "sip", rec)
 
 
 def snmp2flow(bulk, rec):
-    rec['proto'] = 'udp'
-    db.flow.any2flow(bulk, 'snmp', rec)
+    rec["proto"] = "udp"
+    db.flow.any2flow(bulk, "snmp", rec)
 
 
 def ssl2flow(bulk, rec):
-    rec['proto'] = 'tcp'  # FIXME Is it always true?
-    db.flow.any2flow(bulk, 'ssl', rec)
+    rec["proto"] = "tcp"  # FIXME Is it always true?
+    db.flow.any2flow(bulk, "ssl", rec)
 
 
 def rdp2flow(bulk, rec):
-    rec['proto'] = 'tcp'  # FIXME Is it always true?
-    db.flow.any2flow(bulk, 'rdp', rec)
+    rec["proto"] = "tcp"  # FIXME Is it always true?
+    db.flow.any2flow(bulk, "rdp", rec)
 
 
 def dns2flow(bulk, rec):
-    rec['answers'] = [elt.lower() for elt in
-                      (rec['answers'] if rec['answers'] else [])]
-    rec['query'] = rec['query'].lower() if rec['query'] else None
-    db.flow.any2flow(bulk, 'dns', rec)
+    # bug in pylint; see https://github.com/PyCQA/pylint/issues/2818
+    # pylint: disable=superfluous-parens
+    rec["answers"] = [elt.lower() for elt in (rec["answers"] if rec["answers"] else [])]
+    rec["query"] = rec["query"].lower() if rec["query"] else None
+    db.flow.any2flow(bulk, "dns", rec)
 
 
 FUNCTIONS = {
@@ -121,19 +123,18 @@ FUNCTIONS = {
 def any2flow(name):
     def inserter(bulk, rec):
         return db.flow.any2flow(bulk, name, rec)
+
     return inserter
 
 
 def main():
     """Update the flow database from Zeek logs"""
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument("logfiles", nargs='*', metavar='FILE',
-                        help="Zeek log files")
-    parser.add_argument("-v", "--verbose", help="verbose mode",
-                        action="store_true")
-    parser.add_argument("-C", "--no-cleanup",
-                        help="avoid port cleanup heuristics",
-                        action="store_true")
+    parser.add_argument("logfiles", nargs="*", metavar="FILE", help="Zeek log files")
+    parser.add_argument("-v", "--verbose", help="verbose mode", action="store_true")
+    parser.add_argument(
+        "-C", "--no-cleanup", help="avoid port cleanup heuristics", action="store_true"
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -145,18 +146,18 @@ def main():
             continue
         with ZeekFile(fname) as zeekf:
             bulk = db.flow.start_bulk_insert()
-            utils.LOGGER.debug("Parsing %s\n\t%s", fname,
-                               "Fields:\n%s\n" % "\n".join(
-                                   "%s: %s" % (f, t)
-                                   for f, t in zeekf.field_types
-                               ))
+            utils.LOGGER.debug(
+                "Parsing %s\n\t%s",
+                fname,
+                "Fields:\n%s\n"
+                % "\n".join("%s: %s" % (f, t) for f, t in zeekf.field_types),
+            )
             if zeekf.path in FUNCTIONS:
                 func = FUNCTIONS[zeekf.path]
             elif zeekf.path in flow.META_DESC:
                 func = any2flow(zeekf.path)
             else:
-                utils.LOGGER.debug("Log format not (yet) supported for %r",
-                                   fname)
+                utils.LOGGER.debug("Log format not (yet) supported for %r", fname)
                 continue
             for line in zeekf:
                 if not line:

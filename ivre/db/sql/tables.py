@@ -27,8 +27,20 @@ import re
 import sqlite3
 
 
-from sqlalchemy import event, func, Column, ForeignKey, Index, DateTime, \
-    Float, Integer, LargeBinary, String, Text, ForeignKeyConstraint
+from sqlalchemy import (
+    event,
+    func,
+    Column,
+    ForeignKey,
+    Index,
+    DateTime,
+    Float,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    ForeignKeyConstraint,
+)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.types import UserDefinedType, TypeDecorator
 from sqlalchemy.ext.declarative import declarative_base
@@ -43,7 +55,8 @@ from ivre import passive, utils, xmlnmap
 
 # sqlite
 
-@event.listens_for(Engine, 'connect')
+
+@event.listens_for(Engine, "connect")
 def sqlite_engine_connect(dbapi_connection, connection_record):
     if not isinstance(dbapi_connection, sqlite3.Connection):
         return
@@ -51,57 +64,56 @@ def sqlite_engine_connect(dbapi_connection, connection_record):
     def least(a, b):
         return min(a, b)
 
-    dbapi_connection.create_function('least', 2, least)
+    dbapi_connection.create_function("least", 2, least)
 
     def greatest(a, b):
         return max(a, b)
 
-    dbapi_connection.create_function('greatest', 2, greatest)
+    dbapi_connection.create_function("greatest", 2, greatest)
 
     def regexp(s, p):
         return re.search(p, s) is not None
 
-    dbapi_connection.create_function('REGEXP', 2, regexp)
+    dbapi_connection.create_function("REGEXP", 2, regexp)
 
     def iregexp(s, p):
         return re.search(p, s, re.IGNORECASE) is not None
 
-    dbapi_connection.create_function('IREGEXP', 2, iregexp)
+    dbapi_connection.create_function("IREGEXP", 2, iregexp)
 
     def access(d, k):
-        if k.startswith('$.'):
+        if k.startswith("$."):
             # With sqlalchemy >= 1.3.0, this seems to be
             # necessary. Please help me if you can.
             k = json.loads(k[2:])
         return json.dumps(json.loads(d).get(k), sort_keys=True)
 
-    dbapi_connection.create_function('ACCESS', 2, access)
+    dbapi_connection.create_function("ACCESS", 2, access)
 
     def access_astext(d, k):
         return str(json.loads(d).get(k))
 
-    dbapi_connection.create_function('ACCESS_TXT', 2, access_astext)
+    dbapi_connection.create_function("ACCESS_TXT", 2, access_astext)
 
     def has_key(d, k):
         return k in json.loads(d) if json.loads(d) else False
 
-    dbapi_connection.create_function('HAS_KEY', 2, has_key)
+    dbapi_connection.create_function("HAS_KEY", 2, has_key)
 
 
-@compiles(BinaryExpression, 'sqlite')
+@compiles(BinaryExpression, "sqlite")
 def extend_binary_expression(element, compiler, **kwargs):
     if isinstance(element.operator, custom_op):
         opstring = element.operator.opstring
-        if opstring == '~':
+        if opstring == "~":
             return compiler.process(func.REGEXP(element.left, element.right))
-        if opstring == '~*':
+        if opstring == "~*":
             return compiler.process(func.IREGEXP(element.left, element.right))
-        if opstring == '->':
+        if opstring == "->":
             return compiler.process(func.ACCESS(element.left, element.right))
-        if opstring == '->>':
-            return compiler.process(func.ACCESS_TXT(element.left,
-                                                    element.right))
-        if opstring == '?':
+        if opstring == "->>":
+            return compiler.process(func.ACCESS_TXT(element.left, element.right))
+        if opstring == "?":
             return compiler.process(func.HAS_KEY(element.left, element.right))
     # FIXME: Variant base type Comparator seems to be used here.
     if element.operator is json_getitem_op:
@@ -110,6 +122,7 @@ def extend_binary_expression(element, compiler, **kwargs):
 
 
 # Types
+
 
 class DefaultJSONB(UserDefinedType):
 
@@ -127,6 +140,7 @@ class DefaultJSONB(UserDefinedType):
             if value is not None:
                 value = json.dumps(value, sort_keys=True)
             return value
+
         return process
 
     @staticmethod
@@ -135,6 +149,7 @@ class DefaultJSONB(UserDefinedType):
             if value is not None:
                 value = json.loads(value)
             return value
+
         return process
 
 
@@ -163,8 +178,7 @@ class DefaultARRAY(TypeDecorator):
 
 
 def SQLARRAY(item_type):
-    return postgresql.ARRAY(item_type)\
-        .with_variant(DefaultARRAY(item_type), "sqlite")
+    return postgresql.ARRAY(item_type).with_variant(DefaultARRAY(item_type), "sqlite")
 
 
 class DefaultINET(UserDefinedType):
@@ -179,20 +193,19 @@ class DefaultINET(UserDefinedType):
 
     def bind_processor(self, dialect):
         def process(value):
-            return self.python_type(
-                b"" if not value else utils.ip2bin(value)
-            )
+            return self.python_type(b"" if not value else utils.ip2bin(value))
+
         return process
 
     @staticmethod
     def result_processor(dialect, coltype):
         def process(value):
             return None if not value else utils.bin2ip(value)
+
         return process
 
 
-SQLINET = postgresql.INET()\
-    .with_variant(DefaultINET(), "sqlite")
+SQLINET = postgresql.INET().with_variant(DefaultINET(), "sqlite")
 
 
 class Point(UserDefinedType):
@@ -210,6 +223,7 @@ class Point(UserDefinedType):
             if value is None:
                 return None
             return "%f,%f" % value
+
         return process
 
     @staticmethod
@@ -217,7 +231,8 @@ class Point(UserDefinedType):
         def process(value):
             if value is None:
                 return None
-            return tuple(float(val) for val in value[1:-1].split(','))
+            return tuple(float(val) for val in value[1:-1].split(","))
+
         return process
 
 
@@ -231,8 +246,8 @@ class Flow(Base):
     id = Column(Integer, primary_key=True)
     proto = Column(String(32), index=True)
     dport = Column(Integer, index=True)
-    src = Column(Integer, ForeignKey('host.id', ondelete='RESTRICT'))
-    dst = Column(Integer, ForeignKey('host.id', ondelete='RESTRICT'))
+    src = Column(Integer, ForeignKey("host.id", ondelete="RESTRICT"))
+    dst = Column(Integer, ForeignKey("host.id", ondelete="RESTRICT"))
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
     scpkts = Column(Integer)
@@ -310,7 +325,7 @@ class _Hostname:
 
 
 class _Association_Scan_Hostname:
-    __tablename__ = 'association_scan_hostname'
+    __tablename__ = "association_scan_hostname"
     scan = Column(Integer, primary_key=True)
     hostname = Column(Integer, primary_key=True)
 
@@ -347,11 +362,10 @@ class _Scan:
 
 # Nmap
 class N_Association_Scan_ScanFile(Base, _Association_Scan_ScanFile):
-    __tablename__ = 'n_association_scan_scanfile'
+    __tablename__ = "n_association_scan_scanfile"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
-        ForeignKeyConstraint(['scan_file'], ['n_scan_file.sha256'],
-                             ondelete='CASCADE')
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["scan_file"], ["n_scan_file.sha256"], ondelete="CASCADE"),
     )
 
 
@@ -360,69 +374,64 @@ class N_ScanFile(Base, _ScanFile):
 
 
 class N_Association_Scan_Category(Base, _Association_Scan_Category):
-    __tablename__ = 'n_association_scan_category'
+    __tablename__ = "n_association_scan_category"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
-        ForeignKeyConstraint(['category'], ['n_category.id'],
-                             ondelete='CASCADE'),
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["category"], ["n_category.id"], ondelete="CASCADE"),
     )
 
 
 class N_Category(Base, _Category):
-    __tablename__ = 'n_category'
-    __table_args__ = (
-        Index('ix_n_category_name', 'name', unique=True),
-    )
+    __tablename__ = "n_category"
+    __table_args__ = (Index("ix_n_category_name", "name", unique=True),)
 
 
 class N_Script(Base, _Script):
-    __tablename__ = 'n_script'
+    __tablename__ = "n_script"
     __table_args__ = (
-        ForeignKeyConstraint(['port'], ['n_port.id'], ondelete='CASCADE'),
-        Index('ix_n_script_data', 'data', postgresql_using='gin'),
-        Index('ix_n_script_name', 'name'),
-        Index('ix_n_script_port_name', 'port', 'name', unique=True),
+        ForeignKeyConstraint(["port"], ["n_port.id"], ondelete="CASCADE"),
+        Index("ix_n_script_data", "data", postgresql_using="gin"),
+        Index("ix_n_script_name", "name"),
+        Index("ix_n_script_port_name", "port", "name", unique=True),
     )
 
 
 class N_Port(Base, _Port):
-    __tablename__ = 'n_port'
+    __tablename__ = "n_port"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
-        Index('ix_n_port_scan_port', 'scan', 'port', 'protocol', unique=True),
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
+        Index("ix_n_port_scan_port", "scan", "port", "protocol", unique=True),
     )
 
 
 class N_Hostname(Base, _Hostname):
     __tablename__ = "n_hostname"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
-        Index('ix_n_hostname_scan_name_type', 'scan', 'name', 'type',
-              unique=True),
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
+        Index("ix_n_hostname_scan_name_type", "scan", "name", "type", unique=True),
     )
 
 
 class N_Association_Scan_Hostname(Base, _Association_Scan_Hostname):
-    __tablename__ = 'n_association_scan_hostname'
+    __tablename__ = "n_association_scan_hostname"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
-        ForeignKeyConstraint(['hostname'], ['n_hostname.id'],
-                             ondelete='CASCADE'),
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["hostname"], ["n_hostname.id"], ondelete="CASCADE"),
     )
 
 
 class N_Trace(Base, _Trace):
     __tablename__ = "n_trace"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['n_scan.id'], ondelete='CASCADE'),
+        ForeignKeyConstraint(["scan"], ["n_scan.id"], ondelete="CASCADE"),
     )
 
 
 class N_Hop(Base, _Hop):
     __tablename__ = "n_hop"
     __table_args__ = (
-        Index('ix_n_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
-        ForeignKeyConstraint(['trace'], ['n_trace.id'], ondelete='CASCADE')
+        Index("ix_n_hop_ipaddr_ttl", "ipaddr", "ttl"),
+        ForeignKeyConstraint(["trace"], ["n_trace.id"], ondelete="CASCADE"),
     )
 
 
@@ -430,62 +439,57 @@ class N_Scan(Base, _Scan):
     __tablename__ = "n_scan"
     source = Column(String(32), nullable=False)
     __table_args__ = (
-        Index('ix_n_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_n_scan_time', 'time_start', 'time_stop'),
-        Index('ix_n_scan_host', 'addr'),
+        Index("ix_n_scan_info", "info", postgresql_using="gin"),
+        Index("ix_n_scan_time", "time_start", "time_stop"),
+        Index("ix_n_scan_host", "addr"),
     )
 
 
 # View
 class V_Association_Scan_Category(Base, _Association_Scan_Category):
-    __tablename__ = 'v_association_scan_category'
+    __tablename__ = "v_association_scan_category"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
-        ForeignKeyConstraint(['category'], ['v_category.id'],
-                             ondelete='CASCADE'),
+        ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["category"], ["v_category.id"], ondelete="CASCADE"),
     )
 
 
 class V_Category(Base, _Category):
-    __tablename__ = 'v_category'
-    __table_args__ = (
-        Index('ix_v_category_name', 'name', unique=True),
-    )
+    __tablename__ = "v_category"
+    __table_args__ = (Index("ix_v_category_name", "name", unique=True),)
 
 
 class V_Script(Base, _Script):
-    __tablename__ = 'v_script'
+    __tablename__ = "v_script"
     __table_args__ = (
-        ForeignKeyConstraint(['port'], ['v_port.id'], ondelete='CASCADE'),
-        Index('ix_v_script_data', 'data', postgresql_using='gin'),
-        Index('ix_v_script_name', 'name'),
-        Index('ix_v_script_port_name', 'port', 'name', unique=True),
+        ForeignKeyConstraint(["port"], ["v_port.id"], ondelete="CASCADE"),
+        Index("ix_v_script_data", "data", postgresql_using="gin"),
+        Index("ix_v_script_name", "name"),
+        Index("ix_v_script_port_name", "port", "name", unique=True),
     )
 
 
 class V_Port(Base, _Port):
-    __tablename__ = 'v_port'
+    __tablename__ = "v_port"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
-        Index('ix_v_port_scan_port', 'scan', 'port', 'protocol', unique=True),
+        ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
+        Index("ix_v_port_scan_port", "scan", "port", "protocol", unique=True),
     )
 
 
 class V_Hostname(Base, _Hostname):
     __tablename__ = "v_hostname"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
-        Index('ix_v_hostname_scan_name_type', 'scan', 'name', 'type',
-              unique=True),
+        ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
+        Index("ix_v_hostname_scan_name_type", "scan", "name", "type", unique=True),
     )
 
 
 class V_Association_Scan_Hostname(Base, _Association_Scan_Hostname):
-    __tablename__ = 'v_association_scan_hostname'
+    __tablename__ = "v_association_scan_hostname"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
-        ForeignKeyConstraint(['hostname'], ['v_hostname.id'],
-                             ondelete='CASCADE'),
+        ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
+        ForeignKeyConstraint(["hostname"], ["v_hostname.id"], ondelete="CASCADE"),
     )
 
 
@@ -494,17 +498,16 @@ class V_Trace(Base, _Trace):
     # value for port when not present?
     __tablename__ = "v_trace"
     __table_args__ = (
-        ForeignKeyConstraint(['scan'], ['v_scan.id'], ondelete='CASCADE'),
-        Index('ix_v_trace_scan_port_proto', 'scan', 'port', 'protocol',
-              unique=True),
+        ForeignKeyConstraint(["scan"], ["v_scan.id"], ondelete="CASCADE"),
+        Index("ix_v_trace_scan_port_proto", "scan", "port", "protocol", unique=True),
     )
 
 
 class V_Hop(Base, _Hop):
     __tablename__ = "v_hop"
     __table_args__ = (
-        Index('ix_v_hop_ipaddr_ttl', 'ipaddr', 'ttl'),
-        ForeignKeyConstraint(['trace'], ['v_trace.id'], ondelete='CASCADE')
+        Index("ix_v_hop_ipaddr_ttl", "ipaddr", "ttl"),
+        ForeignKeyConstraint(["trace"], ["v_trace.id"], ondelete="CASCADE"),
     )
 
 
@@ -512,9 +515,9 @@ class V_Scan(Base, _Scan):
     __tablename__ = "v_scan"
     source = Column(SQLARRAY(String(32)))
     __table_args__ = (
-        Index('ix_v_scan_info', 'info', postgresql_using='gin'),
-        Index('ix_v_scan_host', 'addr', unique=True),
-        Index('ix_v_scan_time', 'time_start', 'time_stop'),
+        Index("ix_v_scan_info", "info", postgresql_using="gin"),
+        Index("ix_v_scan_host", "addr", unique=True),
+        Index("ix_v_scan_time", "time_start", "time_stop"),
     )
 
 

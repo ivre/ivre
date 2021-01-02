@@ -164,6 +164,6 @@ FILTERS = {
 def build_agent(filtername="none", template="default"):
     """Build an agent shell script (returned as  a string)."""
     return AGENT_TEMPLATE % {
-        'filter': FILTERS[filtername],
-        'scan': nmapopt.build_nmap_commandline(template=template),
+        "filter": FILTERS[filtername],
+        "scan": nmapopt.build_nmap_commandline(template=template),
     }

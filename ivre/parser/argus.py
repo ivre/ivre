@@ -28,12 +28,20 @@ from ivre.parser import CmdParser
 class Argus(CmdParser):
     """Argus log generator"""
 
-    fields = ["proto", "dir",
-              "saddr", "sport",
-              "daddr", "dport",
-              "spkts", "dpkts",
-              "sbytes", "dbytes",
-              "stime", "ltime"]
+    fields = [
+        "proto",
+        "dir",
+        "saddr",
+        "sport",
+        "daddr",
+        "dport",
+        "spkts",
+        "dpkts",
+        "sbytes",
+        "dbytes",
+        "stime",
+        "ltime",
+    ]
     aggregation = ["saddr", "sport", "daddr", "dport", "proto"]
     timefmt = "%s.%f"
 
@@ -51,14 +59,17 @@ class Argus(CmdParser):
         if pcap_filter is not None:
             cmd.extend(["--", pcap_filter])
         super().__init__(
-            cmd, {} if isinstance(fdesc, str) else {"stdin": fdesc},
+            cmd,
+            {} if isinstance(fdesc, str) else {"stdin": fdesc},
         )
         self.fdesc.readline()
 
     @classmethod
     def parse_line(cls, line):
-        fields = dict((name, val.strip().decode())
-                      for name, val in zip(cls.fields, line.split(b",")))
+        fields = dict(
+            (name, val.strip().decode())
+            for name, val in zip(cls.fields, line.split(b","))
+        )
         for fld in ["sport", "dport"]:
             try:
                 fields[fld] = int(
@@ -77,7 +88,5 @@ class Argus(CmdParser):
         fields["start_time"] = datetime.datetime.fromtimestamp(
             float(fields.pop("stime"))
         )
-        fields["end_time"] = datetime.datetime.fromtimestamp(
-            float(fields.pop("ltime"))
-        )
+        fields["end_time"] = datetime.datetime.fromtimestamp(float(fields.pop("ltime")))
         return fields

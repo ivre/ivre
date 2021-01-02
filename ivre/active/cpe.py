@@ -57,13 +57,13 @@ def cpe2dict(cpe_str):
 def add_cpe_values(hostrec, path, cpe_values):
     """Add CPE values (`cpe_values`) to the `hostrec` at the given `path`.
 
-CPEs are indexed in a dictionary to agglomerate origins, but this dict
-is replaced with its values() in ._pre_addhost() or in
-.store_scan_json_zgrab(), or in the function that calls
-add_cpe_values(), depending on the context.
+    CPEs are indexed in a dictionary to agglomerate origins, but this dict
+    is replaced with its values() in ._pre_addhost() or in
+    .store_scan_json_zgrab(), or in the function that calls
+    add_cpe_values(), depending on the context.
 
     """
-    cpes = hostrec.setdefault('cpes', {})
+    cpes = hostrec.setdefault("cpes", {})
     for cpe in cpe_values:
         if cpe not in cpes:
             try:
@@ -74,4 +74,4 @@ add_cpe_values(), depending on the context.
             cpes[cpe] = cpeobj
         else:
             cpeobj = cpes[cpe]
-        cpeobj.setdefault('origins', set()).add(path)
+        cpeobj.setdefault("origins", set()).add(path)

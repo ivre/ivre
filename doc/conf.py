@@ -11,23 +11,27 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
-import re
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+
+sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'IVRE'
-copyright = '2011 - 2020, Pierre LALET'
-author = 'Pierre LALET'
-html_logo = '../web/static/logo.png'
-master_doc = 'index'
+# pylint: disable=no-name-in-module,wrong-import-position,redefined-builtin
+project = "IVRE"
+copyright = "2011 - 2021, Pierre LALET"
+author = "Pierre LALET"
+html_logo = "../web/static/logo.png"
+master_doc = "index"
 
 from ivre import __version__ as version
-version = version.split('dev')[0]
-if version.endswith('.'):
-    version += 'dev'
+
+# pylint: enable=no-name-in-module,wrong-import-position,redefined-builtin
+
+version = version.split("dev")[0]
+if version.endswith("."):
+    version += "dev"
 
 # -- General configuration ---------------------------------------------------
 
@@ -36,22 +40,22 @@ if version.endswith('.'):
 # ones.
 extensions = [
     # 'sphinx.ext.autodoc', # TODO
-    'sphinx.ext.autosectionlabel',
-    'sphinx.ext.graphviz',
+    "sphinx.ext.autosectionlabel",
+    "sphinx.ext.graphviz",
     # 'sphinx.ext.napoleon', # TODO
-    'sphinxcontrib.autohttp.bottle',
+    "sphinxcontrib.autohttp.bottle",
 ]
 
 autosectionlabel_prefix_document = True
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -59,7 +63,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

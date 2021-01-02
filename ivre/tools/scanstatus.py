@@ -26,10 +26,12 @@ import time
 def main():
     statusline = re.compile(
         '<task(?P<status>begin|end|progress) task="(?P<task>[^"]*)" '
-        'time="(?P<time>[^"]*)"(?P<otherinfo>.*)/>')
+        'time="(?P<time>[^"]*)"(?P<otherinfo>.*)/>'
+    )
     progressinfo = re.compile(
         'percent="(?P<percent>[^"]*)" remaining="(?P<remaining>[^"]*)" '
-        'etc="(?P<etc>[^"]*)"')
+        'etc="(?P<etc>[^"]*)"'
+    )
     endinfo = re.compile('extrainfo="(?P<extrainfo>[^"]*)"')
     curtask = None
     curprogress = None
@@ -38,51 +40,52 @@ def main():
         if line is None:
             continue
         line = line.groupdict()
-        if line['status'] == 'begin':
-            curtask = (line['task'], int(line['time']))
+        if line["status"] == "begin":
+            curtask = (line["task"], int(line["time"]))
             curprogress = None
             continue
-        if curtask[0] != line['task']:
-            raise Exception('curtask != task (%r != %r)' % (curtask,
-                                                            line['task']))
-        if line['status'] == 'progress':
-            progress = progressinfo.search(line['otherinfo'])
+        if curtask[0] != line["task"]:
+            raise Exception("curtask != task (%r != %r)" % (curtask, line["task"]))
+        if line["status"] == "progress":
+            progress = progressinfo.search(line["otherinfo"])
             if progress is None:
-                raise Exception(
-                    'progress line not understood [%r]' % line['otherinfo'])
+                raise Exception("progress line not understood [%r]" % line["otherinfo"])
             progress = progress.groupdict()
             curprogress = (
-                int(line['time']),
-                float(progress['percent']),
-                int(progress['remaining']),
-                int(progress['etc']),
+                int(line["time"]),
+                float(progress["percent"]),
+                int(progress["remaining"]),
+                int(progress["etc"]),
             )
-        elif line['status'] == 'end':
-            end = endinfo.search(line['otherinfo'])
+        elif line["status"] == "end":
+            end = endinfo.search(line["otherinfo"])
             if end is None:
-                end = ''
+                end = ""
             else:
-                end = ' ' + end.group('extrainfo') + '.'
-            print('task %s completed in %d seconds.%s' % (
-                curtask[0],
-                int(line['time']) - curtask[1],
-                end))
+                end = " " + end.group("extrainfo") + "."
+            print(
+                "task %s completed in %d seconds.%s"
+                % (curtask[0], int(line["time"]) - curtask[1], end)
+            )
             curtask = None
             curprogress = None
 
     if curtask is not None:
         now = int(time.time())
         if curprogress is None:
-            progress = ''
+            progress = ""
         else:
-            progress = '\n     %d seconds ago: %.2f %% done, ' \
-                       'remaining %d seconds.\n     ETC %s.' % (
-                           now - curprogress[0],
-                           curprogress[1],
-                           curprogress[2],
-                           datetime.datetime.fromtimestamp(curprogress[3]))
-        print("task %s running for %d seconds.%s" % (
-            curtask[0],
-            now - curtask[1],
-            progress
-        ))
+            progress = (
+                "\n     %d seconds ago: %.2f %% done, "
+                "remaining %d seconds.\n     ETC %s."
+                % (
+                    now - curprogress[0],
+                    curprogress[1],
+                    curprogress[2],
+                    datetime.datetime.fromtimestamp(curprogress[3]),
+                )
+            )
+        print(
+            "task %s running for %d seconds.%s"
+            % (curtask[0], now - curtask[1], progress)
+        )

@@ -47,8 +47,9 @@ class Target:
 
     """
 
-    def __init__(self, targets, rand=True, maxnbr=None, state=None, name=None,
-                 categories=None):
+    def __init__(
+        self, targets, rand=True, maxnbr=None, state=None, name=None, categories=None
+    ):
         self.targets = targets
         self.rand = rand
         # len() result needs to be lower than sys.maxsize
@@ -58,17 +59,20 @@ class Target:
         else:
             self.maxnbr = maxnbr
         self.state = state
-        self.name = name or ("%d address%s from %d range%s" % (
-            self.maxnbr,
-            'es' if self.maxnbr > 1 else '',
-            len(targets),
-            's' if len(targets) > 1 else '',
-        ))
+        self.name = name or (
+            "%d address%s from %d range%s"
+            % (
+                self.maxnbr,
+                "es" if self.maxnbr > 1 else "",
+                len(targets),
+                "s" if len(targets) > 1 else "",
+            )
+        )
         if categories is None:
             self.categories = [self.name]
         else:
             self.categories = categories
-        self.infos = {'categories': self.categories}
+        self.infos = {"categories": self.categories}
 
     def __len__(self):
         return self.maxnbr
@@ -77,21 +81,20 @@ class Target:
         return IterTarget(self, rand=self.rand, state=self.state)
 
     def __repr__(self):
-        return '<Target %s>' % self.name
+        return "<Target %s>" % self.name
 
     def union(self, *others):
         others = tuple(o for o in others if o)
-        if (
-                self.maxnbr < self.targetscount or
-                any(o.maxnbr < o.targetscount for o in others)
+        if self.maxnbr < self.targetscount or any(
+            o.maxnbr < o.targetscount for o in others
         ):
-            raise ValueError('Cannot union when maxnbr is set')
+            raise ValueError("Cannot union when maxnbr is set")
         if self.state or any(o.state for o in others):
-            raise ValueError('Cannot union when state is set')
+            raise ValueError("Cannot union when state is set")
         return Target(
             self.targets.union(*(o.targets for o in others)),
             rand=self.rand or any(o.rand for o in others),
-            name=' + '.join([self.name] + [o.name for o in others])
+            name=" + ".join([self.name] + [o.name for o in others]),
         )
 
     def __add__(self, other):
@@ -149,15 +152,17 @@ class TargetTest(Target):
 
     """
 
-    def __init__(self, count=10, categories=None, rand=True, maxnbr=None,
-                 state=None):
+    def __init__(self, count=10, categories=None, rand=True, maxnbr=None, state=None):
         if count < 0:
-            raise ValueError('count must be greater than or equal to 0')
+            raise ValueError("count must be greater than or equal to 0")
         if count > 16777216:
-            raise ValueError('count must be lower than or equal to 16777216')
+            raise ValueError("count must be lower than or equal to 16777216")
         super().__init__(
             geoiputils.IPRanges(ranges=[(2130706433, 2130706432 + count)]),
-            rand=rand, maxnbr=maxnbr, state=state, name='TEST-%d' % count,
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="TEST-%d" % count,
             categories=categories,
         )
 
@@ -168,11 +173,13 @@ class TargetRegisteredCountry(Target):
 
     """
 
-    def __init__(self, country, categories=None, rand=True, maxnbr=None,
-                 state=None):
+    def __init__(self, country, categories=None, rand=True, maxnbr=None, state=None):
         super().__init__(
-            geoiputils.get_ranges_by_registered_country(country), rand=rand,
-            maxnbr=maxnbr, state=state, name='REGISTERED_COUNTRY-%s' % country,
+            geoiputils.get_ranges_by_registered_country(country),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="REGISTERED_COUNTRY-%s" % country,
             categories=categories,
         )
 
@@ -183,11 +190,13 @@ class TargetCountry(Target):
 
     """
 
-    def __init__(self, country, categories=None, rand=True, maxnbr=None,
-                 state=None):
+    def __init__(self, country, categories=None, rand=True, maxnbr=None, state=None):
         super().__init__(
-            geoiputils.get_ranges_by_country(country), rand=rand,
-            maxnbr=maxnbr, state=state, name='COUNTRY-%s' % country,
+            geoiputils.get_ranges_by_country(country),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="COUNTRY-%s" % country,
             categories=categories,
         )
 
@@ -198,12 +207,16 @@ class TargetRegion(Target):
 
     """
 
-    def __init__(self, country, region, categories=None, rand=True,
-                 maxnbr=None, state=None):
+    def __init__(
+        self, country, region, categories=None, rand=True, maxnbr=None, state=None
+    ):
         super().__init__(
-            geoiputils.get_ranges_by_region(country, region), rand=rand,
-            maxnbr=maxnbr, state=state,
-            name='REGION-%s-%s' % (country, region), categories=categories,
+            geoiputils.get_ranges_by_region(country, region),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="REGION-%s-%s" % (country, region),
+            categories=categories,
         )
 
 
@@ -213,12 +226,16 @@ class TargetCity(Target):
 
     """
 
-    def __init__(self, country_code, city, categories=None, rand=True,
-                 maxnbr=None, state=None):
+    def __init__(
+        self, country_code, city, categories=None, rand=True, maxnbr=None, state=None
+    ):
         super().__init__(
-            geoiputils.get_ranges_by_city(country_code, city), rand=rand,
-            maxnbr=maxnbr, state=state,
-            name='CITY-%s-%s' % (country_code, city), categories=categories,
+            geoiputils.get_ranges_by_city(country_code, city),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="CITY-%s-%s" % (country_code, city),
+            categories=categories,
         )
 
 
@@ -228,15 +245,18 @@ class TargetAS(Target):
 
     """
 
-    def __init__(self, asnum, categories=None, rand=True, maxnbr=None,
-                 state=None):
-        if isinstance(asnum, str) and asnum.upper().startswith('AS'):
+    def __init__(self, asnum, categories=None, rand=True, maxnbr=None, state=None):
+        if isinstance(asnum, str) and asnum.upper().startswith("AS"):
             asnum = int(asnum[2:])
         else:
             asnum = int(asnum)
         super().__init__(
-            geoiputils.get_ranges_by_asnum(asnum), rand=rand, maxnbr=maxnbr,
-            state=state, name='AS-%d' % asnum, categories=categories,
+            geoiputils.get_ranges_by_asnum(asnum),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="AS-%d" % asnum,
+            categories=categories,
         )
 
 
@@ -248,8 +268,12 @@ class TargetRoutable(Target):
 
     def __init__(self, categories=None, rand=True, maxnbr=None, state=None):
         super().__init__(
-            geoiputils.get_routable_ranges(), rand=rand, maxnbr=maxnbr,
-            state=state, name='ROUTABLE', categories=categories
+            geoiputils.get_routable_ranges(),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="ROUTABLE",
+            categories=categories,
         )
 
 
@@ -259,13 +283,23 @@ class TargetRange(Target):
 
     """
 
-    def __init__(self, start, stop, categories=None, rand=True, maxnbr=None,
-                 state=None, name=None):
+    def __init__(
+        self,
+        start,
+        stop,
+        categories=None,
+        rand=True,
+        maxnbr=None,
+        state=None,
+        name=None,
+    ):
         super().__init__(
-            geoiputils.IPRanges(ranges=[(utils.ip2int(start),
-                                         utils.ip2int(stop))]),
-            rand=rand, maxnbr=maxnbr, state=state,
-            name=name or 'RANGE-%s-%s' % (start, stop), categories=categories,
+            geoiputils.IPRanges(ranges=[(utils.ip2int(start), utils.ip2int(stop))]),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name=name or "RANGE-%s-%s" % (start, stop),
+            categories=categories,
         )
 
 
@@ -275,11 +309,14 @@ class TargetNetwork(TargetRange):
 
     """
 
-    def __init__(self, net, categories=None, rand=True, maxnbr=None,
-                 state=None):
+    def __init__(self, net, categories=None, rand=True, maxnbr=None, state=None):
         super().__init__(
-            *utils.net2range(net), rand=rand, maxnbr=maxnbr, state=state,
-            name='NET-%s' % net.replace('/', '-'), categories=categories
+            *utils.net2range(net),
+            rand=rand,
+            maxnbr=maxnbr,
+            state=state,
+            name="NET-%s" % net.replace("/", "-"),
+            categories=categories
         )
 
 
@@ -297,16 +334,16 @@ class TargetFile(Target):
     @staticmethod
     def _getaddr(line):
         try:
-            return utils.ip2int(line.split('#', 1)[0].strip())
+            return utils.ip2int(line.split("#", 1)[0].strip())
         except utils.socket.error:
             pass
 
     def __init__(self, filename, categories=None, maxnbr=None, state=None):
         self.filename = filename
-        self.name = 'FILE-%s' % filename
+        self.name = "FILE-%s" % filename
         if categories is None:
             categories = [self.name]
-        self.infos = {'categories': categories}
+        self.infos = {"categories": categories}
         with open(filename) as fdesc:
             i = 0
             for line in fdesc:
@@ -352,7 +389,7 @@ class IterTargetFile:
 
     def __readline__(self):
         line = self.fdesc.readline()
-        if line == '':
+        if line == "":
             self.fdesc.close()
             self.target.close()
             raise StopIteration
@@ -373,20 +410,20 @@ class TargetZMapPreScan(TargetFile):
 
     """
 
-    def __init__(self, target, zmap='zmap', port=80, zmap_opts=None):
+    def __init__(self, target, zmap="zmap", port=80, zmap_opts=None):
         self.srctarget = target
         self.infos = target.infos
         if zmap_opts is None:
             zmap_opts = []
-        zmap_opts += ['-p', str(port)]
-        self.infos['zmap_pre_scan'] = zmap_opts[:]
-        zmap_opts = [zmap] + zmap_opts + ['-o', '-']
-        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode='w')
+        zmap_opts += ["-p", str(port)]
+        self.infos["zmap_pre_scan"] = zmap_opts[:]
+        zmap_opts = [zmap] + zmap_opts + ["-o", "-"]
+        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode="w")
         for start, count in target.targets.ranges.values():
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
         self.tmpfile.close()
-        zmap_opts += ['-w', self.tmpfile.name]
+        zmap_opts += ["-w", self.tmpfile.name]
         self.proc = subprocess.Popen(zmap_opts, stdout=subprocess.PIPE)
         self.targetsfd = self.proc.stdout
 
@@ -404,7 +441,7 @@ class TargetNmapPreScan(TargetZMapPreScan):
 
     """
 
-    match_addr = re.compile('^Host: ([^ ]+) \\(.*\\)\tStatus: Up$')
+    match_addr = re.compile("^Host: ([^ ]+) \\(.*\\)\tStatus: Up$")
 
     @classmethod
     def _getaddr(cls, line):
@@ -416,20 +453,20 @@ class TargetNmapPreScan(TargetZMapPreScan):
                 pass
         return None
 
-    def __init__(self, target, nmap='nmap', ports=None, nmap_opts=None):
+    def __init__(self, target, nmap="nmap", ports=None, nmap_opts=None):
         self.srctarget = target
         self.infos = target.infos
         if ports is None:
             ports = [80, 443]
-        ports = ','.join(str(p) for p in ports)
+        ports = ",".join(str(p) for p in ports)
         if nmap_opts is None:
             nmap_opts = []
-        nmap_opts += ['-n', '-PS%s' % ports, '-sS', '--open', '-p', ports]
-        self.infos['nmap_pre_scan'] = nmap_opts[:]
+        nmap_opts += ["-n", "-PS%s" % ports, "-sS", "--open", "-p", ports]
+        self.infos["nmap_pre_scan"] = nmap_opts[:]
         # TODO: use -iL and feed target randomly when needed, w/o
         # using a temporary file
-        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        nmap_opts = [nmap, '-iL', self.tmpfile.name, '-oG', '-'] + nmap_opts
+        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode="w")
+        nmap_opts = [nmap, "-iL", self.tmpfile.name, "-oG", "-"] + nmap_opts
         for start, count in target.targets.ranges.values():
             for net in utils.range2nets((start, start + count - 1)):
                 self.tmpfile.write("%s\n" % net)
@@ -439,43 +476,56 @@ class TargetNmapPreScan(TargetZMapPreScan):
 
 
 ARGPARSER = ArgumentParser(add_help=False)
-ARGPARSER.add_argument('--categories', metavar='CAT', nargs='+',
-                       help='tag scan results with these categories')
-ARGPARSER.add_argument('--country', '-c', metavar='CODE[,CODE[,...]]',
-                       help='select a country')
-ARGPARSER.add_argument('--registered-country', metavar='CODE[,CODE[,...]]',
-                       help='select a registered country')
-ARGPARSER.add_argument('--city', nargs=2,
-                       metavar=('COUNTRY_CODE', 'CITY'),
-                       help='select a region')
-ARGPARSER.add_argument('--region', nargs=2,
-                       metavar=('COUNTRY_CODE', 'REGION_CODE'),
-                       help='select a region')
-ARGPARSER.add_argument('--asnum', '-a', metavar='AS[,AS[,...]]',
-                       help='select an autonomous system')
-ARGPARSER.add_argument('--range', '-r', nargs=2, metavar=('START', 'STOP'),
-                       help='select an address range')
-ARGPARSER.add_argument('--network', '-n', metavar='NET/MASK',
-                       help='select a network')
-ARGPARSER.add_argument('--routable', action="store_true")
-ARGPARSER.add_argument('--file', '-f', metavar='FILENAME',
-                       help='read targets from a file')
-ARGPARSER.add_argument('--test', '-t', metavar='COUNT', type=int,
-                       help='select COUNT addresses on local loop')
-ARGPARSER.add_argument('--zmap-prescan-port', type=int)
-ARGPARSER.add_argument('--zmap-prescan-opts')
-ARGPARSER.add_argument('--nmap-prescan-ports', type=int, nargs="+")
-ARGPARSER.add_argument('--nmap-prescan-opts')
-ARGPARSER.add_argument('--limit', '-l', type=int,
-                       help='number of addresses to output')
-ARGPARSER.add_argument('--state', type=int, nargs=4,
-                       help='internal LCG state')
+ARGPARSER.add_argument(
+    "--categories",
+    metavar="CAT",
+    nargs="+",
+    help="tag scan results with these categories",
+)
+ARGPARSER.add_argument(
+    "--country", "-c", metavar="CODE[,CODE[,...]]", help="select a country"
+)
+ARGPARSER.add_argument(
+    "--registered-country",
+    metavar="CODE[,CODE[,...]]",
+    help="select a registered country",
+)
+ARGPARSER.add_argument(
+    "--city", nargs=2, metavar=("COUNTRY_CODE", "CITY"), help="select a region"
+)
+ARGPARSER.add_argument(
+    "--region", nargs=2, metavar=("COUNTRY_CODE", "REGION_CODE"), help="select a region"
+)
+ARGPARSER.add_argument(
+    "--asnum", "-a", metavar="AS[,AS[,...]]", help="select an autonomous system"
+)
+ARGPARSER.add_argument(
+    "--range", "-r", nargs=2, metavar=("START", "STOP"), help="select an address range"
+)
+ARGPARSER.add_argument("--network", "-n", metavar="NET/MASK", help="select a network")
+ARGPARSER.add_argument("--routable", action="store_true")
+ARGPARSER.add_argument(
+    "--file", "-f", metavar="FILENAME", help="read targets from a file"
+)
+ARGPARSER.add_argument(
+    "--test",
+    "-t",
+    metavar="COUNT",
+    type=int,
+    help="select COUNT addresses on local loop",
+)
+ARGPARSER.add_argument("--zmap-prescan-port", type=int)
+ARGPARSER.add_argument("--zmap-prescan-opts")
+ARGPARSER.add_argument("--nmap-prescan-ports", type=int, nargs="+")
+ARGPARSER.add_argument("--nmap-prescan-opts")
+ARGPARSER.add_argument("--limit", "-l", type=int, help="number of addresses to output")
+ARGPARSER.add_argument("--state", type=int, nargs=4, help="internal LCG state")
 
 
 def target_from_args(args):
     if args.country is not None:
         countries = set()
-        for country in args.country.split(','):
+        for country in args.country.split(","):
             ccodes = utils.country_unalias(country)
             if isinstance(ccodes, list):
                 countries.update(ccodes)
@@ -484,16 +534,18 @@ def target_from_args(args):
         target = reduce(
             add,
             (
-                TargetCountry(country,
-                              categories=args.categories,
-                              maxnbr=args.limit,
-                              state=args.state)
+                TargetCountry(
+                    country,
+                    categories=args.categories,
+                    maxnbr=args.limit,
+                    state=args.state,
+                )
                 for country in countries
             ),
         )
     elif args.registered_country is not None:
         countries = set()
-        for country in args.registered_country.split(','):
+        for country in args.registered_country.split(","):
             ccodes = utils.country_unalias(country)
             if isinstance(ccodes, list):
                 countries.update(ccodes)
@@ -502,57 +554,69 @@ def target_from_args(args):
         target = reduce(
             add,
             (
-                TargetRegisteredCountry(country,
-                                        categories=args.categories,
-                                        maxnbr=args.limit,
-                                        state=args.state)
+                TargetRegisteredCountry(
+                    country,
+                    categories=args.categories,
+                    maxnbr=args.limit,
+                    state=args.state,
+                )
                 for country in countries
             ),
         )
     elif args.city is not None:
-        target = TargetCity(args.city[0], args.city[1],
-                            categories=args.categories,
-                            maxnbr=args.limit,
-                            state=args.state)
+        target = TargetCity(
+            args.city[0],
+            args.city[1],
+            categories=args.categories,
+            maxnbr=args.limit,
+            state=args.state,
+        )
     elif args.region is not None:
-        target = TargetRegion(args.region[0], args.region[1],
-                              categories=args.categories,
-                              maxnbr=args.limit,
-                              state=args.state)
+        target = TargetRegion(
+            args.region[0],
+            args.region[1],
+            categories=args.categories,
+            maxnbr=args.limit,
+            state=args.state,
+        )
     elif args.asnum is not None:
         target = reduce(
             add,
             (
-                TargetAS(asnum,
-                         categories=args.categories,
-                         maxnbr=args.limit,
-                         state=args.state)
-                for asnum in args.asnum.split(',')
+                TargetAS(
+                    asnum,
+                    categories=args.categories,
+                    maxnbr=args.limit,
+                    state=args.state,
+                )
+                for asnum in args.asnum.split(",")
             ),
         )
     elif args.range is not None:
-        target = TargetRange(args.range[0], args.range[1],
-                             categories=args.categories,
-                             maxnbr=args.limit,
-                             state=args.state)
+        target = TargetRange(
+            args.range[0],
+            args.range[1],
+            categories=args.categories,
+            maxnbr=args.limit,
+            state=args.state,
+        )
     elif args.network is not None:
-        target = TargetNetwork(args.network,
-                               categories=args.categories,
-                               maxnbr=args.limit,
-                               state=args.state)
+        target = TargetNetwork(
+            args.network,
+            categories=args.categories,
+            maxnbr=args.limit,
+            state=args.state,
+        )
     elif args.routable:
-        target = TargetRoutable(categories=args.categories,
-                                maxnbr=args.limit,
-                                state=args.state)
+        target = TargetRoutable(
+            categories=args.categories, maxnbr=args.limit, state=args.state
+        )
     elif args.file is not None:
-        target = TargetFile(args.file,
-                            categories=args.categories,
-                            state=args.state)
+        target = TargetFile(args.file, categories=args.categories, state=args.state)
     elif args.test is not None:
-        target = TargetTest(args.test,
-                            categories=args.categories,
-                            maxnbr=args.limit,
-                            state=args.state)
+        target = TargetTest(
+            args.test, categories=args.categories, maxnbr=args.limit, state=args.state
+        )
     else:
         return None
     if args.zmap_prescan_port is not None:
@@ -560,8 +624,8 @@ def target_from_args(args):
             zmap_prescan_opts = []
         else:
             zmap_prescan_opts = shlex.split(args.zmap_prescan_opts)
-        if '-b' not in zmap_prescan_opts:
-            zmap_prescan_opts += ['-b', os.devnull]
+        if "-b" not in zmap_prescan_opts:
+            zmap_prescan_opts += ["-b", os.devnull]
         return TargetZMapPreScan(
             target,
             port=args.zmap_prescan_port,
@@ -573,8 +637,6 @@ def target_from_args(args):
         else:
             nmap_prescan_opts = shlex.split(args.nmap_prescan_opts)
         return TargetNmapPreScan(
-            target,
-            ports=args.nmap_prescan_ports,
-            nmap_opts=nmap_prescan_opts
+            target, ports=args.nmap_prescan_ports, nmap_opts=nmap_prescan_opts
         )
     return target

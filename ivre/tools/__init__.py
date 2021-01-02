@@ -20,33 +20,35 @@
 """This sub-module contains functions to implement ivre commands."""
 
 
-__all__ = set([
-    'airodump2db',
-    'arp2db',
-    'auditdom',
-    'db2view',
-    'flow2db',
-    'flowcli',
-    'getmoduli',
-    'httpd',
-    'ipcalc',
-    'ipdata',
-    'ipinfo',
-    'iphost',
-    'macinfo',
-    'passiverecon2db',
-    'passivereconworker',
-    'plotdb',
-    'runscans',
-    'runscansagent',
-    'runscansagentdb',
-    'scan2db',
-    'scancli',
-    'scanstatus',
-    'version',
-    'view',
-    'zeek2db',
-])
+__all__ = set(
+    [
+        "airodump2db",
+        "arp2db",
+        "auditdom",
+        "db2view",
+        "flow2db",
+        "flowcli",
+        "getmoduli",
+        "httpd",
+        "ipcalc",
+        "ipdata",
+        "ipinfo",
+        "iphost",
+        "macinfo",
+        "passiverecon2db",
+        "passivereconworker",
+        "plotdb",
+        "runscans",
+        "runscansagent",
+        "runscansagentdb",
+        "scan2db",
+        "scancli",
+        "scanstatus",
+        "version",
+        "view",
+        "zeek2db",
+    ]
+)
 
 
 ALIASES = {

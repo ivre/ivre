@@ -50,8 +50,7 @@ import time
 
 try:
     from OpenSSL import crypto as osslc
-    from cryptography.hazmat.primitives.serialization import \
-        Encoding, PublicFormat
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 except ImportError:
     USE_PYOPENSSL = False
 else:
@@ -81,9 +80,9 @@ MAXVALLEN = 1000
 
 
 LOGGER = logging.getLogger("ivre")
-REGEXP_T = type(re.compile(''))
-HEX = re.compile('^[a-f0-9]+$', re.IGNORECASE)
-STRPTIME_SUPPORTS_TZ = (sys.version_info >= (3, 7))
+REGEXP_T = type(re.compile(""))
+HEX = re.compile("^[a-f0-9]+$", re.IGNORECASE)
+STRPTIME_SUPPORTS_TZ = sys.version_info >= (3, 7)
 
 
 # IP address regexp, based on
@@ -114,57 +113,57 @@ STRPTIME_SUPPORTS_TZ = (sys.version_info >= (3, 7))
 # _NETMASK = r'(?:12[0-8]|1[0-1][0-9]|0?[0-9]{1,2})'
 # _NETADDR = '^(%s|%s)/(%s|%s)$' % (_IPV4ADDR, _IPV6ADDR, _NETMASK, _IPV4ADDR)
 IPADDR = re.compile(
-    '^((?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|('
-    '?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){1,4}:('
-    '?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2'
-    '[0-4]|1{0,1}[0-9]){0,1}[0-9])))|(?:::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:'
-    '(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]'
-    '|1{0,1}[0-9]){0,1}[0-9])))|(?:fe80:(?::(?:(?:[0-9a-fA-F]){1,4})){0,4}%[0-'
-    '9a-zA-Z]{1,})|(?::(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,7}|:))|(?:(?:(?:[0-9'
-    'a-fA-F]){1,4}):(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,6}))|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,2}(?::(?:(?:[0-9a-fA-F]){1,4})){1,5})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,3}(?::(?:(?:[0-9a-fA-F]){1,4})){1,4})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,4}(?::(?:(?:[0-9a-fA-F]){1,4})){1,3})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,5}(?::(?:(?:[0-9a-fA-F]){1,4})){1,2})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,6}:(?:(?:[0-9a-fA-F]){1,4}))|(?:(?:(?:(?:[0-9a-fA-F]){1,'
-    '4}):){1,7}:)|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){7,7}(?:(?:[0-9a-fA-F]){1,4}'
-    ')))$',
+    "^((?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|("
+    "?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){1,4}:("
+    "?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2"
+    "[0-4]|1{0,1}[0-9]){0,1}[0-9])))|(?:::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:"
+    "(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]"
+    "|1{0,1}[0-9]){0,1}[0-9])))|(?:fe80:(?::(?:(?:[0-9a-fA-F]){1,4})){0,4}%[0-"
+    "9a-zA-Z]{1,})|(?::(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,7}|:))|(?:(?:(?:[0-9"
+    "a-fA-F]){1,4}):(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,6}))|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,2}(?::(?:(?:[0-9a-fA-F]){1,4})){1,5})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,3}(?::(?:(?:[0-9a-fA-F]){1,4})){1,4})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,4}(?::(?:(?:[0-9a-fA-F]){1,4})){1,3})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,5}(?::(?:(?:[0-9a-fA-F]){1,4})){1,2})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,6}:(?:(?:[0-9a-fA-F]){1,4}))|(?:(?:(?:(?:[0-9a-fA-F]){1,"
+    "4}):){1,7}:)|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){7,7}(?:(?:[0-9a-fA-F]){1,4}"
+    ")))$",
     re.I,
 )
 NETADDR = re.compile(
-    '^((?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|('
-    '?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){1,4}:('
-    '?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2'
-    '[0-4]|1{0,1}[0-9]){0,1}[0-9])))|(?:::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:'
-    '(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]'
-    '|1{0,1}[0-9]){0,1}[0-9])))|(?:fe80:(?::(?:(?:[0-9a-fA-F]){1,4})){0,4}%[0-'
-    '9a-zA-Z]{1,})|(?::(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,7}|:))|(?:(?:(?:[0-9'
-    'a-fA-F]){1,4}):(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,6}))|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,2}(?::(?:(?:[0-9a-fA-F]){1,4})){1,5})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,3}(?::(?:(?:[0-9a-fA-F]){1,4})){1,4})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,4}(?::(?:(?:[0-9a-fA-F]){1,4})){1,3})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,5}(?::(?:(?:[0-9a-fA-F]){1,4})){1,2})|(?:(?:(?:(?:[0-9a-'
-    'fA-F]){1,4}):){1,6}:(?:(?:[0-9a-fA-F]){1,4}))|(?:(?:(?:(?:[0-9a-fA-F]){1,'
-    '4}):){1,7}:)|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){7,7}(?:(?:[0-9a-fA-F]){1,4}'
-    ')))/((?:12[0-8]|1[0-1][0-9]|0?[0-9]{1,2})|(?:(?:(?:25[0-5]|(?:2[0-4]|1{0,'
-    '1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))'
-    ')$',
+    "^((?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|("
+    "?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){1,4}:("
+    "?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2"
+    "[0-4]|1{0,1}[0-9]){0,1}[0-9])))|(?:::(?:ffff(?::0{1,4}){0,1}:){0,1}(?:(?:"
+    "(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]"
+    "|1{0,1}[0-9]){0,1}[0-9])))|(?:fe80:(?::(?:(?:[0-9a-fA-F]){1,4})){0,4}%[0-"
+    "9a-zA-Z]{1,})|(?::(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,7}|:))|(?:(?:(?:[0-9"
+    "a-fA-F]){1,4}):(?:(?::(?:(?:[0-9a-fA-F]){1,4})){1,6}))|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,2}(?::(?:(?:[0-9a-fA-F]){1,4})){1,5})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,3}(?::(?:(?:[0-9a-fA-F]){1,4})){1,4})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,4}(?::(?:(?:[0-9a-fA-F]){1,4})){1,3})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,5}(?::(?:(?:[0-9a-fA-F]){1,4})){1,2})|(?:(?:(?:(?:[0-9a-"
+    "fA-F]){1,4}):){1,6}:(?:(?:[0-9a-fA-F]){1,4}))|(?:(?:(?:(?:[0-9a-fA-F]){1,"
+    "4}):){1,7}:)|(?:(?:(?:(?:[0-9a-fA-F]){1,4}):){7,7}(?:(?:[0-9a-fA-F]){1,4}"
+    ")))/((?:12[0-8]|1[0-1][0-9]|0?[0-9]{1,2})|(?:(?:(?:25[0-5]|(?:2[0-4]|1{0,"
+    "1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
+    ")$",
     re.I,
 )
 IPV4ADDR = re.compile(
-    '^(?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?'
-    ':2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$',
-    re.I
+    "^(?:(?:(?:25[0-5]|(?:2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(?:25[0-5]|(?"
+    ":2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$",
+    re.I,
 )
 
 NMAP_FINGERPRINT_IVRE_KEY = {
-    'd': 'service_devicetype',
-    'h': 'service_hostname',
-    'i': 'service_extrainfo',
-    'o': 'service_ostype',
-    'p': 'service_product',
-    'v': 'service_version',
-    'cpe': 'cpe',
+    "d": "service_devicetype",
+    "h": "service_hostname",
+    "i": "service_extrainfo",
+    "o": "service_ostype",
+    "p": "service_product",
+    "v": "service_version",
+    "cpe": "cpe",
 }
 
 logging.basicConfig()
@@ -182,10 +181,11 @@ def ip2int(ipstr):
     except AttributeError:
         pass
     try:
-        return struct.unpack('!I', socket.inet_aton(ipstr))[0]
+        return struct.unpack("!I", socket.inet_aton(ipstr))[0]
     except socket.error:
         val1, val2 = struct.unpack(
-            '!QQ', socket.inet_pton(socket.AF_INET6, ipstr),
+            "!QQ",
+            socket.inet_pton(socket.AF_INET6, ipstr),
         )
         return (val1 << 64) + val2
 
@@ -205,11 +205,11 @@ def int2ip(ipint):
 
     """
     try:
-        return socket.inet_ntoa(struct.pack('!I', ipint))
+        return socket.inet_ntoa(struct.pack("!I", ipint))
     except struct.error:
         return socket.inet_ntop(
             socket.AF_INET6,
-            struct.pack('!QQ', ipint >> 64, ipint & 0xffffffffffffffff),
+            struct.pack("!QQ", ipint >> 64, ipint & 0xFFFFFFFFFFFFFFFF),
         )
 
 
@@ -221,7 +221,7 @@ def int2ip6(ipint):
     """
     return socket.inet_ntop(
         socket.AF_INET6,
-        struct.pack('!QQ', ipint >> 64, ipint & 0xffffffffffffffff),
+        struct.pack("!QQ", ipint >> 64, ipint & 0xFFFFFFFFFFFFFFFF),
     )
 
 
@@ -235,14 +235,14 @@ def force_int2ip(ipint):
 
 def ip2bin(ipval):
     """Attempts to convert any IP address representation (both IPv4 and
-IPv6) to a 16-bytes binary blob.
+    IPv6) to a 16-bytes binary blob.
 
-IPv4 addresses are converted to IPv6 using the standard ::ffff:A.B.C.D
-mapping.
+    IPv4 addresses are converted to IPv6 using the standard ::ffff:A.B.C.D
+    mapping.
 
     """
     try:
-        return struct.pack('!QQ', ipval >> 64, ipval & 0xffffffffffffffff)
+        return struct.pack("!QQ", ipval >> 64, ipval & 0xFFFFFFFFFFFFFFFF)
     except TypeError:
         pass
     raw_ipval = ipval
@@ -253,13 +253,14 @@ mapping.
         if len(ipval) == 16:
             return ipval
         if len(ipval) == 4:
-            return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + ipval
-        raise ValueError('Invalid IP address %r' % ipval)
+            return b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff" + ipval
+        raise ValueError("Invalid IP address %r" % ipval)
     except AttributeError:
         pass
     try:
-        return (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' +
-                socket.inet_aton(ipval))
+        return b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff" + socket.inet_aton(
+            ipval
+        )
     except (socket.error, ValueError, TypeError):
         # Value and Type Errors when correct unicode but
         # already a binary representation
@@ -272,13 +273,13 @@ mapping.
     if len(ipval) == 16:
         return raw_ipval
     if len(ipval) == 4:
-        return b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' + raw_ipval
-    raise ValueError('Invalid IP address %r' % ipval)
+        return b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff" + raw_ipval
+    raise ValueError("Invalid IP address %r" % ipval)
 
 
 def bin2ip(ipval):
     """Converts a 16-bytes binary blob to an IPv4 or IPv6 standard
-representation. See ip2bin().
+    representation. See ip2bin().
 
     """
     try:
@@ -295,7 +296,7 @@ representation. See ip2bin().
         return int2ip(ipval)
     except TypeError:
         pass
-    if ipval[:12] == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff':
+    if ipval[:12] == b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff":
         return socket.inet_ntoa(ipval[12:])
     return socket.inet_ntop(socket.AF_INET6, ipval)
 
@@ -308,7 +309,7 @@ def int2mask(mask):
     From scapy:utils.py:itom(x).
 
     """
-    return (0xffffffff00000000 >> mask) & 0xffffffff
+    return (0xFFFFFFFF00000000 >> mask) & 0xFFFFFFFF
 
 
 def int2mask6(mask):
@@ -318,9 +319,8 @@ def int2mask6(mask):
 
     """
     return (
-        0xffffffffffffffffffffffffffffffff00000000000000000000000000000000 >>
-        mask
-    ) & 0xffffffffffffffffffffffffffffffff
+        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000000000000000000000000000 >> mask
+    ) & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 
 
 def net2range(network):
@@ -329,10 +329,10 @@ def net2range(network):
         network = network.decode()
     except AttributeError:
         pass
-    addr, mask = network.split('/')
-    ipv6 = ':' in addr
+    addr, mask = network.split("/")
+    ipv6 = ":" in addr
     addr = ip2int(addr)
-    if (not ipv6 and '.' in mask) or (ipv6 and ':' in mask):
+    if (not ipv6 and "." in mask) or (ipv6 and ":" in mask):
         mask = ip2int(mask)
     elif ipv6:
         mask = int2mask6(int(mask))
@@ -340,12 +340,10 @@ def net2range(network):
         mask = int2mask(int(mask))
     start = addr & mask
     if ipv6:
-        stop = int2ip6(
-            start + 0xffffffffffffffffffffffffffffffff - mask
-        )
+        stop = int2ip6(start + 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF - mask)
         start = int2ip6(start)
     else:
-        stop = int2ip(start + 0xffffffff - mask)
+        stop = int2ip(start + 0xFFFFFFFF - mask)
         start = int2ip(start)
     return start, stop
 
@@ -360,24 +358,24 @@ def range2nets(rng):
     maskint = 32
     mask = int2mask(maskint)
     while True:
-        while cur & mask == cur and cur | (~mask & 0xffffffff) <= stop:
+        while cur & mask == cur and cur | (~mask & 0xFFFFFFFF) <= stop:
             maskint -= 1
             if maskint < 0:
                 break
             mask = int2mask(maskint)
-        res.append('%s/%d' % (int2ip(cur), maskint + 1))
+        res.append("%s/%d" % (int2ip(cur), maskint + 1))
         mask = int2mask(maskint + 1)
         if stop & mask == cur:
             return res
-        cur = (cur | (~mask & 0xffffffff)) + 1
+        cur = (cur | (~mask & 0xFFFFFFFF)) + 1
         maskint = 32
         mask = int2mask(maskint)
 
 
 def get_domains(name):
     """Generates the upper domains from a domain name."""
-    name = name.split('.')
-    return ('.'.join(name[i:]) for i in range(len(name)))
+    name = name.split(".")
+    return (".".join(name[i:]) for i in range(len(name)))
 
 
 def _espace_slash(string):
@@ -388,10 +386,10 @@ def _espace_slash(string):
     escaping = False
     new_string = ""
     for char in string:
-        if not escaping and char == '\\':
+        if not escaping and char == "\\":
             escaping = True
-        elif escaping and char != '/':
-            new_string += '\\' + char
+        elif escaping and char != "/":
+            new_string += "\\" + char
             escaping = False
         else:
             new_string += char
@@ -401,7 +399,7 @@ def _espace_slash(string):
 
 def _escape_first_slash(string):
     """This function removes the first '\\' if the string starts with '\\/'."""
-    if string.startswith('\\/'):
+    if string.startswith("\\/"):
         string = string[1:]
     return string
 
@@ -411,16 +409,13 @@ def str2regexp(string):
     a python regexp object, when the string is using the syntax
     /regexp[/flags].
     """
-    if string.startswith('/'):
-        string = string[1:].rsplit('/', 1)
+    if string.startswith("/"):
+        string = string[1:].rsplit("/", 1)
         # Enable slash-escape even if it is not necessary
         string[0] = _espace_slash(string[0])
         if len(string) == 1:
-            string.append('')
-        string = re.compile(
-            string[0],
-            sum(getattr(re, f.upper()) for f in string[1])
-        )
+            string.append("")
+        string = re.compile(string[0], sum(getattr(re, f.upper()) for f in string[1]))
     else:
         string = _escape_first_slash(string)
     return string
@@ -437,9 +432,7 @@ def regexp2pattern(string):
     if isinstance(string, REGEXP_T):
         flags = string.flags
         string = string.pattern
-        patterns = (('^', '$', '.*')
-                    if isinstance(string, str) else
-                    (b'^', b'$', b'.*'))
+        patterns = ("^", "$", ".*") if isinstance(string, str) else (b"^", b"$", b".*")
         if string.startswith(patterns[0]):
             string = string[1:]
         # elif string.startswith('('):
@@ -463,9 +456,7 @@ def str2list(string):
     a list of the coma-or-pipe separated elements from the string.
 
     """
-    patterns = ((',', '|')
-                if isinstance(string, str) else
-                (b',', b'|'))
+    patterns = (",", "|") if isinstance(string, str) else (b",", b"|")
     if patterns[0] in string or patterns[1] in string:
         return string.replace(patterns[1], patterns[0]).split(patterns[0])
     return string
@@ -502,14 +493,14 @@ def ports2nmapspec(portlist):
             current = (current[0], port)
         else:
             if current[0] is not None:
-                result.append(str(current[0])
-                              if current[0] == current[1]
-                              else "%d-%d" % current)
+                result.append(
+                    str(current[0]) if current[0] == current[1] else "%d-%d" % current
+                )
             current = (port, port)
     if current[0] is not None:
-        result.append(str(current[0])
-                      if current[0] == current[1]
-                      else "%d-%d" % current)
+        result.append(
+            str(current[0]) if current[0] == current[1] else "%d-%d" % current
+        )
     return ",".join(result)
 
 
@@ -519,9 +510,9 @@ def nmapspec2ports(string):
 
     """
     result = set()
-    for ports in string.split(','):
-        if '-' in ports:
-            ports = [int(port) for port in ports.split('-', 1)]
+    for ports in string.split(","):
+        if "-" in ports:
+            ports = [int(port) for port in ports.split("-", 1)]
             result = result.union(range(ports[0], ports[1] + 1))
         else:
             result.add(int(ports))
@@ -536,13 +527,17 @@ def all2datetime(arg):
     if isinstance(arg, datetime.datetime):
         return arg
     if isinstance(arg, str):
-        for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M:%S.%f',
-                    '%Y-%m-%dT%H:%M:%S', '%Y-%m-%dT%H:%M:%S.%f']:
+        for fmt in [
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S.%f",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S.%f",
+        ]:
             try:
                 return datetime.datetime.strptime(arg, fmt)
             except ValueError:
                 pass
-        raise ValueError('time data %r does not match standard formats' % arg)
+        raise ValueError("time data %r does not match standard formats" % arg)
     if isinstance(arg, (int, float)):
         return datetime.datetime.fromtimestamp(arg)
     raise TypeError("%s is of unknown type." % repr(arg))
@@ -596,14 +591,14 @@ def diff(doc1, doc2):
                 res[key] = True
                 continue
             continue
-        if key in ['categories']:
+        if key in ["categories"]:
             set1 = set(doc1[key])
             set2 = set(doc2[key])
             res[key] = list(set1.symmetric_difference(set2))
             if not res[key]:
                 del res[key]
             continue
-        if key == 'extraports':
+        if key == "extraports":
             res[key] = {}
             for state in set(doc1[key]).union(doc2[key]):
                 if doc1[key].get(state) != doc2[key].get(state):
@@ -611,10 +606,10 @@ def diff(doc1, doc2):
             if not res[key]:
                 del res[key]
             continue
-        if key in ['ports']:
+        if key in ["ports"]:
             res[key] = {}
-            kkeys1 = set(t['port'] for t in doc1['ports'])
-            kkeys2 = set(t['port'] for t in doc2['ports'])
+            kkeys1 = set(t["port"] for t in doc1["ports"])
+            kkeys2 = set(t["port"] for t in doc2["ports"])
             for kkey in kkeys1.symmetric_difference(kkeys2):
                 res[key][kkey] = True
             for kkey in kkeys1.intersection(kkeys2):
@@ -622,7 +617,7 @@ def diff(doc1, doc2):
     return res
 
 
-def fields2csv_head(fields, prefix=''):
+def fields2csv_head(fields, prefix=""):
     """Given an (ordered) dictionary `fields`, returns a list of the
     fields. NB: recursive function, hence the `prefix` parameter.
 
@@ -632,8 +627,7 @@ def fields2csv_head(fields, prefix=''):
         if subfields is True or callable(subfields):
             line.append(prefix + field)
         elif isinstance(subfields, dict):
-            line += fields2csv_head(subfields,
-                                    prefix=prefix + field + '.')
+            line += fields2csv_head(subfields, prefix=prefix + field + ".")
     return line
 
 
@@ -647,41 +641,47 @@ def doc2csv(doc, fields, nastr="NA"):
         if subfields is True:
             value = doc.get(field)
             if isinstance(value, list):
-                lines = [line + [nastr if valelt is None else valelt]
-                         for line in lines for valelt in value]
+                lines = [
+                    line + [nastr if valelt is None else valelt]
+                    for line in lines
+                    for valelt in value
+                ]
             else:
-                lines = [line + [nastr if value is None else value]
-                         for line in lines]
+                lines = [line + [nastr if value is None else value] for line in lines]
         elif callable(subfields):
             value = doc.get(field)
             if isinstance(value, list):
-                lines = [line + [nastr if valelt is None
-                                 else subfields(valelt)]
-                         for line in lines for valelt in value]
+                lines = [
+                    line + [nastr if valelt is None else subfields(valelt)]
+                    for line in lines
+                    for valelt in value
+                ]
             else:
-                lines = [line + [nastr if value is None else subfields(value)]
-                         for line in lines]
+                lines = [
+                    line + [nastr if value is None else subfields(value)]
+                    for line in lines
+                ]
         elif isinstance(subfields, dict):
             subdoc = doc.get(field)
             if isinstance(subdoc, list):
-                lines = [line + newline
-                         for line in lines
-                         for subdocelt in subdoc
-                         for newline in doc2csv(subdocelt,
-                                                subfields,
-                                                nastr=nastr)]
+                lines = [
+                    line + newline
+                    for line in lines
+                    for subdocelt in subdoc
+                    for newline in doc2csv(subdocelt, subfields, nastr=nastr)
+                ]
             elif subdoc is None:
-                lines = [line + newline
-                         for line in lines
-                         for newline in doc2csv({},
-                                                subfields,
-                                                nastr=nastr)]
+                lines = [
+                    line + newline
+                    for line in lines
+                    for newline in doc2csv({}, subfields, nastr=nastr)
+                ]
             else:
-                lines = [line + newline
-                         for line in lines
-                         for newline in doc2csv(subdoc,
-                                                subfields,
-                                                nastr=nastr)]
+                lines = [
+                    line + newline
+                    for line in lines
+                    for newline in doc2csv(subdoc, subfields, nastr=nastr)
+                ]
     return lines
 
 
@@ -692,6 +692,7 @@ class FileOpener:
     faster), fallbacks to gzip.open or bz2.BZ2File.
 
     """
+
     FILE_OPENERS_MAGIC = {
         b"\x1f\x8b": gzip.open,
         b"BZ": bz2.BZ2File,
@@ -703,13 +704,13 @@ class FileOpener:
             self.needsclose = False
             return
         self.needsclose = True
-        with open(fname, 'rb') as fdesc:
+        with open(fname, "rb") as fdesc:
             magic = fdesc.read(2)
         try:
             py_opener = self.FILE_OPENERS_MAGIC[magic]
         except KeyError:
             # Not a compressed file
-            self.fdesc = open(fname, 'rb')
+            self.fdesc = open(fname, "rb")
             return
         self.fdesc = py_opener(fname)
 
@@ -757,10 +758,9 @@ def hash_file(fname, hashtype="sha1"):
 def serialize(obj):
     """Return a JSON-compatible representation for `obj`"""
     if isinstance(obj, REGEXP_T):
-        return '/%s/%s' % (
+        return "/%s/%s" % (
             obj.pattern,
-            ''.join(x.lower() for x in 'ILMSXU'
-                    if getattr(re, x) & obj.flags),
+            "".join(x.lower() for x in "ILMSXU" if getattr(re, x) & obj.flags),
         )
     if isinstance(obj, datetime.datetime):
         return str(obj)
@@ -771,10 +771,11 @@ def serialize(obj):
 
 class LogFilter(logging.Filter):
     """A logging filter that prevents duplicate warnings and only reports
-messages with level lower than INFO when config.DEBUG (or
-config.DEBUG_DB) is True.
+    messages with level lower than INFO when config.DEBUG (or
+    config.DEBUG_DB) is True.
 
     """
+
     MAX_WARNINGS_STORED = 100
 
     def __init__(self):
@@ -784,7 +785,7 @@ config.DEBUG_DB) is True.
     def filter(self, record):
         """Decides whether we should log a record"""
         if record.levelno < logging.INFO:
-            if record.msg.startswith('DB:'):
+            if record.msg.startswith("DB:"):
                 return config.DEBUG_DB
             return config.DEBUG
         if record.levelno != logging.WARNING:
@@ -803,35 +804,53 @@ LOGGER.setLevel(1 if config.DEBUG or config.DEBUG_DB else 20)
 
 CLI_ARGPARSER = argparse.ArgumentParser(add_help=False)
 # DB
-CLI_ARGPARSER.add_argument('--init', '--purgedb', action='store_true',
-                           help='Purge or create and initialize the database.')
-CLI_ARGPARSER.add_argument('--ensure-indexes', action='store_true',
-                           help='Create missing indexes (will lock the '
-                           'database).')
-CLI_ARGPARSER.add_argument('--update-schema', action='store_true',
-                           help='update (host) schema. Use with --version to '
-                           'specify your current version')
+CLI_ARGPARSER.add_argument(
+    "--init",
+    "--purgedb",
+    action="store_true",
+    help="Purge or create and initialize the database.",
+)
+CLI_ARGPARSER.add_argument(
+    "--ensure-indexes",
+    action="store_true",
+    help="Create missing indexes (will lock the " "database).",
+)
+CLI_ARGPARSER.add_argument(
+    "--update-schema",
+    action="store_true",
+    help="update (host) schema. Use with --version to " "specify your current version",
+)
 # Actions / display modes
-CLI_ARGPARSER.add_argument('--delete', action='store_true',
-                           help='DELETE the matched results instead of '
-                           'displaying them.')
-CLI_ARGPARSER.add_argument('--short', action='store_true',
-                           help='Output only IP addresses, one per line.')
-CLI_ARGPARSER.add_argument('--count', action='store_true',
-                           help='Count matched results.')
-CLI_ARGPARSER.add_argument('--explain', action='store_true',
-                           help='MongoDB specific: .explain() the query.')
-CLI_ARGPARSER.add_argument('--distinct', metavar='FIELD',
-                           help='Output only unique FIELD part of the '
-                           'results, one per line.')
-CLI_ARGPARSER.add_argument('--json', action='store_true',
-                           help='Output results as JSON documents.')
-CLI_ARGPARSER.add_argument('--sort', metavar='FIELD / ~FIELD', nargs='+',
-                           help='Sort results according to FIELD; use '
-                           '~FIELD to reverse sort order.')
-CLI_ARGPARSER.add_argument('--limit', type=int,
-                           help='Ouput at most LIMIT results.')
-CLI_ARGPARSER.add_argument('--skip', type=int, help='Skip first SKIP results.')
+CLI_ARGPARSER.add_argument(
+    "--delete",
+    action="store_true",
+    help="DELETE the matched results instead of " "displaying them.",
+)
+CLI_ARGPARSER.add_argument(
+    "--short", action="store_true", help="Output only IP addresses, one per line."
+)
+CLI_ARGPARSER.add_argument(
+    "--count", action="store_true", help="Count matched results."
+)
+CLI_ARGPARSER.add_argument(
+    "--explain", action="store_true", help="MongoDB specific: .explain() the query."
+)
+CLI_ARGPARSER.add_argument(
+    "--distinct",
+    metavar="FIELD",
+    help="Output only unique FIELD part of the " "results, one per line.",
+)
+CLI_ARGPARSER.add_argument(
+    "--json", action="store_true", help="Output results as JSON documents."
+)
+CLI_ARGPARSER.add_argument(
+    "--sort",
+    metavar="FIELD / ~FIELD",
+    nargs="+",
+    help="Sort results according to FIELD; use " "~FIELD to reverse sort order.",
+)
+CLI_ARGPARSER.add_argument("--limit", type=int, help="Output at most LIMIT results.")
+CLI_ARGPARSER.add_argument("--skip", type=int, help="Skip first SKIP results.")
 
 
 # Country aliases:
@@ -840,9 +859,33 @@ CLI_ARGPARSER.add_argument('--skip', type=int, help='Skip first SKIP results.')
 COUNTRY_ALIASES = {
     "UK": "GB",
     "EU": [
-        "AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR",
-        "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK",
-        "SI", "ES", "SE",
+        "AT",
+        "BE",
+        "BG",
+        "HR",
+        "CY",
+        "CZ",
+        "DK",
+        "EE",
+        "FI",
+        "FR",
+        "DE",
+        "GR",
+        "HU",
+        "IE",
+        "IT",
+        "LV",
+        "LT",
+        "LU",
+        "MT",
+        "NL",
+        "PL",
+        "PT",
+        "RO",
+        "SK",
+        "SI",
+        "ES",
+        "SE",
         "EU",
     ],
 }
@@ -864,7 +907,7 @@ def country_unalias(country):
     """
     if isinstance(country, str):
         return COUNTRY_ALIASES.get(country, country)
-    if hasattr(country, '__iter__'):
+    if hasattr(country, "__iter__"):
         return functools.reduce(
             lambda x, y: x + (y if isinstance(y, list) else [y]),
             (country_unalias(country_elt) for country_elt in country),
@@ -876,9 +919,11 @@ def country_unalias(country):
 def screenwords(imgdata):
     """Takes an image and returns a list of the words seen by the OCR"""
     if config.TESSERACT_CMD is not None:
-        proc = subprocess.Popen([config.TESSERACT_CMD, "stdin", "stdout"],
-                                stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE)
+        proc = subprocess.Popen(
+            [config.TESSERACT_CMD, "stdin", "stdout"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
         proc.stdin.write(imgdata)
         proc.stdin.close()
         words = set()
@@ -910,6 +955,7 @@ def screenwords(imgdata):
 
 
 if USE_PIL:
+
     def _img_size(bbox):
         """Returns the size of a given `bbox`"""
         return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
@@ -917,10 +963,17 @@ if USE_PIL:
     def _trim_image(img, tolerance):
         """Returns the tiniest `bbox` to trim `img`"""
         result = None
-        for pixel in [(0, 0), (img.size[0] - 1, 0), (0, img.size[1] - 1),
-                      (img.size[0] - 1, img.size[1] - 1)]:
-            if result is not None and result[0] < pixel[0] < result[2] - 1 \
-               and result[1] < pixel[1] < result[3] - 1:
+        for pixel in [
+            (0, 0),
+            (img.size[0] - 1, 0),
+            (0, img.size[1] - 1),
+            (img.size[0] - 1, img.size[1] - 1),
+        ]:
+            if (
+                result is not None
+                and result[0] < pixel[0] < result[2] - 1
+                and result[1] < pixel[1] < result[3] - 1
+            ):
                 # This pixel is already removed by current result
                 continue
             bkg = PIL.Image.new(img.mode, img.size, img.getpixel(pixel))
@@ -946,23 +999,28 @@ if USE_PIL:
         img = PIL.Image.open(BytesIO(imgdata))
         bbox = _trim_image(img, tolerance)
         if bbox:
-            newbbox = (max(bbox[0] - minborder, 0),
-                       max(bbox[1] - minborder, 0),
-                       img.size[0] - max(img.size[0] - bbox[2] - minborder, 0),
-                       img.size[1] - max(img.size[1] - bbox[3] - minborder, 0))
+            newbbox = (
+                max(bbox[0] - minborder, 0),
+                max(bbox[1] - minborder, 0),
+                img.size[0] - max(img.size[0] - bbox[2] - minborder, 0),
+                img.size[1] - max(img.size[1] - bbox[3] - minborder, 0),
+            )
             if newbbox != (0, 0, img.size[0], img.size[1]):
                 out = BytesIO()
-                img.crop(newbbox).save(out, format='jpeg')
+                img.crop(newbbox).save(out, format="jpeg")
                 out.seek(0)
                 return out.read()
             # Image does not need to be modified
             return True
         # Image no longer exists after trim
         return False
+
+
 else:
+
     def trim_image(imgdata, _tolerance=1, _minborder=10):
         """Stub function used when PIL cannot be found"""
-        LOGGER.warning('Python PIL not found, screenshots will not be trimmed')
+        LOGGER.warning("Python PIL not found, screenshots will not be trimmed")
         return imgdata
 
 
@@ -972,21 +1030,21 @@ _PORTS_POPULATED = False
 
 def _set_ports():
     """Populate _PORTS global dict, based on nmap-services when available
-(and found), with a fallback to /etc/services.
+    (and found), with a fallback to /etc/services.
 
-    This function is called on module load.
+        This function is called on module load.
 
     """
     global _PORTS, _PORTS_POPULATED
     try:
-        fdesc = open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-services'))
+        fdesc = open(os.path.join(config.NMAP_SHARE_PATH, "nmap-services"))
     except (IOError, AttributeError):
         try:
-            with open('/etc/services') as fdesc:
+            with open("/etc/services") as fdesc:
                 for line in fdesc:
                     try:
-                        _, port = line.split('#', 1)[0].split(None, 2)
-                        port, proto = port.split('/', 1)
+                        _, port = line.split("#", 1)[0].split(None, 2)
+                        port, proto = port.split("/", 1)
                         port = int(port)
                     except ValueError:
                         continue
@@ -996,8 +1054,8 @@ def _set_ports():
     else:
         for line in fdesc:
             try:
-                _, port, freq = line.split('#', 1)[0].split(None, 3)
-                port, proto = port.split('/', 1)
+                _, port, freq = line.split("#", 1)[0].split(None, 3)
+                port, proto = port.split("/", 1)
                 port = int(port)
                 freq = float(freq)
             except ValueError:
@@ -1038,38 +1096,36 @@ def _read_nmap_probes():
 
     def parse_line(line):
         global _NMAP_PROBES, _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
-        if line.startswith(b'match '):
+        if line.startswith(b"match "):
             line = line[6:]
             soft = False
-        elif line.startswith(b'softmatch '):
+        elif line.startswith(b"softmatch "):
             line = line[10:]
             soft = True
-        elif line.startswith(b'fallback '):
+        elif line.startswith(b"fallback "):
             _NMAP_CUR_FALLBACK.append(line[9:].decode())
             return
-        elif line.startswith(b'Probe '):
+        elif line.startswith(b"Probe "):
             _NMAP_CUR_PROBE = []
             _NMAP_CUR_FALLBACK = []
-            proto, name, probe = line[6:].split(b' ', 2)
-            if not (len(probe) >= 3 and probe[:2] == b'q|' and
-                    probe[-1:] == b'|'):
-                LOGGER.warning('Invalid nmap probe %r', probe)
+            proto, name, probe = line[6:].split(b" ", 2)
+            if not (len(probe) >= 3 and probe[:2] == b"q|" and probe[-1:] == b"|"):
+                LOGGER.warning("Invalid nmap probe %r", probe)
             else:
-                probe = nmap_decode_data(probe[2:-1].decode(),
-                                         arbitrary_escapes=True)
-            _NMAP_PROBES.setdefault(proto.lower().decode(),
-                                    {})[name.decode()] = {
-                "probe": probe, "fp": _NMAP_CUR_PROBE,
+                probe = nmap_decode_data(probe[2:-1].decode(), arbitrary_escapes=True)
+            _NMAP_PROBES.setdefault(proto.lower().decode(), {})[name.decode()] = {
+                "probe": probe,
+                "fp": _NMAP_CUR_PROBE,
                 "fallbacks": _NMAP_CUR_FALLBACK,
             }
             return
         else:
             return
-        service, data = line.split(b' ', 1)
+        service, data = line.split(b" ", 1)
         info = {"soft": soft}
         while data:
-            if data.startswith(b'cpe:'):
-                key = 'cpe'
+            if data.startswith(b"cpe:"):
+                key = "cpe"
                 data = data[4:]
             else:
                 key = data[0:1].decode()
@@ -1078,45 +1134,48 @@ def _read_nmap_probes():
             data = data[1:]
             index = data.index(sep)
             value = data[:index]
-            data = data[index + 1:]
-            flag = b''
+            data = data[index + 1 :]
+            flag = b""
             if data:
-                if b' ' in data:
-                    flag, data = data.split(b' ', 1)
+                if b" " in data:
+                    flag, data = data.split(b" ", 1)
                 else:
-                    flag, data = data, b''
-            if key == 'm':
-                if value.endswith(b'\\r\\n'):
-                    value = value[:-4] + b'(?:\\r\\n|$)'
-                elif value.endswith(b'\\\\n'):
-                    value = value[:3] + b'(?:\\\\n|$)'
-                elif value.endswith(b'\\n'):
-                    value = value[:-2] + b'(?:\\n|$)'
+                    flag, data = data, b""
+            if key == "m":
+                if value.endswith(b"\\r\\n"):
+                    value = value[:-4] + b"(?:\\r\\n|$)"
+                elif value.endswith(b"\\\\n"):
+                    value = value[:3] + b"(?:\\\\n|$)"
+                elif value.endswith(b"\\n"):
+                    value = value[:-2] + b"(?:\\n|$)"
                 value = re.compile(
                     value,
-                    flags=sum(getattr(re, f) if hasattr(re, f) else 0
-                              for f in flag.decode().upper()),
+                    flags=sum(
+                        getattr(re, f) if hasattr(re, f) else 0
+                        for f in flag.decode().upper()
+                    ),
                 )
-                flag = b''
+                flag = b""
             else:
                 try:
-                    value = value.decode('utf-8')
+                    value = value.decode("utf-8")
                 except UnicodeDecodeError:
                     value = repr(value)
-            if key == 'cpe':
+            if key == "cpe":
                 info.setdefault(key, []).append(value)
             else:
                 info[key] = (value, flag)
-            data = data.lstrip(b' ')
+            data = data.lstrip(b" ")
         _NMAP_CUR_PROBE.append((service.decode(), info))
+
     try:
-        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-service-probes'),
-                  'rb') as fdesc:
+        with open(
+            os.path.join(config.NMAP_SHARE_PATH, "nmap-service-probes"), "rb"
+        ) as fdesc:
             for fline in fdesc:
                 parse_line(fline[:-1])
     except (AttributeError, TypeError, IOError):
-        LOGGER.warning('Cannot read Nmap service fingerprint file.',
-                       exc_info=True)
+        LOGGER.warning("Cannot read Nmap service fingerprint file.", exc_info=True)
     del _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
     _NMAP_PROBES_POPULATED = True
 
@@ -1131,8 +1190,7 @@ def get_nmap_svc_fp(proto="tcp", probe="NULL"):
 def get_nmap_probes(proto):
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
-    return {value['probe']: name
-            for name, value in _NMAP_PROBES[proto].items()}
+    return {value["probe"]: name for name, value in _NMAP_PROBES[proto].items()}
 
 
 def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
@@ -1145,15 +1203,15 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
             proto=proto,
             probe=probe,
         )
-        fingerprints = probe_data['fp']
+        fingerprints = probe_data["fp"]
     except KeyError:
         pass
     else:
-        fallbacks = probe_data.get('fallbacks')
+        fallbacks = probe_data.get("fallbacks")
         for service, fingerprint in fingerprints:
-            match = fingerprint['m'][0].search(output)
+            match = fingerprint["m"][0].search(output)
             if match is not None:
-                if probe == 'NULL' and service == 'landesk-rc':
+                if probe == "NULL" and service == "landesk-rc":
                     # This Nmap fingerprint sucks: it is just a size
                     # check with a simple rule to exclude values
                     # starting with HTTP, RTSP or SIP. This gives too
@@ -1163,27 +1221,24 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                     # enough different chars.
                     if len(set(output)) < 100:
                         continue
-                doc = softmatch if fingerprint['soft'] else result
-                if service.startswith('ssl/'):
-                    doc['service_name'] = service[4:]
-                    doc['service_tunnel'] = 'ssl'
+                doc = softmatch if fingerprint["soft"] else result
+                if service.startswith("ssl/"):
+                    doc["service_name"] = service[4:]
+                    doc["service_tunnel"] = "ssl"
                 else:
-                    doc['service_name'] = service
+                    doc["service_name"] = service
                 for elt, key in NMAP_FINGERPRINT_IVRE_KEY.items():
                     if elt in fingerprint:
-                        if elt == 'cpe':
+                        if elt == "cpe":
                             data = [
-                                'cpe:/%s' %
-                                nmap_svc_fp_format_data(value, match)
+                                "cpe:/%s" % nmap_svc_fp_format_data(value, match)
                                 for value in fingerprint[elt]
                             ]
                         else:
-                            data = nmap_svc_fp_format_data(
-                                fingerprint[elt][0], match
-                            )
+                            data = nmap_svc_fp_format_data(fingerprint[elt][0], match)
                         if data:
                             doc[key] = data
-                if not fingerprint['soft']:
+                if not fingerprint["soft"]:
                     return result
         if fallbacks:
             for fallback in fallbacks:
@@ -1195,15 +1250,15 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                 # exceptions so far are DNSStatusRequestTCP (fallback
                 # DNSStatusRequest) and DNSVersionBindReqTCP (fallback
                 # DNSVersionBindReq)
-                if proto == 'tcp' and fallback + 'TCP' == probe:
-                    fallback_result = match_nmap_svc_fp(output, proto='udp',
-                                                        probe=fallback,
-                                                        soft=soft)
+                if proto == "tcp" and fallback + "TCP" == probe:
+                    fallback_result = match_nmap_svc_fp(
+                        output, proto="udp", probe=fallback, soft=soft
+                    )
                 else:
-                    fallback_result = match_nmap_svc_fp(output, proto=proto,
-                                                        probe=fallback,
-                                                        soft=soft)
-                if fallback_result.get('soft'):
+                    fallback_result = match_nmap_svc_fp(
+                        output, proto=proto, probe=fallback, soft=soft
+                    )
+                if fallback_result.get("soft"):
                     softmatch = fallback_result
                 else:
                     return fallback_result
@@ -1223,36 +1278,33 @@ def _read_nmap_payloads():
         status = 0
         for c in line:
             if status == 0:
-                if c in {'#', '\r', '\n'}:
+                if c in {"#", "\r", "\n"}:
                     return
                 yield c
                 if c == '"':
                     status = 1
             elif status == 1:
-                if c in {'\r', '\n'}:
-                    LOGGER.warning('Unexpected EOL while reading line %r',
-                                   line)
+                if c in {"\r", "\n"}:
+                    LOGGER.warning("Unexpected EOL while reading line %r", line)
                     return
                 yield c
                 if c == '"':
                     status = 0
+
     try:
         cur_probe = None
         cur_line = []
-        with open(os.path.join(config.NMAP_SHARE_PATH, 'nmap-payloads'),
-                  'r') as fdesc:
+        with open(os.path.join(config.NMAP_SHARE_PATH, "nmap-payloads"), "r") as fdesc:
             for line in fdesc:
-                line = ''.join(_parse_line(line.strip()))
+                line = "".join(_parse_line(line.strip()))
                 if not line.strip():
                     continue
-                if line.startswith('source '):
+                if line.startswith("source "):
                     continue
-                if line.startswith('udp '):
-                    line = line.strip().split(' ', 2)[1:]
+                if line.startswith("udp "):
+                    line = line.strip().split(" ", 2)[1:]
                     if cur_probe is not None:
-                        _NMAP_PAYLOADS[
-                            nmap_decode_data("".join(cur_line))
-                        ] = cur_probe
+                        _NMAP_PAYLOADS[nmap_decode_data("".join(cur_line))] = cur_probe
                     cur_probe = line.pop(0)
                     if line:
                         line = line[0]
@@ -1268,8 +1320,7 @@ def _read_nmap_payloads():
         if cur_probe is not None:
             _NMAP_PAYLOADS[nmap_decode_data("".join(cur_line))] = cur_probe
     except (AttributeError, TypeError, IOError):
-        LOGGER.warning('Cannot read Nmap service fingerprint file.',
-                       exc_info=True)
+        LOGGER.warning("Cannot read Nmap service fingerprint file.", exc_info=True)
     _NMAP_PAYLOADS_POPULATED = True
 
 
@@ -1286,21 +1337,21 @@ _IKESCAN_VENDOR_IDS_POPULATED = False
 def _read_ikescan_vendor_ids():
     global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     try:
-        with open(os.path.join(config.DATA_PATH, 'ike-vendor-ids'),
-                  'rb') as fdesc:
-            sep = re.compile(b'\\t+')
+        with open(os.path.join(config.DATA_PATH, "ike-vendor-ids"), "rb") as fdesc:
+            sep = re.compile(b"\\t+")
             _IKESCAN_VENDOR_IDS = [
-                (line[0], re.compile(line[1].replace(b'[[:xdigit:]]',
-                                                     b'[0-9a-f]'), re.I))
+                (
+                    line[0],
+                    re.compile(line[1].replace(b"[[:xdigit:]]", b"[0-9a-f]"), re.I),
+                )
                 for line in (
                     sep.split(line, 1)
-                    for line in (line.strip().split(b'#', 1)[0]
-                                 for line in fdesc)
+                    for line in (line.strip().split(b"#", 1)[0] for line in fdesc)
                     if line
                 )
             ]
     except (AttributeError, IOError):
-        LOGGER.warning('Cannot read ike-scan vendor IDs file.', exc_info=True)
+        LOGGER.warning("Cannot read ike-scan vendor IDs file.", exc_info=True)
     _IKESCAN_VENDOR_IDS_POPULATED = True
 
 
@@ -1327,8 +1378,7 @@ _WIRESHARK_MANUF_DB_POPULATED = False
 def _mac2int(value):
     """Converts a MAC address to an integer"""
     return sum(
-        v << (40 - 8 * i)
-        for i, v in enumerate(int(v, 16) for v in value.split(':'))
+        v << (40 - 8 * i) for i, v in enumerate(int(v, 16) for v in value.split(":"))
     )
 
 
@@ -1337,75 +1387,74 @@ def _int2macmask(mask):
     integer usable as a mask.
 
     """
-    return (0xffffffffffff000000000000 >> mask) & 0xffffffffffff
+    return (0xFFFFFFFFFFFF000000000000 >> mask) & 0xFFFFFFFFFFFF
 
 
 def _read_wireshark_manuf_db():
-    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, \
-        _WIRESHARK_MANUF_DB_POPULATED
+    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, _WIRESHARK_MANUF_DB_POPULATED
 
     def parse_line(line):
-        line = line.split('#', 1)[0]
+        line = line.split("#", 1)[0]
         if not line:
             return
         line = line.strip()
         if not line:
             return
         try:
-            addr, manuf, comment = line.split('\t', 2)
+            addr, manuf, comment = line.split("\t", 2)
         except ValueError:
             try:
-                addr, manuf = line.split('\t', 1)
+                addr, manuf = line.split("\t", 1)
             except ValueError:
-                LOGGER.warning('Cannot parse a line from Wireshark '
-                               'manufacturer database [%r].', line,
-                               exc_info=True)
+                LOGGER.warning(
+                    "Cannot parse a line from Wireshark " "manufacturer database [%r].",
+                    line,
+                    exc_info=True,
+                )
                 return
             comment = None
-        if '/' in addr:
-            addr, mask = addr.split('/')
+        if "/" in addr:
+            addr, mask = addr.split("/")
             mask = int(mask)
         else:
-            mask = (addr.count(':') + 1) * 8
-        addr += ':00' * (5 - addr.count(':'))
+            mask = (addr.count(":") + 1) * 8
+        addr += ":00" * (5 - addr.count(":"))
         try:
             addr = _mac2int(addr)
         except ValueError:
-            LOGGER.warning('Cannot parse a line from Wireshark '
-                           'manufacturer database [%r].', line)
+            LOGGER.warning(
+                "Cannot parse a line from Wireshark " "manufacturer database [%r].",
+                line,
+            )
             return
         if (
-                _WIRESHARK_MANUF_DB_LAST_ADDR and
-                _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr - 1
+            _WIRESHARK_MANUF_DB_LAST_ADDR
+            and _WIRESHARK_MANUF_DB_LAST_ADDR[-1] != addr - 1
         ):
             _WIRESHARK_MANUF_DB_LAST_ADDR.append(addr - 1)
             _WIRESHARK_MANUF_DB_VALUES.append(None)
-        elif (
-                _WIRESHARK_MANUF_DB_VALUES and
-                _WIRESHARK_MANUF_DB_VALUES[-1] == (manuf, comment)
+        elif _WIRESHARK_MANUF_DB_VALUES and _WIRESHARK_MANUF_DB_VALUES[-1] == (
+            manuf,
+            comment,
         ):
             _WIRESHARK_MANUF_DB_LAST_ADDR.pop()
             _WIRESHARK_MANUF_DB_VALUES.pop()
         _WIRESHARK_MANUF_DB_LAST_ADDR.append(
             (addr & _int2macmask(mask)) + 2 ** (48 - mask) - 1
         )
-        _WIRESHARK_MANUF_DB_VALUES.append(
-            (manuf, comment)
-        )
+        _WIRESHARK_MANUF_DB_VALUES.append((manuf, comment))
+
     try:
-        with open(os.path.join(config.WIRESHARK_SHARE_PATH, 'manuf'),
-                  'r') as fdesc:
+        with open(os.path.join(config.WIRESHARK_SHARE_PATH, "manuf"), "r") as fdesc:
             for line in fdesc:
                 parse_line(line[:-1])
     except (AttributeError, TypeError, IOError):
-        LOGGER.warning('Cannot read Wireshark manufacturer database.',
-                       exc_info=True)
+        LOGGER.warning("Cannot read Wireshark manufacturer database.", exc_info=True)
     _WIRESHARK_MANUF_DB_POPULATED = True
 
 
 def get_wireshark_manuf_db():
-    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, \
-        _WIRESHARK_MANUF_DB_POPULATED
+    global _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES, _WIRESHARK_MANUF_DB_POPULATED
     if not _WIRESHARK_MANUF_DB_POPULATED:
         _read_wireshark_manuf_db()
     return _WIRESHARK_MANUF_DB_LAST_ADDR, _WIRESHARK_MANUF_DB_VALUES
@@ -1423,15 +1472,14 @@ def mac2manuf(mac):
 # Nmap (and Zeek) encoding & decoding
 
 
-_REPRS = {13: '\\r', 10: '\\n', 9: '\\t', 92: '\\\\'}
-_RAWS = {'r': b'\r', 'n': b'\n', 't': b'\t', '\\': b'\\', '0': b'\x00'}
+_REPRS = {13: "\\r", 10: "\\n", 9: "\\t", 92: "\\\\"}
+_RAWS = {"r": b"\r", "n": b"\n", "t": b"\t", "\\": b"\\", "0": b"\x00"}
 
 
 def nmap_encode_data(data):
     """Encode binary data (bytes) to a string (str) as Nmap would encode it."""
     return "".join(
-        _REPRS[d] if d in _REPRS else
-        chr(d) if 32 <= d <= 126 else '\\x%02x' % d
+        _REPRS[d] if d in _REPRS else chr(d) if 32 <= d <= 126 else "\\x%02x" % d
         for d in data
     )
 
@@ -1439,9 +1487,12 @@ def nmap_encode_data(data):
 def zeek_encode_data(data):
     """Encode binary data (bytes) to a string (str) as Zeek would encode it."""
     return "".join(
-        '\\\\' if d == b'\\' else d.decode() if b" " <= d <= b"~" else
-        '\\x%02x' % ord(d)
-        for d in (data[i:i + 1] for i in range(len(data)))
+        "\\\\"
+        if d == b"\\"
+        else d.decode()
+        if b" " <= d <= b"~"
+        else "\\x%02x" % ord(d)
+        for d in (data[i : i + 1] for i in range(len(data)))
     )
 
 
@@ -1451,7 +1502,7 @@ def _nmap_decode_data(data, arbitrary_escapes=False):
     for char in data:
         if status == 0:
             # not in an escape sequence
-            if char == '\\':
+            if char == "\\":
                 status = 1
                 continue
             yield char.encode()
@@ -1462,16 +1513,14 @@ def _nmap_decode_data(data, arbitrary_escapes=False):
                 yield _RAWS[char]
                 status = 0
                 continue
-            if char == 'x':
+            if char == "x":
                 status = 2
                 continue
             if arbitrary_escapes:
-                LOGGER.debug('nmap_decode_data: unnecessary escape %r',
-                             '\\' + char)
+                LOGGER.debug("nmap_decode_data: unnecessary escape %r", "\\" + char)
             else:
-                LOGGER.warning('nmap_decode_data: cannot decode %r',
-                               '\\' + char)
-                yield b'\\'
+                LOGGER.warning("nmap_decode_data: cannot decode %r", "\\" + char)
+                yield b"\\"
             yield char.encode()
             status = 0
             continue
@@ -1480,9 +1529,8 @@ def _nmap_decode_data(data, arbitrary_escapes=False):
             try:
                 first_byte = int(char, 16)
             except ValueError:
-                LOGGER.warning('nmap_decode_data: cannot decode %r',
-                               '\\x' + char)
-                yield b'\\x'
+                LOGGER.warning("nmap_decode_data: cannot decode %r", "\\x" + char)
+                yield b"\\x"
                 yield char.encode()
                 status = 0
                 continue
@@ -1493,9 +1541,10 @@ def _nmap_decode_data(data, arbitrary_escapes=False):
             try:
                 value = bytes([first_byte * 16 + int(char, 16)])
             except ValueError:
-                LOGGER.warning('nmap_decode_data: cannot decode %r',
-                               '\\x%x%s' % (first_byte, char))
-                yield ('\\x%x%s' % (first_byte, char)).encode()
+                LOGGER.warning(
+                    "nmap_decode_data: cannot decode %r", "\\x%x%s" % (first_byte, char)
+                )
+                yield ("\\x%x%s" % (first_byte, char)).encode()
                 status = 0
                 continue
             yield value
@@ -1503,14 +1552,11 @@ def _nmap_decode_data(data, arbitrary_escapes=False):
             status = 0
             continue
     if status:
-        LOGGER.warning(
-            'nmap_decode_data: invalid escape sequence at end of string'
-        )
+        LOGGER.warning("nmap_decode_data: invalid escape sequence at end of string")
 
 
 def nmap_decode_data(data, arbitrary_escapes=False):
-    return b''.join(_nmap_decode_data(data,
-                                      arbitrary_escapes=arbitrary_escapes))
+    return b"".join(_nmap_decode_data(data, arbitrary_escapes=arbitrary_escapes))
 
 
 def _nmap_command_match_subst(match_num):
@@ -1524,15 +1570,16 @@ def _nmap_command_match_i(match_num):
 def nmap_svc_fp_format_data(data, match):
     for i, value in enumerate(match.groups()):
         if value is None:
-            if '$%d' % (i + 1) in data or \
-               '$P(%d)' % (i + 1) in data or \
-               '$I(%d,' % (i + 1) in data or \
-               '$SUBST(%d,' % (i + 1) in data:
+            if (
+                "$%d" % (i + 1) in data
+                or "$P(%d)" % (i + 1) in data
+                or "$I(%d," % (i + 1) in data
+                or "$SUBST(%d," % (i + 1) in data
+            ):
                 return None
             continue
-        data = data.replace('$%d' % (i + 1), nmap_encode_data(value))
-        data = data.replace('$P(%d)' % (i + 1),
-                            nmap_encode_data(only_printable(value)))
+        data = data.replace("$%d" % (i + 1), nmap_encode_data(value))
+        data = data.replace("$P(%d)" % (i + 1), nmap_encode_data(only_printable(value)))
         # pylint: disable=cell-var-from-loop
         data = _nmap_command_match_subst(i + 1).sub(
             lambda m: nmap_encode_data(value).replace(*m.groups()),
@@ -1541,7 +1588,7 @@ def nmap_svc_fp_format_data(data, match):
         if len(value) == 2:
             # $I(x,"<") or $I(x,">") may exist
             data = _nmap_command_match_i(i + 1).sub(
-                lambda m: str(struct.unpack('%sH' % m.groups()[0], value)[0]),
+                lambda m: str(struct.unpack("%sH" % m.groups()[0], value)[0]),
                 data,
             )
     return data
@@ -1549,25 +1596,30 @@ def nmap_svc_fp_format_data(data, match):
 
 def normalize_props(props, braces=True):
     """Returns a normalized property list/dict so that (roughly):
-        - a list gives {k: "{k}"} if braces=True, {k: "k"} otherwise
-        - a dict gives {k: v if v is not None else "{%s}" % v} if braces=True,
-                       {k: v if v is not Node else "%s" % v} otherwise
+    - a list gives {k: "{k}"} if braces=True, {k: "k"} otherwise
+    - a dict gives {k: v if v is not None else "{%s}" % v} if braces=True,
+                   {k: v if v is not Node else "%s" % v} otherwise
     """
     if not isinstance(props, dict):
         props = dict.fromkeys(props)
     # Remove braces if necessary
     if not braces:
         for key, value in props.items():
-            if (
-                    isinstance(value, str) and value.startswith('{') and
-                    value.endswith('}')
-            ):
+            if isinstance(value, str) and value.startswith("{") and value.endswith("}"):
                 props[key] = value[1:-1]
     form = "{%s}" if braces else "%s"
     props = dict(
-        (key, (value if isinstance(value, str) else
-               (form % key) if value is None else
-               str(value))) for key, value in props.items()
+        (
+            key,
+            (
+                value
+                if isinstance(value, str)
+                else (form % key)
+                if value is None
+                else str(value)
+            ),
+        )
+        for key, value in props.items()
     )
     return props
 
@@ -1578,8 +1630,9 @@ def tz_offset(timestamp=None):
     """
     if timestamp is None:
         timestamp = time.time()
-    utc_offset = (datetime.datetime.fromtimestamp(timestamp) -
-                  datetime.datetime.utcfromtimestamp(timestamp))
+    utc_offset = datetime.datetime.fromtimestamp(
+        timestamp
+    ) - datetime.datetime.utcfromtimestamp(timestamp)
     return int(utc_offset.total_seconds())
 
 
@@ -1593,8 +1646,8 @@ def datetime2utcdatetime(dtm):
     return dtm - delta
 
 
-_UNITS = ['']
-_UNITS.extend('kMGTPEZY')
+_UNITS = [""]
+_UNITS.extend("kMGTPEZY")
 
 
 def num2readable(value):
@@ -1602,13 +1655,13 @@ def num2readable(value):
     try:
         unit = _UNITS[idx]
     except IndexError:
-        unit = 'Y'
+        unit = "Y"
         idx = 1000 ** 8
     else:
         idx = 1000 ** idx
     if isinstance(value, float):
-        return '%.3f%s' % (value / float(idx), unit)
-    return '%d%s' % (value / float(idx), unit)
+        return "%.3f%s" % (value / float(idx), unit)
+    return "%d%s" % (value / float(idx), unit)
 
 
 _DECODE_HEX = codecs.getdecoder("hex_codec")
@@ -1630,62 +1683,63 @@ def decode_b64(value):
 
 
 def encode_b64(value):
-    return _ENCODE_B64(value)[0].replace(b'\n', b'')
+    return _ENCODE_B64(value)[0].replace(b"\n", b"")
 
 
 def printable(string):
     if isinstance(string, bytes):
         return bytes(c if 32 <= c <= 126 else 46 for c in string)
-    return "".join(c if ' ' <= c <= '~' else '.' for c in string)
+    return "".join(c if " " <= c <= "~" else "." for c in string)
 
 
 def only_printable(string):
     if isinstance(string, bytes):
         return bytes(c for c in string if 32 <= c <= 126)
-    return "".join(c for c in string if ' ' <= c <= '~')
+    return "".join(c for c in string if " " <= c <= "~")
 
 
 def _parse_ssh_key(data):
     """Generates SSH key elements"""
     while data:
-        length = struct.unpack('>I', data[:4])[0]
-        yield data[4:4 + length]
-        data = data[4 + length:]
+        length = struct.unpack(">I", data[:4])[0]
+        yield data[4 : 4 + length]
+        data = data[4 + length :]
 
 
 def parse_ssh_key(data):
-    info = dict((hashtype, hashlib.new(hashtype, data).hexdigest())
-                for hashtype in ['md5', 'sha1', 'sha256'])
+    info = dict(
+        (hashtype, hashlib.new(hashtype, data).hexdigest())
+        for hashtype in ["md5", "sha1", "sha256"]
+    )
     parsed = _parse_ssh_key(data)
     try:
         keytype = info["algo"] = next(parsed).decode()
     except Exception:
-        LOGGER.warning('Cannot parse SSH host key from data %r', data)
+        LOGGER.warning("Cannot parse SSH host key from data %r", data)
         return info
     if keytype == "ssh-rsa":
         try:
-            info["exponent"], info["modulus"] = (int(encode_hex(elt), 16)
-                                                 for elt in parsed)
+            info["exponent"], info["modulus"] = (
+                int(encode_hex(elt), 16) for elt in parsed
+            )
         except Exception:
-            LOGGER.info("Cannot parse SSH RSA host key from data %r", data,
-                        exc_info=True)
+            LOGGER.info(
+                "Cannot parse SSH RSA host key from data %r", data, exc_info=True
+            )
         else:
             info["bits"] = int(math.ceil(math.log(info["modulus"], 2)))
             # convert integer to strings to prevent overflow errors
             # (e.g., "MongoDB can only handle up to 8-byte ints")
             for val in ["exponent", "modulus"]:
                 info[val] = str(info[val])
-    elif keytype == 'ssh-dss':
-        info["bits"] = int(math.ceil(
-            math.log(int(encode_hex(next(parsed)), 16), 2)
-        ))
-    elif keytype == 'ecdsa-sha2-nistp256':
-        info['bits'] = 256
-    elif keytype == 'ssh-ed25519':
-        info['bits'] = len(next(parsed)) * 8
+    elif keytype == "ssh-dss":
+        info["bits"] = int(math.ceil(math.log(int(encode_hex(next(parsed)), 16), 2)))
+    elif keytype == "ecdsa-sha2-nistp256":
+        info["bits"] = 256
+    elif keytype == "ssh-ed25519":
+        info["bits"] = len(next(parsed)) * 8
     else:
-        LOGGER.debug("Cannot get key size for type %r (data %r)", keytype,
-                     data)
+        LOGGER.debug("Cannot get key size for type %r (data %r)", keytype, data)
     return info
 
 
@@ -1801,11 +1855,11 @@ _ADDR_TYPES_LAST_IP = [
 
 def get_addr_type(addr):
     """Returns the type (Private, Loopback, etc.) of an IPv4 address, or
-None if it is a "normal", usable address.
+    None if it is a "normal", usable address.
 
     """
 
-    if ':' not in addr:
+    if ":" not in addr:
         addr = "::ffff:" + addr
     try:
         addr = ip2int(addr)
@@ -1816,81 +1870,79 @@ None if it is a "normal", usable address.
 
 _CERTINFOS = [
     re.compile(
-        b'\n *'
-        b'Issuer: (?P<issuer>.*)'
-        b'\n(?:.*\n)* *'
-        b'Not Before *: (?P<not_before>.*)'
-        b'\n(?:.*\n)* *'
-        b'Not After *: (?P<not_after>.*)'
-        b'\n(?:.*\n)* *'
-        b'Subject: (?P<subject>.*)'
-        b'\n(?:.*\n)* *'
-        b'Public Key Algorithm: (?P<type>rsaEncryption)'
-        b'\n *'
-        b'(?:RSA )?Public-Key: \\((?P<bits>[0-9]+) bit\\)'
-        b'\n *'
-        b'Modulus: *\n(?P<modulus>[\\ 0-9a-f:\n]+)'
-        b'\n *'
-        b'Exponent: (?P<exponent>[0-9]+) .*'
-        b'(?:\n|$)'
+        b"\n *"
+        b"Issuer: (?P<issuer>.*)"
+        b"\n(?:.*\n)* *"
+        b"Not Before *: (?P<not_before>.*)"
+        b"\n(?:.*\n)* *"
+        b"Not After *: (?P<not_after>.*)"
+        b"\n(?:.*\n)* *"
+        b"Subject: (?P<subject>.*)"
+        b"\n(?:.*\n)* *"
+        b"Public Key Algorithm: (?P<type>rsaEncryption)"
+        b"\n *"
+        b"(?:RSA )?Public-Key: \\((?P<bits>[0-9]+) bit\\)"
+        b"\n *"
+        b"Modulus: *\n(?P<modulus>[\\ 0-9a-f:\n]+)"
+        b"\n *"
+        b"Exponent: (?P<exponent>[0-9]+) .*"
+        b"(?:\n|$)"
     ),
     re.compile(
-        b'\n *'
-        b'Issuer: (?P<issuer>.*)'
-        b'\n(?:.*\n)* *'
-        b'Not Before *: (?P<not_before>.*)'
-        b'\n(?:.*\n)* *'
-        b'Not After *: (?P<not_after>.*)'
-        b'\n(?:.*\n)* *'
-        b'Subject: (?P<subject>.*)'
-        b'\n(?:.*\n)* *'
-        b'Public Key Algorithm: (?P<type>.*)'
-        b'(?:\n|$)'
+        b"\n *"
+        b"Issuer: (?P<issuer>.*)"
+        b"\n(?:.*\n)* *"
+        b"Not Before *: (?P<not_before>.*)"
+        b"\n(?:.*\n)* *"
+        b"Not After *: (?P<not_after>.*)"
+        b"\n(?:.*\n)* *"
+        b"Subject: (?P<subject>.*)"
+        b"\n(?:.*\n)* *"
+        b"Public Key Algorithm: (?P<type>.*)"
+        b"(?:\n|$)"
     ),
 ]
 
 _CERTINFOS_EXT_SAN = re.compile(
-    b'\n *'
-    b'X509v3 Subject Alternative Name: *(?:critical *)?\n *(?P<san>.*)'
-    b'(?:\n|$)'
+    b"\n *"
+    b"X509v3 Subject Alternative Name: *(?:critical *)?\n *(?P<san>.*)"
+    b"(?:\n|$)"
 )
 
 _CERTINFOS_EXT_BC = re.compile(
-    b'\n *'
-    b'X509v3 Basic Constraints: *(?:critical *)?\n *(?P<bc>.*)'
-    b'(?:\n|$)'
+    b"\n *" b"X509v3 Basic Constraints: *(?:critical *)?\n *(?P<bc>.*)" b"(?:\n|$)"
 )
 
 _CERTKEYS = {
-    'C': 'countryName',
-    'CN': 'commonName',
-    'DC': 'domainComponent',
-    'L': 'localityName',
-    'O': 'organizationName',
-    'OU': 'organizationalUnitName',
-    'ST': 'stateOrProvinceName',
-    'SN': 'surname',
+    "C": "countryName",
+    "CN": "commonName",
+    "DC": "domainComponent",
+    "L": "localityName",
+    "O": "organizationName",
+    "OU": "organizationalUnitName",
+    "ST": "stateOrProvinceName",
+    "SN": "surname",
 }
 
 _CERTALGOS = {
-    6: 'rsaEncryption',
-    408: 'id-ecPublicKey',
-    116: 'id-dsa',
-    28: 'dhpublicnumber',
+    6: "rsaEncryption",
+    408: "id-ecPublicKey",
+    116: "id-dsa",
+    28: "dhpublicnumber",
 }
 
 _CERTKEYTYPES = {
-    6: 'rsa',
-    408: 'ec',
-    116: 'dsa',
-    28: 'dh',
+    6: "rsa",
+    408: "ec",
+    116: "dsa",
+    28: "dh",
 }
 
 PUBKEY_TYPES = {
-    'rsaEncryption': 'rsa',
-    'id-ecPublicKey': 'ec',
-    'id-dsa': 'dsa',
-    'dhpublicnumber': 'dh',
+    "rsaEncryption": "rsa",
+    "id-ecPublicKey": "ec",
+    "id-dsa": "dsa",
+    "dhpublicnumber": "dh",
 }
 
 PUBKEY_REV_TYPES = dict((val, key) for key, val in PUBKEY_TYPES.items())
@@ -1903,27 +1955,27 @@ def _parse_cert_subject(subject):
     for char in subject:
         if status == -1:
             # reading space before the key
-            if char == ' ':
+            if char == " ":
                 continue
             curkey.append(char)
             status += 1
         elif status == 0:
             # reading key
-            if char == ' ':
+            if char == " ":
                 status += 1
                 continue
-            if char == '=':
+            if char == "=":
                 status += 2
                 continue
             curkey.append(char)
         elif status == 1:
             # reading '='
-            if char != '=':
+            if char != "=":
                 return
             status += 1
         elif status == 2:
             # reading space after '='
-            if char == ' ':
+            if char == " ":
                 continue
             # reading beginning of value
             if char == '"':
@@ -1933,7 +1985,7 @@ def _parse_cert_subject(subject):
             status += 1
         elif status == 3:
             # reading value without quotes
-            if char == ',':
+            if char == ",":
                 yield "".join(curkey), "".join(curvalue)
                 curkey = []
                 curvalue = []
@@ -1945,7 +1997,7 @@ def _parse_cert_subject(subject):
             if char == '"':
                 status -= 1
                 continue
-            if char == '\\':
+            if char == "\\":
                 status += 1
                 continue
             curvalue.append(char)
@@ -1957,7 +2009,7 @@ def _parse_cert_subject(subject):
 
 def _parse_subject(subject):
     """Parses an X509Name object (from pyOpenSSL module) and returns a
-text and a dict suitable for use by get_cert_info().
+    text and a dict suitable for use by get_cert_info().
 
     """
     components = []
@@ -1966,177 +2018,185 @@ text and a dict suitable for use by get_cert_info().
         v = printable(v).decode()
         k = _CERTKEYS.get(k, k)
         components.append((k, v))
-    return ('/'.join('%s=%s' % kv for kv in components),
-            dict(components))
+    return ("/".join("%s=%s" % kv for kv in components), dict(components))
 
 
 if STRPTIME_SUPPORTS_TZ:
+
     def _parse_datetime(value):
         try:
-            return datetime.datetime.strptime(value.decode(), '%Y%m%d%H%M%S%z')
+            return datetime.datetime.strptime(value.decode(), "%Y%m%d%H%M%S%z")
         except ValueError:
-            return datetime.datetime.strptime(value.decode()[:14],
-                                              '%Y%m%d%H%M%S')
+            return datetime.datetime.strptime(value.decode()[:14], "%Y%m%d%H%M%S")
         except Exception:
-            LOGGER.warning('Cannot parse datetime value %r', value,
-                           exc_info=True)
+            LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
+
+
 else:
+
     def _parse_datetime(value):
         try:
-            return datetime.datetime.strptime(value.decode()[:14],
-                                              '%Y%m%d%H%M%S')
+            return datetime.datetime.strptime(value.decode()[:14], "%Y%m%d%H%M%S")
         except Exception:
-            LOGGER.warning('Cannot parse datetime value %r', value,
-                           exc_info=True)
+            LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
             return None
 
 
 def _get_cert_info_pyopenssl(cert):
     """Extract info from a certificate (hash values, issuer, subject,
-    algorithm) in an handy-to-index-and-query form.
+        algorithm) in an handy-to-index-and-query form.
 
-This version relies on the pyOpenSSL module.
+    This version relies on the pyOpenSSL module.
 
     """
     result = {}
-    for hashtype in ['md5', 'sha1', 'sha256']:
+    for hashtype in ["md5", "sha1", "sha256"]:
         result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
     cert = osslc.load_certificate(osslc.FILETYPE_ASN1, cert)
-    result['subject_text'], result['subject'] = _parse_subject(
-        cert.get_subject()
-    )
-    result['issuer_text'], result['issuer'] = _parse_subject(cert.get_issuer())
+    result["subject_text"], result["subject"] = _parse_subject(cert.get_subject())
+    result["issuer_text"], result["issuer"] = _parse_subject(cert.get_issuer())
     for i in range(cert.get_extension_count()):
         ext = cert.get_extension(i)
-        if ext.get_short_name() == b'subjectAltName':
+        if ext.get_short_name() == b"subjectAltName":
             try:
                 # XXX str() / encoding
-                result['san'] = [x.strip() for x in str(ext).split(', ')]
+                result["san"] = [x.strip() for x in str(ext).split(", ")]
             except Exception:
-                LOGGER.warning('Cannot decode subjectAltName %r for %r', ext,
-                               result['subject_text'], exc_info=True)
+                LOGGER.warning(
+                    "Cannot decode subjectAltName %r for %r",
+                    ext,
+                    result["subject_text"],
+                    exc_info=True,
+                )
             break
-    result['self_signed'] = result['issuer_text'] == result['subject_text']
+    result["self_signed"] = result["issuer_text"] == result["subject_text"]
     not_before = _parse_datetime(cert.get_notBefore())
     not_after = _parse_datetime(cert.get_notAfter())
     if not_before is not None:
-        result['not_before'] = not_before
+        result["not_before"] = not_before
         if not_after is not None:
-            result['not_after'] = not_after
+            result["not_after"] = not_after
             lifetime = not_after - not_before
-            result['lifetime'] = int(lifetime.total_seconds())
+            result["lifetime"] = int(lifetime.total_seconds())
     elif not_after is not None:
-        result['not_after'] = not_after
-    result['pubkey'] = {}
+        result["not_after"] = not_after
+    result["pubkey"] = {}
     pubkey = cert.get_pubkey()
     pubkeytype = pubkey.type()
-    result['pubkey']['type'] = _CERTKEYTYPES.get(pubkeytype, pubkeytype)
-    result['pubkey']['bits'] = pubkey.bits()
+    result["pubkey"]["type"] = _CERTKEYTYPES.get(pubkeytype, pubkeytype)
+    result["pubkey"]["bits"] = pubkey.bits()
     if pubkeytype == 6:
         # RSA
         numbers = pubkey.to_cryptography_key().public_numbers()
-        result['pubkey']['exponent'] = numbers.e
-        result['pubkey']['modulus'] = str(numbers.n)
+        result["pubkey"]["exponent"] = numbers.e
+        result["pubkey"]["modulus"] = str(numbers.n)
     pubkey = pubkey.to_cryptography_key().public_bytes(
         Encoding.DER,
         PublicFormat.SubjectPublicKeyInfo,
     )
-    for hashtype in ['md5', 'sha1', 'sha256']:
-        result['pubkey'][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
-    result['pubkey']['raw'] = encode_b64(pubkey).decode()
+    for hashtype in ["md5", "sha1", "sha256"]:
+        result["pubkey"][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
+    result["pubkey"]["raw"] = encode_b64(pubkey).decode()
     return result
 
 
 def _get_cert_info_openssl(cert):
     """Extract info from a certificate (hash values, issuer, subject,
-    algorithm) in an handy-to-index-and-query form.
+        algorithm) in an handy-to-index-and-query form.
 
-This version parses the output of "openssl x509 -text" command line,
-and is a fallback when pyOpenSSL cannot be imported.
+    This version parses the output of "openssl x509 -text" command line,
+    and is a fallback when pyOpenSSL cannot be imported.
 
     """
     result = {}
-    for hashtype in ['md5', 'sha1', 'sha256']:
+    for hashtype in ["md5", "sha1", "sha256"]:
         result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
-    proc = subprocess.Popen([config.OPENSSL_CMD, 'x509', '-noout', '-text',
-                             '-inform', 'DER', '-pubkey'],
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    proc = subprocess.Popen(
+        [config.OPENSSL_CMD, "x509", "-noout", "-text", "-inform", "DER", "-pubkey"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    )
     proc.stdin.write(cert)
     proc.stdin.close()
-    data, pubkey = proc.stdout.read().split(b'-----BEGIN PUBLIC KEY-----')
+    data, pubkey = proc.stdout.read().split(b"-----BEGIN PUBLIC KEY-----")
     for expr in _CERTINFOS:
         match = expr.search(data)
         if match is not None:
             break
     else:
-        LOGGER.info("Cannot parse certificate %r - "
-                    "no matching expression in %r",
-                    cert, data)
+        LOGGER.info(
+            "Cannot parse certificate %r - " "no matching expression in %r", cert, data
+        )
         return result
     for field, fdata in match.groupdict().items():
         try:
             fdata = fdata.decode()
-            if field in ['issuer', 'subject']:
-                fdata = [(_CERTKEYS.get(key, key), value)
-                         for key, value in _parse_cert_subject(fdata)]
+            if field in ["issuer", "subject"]:
+                fdata = [
+                    (_CERTKEYS.get(key, key), value)
+                    for key, value in _parse_cert_subject(fdata)
+                ]
                 # replace '.' by '_' in keys to produce valid JSON
-                result[field] = dict((key.replace('.', '_'), value)
-                                     for key, value in fdata)
-                result['%s_text' % field] = '/'.join('%s=%s' % item
-                                                     for item in fdata)
-            elif field in ['bits', 'exponent']:
+                result[field] = dict(
+                    (key.replace(".", "_"), value) for key, value in fdata
+                )
+                result["%s_text" % field] = "/".join("%s=%s" % item for item in fdata)
+            elif field in ["bits", "exponent"]:
                 result[field] = int(fdata)
-            elif field == 'modulus':
-                result[field] = str(int(fdata
-                                        .replace(' ', '')
-                                        .replace(':', '')
-                                        .replace('\n', ''), 16))
-            elif field in ['not_before', 'not_after']:
+            elif field == "modulus":
+                result[field] = str(
+                    int(fdata.replace(" ", "").replace(":", "").replace("\n", ""), 16)
+                )
+            elif field in ["not_before", "not_after"]:
                 if STRPTIME_SUPPORTS_TZ:
                     try:
                         result[field] = datetime.datetime.strptime(
                             fdata,
-                            '%b %d %H:%M:%S %Y %Z',
+                            "%b %d %H:%M:%S %Y %Z",
                         )
                     except ValueError:
                         result[field] = datetime.datetime.strptime(
                             fdata[:-4],
-                            '%b %d %H:%M:%S %Y',
+                            "%b %d %H:%M:%S %Y",
                         )
                 else:
                     result[field] = datetime.datetime.strptime(
                         fdata[:-4],
-                        '%b %d %H:%M:%S %Y',
+                        "%b %d %H:%M:%S %Y",
                     )
             else:
                 result[field] = fdata
         except Exception:
             LOGGER.info(
                 "Error when parsing certificate %r with field %r (value %r)",
-                cert, field, fdata, exc_info=True,
+                cert,
+                field,
+                fdata,
+                exc_info=True,
             )
-    result['self_signed'] = result['issuer_text'] == result['subject_text']
-    if 'not_before' in result and 'not_after' in result:
-        lifetime = result['not_after'] - result['not_before']
-        result['lifetime'] = int(lifetime.total_seconds())
+    result["self_signed"] = result["issuer_text"] == result["subject_text"]
+    if "not_before" in result and "not_after" in result:
+        lifetime = result["not_after"] - result["not_before"]
+        result["lifetime"] = int(lifetime.total_seconds())
     san = _CERTINFOS_EXT_SAN.search(data)
     if san is not None:
         try:
-            result['san'] = san.groups()[0].decode().split(', ')
+            result["san"] = san.groups()[0].decode().split(", ")
         except Exception:
-            LOGGER.info("Cannot parse subjectAltName in certificate %r", cert,
-                        exc_info=True)
-    result['pubkey'] = {}
-    for fld in ['modulus', 'exponent', 'bits']:
+            LOGGER.info(
+                "Cannot parse subjectAltName in certificate %r", cert, exc_info=True
+            )
+    result["pubkey"] = {}
+    for fld in ["modulus", "exponent", "bits"]:
         if fld in result:
-            result['pubkey'][fld] = result.pop(fld)
-    if 'type' in result:
-        pubkeytype = result.pop('type')
-        result['pubkey']['type'] = PUBKEY_TYPES.get(pubkeytype, pubkeytype)
-    pubkey = decode_b64(b''.join(pubkey.splitlines()[1:-1]))
-    for hashtype in ['md5', 'sha1', 'sha256']:
-        result['pubkey'][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
-    result['pubkey']['raw'] = encode_b64(pubkey)
+            result["pubkey"][fld] = result.pop(fld)
+    if "type" in result:
+        pubkeytype = result.pop("type")
+        result["pubkey"]["type"] = PUBKEY_TYPES.get(pubkeytype, pubkeytype)
+    pubkey = decode_b64(b"".join(pubkey.splitlines()[1:-1]))
+    for hashtype in ["md5", "sha1", "sha256"]:
+        result["pubkey"][hashtype] = hashlib.new(hashtype, pubkey).hexdigest()
+    result["pubkey"]["raw"] = encode_b64(pubkey)
     return result
 
 
@@ -2147,38 +2207,32 @@ else:
 
 
 def display_top(db, arg, flt, lmt):
-    field, least = ((arg[1:], True)
-                    if arg[:1] in '!-~' else
-                    (arg, False))
+    field, least = (arg[1:], True) if arg[:1] in "!-~" else (arg, False)
     if lmt is None:
         lmt = 10
     elif lmt == 0:
         lmt = None
     for entry in db.topvalues(field, flt=flt, topnbr=lmt, least=least):
-        if isinstance(entry['_id'], (list, tuple)):
-            sep = ' / ' if isinstance(entry['_id'], tuple) else ', '
-            if entry['_id']:
-                if isinstance(entry['_id'][0], (list, tuple)):
-                    entry['_id'] = sep.join(
-                        '/'.join(str(subelt) for subelt in elt)
-                        if elt else "None"
-                        for elt in entry['_id']
+        if isinstance(entry["_id"], (list, tuple)):
+            sep = " / " if isinstance(entry["_id"], tuple) else ", "
+            if entry["_id"]:
+                if isinstance(entry["_id"][0], (list, tuple)):
+                    entry["_id"] = sep.join(
+                        "/".join(str(subelt) for subelt in elt) if elt else "None"
+                        for elt in entry["_id"]
                     )
-                elif isinstance(entry['_id'][0], dict):
-                    entry['_id'] = sep.join(
-                        json.dumps(elt, default=serialize)
-                        for elt in entry['_id']
+                elif isinstance(entry["_id"][0], dict):
+                    entry["_id"] = sep.join(
+                        json.dumps(elt, default=serialize) for elt in entry["_id"]
                     )
                 else:
-                    entry['_id'] = sep.join(str(elt)
-                                            for elt in entry['_id'])
+                    entry["_id"] = sep.join(str(elt) for elt in entry["_id"])
             else:
-                entry['_id'] = "None"
-        elif isinstance(entry['_id'], dict):
-            entry['_id'] = json.dumps(entry['_id'],
-                                      default=serialize)
-        elif not entry['_id']:
-            entry['_id'] = "None"
+                entry["_id"] = "None"
+        elif isinstance(entry["_id"], dict):
+            entry["_id"] = json.dumps(entry["_id"], default=serialize)
+        elif not entry["_id"]:
+            entry["_id"] = "None"
         print("%(_id)s: %(count)d" % entry)
 
 
@@ -2197,11 +2251,11 @@ MIN_VALUE = MinValue()
 
 def key_sort_none(value):
     """This function can be used as `key=` argument for sorted() and
-.sort(), in order to sort values that can be of a certain type (e.g.,
-str), or None, so that None is always lower.
+    .sort(), in order to sort values that can be of a certain type (e.g.,
+    str), or None, so that None is always lower.
 
-We just need to replace None with MIN_VALUE, which is an object that
-happily compares with anything, and is lower than anything.
+    We just need to replace None with MIN_VALUE, which is an object that
+    happily compares with anything, and is lower than anything.
 
     """
     if value is None:
@@ -2215,9 +2269,9 @@ def ptr2addr(ptr):
     None if the string does not seem to be a PTR
     """
     if ptr.endswith(".in-addr.arpa"):
-        return '.'.join(reversed(ptr.split(".")[:4]))
+        return ".".join(reversed(ptr.split(".")[:4]))
     if ptr.endswith(".ip6.arpa"):
-        return int2ip6(int(ptr[:-9].replace('.', '')[::-1], 16))
+        return int2ip6(int(ptr[:-9].replace(".", "")[::-1], 16))
     return None
 
 

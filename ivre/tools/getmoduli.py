@@ -40,32 +40,35 @@ def main():
     # backends
     bases = set()
     try:
-        opts, _ = getopt.getopt(sys.argv[1:], "p:h",
-                                ['passive-ssl', 'active-ssl', 'passive-ssh',
-                                 'active-ssh', 'help'])
+        opts, _ = getopt.getopt(
+            sys.argv[1:],
+            "p:h",
+            ["passive-ssl", "active-ssl", "passive-ssh", "active-ssh", "help"],
+        )
     except getopt.GetoptError as err:
-        sys.stderr.write(str(err) + '\n')
+        sys.stderr.write(str(err) + "\n")
         sys.exit(-1)
     for o, a in opts:
-        if o == '--passive-ssl':
+        if o == "--passive-ssl":
             bases.add(ivre.keys.SSLRsaPassiveKey)
-        elif o == '--active-ssl':
+        elif o == "--active-ssl":
             bases.add(ivre.keys.SSLRsaNmapKey)
-        elif o == '--passive-ssh':
+        elif o == "--passive-ssh":
             bases.add(ivre.keys.SSHRsaPassiveKey)
-        elif o == '--active-ssh':
+        elif o == "--active-ssh":
             bases.add(ivre.keys.SSHRsaNmapKey)
-        elif o in ['-h', '--help']:
+        elif o in ["-h", "--help"]:
             sys.stdout.write(
-                'usage: %s [-h] [--passive-ssl] [--active-ssl] '
-                '[--passive-ssh] [--active-ssh]\n\n' % sys.argv[0]
+                "usage: %s [-h] [--passive-ssl] [--active-ssl] "
+                "[--passive-ssh] [--active-ssh]\n\n" % sys.argv[0]
             )
             sys.stdout.write(__doc__)
             sys.stdout.write("\n\n")
             sys.exit(0)
         else:
             sys.stderr.write(
-                '%r %r not understood (this is probably a bug).\n' % (o, a))
+                "%r %r not understood (this is probably a bug).\n" % (o, a)
+            )
             sys.exit(-1)
     moduli = {}
     if not bases:
@@ -77,9 +80,15 @@ def main():
         ]
     for base in bases:
         for key in base():
-            moduli.setdefault(key.key.public_numbers().n,
-                              set()).add((key.ip, key.port, key.service))
+            moduli.setdefault(key.key.public_numbers().n, set()).add(
+                (key.ip, key.port, key.service)
+            )
     for mod in moduli:
-        sys.stdout.write('%x %d %s\n' % (mod, len(moduli[mod]),
-                                         ','.join("%s:%d" % (rec[0], rec[1])
-                                                  for rec in moduli[mod])))
+        sys.stdout.write(
+            "%x %d %s\n"
+            % (
+                mod,
+                len(moduli[mod]),
+                ",".join("%s:%d" % (rec[0], rec[1]) for rec in moduli[mod]),
+            )
+        )

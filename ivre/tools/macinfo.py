@@ -17,7 +17,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-'Query the passive database to perform ARP resolutions.'
+"Query the passive database to perform ARP resolutions."
 
 
 import argparse
@@ -29,8 +29,8 @@ from ivre import utils
 
 
 MAC_ADDR = re.compile(
-    '^([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})'
-    '[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})$',
+    "^([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})"
+    "[:-]([0-9a-f]{1,2})[:-]([0-9a-f]{1,2})$",
     re.I,
 )
 
@@ -38,14 +38,18 @@ MAC_ADDR = re.compile(
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        'ips_or_macs', nargs='*',
-        help=('Display results for specified IP (or networks) or MAC addresses'
-              ' (or MAC address regexps).')
+        "ips_or_macs",
+        nargs="*",
+        help=(
+            "Display results for specified IP (or networks) or MAC addresses"
+            " (or MAC address regexps)."
+        ),
     )
-    parser.add_argument('-s', '--sensor')
-    parser.add_argument('-c', '--count', action="store_true")
-    parser.add_argument('-r', '--resolve', action="store_true",
-                        help="Resolve MAC manufacturer")
+    parser.add_argument("-s", "--sensor")
+    parser.add_argument("-c", "--count", action="store_true")
+    parser.add_argument(
+        "-r", "--resolve", action="store_true", help="Resolve MAC manufacturer"
+    )
     args = parser.parse_args()
     flts = ([], [])  # MAC & IP filters
     for arg in args.ips_or_macs:
@@ -57,10 +61,9 @@ def main():
         match = MAC_ADDR.search(arg)
         if match:
             flts[0].append(db.passive.searchmac(mac=arg, neg=neg))
-        elif arg.startswith('/') and '/' in arg[1:]:
-            flts[0].append(db.passive.searchmac(mac=utils.str2regexp(arg),
-                                                neg=neg))
-        elif '/' in arg:
+        elif arg.startswith("/") and "/" in arg[1:]:
+            flts[0].append(db.passive.searchmac(mac=utils.str2regexp(arg), neg=neg))
+        elif "/" in arg:
             flts[1].append(db.passive.searchnet(arg, neg=neg))
         else:
             flts[1].append(db.passive.searchhost(arg, neg=neg))
@@ -74,17 +77,18 @@ def main():
     if args.count:
         print(db.passive.count(flt))
         return
-    for rec in db.passive.get(flt, sort=[('addr', 1), ('value', 1),
-                                         ('source', 1)]):
+    for rec in db.passive.get(flt, sort=[("addr", 1), ("value", 1), ("source", 1)]):
         rec["times"] = "s" if rec["count"] > 1 else ""
         if not rec.get("sensor"):
             rec["sensor"] = "-"
         if args.resolve:
             try:
-                manuf = utils.mac2manuf(rec['value'])[0]
+                manuf = utils.mac2manuf(rec["value"])[0]
             except (TypeError, ValueError):
                 pass
             else:
-                rec['value'] = '%s (%s)' % (rec['value'], manuf)
-        print("%(addr)s at %(value)s on %(sensor)s (%(source)s %(count)s "
-              "time%(times)s, %(firstseen)s - %(lastseen)s)" % rec)
+                rec["value"] = "%s (%s)" % (rec["value"], manuf)
+        print(
+            "%(addr)s at %(value)s on %(sensor)s (%(source)s %(count)s "
+            "time%(times)s, %(firstseen)s - %(lastseen)s)" % rec
+        )

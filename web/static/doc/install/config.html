@@ -245,7 +245,7 @@ which has the special meaning
 </pre></div>
 </div>
 <p>Batch insert or upsert operations can be tuned using backend-specific variables:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">LOCAL_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>      <span class="c1"># used with --local-bulk</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">LOCAL_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>  <span class="c1"># used with --local-bulk</span>
 <span class="n">MONGODB_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">100</span>
 <span class="n">POSTGRES_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">10000</span>
 </pre></div>
@@ -296,11 +296,16 @@ rather modified.</p>
         <span class="c1"># &quot;top_ports&quot;: None,</span>
         <span class="s2">&quot;host_timeout&quot;</span><span class="p">:</span> <span class="s2">&quot;15m&quot;</span><span class="p">,</span>  <span class="c1"># default value: None</span>
         <span class="s2">&quot;script_timeout&quot;</span><span class="p">:</span> <span class="s2">&quot;2m&quot;</span><span class="p">,</span>  <span class="c1"># default value: None</span>
-        <span class="s2">&quot;scripts_categories&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="s1">&#39;discovery&#39;</span><span class="p">,</span>
-                               <span class="s1">&#39;auth&#39;</span><span class="p">],</span>  <span class="c1"># default value: None</span>
-        <span class="s2">&quot;scripts_exclude&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;broadcast&#39;</span><span class="p">,</span> <span class="s1">&#39;brute&#39;</span><span class="p">,</span> <span class="s1">&#39;dos&#39;</span><span class="p">,</span>
-                            <span class="s1">&#39;exploit&#39;</span><span class="p">,</span> <span class="s1">&#39;external&#39;</span><span class="p">,</span> <span class="s1">&#39;fuzzer&#39;</span><span class="p">,</span>
-                            <span class="s1">&#39;intrusive&#39;</span><span class="p">],</span>  <span class="c1"># default value: None</span>
+        <span class="s2">&quot;scripts_categories&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="s2">&quot;discovery&quot;</span><span class="p">,</span> <span class="s2">&quot;auth&quot;</span><span class="p">],</span>  <span class="c1"># default value: None</span>
+        <span class="s2">&quot;scripts_exclude&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;broadcast&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;brute&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;dos&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;exploit&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;external&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;fuzzer&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;intrusive&quot;</span><span class="p">,</span>
+        <span class="p">],</span>  <span class="c1"># default value: None</span>
         <span class="c1"># &quot;scripts_force&quot;: None,</span>
         <span class="c1"># &quot;extra_options&quot;: None,</span>
     <span class="p">}</span>
@@ -382,7 +387,6 @@ their default values:</p>
 <h2>The <code class="docutils literal notranslate"><span class="pre">data</span></code> purpose<a class="headerlink" href="#the-data-purpose" title="Permalink to this headline">¶</a></h2>
 <p>The URLs used to get IP address databases are set in the dictionary <code class="docutils literal notranslate"><span class="pre">IPDATA_URLS</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">IPDATA_URLS</span> <span class="o">=</span> <span class="p">{</span>
-
     <span class="c1"># None has a special meaning:</span>
     <span class="c1"># https://download.maxmind.com/app/geoip_download?edition_id=XXX&amp;suffix=XXX&amp;license_key=XXX</span>
     <span class="c1">#</span>
@@ -390,30 +394,20 @@ their default values:</p>
     <span class="c1"># MAXMIND_LICENSE_KEY below) to download files from MaxMind</span>
     <span class="c1"># instead of ivre.rocks directly. Maxmind license keys are free</span>
     <span class="c1"># and can be obtained from &lt;https://www.maxmind.com/&gt;</span>
-
-    <span class="s1">&#39;GeoLite2-City.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;GeoLite2-City-CSV.zip&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;GeoLite2-Country.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;GeoLite2-Country-CSV.zip&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;GeoLite2-ASN.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;GeoLite2-ASN-CSV.zip&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip&#39;</span><span class="p">,</span>
-
+    <span class="s2">&quot;GeoLite2-City.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeoLite2-City-CSV.zip&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeoLite2-Country.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeoLite2-Country-CSV.zip&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeoLite2-ASN.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;GeoLite2-ASN-CSV.zip&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip&quot;</span><span class="p">,</span>
     <span class="c1"># For other files, None has a special meaning &quot;do not</span>
     <span class="c1"># download&quot;. The following file can be computed based the</span>
     <span class="c1"># GeoLite2-* files using `ivre ipdata --import-all`. You should do</span>
     <span class="c1"># that if you get your files from Maxmind.</span>
-    <span class="s1">&#39;GeoLite2-dumps.tar.gz&#39;</span><span class="p">:</span>
-    <span class="s1">&#39;https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz&#39;</span><span class="p">,</span>
-
-    <span class="s1">&#39;iso3166.csv&#39;</span><span class="p">:</span> <span class="s1">&#39;https://dev.maxmind.com/static/csv/codes/iso3166.csv&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;GeoLite2-dumps.tar.gz&quot;</span><span class="p">:</span> <span class="s2">&quot;https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;iso3166.csv&quot;</span><span class="p">:</span> <span class="s2">&quot;https://dev.maxmind.com/static/csv/codes/iso3166.csv&quot;</span><span class="p">,</span>
     <span class="c1"># This one is not from maxmind -- see http://thyme.apnic.net/</span>
-    <span class="s1">&#39;BGP.raw&#39;</span><span class="p">:</span> <span class="s1">&#39;http://thyme.apnic.net/current/data-raw-table&#39;</span><span class="p">,</span>
+    <span class="s2">&quot;BGP.raw&quot;</span><span class="p">:</span> <span class="s2">&quot;http://thyme.apnic.net/current/data-raw-table&quot;</span><span class="p">,</span>
 <span class="p">}</span>
 <span class="n">MAXMIND_LICENSE_KEY</span> <span class="o">=</span> <span class="kc">None</span>
 </pre></div>
@@ -529,10 +523,12 @@ all results in category <code class="docutils literal notranslate"><span class="
 <p>IVRE handles DNS blacklist (as defined in the <a class="reference external" href="https://tools.ietf.org/html/rfc5782">RFC 5782</a>) answers, for domains listed
 in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLACKLIST_DOMAINS</span></code>. By default, it is defined as:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Domains used for DNS blacklists (RFC 5782)</span>
-<span class="n">DNS_BLACKLIST_DOMAINS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
-    <span class="s1">&#39;blacklist.woody.ch&#39;</span><span class="p">,</span>
-    <span class="s1">&#39;zen.spamhaus.org&#39;</span><span class="p">,</span>
-<span class="p">])</span>
+<span class="n">DNS_BLACKLIST_DOMAINS</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+    <span class="p">[</span>
+        <span class="s2">&quot;blacklist.woody.ch&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;zen.spamhaus.org&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="p">)</span>
 </pre></div>
 </div>
 <p>To add a domain, just add in your configuration file:</p>
@@ -570,7 +566,7 @@ in the set <code class="docutils literal notranslate"><span class="pre">DNS_BLAC
   <div role="contentinfo">
     <p>
         
-        &copy; Copyright 2011 - 2020, Pierre LALET
+        &copy; Copyright 2011 - 2021, Pierre LALET
 
     </p>
   </div>

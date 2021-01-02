@@ -25,6 +25,7 @@ from argparse import ArgumentParser
 from ivre import config
 from ivre import utils
 from ivre.db import db
+
 # from ivre.parser.airodump import Airodump
 from ivre.parser.argus import Argus
 from ivre.parser.netflow import NetFlow
@@ -32,34 +33,34 @@ from ivre.parser.iptables import Iptables
 
 PARSERS_CHOICE = {
     # 'airodump': Airodump,
-    'argus': Argus,
-    'netflow': NetFlow,
-    'iptables': Iptables,
+    "argus": Argus,
+    "netflow": NetFlow,
+    "iptables": Iptables,
 }
 
 
 PARSERS_MAGIC = {
     # NetFlow
-    b'\x0c\xa5\x01\x00': NetFlow,
+    b"\x0c\xa5\x01\x00": NetFlow,
     # Argus
-    b'\x83\x10\x00\x20': Argus,
+    b"\x83\x10\x00\x20": Argus,
 }
 
 
 def main():
     """Update the flow database from log files"""
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument('files', nargs='*', metavar='FILE',
-                        help='Files to import in the flow database')
-    parser.add_argument("-v", "--verbose", help="verbose mode",
-                        action="store_true")
-    parser.add_argument("-t", "--type", help="file type",
-                        choices=list(PARSERS_CHOICE))
-    parser.add_argument("-f", "--pcap-filter",
-                        help="pcap filter to apply (when supported)")
-    parser.add_argument("-C", "--no-cleanup",
-                        help="avoid port cleanup heuristics",
-                        action="store_true")
+    parser.add_argument(
+        "files", nargs="*", metavar="FILE", help="Files to import in the flow database"
+    )
+    parser.add_argument("-v", "--verbose", help="verbose mode", action="store_true")
+    parser.add_argument("-t", "--type", help="file type", choices=list(PARSERS_CHOICE))
+    parser.add_argument(
+        "-f", "--pcap-filter", help="pcap filter to apply (when supported)"
+    )
+    parser.add_argument(
+        "-C", "--no-cleanup", help="avoid port cleanup heuristics", action="store_true"
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -74,7 +75,7 @@ def main():
                     fileparser = PARSERS_MAGIC[fdesc.read(4)]
                 except KeyError:
                     utils.LOGGER.warning(
-                        'Cannot find the appropriate parser for file %r',
+                        "Cannot find the appropriate parser for file %r",
                         fname,
                     )
                     continue
