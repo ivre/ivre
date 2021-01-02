@@ -25,6 +25,7 @@
 try:
     import dbus
     import dbus.mainloop.glib
+
     HAVE_DBUS = True
 except ImportError:
     HAVE_DBUS = False
@@ -33,8 +34,9 @@ except ImportError:
 from ivre import utils
 
 
-def buildgraph(cursor, include_last_hop=False, include_target=False,
-               only_connected=True):
+def buildgraph(
+    cursor, include_last_hop=False, include_target=False, only_connected=True
+):
     """Builds a graph (a dict object, {node: [dest nodes]}) by getting
     host documents from the database `cursor`, including (or not) the
     last hop and the target (for each host).
@@ -48,23 +50,22 @@ def buildgraph(cursor, include_last_hop=False, include_target=False,
     graph = {}
     entry_nodes = set()
     for host in cursor:
-        if 'traces' not in host:
+        if "traces" not in host:
             continue
-        for trace in host['traces']:
-            hops = trace['hops']
-            hops.sort(key=lambda hop: hop['ttl'])
+        for trace in host["traces"]:
+            hops = trace["hops"]
+            hops.sort(key=lambda hop: hop["ttl"])
             if not hops:
                 continue
-            entry_nodes.add(hops[0]['ipaddr'])
+            entry_nodes.add(hops[0]["ipaddr"])
             if not include_last_hop and not include_target:
-                if hops[-1]['ipaddr'] == host['addr']:
+                if hops[-1]["ipaddr"] == host["addr"]:
                     hops.pop()
                 if not include_last_hop:
                     hops.pop()
             for i, hop in enumerate(hops[1:]):
-                if (not only_connected) or (hop['ttl'] - hops[i]['ttl'] == 1):
-                    graph.setdefault(hops[i]['ipaddr'],
-                                     set()).update([hop['ipaddr']])
+                if (not only_connected) or (hop["ttl"] - hops[i]["ttl"] == 1):
+                    graph.setdefault(hops[i]["ipaddr"], set()).update([hop["ipaddr"]])
     return graph, entry_nodes
 
 
@@ -79,14 +80,16 @@ def writedotgraph(graph, out, cluster=None):
     strings (label, name).
 
     """
-    out.write('digraph traceroute {\n')
+    out.write("digraph traceroute {\n")
     nodes = set()
     edges = set()
     if cluster is None:
+
         def _add_node(node):
             if node not in nodes:
                 nodes.add(node)
                 out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+
     else:
         clusters = {}
 
@@ -94,6 +97,7 @@ def writedotgraph(graph, out, cluster=None):
             if node not in nodes:
                 nodes.add(node)
                 clusters.setdefault(cluster(node), set()).update([node])
+
     for node, node_edges in graph.items():
         _add_node(node)
         for destnode in node_edges:
@@ -108,16 +112,16 @@ def writedotgraph(graph, out, cluster=None):
         for clu, nodes in clusters.items():
             if isinstance(clu, str):
                 clu = (clu, clu)
-            out.write('\tsubgraph cluster_%s {\n' % clu[0])
+            out.write("\tsubgraph cluster_%s {\n" % clu[0])
             out.write('\t\tlabel = "%s";\n' % clu[1])
             for node in nodes:
-                out.write('\t\t%d [label="%s"];\n' % (node,
-                                                      utils.int2ip(node)))
-            out.write('\t}\n')
-    out.write('}\n')
+                out.write('\t\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+            out.write("\t}\n")
+    out.write("}\n")
 
 
 if HAVE_DBUS:
+
     def display3dgraph(graph, reset_world=True):
         """Send the graph (produced by buildgraph()) to a running
         rtgraph3d instance.
@@ -134,8 +138,7 @@ if HAVE_DBUS:
                 if destnode == node:
                     continue
                 try:
-                    graph3d.new_edge(utils.int2ip(node), {},
-                                     utils.int2ip(destnode), {})
+                    graph3d.new_edge(utils.int2ip(node), {}, utils.int2ip(destnode), {})
                 except Exception:
-                    utils.LOGGER.warning('Exception', exc_info=True)
+                    utils.LOGGER.warning("Exception", exc_info=True)
         return graph3d

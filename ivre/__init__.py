@@ -29,7 +29,7 @@ import subprocess
 
 
 _DIR = os.path.dirname(__file__)
-_VERSION_FILE = os.path.join(_DIR, 'VERSION')
+_VERSION_FILE = os.path.join(_DIR, "VERSION")
 
 
 def _get_version_from_file():
@@ -41,29 +41,35 @@ def _get_version_from_file():
 
 
 def _get_version_from_git():
-    proc = subprocess.Popen([b'git', b'rev-parse', b'--show-toplevel'],
-                            stdout=subprocess.PIPE, stderr=open(os.devnull),
-                            cwd=os.path.join(_DIR, os.path.pardir))
+    proc = subprocess.Popen(
+        [b"git", b"rev-parse", b"--show-toplevel"],
+        stdout=subprocess.PIPE,
+        stderr=open(os.devnull),
+        cwd=os.path.join(_DIR, os.path.pardir),
+    )
     out, err = proc.communicate()
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, err)
     repo = out.decode().strip()
     if repo != os.path.realpath(os.path.join(_DIR, os.path.pardir)):
         raise ValueError("Git repository is not IVRE")
-    proc = subprocess.Popen([b'git', b'describe', b'--always'],
-                            stdout=subprocess.PIPE, stderr=open(os.devnull),
-                            cwd=os.path.join(_DIR, os.path.pardir))
+    proc = subprocess.Popen(
+        [b"git", b"describe", b"--always"],
+        stdout=subprocess.PIPE,
+        stderr=open(os.devnull),
+        cwd=os.path.join(_DIR, os.path.pardir),
+    )
     out, err = proc.communicate()
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, err)
     tag = out.decode().strip()
-    match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
+    match = re.match("^v?(.+?)-(\\d+)-g[a-f0-9]+$", tag)
     if match:
         # remove the 'v' prefix and add a '.devN' suffix
-        value = '%s.dev%s' % match.groups()
+        value = "%s.dev%s" % match.groups()
     else:
         # just remove the 'v' prefix
-        value = tag[1:] if tag.startswith('v') else tag
+        value = tag[1:] if tag.startswith("v") else tag
     return value
 
 
@@ -74,7 +80,7 @@ def _version():
         pass
     else:
         try:
-            with open(_VERSION_FILE, 'w') as fdesc:
+            with open(_VERSION_FILE, "w") as fdesc:
                 fdesc.write(tag)
         except IOError:
             pass
@@ -84,15 +90,14 @@ def _version():
             return fdesc.read()
     except IOError:
         pass
-    hashval, refnames = '$Format:%h %D$'.split(' ', 1)
+    hashval, refnames = "$Format:%h %D$".split(" ", 1)
     try:
-        return next(ref[6:] for ref in refnames.split(', ')
-                    if ref.startswith('tag: v'))
+        return next(ref[6:] for ref in refnames.split(", ") if ref.startswith("tag: v"))
     except StopIteration:
         pass
-    if hashval == '$Format:%h':
-        return 'unknown.version'
-    return hashval if hashval else 'unknown.version'
+    if hashval == "$Format:%h":
+        return "unknown.version"
+    return hashval if hashval else "unknown.version"
 
 
 __version__ = VERSION = _version()

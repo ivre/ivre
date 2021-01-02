@@ -37,14 +37,13 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 def _get_ignore_rules(ignore_spec):
     """Executes the ignore_spec file and returns the ignore_rules
-dictionary.
+    dictionary.
 
     """
     ignore_rules = {}
     if ignore_spec is not None:
         # pylint: disable=exec-used
-        exec(compile(open(ignore_spec, "rb").read(), ignore_spec, 'exec'),
-             ignore_rules)
+        exec(compile(open(ignore_spec, "rb").read(), ignore_spec, "exec"), ignore_rules)
     return ignore_rules
 
 
@@ -55,23 +54,25 @@ def rec_iter(zeek_parser, sensor, ignore_rules):
         line["recon_type"] = line["recon_type"][14:]
         yield from ivre.passive.handle_rec(
             sensor,
-            ignore_rules.get('IGNORENETS', {}),
-            ignore_rules.get('NEVERIGNORE', {}),
+            ignore_rules.get("IGNORENETS", {}),
+            ignore_rules.get("NEVERIGNORE", {}),
             **line
         )
 
 
 def main():
     parser = ArgumentParser(description=__doc__)
-    parser.add_argument('--sensor', '-s', help='Sensor name')
-    parser.add_argument('--ignore-spec', '-i',
-                        help='Filename containing ignore rules')
-    parser.add_argument('--bulk', action='store_true',
-                        help='Use DB bulk inserts (this is the default)')
-    parser.add_argument('--local-bulk', action='store_true',
-                        help='Use local (memory) bulk inserts')
-    parser.add_argument('--no-bulk', action='store_true',
-                        help='Do not use bulk inserts')
+    parser.add_argument("--sensor", "-s", help="Sensor name")
+    parser.add_argument("--ignore-spec", "-i", help="Filename containing ignore rules")
+    parser.add_argument(
+        "--bulk", action="store_true", help="Use DB bulk inserts (this is the default)"
+    )
+    parser.add_argument(
+        "--local-bulk", action="store_true", help="Use local (memory) bulk inserts"
+    )
+    parser.add_argument(
+        "--no-bulk", action="store_true", help="Do not use bulk inserts"
+    )
     args = parser.parse_args()
     ignore_rules = _get_ignore_rules(args.ignore_spec)
     if (not (args.no_bulk or args.local_bulk)) or args.bulk:
@@ -85,6 +86,5 @@ def main():
         )
     zeek_parser = ivre.parser.zeek.ZeekFile(sys.stdin.buffer)
     function(
-        rec_iter(zeek_parser, args.sensor, ignore_rules),
-        getinfos=ivre.passive.getinfos
+        rec_iter(zeek_parser, args.sensor, ignore_rules), getinfos=ivre.passive.getinfos
     )

@@ -45,14 +45,17 @@ class HttpDB(DB):
             urlop.addheader(hdr, val)
 
     def get(self, spec, limit=None, skip=None, sort=None, fields=None):
-        url = '%s/%s?q=%sskip:' % (self.baseurl, self.route,
-                                   ('%s%%20' % spec) if spec else '')
+        url = "%s/%s?q=%sskip:" % (
+            self.baseurl,
+            self.route,
+            ("%s%%20" % spec) if spec else "",
+        )
         if skip is None:
             skip = 0
         while True:
-            cururl = '%s%d' % (url, skip)
+            cururl = "%s%d" % (url, skip)
             if limit is not None:
-                cururl += '%%20limit:%d' % limit
+                cururl += "%%20limit:%d" % limit
             req = self.db.open(cururl)
             data = json.loads(req.read().decode())
             if not data:
@@ -71,29 +74,28 @@ class HttpDB(DB):
             skip += len(data)
 
     def count(self, spec, **kargs):
-        url = '%s/%s/count' % (self.baseurl, self.route)
+        url = "%s/%s/count" % (self.baseurl, self.route)
         if spec:
-            url += '?q=%s' % spec
+            url += "?q=%s" % spec
         req = self.db.open(url)
-        return int(req.read().rstrip(b'\n'))
+        return int(req.read().rstrip(b"\n"))
 
     @staticmethod
     def flt_and(*args):
-        return '%20'.join(arg for arg in args if arg)
+        return "%20".join(arg for arg in args if arg)
 
 
 class HttpDBActive(HttpDB, DBActive):
-
     @staticmethod
     def searchhost(addr, neg=False):
-        return '%s%s' % ('!' if neg else '', addr)
+        return "%s%s" % ("!" if neg else "", addr)
 
 
 class HttpDBNmap(HttpDBActive, DBNmap):
 
-    route = 'scans'
+    route = "scans"
 
 
 class HttpDBView(HttpDBActive, DBView):
 
-    route = 'view'
+    route = "view"

@@ -47,7 +47,7 @@ class Iptables(Parser):
 
     def parse_line(self, line):
         """Process current line in Parser.__next__."""
-        field_idx = line.find(b'IN=')
+        field_idx = line.find(b"IN=")
         if field_idx < 0:
             # It's not an iptables log
             return next(self)
@@ -55,32 +55,31 @@ class Iptables(Parser):
         # Converts the syslog iptables log into hash
         fields = dict(
             (key.lower(), value)
-            for key, value in
-            (
-                val.split(b'=', 1)
-                if b'=' in val else (val, b'')
-                for val in line[field_idx:].rstrip(b'\r\n').split()
+            for key, value in (
+                val.split(b"=", 1) if b"=" in val else (val, b"")
+                for val in line[field_idx:].rstrip(b"\r\n").split()
             )
         )
 
         try:
-            fields[b'start_time'] = datetime.datetime.strptime(
-                line[:15].decode(), "%b %d %H:%M:%S")
+            fields[b"start_time"] = datetime.datetime.strptime(
+                line[:15].decode(), "%b %d %H:%M:%S"
+            )
         except ValueError:
             # Bad Date format
             return next(self)
 
         # sanitized
-        fields[b'proto'] = fields[b'proto'].lower()
+        fields[b"proto"] = fields[b"proto"].lower()
         # Rename fields according to flow2db specifications.
-        if fields[b'proto'] in (b'udp', b'tcp'):
-            fields[b'sport'] = int(fields[b'spt'])
-            fields[b'dport'] = int(fields[b'dpt'])
+        if fields[b"proto"] in (b"udp", b"tcp"):
+            fields[b"sport"] = int(fields[b"spt"])
+            fields[b"dport"] = int(fields[b"dpt"])
 
         # This data is mandatory but undefined in iptables logs, so make
         # a choice.
-        fields[b'cspkts'] = fields[b'scpkts'] = 0
-        fields[b'scbytes'] = fields[b'csbytes'] = 0
-        fields[b'end_time'] = fields[b'start_time']
+        fields[b"cspkts"] = fields[b"scpkts"] = 0
+        fields[b"scbytes"] = fields[b"csbytes"] = 0
+        fields[b"end_time"] = fields[b"start_time"]
 
         return fields

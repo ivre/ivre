@@ -48,15 +48,15 @@ class ZeekFile(Parser):
         super().__init__(fname)
         for line in self.fdesc:
             line = line.strip()
-            if not line.startswith(b'#'):
+            if not line.startswith(b"#"):
                 self.nextlines.append(line)
                 break
             self.parse_header_line(line)
 
     def __next__(self):
-        return self.parse_line(self.nextlines.pop(0)
-                               if self.nextlines else
-                               next(self.fdesc).strip())
+        return self.parse_line(
+            self.nextlines.pop(0) if self.nextlines else next(self.fdesc).strip()
+        )
 
     def parse_header_line(self, line):
         if not line:
@@ -67,8 +67,8 @@ class ZeekFile(Parser):
 
         keyval = line[1:].split(self.sep, 1)
         if len(keyval) < 2:
-            if line.startswith(b'#separator '):
-                keyval = [b'separator', line[11:]]
+            if line.startswith(b"#separator "):
+                keyval = [b"separator", line[11:]]
             else:
                 LOGGER.warning("Invalid header line")
                 return
@@ -77,7 +77,7 @@ class ZeekFile(Parser):
         arg = keyval[1]
 
         if directive == b"separator":
-            self.sep = decode_hex(arg[2:]) if arg.startswith(b'\\x') else arg
+            self.sep = decode_hex(arg[2:]) if arg.startswith(b"\\x") else arg
         elif directive == b"set_separator":
             self.set_sep = arg
         elif directive == b"empty_field":
@@ -94,7 +94,7 @@ class ZeekFile(Parser):
             self.types = arg.split(self.sep)
 
     def parse_line(self, line):
-        if line.startswith(b'#'):
+        if line.startswith(b"#"):
             self.parse_header_line(line)
             return next(self)
         res = {}
@@ -115,8 +115,7 @@ class ZeekFile(Parser):
             if val == self.empty_field:
                 return []
             _, elt_type = container_type.groups()
-            return [self.fix_value(x, elt_type)
-                    for x in val.split(self.set_sep)]
+            return [self.fix_value(x, elt_type) for x in val.split(self.set_sep)]
         if typ in self.int_types:
             return int(val)
         if typ in self.float_types:
@@ -132,6 +131,16 @@ class ZeekFile(Parser):
         return list(zip(self.fields, self.types))
 
     def __str__(self):
-        return "\n".join(["%s = %r" % (k, getattr(self, k))
-                          for k in ["sep", "set_sep", "empty_field",
-                                    "unset_field", "fields", "types"]])
+        return "\n".join(
+            [
+                "%s = %r" % (k, getattr(self, k))
+                for k in [
+                    "sep",
+                    "set_sep",
+                    "empty_field",
+                    "unset_field",
+                    "fields",
+                    "types",
+                ]
+            ]
+        )

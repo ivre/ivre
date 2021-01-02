@@ -30,24 +30,40 @@ from ivre import config
 
 ARGPARSER = ArgumentParser(add_help=False)
 
-ARGPARSER.add_argument('--nmap-template', help="Select Nmap scan template",
-                       choices=config.NMAP_SCAN_TEMPLATES,
-                       default="default")
+ARGPARSER.add_argument(
+    "--nmap-template",
+    help="Select Nmap scan template",
+    choices=config.NMAP_SCAN_TEMPLATES,
+    default="default",
+)
 
 NMAP_OPT_PORTS = {
     None: [],
-    'fast': ['-F'],
-    'more': ['--top-ports', '2000'],
-    'all': ['-p', '-'],
+    "fast": ["-F"],
+    "more": ["--top-ports", "2000"],
+    "all": ["-p", "-"],
 }
 
 
 class Scan:
-    def __init__(self, nmap="nmap", pings='SE', scans='SV', osdetect=True,
-                 traceroute=True, resolve=1, verbosity=2, ports=None,
-                 top_ports=None, host_timeout=None, script_timeout=None,
-                 scripts_categories=None, scripts_exclude=None,
-                 scripts_force=None, extra_options=None):
+    def __init__(
+        self,
+        nmap="nmap",
+        pings="SE",
+        scans="SV",
+        osdetect=True,
+        traceroute=True,
+        resolve=1,
+        verbosity=2,
+        ports=None,
+        top_ports=None,
+        host_timeout=None,
+        script_timeout=None,
+        scripts_categories=None,
+        scripts_exclude=None,
+        scripts_force=None,
+        extra_options=None,
+    ):
         self.nmap = nmap
         self.pings = set(pings)
         self.scans = set(scans)
@@ -80,60 +96,68 @@ class Scan:
         options = [self.nmap]
         # use -A instead of many options when possible
         if (
-                ('C' in self.scans or self.scripts_categories or
-                 self.scripts_exclude or self.scripts_force) and
-                'V' in self.scans and self.osdetect and self.traceroute
+            (
+                "C" in self.scans
+                or self.scripts_categories
+                or self.scripts_exclude
+                or self.scripts_force
+            )
+            and "V" in self.scans
+            and self.osdetect
+            and self.traceroute
         ):
-            options.append('-A')
-            self.scans.difference_update('CV')
+            options.append("-A")
+            self.scans.difference_update("CV")
             self.osdetect = False
             self.traceroute = False
         # build --script value based on self.scripts_*
-        scripts = ''
+        scripts = ""
         if self.scripts_categories:
-            scripts = ' or '.join(self.scripts_categories)
+            scripts = " or ".join(self.scripts_categories)
         if self.scripts_exclude:
             if scripts:
-                scripts = '(%s) and not (%s)' % (
-                    scripts if scripts else '',
-                    ' or '.join(self.scripts_exclude)
+                scripts = "(%s) and not (%s)" % (
+                    scripts if scripts else "",
+                    " or ".join(self.scripts_exclude),
                 )
             else:
-                scripts = 'not (%s)' % ' or '.join(self.scripts_exclude)
+                scripts = "not (%s)" % " or ".join(self.scripts_exclude)
         if self.scripts_force:
             if scripts:
-                scripts = '(%s) or %s' % (scripts if scripts else '',
-                                          ' or '.join(self.scripts_force))
+                scripts = "(%s) or %s" % (
+                    scripts if scripts else "",
+                    " or ".join(self.scripts_force),
+                )
             else:
-                scripts = ' or '.join(self.scripts_force)
+                scripts = " or ".join(self.scripts_force)
         # remove unnecessary options
-        if scripts == 'default':
-            scripts = ''
-            if '-A' not in options:
-                self.scans.add('C')
-        elif scripts and 'C' in self.scans:
-            self.scans.remove('C')
-        options.extend('-P%s' % x for x in self.pings)
-        options.extend('-s%s' % x for x in self.scans)
+        if scripts == "default":
+            scripts = ""
+            if "-A" not in options:
+                self.scans.add("C")
+        elif scripts and "C" in self.scans:
+            self.scans.remove("C")
+        options.extend("-P%s" % x for x in self.pings)
+        options.extend("-s%s" % x for x in self.scans)
         if self.osdetect:
-            options.append('-O')
+            options.append("-O")
         if self.traceroute:
-            options.append('--traceroute')
+            options.append("--traceroute")
         if self.resolve == 0:
-            options.append('-n')
+            options.append("-n")
         elif self.resolve == 2:
-            options.append('-R')
+            options.append("-R")
         if self.verbosity:
-            options.append('-%s' % ('v' * self.verbosity))
-        options.extend(NMAP_OPT_PORTS.get(self.ports, ['-p', self.ports]))
+            options.append("-%s" % ("v" * self.verbosity))
+        options.extend(NMAP_OPT_PORTS.get(self.ports, ["-p", self.ports]))
         if self.top_ports is not None:
-            options.extend(['--top-ports', str(self.top_ports)])
+            options.extend(["--top-ports", str(self.top_ports)])
         if self.host_timeout is not None:
-            options.extend(['--host-timeout', self.host_timeout])
+            options.extend(["--host-timeout", self.host_timeout])
         if self.script_timeout is not None:
-            options.extend(['--script-timeout', self.script_timeout])
+            options.extend(["--script-timeout", self.script_timeout])
         if scripts:
-            options.extend(['--script', scripts])
+            options.extend(["--script", scripts])
         if self.extra_options:
             options.extend(self.extra_options)
         return options
@@ -144,6 +168,4 @@ def build_nmap_options(template="default"):
 
 
 def build_nmap_commandline(template="default"):
-    return ' '.join(
-        pipes.quote(elt) for elt in build_nmap_options(template=template)
-    )
+    return " ".join(pipes.quote(elt) for elt in build_nmap_options(template=template))

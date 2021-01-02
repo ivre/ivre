@@ -30,12 +30,16 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 # because some "dev" of the cryptography module decided that
 # CryptographyDeprecationWarning should **not** inherit from
 # DeprecationWarning
-warnings.filterwarnings("ignore", message='^Python [0-9\\.]+ .*support',
-                        module='cryptography|OpenSSL')
+warnings.filterwarnings(
+    "ignore", message="^Python [0-9\\.]+ .*support", module="cryptography|OpenSSL"
+)
 
 
+# pylint: disable=wrong-import-position,cyclic-import
 from ivre import utils, tools  # noqa: E402
 from ivre.tools.version import main as version  # noqa: E402
+
+# pylint: enable=wrong-import-position,cyclic-import
 
 
 HELP_COMMANDS = ["-h", "--help", "h", "help"]
@@ -48,9 +52,11 @@ def main():
         # hack for blackarch package
         executable = executable[5:]
     if executable in tools.__all__ or executable in tools.ALIASES:
-        utils.LOGGER.warning("command %s deprecated. Use 'ivre %s' instead.",
-                             executable,
-                             tools.ALIASES.get(executable, executable))
+        utils.LOGGER.warning(
+            "command %s deprecated. Use 'ivre %s' instead.",
+            executable,
+            tools.ALIASES.get(executable, executable),
+        )
         command = tools.ALIASES.get(executable, executable)
     elif len(sys.argv) == 1:
         command = "help"
@@ -59,8 +65,7 @@ def main():
         sys.argv = ["%s %s" % (executable, sys.argv[1])] + sys.argv[2:]
     if command.lower() in HELP_COMMANDS and len(sys.argv) > 1:
         command = sys.argv[1]
-        sys.argv = ["%s %s" % (executable, sys.argv[1]),
-                    "--help"] + sys.argv[2:]
+        sys.argv = ["%s %s" % (executable, sys.argv[1]), "--help"] + sys.argv[2:]
     possible_commands = tools.guess_command(command)
     if len(possible_commands) == 1:
         tools.get_command(next(iter(possible_commands)))()
@@ -74,16 +79,19 @@ def main():
             retcode = 0
         else:
             output = sys.stderr
-            output.write("%s command: %s\n\n" % (
-                "Ambiguous" if possible_commands else "Unknown", command
-            ))
+            output.write(
+                "%s command: %s\n\n"
+                % ("Ambiguous" if possible_commands else "Unknown", command)
+            )
             retcode = 1
         version()
         output.write("usage: %s [COMMAND]\n\n" % executable)
-        output.write("%s commands:\n" % ("matching" if possible_commands
-                                         else "available"))
-        for availcmd in sorted(possible_commands if possible_commands
-                               else tools.__all__):
+        output.write(
+            "%s commands:\n" % ("matching" if possible_commands else "available")
+        )
+        for availcmd in sorted(
+            possible_commands if possible_commands else tools.__all__
+        ):
             output.write("  %s\n" % availcmd)
         output.write("\n")
         output.write("Try %s help [COMMAND]\n\n" % executable)

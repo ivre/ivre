@@ -25,27 +25,28 @@ from ivre import utils
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Tool for ip addresses manipulation.',
+        description="Tool for ip addresses manipulation.",
     )
     parser.add_argument(
-        'ips', nargs='*',
-        help='Display results for specified IP addresses or ranges.',
+        "ips",
+        nargs="*",
+        help="Display results for specified IP addresses or ranges.",
     )
     args = parser.parse_args()
-    while '-' in args.ips:
-        idx = args.ips.index('-')
+    while "-" in args.ips:
+        idx = args.ips.index("-")
         args.ips = (
-            args.ips[:idx - 1] +
-            ['%s-%s' % (args.ips[idx - 1], args.ips[idx + 1])] +
-            args.ips[idx + 2:]
+            args.ips[: idx - 1]
+            + ["%s-%s" % (args.ips[idx - 1], args.ips[idx + 1])]
+            + args.ips[idx + 2 :]
         )
 
     for a in args.ips:
-        if '/' in a:
+        if "/" in a:
             a = utils.net2range(a)
             print("%s-%s" % (a[0], a[1]))
-        elif '-' in a:
-            a = a.split('-', 1)
+        elif "-" in a:
+            a = a.split("-", 1)
             if a[0].isdigit():
                 a[0] = int(a[0])
             if a[1].isdigit():

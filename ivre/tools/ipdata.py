@@ -33,14 +33,19 @@ from ivre import geoiputils, utils
 def main():
     parser = ArgumentParser(description=__doc__)
     torun = []
-    parser.add_argument('--download', action='store_true',
-                        help='Fetch all data files.')
-    parser.add_argument('--import-all', action='store_true',
-                        help='Create all CSV files for reverse lookups.')
-    parser.add_argument('--quiet', "-q", action='store_true',
-                        help='Quiet mode.')
-    parser.add_argument('ip', nargs='*', metavar='IP',
-                        help='Display results for specified IP addresses.')
+    parser.add_argument("--download", action="store_true", help="Fetch all data files.")
+    parser.add_argument(
+        "--import-all",
+        action="store_true",
+        help="Create all CSV files for reverse lookups.",
+    )
+    parser.add_argument("--quiet", "-q", action="store_true", help="Quiet mode.")
+    parser.add_argument(
+        "ip",
+        nargs="*",
+        metavar="IP",
+        help="Display results for specified IP addresses.",
+    )
     args = parser.parse_args()
     if args.download:
         geoiputils.download_all(verbose=not args.quiet)
@@ -55,7 +60,7 @@ def main():
         print(addr)
         info = utils.get_addr_type(addr)
         if info:
-            print('    address_type %s' % info)
+            print("    address_type %s" % info)
         for info in [db.data.as_byip(addr), db.data.location_byip(addr)]:
             for key, value in (info or {}).items():
-                print('    %s %s' % (key, value))
+                print("    %s %s" % (key, value))

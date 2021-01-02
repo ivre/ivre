@@ -38,7 +38,7 @@ DEBUG_DB = False
 DB = "mongodb:///ivre"
 DB_DATA = None  # specific: maxmind:///<ivre_share_path>/geoip
 # Begin batch sizes
-LOCAL_BATCH_SIZE = 10000      # used with --local-bulk
+LOCAL_BATCH_SIZE = 10000  # used with --local-bulk
 MONGODB_BATCH_SIZE = 100
 POSTGRES_BATCH_SIZE = 10000
 # End batch sizes
@@ -76,11 +76,16 @@ NMAP_SCAN_TEMPLATES = {
         # "top_ports": None,
         "host_timeout": "15m",  # default value: None
         "script_timeout": "2m",  # default value: None
-        "scripts_categories": ['default', 'discovery',
-                               'auth'],  # default value: None
-        "scripts_exclude": ['broadcast', 'brute', 'dos',
-                            'exploit', 'external', 'fuzzer',
-                            'intrusive'],  # default value: None
+        "scripts_categories": ["default", "discovery", "auth"],  # default value: None
+        "scripts_exclude": [
+            "broadcast",
+            "brute",
+            "dos",
+            "exploit",
+            "external",
+            "fuzzer",
+            "intrusive",
+        ],  # default value: None
         # "scripts_force": None,
         # "extra_options": None,
     }
@@ -89,10 +94,12 @@ NMAP_SCAN_TEMPLATES = {
 
 # Begin DNSBL
 # Domains used for DNS blacklists (RFC 5782)
-DNS_BLACKLIST_DOMAINS = set([
-    'blacklist.woody.ch',
-    'zen.spamhaus.org',
-])
+DNS_BLACKLIST_DOMAINS = set(
+    [
+        "blacklist.woody.ch",
+        "zen.spamhaus.org",
+    ]
+)
 # End DNSBL
 
 # Begin flows
@@ -131,7 +138,6 @@ FLOW_STORE_METADATA = True
 
 # Begin IPDATA_URLS
 IPDATA_URLS = {
-
     # None has a special meaning:
     # https://download.maxmind.com/app/geoip_download?edition_id=XXX&suffix=XXX&license_key=XXX
     #
@@ -139,30 +145,20 @@ IPDATA_URLS = {
     # MAXMIND_LICENSE_KEY below) to download files from MaxMind
     # instead of ivre.rocks directly. Maxmind license keys are free
     # and can be obtained from <https://www.maxmind.com/>
-
-    'GeoLite2-City.tar.gz':
-    'https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz',
-    'GeoLite2-City-CSV.zip':
-    'https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip',
-    'GeoLite2-Country.tar.gz':
-    'https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz',
-    'GeoLite2-Country-CSV.zip':
-    'https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip',
-    'GeoLite2-ASN.tar.gz':
-    'https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz',
-    'GeoLite2-ASN-CSV.zip':
-    'https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip',
-
+    "GeoLite2-City.tar.gz": "https://ivre.rocks/data/geolite/GeoLite2-City.tar.gz",
+    "GeoLite2-City-CSV.zip": "https://ivre.rocks/data/geolite/GeoLite2-City-CSV.zip",
+    "GeoLite2-Country.tar.gz": "https://ivre.rocks/data/geolite/GeoLite2-Country.tar.gz",
+    "GeoLite2-Country-CSV.zip": "https://ivre.rocks/data/geolite/GeoLite2-Country-CSV.zip",
+    "GeoLite2-ASN.tar.gz": "https://ivre.rocks/data/geolite/GeoLite2-ASN.tar.gz",
+    "GeoLite2-ASN-CSV.zip": "https://ivre.rocks/data/geolite/GeoLite2-ASN-CSV.zip",
     # For other files, None has a special meaning "do not
     # download". The following file can be computed based the
     # GeoLite2-* files using `ivre ipdata --import-all`. You should do
     # that if you get your files from Maxmind.
-    'GeoLite2-dumps.tar.gz':
-    'https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz',
-
-    'iso3166.csv': 'https://dev.maxmind.com/static/csv/codes/iso3166.csv',
+    "GeoLite2-dumps.tar.gz": "https://ivre.rocks/data/geolite/GeoLite2-dumps.tar.gz",
+    "iso3166.csv": "https://dev.maxmind.com/static/csv/codes/iso3166.csv",
     # This one is not from maxmind -- see http://thyme.apnic.net/
-    'BGP.raw': 'http://thyme.apnic.net/current/data-raw-table',
+    "BGP.raw": "http://thyme.apnic.net/current/data-raw-table",
 }
 MAXMIND_LICENSE_KEY = None
 # End IPDATA_URLS
@@ -208,10 +204,11 @@ WEB_SECRET = None
 def get_config_file(paths=None):
     """Generates (yields) the available config files, in the correct order."""
     if paths is None:
-        paths = [os.path.join(path, 'ivre.conf')
-                 for path in ['/etc', '/etc/ivre', '/usr/local/etc',
-                              '/usr/local/etc/ivre']]
-        paths.append(os.path.join(os.path.expanduser('~'), '.ivre.conf'))
+        paths = [
+            os.path.join(path, "ivre.conf")
+            for path in ["/etc", "/etc/ivre", "/usr/local/etc", "/usr/local/etc/ivre"]
+        ]
+        paths.append(os.path.join(os.path.expanduser("~"), ".ivre.conf"))
         if "IVRE_CONF" in os.environ:
             paths.append(os.environ["IVRE_CONF"])
     for path in paths:
@@ -221,7 +218,7 @@ def get_config_file(paths=None):
 
 for fname in get_config_file():
     # pylint: disable=exec-used
-    exec(compile(open(fname, "rb").read(), fname, 'exec'))
+    exec(compile(open(fname, "rb").read(), fname, "exec"))
 
 
 def guess_prefix(directory=None):
@@ -229,12 +226,13 @@ def guess_prefix(directory=None):
     installed.
 
     """
+
     def check_candidate(path, directory=None):
         """Auxiliary function that checks whether a particular path is a good
         candidate.
 
         """
-        candidate = os.path.join(path, 'share', 'ivre')
+        candidate = os.path.join(path, "share", "ivre")
         if directory is not None:
             candidate = os.path.join(candidate, directory)
         try:
@@ -243,16 +241,17 @@ def guess_prefix(directory=None):
         except OSError:
             pass
         return None
-    if __file__.startswith('/'):
-        path = '/'
+
+    if __file__.startswith("/"):
+        path = "/"
         # absolute path
         for elt in __file__.split(os.path.sep)[1:]:
-            if elt in ['lib', 'lib32', 'lib64']:
+            if elt in ["lib", "lib32", "lib64"]:
                 candidate = check_candidate(path, directory=directory)
                 if candidate is not None:
                     return candidate
             path = os.path.join(path, elt)
-    for path in ['/usr', '/usr/local', '/opt', '/opt/ivre']:
+    for path in ["/usr", "/usr/local", "/opt", "/opt/ivre"]:
         candidate = check_candidate(path, directory=directory)
         if candidate is not None:
             return candidate
@@ -260,16 +259,18 @@ def guess_prefix(directory=None):
 
 
 def guess_share(soft):
-    for path in ['/usr/local/share/%s' % soft,
-                 '/opt/%s/share/%s' % (soft, soft),
-                 '/usr/share/%s' % soft]:
+    for path in [
+        "/usr/local/share/%s" % soft,
+        "/opt/%s/share/%s" % (soft, soft),
+        "/usr/share/%s" % soft,
+    ]:
         if os.path.isdir(path):
             return path
     return None
 
 
 if GEOIP_PATH is None:
-    GEOIP_PATH = guess_prefix('geoip')
+    GEOIP_PATH = guess_prefix("geoip")
 
 
 if DB_DATA is None and GEOIP_PATH is not None:
@@ -277,24 +278,24 @@ if DB_DATA is None and GEOIP_PATH is not None:
 
 
 if DATA_PATH is None:
-    DATA_PATH = guess_prefix('data')
+    DATA_PATH = guess_prefix("data")
 
 
 if WEB_STATIC_PATH is None:
-    WEB_STATIC_PATH = guess_prefix(directory='web/static')
+    WEB_STATIC_PATH = guess_prefix(directory="web/static")
 
 
 if WEB_DOKU_PATH is None:
-    WEB_DOKU_PATH = guess_prefix(directory='dokuwiki')
+    WEB_DOKU_PATH = guess_prefix(directory="dokuwiki")
 
 
 if HONEYD_IVRE_SCRIPTS_PATH is None and DATA_PATH is not None:
-    HONEYD_IVRE_SCRIPTS_PATH = os.path.join(DATA_PATH, 'honeyd')
+    HONEYD_IVRE_SCRIPTS_PATH = os.path.join(DATA_PATH, "honeyd")
 
 
 if NMAP_SHARE_PATH is None:
-    NMAP_SHARE_PATH = guess_share('nmap')
+    NMAP_SHARE_PATH = guess_share("nmap")
 
 
 if WIRESHARK_SHARE_PATH is None:
-    WIRESHARK_SHARE_PATH = guess_share('wireshark')
+    WIRESHARK_SHARE_PATH = guess_share("wireshark")

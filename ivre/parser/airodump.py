@@ -32,23 +32,23 @@ TYPE_MAC = 3
 
 class Airodump(Parser):
     """Airodump-neg log generator from a file descriptor"""
+
     types = {
         "# IV": TYPE_INT,
-        'BSSID': TYPE_MAC,
-        'ID-length': TYPE_INT,
-        'First time seen': TYPE_DATE,
-        'Last time seen': TYPE_DATE,
-        'LAN IP': TYPE_IP,
-        'Power': TYPE_INT,
-        'Speed': TYPE_INT,
-        'channel': TYPE_INT,
-        '# beacons': TYPE_INT,
+        "BSSID": TYPE_MAC,
+        "ID-length": TYPE_INT,
+        "First time seen": TYPE_DATE,
+        "Last time seen": TYPE_DATE,
+        "LAN IP": TYPE_IP,
+        "Power": TYPE_INT,
+        "Speed": TYPE_INT,
+        "channel": TYPE_INT,
+        "# beacons": TYPE_INT,
     }
     converters = {
         TYPE_INT: int,
-        TYPE_DATE: lambda val: datetime.datetime.strptime(val,
-                                                          '%Y-%m-%d %H:%M:%S'),
-        TYPE_IP: lambda val: '.'.join(elt.strip() for elt in val.split('.')),
+        TYPE_DATE: lambda val: datetime.datetime.strptime(val, "%Y-%m-%d %H:%M:%S"),
+        TYPE_IP: lambda val: ".".join(elt.strip() for elt in val.split(".")),
         TYPE_MAC: lambda val: val.strip().lower(),
         None: lambda val: val.strip(),
     }
@@ -58,18 +58,22 @@ class Airodump(Parser):
         self.nextline_headers = False
 
     def parse_line(self, line):
-        line = line.decode().rstrip('\r\n')
+        line = line.decode().rstrip("\r\n")
         if not line:
             self.nextline_headers = True
             return next(self)
-        line = [elt.strip() for elt in line.split(',')]
+        line = [elt.strip() for elt in line.split(",")]
         if self.nextline_headers:
             self.fields = line
             self.cur_types = [self.types.get(field) for field in line]
             self.nextline_headers = False
             return next(self)
-        return dict(zip(
-            self.fields,
-            (self.converters.get(self.cur_types[i])(val)
-             for (i, val) in enumerate(line)),
-        ))
+        return dict(
+            zip(
+                self.fields,
+                (
+                    self.converters.get(self.cur_types[i])(val)
+                    for (i, val) in enumerate(line)
+                ),
+            )
+        )

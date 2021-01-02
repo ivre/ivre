@@ -187,16 +187,17 @@
 <p>IVRE uses code linters to prevent some easy-to-spot (for a computer)
 mistakes and to enforce a consistent code style (or at least, attempt
 to do so).</p>
-<p>So far, only the Python code uses such linters (<a class="reference external" href="https://flake8.pycqa.org">Flake8</a> and <a class="reference external" href="https://www.pylint.org/">Pylint</a>). Adding similar code linting capabilities
-to the Zeek scripts (<cite>zeek/</cite>), LUA (<cite>nmap_scripts/</cite>) and JavaScript /
-HTML (<cite>web/static/</cite>) could be a good PR idea!</p>
+<p>So far, only the Python code uses such linters (<a class="reference external" href="https://flake8.pycqa.org">Flake8</a>, <a class="reference external" href="https://www.pylint.org/">Pylint</a> and
+<a class="reference external" href="https://github.com/psf/black">Black</a>). Adding similar code linting
+capabilities to the Zeek scripts (<cite>zeek/</cite>), LUA (<cite>nmap_scripts/</cite>) and
+JavaScript / HTML (<cite>web/static/</cite>) could be a good PR idea!</p>
 <p>For all the code and the documentation, we also use <a class="reference external" href="https://github.com/codespell-project/codespell">Codespell</a> to prevent typos.</p>
 <div class="section" id="running-the-linters">
 <h2>Running the linters<a class="headerlink" href="#running-the-linters" title="Permalink to this headline">¶</a></h2>
 <p>To install the Python code linters and Codespell you can simply use
 the <cite>requirements-linting.txt</cite> file with Pip, or use any method to
-install the latest versions of the <cite>codespell</cite>, <cite>flake8</cite> and <cite>pylint</cite>
-Python modules.</p>
+install the latest versions of the <cite>black</cite>, <cite>codespell</cite>, <cite>flake8</cite> and
+<cite>pylint</cite> Python modules.</p>
 <p>The script <cite>pkg/runchecks</cite> will run all the tests for you with the
 expected options and exceptions.</p>
 </div>
@@ -230,7 +231,7 @@ Python versions.</p>
   <div role="contentinfo">
     <p>
         
-        &copy; Copyright 2011 - 2020, Pierre LALET
+        &copy; Copyright 2011 - 2021, Pierre LALET
 
     </p>
   </div>

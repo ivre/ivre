@@ -50,11 +50,12 @@ application = Bottle()
 # Utils
 #
 
-def check_referer(func):
-    """"Wrapper for route functions to implement a basic anti-CSRF check
-based on the Referer: header.
 
-    It will abort (status code 400) if the referer is invalid.
+def check_referer(func):
+    """ "Wrapper for route functions to implement a basic anti-CSRF check
+    based on the Referer: header.
+
+        It will abort (status code 400) if the referer is invalid.
 
     """
 
@@ -63,25 +64,25 @@ based on the Referer: header.
 
     def _die(referer):
         utils.LOGGER.critical("Invalid Referer header [%r]", referer)
-        response.set_header('Content-Type', 'application/javascript')
-        response.status = '400 Bad Request'
+        response.set_header("Content-Type", "application/javascript")
+        response.status = "400 Bad Request"
         return webutils.js_alert(
-            "referer", "error",
-            "Invalid Referer header. Check your configuration."
+            "referer", "error", "Invalid Referer header. Check your configuration."
         )
 
     @wraps(func)
     def _newfunc(*args, **kargs):
-        referer = request.headers.get('Referer')
+        referer = request.headers.get("Referer")
         if not referer:
             return _die(referer)
         if config.WEB_ALLOWED_REFERERS is None:
-            base_url = '/'.join(request.url.split('/', 3)[:3]) + '/'
+            base_url = "/".join(request.url.split("/", 3)[:3]) + "/"
             if referer.startswith(base_url):
                 return func(*args, **kargs)
         elif (
-                # pylint: disable=unsupported-membership-test
-                referer in config.WEB_ALLOWED_REFERERS
+            # pylint: disable=unsupported-membership-test
+            referer
+            in config.WEB_ALLOWED_REFERERS
         ):
             return func(*args, **kargs)
         return _die(referer)
@@ -93,7 +94,8 @@ based on the Referer: header.
 # Configuration
 #
 
-@application.get('/config')
+
+@application.get("/config")
 @check_referer
 def get_config():
     """Returns JavaScript code to set client-side configuration values
@@ -103,15 +105,15 @@ def get_config():
     :>json object config: the configuration values
 
     """
-    response.set_header('Content-Type', 'application/javascript')
+    response.set_header("Content-Type", "application/javascript")
     for key, value in [
-            ("notesbase", config.WEB_NOTES_BASE),
-            ("dflt_limit", config.WEB_LIMIT),
-            ("warn_dots_count", config.WEB_WARN_DOTS_COUNT),
-            ("publicsrv", config.WEB_PUBLIC_SRV),
-            ("uploadok", config.WEB_UPLOAD_OK),
-            ("flow_time_precision", config.FLOW_TIME_PRECISION),
-            ("version", VERSION),
+        ("notesbase", config.WEB_NOTES_BASE),
+        ("dflt_limit", config.WEB_LIMIT),
+        ("warn_dots_count", config.WEB_WARN_DOTS_COUNT),
+        ("publicsrv", config.WEB_PUBLIC_SRV),
+        ("uploadok", config.WEB_UPLOAD_OK),
+        ("flow_time_precision", config.FLOW_TIME_PRECISION),
+        ("version", VERSION),
     ]:
         yield "config.%s = %s;\n" % (key, json.dumps(value))
 
@@ -120,10 +122,20 @@ def get_config():
 # /nmap/
 #
 
-FilterParams = namedtuple("flt_params", ['flt', 'sortby', 'unused',
-                                         'skip', 'limit', 'callback',
-                                         'ipsasnumbers', 'datesasstrings',
-                                         'fmt'])
+FilterParams = namedtuple(
+    "flt_params",
+    [
+        "flt",
+        "sortby",
+        "unused",
+        "skip",
+        "limit",
+        "callback",
+        "ipsasnumbers",
+        "datesasstrings",
+        "fmt",
+    ],
+)
 
 
 def get_nmap_base(dbase):
@@ -137,28 +149,30 @@ def get_nmap_base(dbase):
     # type of result
     ipsasnumbers = request.params.get("ipsasnumbers")
     if callback:
-        fmt = 'json'
+        fmt = "json"
     else:
-        fmt = request.params.get("format") or 'json'
-        if fmt not in set(['txt', 'json', 'ndjson']):
-            fmt = 'txt'
+        fmt = request.params.get("format") or "json"
+        if fmt not in set(["txt", "json", "ndjson"]):
+            fmt = "txt"
     datesasstrings = request.params.get("datesasstrings")
-    if fmt == 'txt':
-        response.set_header('Content-Type', 'text/plain')
-    elif fmt == 'ndjson':
-        response.set_header('Content-Type', 'application/x-ndjson')
+    if fmt == "txt":
+        response.set_header("Content-Type", "text/plain")
+    elif fmt == "ndjson":
+        response.set_header("Content-Type", "application/x-ndjson")
     else:
-        response.set_header('Content-Type', 'application/javascript')
+        response.set_header("Content-Type", "application/javascript")
     if callback is None:
-        response.set_header('Content-Disposition',
-                            'attachment; filename="IVRE-results.%s"' % fmt)
-    return FilterParams(flt, sortby, unused, skip, limit, callback,
-                        ipsasnumbers, datesasstrings, fmt)
+        response.set_header(
+            "Content-Disposition", 'attachment; filename="IVRE-results.%s"' % fmt
+        )
+    return FilterParams(
+        flt, sortby, unused, skip, limit, callback, ipsasnumbers, datesasstrings, fmt
+    )
 
 
 @application.get(
-    '/<subdb:re:scans|view>/<action:re:'
-    'onlyips|ipsports|timeline|coordinates|countopenports|diffcats>'
+    "/<subdb:re:scans|view>/<action:re:"
+    "onlyips|ipsports|timeline|coordinates|countopenports|diffcats>"
 )
 @check_referer
 def get_nmap_action(subdb, action):
@@ -181,96 +195,130 @@ def get_nmap_action(subdb, action):
     :>jsonarr object: results
 
     """
-    subdb = db.view if subdb == 'view' else db.nmap
+    subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_nmap_base(subdb)
     preamble = "[\n"
     postamble = "]\n"
     if action == "timeline":
         result, count = subdb.get_open_port_count(flt_params.flt)
         if request.params.get("modulo") is None:
+
             def r2time(r):
-                return int(r['starttime'].timestamp())
+                return int(r["starttime"].timestamp())
+
         else:
+
             def r2time(r):
-                return (int(r['starttime'].timestamp())
-                        % int(request.params.get("modulo")))
+                return int(r["starttime"].timestamp()) % int(
+                    request.params.get("modulo")
+                )
+
         if flt_params.ipsasnumbers:
+
             def r2res(r):
-                return [r2time(r), utils.ip2int(r['addr']),
-                        r.get('openports', {}).get('count', 0)]
+                return [
+                    r2time(r),
+                    utils.ip2int(r["addr"]),
+                    r.get("openports", {}).get("count", 0),
+                ]
+
         else:
+
             def r2res(r):
-                return [r2time(r), r['addr'],
-                        r.get('openports', {}).get('count', 0)]
+                return [r2time(r), r["addr"], r.get("openports", {}).get("count", 0)]
+
     elif action == "coordinates":
+
         def r2res(r):
             return {
                 "type": "Point",
-                "coordinates": r['_id'][::-1],
-                "properties": {"count": r['count']},
+                "coordinates": r["_id"][::-1],
+                "properties": {"count": r["count"]},
             }
+
         preamble = '{"type": "GeometryCollection", "geometries": [\n'
-        postamble = ']}\n'
+        postamble = "]}\n"
         result = list(subdb.getlocations(flt_params.flt))
         count = len(result)
     elif action == "countopenports":
         result, count = subdb.get_open_port_count(flt_params.flt)
         if flt_params.ipsasnumbers:
+
             def r2res(r):
-                return [utils.ip2int(r['addr']),
-                        r.get('openports', {}).get('count', 0)]
+                return [utils.ip2int(r["addr"]), r.get("openports", {}).get("count", 0)]
+
         else:
+
             def r2res(r):
-                return [r['addr'], r.get('openports', {}).get('count', 0)]
+                return [r["addr"], r.get("openports", {}).get("count", 0)]
+
     elif action == "ipsports":
         result, count = subdb.get_ips_ports(flt_params.flt)
         if flt_params.ipsasnumbers:
+
             def r2res(r):
                 return [
-                    utils.ip2int(r['addr']),
-                    [[p['port'], p['state_state']]
-                     for p in r.get('ports', [])
-                     if 'state_state' in p]
+                    utils.ip2int(r["addr"]),
+                    [
+                        [p["port"], p["state_state"]]
+                        for p in r.get("ports", [])
+                        if "state_state" in p
+                    ],
                 ]
+
         else:
+
             def r2res(r):
                 return [
-                    r['addr'],
-                    [[p['port'], p['state_state']]
-                     for p in r.get('ports', [])
-                     if 'state_state' in p]
+                    r["addr"],
+                    [
+                        [p["port"], p["state_state"]]
+                        for p in r.get("ports", [])
+                        if "state_state" in p
+                    ],
                 ]
+
     elif action == "onlyips":
         result, count = subdb.get_ips(flt_params.flt)
         if flt_params.ipsasnumbers:
+
             def r2res(r):
-                return utils.ip2int(r['addr'])
+                return utils.ip2int(r["addr"])
+
         else:
+
             def r2res(r):
-                return r['addr']
+                return r["addr"]
+
     elif action == "diffcats":
+
         def r2res(r):
             return r
+
         if request.params.get("onlydiff"):
-            output = subdb.diff_categories(request.params.get("cat1"),
-                                           request.params.get("cat2"),
-                                           flt=flt_params.flt,
-                                           include_both_open=False)
+            output = subdb.diff_categories(
+                request.params.get("cat1"),
+                request.params.get("cat2"),
+                flt=flt_params.flt,
+                include_both_open=False,
+            )
         else:
-            output = subdb.diff_categories(request.params.get("cat1"),
-                                           request.params.get("cat2"),
-                                           flt=flt_params.flt)
+            output = subdb.diff_categories(
+                request.params.get("cat1"),
+                request.params.get("cat2"),
+                flt=flt_params.flt,
+            )
         count = 0
         result = {}
         if flt_params.ipsasnumbers:
             for res in output:
-                result.setdefault(res["addr"], []).append([res['port'],
-                                                           res['value']])
+                result.setdefault(res["addr"], []).append([res["port"], res["value"]])
                 count += 1
         else:
             for res in output:
-                result.setdefault(utils.int2ip(res["addr"]),
-                                  []).append([res['port'], res['value']])
+                result.setdefault(utils.int2ip(res["addr"]), []).append(
+                    [res["port"], res["value"]]
+                )
                 count += 1
         result = result.items()
 
@@ -279,7 +327,7 @@ def get_nmap_action(subdb, action):
             yield "%s\n" % r2res(rec)
         return
 
-    if flt_params.fmt == 'ndjson':
+    if flt_params.fmt == "ndjson":
         for rec in result:
             yield "%s\n" % json.dumps(r2res(rec))
         return
@@ -288,10 +336,10 @@ def get_nmap_action(subdb, action):
         if count >= config.WEB_WARN_DOTS_COUNT:
             yield (
                 'if(confirm("You are about to ask your browser to display %d '
-                'dots, which is a lot and might slow down, freeze or crash '
+                "dots, which is a lot and might slow down, freeze or crash "
                 'your browser. Do you want to continue?")) {\n' % count
             )
-        yield '%s(\n' % flt_params.callback
+        yield "%s(\n" % flt_params.callback
     yield preamble
 
     # hack to avoid a trailing comma
@@ -310,12 +358,12 @@ def get_nmap_action(subdb, action):
     if flt_params.callback is not None:
         yield ");"
         if count >= config.WEB_WARN_DOTS_COUNT:
-            yield '}\n'
+            yield "}\n"
     else:
         yield "\n"
 
 
-@application.get('/<subdb:re:scans|view>/count')
+@application.get("/<subdb:re:scans|view>/count")
 @check_referer
 def get_nmap_count(subdb):
     """Get special values from Nmap & View databases
@@ -328,7 +376,7 @@ def get_nmap_count(subdb):
     :>json int: count
 
     """
-    subdb = db.view if subdb == 'view' else db.nmap
+    subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_nmap_base(subdb)
     count = subdb.count(flt_params.flt)
     if flt_params.callback is None:
@@ -336,7 +384,7 @@ def get_nmap_count(subdb):
     return "%s(%d);\n" % (flt_params.callback, count)
 
 
-@application.get('/<subdb:re:scans|view>/top/<field:path>')
+@application.get("/<subdb:re:scans|view>/top/<field:path>")
 @check_referer
 def get_nmap_top(subdb, field):
     """Get top values from Nmap & View databases
@@ -356,27 +404,30 @@ def get_nmap_top(subdb, field):
     :>jsonarr int value: count for this value
 
     """
-    subdb = db.view if subdb == 'view' else db.nmap
+    subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_nmap_base(subdb)
-    if field[0] in '-!':
+    if field[0] in "-!":
         field = field[1:]
         least = True
     else:
         least = False
     topnbr = 15
-    if ':' in field:
-        field, topnbr = field.rsplit(':', 1)
+    if ":" in field:
+        field, topnbr = field.rsplit(":", 1)
         try:
             topnbr = int(topnbr)
         except ValueError:
-            field = '%s:%s' % (field, topnbr)
+            field = "%s:%s" % (field, topnbr)
             topnbr = 15
     cursor = subdb.topvalues(
-        field, flt=flt_params.flt, least=least, topnbr=topnbr,
+        field,
+        flt=flt_params.flt,
+        least=least,
+        topnbr=topnbr,
     )
-    if flt_params.fmt == 'ndjson':
+    if flt_params.fmt == "ndjson":
         for rec in cursor:
-            yield json.dumps({"label": rec['_id'], "value": rec['count']})
+            yield json.dumps({"label": rec["_id"], "value": rec["count"]})
         return
     if flt_params.callback is None:
         yield "[\n"
@@ -389,17 +440,16 @@ def get_nmap_top(subdb, field):
     except StopIteration:
         pass
     else:
-        yield json.dumps({"label": rec['_id'], "value": rec['count']})
+        yield json.dumps({"label": rec["_id"], "value": rec["count"]})
         for rec in cursor:
-            yield ",\n%s" % json.dumps({"label": rec['_id'],
-                                        "value": rec['count']})
+            yield ",\n%s" % json.dumps({"label": rec["_id"], "value": rec["count"]})
     if flt_params.callback is None:
         yield "\n]\n"
     else:
         yield "\n]);\n"
 
 
-@application.get('/<subdb:re:scans|view>')
+@application.get("/<subdb:re:scans|view>")
 @check_referer
 def get_nmap(subdb):
     """Get records from Nmap & View databases
@@ -417,21 +467,20 @@ def get_nmap(subdb):
     :>jsonarr object: results
 
     """
-    subdb_tool = "view" if subdb == 'view' else "scancli"
-    subdb = db.view if subdb == 'view' else db.nmap
+    subdb_tool = "view" if subdb == "view" else "scancli"
+    subdb = db.view if subdb == "view" else db.nmap
     flt_params = get_nmap_base(subdb)
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
     # result = subdb.get(flt_params.flt, limit=flt_params.limit,
     #                    skip=flt_params.skip, sort=flt_params.sortby)
-    result = subdb.get(flt_params.flt, skip=flt_params.skip,
-                       sort=flt_params.sortby)
+    result = subdb.get(flt_params.flt, skip=flt_params.skip, sort=flt_params.sortby)
 
     if flt_params.unused:
-        msg = 'Option%s not understood: %s' % (
-            's' if len(flt_params.unused) > 1 else '',
-            ', '.join(flt_params.unused),
+        msg = "Option%s not understood: %s" % (
+            "s" if len(flt_params.unused) > 1 else "",
+            ", ".join(flt_params.unused),
         )
         if flt_params.callback is not None:
             yield webutils.js_alert("param-unused", "warning", msg)
@@ -450,54 +499,56 @@ def get_nmap(subdb):
 
     version_mismatch = {}
     if flt_params.callback is None:
-        if flt_params.fmt == 'json':
+        if flt_params.fmt == "json":
             yield "[\n"
     else:
         yield "%s([\n" % flt_params.callback
     # XXX-WORKAROUND-PGSQL
     # for rec in result:
     for i, rec in enumerate(result):
-        for fld in ['_id', 'scanid']:
+        for fld in ["_id", "scanid"]:
             try:
                 del rec[fld]
             except KeyError:
                 pass
         if flt_params.ipsasnumbers:
-            rec['addr'] = utils.force_ip2int(rec['addr'])
-        for field in ['starttime', 'endtime']:
+            rec["addr"] = utils.force_ip2int(rec["addr"])
+        for field in ["starttime", "endtime"]:
             if field in rec:
                 if not flt_params.datesasstrings:
                     rec[field] = int(rec[field].timestamp())
-        for port in rec.get('ports', []):
-            if 'screendata' in port:
-                port['screendata'] = utils.encode_b64(port['screendata'])
-            for script in port.get('scripts', []):
+        for port in rec.get("ports", []):
+            if "screendata" in port:
+                port["screendata"] = utils.encode_b64(port["screendata"])
+            for script in port.get("scripts", []):
                 if "masscan" in script:
                     try:
-                        del script['masscan']['raw']
+                        del script["masscan"]["raw"]
                     except KeyError:
                         pass
         if not flt_params.ipsasnumbers:
-            if 'traces' in rec:
-                for trace in rec['traces']:
-                    trace['hops'].sort(key=lambda x: x['ttl'])
-                    for hop in trace['hops']:
-                        hop['ipaddr'] = utils.force_int2ip(hop['ipaddr'])
-        addresses = rec.get('addresses', {}).get('mac')
+            if "traces" in rec:
+                for trace in rec["traces"]:
+                    trace["hops"].sort(key=lambda x: x["ttl"])
+                    for hop in trace["hops"]:
+                        hop["ipaddr"] = utils.force_int2ip(hop["ipaddr"])
+        addresses = rec.get("addresses", {}).get("mac")
         if addresses:
             newaddresses = []
             for addr in addresses:
                 manuf = utils.mac2manuf(addr)
                 if manuf and manuf[0]:
-                    newaddresses.append({'addr': addr, 'manuf': manuf[0]})
+                    newaddresses.append({"addr": addr, "manuf": manuf[0]})
                 else:
-                    newaddresses.append({'addr': addr})
-            rec['addresses']['mac'] = newaddresses
-        if flt_params.fmt == 'ndjson':
+                    newaddresses.append({"addr": addr})
+            rec["addresses"]["mac"] = newaddresses
+        if flt_params.fmt == "ndjson":
             yield "%s\n" % json.dumps(rec, default=utils.serialize)
         else:
-            yield "%s\t%s" % ('' if i == 0 else ',\n',
-                              json.dumps(rec, default=utils.serialize))
+            yield "%s\t%s" % (
+                "" if i == 0 else ",\n",
+                json.dumps(rec, default=utils.serialize),
+            )
         check = subdb.cmp_schema_version_host(rec)
         if check:
             version_mismatch[check] = version_mismatch.get(check, 0) + 1
@@ -505,29 +556,34 @@ def get_nmap(subdb):
         if flt_params.limit and i + 1 >= flt_params.limit:
             break
     if flt_params.callback is None:
-        if flt_params.fmt == 'json':
+        if flt_params.fmt == "json":
             yield "\n]\n"
     else:
         yield "\n]);\n"
 
     messages = {
-        1: lambda count: ("%d document%s displayed %s out-of-date. Please run "
-                          "the following command: 'ivre %s "
-                          "--update-schema;" % (count,
-                                                's' if count > 1 else '',
-                                                'are' if count > 1 else 'is',
-                                                subdb_tool)),
-        -1: lambda count: ('%d document%s displayed ha%s been inserted by '
-                           'a more recent version of IVRE. Please update '
-                           'IVRE!' % (count, 's' if count > 1 else '',
-                                      've' if count > 1 else 's')),
+        1: lambda count: (
+            "%d document%s displayed %s out-of-date. Please run "
+            "the following command: 'ivre %s "
+            "--update-schema;"
+            % (
+                count,
+                "s" if count > 1 else "",
+                "are" if count > 1 else "is",
+                subdb_tool,
+            )
+        ),
+        -1: lambda count: (
+            "%d document%s displayed ha%s been inserted by "
+            "a more recent version of IVRE. Please update "
+            "IVRE!" % (count, "s" if count > 1 else "", "ve" if count > 1 else "s")
+        ),
     }
     for mismatch, count in version_mismatch.items():
         message = messages[mismatch](count)
         if flt_params.callback is not None:
             yield webutils.js_alert(
-                "version-mismatch-%d" % ((mismatch + 1) // 2),
-                "warning", message
+                "version-mismatch-%d" % ((mismatch + 1) // 2), "warning", message
             )
         utils.LOGGER.warning(message)
 
@@ -536,9 +592,10 @@ def get_nmap(subdb):
 # Upload scans
 #
 
+
 def parse_form():
     categories = request.forms.get("categories")
-    categories = (set(categories.split(',')) if categories else set())
+    categories = set(categories.split(",")) if categories else set()
     source = request.forms.get("source")
     if not source:
         utils.LOGGER.critical("source is mandatory")
@@ -548,41 +605,41 @@ def parse_form():
         if webutils.get_user() is None:
             utils.LOGGER.critical("username is mandatory on public instances")
             abort(400, "ERROR: username is mandatory on public instances")
-        if request.forms.get('public') == 'on':
-            categories.add('Shared')
+        if request.forms.get("public") == "on":
+            categories.add("Shared")
         user = webutils.get_anonymized_user()
         categories.add(user)
         source = "%s-%s" % (user, source)
-    return (request.forms.get('referer'), source, categories, files)
+    return (request.forms.get("referer"), source, categories, files)
 
 
 def import_files(subdb, source, categories, files):
     count = 0
     categories = list(categories)
-    if subdb == 'view':
+    if subdb == "view":
+
         def callback(x):
-            return db.view.store_or_merge_host(
-                nmap_record_to_view(x)
-            )
+            return db.view.store_or_merge_host(nmap_record_to_view(x))
+
     else:
         callback = None
     for fileelt in files:
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             fileelt.save(fdesc)
         try:
-            if db.nmap.store_scan(fdesc.name, categories=categories,
-                                  source=source, callback=callback):
+            if db.nmap.store_scan(
+                fdesc.name, categories=categories, source=source, callback=callback
+            ):
                 count += 1
                 os.unlink(fdesc.name)
             else:
                 utils.LOGGER.warning("Could not import %s", fdesc.name)
         except Exception:
-            utils.LOGGER.warning("Could not import %s", fdesc.name,
-                                 exc_info=True)
+            utils.LOGGER.warning("Could not import %s", fdesc.name, exc_info=True)
     return count
 
 
-@application.post('/<subdb:re:scans|view>')
+@application.post("/<subdb:re:scans|view>")
 @check_referer
 def post_nmap(subdb):
     """Add records to Nmap & View databases
@@ -599,7 +656,7 @@ def post_nmap(subdb):
     referer, source, categories, files = parse_form()
     count = import_files(subdb, source, categories, files)
     if request.params.get("output") == "html":
-        response.set_header('Refresh', '5;url=%s' % referer)
+        response.set_header("Refresh", "5;url=%s" % referer)
         return """<html>
   <head>
     <title>IVRE Web UI</title>
@@ -607,7 +664,10 @@ def post_nmap(subdb):
   <body style="padding-top: 2%%; padding-left: 2%%">
     <h1>%d result%s uploaded</h1>
   </body>
-</html>""" % (count, 's' if count > 1 else '')
+</html>""" % (
+            count,
+            "s" if count > 1 else "",
+        )
     return {"count": count}
 
 
@@ -615,7 +675,8 @@ def post_nmap(subdb):
 # /flow/
 #
 
-@application.get('/flows')
+
+@application.get("/flows")
 @check_referer
 def get_flow():
     """Get special values from Nmap & View databases
@@ -631,12 +692,13 @@ def get_flow():
     callback = request.params.get("callback")
     action = request.params.get("action", "")
     if callback is None:
-        response.set_header('Content-Disposition',
-                            'attachment; filename="IVRE-results.json"')
+        response.set_header(
+            "Content-Disposition", 'attachment; filename="IVRE-results.json"'
+        )
     else:
         yield callback + "(\n"
     utils.LOGGER.debug("Params: %r", dict(request.params))
-    query = json.loads(request.params.get('q', '{}'))
+    query = json.loads(request.params.get("q", "{}"))
     limit = query.get("limit", config.WEB_GRAPH_LIMIT)
     skip = query.get("skip", config.WEB_GRAPH_LIMIT)
     mode = query.get("mode", "default")
@@ -644,16 +706,14 @@ def get_flow():
     orderby = query.get("orderby", None)
     timeline = query.get("timeline", False)
     try:
-        before = datetime.datetime.strptime(query["before"],
-                                            "%Y-%m-%d %H:%M")
+        before = datetime.datetime.strptime(query["before"], "%Y-%m-%d %H:%M")
     except (TypeError, ValueError) as e:
         utils.LOGGER.warning(str(e))
         before = None
     except KeyError:
         before = None
     try:
-        after = datetime.datetime.strptime(query["after"],
-                                           "%Y-%m-%d %H:%M")
+        after = datetime.datetime.strptime(query["after"], "%Y-%m-%d %H:%M")
     except (TypeError, ValueError) as e:
         utils.LOGGER.warning(str(e))
         after = None
@@ -663,24 +723,36 @@ def get_flow():
     utils.LOGGER.debug("Action: %r, Query: %r", action, query)
     if action == "details":
         # TODO: error
-        if query["type"] == 'node':
+        if query["type"] == "node":
             res = db.flow.host_details(query["id"])
         else:
             res = db.flow.flow_details(query["id"])
         if res is None:
             abort(404, "Entity not found")
     else:
-        cquery = db.flow.from_filters(query, limit=limit, skip=skip,
-                                      orderby=orderby, mode=mode,
-                                      timeline=timeline, after=after,
-                                      before=before)
+        cquery = db.flow.from_filters(
+            query,
+            limit=limit,
+            skip=skip,
+            orderby=orderby,
+            mode=mode,
+            timeline=timeline,
+            after=after,
+            before=before,
+        )
         if count:
             res = db.flow.count(cquery)
         else:
-            res = db.flow.to_graph(cquery, limit=limit, skip=skip,
-                                   orderby=orderby, mode=mode,
-                                   timeline=timeline, after=after,
-                                   before=before)
+            res = db.flow.to_graph(
+                cquery,
+                limit=limit,
+                skip=skip,
+                orderby=orderby,
+                mode=mode,
+                timeline=timeline,
+                after=after,
+                before=before,
+            )
     yield json.dumps(res, default=utils.serialize)
     if callback is not None:
         yield ");\n"
@@ -690,7 +762,8 @@ def get_flow():
 # /ipdata/
 #
 
-@application.get('/ipdata/<addr>')
+
+@application.get("/ipdata/<addr>")
 @check_referer
 def get_ipdata(addr):
     """Returns (estimated) geographical and AS data for a given IP address.
@@ -705,7 +778,7 @@ def get_ipdata(addr):
     callback = request.params.get("callback")
     result = json.dumps(db.data.infos_byip(addr))
     if callback is None:
-        return result + '\n'
+        return result + "\n"
     return "%s(%s);\n" % (callback, result)
 
 
@@ -713,44 +786,44 @@ def get_ipdata(addr):
 # Passive (/passivedns/)
 #
 
-@application.get('/passivedns/<query:path>')
+
+@application.get("/passivedns/<query:path>")
 @check_referer
 def get_passivedns(query):
     """Query passive DNS data. This API is compatible with the `Common
-Output Format
-<https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/>`_
-and implemented in CIRCL's `PyPDNS
-<https://github.com/CIRCL/PyPDNS>`_.
+    Output Format
+    <https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/>`_
+    and implemented in CIRCL's `PyPDNS
+    <https://github.com/CIRCL/PyPDNS>`_.
 
-It accepts two extra parameters, not supported (yet?) in PyPDNS:
+    It accepts two extra parameters, not supported (yet?) in PyPDNS:
 
-  - `subdomains`: if this parameter exists and a domain name is
-    queried, records for any subdomains will also be returned.
+      - `subdomains`: if this parameter exists and a domain name is
+        queried, records for any subdomains will also be returned.
 
-  - `reverse`: if this parameter exists and a domain name is queried,
-    records pointing to the queried domain (CNAME, NS, MX) will be
-    returned.
+      - `reverse`: if this parameter exists and a domain name is queried,
+        records pointing to the queried domain (CNAME, NS, MX) will be
+        returned.
 
-It also returns additional information:
+    It also returns additional information:
 
-  - "sensor": the "sensor" field of the record; this is useful to know
-    where this answer has been seen.
+      - "sensor": the "sensor" field of the record; this is useful to know
+        where this answer has been seen.
 
-  - "source": the IP address of the DNS server sending the answer.
+      - "source": the IP address of the DNS server sending the answer.
 
-:param str query: IP address or domains name to query
-:query bool subdomains: query subdomains (domain name only)
-:query bool reverse: use a reverse query (domain name only)
-:query str type: specify the DNS query type
-:status 200: no error
-:status 400: invalid referer
-:>json object: the result values (JSONL format: one JSON result per line)
+    :param str query: IP address or domains name to query
+    :query bool subdomains: query subdomains (domain name only)
+    :query bool reverse: use a reverse query (domain name only)
+    :query str type: specify the DNS query type
+    :status 200: no error
+    :status 400: invalid referer
+    :>json object: the result values (JSONL format: one JSON result per line)
 
     """
     subdomains = request.params.get("subdomains") is not None
     reverse = request.params.get("reverse") is not None
-    utils.LOGGER.debug("passivedns: query: %r, subdomains: %r", query,
-                       subdomains)
+    utils.LOGGER.debug("passivedns: query: %r, subdomains: %r", query, subdomains)
 
     if utils.IPADDR.search(query) or query.isdigit():
         flt = db.passive.flt_and(
@@ -763,25 +836,27 @@ It also returns additional information:
             db.passive.searchnet(query),
         )
     else:
-        flt = db.passive.searchdns(name=query,
-                                   dnstype=request.params.get("type"),
-                                   subdomains=subdomains,
-                                   reverse=reverse)
+        flt = db.passive.searchdns(
+            name=query,
+            dnstype=request.params.get("type"),
+            subdomains=subdomains,
+            reverse=reverse,
+        )
     for rec in db.passive.get(flt):
-        for k in ['_id', 'infos', 'recontype', 'schema_version']:
+        for k in ["_id", "infos", "recontype", "schema_version"]:
             try:
                 del rec[k]
             except KeyError:
                 pass
-        rec['rrtype'], rec['source'], _ = rec['source'].split('-')
-        rec['rrname'] = rec.pop('value')
+        rec["rrtype"], rec["source"], _ = rec["source"].split("-")
+        rec["rrname"] = rec.pop("value")
         try:
-            rec['rdata'] = rec.pop('addr')
+            rec["rdata"] = rec.pop("addr")
         except KeyError:
-            rec['rdata'] = rec.pop('targetval')
-        for k in ['first', 'last']:
+            rec["rdata"] = rec.pop("targetval")
+        for k in ["first", "last"]:
             try:
-                rec['time_%s' % k] = rec.pop('%sseen' % k)
+                rec["time_%s" % k] = rec.pop("%sseen" % k)
             except KeyError:
                 pass
-        yield '%s\n' % json.dumps(rec, default=utils.serialize)
+        yield "%s\n" % json.dumps(rec, default=utils.serialize)
