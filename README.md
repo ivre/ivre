@@ -1,7 +1,7 @@
-[![Build Status](https://travis-ci.org/cea-sec/ivre.svg)](https://travis-ci.org/cea-sec/ivre)
+[![Build Status](https://travis-ci.org/ivre/ivre.svg)](https://travis-ci.org/ivre/ivre)
 [![Documentation Status](https://readthedocs.org/projects/ivre/badge/?version=latest)](https://doc.ivre.rocks/en/latest/?badge=latest)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/0116170aaaa54915a72aad286029250b)](https://app.codacy.com/app/p-l-/ivre)
-[![Join the chat at Gitter](https://badges.gitter.im/cea-sec/ivre.svg)](https://gitter.im/cea-sec/ivre)
+[![Join the chat at Gitter](https://badges.gitter.im/ivre/ivre.svg)](https://gitter.im/ivre/ivre)
 [![Follow on Twitter](https://img.shields.io/twitter/follow/IvreRocks.svg?logo=twitter)](https://twitter.com/IvreRocks)
 
 # IVRE #
@@ -97,11 +97,11 @@ can provide a server to run scans, please contact the author.
 ## Contact ##
 
 For both support and contribution, the
-[repository](https://github.com/cea-sec/ivre) on Github should be
+[repository](https://github.com/ivre/ivre) on Github should be
 used: feel free to create a new issue or a pull request!
 
 You can also join the
-[Gitter conversation](https://gitter.im/cea-sec/ivre) (that is the
+[Gitter conversation](https://gitter.im/ivre/ivre) (that is the
 preferred way to get in touch for questions), or use the e-mail `dev`
 on the domain `ivre.rocks`.
 
@@ -113,7 +113,7 @@ If you are using IVRE in you research, please cite it as follows:
 
 Pierre Lalet, Emma Leroy, Florent Monjalet, Camille Mougey, Vincent
 Ruello and Vivien Venuti. *IVRE, a network recon framework*.
-[https://github.com/cea-sec/ivre](https://github.com/cea-sec/ivre),
+[https://github.com/ivre/ivre](https://github.com/ivre/ivre),
 2011-2021.
 
 Here is the appropriate bibtex entry:
@@ -122,7 +122,7 @@ Here is the appropriate bibtex entry:
         title = {{IVRE}, a network recon framework},
         author={Lalet, Pierre and Leroy, Emma and Monjalet, Florent and Mougey, Camille and Ruello, Vincent and Venuti, Viven},
         url = {https://ivre.rocks/},
-        howpublished = {\url{https://github.com/cea-sec/ivre/}},
+        howpublished = {\url{https://github.com/ivre/ivre/}},
         institution = {{ANSSI}: the National Cybersecurity Agency of France and
                        {CEA}: the French Alternative Energies and Atomic Energy Commission},
         year = {2011--2021},
@@ -133,7 +133,7 @@ Here is the appropriate bibtex entry:
 You can mention "IVRE, a network recon framework", together with the
 project homepage, [https://ivre.rocks/](https://ivre.rocks/) and/or
 the repository,
-[https://github.com/cea-sec/ivre](https://github.com/cea-sec/ivre).
+[https://github.com/ivre/ivre](https://github.com/ivre/ivre).
 
 On twitter, you can follow and/or mention
 [@IvreRocks](https://twitter.com/IvreRocks).

@@ -28,7 +28,7 @@ Install
 
    $ sudo apt -y --no-install-recommends install mongodb python3-pymongo \
    >   python3-crypto python3-bottle apache2 libapache2-mod-wsgi-py3 dokuwiki
-   $ git clone https://github.com/cea-sec/ivre
+   $ git clone https://github.com/ivre/ivre
    $ cd ivre
    $ python3 setup.py build
    $ sudo python3 setup.py install

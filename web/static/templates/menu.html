@@ -21,7 +21,8 @@
   <div class="col-lg-2 col-sm-1">
     <div class="navbar-ivre">
       <!-- The logo + app name -->
-      <a href="#"><img alt="Logo" src="logo.png" class="logo"/></a>
+      <a href="#"><img alt="Logo" src="logo.png" class="logo"
+		       ng-attr-title="IVRE {{::version}}"/></a>
       <a href="#" class="navbar-brand visible-lg visible-xs"
 	 ng-attr-title="IVRE {{::version}}">
 	IVRE
@@ -30,7 +31,7 @@
   </div>
 
   <!-- The menu -->
-  <ul class="nav navbar-nav col-lg-9 col-md-10 col-sm-11 hidden-xs">
+  <ul class="nav navbar-nav col-lg-9 col-md-9 col-sm-11 hidden-xs">
 
     <li ng-repeat="item1 in MENU.items" class="dropdown">
       <a ng-class="{'dropdown-toggle': item1.items != undefined}" class="clickable"
@@ -90,11 +91,19 @@
     </li>
   </ul>
 
-  <ul class="nav navbar-nav col-lg-1 col-md-1 visible-lg visible-md">
+  <ul class="nav navbar-nav col-lg-1 col-md-2 visible-lg visible-md">
+    <a title="Agence nationale de la s&eacute;curit&eacute; des syst&egrave;mes d'information"
+       href="https://www.ssi.gouv.fr/"
+       target="_blank"
+       class="navbar-link"
+       style="margin-right: 15%;">
+      <img alt="ANSSI" src="anssi-white.png" class="logo"/>
+    </a>
     <a title="Commissariat &agrave; l'&eacute;nergie atomique et aux &eacute;nergies alternatives"
        href="http://www.cea.fr/"
        target="_blank"
-       class="navbar-link">
+       class="navbar-link"
+       style="margin-right: 5%;">
       <img alt="CEA" src="cea-white.png" class="logo"/>
     </a>
   </ul>

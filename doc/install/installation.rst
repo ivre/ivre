@@ -139,9 +139,9 @@ The installation of IVRE itself can be done:
 
   These packages are based on the latest stable version; they all have
   a ``-git`` version, based on the current development code from the
-  `Github repository <https://github.com/cea-sec/ivre>`_. You can
-  install for example ``ivre-git`` and ``ivre-web-git`` if you want to
-  test the latest developments.
+  `Github repository <https://github.com/ivre/ivre>`_. You can install
+  for example ``ivre-git`` and ``ivre-web-git`` if you want to test
+  the latest developments.
 
   All the packages are based on the same bases: `ivre
   <https://aur.archlinux.org/pkgbase/ivre/>`__ and `ivre-git
