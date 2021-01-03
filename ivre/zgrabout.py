@@ -229,7 +229,7 @@ def zgrap_parser_http(data, hostrec, port=None):
                     "http-app": [
                         dict(
                             {"path": path, "application": "Centreon"},
-                            **({} if version is None else {"version": version})
+                            **({} if version is None else {"version": version}),
                         )
                     ],
                 }

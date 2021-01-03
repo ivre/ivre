@@ -1871,7 +1871,7 @@ class DBNmap(DBActive):
         add_addr_infos=True,
         force_info=False,
         callback=None,
-        **_
+        **_,
     ):
         """This method parses a JSON scan result as exported using
         `ivre scancli --json > file`, displays the parsing result, and
@@ -1951,7 +1951,7 @@ class DBNmap(DBActive):
         force_info=False,
         callback=None,
         zgrab_port=None,
-        **_
+        **_,
     ):
         """This method parses a JSON scan result produced by zgrab, displays
         the parsing result, and return True if everything went fine,
@@ -2094,7 +2094,7 @@ class DBNmap(DBActive):
         add_addr_infos=True,
         force_info=False,
         callback=None,
-        **_
+        **_,
     ):
         """This method parses a JSON scan result produced by zdns to create
         hosts PTR entries, displays the parsing result, and return
@@ -2187,7 +2187,7 @@ class DBNmap(DBActive):
         force_info=False,
         callback=None,
         masscan_probes=None,
-        **_
+        **_,
     ):
         """This method parses a JSON scan result produced by zdns for
         recursion test, displays the parsing result, and return True

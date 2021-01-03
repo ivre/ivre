@@ -316,7 +316,7 @@ class TargetNetwork(TargetRange):
             maxnbr=maxnbr,
             state=state,
             name="NET-%s" % net.replace("/", "-"),
-            categories=categories
+            categories=categories,
         )
 
 

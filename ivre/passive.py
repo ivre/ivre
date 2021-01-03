@@ -554,7 +554,7 @@ def _getinfos_ja3_hassh(spec):
             (hashtype, hashlib.new(hashtype, data).hexdigest())
             for hashtype in ["sha1", "sha256"]
         ),
-        **spec["infos"]
+        **spec["infos"],
     )
 
     if spec.get("recontype") == "SSL_SERVER":

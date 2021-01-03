@@ -1592,7 +1592,7 @@ class NmapHandler(ContentHandler):
         needports=False,
         needopenports=False,
         masscan_probes=None,
-        **_
+        **_,
     ):
         ContentHandler.__init__(self)
         self._needports = needports
@@ -2750,7 +2750,7 @@ class Nmap2DB(NmapHandler):
         source=None,
         callback=None,
         add_addr_infos=True,
-        **kargs
+        **kargs,
     ):
         self._db = db
         if categories is None:
@@ -2766,7 +2766,7 @@ class Nmap2DB(NmapHandler):
             categories=categories,
             source=source,
             add_addr_infos=add_addr_infos,
-            **kargs
+            **kargs,
         )
 
     def _to_binary(self, data):

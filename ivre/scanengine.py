@@ -271,7 +271,7 @@ class Campaign:
                 locfname[0],
                 status,
                 re.sub("[/@:]", "_", agent.name),
-                *locfname[1:]
+                *locfname[1:],
             )
             utils.makedirs(os.path.dirname(locfname))
             os.rename(remfname, locfname)
@@ -287,7 +287,7 @@ class Campaign:
                 locfname[0],
                 "data",
                 re.sub("[/@:]", "_", agent.name),
-                *locfname[1:]
+                *locfname[1:],
             )
             utils.makedirs(os.path.dirname(locfname))
             os.rename(remfname, locfname)

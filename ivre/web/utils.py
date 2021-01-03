@@ -116,7 +116,7 @@ def _find_get_notepad_pages():
         config.WEB_GET_NOTEPAD_PAGES = (config.WEB_GET_NOTEPAD_PAGES, ())
     return functools.partial(
         GET_NOTEPAD_PAGES[config.WEB_GET_NOTEPAD_PAGES[0]],
-        *config.WEB_GET_NOTEPAD_PAGES[1]
+        *config.WEB_GET_NOTEPAD_PAGES[1],
     )
 
 

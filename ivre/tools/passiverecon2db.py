@@ -56,7 +56,7 @@ def rec_iter(zeek_parser, sensor, ignore_rules):
             sensor,
             ignore_rules.get("IGNORENETS", {}),
             ignore_rules.get("NEVERIGNORE", {}),
-            **line
+            **line,
         )
 
 

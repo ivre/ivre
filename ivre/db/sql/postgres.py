@@ -102,7 +102,7 @@ class PostgresDB(SQLDB):
             "tmp_%s" % table.__tablename__,
             table.__table__.metadata,
             *cols,
-            prefixes=["TEMPORARY"]
+            prefixes=["TEMPORARY"],
         )
         t.create(bind=self.db, checkfirst=True)
         return t
@@ -1390,7 +1390,7 @@ class PostgresDBView(PostgresDBActive, SQLDBView):
                     (key, host.get(key))
                     for key in ["state", "state_reason", "state_reason_ttl"]
                     if key in host
-                )
+                ),
             )
             .on_conflict_do_update(
                 index_elements=["addr"],

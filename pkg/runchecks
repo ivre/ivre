@@ -18,7 +18,7 @@
 
 # pip install -U flake8 codespell pylint
 
-black --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ && echo "black OK"
+black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ && echo "black OK"
 
 flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre/ && echo "flake8 OK"
 
