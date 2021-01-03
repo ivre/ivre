@@ -1551,7 +1551,7 @@ class SQLDBActive(SQLDB, DBActive):
                     data = dict(
                         id=script.name,
                         output=script.output,
-                        **(script.data if script.data else {})
+                        **(script.data if script.data else {}),
                     )
                     if "ssl-cert" in data:
                         for cert in data["ssl-cert"]:

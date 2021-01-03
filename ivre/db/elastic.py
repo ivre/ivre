@@ -1270,7 +1270,7 @@ return result;
                 req.append(
                     Q(
                         "regexp",
-                        **{"ports.scripts.%s" % subfield: cls._get_pattern(values)}
+                        **{"ports.scripts.%s" % subfield: cls._get_pattern(values)},
                     )
                 )
             else:
@@ -1282,14 +1282,14 @@ return result;
                                 **{
                                     "ports.scripts.%s.%s"
                                     % (subfield, field): cls._get_pattern(value)
-                                }
+                                },
                             )
                         )
                     else:
                         req.append(
                             Q(
                                 "match",
-                                **{"ports.scripts.%s.%s" % (subfield, field): value}
+                                **{"ports.scripts.%s.%s" % (subfield, field): value},
                             )
                         )
         if not req:

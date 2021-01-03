@@ -4625,7 +4625,7 @@ class MongoDBPassive(MongoDB, DBPassive):
         return dict(
             base,
             source=re.compile("^ja3-"),
-            **{"infos.client.%s" % key: client_value_or_hash}
+            **{"infos.client.%s" % key: client_value_or_hash},
         )
 
     @staticmethod
