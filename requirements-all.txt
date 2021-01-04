@@ -1,0 +1,16 @@
+black
+bottle
+codespell
+cryptography
+elasticsearch
+elasticsearch-dsl
+flake8
+psycopg2
+pylint
+pymongo>=2.7.2
+pyOpenSSL>=16.1.0
+Sphinx
+sphinxcontrib-httpdomain
+sphinx_rtd_theme
+sqlalchemy
+tinydb
