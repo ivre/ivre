@@ -4019,6 +4019,19 @@ class IvreTests(unittest.TestCase):
                     found = True
         self.assertTrue(found)
 
+        # url2hostport()
+        with self.assertRaises(ValueError):
+            ivre.utils.url2hostport("http://[::1]X/")
+        with self.assertRaises(ValueError):
+            ivre.utils.url2hostport("http://[::1/")
+        self.assertEqual(ivre.utils.url2hostport("http://[::1]/"), ("::1", 80))
+        self.assertEqual(ivre.utils.url2hostport("https://[::]:1234/"), ("::", 1234))
+        self.assertEqual(ivre.utils.url2hostport("https://[::]:1234/"), ("::", 1234))
+        self.assertEqual(ivre.utils.url2hostport("https://1.2.3.4/"), ("1.2.3.4", 443))
+        self.assertEqual(
+            ivre.utils.url2hostport("ftp://1.2.3.4:2121/"), ("1.2.3.4", 2121)
+        )
+
     def test_scans(self):
         "Run scans, with and without agents"
 
