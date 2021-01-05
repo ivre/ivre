@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -458,6 +458,16 @@ def merge_scanner_scripts(curscript, script, script_id):
     return curscript
 
 
+def merge_nuclei_scripts(curscript, script, script_id):
+    def nuclei_equals(a, b, script_id):
+        return a == b
+
+    def nuclei_output(nuclei, script_id):
+        return "%s found at %s" % (nuclei["name"], nuclei["url"])
+
+    return _merge_scripts(curscript, script, script_id, nuclei_equals, nuclei_output)
+
+
 def _merge_scripts(
     curscript, script, script_id, script_equals, script_output, outsep="\n"
 ):
@@ -496,6 +506,7 @@ _SCRIPT_MERGE = {
     "ssl-cert": merge_ssl_cert_scripts,
     "ssl-ja3-client": merge_ja3_scripts,
     "ssl-ja3-server": merge_ja3_scripts,
+    "http-nuclei": merge_nuclei_scripts,
 }
 
 

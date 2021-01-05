@@ -1816,6 +1816,8 @@ class DBNmap(DBActive):
                     store_scan_function = self.store_scan_json_ivre
                 elif "ip" in firstres:
                     store_scan_function = self.store_scan_json_zgrab
+                elif "matched" in firstres and "template" in firstres:
+                    store_scan_function = self.store_scan_json_nuclei
                 elif "name" in firstres:
                     store_scan_function = self.store_scan_json_zdns
                 elif "altered_name" in firstres:
@@ -2308,6 +2310,124 @@ class DBNmap(DBActive):
                 # so we want to save the scan document
                 if not scan_doc_saved:
                     self.store_scan_doc({"_id": filehash, "scanner": "zdns"})
+                    scan_doc_saved = True
+                self.store_host(host)
+                if callback is not None:
+                    callback(host)
+        self.stop_store_hosts()
+        return True
+
+    def store_scan_json_nuclei(
+        self,
+        fname,
+        filehash=None,
+        needports=False,
+        needopenports=False,
+        categories=None,
+        source=None,
+        add_addr_infos=True,
+        force_info=False,
+        callback=None,
+        **_,
+    ):
+        """This method parses a JSON scan result produced by nuclei, displays
+        the parsing result, and return True if everything went fine,
+        False otherwise.
+
+        In backend-specific subclasses, this method stores the result
+        instead of displaying it, thanks to the `store_host`
+        method.
+
+        The callback is a function called after each host insertion
+        and takes this host as a parameter. This should be set to 'None'
+        if no action has to be taken.
+
+        """
+        if categories is None:
+            categories = []
+        scan_doc_saved = False
+        self.start_store_hosts()
+        with utils.open_file(fname) as fdesc:
+            for line in fdesc:
+                rec = json.loads(line.decode())
+                if rec.get("type") != "http":
+                    utils.LOGGER.warning(
+                        "Data type %r from nuclei not (yet) supported",
+                        rec.get("type"),
+                    )
+                    continue
+                try:
+                    url = rec.get("matched", rec["host"])
+                except KeyError:
+                    utils.LOGGER.warning("No URL found [%r]", rec)
+                    continue
+                try:
+                    addr, port = utils.url2hostport(url)
+                except ValueError:
+                    utils.LOGGER.warning("Invalud URL %r", url)
+                    continue
+                try:
+                    utils.ip2int(addr)
+                except (TypeError, socket.error, struct.error):
+                    utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
+                    continue
+                script_id = "%s-nuclei" % (rec["type"])
+                host = {
+                    "addr": addr,
+                    "scanid": filehash,
+                    "schema_version": xmlnmap.SCHEMA_VERSION,
+                    "ports": [
+                        {
+                            "protocol": "tcp",
+                            "port": port,
+                            "service_name": "http",
+                            "state_state": "open",
+                            "scripts": [
+                                {
+                                    "id": script_id,
+                                    "output": "%s found at %s" % (rec["name"], url),
+                                    script_id: [
+                                        {
+                                            "template": rec["template"],
+                                            "name": rec["name"],
+                                            "url": url,
+                                            "severity": rec["severity"],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                }
+                # This is missing (for now) from nuclei
+                # try:
+                #     # [:19]: remove timezone info
+                #     host["starttime"] = host["endtime"] = rec.pop("timestamp")[
+                #         :19
+                #     ].replace("T", " ")
+                # except KeyError:
+                #     pass
+                if categories:
+                    host["categories"] = categories
+                if source is not None:
+                    host["source"] = source
+                host = self.json2dbrec(host)
+                if (
+                    add_addr_infos
+                    and self.globaldb is not None
+                    and (force_info or "infos" not in host or not host["infos"])
+                ):
+                    host["infos"] = {}
+                    for func in [
+                        self.globaldb.data.country_byip,
+                        self.globaldb.data.as_byip,
+                        self.globaldb.data.location_byip,
+                    ]:
+                        host["infos"].update(func(host["addr"]) or {})
+                # We are about to insert data based on this file,
+                # so we want to save the scan document
+                if not scan_doc_saved:
+                    self.store_scan_doc({"_id": filehash, "scanner": "nuclei"})
                     scan_doc_saved = True
                 self.store_host(host)
                 if callback is not None:
