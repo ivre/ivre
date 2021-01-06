@@ -54,6 +54,7 @@ export {
         SSL_CLIENT,
         SSL_SERVER,
         DNS_ANSWER,
+        DNS_HONEYPOT_QUERY,
         FTP_CLIENT,
         FTP_SERVER,
         POP_CLIENT,
@@ -405,6 +406,17 @@ event ssl_established(c: connection) {
             ]);
             cacert = T;
         }
+    }
+}
+
+event dns_request(c: connection, msg: dns_msg, query: string, qtype: count, qclass: count) {
+    if (c$id$resp_h in HONEYPOTS) {
+        Log::write(LOG, [$ts=c$start_time,
+                         $uid=c$uid,
+                         $host=c$id$orig_h,
+                         $recon_type=DNS_HONEYPOT_QUERY,
+                         $source=fmt("%s/%d-%s-%s", get_port_transport_proto(c$id$resp_p), c$id$resp_p, DNS::query_types[qtype], DNS::classes[qclass]),
+                         $value=query]);
     }
 }
 
