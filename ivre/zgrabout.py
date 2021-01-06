@@ -161,7 +161,7 @@ def zgrap_parser_http(data, hostrec, port=None):
                     "id": "http-git",
                     "output": "\n  %s\n    Git repository found!\n" % repository,
                     "http-git": [
-                        {"repository": repository, "files-found": [".git/index"]}
+                        {"repository": repository, "files-found": [".git/index"]},
                     ],
                 }
             )

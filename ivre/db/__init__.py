@@ -2364,7 +2364,7 @@ class DBNmap(DBActive):
                 try:
                     addr, port = utils.url2hostport(url)
                 except ValueError:
-                    utils.LOGGER.warning("Invalud URL %r", url)
+                    utils.LOGGER.warning("Invalid URL %r", url)
                     continue
                 try:
                     utils.ip2int(addr)
@@ -2372,6 +2372,35 @@ class DBNmap(DBActive):
                     utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
                     continue
                 script_id = "%s-nuclei" % (rec["type"])
+                scripts = [
+                    {
+                        "id": script_id,
+                        "output": "%s found at %s" % (rec["name"], url),
+                        script_id: [
+                            {
+                                "template": rec["template"],
+                                "name": rec["name"],
+                                "url": url,
+                                "severity": rec["severity"],
+                            },
+                        ],
+                    },
+                ]
+                if rec["template"] == "git-config":
+                    repository = "%s:%d%s" % (addr, port, urlparse(url).path[:-6])
+                    scripts.append(
+                        {
+                            "id": "http-git",
+                            "output": "\n  %s\n    Git repository found!\n"
+                            % repository,
+                            "http-git": [
+                                {
+                                    "repository": repository,
+                                    "files-found": [".git/config"],
+                                },
+                            ],
+                        }
+                    )
                 host = {
                     "addr": addr,
                     "scanid": filehash,
@@ -2382,20 +2411,7 @@ class DBNmap(DBActive):
                             "port": port,
                             "service_name": "http",
                             "state_state": "open",
-                            "scripts": [
-                                {
-                                    "id": script_id,
-                                    "output": "%s found at %s" % (rec["name"], url),
-                                    script_id: [
-                                        {
-                                            "template": rec["template"],
-                                            "name": rec["name"],
-                                            "url": url,
-                                            "severity": rec["severity"],
-                                        },
-                                    ],
-                                },
-                            ],
+                            "scripts": scripts,
                         },
                     ],
                 }
