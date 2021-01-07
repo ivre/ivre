@@ -79,6 +79,7 @@ class TinyDB(DB):
     def __init__(self, url):
         super().__init__()
         self.basepath = url.path
+        utils.makedirs(self.basepath)
 
     @property
     def db(self):
