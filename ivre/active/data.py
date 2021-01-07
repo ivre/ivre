@@ -380,6 +380,14 @@ def merge_scanner_scripts(curscript, script, script_id):
                     uri["version"],
                 )
             )
+        for query in data.get("dns_queries", []):
+            res.setdefault("dns_queries", set()).add(
+                (
+                    query["query"],
+                    query["qtype"],
+                    query["qclass"],
+                )
+            )
         for scanner in data.get("scanners", []):
             res.setdefault("scanners", {}).setdefault(scanner["name"], set()).update(
                 (probe["proto"], probe["name"]) for probe in scanner.get("probes", [])
@@ -396,6 +404,11 @@ def merge_scanner_scripts(curscript, script, script_id):
         res["http_uris"] = [
             {"uri": uri, "method": method, "version": version}
             for uri, method, version in sorted(res["http_uris"])
+        ]
+    if "dns_queries" in res:
+        res["dns_queries"] = [
+            {"query": query, "qtype": qtype, "qclass": qclass}
+            for query, qtype, qclass in sorted(res["dns_queries"])
         ]
     scanners = []
     for name, probes in res.get("scanners", {}).items():
@@ -443,6 +456,27 @@ def merge_scanner_scripts(curscript, script, script_id):
                         ", ".join(uris_versions[uri]),
                     )
                     for uri in sorted(uris_versions)
+                ),
+            )
+        )
+    if res.get("dns_queries"):
+        queries_qtype = {}
+        queries_qclass = {}
+        for query in res["dns_queries"]:
+            queries_qtype.setdefault(query["query"], set()).add(query["qtype"])
+            queries_qclass.setdefault(query["query"], set()).add(query["qclass"])
+        output.append(
+            "DNS quer%s: %s"
+            % (
+                "ies" if len(queries_qtype) > 1 else "y",
+                ", ".join(
+                    "%s (type: %s, class: %s)"
+                    % (
+                        query,
+                        ", ".join(queries_qtype[query]),
+                        ", ".join(queries_qclass[query]),
+                    )
+                    for query in sorted(queries_qtype)
                 ),
             )
         )
