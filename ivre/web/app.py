@@ -72,6 +72,19 @@ def check_referer(func):
 
     @wraps(func)
     def _newfunc(*args, **kargs):
+
+        # Header with an existing X-API-Key header or an
+        # Authorization: Bearer XXX are OK. Note: IVRE does not check
+        # those values, they only serve as anti-CSRF protections.
+        if request.headers.get("X-API-Key") or (
+            request.headers.get("Authorization")
+            and (
+                request.headers.get("Authorization", "").split(None, 1)[0].lower()
+                == "bearer"
+            )
+        ):
+            return func(*args, **kargs)
+
         referer = request.headers.get("Referer")
         if not referer:
             return _die(referer)
