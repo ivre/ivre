@@ -22,7 +22,9 @@ instance via an HTTP server.
 """
 
 
+from functools import partial
 import json
+from urllib.parse import quote
 from urllib.request import URLopener
 
 
@@ -31,7 +33,7 @@ from ivre.db import DB, DBActive, DBNmap, DBView
 
 class HttpDB(DB):
 
-    flt_empty = ""
+    flt_empty = {}
 
     def __init__(self, url):
         super().__init__()
@@ -44,11 +46,15 @@ class HttpDB(DB):
         ):
             urlop.addheader(hdr, val)
 
+    @staticmethod
+    def _output_filter(spec):
+        return quote(json.dumps(spec, separators=(",", ":"), indent=None))
+
     def get(self, spec, limit=None, skip=None, sort=None, fields=None):
-        url = "%s/%s?q=%sskip:" % (
+        url = "%s/%s?f=%s&q=skip:" % (
             self.baseurl,
             self.route,
-            ("%s%%20" % spec) if spec else "",
+            self._output_filter(spec),
         )
         if skip is None:
             skip = 0
@@ -74,21 +80,33 @@ class HttpDB(DB):
             skip += len(data)
 
     def count(self, spec, **kargs):
-        url = "%s/%s/count" % (self.baseurl, self.route)
-        if spec:
-            url += "?q=%s" % spec
+        url = "%s/%s/count?f=%s" % (self.baseurl, self.route, self._output_filter(spec))
         req = self.db.open(url)
         return int(req.read().rstrip(b"\n"))
 
     @staticmethod
     def flt_and(*args):
-        return "%20".join(arg for arg in args if arg)
+        return {"f": "and", "a": list(a for a in args if a)}
+
+    @classmethod
+    def flt_or(cls, *args):
+        return {"f": "or", "a": list(args)}
+
+    @staticmethod
+    def _search(func, *args, **kargs):
+        return dict(
+            f=func, **{"a": list(args)} if args else {}, **{"k": kargs} if kargs else {}
+        )
+
+    def __getattribute__(self, attr):
+        if attr.startswith("search") and attr[6:]:
+            return partial(self._search, attr[6:])
+        return super().__getattribute__(attr)
 
 
 class HttpDBActive(HttpDB, DBActive):
-    @staticmethod
-    def searchhost(addr, neg=False):
-        return "%s%s" % ("!" if neg else "", addr)
+
+    pass
 
 
 class HttpDBNmap(HttpDBActive, DBNmap):
