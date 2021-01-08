@@ -152,8 +152,13 @@ FilterParams = namedtuple(
 
 
 def get_nmap_base(dbase):
+    # we can get filters from either q= (web interface) or f= (API);
+    # both are used (logical and)
     query = webutils.query_from_params(request.params)
     flt, sortby, unused, skip, limit = webutils.flt_from_query(dbase, query)
+    flt = dbase.flt_and(
+        flt, webutils.parse_filter(dbase, json.loads(request.params.pop("f", "{}")))
+    )
     if limit is None:
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:

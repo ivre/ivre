@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,9 +22,9 @@ script.
 
 """
 
-import hmac
-import functools
 import datetime
+import functools
+import hmac
 import os
 import re
 import shlex
@@ -788,3 +788,27 @@ def flt_from_query(dbase, query, base_flt=None):
         else:
             add_unused(neg, param, value)
     return flt, sortby, unused, skip, limit
+
+
+def parse_filter(dbase, data):
+    if not isinstance(data, dict):
+        raise ValueError("Unsupported filter")
+    if not data:
+        return dbase.flt_empty
+    func = data.pop("f")
+    if not isinstance(func, str):
+        raise ValueError("Unsupported filter")
+    args = data.pop("a", [])
+    try:
+        return {"and": dbase.flt_and, "or": dbase.flt_or}[func](
+            *(parse_filter(dbase, a) for a in args)
+        )
+    except KeyError:
+        pass
+    func = "search%s" % func
+    kargs = data.pop("k", {})
+    if data:
+        raise ValueError("Unsupported filter")
+    if not hasattr(dbase, func):
+        raise ValueError("Unsupported filter")
+    return getattr(dbase, func)(*args, **kargs)
