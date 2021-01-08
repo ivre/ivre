@@ -619,7 +619,7 @@ class MongoDB(DB):
 
     @staticmethod
     def flt_or(*args):
-        return {"$or": args} if len(args) > 1 else args[0]
+        return {"$or": list(args)} if len(args) > 1 else args[0]
 
     @staticmethod
     def _search_field_exists(field):
@@ -829,6 +829,14 @@ class MongoDBActive(MongoDB, DBActive):
                 {"sparse": True},
             ),
             ([("ports.scripts.ssl-cert.san", pymongo.ASCENDING)], {"sparse": True}),
+            (
+                [("ports.scripts.ssl-cert.subject_text", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
+                [("ports.scripts.ssl-cert.issuer_text", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
             (
                 [("ports.scripts.ssl-cert.issuer.commonName", pymongo.ASCENDING)],
                 {"sparse": True},
