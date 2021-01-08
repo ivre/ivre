@@ -72,6 +72,19 @@ def check_referer(func):
 
     @wraps(func)
     def _newfunc(*args, **kargs):
+
+        # Header with an existing X-API-Key header or an
+        # Authorization: Bearer XXX are OK. Note: IVRE does not check
+        # those values, they only serve as anti-CSRF protections.
+        if request.headers.get("X-API-Key") or (
+            request.headers.get("Authorization")
+            and (
+                request.headers.get("Authorization", "").split(None, 1)[0].lower()
+                == "bearer"
+            )
+        ):
+            return func(*args, **kargs)
+
         referer = request.headers.get("Referer")
         if not referer:
             return _die(referer)
@@ -139,8 +152,13 @@ FilterParams = namedtuple(
 
 
 def get_nmap_base(dbase):
+    # we can get filters from either q= (web interface) or f= (API);
+    # both are used (logical and)
     query = webutils.query_from_params(request.params)
     flt, sortby, unused, skip, limit = webutils.flt_from_query(dbase, query)
+    flt = dbase.flt_and(
+        flt, webutils.parse_filter(dbase, json.loads(request.params.pop("f", "{}")))
+    )
     if limit is None:
         limit = config.WEB_LIMIT
     if config.WEB_MAXRESULTS is not None:

@@ -5069,7 +5069,7 @@ class IvreTests(unittest.TestCase):
                 fdesc.writelines(open(newenv["IVRE_CONF"], "rb"))
             fdesc.write(
                 (
-                    '\nDB_NMAP = "http://%s:%d/cgi#Referer=http://%s:%d/"\n'
+                    '\nDB_VIEW = "http://%s:%d/cgi#Referer=http://%s:%d/"\n'
                     % (
                         HTTPD_HOSTNAME,
                         HTTPD_PORT,
