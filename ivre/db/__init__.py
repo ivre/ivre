@@ -3819,8 +3819,11 @@ class MetaDB:
         url = self.urls.get(purpose, self.url)
         if url is not None:
             url = urlparse(url)
+            db_type = url.scheme
+            if db_type == "https":
+                db_type = "http"
             try:
-                modulename, classname = self.db_types[purpose][url.scheme]
+                modulename, classname = self.db_types[purpose][db_type]
             except (KeyError, TypeError):
                 utils.LOGGER.error(
                     "Cannot get database for %s from %s",
