@@ -2830,6 +2830,9 @@ class DBData(DB):
     def location_byip(self, addr):
         raise NotImplementedError
 
+    def country_byip(self, addr):
+        raise NotImplementedError
+
 
 class LockError(RuntimeError):
     """A runtime error used when a lock cannot be acquired or released."""
@@ -3728,6 +3731,7 @@ class MetaDB:
         },
         "data": {
             "maxmind": ("maxmind", "MaxMindDBData"),
+            "http": ("http", "HttpDBData"),
         },
         "agent": {
             "mongodb": ("mongo", "MongoDBAgent"),

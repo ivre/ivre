@@ -28,7 +28,7 @@ from urllib.parse import quote
 from urllib.request import URLopener
 
 
-from ivre.db import DB, DBActive, DBNmap, DBView
+from ivre.db import DB, DBActive, DBData, DBNmap, DBView
 
 
 class HttpDB(DB):
@@ -117,3 +117,44 @@ class HttpDBNmap(HttpDBActive, DBNmap):
 class HttpDBView(HttpDBActive, DBView):
 
     route = "view"
+
+
+class HttpDBData(HttpDB, DBData):
+
+    route = "ipdata"
+
+    def infos_byip(self, addr):
+        url = "%s/%s/%s" % (self.baseurl, self.route, addr)
+        req = self.db.open(url)
+        return {
+            k: tuple(v) if isinstance(v, list) else v for k, v in json.load(req).items()
+        }
+
+    def _infos_byip(self, fields, addr):
+        infos = self.infos_byip(addr)
+        return {key: infos[key] for key in fields if key in infos}
+
+    def as_byip(self, addr):
+        return self._infos_byip(["as_num", "as_name"], addr)
+
+    def location_byip(self, addr):
+        return self._infos_byip(
+            [
+                "region_code",
+                "region_name",
+                "continent_code",
+                "continent_name",
+                "country_code",
+                "country_name",
+                "registered_country_code",
+                "registered_country_name",
+                "city",
+                "postal_code",
+                "coordinates",
+                "coordinates_accuracy_radius",
+            ],
+            addr,
+        )
+
+    def country_byip(self, addr):
+        return self._infos_byip(["country_code", "country_name"], addr)
