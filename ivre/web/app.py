@@ -151,7 +151,7 @@ FilterParams = namedtuple(
 )
 
 
-def get_nmap_base(dbase):
+def get_base(dbase):
     # we can get filters from either q= (web interface) or f= (API);
     # both are used (logical and)
     query = webutils.query_from_params(request.params)
@@ -215,7 +215,7 @@ def get_nmap_action(subdb, action):
 
     """
     subdb = db.view if subdb == "view" else db.nmap
-    flt_params = get_nmap_base(subdb)
+    flt_params = get_base(subdb)
     preamble = "[\n"
     postamble = "]\n"
     if action == "timeline":
@@ -397,17 +397,17 @@ def get_nmap_count(subdb):
 
     """
     subdb = db.view if subdb == "view" else db.nmap
-    flt_params = get_nmap_base(subdb)
+    flt_params = get_base(subdb)
     count = subdb.count(flt_params.flt)
     if flt_params.callback is None:
         return "%d\n" % count
     return "%s(%d);\n" % (flt_params.callback, count)
 
 
-@application.get("/<subdb:re:scans|view>/top/<field:path>")
+@application.get("/<subdb:re:scans|view|passive>/top/<field:path>")
 @check_referer
-def get_nmap_top(subdb, field):
-    """Get top values from Nmap & View databases
+def get_top(subdb, field):
+    """Get top values from Nmap, View & Passive databases
 
     :param str subdb: database to query (must be "scans" or "view")
     :param str field: (pseudo-)field to get top values (e.g., "service")
@@ -425,8 +425,12 @@ def get_nmap_top(subdb, field):
     :>jsonarr int value: count for this value
 
     """
-    subdb = db.view if subdb == "view" else db.nmap
-    flt_params = get_nmap_base(subdb)
+    subdb = {
+        "passive": db.passive,
+        "scans": db.nmap,
+        "view": db.view,
+    }[subdb]
+    flt_params = get_base(subdb)
     if field[0] in "-!":
         field = field[1:]
         least = True
@@ -491,7 +495,7 @@ def get_nmap(subdb):
     """
     subdb_tool = "view" if subdb == "view" else "scancli"
     subdb = db.view if subdb == "view" else db.nmap
-    flt_params = get_nmap_base(subdb)
+    flt_params = get_base(subdb)
     # PostgreSQL: the query plan if affected by the limit and gives
     # really poor results. This is a temporary workaround (look for
     # XXX-WORKAROUND-PGSQL).
@@ -882,3 +886,89 @@ def get_passivedns(query):
             except KeyError:
                 pass
         yield "%s\n" % json.dumps(rec, default=utils.serialize)
+
+
+@application.get("/passive")
+@check_referer
+def get_passive():
+    """Get records from Passive database
+
+    :query str q: query (only used for limit/skip and sort)
+    :query str f: filter
+    :query str callback: callback to use for JSONP results
+    :query bool ipsasnumbers: to get IP addresses as numbers rather than as
+                             strings
+    :query bool datesasstrings: to get dates as strings rather than as
+                               timestamps
+    :query str format: "json" (the default) or "ndjson"
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr object: results
+
+    """
+    flt_params = get_base(db.passive)
+    # PostgreSQL: the query plan if affected by the limit and gives
+    # really poor results. This is a temporary workaround (look for
+    # XXX-WORKAROUND-PGSQL).
+    # result = db.passive.get(flt_params.flt, limit=flt_params.limit,
+    #                         skip=flt_params.skip, sort=flt_params.sortby)
+    result = db.passive.get(
+        flt_params.flt, skip=flt_params.skip, sort=flt_params.sortby
+    )
+    if flt_params.callback is None:
+        if flt_params.fmt == "json":
+            yield "[\n"
+    else:
+        yield "%s([\n" % flt_params.callback
+    # XXX-WORKAROUND-PGSQL
+    # for rec in result:
+    for i, rec in enumerate(result):
+        try:
+            del rec["_id"]
+        except KeyError:
+            pass
+        if "addr" in rec and flt_params.ipsasnumbers:
+            rec["addr"] = utils.force_ip2int(rec["addr"])
+        for field in ["firstseen", "lastseen"]:
+            if field in rec:
+                if not flt_params.datesasstrings:
+                    rec[field] = int(rec[field].timestamp())
+        if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
+            "cert",
+            "cacert",
+        }:
+            rec["value"] = utils.encode_b64(rec["value"]).decode()
+        if flt_params.fmt == "ndjson":
+            yield "%s\n" % json.dumps(rec, default=utils.serialize)
+        else:
+            yield "%s\t%s" % (
+                "" if i == 0 else ",\n",
+                json.dumps(rec, default=utils.serialize),
+            )
+        if flt_params.limit and i + 1 >= flt_params.limit:
+            break
+    if flt_params.callback is None:
+        if flt_params.fmt == "json":
+            yield "\n]\n"
+    else:
+        yield "\n]);\n"
+
+
+@application.get("/passive/count")
+@check_referer
+def get_passive_count():
+    """Get special values from Nmap & View databases
+
+    :query str q: query (only used for limit/skip and sort)
+    :query str f: filter
+    :query str callback: callback to use for JSONP results
+    :status 200: no error
+    :status 400: invalid referer
+    :>json int: count
+
+    """
+    flt_params = get_base(db.passive)
+    count = db.passive.count(flt_params.flt)
+    if flt_params.callback is None:
+        return "%d\n" % count
+    return "%s(%d);\n" % (flt_params.callback, count)

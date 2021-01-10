@@ -2775,6 +2775,52 @@ class IvreTests(unittest.TestCase):
         self.assertTrue(all(len(d) == ncolumns for d in data))
         self.check_value("passive_features_versions_noyieldall_FRDE_ndata", len(data))
 
+        # BEGIN Using the HTTP server as a database
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv["IVRE_CONF"], "rb"))
+            fdesc.write(
+                (
+                    '\nDB_PASSIVE = "http://%s:%d/cgi#Referer=http://%s:%d/"\n'
+                    % (
+                        HTTPD_HOSTNAME,
+                        HTTPD_PORT,
+                        HTTPD_HOSTNAME,
+                        HTTPD_PORT,
+                    )
+                ).encode()
+            )
+        newenv["IVRE_CONF"] = fdesc.name
+
+        res, out1, err = RUN(["ivre", "ipinfo", "--count"], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "ipinfo", "--count"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+
+        res, out1, err = RUN(["ivre", "ipinfo", "--top", "net"], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "ipinfo", "--top", "net"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+
+        addr = next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))["addr"]
+        res, out1, err = RUN(["ivre", "ipinfo", addr], env=newenv)
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        res, out2, err = RUN(["ivre", "ipinfo", addr])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        self.assertEqual(out1, out2)
+
+        os.unlink(fdesc.name)
+        # END Using the HTTP server as a database
+
     def test_54_passive_delete(self):
         total_count = ivre.db.db.passive.count(ivre.db.db.passive.flt_empty)
         # Delete

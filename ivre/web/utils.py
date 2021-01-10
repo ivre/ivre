@@ -183,11 +183,11 @@ def _parse_query(dbase, query):
         query = "full"
     query = query.split(":")
     return {
-        "full": lambda: dbase.flt_empty,
-        "noaccess": dbase.searchnonexistent,
-        "category": lambda cat: dbase.searchcategory(cat.split(",")),
-        "source": dbase.searchsource,
-    }[query[0]](*query[1:])
+        "full": lambda dbase: dbase.flt_empty,
+        "noaccess": lambda dbase: dbase.searchnonexistent(),
+        "category": lambda dbase, cat: dbase.searchcategory(cat.split(",")),
+        "source": lambda dbase, source: dbase.searchsource(source),
+    }[query[0]](dbase, *query[1:])
 
 
 def get_init_flt(dbase):
@@ -790,6 +790,28 @@ def flt_from_query(dbase, query, base_flt=None):
     return flt, sortby, unused, skip, limit
 
 
+def parse_arg(data):
+    if not isinstance(data, dict):
+        return data
+    if "f" not in data or not isinstance(data["f"], str):
+        return data
+    if "a" not in data or not isinstance(data["a"], list):
+        return data
+    args = data["a"]
+    if len(args) != 1:
+        return data
+    if any(k not in "af" for k in data):
+        return data
+    try:
+        func = {
+            "regexp": utils.str2regexp,
+            "datetime": datetime.datetime.fromtimestamp,
+        }[data["f"]]
+    except KeyError:
+        return data
+    return func(*args)
+
+
 def parse_filter(dbase, data):
     if not isinstance(data, dict):
         raise ValueError("Unsupported filter")
@@ -800,15 +822,17 @@ def parse_filter(dbase, data):
         raise ValueError("Unsupported filter")
     args = data.pop("a", [])
     try:
-        return {"and": dbase.flt_and, "or": dbase.flt_or}[func](
-            *(parse_filter(dbase, a) for a in args)
-        )
+        func = {"and": dbase.flt_and, "or": dbase.flt_or}[func]
     except KeyError:
         pass
+    else:
+        return func(*(parse_filter(dbase, a) for a in args))
     func = "search%s" % func
     kargs = data.pop("k", {})
     if data:
         raise ValueError("Unsupported filter")
     if not hasattr(dbase, func):
         raise ValueError("Unsupported filter")
-    return getattr(dbase, func)(*args, **kargs)
+    return getattr(dbase, func)(
+        *(parse_arg(a) for a in args), **{k: parse_arg(v) for k, v in kargs.items()}
+    )

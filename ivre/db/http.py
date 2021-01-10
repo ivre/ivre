@@ -22,13 +22,36 @@ instance via an HTTP server.
 """
 
 
+from datetime import datetime
 from functools import partial
 import json
+import re
 from urllib.parse import quote
 from urllib.request import URLopener
 
 
-from ivre.db import DB, DBActive, DBData, DBNmap, DBView
+from ivre.db import DB, DBActive, DBData, DBNmap, DBPassive, DBView
+from ivre import utils
+
+
+def serialize(obj):
+    """Return a JSON-compatible representation for `obj`"""
+    if isinstance(obj, utils.REGEXP_T):
+        return {
+            "f": "regexp",
+            "a": [
+                "/%s/%s"
+                % (
+                    obj.pattern,
+                    "".join(x.lower() for x in "ILMSXU" if getattr(re, x) & obj.flags),
+                ),
+            ],
+        }
+    if isinstance(obj, datetime):
+        return {"f": "datetime", "a": [obj.timestamp()]}
+    if isinstance(obj, bytes):
+        return {"f": "bytes", "a": [utils.encode_b64(obj).decode()]}
+    raise TypeError("Don't know what to do with %r (%r)" % (obj, type(obj)))
 
 
 class HttpDB(DB):
@@ -48,7 +71,9 @@ class HttpDB(DB):
 
     @staticmethod
     def _output_filter(spec):
-        return quote(json.dumps(spec, separators=(",", ":"), indent=None))
+        return quote(
+            json.dumps(spec, separators=(",", ":"), indent=None, default=serialize)
+        )
 
     def _get(self, spec, limit=None, skip=None, sort=None, fields=None):
         url = "%s/%s?f=%s&q=skip:" % (
@@ -80,7 +105,7 @@ class HttpDB(DB):
             skip += len(data)
 
     def get(self, spec, limit=None, skip=None, sort=None, fields=None):
-        for rec in self._get(spec, limit=None, skip=None, sort=None, fields=None):
+        for rec in self._get(spec, limit=limit, skip=skip, sort=sort, fields=fields):
             for fld in self.datetime_fields:
                 if fld in rec:
                     rec[fld] = datetime.fromtimestamp(rec[fld])
@@ -191,6 +216,12 @@ class HttpDBNmap(HttpDBActive, DBNmap):
 class HttpDBView(HttpDBActive, DBView):
 
     route = "view"
+
+
+class HttpDBPassive(HttpDB, DBPassive):
+
+    no_limit = None
+    route = "passive"
 
 
 class HttpDBData(HttpDB, DBData):

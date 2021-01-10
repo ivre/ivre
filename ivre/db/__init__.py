@@ -2466,6 +2466,7 @@ class _RecInfo:
 class DBPassive(DB):
 
     ipaddr_fields = ["addr"]
+    datetime_fields = ["firstseen", "lastseen"]
     list_fields = ["infos.domain", "infos.domaintarget", "infos.san"]
 
     def __init__(self):
@@ -3724,14 +3725,15 @@ class MetaDB:
             "tinydb": ("tiny", "TinyDBNmap"),
         },
         "passive": {
+            "http": ("http", "HttpDBPassive"),
             "mongodb": ("mongo", "MongoDBPassive"),
             "postgresql": ("sql.postgres", "PostgresDBPassive"),
             "sqlite": ("sql.sqlite", "SqliteDBPassive"),
             "tinydb": ("tiny", "TinyDBPassive"),
         },
         "data": {
-            "maxmind": ("maxmind", "MaxMindDBData"),
             "http": ("http", "HttpDBData"),
+            "maxmind": ("maxmind", "MaxMindDBData"),
         },
         "agent": {
             "mongodb": ("mongo", "MongoDBAgent"),
