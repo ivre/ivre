@@ -201,6 +201,7 @@ def get_nmap_action(subdb, action):
                       "ipsports", "timeline", "coordinates", "countopenports"
                       or "diffcats")
     :query str q: query (including limit/skip and sort)
+    :query str f: filter
     :query str callback: callback to use for JSONP results (forces "json"
                         format)
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
@@ -388,6 +389,7 @@ def get_nmap_count(subdb):
 
     :param str subdb: database to query (must be "scans" or "view")
     :query str q: query (including limit/skip and sort)
+    :query str f: filter
     :query str callback: callback to use for JSONP results
     :status 200: no error
     :status 400: invalid referer
@@ -410,6 +412,7 @@ def get_nmap_top(subdb, field):
     :param str subdb: database to query (must be "scans" or "view")
     :param str field: (pseudo-)field to get top values (e.g., "service")
     :query str q: query (including limit/skip and sort)
+    :query str f: filter
     :query str callback: callback to use for JSONP results
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
@@ -474,6 +477,7 @@ def get_nmap(subdb):
 
     :param str subdb: database to query (must be "scans" or "view")
     :query str q: query (including limit/skip and sort)
+    :query str f: filter
     :query str callback: callback to use for JSONP results
     :query bool ipsasnumbers: to get IP addresses as numbers rather than as
                              strings
