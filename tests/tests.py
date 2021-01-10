@@ -1671,6 +1671,15 @@ class IvreTests(unittest.TestCase):
                 found = True
         self.assertTrue(found)
 
+        for topval in ["port:open", "service:80", "country", "portlist:open"]:
+            res, out1, err = RUN(["ivre", "scancli", "--top", topval], env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(["ivre", "scancli", "--top", topval])
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(out1, out2)
+
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
 
@@ -5128,6 +5137,15 @@ class IvreTests(unittest.TestCase):
                 self.assertTrue(b" " + addr.encode() + b" " in line)
                 found = True
         self.assertTrue(found)
+
+        for topval in ["port:open", "service:80", "country", "portlist:open"]:
+            res, out1, err = RUN(["ivre", "view", "--top", topval], env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(["ivre", "view", "--top", topval])
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(out1, out2)
 
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
