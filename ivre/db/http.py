@@ -84,6 +84,73 @@ class HttpDB(DB):
         req = self.db.open(url)
         return int(req.read().rstrip(b"\n"))
 
+    def topvalues(
+        self,
+        field,
+        flt=None,
+        topnbr=10,
+        sort=None,
+        limit=None,
+        skip=None,
+        least=False,
+    ):
+        url = "%s/%s/top/%s%s:%d?f=%s" % (
+            self.baseurl,
+            self.route,
+            "-" if least else "",
+            quote(field),
+            topnbr,
+            self._output_filter(flt or self.flt_empty),
+        )
+        for param in ["sort", "limit", "skip"]:
+            if locals()[param] is not None:
+                raise ValueError(
+                    "Parameter %s is not supported in HTTP backend" % param
+                )
+
+        def output(x):
+            return {"_id": outputproc(x["label"]), "count": x["value"]}
+
+        if (
+            field
+            in {
+                "country",
+                "city",
+                "as",
+                "port",
+                "product",
+                "version",
+                "cpe",
+                "ja3-server",
+                "sshkey.bits",
+                "ike.vendor_ids",
+                "ike.transforms",
+                "httphdr",
+                "httpapp",
+            }
+            or any(
+                field.startswith(x)
+                for x in ["port:", "product:", "version:", "ja3-server:", "ja3-server."]
+            )
+            or (field.startswith("vulns.") and field != "vulns.id")
+        ):
+
+            def outputproc(x):
+                return tuple(x)
+
+        elif field.startswith("portlist:"):
+
+            def outputproc(x):
+                return [tuple(y) for y in x]
+
+        else:
+
+            def outputproc(x):
+                return x
+
+        req = self.db.open(url)
+        return [output(elt) for elt in json.load(req)]
+
     @staticmethod
     def flt_and(*args):
         return {"f": "and", "a": list(a for a in args if a)}
