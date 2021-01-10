@@ -2829,9 +2829,7 @@ class MongoDBActive(MongoDB, DBActive):
             def outputproc(x):
                 return {
                     "count": x["count"],
-                    "_id": tuple(
-                        int(y) if i == 0 else y for i, y in enumerate(x["_id"])
-                    ),
+                    "_id": tuple(x["_id"]),
                 }
 
         elif field == "addr":
@@ -2892,9 +2890,7 @@ class MongoDBActive(MongoDB, DBActive):
             def outputproc(x):
                 return {
                     "count": x["count"],
-                    "_id": tuple(
-                        int(y) if i == 1 else y for i, y in enumerate(x["_id"])
-                    ),
+                    "_id": tuple(x["_id"]),
                 }
 
         elif field.startswith("portlist:"):
