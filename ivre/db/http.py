@@ -50,7 +50,7 @@ class HttpDB(DB):
     def _output_filter(spec):
         return quote(json.dumps(spec, separators=(",", ":"), indent=None))
 
-    def get(self, spec, limit=None, skip=None, sort=None, fields=None):
+    def _get(self, spec, limit=None, skip=None, sort=None, fields=None):
         url = "%s/%s?f=%s&q=skip:" % (
             self.baseurl,
             self.route,
@@ -78,6 +78,13 @@ class HttpDB(DB):
                 if limit == 0:
                     break
             skip += len(data)
+
+    def get(self, spec, limit=None, skip=None, sort=None, fields=None):
+        for rec in self._get(spec, limit=None, skip=None, sort=None, fields=None):
+            for fld in self.datetime_fields:
+                if fld in rec:
+                    rec[fld] = datetime.fromtimestamp(rec[fld])
+            yield rec
 
     def count(self, spec, **kargs):
         url = "%s/%s/count?f=%s" % (self.baseurl, self.route, self._output_filter(spec))
