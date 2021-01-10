@@ -3542,6 +3542,39 @@ class IvreTests(unittest.TestCase):
             ("Target has %d IP addresses\n" % count_t1_t2).encode(),
         )
 
+        # BEGIN Using the HTTP server as a database
+        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+            newenv = os.environ.copy()
+            if "IVRE_CONF" in newenv:
+                fdesc.writelines(open(newenv["IVRE_CONF"], "rb"))
+            fdesc.write(
+                (
+                    '\nDB_DATA = "http://%s:%d/cgi#Referer=http://%s:%d/"\n'
+                    % (
+                        HTTPD_HOSTNAME,
+                        HTTPD_PORT,
+                        HTTPD_HOSTNAME,
+                        HTTPD_PORT,
+                    )
+                ).encode()
+            )
+        newenv["IVRE_CONF"] = fdesc.name
+
+        for addr in [
+            "1.2.3.4",
+            "8.8.8.8",
+            socket.gethostbyname("ivre.rocks"),
+            "2003::1",
+        ]:
+            res, out1, err = RUN(["ivre", "ipdata", addr], env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(["ivre", "ipdata", addr])
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(out1, out2)
+        # END Using the HTTP server as a database
+
     def test_utils(self):
         """Functions that have not yet been tested"""
 
