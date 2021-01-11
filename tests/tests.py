@@ -371,7 +371,7 @@ class IvreTests(unittest.TestCase):
                 signal.signal(sig, terminate)
             proc = RUN_ITER(
                 ["ivre", "httpd", "-p", str(HTTPD_PORT), "-b", HTTPD_HOSTNAME],
-                stdout=open("/tmp/webserver.log", "w"),
+                stdout=open("/tmp/webserver.log", "a"),
                 stderr=subprocess.STDOUT,
             )
             proc.wait()
