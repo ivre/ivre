@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -127,11 +127,10 @@ def disp_recs_json(flt, sort, limit, skip):
     else:
         indent = None
     for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
-        for fld in ["_id", "scanid"]:
-            try:
-                del rec[fld]
-            except KeyError:
-                pass
+        try:
+            del rec["_id"]
+        except KeyError:
+            pass
         if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
             "cert",
             "cacert",

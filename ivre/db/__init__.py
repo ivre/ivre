@@ -2466,6 +2466,7 @@ class _RecInfo:
 class DBPassive(DB):
 
     ipaddr_fields = ["addr"]
+    datetime_fields = ["firstseen", "lastseen"]
     list_fields = ["infos.domain", "infos.domaintarget", "infos.san"]
 
     def __init__(self):
@@ -3724,14 +3725,15 @@ class MetaDB:
             "tinydb": ("tiny", "TinyDBNmap"),
         },
         "passive": {
+            "http": ("http", "HttpDBPassive"),
             "mongodb": ("mongo", "MongoDBPassive"),
             "postgresql": ("sql.postgres", "PostgresDBPassive"),
             "sqlite": ("sql.sqlite", "SqliteDBPassive"),
             "tinydb": ("tiny", "TinyDBPassive"),
         },
         "data": {
-            "maxmind": ("maxmind", "MaxMindDBData"),
             "http": ("http", "HttpDBData"),
+            "maxmind": ("maxmind", "MaxMindDBData"),
         },
         "agent": {
             "mongodb": ("mongo", "MongoDBAgent"),
@@ -3819,8 +3821,11 @@ class MetaDB:
         url = self.urls.get(purpose, self.url)
         if url is not None:
             url = urlparse(url)
+            db_type = url.scheme
+            if db_type == "https":
+                db_type = "http"
             try:
-                modulename, classname = self.db_types[purpose][url.scheme]
+                modulename, classname = self.db_types[purpose][db_type]
             except (KeyError, TypeError):
                 utils.LOGGER.error(
                     "Cannot get database for %s from %s",

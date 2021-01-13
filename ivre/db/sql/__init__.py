@@ -48,6 +48,7 @@ from sqlalchemy import (
     nullsfirst,
     or_,
     select,
+    text,
     update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -2705,6 +2706,11 @@ class SQLDBPassive(SQLDB, DBPassive):
                     - func.length(func.replace(base.field, ".", ""))
                     == level
                 )
+
+        elif field == "net" or field.startswith("net:"):
+            info = field[4:]
+            info = int(info) if info else 24
+            field = func.set_masklen(text("addr::cidr"), info)
 
             # another option would be:
             # def more_filter(base):
