@@ -32,16 +32,19 @@ function _get_protocol_version(c: connection): string {
 }
 
 # Returns a string made from the list of protocols detected by Zeek
-function _get_source(c: connection): string {
+function _get_source(c: connection, src: port, proto: string &default=""): string {
     local protocols = vector();
     for (p in c$service) {
-        protocols += p;
+        if (p !in set("GSSAPI", "NTLM", proto)) {
+            protocols += p;
+        }
     }
-    if (|protocols| == 0) {
-        protocols += "NTLM";
+    # Sometimes, the protocol used is known but not yet added in the c$service
+    if (proto != "") {
+        protocols += proto;
     }
-    return fmt("%s-v%s", join_string_vec(sort(protocols, strcmp), "-"),
-               IvreNTLMVersion);
+    return fmt("%s-%s", get_port_transport_proto(src),
+                        join_string_vec(sort(protocols, strcmp), "-"));
 }
 
 # Returns a hex string corresponding to the fingerprint of the Negotiate Flags

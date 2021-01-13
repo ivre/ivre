@@ -628,7 +628,7 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
     if (challenge?$target_info) {
         value += "NetBIOS_Domain_Name:" +
                  encode_base64(challenge$target_info$nb_domain_name) +
-                 "NetBIOS_Computer_Name:" +
+                 ",NetBIOS_Computer_Name:" +
                  encode_base64(challenge$target_info$nb_computer_name);
         if (challenge$target_info?$dns_domain_name) {
             value += "DNS_Domain_Name:" +
@@ -658,14 +658,14 @@ event ntlm_challenge(c: connection, challenge: NTLM::Challenge){
                      $uid=c$uid,
                      $host=c$id$resp_h,
                      $recon_type=NTLM_CHALLENGE,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$resp_p),
                      $srvport=c$id$resp_p,
                      $value=join_string_vec(value, ",")]);
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$resp_h,
                      $recon_type=NTLM_SERVER_FLAGS,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$resp_p),
                      $srvport=c$id$resp_p,
                      $value=_get_hex_flags(challenge$flags)]);
 }
@@ -677,7 +677,7 @@ event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
         value += "NetBIOS_Domain_Name:" + encode_base64(negotiate$domain_name);
     }
     if (negotiate?$workstation) {
-        value += "Worstation:" + encode_base64(negotiate$workstation);
+        value += "Workstation:" + encode_base64(negotiate$workstation);
     }
     if (negotiate?$version) {
         value += "Product_Version:" + encode_base64(fmt("%s.%s.%s",
@@ -694,13 +694,13 @@ event ntlm_negotiate(c: connection, negotiate: NTLM::Negotiate){
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=NTLM_NEGOTIATE,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$orig_p),
                      $value=join_string_vec(value, ",")]);
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=NTLM_CLIENT_FLAGS,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$orig_p),
                      $value=_get_hex_flags(negotiate$flags)]);
 }
 
@@ -714,7 +714,7 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
         value += "User_Name:" + encode_base64(request$user_name);
     }
     if (request?$workstation) {
-        value += "Worstation:" + encode_base64(request$workstation);
+        value += "Workstation:" + encode_base64(request$workstation);
     }
     if (request?$version) {
         value += "Product_Version:" + encode_base64(fmt("%s.%s.%s",
@@ -731,7 +731,7 @@ event ntlm_authenticate(c: connection, request: NTLM::Authenticate){
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=NTLM_AUTHENTICATE,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$orig_p),
                      $value=join_string_vec(value, ",")]);
 }
 
@@ -758,7 +758,7 @@ event smb1_session_setup_andx_request(c: connection, hdr: SMB1::Header, request:
                      $uid=c$uid,
                      $host=c$id$orig_h,
                      $recon_type=SMB,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$orig_p, "SMB"),
                      $value=join_string_vec(value, ",")]);
 }
 
@@ -786,6 +786,6 @@ event smb1_session_setup_andx_response(c: connection, hdr: SMB1::Header, respons
                      $host=c$id$resp_h,
                      $srvport=c$id$resp_p,
                      $recon_type=SMB,
-                     $source=_get_source(c),
+                     $source=_get_source(c, c$id$resp_p, "SMB"),
                      $value=join_string_vec(value, ",")]);
 }
