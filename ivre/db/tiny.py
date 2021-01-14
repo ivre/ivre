@@ -923,11 +923,11 @@ class TinyDBActive(TinyDB, DBActive):
         return q.ports.any(q.service_extrainfo == "Anonymous bind OK")
 
     @classmethod
-    def searchvuln(cls, vulnid=None, status=None):
+    def searchvuln(cls, vulnid=None, state=None):
         q = Query()
         res = []
-        if status is not None:
-            res.append(cls._searchstring_re(q.vulns.status, status))
+        if state is not None:
+            res.append(cls._searchstring_re(q.vulns.state, state))
         if vulnid is not None:
             res.append(cls._searchstring_re(q.vulns.id, vulnid))
         if res:
