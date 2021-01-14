@@ -919,6 +919,14 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {"sparse": True},
             ),
+            (
+                [("ports.scripts.ntlm-info.NetBIOS_Domain", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
+                [("ports.scripts.ntlm-info.Product_Version", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
             ([("infos.as_num", pymongo.ASCENDING)], {}),
             (
                 [
@@ -3233,12 +3241,24 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.service_devicetype"
         elif field.startswith("smb."):
             flt = self.flt_and(flt, self.searchscript(name="smb-os-discovery"))
-            if field == "smb.dnsdomain":
-                field = "ports.scripts.smb-os-discovery.domain_dns"
-            elif field == "smb.forest":
-                field = "ports.scripts.smb-os-discovery.forest_dns"
-            else:
-                field = "ports.scripts.smb-os-discovery." + field[4:]
+            field = "ports.scripts.smb-os-discovery." + field[4:]
+        elif field == "ntlm":
+            field = "ports.scripts.ntlm-info"
+        elif field.startswith("ntlm."):
+            arg = field[5:]
+            arg = {
+                "name": "Target_Name",
+                "server": "NetBIOS_Computer_Name",
+                "domain": "NetBIOS_Domain_Name",
+                "workgroup": "Workgroup",
+                "domain_dns": "DNS_Domain_Name",
+                "forest": "DNS_Tree_Name",
+                "fqdn": "DNS_Computer_Name",
+                "os": "Product_Version",
+                "version": "NTLM_Version",
+            }.get(arg, arg)
+            flt = self.flt_and(flt, self.searchscript("ntlm-info"))
+            field = "ports.scripts.ntlm-info." + arg
         elif field == "script":
             flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
             field = "ports.scripts.id"
