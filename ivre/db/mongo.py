@@ -2593,16 +2593,16 @@ class MongoDBActive(MongoDB, DBActive):
         return {"ports.service_extrainfo": "Anonymous bind OK"}
 
     @staticmethod
-    def searchvuln(vulnid=None, status=None):
-        if status is None:
+    def searchvuln(vulnid=None, state=None):
+        if state is None:
             return {
                 "ports.scripts.vulns.id": {"$exists": True}
                 if vulnid is None
                 else vulnid
             }
         if vulnid is None:
-            return {"ports.scripts.vulns.status": status}
-        return {"ports.scripts.vulns": {"$elemMatch": {"id": vulnid, "status": status}}}
+            return {"ports.scripts.vulns.state": state}
+        return {"ports.scripts.vulns": {"$elemMatch": {"id": vulnid, "status": state}}}
 
     @staticmethod
     def searchtimeago(delta, neg=False):
