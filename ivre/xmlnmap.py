@@ -849,9 +849,9 @@ def post_smb_os_discovery(script, port, host):
     if "smb-os-discovery" not in script:
         return
     data = script["smb-os-discovery"]
-    if "fqdn" not in data:
+    if "DNS_Computer_Name" not in data:
         return
-    add_hostname(data["fqdn"], "smb", host.setdefault("hostnames", []))
+    add_hostname(data["DNS_Computer_Name"], "smb", host.setdefault("hostnames", []))
 
 
 def post_ssl_cert(script, port, host):
@@ -863,6 +863,9 @@ def post_ssl_cert(script, port, host):
 
 
 def post_ntlm_info(script, port, host):
+    if not script["id"].startswith("ntlm-"):
+        script["ntlm-info"]["protocol"] = script["id"].split("-", 1)[0]
+        script["id"] = "ntlm-info"
     if "ntlm-info" not in script:
         return
     data = script["ntlm-info"]
@@ -917,15 +920,17 @@ def split_smb_os_discovery(script):
         "ntlm-os": "Product_Version",
         "ntlm-version": "NTLM_Version",
     }
-    yield {
-        "id": "smb-ntlm-info",
-        "ntlm-info": {k: value.get(k) for k in ntlm_values if k in value},
+    ntlm = {
+        "id": "ntlm-info",
+        "ntlm-info": {f: value.get(k) for k, f in ntlm_values.items() if k in value},
         "output": "\n".join(
             "  {}: {}".format(f, value.get(k))
             for k, f in ntlm_values.items()
             if k in value
         ),
     }
+    ntlm["ntlm-info"]["protocol"] = "smb"
+    yield ntlm
 
 
 SPLIT_SCRIPTS = {
@@ -2001,7 +2006,7 @@ class NmapHandler(ContentHandler):
                         ("ntlm-ver", "NTLM_Version"),
                     ]:
                         if masscankey in data:
-                            ntlm_info[nmapkey] = data[masscankey]
+                            ntlm_info[humankey] = data[masscankey]
                             if humankey is not None:
                                 ntlm_info_output.append(
                                     "  %s: %s"
@@ -2010,9 +2015,9 @@ class NmapHandler(ContentHandler):
                                         data[masscankey],
                                     )
                                 )
-                    if "fqdn" in ntlm_info:
+                    if "DNS_Computer_Name" in ntlm_info:
                         add_hostname(
-                            ntlm_info["fqdn"],
+                            ntlm_info["DNS_Computer_Name"],
                             "smb",
                             self._curhost.setdefault("hostnames", []),
                         )

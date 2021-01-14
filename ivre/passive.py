@@ -612,7 +612,6 @@ def _getinfos_authentication(spec):
     if (value[:4].lower() == "ntlm" and value[4:].strip()) or (
         value[:9].lower() == "negotiate" and value[9:].strip()
     ):
-        spec["value"] = spec["value"].split(None, 1)[1]
         return _getinfos_ntlm(spec)
 
     return {}

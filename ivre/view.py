@@ -30,7 +30,7 @@ from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, add_hostname
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -516,7 +516,11 @@ def _extract_passive_OPEN_PORT(rec):
 def _extract_passive_NTLM(rec, service=None):
     """Handle NTLM """
     script = {}
-    port = {"protocol": rec["source"], "scripts": [script]}
+    script["id"] = "ntlm-info"
+    script["ntlm-info"] = rec["infos"]
+    script["output"] = "\n".join("{}: {}".format(k, v) for k, v in rec["infos"].items())
+
+    port = {}
     if "port" in rec:
         port["state_state"] = "open"
         port["state_reason"] = "passive"
@@ -524,22 +528,24 @@ def _extract_passive_NTLM(rec, service=None):
     else:
         port["port"] = -1
     if service is None:
-        services = set(rec.get("source", "").split("-"))
+        proto, services = rec.get("source").split("-", 1)
         if "SMB" in services:
-            script["id"] = "smb-ntlm-info"
+            script["ntlm-info"]["protocol"] = "smb"
         elif "DCE_RPC" in services:
-            script["id"] = "dcerpc-ntlm-info"
+            script["ntlm-info"]["protocol"] = "dce-rpc"
         else:
             utils.LOGGER.warning("Unknown NTLM services: %r", rec.get("source"))
-            script["id"] = "unknown-ntlm-info"
+            script["ntlm-info"]["protocol"] = "unknown"
     else:
         port["service_name"] = service
-        script["id"] = "{}-ntlm-info".format(service)
-    script["ntlm-info"] = rec["infos"]
-
-    script["output"] = "\n".join("{}: {}".format(k, v) for k, v in rec["infos"].items())
-
-    return {"ports": [port]}
+        script["ntlm-info"]["protocol"] = service
+        proto = "tcp"
+    port["scripts"] = [script]
+    port["protocol"] = proto
+    hostnames = []
+    if "DNS_Computer_Name" in script["ntlm-info"]:
+        add_hostname(script["ntlm-info"]["DNS_Computer_Name"], "ntlm", hostnames)
+    return {"ports": [port], "hostnames": hostnames}
 
 
 smb_values = ["OS", "LAN Manager"]

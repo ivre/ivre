@@ -961,7 +961,7 @@ class IvreTests(unittest.TestCase):
         res, out, err = RUN(["ivre", "scancli", "--short"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
-        self.assertEqual(len(out.splitlines()), hosts_count)
+        self.assertEqual(len(out.splitlines()), "nmap_short_count")
         # GNMAP
         res, out, err = RUN(["ivre", "scancli", "--gnmap"])
         self.assertEqual(res, 0)
