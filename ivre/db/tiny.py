@@ -474,7 +474,9 @@ class TinyDBActive(TinyDB, DBActive):
             yield host
 
     def store_host(self, host):
-        host = deepcopy(host)
+        # `host` may be an instance of Document, and have its own
+        # doc_id: convert it to a dict instance instead.
+        host = deepcopy(dict(host))
         try:
             host["scanid"] = [host["scanid"].decode()]
         except KeyError:
