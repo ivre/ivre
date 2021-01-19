@@ -474,6 +474,64 @@ def get_top(subdb, field):
         yield "\n]);\n"
 
 
+@application.get("/<subdb:re:scans|view|passive>/distinct/<field:path>")
+@check_referer
+def get_distinct(subdb, field):
+    """Get distinct values from Nmap, View & Passive databases
+
+    :param str subdb: database to query (must be "scans" or "view")
+    :param str field: (pseudo-)field to get distinct values (e.g., "service")
+    :query str q: query (including limit/skip and sort)
+    :query str f: filter
+    :query str callback: callback to use for JSONP results
+    :query bool ipsasnumbers: to get IP addresses as numbers rather than as
+                             strings
+    :query bool datesasstrings: to get dates as strings rather than as
+                               timestamps
+    :query str format: "json" (the default) or "ndjson"
+    :status 200: no error
+    :status 400: invalid referer
+    :>jsonarr str label: field value
+    :>jsonarr int value: count for this value
+
+    """
+    subdb = {
+        "passive": db.passive,
+        "scans": db.nmap,
+        "view": db.view,
+    }[subdb]
+    flt_params = get_base(subdb)
+    cursor = subdb.distinct(
+        field,
+        flt=flt_params.flt,
+        sort=flt_params.sortby,
+        limit=flt_params.limit or subdb.no_limit,
+        skip=flt_params.skip,
+    )
+    if flt_params.fmt == "ndjson":
+        for rec in cursor:
+            yield "%s\n" % json.dumps(rec)
+        return
+    if flt_params.callback is None:
+        yield "[\n"
+    else:
+        yield "%s([\n" % flt_params.callback
+    # hack to avoid a trailing comma
+    cursor = iter(cursor)
+    try:
+        rec = next(cursor)
+    except StopIteration:
+        pass
+    else:
+        yield json.dumps(rec)
+        for rec in cursor:
+            yield ",\n%s" % json.dumps(rec)
+    if flt_params.callback is None:
+        yield "\n]\n"
+    else:
+        yield "\n]);\n"
+
+
 @application.get("/<subdb:re:scans|view>")
 @check_referer
 def get_nmap(subdb):

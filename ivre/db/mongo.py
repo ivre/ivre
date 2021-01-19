@@ -506,7 +506,7 @@ class MongoDB(DB):
             pipeline.append({"$sort": OrderedDict(sort)})
         if skip is not None:
             pipeline += [{"$skip": skip}]
-        if limit is not None:
+        if limit:
             pipeline += [{"$limit": limit}]
         # hack to allow nested values as field
         # see <http://stackoverflow.com/questions/13708857/

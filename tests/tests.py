@@ -1680,6 +1680,16 @@ class IvreTests(unittest.TestCase):
             self.assertFalse(err)
             self.assertEqual(out1, out2)
 
+        for distinct in ["addr", "ports.port"]:
+            cmd = ["ivre", "scancli", "--distinct", distinct]
+            res, out1, err = RUN(cmd, env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(cmd)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(sorted(out1.splitlines()), sorted(out2.splitlines()))
+
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
 
@@ -2817,6 +2827,16 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         self.assertFalse(err)
         self.assertEqual(out1, out2)
+
+        for distinct in ["addr", "port"]:
+            cmd = ["ivre", "ipinfo", "--distinct", distinct]
+            res, out1, err = RUN(cmd, env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(cmd)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(sorted(out1.splitlines()), sorted(out2.splitlines()))
 
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database
@@ -5192,6 +5212,16 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(res, 0)
             self.assertFalse(err)
             self.assertEqual(out1, out2)
+
+        for distinct in ["addr", "ports.port"]:
+            cmd = ["ivre", "view", "--distinct", distinct]
+            res, out1, err = RUN(cmd, env=newenv)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            res, out2, err = RUN(cmd)
+            self.assertEqual(res, 0)
+            self.assertFalse(err)
+            self.assertEqual(sorted(out1.splitlines()), sorted(out2.splitlines()))
 
         os.unlink(fdesc.name)
         # END Using the HTTP server as a database

@@ -57,6 +57,7 @@ def serialize(obj):
 class HttpDB(DB):
 
     flt_empty = {}
+    no_limit = None
 
     def __init__(self, url):
         super().__init__()
@@ -83,6 +84,7 @@ class HttpDB(DB):
         )
         if skip is None:
             skip = 0
+        # TODO: sort
         while True:
             cururl = "%s%d" % (url, skip)
             if limit is not None:
@@ -110,6 +112,20 @@ class HttpDB(DB):
                 if fld in rec:
                     rec[fld] = datetime.fromtimestamp(rec[fld])
             yield rec
+
+    def distinct(self, field, flt=None, sort=None, limit=None, skip=None):
+        url = "%s/%s/distinct/%s?f=%s&format=ndjson&q=limit:%d" % (
+            self.baseurl,
+            self.route,
+            field,
+            self._output_filter(flt or {}),
+            limit or 0,
+        )
+        if skip is not None:
+            url += "%20skip:%d" % skip
+        # TODO: sort
+        for line in self.db.open(url):
+            yield json.loads(line)
 
     def count(self, spec, **kargs):
         url = "%s/%s/count?f=%s" % (self.baseurl, self.route, self._output_filter(spec))
@@ -220,7 +236,6 @@ class HttpDBView(HttpDBActive, DBView):
 
 class HttpDBPassive(HttpDB, DBPassive):
 
-    no_limit = None
     route = "passive"
 
 
