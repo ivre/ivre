@@ -1814,10 +1814,12 @@ class DBNmap(DBActive):
                     raise ValueError("Unknown file type %s" % fname)
                 if "addr" in firstres:
                     store_scan_function = self.store_scan_json_ivre
+                elif "matched" in firstres and (
+                    "template" in firstres or "templateID" in firstres
+                ):
+                    store_scan_function = self.store_scan_json_nuclei
                 elif "ip" in firstres:
                     store_scan_function = self.store_scan_json_zgrab
-                elif "matched" in firstres and "template" in firstres:
-                    store_scan_function = self.store_scan_json_nuclei
                 elif "name" in firstres:
                     store_scan_function = self.store_scan_json_zdns
                 elif "altered_name" in firstres:
@@ -2366,20 +2368,30 @@ class DBNmap(DBActive):
                 except ValueError:
                     utils.LOGGER.warning("Invalid URL %r", url)
                     continue
+                if "ip" in rec:
+                    addr = rec["ip"]
                 try:
                     utils.ip2int(addr)
                 except (TypeError, socket.error, struct.error):
                     utils.LOGGER.warning("Hostnames in URL not supported [%r]", url)
                     continue
+                # new vs old format
+                if "info" in rec:
+                    rec.update(rec.pop("info"))
+                if "templateID" in rec:
+                    rec["template"] = rec.pop("templateID")
+                name = rec["name"]
+                if "matcher_name" in rec:
+                    name += " (%s)" % rec["matcher_name"]
                 script_id = "%s-nuclei" % (rec["type"])
                 scripts = [
                     {
                         "id": script_id,
-                        "output": "%s found at %s" % (rec["name"], url),
+                        "output": "%s found at %s" % (name, url),
                         script_id: [
                             {
                                 "template": rec["template"],
-                                "name": rec["name"],
+                                "name": name,
                                 "url": url,
                                 "severity": rec["severity"],
                             },
@@ -2415,14 +2427,10 @@ class DBNmap(DBActive):
                         },
                     ],
                 }
-                # This is missing (for now) from nuclei
-                # try:
-                #     # [:19]: remove timezone info
-                #     host["starttime"] = host["endtime"] = rec.pop("timestamp")[
-                #         :19
-                #     ].replace("T", " ")
-                # except KeyError:
-                #     pass
+                if "timestamp" in rec:
+                    host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
+                        "T", " "
+                    )
                 if categories:
                     host["categories"] = categories
                 if source is not None:
