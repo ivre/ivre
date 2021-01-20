@@ -4076,7 +4076,9 @@ class MongoDBPassive(MongoDB, DBPassive):
             rec["addr_0"], rec["addr_1"] = cls.ip2internal(rec.pop("addr"))
         except (KeyError, ValueError):
             pass
-        if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
+        if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
+            "source"
+        ) in {
             "cert",
             "cacert",
         }:

@@ -2294,7 +2294,9 @@ class TinyDBPassive(TinyDB, DBPassive):
                 rec[fld] = utils.all2datetime(rec[fld])
             except KeyError:
                 pass
-        if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
+        if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
+            "source"
+        ) in {
             "cert",
             "cacert",
         }:
@@ -2305,7 +2307,9 @@ class TinyDBPassive(TinyDB, DBPassive):
 
     def _get(self, *args, **kargs):
         for rec in self._db_get(*args, **kargs):
-            if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
+            if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
+                "source"
+            ) in {
                 "cert",
                 "cacert",
             }:
@@ -2373,7 +2377,9 @@ class TinyDBPassive(TinyDB, DBPassive):
                     doc["infos"] = orig["infos"]
                 except KeyError:
                     pass
-                if doc["recontype"] == "SSL_SERVER" and doc["source"] in {
+                if doc["recontype"] in {"SSL_SERVER", "SSL_CLIENT"} and doc[
+                    "source"
+                ] in {
                     "cert",
                     "cacert",
                 }:
