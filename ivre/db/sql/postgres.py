@@ -1135,12 +1135,12 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         for addr, cur_features in self.db.execute(
             select(
                 [
-                    self.tables.scan.addr,
+                    self.tables.port.scan,
                     func.array_agg(func.distinct(postgresql.array(fields))),
                 ]
             )
             .select_from(join(self.tables.scan, self.tables.port))
-            .group_by(self.tables.scan.addr)
+            .group_by(self.tables.port.scan)
             .where(
                 and_(
                     exists(

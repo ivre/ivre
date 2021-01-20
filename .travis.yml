@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-sudo: required
+os: linux
 dist: bionic
 
 env:
@@ -77,7 +77,7 @@ before_script:
   # add wireshark manuf DB
   - mkdir -p usr/local/wireshark/share/wireshark
   - LD_LIBRARY_PATH= wget -q https://raw.githubusercontent.com/wireshark/wireshark/master/manuf -O usr/local/wireshark/share/wireshark/manuf
-  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/a3b758e4ae01b0e93aeadc63d2cc47ca695be2b0.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
+  - LD_LIBRARY_PATH= wget -q -O - https://github.com/ivre/ivre-test-samples/archive/0951ba6fc0eee158546e04fbce84c560950023d6.tar.gz | tar --transform='s#^ivre-test-samples-[^/]*/*#./#' -zxf -
   # install Zeek & Nmap (.tar files)
   # for some reason, wget on travis-ci won't accept letsencrypt certificate
   - ZEEK_VERSION="3.$((RANDOM % 2))"; echo "ZEEK_VERSION $ZEEK_VERSION"; for archive in tools-travis-ivre zeek-${ZEEK_VERSION}_ubuntu-`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release` nmap-7.60_ubuntu-precise nfdump-1.6.17; do wget -q --no-check-certificate https://ivre.rocks/data/tests/${archive}.tar.bz2 -O - | tar jxf - ; done
