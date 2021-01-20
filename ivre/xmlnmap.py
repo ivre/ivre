@@ -43,6 +43,7 @@ from ivre.active.data import (
 )
 from ivre.analyzer import dicom, ike
 from ivre import utils
+from ivre.data.windows import WINDOWS_VERSION_TO_BUILD
 
 
 SCHEMA_VERSION = 19
@@ -890,6 +891,15 @@ POST_PROCESS = {
 
 def split_smb_os_discovery(script):
     value = script["smb-os-discovery"]
+    value["ntlm-version"] = "15"
+    if "os" in value:
+        if value["os"] not in WINDOWS_VERSION_TO_BUILD:
+            utils.LOGGER.info(
+                "New OS not yet registered in WINDOWS_VERSION_TO_BUILD %r",
+                value["os"],
+            )
+        else:
+            value["ntlm-os"] = WINDOWS_VERSION_TO_BUILD.get(value["os"])
     smb_values = {
         "os": "OS",
         "lanmanager": "LAN Manager",
