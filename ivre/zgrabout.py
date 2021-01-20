@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -128,28 +128,22 @@ def zgrap_parser_http(data, hostrec, port=None):
                 for cert in info:
                     add_cert_hostnames(cert, hostrec.setdefault("hostnames", []))
     if url:
-        guessed_port = None
-        if ":" in url.get("host", ""):
-            try:
-                guessed_port = int(url["host"].split(":", 1)[1])
-            except ValueError:
-                pass
-        if port is None:
-            if guessed_port is None:
-                if url.get("scheme") == "https":
-                    port = 443
-                else:
-                    port = 80
-            else:
+        try:
+            _, guessed_port = utils.url2hostport("%(scheme)s://%(host)s" % url)
+        except ValueError:
+            utils.LOGGER.warning("Cannot guess port from url %r", url)
+            guessed_port = 80  # because reasons
+        else:
+            if port is not None and port != guessed_port:
+                utils.LOGGER.warning(
+                    "Port %d found from the URL %s differs from the provided port "
+                    "value %d",
+                    guessed_port,
+                    url.get("path"),
+                    port,
+                )
                 port = guessed_port
-        elif port != guessed_port:
-            utils.LOGGER.warning(
-                "Port %d found from the URL %s differs from the provided port "
-                "value %d",
-                guessed_port,
-                url.get("path"),
-                port,
-            )
+        if port is None:
             port = guessed_port
         # Specific paths
         if url.get("path").endswith("/.git/index"):
@@ -167,7 +161,7 @@ def zgrap_parser_http(data, hostrec, port=None):
                     "id": "http-git",
                     "output": "\n  %s\n    Git repository found!\n" % repository,
                     "http-git": [
-                        {"repository": repository, "files-found": [".git/index"]}
+                        {"repository": repository, "files-found": [".git/index"]},
                     ],
                 }
             )

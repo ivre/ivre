@@ -46,6 +46,7 @@ import struct
 import subprocess
 import sys
 import time
+from urllib.parse import urlparse
 
 
 try:
@@ -2293,3 +2294,40 @@ def deep_sort_dict_list(elt):
             value.sort()
         elif isinstance(value, dict):
             deep_sort_dict_list(value)
+
+
+_SCHEMES_PORTS = {"ftp": 21, "http": 80, "https": 443}
+
+
+def url2hostport(url):
+    url_p = urlparse(url)
+    host = url_p.netloc
+    if host.startswith("["):
+        try:
+            port = host.index("]")
+        except ValueError as exc:
+            raise ValueError("Bad netloc in URL") from exc
+        mark = host.index("]")
+        port = host[mark + 1 :]
+        host = host[1:mark]
+        if not port:
+            try:
+                return host, _SCHEMES_PORTS[url_p.scheme]
+            except KeyError as exc:
+                raise ValueError("Bad scheme in URL") from exc
+        if not port.startswith(":"):
+            raise ValueError("Bad netloc in URL")
+        try:
+            return host, int(port[1:])
+        except ValueError as exc:
+            raise ValueError("Bad netloc in URL") from exc
+    if ":" in host:
+        host, port = host.split(":", 1)
+        try:
+            return host, int(port)
+        except ValueError as exc:
+            raise ValueError("Bad netloc in URL") from exc
+    try:
+        return host, _SCHEMES_PORTS[url_p.scheme]
+    except KeyError as exc:
+        raise ValueError("Bad scheme in URL") from exc

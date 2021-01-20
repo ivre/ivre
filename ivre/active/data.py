@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -458,6 +458,35 @@ def merge_scanner_scripts(curscript, script, script_id):
     return curscript
 
 
+def merge_nuclei_scripts(curscript, script, script_id):
+    def nuclei_equals(a, b, script_id):
+        return a == b
+
+    def nuclei_output(nuclei, script_id):
+        return "%s found at %s" % (nuclei["name"], nuclei["url"])
+
+    return _merge_scripts(curscript, script, script_id, nuclei_equals, nuclei_output)
+
+
+def merge_http_git_scripts(curscript, script, script_id):
+    repos = {}
+    for scr in [script, curscript]:
+        for rep in scr.get(script_id, []):
+            repos.setdefault(rep["repository"], set()).update(
+                rep.get("files-found", [])
+            )
+    repos_order = sorted(repos)
+    data = [
+        {"repository": rep, "files-found": sorted(repos[rep])} for rep in repos_order
+    ]
+    output = "\n".join(
+        "\n  %s\n    Git repository found!\n" % rep for rep in repos_order
+    )
+    curscript["output"] = output
+    curscript[script_id] = data
+    return curscript
+
+
 def _merge_scripts(
     curscript, script, script_id, script_equals, script_output, outsep="\n"
 ):
@@ -491,6 +520,8 @@ _SCRIPT_MERGE = {
     "dns-zone-transfer": merge_axfr_scripts,
     "scanner": merge_scanner_scripts,
     "http-app": merge_http_app_scripts,
+    "http-git": merge_http_git_scripts,
+    "http-nuclei": merge_nuclei_scripts,
     "http-user-agent": merge_ua_scripts,
     "ssl-cacert": merge_ssl_cert_scripts,
     "ssl-cert": merge_ssl_cert_scripts,
