@@ -237,7 +237,10 @@ class PassiveCSVFile(CSVFile):
         line.setdefault("port", 0)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
-        if line["recontype"] == "SSL_SERVER" and line["source"] in {"cert", "cacert"}:
+        if line["recontype"] in {"SSL_SERVER", "SSL_CLIENT"} and line["source"] in {
+            "cert",
+            "cacert",
+        }:
             for fld in ["not_before", "not_after"]:
                 if fld not in line:
                     continue
@@ -2596,7 +2599,9 @@ class SQLDBPassive(SQLDB, DBPassive):
             except (KeyError, ValueError):
                 pass
             rec["infos"] = dict(rec.pop("info"), **rec.pop("moreinfo"))
-            if rec.get("recontype") == "SSL_SERVER" and rec.get("source") in {
+            if rec.get("recontype") in {"SSL_SERVER", "SSL_CLIENT"} and rec.get(
+                "source"
+            ) in {
                 "cert",
                 "cacert",
             }:
@@ -2637,7 +2642,10 @@ class SQLDBPassive(SQLDB, DBPassive):
             lastseen = utils.all2datetime(lastseen)
         if addr:
             addr = self.ip2internal(addr)
-        if spec["recontype"] == "SSL_SERVER" and spec["source"] in {"cert", "cacert"}:
+        if spec["recontype"] in {"SSL_SERVER", "SSL_CLIENT"} and spec["source"] in {
+            "cert",
+            "cacert",
+        }:
             for fld in ["not_before", "not_after"]:
                 if fld not in spec:
                     continue
