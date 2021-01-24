@@ -1680,7 +1680,7 @@ class IvreTests(unittest.TestCase):
             self.assertFalse(err)
             self.assertEqual(out1, out2)
 
-        for distinct in ["addr", "ports.port"]:
+        for distinct in ["addr", "ports.port", "ports.service_name"]:
             cmd = ["ivre", "scancli", "--distinct", distinct]
             res, out1, err = RUN(cmd, env=newenv)
             self.assertEqual(res, 0)
@@ -5213,7 +5213,7 @@ class IvreTests(unittest.TestCase):
             self.assertFalse(err)
             self.assertEqual(out1, out2)
 
-        for distinct in ["addr", "ports.port"]:
+        for distinct in ["addr", "ports.port", "ports.service_name"]:
             cmd = ["ivre", "view", "--distinct", distinct]
             res, out1, err = RUN(cmd, env=newenv)
             self.assertEqual(res, 0)
