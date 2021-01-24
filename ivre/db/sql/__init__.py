@@ -443,7 +443,22 @@ class SQLDB(DB):
 
         """
         if isinstance(field, str):
-            field = self.fields[field]
+            n_dots = field.count(".")
+            for i in range(n_dots + 1):
+                subfields = field.rsplit(".", i)
+                try:
+                    fld = self.fields[subfields[0]]
+                except KeyError:
+                    continue
+                for attr in subfields[1:]:
+                    try:
+                        fld = getattr(fld, attr)
+                    except AttributeError:
+                        continue
+                field = fld
+                break
+            else:
+                raise ValueError("Unknown field %r" % field)
         if flt is None:
             flt = self.flt_empty
         sort = [
@@ -2305,6 +2320,7 @@ class SQLDBNmap(SQLDBActive, DBNmap):
         "starttime": N_Scan.time_start,
         "endtime": N_Scan.time_stop,
         "infos": N_Scan.info,
+        "ports": N_Port,
         "state": N_Scan.state_reason_ttl,
         "state_reason": N_Scan.state_reason_ttl,
         "state_reason_ttl": N_Scan.state_reason_ttl,
@@ -2424,6 +2440,7 @@ class SQLDBView(SQLDBActive, DBView):
         "starttime": V_Scan.time_start,
         "endtime": V_Scan.time_stop,
         "infos": V_Scan.info,
+        "ports": V_Port,
         "state": V_Scan.state_reason_ttl,
         "state_reason": V_Scan.state_reason_ttl,
         "state_reason_ttl": V_Scan.state_reason_ttl,

@@ -18,17 +18,17 @@ sudo: required
 dist: bionic
 
 env:
-  # MaxMind (& utils)
-  - DB=maxmind
   # TinyDB
   - DB=tinydb
-  # Elasticsearch
-  - DB=elastic ELASTIC_VERSION=7.10.1
   # PostgreSQL
   - DB=postgres POSTGRES_VERSION=12
   # MongoDB
   - DB=mongo MONGODB_VERSION=3.2.22
   - DB=mongo MONGODB_VERSION=4.4.2
+  # MaxMind (& utils)
+  - DB=maxmind
+  # Elasticsearch
+  - DB=elastic ELASTIC_VERSION=7.10.1
   # Sqlite
   - DB=sqlite
 
