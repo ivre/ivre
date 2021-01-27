@@ -235,7 +235,7 @@ class PassiveCSVFile(CSVFile):
         else:
             line["addr"] = None
         line.setdefault("count", 1)
-        line.setdefault("port", 0)
+        line.setdefault("port", -1)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
         if line["recontype"] in {"SSL_SERVER", "SSL_CLIENT"} and line["source"] in {
@@ -2763,7 +2763,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             "count": spec.pop("count", 1),
             "firstseen": timestamp,
             "lastseen": lastseen or timestamp,
-            "port": spec.pop("port", 0),
+            "port": spec.pop("port", -1),
             # source, targetval, recontype, value: otherfields
             "info": info,
             "moreinfo": spec,
@@ -2874,7 +2874,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         # SQLite. However, because ACCESS_TXT does not work well with
         # the result processor, it does not. This is a similar problem
         # than .topvalues() with JSON fields.
-        flt = self.flt_and(flt, self.searchport(0, neg=True))
+        flt = self.flt_and(flt, self.searchport(-1, neg=True))
         if use_version:
             fields = [
                 self.tables.passive.port,
