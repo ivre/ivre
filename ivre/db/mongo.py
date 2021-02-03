@@ -1160,6 +1160,23 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ],
             },
+            19: {
+                "ensure": [
+                    (
+                        [("ports.scripts.ntlm-info.NetBIOS_Domain", pymongo.ASCENDING)],
+                        {"sparse": True},
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ntlm-info.Product_Version",
+                                pymongo.ASCENDING,
+                            )
+                        ],
+                        {"sparse": True},
+                    ),
+                ]
+            },
         },
     ]
     schema_latest_versions = [
