@@ -1160,6 +1160,23 @@ class MongoDBActive(MongoDB, DBActive):
                     ),
                 ],
             },
+            19: {
+                "ensure": [
+                    (
+                        [("ports.scripts.ntlm-info.NetBIOS_Domain", pymongo.ASCENDING)],
+                        {"sparse": True},
+                    ),
+                    (
+                        [
+                            (
+                                "ports.scripts.ntlm-info.Product_Version",
+                                pymongo.ASCENDING,
+                            )
+                        ],
+                        {"sparse": True},
+                    ),
+                ]
+            },
         },
     ]
     schema_latest_versions = [
@@ -3240,9 +3257,10 @@ class MongoDBActive(MongoDB, DBActive):
             ]
             field = "ports.service_devicetype"
         elif field.startswith("smb."):
-            flt = self.flt_and(flt, self.searchscript(name="smb-os-discovery"))
+            flt = self.flt_and(flt, self.searchsmb())
             field = "ports.scripts.smb-os-discovery." + field[4:]
         elif field == "ntlm":
+            flt = self.flt_and(flt, self.searchntlm())
             field = "ports.scripts.ntlm-info"
         elif field.startswith("ntlm."):
             arg = field[5:]
@@ -3257,7 +3275,7 @@ class MongoDBActive(MongoDB, DBActive):
                 "os": "Product_Version",
                 "version": "NTLM_Version",
             }.get(arg, arg)
-            flt = self.flt_and(flt, self.searchscript("ntlm-info"))
+            flt = self.flt_and(flt, self.searchntlm())
             field = "ports.scripts.ntlm-info." + arg
         elif field == "script":
             flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
