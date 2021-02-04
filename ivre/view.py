@@ -30,7 +30,7 @@ from ivre.data import scanners
 from ivre.db import db
 from ivre.passive import SCHEMA_VERSION as PASSIVE_SCHEMA_VERSION
 from ivre import utils
-from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION
+from ivre.xmlnmap import SCHEMA_VERSION as ACTIVE_SCHEMA_VERSION, add_hostname
 
 
 def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
@@ -60,6 +60,13 @@ def _extract_passive_HTTP_CLIENT_HEADER_SERVER(rec):
 
 def _extract_passive_HTTP_SERVER_HEADER(rec):
     """Handle http server headers."""
+    if (
+        rec["value"]
+        and rec.get("source") in ["WWW-AUTHENTICATE", "PROXY-AUTHENTICATE"]
+        and rec["value"].split(None, 1)[0].lower() in {"ntlm", "negotiate"}
+        and len(rec["value"].split(None, 1)) > 1
+    ):
+        return _extract_passive_NTLM(rec, service="http")
     port = {
         "state_state": "open",
         "state_reason": "passive",
@@ -116,6 +123,13 @@ def _extract_passive_HTTP_SERVER_HEADER(rec):
 def _extract_passive_HTTP_CLIENT_HEADER(rec):
     """Handle http client headers."""
     # TODO: handle other header values
+    if (
+        rec["value"]
+        and rec.get("source") in ["AUTHORIZATION", "PROXY-AUTHORIZATION"]
+        and rec["value"].split(None, 1)[0].lower() in {"ntlm", "negotiate"}
+        and len(rec["value"].split(None, 1)) > 1
+    ):
+        return _extract_passive_NTLM(rec, service="http")
     if rec.get("source") != "USER-AGENT":
         return {}
     scripts = [
@@ -499,6 +513,67 @@ def _extract_passive_OPEN_PORT(rec):
     return {"ports": [port]}
 
 
+def _extract_passive_NTLM(rec, service=None):
+    """Handle NTLM """
+    script = {}
+    script["id"] = "ntlm-info"
+    script["ntlm-info"] = rec["infos"]
+    script["output"] = "\n".join("{}: {}".format(k, v) for k, v in rec["infos"].items())
+
+    port = {}
+    if "port" in rec:
+        port["state_state"] = "open"
+        port["state_reason"] = "passive"
+        port["port"] = rec["port"]
+    else:
+        port["port"] = -1
+    if service is None:
+        proto, services = rec.get("source").split("-", 1)
+        if "SMB" in services:
+            script["ntlm-info"]["protocol"] = "smb"
+        elif "DCE_RPC" in services:
+            script["ntlm-info"]["protocol"] = "dce-rpc"
+        else:
+            utils.LOGGER.warning("Unknown NTLM services: %r", rec.get("source"))
+            script["ntlm-info"]["protocol"] = "unknown"
+    else:
+        port["service_name"] = service
+        script["ntlm-info"]["protocol"] = service
+        proto = "tcp"
+    port["scripts"] = [script]
+    port["protocol"] = proto
+    hostnames = []
+    if "DNS_Computer_Name" in script["ntlm-info"]:
+        add_hostname(script["ntlm-info"]["DNS_Computer_Name"], "ntlm", hostnames)
+    return {"ports": [port], "hostnames": hostnames}
+
+
+smb_values = ["OS", "LAN Manager"]
+smb_keys = ["os", "lanmanager"]
+
+
+def _extract_passive_SMB_SESSION_SETUP(rec):
+    """Handle SMB Session Setup Request and Response"""
+    keyvals = zip(
+        smb_values, (rec["infos"][k] if k in rec["infos"] else "" for k in smb_keys)
+    )
+    script = {"id": "smb-os-discovery"}
+    script["smb-os-discovery"] = rec["infos"]
+    script["output"] = "\n".join(
+        ("{}: {}".format(k, v) if v else "") for k, v in keyvals
+    )
+    port = {}
+    if "port" in rec:
+        port["state_state"] = "open"
+        port["state_reason"] = "passive"
+        port["port"] = rec["port"]
+    else:
+        port["port"] = -1
+    port["protocol"] = rec["source"].split("-", 1)[0]
+    port["scripts"] = [script]
+    return {"ports": [port]}
+
+
 _EXTRACTORS = {
     # 'HTTP_CLIENT_HEADER_SERVER': _extract_passive_HTTP_CLIENT_HEADER_SERVER,
     "HTTP_CLIENT_HEADER": _extract_passive_HTTP_CLIENT_HEADER,
@@ -518,6 +593,9 @@ _EXTRACTORS = {
     "TCP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "UDP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "HTTP_HONEYPOT_REQUEST": _extract_passive_HTTP_HONEYPOT_REQUEST,
+    "NTLM_CHALLENGE": _extract_passive_NTLM,
+    "NTLM_AUTHENTICATE": _extract_passive_NTLM,
+    "SMB": _extract_passive_SMB_SESSION_SETUP,
 }
 
 

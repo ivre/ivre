@@ -765,6 +765,7 @@ class DBActive(DB):
                 15: (16, self.__migrate_schema_hosts_15_16),
                 16: (17, self.__migrate_schema_hosts_16_17),
                 17: (18, self.__migrate_schema_hosts_17_18),
+                18: (19, self.__migrate_schema_hosts_18_19),
             },
         }
         self.argparser.add_argument(
@@ -1275,6 +1276,25 @@ class DBActive(DB):
         return doc
 
     @staticmethod
+    def __migrate_schema_hosts_18_19(doc):
+        """Converts a record from version 18 to version 19. Version 19
+        splits smb-os-discovery scripts into two, a ntlm-info one that contains all
+        the information the original smb-os-discovery script got from NTLM, and a
+        smb-os-discovery script with only the information regarding SMB
+
+        """
+        assert doc["schema_version"] == 18
+        doc["schema_version"] = 19
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"] == "smb-os-discovery":
+                    smb, ntlm = xmlnmap.split_smb_os_discovery(script)
+                    script.update(smb)
+                    port["scripts"].append(ntlm)
+
+        return doc
+
+    @staticmethod
     def json2dbrec(host):
         return host
 
@@ -1617,6 +1637,14 @@ class DBActive(DB):
             if key in args:
                 args[key.replace("_", "-")] = args.pop(key)
         return cls.searchscript(name="smb-os-discovery", values=args)
+
+    @classmethod
+    def searchntlm(cls, **args):
+        """Search particular results from ntlm-info host script. Example:
+        .searchntlm(Product_Version="10.0.17763")
+        .searchntlm(protocol="http", Product_Version="10.0.17763")
+        """
+        return cls.searchscript(name="ntlm-info", values=args)
 
     @classmethod
     def searchuseragent(cls, useragent=None, neg=False):

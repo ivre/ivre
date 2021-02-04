@@ -50,6 +50,7 @@ from sqlalchemy import (
     select,
     text,
     update,
+    insert,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -234,7 +235,7 @@ class PassiveCSVFile(CSVFile):
         else:
             line["addr"] = None
         line.setdefault("count", 1)
-        line.setdefault("port", 0)
+        line.setdefault("port", -1)
         for key in ["sensor", "value", "source", "targetval"]:
             line.setdefault(key, "")
         if line["recontype"] in {"SSL_SERVER", "SSL_CLIENT"} and line["source"] in {
@@ -876,6 +877,8 @@ class SQLDBActive(SQLDB, DBActive):
             failed += self._migrate_schema_15_16()
         if (version or 0) < 18:
             failed += self._migrate_schema_17_18()
+        if (version or 0) < 19:
+            failed += self._migrate_schema_18_19()
         return failed
 
     def _migrate_schema_8_9(self):
@@ -1393,6 +1396,81 @@ class SQLDBActive(SQLDB, DBActive):
                 )
             )
             .values(schema_version=18)
+        )
+        return len(failed)
+
+    def _migrate_schema_18_19(self):
+        """Converts a record from version 18 to version 19. Version 19
+        splits smb-os-discovery scripts into two, a ntlm-info one that contains all
+        the information the original smb-os-discovery script got from NTLM, and a
+        smb-os-discovery script with only the information regarding SMB
+
+        """
+        failed = set()
+        req = (
+            select(
+                [
+                    self.tables.scan.id,
+                    self.tables.script.name,
+                    self.tables.script.port,
+                    self.tables.script.output,
+                    self.tables.script.data,
+                ]
+            )
+            .select_from(
+                join(join(self.tables.scan, self.tables.port), self.tables.script)
+            )
+            .where(
+                and_(
+                    self.tables.scan.schema_version == 18,
+                    self.tables.script.name == "smb-os-discovery",
+                )
+            )
+        )
+        for rec in self.db.execute(req):
+            if rec.name in rec.data:
+                try:
+                    smb, ntlm = xmlnmap.split_smb_os_discovery(rec.data)
+                except Exception:
+                    utils.LOGGER.warning(
+                        "Cannot migrate host %r", rec.id, exc_info=True
+                    )
+                    failed.add(rec.id)
+                else:
+                    if "masscan" in smb:
+                        data = {
+                            "smb-os-discovery": smb["smb-os-discovery"],
+                            "masscan": smb["masscan"],
+                        }
+                    else:
+                        data = {"smb-os-discovery": smb["smb-os-discovery"]}
+                    self.db.execute(
+                        update(self.tables.script)
+                        .where(
+                            and_(
+                                self.tables.script.port == rec.port,
+                                self.tables.script.name == rec.name,
+                            )
+                        )
+                        .values(output=smb["output"], data=data)
+                    )
+                    self.db.execute(
+                        insert(self.tables.script).values(
+                            port=rec.port,
+                            name=ntlm["id"],
+                            output=ntlm["output"],
+                            data={"ntlm-info": ntlm["ntlm-info"]},
+                        )
+                    )
+        self.db.execute(
+            update(self.tables.scan)
+            .where(
+                and_(
+                    self.tables.scan.schema_version == 18,
+                    self.tables.scan.id.notin_(failed),
+                )
+            )
+            .values(schema_version=19)
         )
         return len(failed)
 
@@ -2685,7 +2763,7 @@ class SQLDBPassive(SQLDB, DBPassive):
             "count": spec.pop("count", 1),
             "firstseen": timestamp,
             "lastseen": lastseen or timestamp,
-            "port": spec.pop("port", 0),
+            "port": spec.pop("port", -1),
             # source, targetval, recontype, value: otherfields
             "info": info,
             "moreinfo": spec,
@@ -2796,7 +2874,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         # SQLite. However, because ACCESS_TXT does not work well with
         # the result processor, it does not. This is a similar problem
         # than .topvalues() with JSON fields.
-        flt = self.flt_and(flt, self.searchport(0, neg=True))
+        flt = self.flt_and(flt, self.searchport(-1, neg=True))
         if use_version:
             fields = [
                 self.tables.passive.port,

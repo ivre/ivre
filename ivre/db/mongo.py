@@ -919,6 +919,14 @@ class MongoDBActive(MongoDB, DBActive):
                 ],
                 {"sparse": True},
             ),
+            (
+                [("ports.scripts.ntlm-info.NetBIOS_Domain", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
+                [("ports.scripts.ntlm-info.Product_Version", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
             ([("infos.as_num", pymongo.ASCENDING)], {}),
             (
                 [
@@ -1182,6 +1190,7 @@ class MongoDBActive(MongoDB, DBActive):
                 15: (16, self.migrate_schema_hosts_15_16),
                 16: (17, self.migrate_schema_hosts_16_17),
                 17: (18, self.migrate_schema_hosts_17_18),
+                18: (19, self.migrate_schema_hosts_18_19),
             },
         ]
 
@@ -1722,6 +1731,28 @@ class MongoDBActive(MongoDB, DBActive):
                     ) = xmlnmap.change_ssh2_enum_algos(
                         script["output"], script["ssh2-enum-algos"]
                     )
+                    updated = True
+        if updated:
+            update["$set"]["ports"] = doc["ports"]
+        return update
+
+    @staticmethod
+    def migrate_schema_hosts_18_19(doc):
+        """Converts a record from version 18 to version 19. Version 19
+        splits smb-os-discovery scripts into two, a ntlm-info one that contains all
+        the information the original smb-os-discovery script got from NTLM, and a
+        smb-os-discovery script with only the information regarding SMB
+
+        """
+        assert doc["schema_version"] == 18
+        update = {"$set": {"schema_version": 19}}
+        updated = False
+        for port in doc.get("ports", []):
+            for script in port.get("scripts", []):
+                if script["id"] == "smb-os-discovery":
+                    smb, ntlm = xmlnmap.split_smb_os_discovery(script)
+                    script.update(smb)
+                    port["scripts"].append(ntlm)
                     updated = True
         if updated:
             update["$set"]["ports"] = doc["ports"]
@@ -3210,12 +3241,24 @@ class MongoDBActive(MongoDB, DBActive):
             field = "ports.service_devicetype"
         elif field.startswith("smb."):
             flt = self.flt_and(flt, self.searchscript(name="smb-os-discovery"))
-            if field == "smb.dnsdomain":
-                field = "ports.scripts.smb-os-discovery.domain_dns"
-            elif field == "smb.forest":
-                field = "ports.scripts.smb-os-discovery.forest_dns"
-            else:
-                field = "ports.scripts.smb-os-discovery." + field[4:]
+            field = "ports.scripts.smb-os-discovery." + field[4:]
+        elif field == "ntlm":
+            field = "ports.scripts.ntlm-info"
+        elif field.startswith("ntlm."):
+            arg = field[5:]
+            arg = {
+                "name": "Target_Name",
+                "server": "NetBIOS_Computer_Name",
+                "domain": "NetBIOS_Domain_Name",
+                "workgroup": "Workgroup",
+                "domain_dns": "DNS_Domain_Name",
+                "forest": "DNS_Tree_Name",
+                "fqdn": "DNS_Computer_Name",
+                "os": "Product_Version",
+                "version": "NTLM_Version",
+            }.get(arg, arg)
+            flt = self.flt_and(flt, self.searchscript("ntlm-info"))
+            field = "ports.scripts.ntlm-info." + arg
         elif field == "script":
             flt = self.flt_and(flt, self.searchscript(name={"$exists": True}))
             field = "ports.scripts.id"

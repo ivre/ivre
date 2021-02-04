@@ -530,7 +530,7 @@ class Passive(Base):
     count = Column(Integer)
     firstseen = Column(DateTime)
     lastseen = Column(DateTime)
-    port = Column(Integer)
+    port = Column(Integer, default=-1)
     recontype = Column(String(64))
     source = Column(String(64))
     targetval = Column(Text)

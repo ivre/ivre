@@ -1135,12 +1135,12 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         for addr, cur_features in self.db.execute(
             select(
                 [
-                    self.tables.scan.addr,
+                    self.tables.scan.id,
                     func.array_agg(func.distinct(postgresql.array(fields))),
                 ]
             )
             .select_from(join(self.tables.scan, self.tables.port))
-            .group_by(self.tables.scan.addr)
+            .group_by(self.tables.scan.id)
             .where(
                 and_(
                     exists(
@@ -1824,7 +1824,7 @@ class PostgresDBPassive(PostgresDB, SQLDBPassive):
     def _features_port_get(
         self, features, flt, yieldall, use_service, use_product, use_version
     ):
-        flt = self.flt_and(flt, self.searchport(0, neg=True))
+        flt = self.flt_and(flt, self.searchport(-1, neg=True))
         if use_version:
             fields = [
                 cast(self.tables.passive.port, String),

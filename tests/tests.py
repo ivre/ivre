@@ -56,6 +56,7 @@ import ivre.target
 import ivre.utils
 import ivre.web.utils
 import ivre.xmlnmap
+import ivre.analyzer
 
 HTTPD_PORT = 18080
 HTTPD_HOSTNAME = socket.gethostname()
@@ -459,6 +460,42 @@ class IvreTests(unittest.TestCase):
             name, self._sort_top_values(listval), check=self.assertCountEqual
         )
 
+    def check_passive_top_value_api(self, name, field, distinct):
+        values = self._sort_top_values(
+            ivre.db.db.passive.topvalues(field=field, distinct=distinct, topnbr=10)
+        )
+        self.check_value(name, values, check=self.assertCountEqual)
+        cur = iter(
+            ivre.db.db.passive.topvalues(field=field, distinct=distinct, topnbr=10)
+        )
+        values = next(cur)
+        while values.get("_id") is None:
+            values = next(cur)
+        self.check_value("%s_count" % name, values["count"])
+
+    def check_passive_top_value_cli(self, name, command, count=0):
+        res, out, err = RUN(command)
+        self.assertFalse(err)
+        self.assertEqual(res, 0)
+        if count:
+            self.assertEqual(len(out.decode().splitlines()), count)
+        listval = []
+        for line in out.decode().split("\n"):
+            if not line:
+                continue
+            value, count = line.rsplit(": ", 1)
+            for function in [int, float, json.loads]:
+                try:
+                    value = function(value)
+                except ValueError:
+                    continue
+                else:
+                    break
+            listval.append({"_id": value, "count": int(count)})
+        self.check_value(
+            name, self._sort_top_values(listval), check=self.assertCountEqual
+        )
+
     def check_nmap_top_value(self, name, field, count=10):
         for method in ["api", "cli", "cgi"]:
             specific_name = "%s_%s" % (name, method)
@@ -585,6 +622,19 @@ class IvreTests(unittest.TestCase):
         cnt3 = self.check_count_value_cgi(name_or_value, webflt, webroute="view")
         self.assertEqual(cnt1, cnt2)
         self.assertEqual(cnt1, cnt3)
+        return cnt1
+
+    def check_view_count_ntlm_value(self, name_or_value, flt, webflt, cliflt=None):
+        cnt1 = self.check_count_value_api(name_or_value, flt, database=ivre.db.db.view)
+        if cliflt and DATABASE != "postgres":
+            key, val = cliflt.split(":", 1)
+            res, out, _ = RUN(["ivre", "view", "--top", key])
+            self.assertEqual(res, 0)
+            for line in out:
+                if line.split(":", 1)[0] == val:
+                    self.assertEqual(cnt1, line.split(": ", 1)[1])
+        cnt2 = self.check_count_value_cgi(name_or_value, webflt, webroute="view")
+        self.assertEqual(cnt1, cnt2)
         return cnt1
 
     def check_flow_count_value_cgi(self, name_or_value, webflt, webroute=""):
@@ -821,6 +871,83 @@ class IvreTests(unittest.TestCase):
             )
             os.unlink(fdesc.name)
 
+        samples = [
+            b"""<?xml version="1.0"?>
+<!-- masscan v1.0 scan -->
+<nmaprun scanner="masscan" start="1601283010" version="1.0-BETA"  xmloutputversion="1.03">
+<scaninfo type="syn" protocol="tcp" />
+<host endtime="1601283009"><address addr="172.18.200.17" addrtype="ipv4"/><ports><port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/></port></ports></host>
+<host endtime="1601283012"><address addr="172.18.200.17" addrtype="ipv4"/><ports><port protocol="tcp" portid="445"><state state="open" reason="response" reason_ttl="127" /><service name="smb" banner="SMBv2  guid=12f4eb59-846a-41e4-9763-f9c5fc31db09 time=2020-09-28 08:50:12 domain=DOM2008R2 version=6.1.7600 ntlm-ver=15 domain=DOM2008R2 name=W2008R2 domain-dns=dom2008r2.lab name-dns=W2008R2.dom2008r2.lab forest=dom2008r2.lab"></service></port></ports></host>
+<runstats>
+<finished time="1601283021" timestr="2020-09-28 10:50:21" elapsed="12" />
+<hosts up="1" down="0" total="1" />
+</runstats>
+</nmaprun>""",  # noqa: E501
+            b"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.80 scan initiated Mon Sep 28 10:47:56 2020 as: nmap -p445 -&#45;script smb-os-discovery -oX scans/smb-nmap.xml 172.18.200.16 -->
+<nmaprun scanner="nmap" args="nmap -p445 -&#45;script smb-os-discovery -oX scans/smb-nmap.xml 172.18.200.16" start="1601282876" startstr="Mon Sep 28 10:47:56 2020" version="7.80" xmloutputversion="1.04">
+<scaninfo type="connect" protocol="tcp" numservices="1" services="445"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1601282877" endtime="1601282877"><status state="up" reason="syn-ack" reason_ttl="0"/>
+<address addr="172.18.200.16" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="445"><state state="open" reason="syn-ack" reason_ttl="128"/><service name="microsoft-ds" product="Windows Server 2008 R2 Enterprise 7600 microsoft-ds" method="probed" conf="10"/></port>
+</ports>
+<hostscript><script id="smb-os-discovery" output="&#xa;  OS: Windows Server 2008 R2 Enterprise 7600 (Windows Server 2008 R2 Enterprise 6.1)&#xa;  OS CPE: cpe:/o:microsoft:windows_server_2008::-&#xa;  Computer name: W2008R2&#xa;  NetBIOS computer name: W2008R2&#xa;  Domain name: dom2008r2.lab&#xa;  Forest name: dom2008r2.lab&#xa;  FQDN: W2008R2.dom2008r2.lab&#xa;  System time: 2020-09-28T01:47:57+01:00&#xa;"><elem key="os">Windows Server 2008 R2 Enterprise 7600</elem>
+<elem key="lanmanager">Windows Server 2008 R2 Enterprise 6.1</elem>
+<elem key="server">W2008R2</elem>
+<elem key="date">2020-09-28T01:47:57-07:00</elem>
+<elem key="fqdn">W2008R2.dom2008r2.lab</elem>
+<elem key="domain_dns">dom2008r2.lab</elem>
+<elem key="forest_dns">dom2008r2.lab</elem>
+<elem key="workgroup">DOM2008R2</elem>
+<elem key="cpe">cpe:/o:microsoft:windows_server_2008::-</elem>
+</script></hostscript><times srtt="344" rttvar="3774" to="100000"/>
+</host>
+<runstats><finished time="1601282877" timestr="Mon Sep 28 10:47:57 2020" elapsed="0.21" summary="Nmap done at Mon Sep 28 10:47:57 2020; 1 IP address (1 host up) scanned in 0.21 seconds" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>""",  # noqa: E501
+        ]
+
+        # Test smb-os-discovery is correctly split
+        for sample in samples:
+            fdesc = tempfile.NamedTemporaryFile(delete=False)
+            fdesc.write(sample)
+            fdesc.close()
+            res, out, _ = RUN(["ivre", "scan2db", "--test", fdesc.name])
+            self.assertEqual(res, 0)
+            for line in out.splitlines():
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    pass
+                else:
+                    scripts = {}
+                    for port in rec["ports"]:
+                        if "scripts" in port:
+                            for script in port["scripts"]:
+                                cur_id = script["id"]
+                                scripts[cur_id] = script[cur_id]
+                    if scripts:
+                        self.assertEqual("ntlm-info" in scripts, True)
+                        self.assertEqual("smb-os-discovery" in scripts, True)
+                        for key, val in [
+                            ("NetBIOS_Computer_Name", "W2008R2"),
+                            ("DNS_Computer_Name", "W2008R2.dom2008r2.lab"),
+                            ("DNS_Domain_Name", "dom2008r2.lab"),
+                            ("DNS_Tree_Name", "dom2008r2.lab"),
+                            ("Workgroup", "DOM2008R2"),
+                            ("NTLM_Version", "15"),
+                            ("Product_Version", "6.1.7600"),
+                            ("protocol", "smb"),
+                        ]:
+                            self.assertEqual(True, scripts["ntlm-info"].get(key) == val)
+            os.unlink(fdesc.name)
+
         # Test various structured results for smb-enum-shares
         # before commit 79d25c5c6e4e2c3298f4f0771a183e82d06bfabe
         json_12_smb_enum_shares_old = {
@@ -961,7 +1088,7 @@ class IvreTests(unittest.TestCase):
         res, out, err = RUN(["ivre", "scancli", "--short"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
-        self.assertEqual(len(out.splitlines()), hosts_count)
+        self.check_value("nmap_short_count", len(out.splitlines()))
         # GNMAP
         res, out, err = RUN(["ivre", "scancli", "--gnmap"])
         self.assertEqual(res, 0)
@@ -1325,6 +1452,8 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.nmap.searchdomain(re.compile("^(com|net)$"), neg=True)
         )
         self.check_value("nmap_not_domain_com_or_net_count", count)
+        count = ivre.db.db.nmap.count(ivre.db.db.nmap.searchdomain("lab"))
+        self.check_value("nmap_domain_lab_count", count)
         name = next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.searchdomain("com"))))[
             "hostnames"
         ][0]["name"]
@@ -2087,16 +2216,7 @@ class IvreTests(unittest.TestCase):
                     field.replace(":", "_"),
                     "" if distinct else "not_",
                 )
-                cur = iter(
-                    ivre.db.db.passive.topvalues(
-                        field=field, distinct=distinct, topnbr=2
-                    )
-                )
-                values = next(cur)
-                while values.get("_id") is None:
-                    values = next(cur)
-                self.check_value(valname, values["_id"])
-                self.check_value("%s_count" % valname, values["count"])
+                self.check_passive_top_value_api(valname, field, distinct)
         for field, key in [
             ("value", "ja3cli_md5"),
             ("infos.raw", "ja3cli_raw"),
@@ -2257,24 +2377,15 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(res, 0)
         out = out.decode().splitlines()
         self.assertEqual(len(out), 10)
-        res, out, err = RUN(["ivre", "ipinfo", "--limit", "2", "--top", "addr"])
-        self.assertFalse(err)
-        self.assertEqual(res, 0)
-        out = out.decode().splitlines()
-        self.assertEqual(len(out), 2)
-        addr, count = next(elt for elt in out if not elt.startswith("None: ")).split(
-            ": "
+        self.check_passive_top_value_cli(
+            "passive_top_addr_distinct",
+            ["ivre", "ipinfo", "--limit", "3", "--top", "addr"],
+            count=3,
         )
-        self.check_value("passive_top_addr_distinct", addr)
-        self.check_value("passive_top_addr_distinct_count", int(count))
-        res, out, err = RUN(["ivre", "ipinfo", "--top", "addr"])
-        self.assertFalse(err)
-        self.assertEqual(res, 0)
-        addr, count = next(
-            elt for elt in out.decode().splitlines() if not elt.startswith("None: ")
-        ).split(": ")
-        self.check_value("passive_top_addr_distinct", addr)
-        self.check_value("passive_top_addr_distinct_count", int(count))
+        self.check_passive_top_value_cli(
+            "passive_top_addr_distinct",
+            ["ivre", "ipinfo", "--top", "addr"],
+        )
 
         # CLI: --limit / --skip / --sort
         # Using --limit should prevent ipinfo from selecting tailfnew mode
@@ -2336,11 +2447,6 @@ class IvreTests(unittest.TestCase):
             # There is a warning in postgresql for unused argument.
             self.assertFalse(err)
         self.assertEqual(res, 0)
-        port = 0
-        for line in out.decode().splitlines():
-            nport = json.loads(line).get("port", 0)
-            self.assertTrue(port <= nport)
-            port = nport
         res, out, err = RUN(["ivre", "ipinfo", "--json", "--sort", "~port"])
         if DATABASE not in ["postgres", "sqlite"]:
             # There is a warning in postgresql for unused argument.
@@ -4140,6 +4246,45 @@ class IvreTests(unittest.TestCase):
             ivre.utils.url2hostport("ftp://1.2.3.4:2121/"), ("1.2.3.4", 2121)
         )
 
+        # NTLM Analyzer
+        self.assertEqual(ivre.analyzer.ntlm._is_ntlm_message("NTLM"), False)
+        self.assertEqual(ivre.analyzer.ntlm._is_ntlm_message("NTLM    "), False)
+        self.assertEqual(
+            ivre.analyzer.ntlm._is_ntlm_message(
+                "Negotiate a87421000492aa874209af8bc028"
+            ),
+            False,
+        )  # https://tools.ietf.org/html/rfc4559
+        self.assertEqual(
+            ivre.analyzer.ntlm._is_ntlm_message(
+                "NTLM TlRMTVNTUAABAAAAB4IIAAAAAAAAAAAAAAAAAAAAAAA="
+            ),
+            True,
+        )
+        self.assertEqual(
+            ivre.analyzer.ntlm._is_ntlm_message(
+                "Negotiate TlRMTVNTUAABAAAAB4IIAAAAAAAAAAAAAAAAAAAAAAA="
+            ),
+            True,
+        )
+        self.assertEqual(
+            ivre.analyzer.ntlm.ntlm_extract_info(
+                b"NTLMSSP\x00\x0b\x00\x00\x00\x07\x82\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            {},
+        )
+        self.assertEqual(
+            ivre.analyzer.ntlm.ntlm_extract_info(
+                b"NTLMSSP\x00\x01\x00\x00\x00\x01\x82\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            {"ntlm-fingerprint": "0x00088201"},
+        )
+        negotiate = ivre.analyzer.ntlm.ntlm_extract_info(
+            b"NTLMSSP\x00\x01\x00\x00\x00\x06\xb2\x08\xa0\x0a\x00\x0a\x00\x28\x00\x00\x00\x08\x00\x08\x00\x20\x00\x00\x00NAMETESTDOMAINTEST"
+        )
+        self.assertEqual(negotiate["NetBIOS_Domain_Name"], "DOMAINTEST")
+        self.assertEqual(negotiate["Workstation"], "NAMETEST")
+
     def test_scans(self):
         "Run scans, with and without agents"
 
@@ -4615,7 +4760,7 @@ class IvreTests(unittest.TestCase):
         self.check_view_top_value("view_top_http_header", "httphdr.name")
         self.check_view_top_value("view_top_http_header_value", "httphdr.value")
         self.check_view_top_value("view_top_http_content_type", "httphdr:content-type")
-        self.check_view_top_value("view_top_http_ua", "useragent")
+        self.check_view_top_value("view_top_http_ua", "useragent", count=11)
         self.check_view_top_value("view_top_http_ua_curl", "useragent:/^curl/")
 
         self.check_view_top_value("view_top_ssl_ja3cli_md5", "ja3-client")
@@ -4739,6 +4884,15 @@ class IvreTests(unittest.TestCase):
         self.check_view_top_value("view_top_hop", "hop")
         self.check_view_top_value("view_top_hop_10+", "hop>10")
 
+        if DATABASE != "postgres":
+            self.check_view_top_value("view_top_ntlm_protocol", "ntlm.protocol")
+            self.check_view_top_value("view_top_ntlm_os", "ntlm.os")
+            self.check_view_top_value("view_top_ntlm_os", "ntlm.Product_Version")
+            self.check_view_top_value("view_top_ntlm_domain", "ntlm.domain")
+            self.check_view_top_value(
+                "view_top_ntlm_domain", "ntlm.NetBIOS_Domain_Name"
+            )
+
         print("Filters")
         # Check schema version
         self.check_count_value_api(
@@ -4833,6 +4987,32 @@ class IvreTests(unittest.TestCase):
             ivre.db.db.view.searchtorcert(),
             ["--torcert"],
             "torcert",
+        )
+
+        # NTLM filters
+        self.check_view_count_ntlm_value(
+            "view_ntlm_http_count",
+            ivre.db.db.view.searchntlm(protocol="http"),
+            "ntlm.protocol:http",
+            "protocol:http",
+        )
+        top_proto = self.results["view_top_ntlm_protocol"][0]
+        self.check_view_count_ntlm_value(
+            "view_top_ntlm_protocol_count",
+            ivre.db.db.view.searchntlm(protocol=top_proto),
+            "ntlm.protocol:%s" % top_proto,
+        )
+        top_domain = self.results["view_top_ntlm_domain"][0]
+        self.check_view_count_ntlm_value(
+            "view_top_ntlm_domain_count",
+            ivre.db.db.view.searchntlm(NetBIOS_Domain_Name=top_domain),
+            "ntlm.domain:%s" % top_domain,
+        )
+        top_os = self.results["view_top_ntlm_os"][0]
+        self.check_view_count_ntlm_value(
+            "view_top_ntlm_os_count",
+            ivre.db.db.view.searchntlm(Product_Version=top_os),
+            "ntlm.os:%s" % top_os,
         )
 
         print("Web /view URLs")

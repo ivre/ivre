@@ -263,7 +263,11 @@ def zgrap_parser_http(data, hostrec, port=None):
                     keyvals = zip(ntlm_values, [infos.get(k) for k in ntlm_values])
                     output = "\n".join("{}: {}".format(k, v) for k, v in keyvals if v)
                     res.setdefault("scripts", []).append(
-                        {"id": "http-ntlm-info", "output": output, "ntlm-info": infos}
+                        {
+                            "id": "ntlm-info",
+                            "output": output,
+                            "ntlm-info": dict(infos, protocol="http"),
+                        }
                     )
                     if "DNS_Computer_Name" in infos:
                         add_hostname(

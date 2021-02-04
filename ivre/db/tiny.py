@@ -1533,14 +1533,25 @@ class TinyDBActive(TinyDB, DBActive):
             def _newflt(field):
                 return self.searchscript(name="smb-os-discovery")
 
-            if field == "smb.dnsdomain":
-                field = "ports.scripts.smb-os-discovery.domain_dns"
-            elif field == "smb.forest":
-                field = "ports.scripts.smb-os-discovery.forest_dns"
-            else:
-                field = "ports.scripts.smb-os-discovery." + field[4:]
-        elif field == "script":
-            field = "ports.scripts.id"
+            field = "ports.scripts.smb-os-discovery." + field[4:]
+        elif field.startswith("ntlm."):
+
+            def _newflt(field):
+                return self.searchscript(name="ntlm-info")
+
+            arg = field[5:]
+            arg = {
+                "name": "Target_Name",
+                "server": "NetBIOS_Computer_Name",
+                "domain": "NetBIOS_Domain_Name",
+                "workgroup": "Workgroup",
+                "domain_dns": "DNS_Domain_Name",
+                "forest": "DNS_Tree_Name",
+                "fqdn": "DNS_Computer_Name",
+                "os": "Product_Version",
+                "version": "NTLM_Version",
+            }.get(arg, arg)
+            field = "ports.scripts.ntlm-info." + arg
         elif field.startswith("script:"):
             scriptid = field.split(":", 1)[1]
             if ":" in scriptid:
