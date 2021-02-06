@@ -466,6 +466,42 @@ def _extract_passive_DNS_ANSWER(rec):
     }
 
 
+def _extract_passive_DNS_HONEYPOT_QUERY(rec):
+    """Handle DNS_HONEYPOT_QUERY records"""
+    try:
+        proto_port, qtype, qclass = rec["source"].rsplit("-", 2)
+        proto, port = proto_port.split("/", 1)
+        port = int(port)
+    except ValueError:
+        utils.LOGGER.warning("Cannot parse record [%r]", rec)
+        return {}
+    output = "Scanned port: %s: %d\nDNS query: %s (type: %s, class: %s)" % (
+        proto,
+        port,
+        rec["value"],
+        qtype,
+        qclass,
+    )
+    structured_output = {
+        "ports": {"count": 1, proto: {"count": 1, "ports": [port]}},
+        "dns_queries": [{"qtype": qtype, "qclass": qclass, "query": rec["value"]}],
+    }
+    return {
+        "ports": [
+            {
+                "port": -1,
+                "scripts": [
+                    {
+                        "id": "scanner",
+                        "output": output,
+                        "scanner": structured_output,
+                    }
+                ],
+            }
+        ]
+    }
+
+
 def _extract_passive_SSL_CLIENT_ja3(rec):
     """Handle SSL client ja3 extraction."""
     script = {"id": "ssl-ja3-client"}
@@ -593,6 +629,7 @@ _EXTRACTORS = {
     "TCP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "UDP_HONEYPOT_HIT": _extract_passive_HONEYPOT_HIT,
     "HTTP_HONEYPOT_REQUEST": _extract_passive_HTTP_HONEYPOT_REQUEST,
+    "DNS_HONEYPOT_QUERY": _extract_passive_DNS_HONEYPOT_QUERY,
     "NTLM_CHALLENGE": _extract_passive_NTLM,
     "NTLM_AUTHENTICATE": _extract_passive_NTLM,
     "SMB": _extract_passive_SMB_SESSION_SETUP,
