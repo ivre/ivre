@@ -1647,7 +1647,7 @@ class MongoDBActive(MongoDB, DBActive):
     @staticmethod
     def migrate_schema_hosts_14_15(doc):
         """Converts a record from version 14 to version 15. Version 15 changes
-        the structured output for httpègit script to move data to values
+        the structured output for http-git script to move data to values
         instead of keys.
 
         """
@@ -1770,6 +1770,9 @@ class MongoDBActive(MongoDB, DBActive):
                     smb, ntlm = xmlnmap.split_smb_os_discovery(script)
                     script.update(smb)
                     port["scripts"].append(ntlm)
+                    updated = True
+                if script["id"].endswith("-ntlm-info"):
+                    xmlnmap.post_ntlm_info(script, port, doc)
                     updated = True
         if updated:
             update["$set"]["ports"] = doc["ports"]
