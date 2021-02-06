@@ -628,12 +628,7 @@ def _getinfos_ntlm(spec):
     try:
         for k, v in (item.split(":", 1) for item in value.split(",")):
             if k == "NTLM_Version":
-                try:
-                    info[k] = v
-                except ValueError:
-                    utils.LOGGER.warning(
-                        "Incorrect value for field %r in record %r", k, spec
-                    )
+                info[k] = v
             else:
                 try:
                     info[k] = utils.nmap_encode_data(utils.decode_b64(v.encode()))
