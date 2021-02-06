@@ -481,4 +481,4 @@ view_top_ntlm_os = ['5.2.3790']
 view_top_ntlm_os_count = 7
 view_top_ntlm_domain = ['DOM2000']
 view_top_ntlm_domain_count = 2
-view_ntlm_http_count = 17
+view_ntlm_http_count = 24

@@ -864,8 +864,12 @@ def post_ssl_cert(script, port, host):
 
 
 def post_ntlm_info(script, port, host):
-    if not script["id"].startswith("ntlm-"):
-        script["ntlm-info"]["protocol"] = script["id"].split("-", 1)[0]
+    if script["id"] != "ntlm-info":
+        if script["id"] in script:
+            script["ntlm-info"] = script.pop(script["id"])
+        proto = script["id"].rsplit("-", 2)[0]
+        if "ntlm-info" in script:
+            script["ntlm-info"]["protocol"] = proto
         script["id"] = "ntlm-info"
     if "ntlm-info" not in script:
         return

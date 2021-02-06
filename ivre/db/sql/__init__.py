@@ -1428,22 +1428,44 @@ class SQLDBActive(SQLDB, DBActive):
             )
         )
         for rec in self.db.execute(req):
-            if rec.name in rec.data:
-                try:
-                    smb, ntlm = xmlnmap.split_smb_os_discovery(rec.data)
-                except Exception:
-                    utils.LOGGER.warning(
-                        "Cannot migrate host %r", rec.id, exc_info=True
-                    )
-                    failed.add(rec.id)
-                else:
-                    if "masscan" in smb:
-                        data = {
-                            "smb-os-discovery": smb["smb-os-discovery"],
-                            "masscan": smb["masscan"],
-                        }
+            if rec.name == "smb-os-discovery":
+                if rec.name in rec.data:
+                    try:
+                        smb, ntlm = xmlnmap.split_smb_os_discovery(rec.data)
+                    except Exception:
+                        utils.LOGGER.warning(
+                            "Cannot migrate host %r", rec.id, exc_info=True
+                        )
+                        failed.add(rec.id)
                     else:
-                        data = {"smb-os-discovery": smb["smb-os-discovery"]}
+                        if "masscan" in smb:
+                            data = {
+                                "smb-os-discovery": smb["smb-os-discovery"],
+                                "masscan": smb["masscan"],
+                            }
+                        else:
+                            data = {"smb-os-discovery": smb["smb-os-discovery"]}
+                        self.db.execute(
+                            update(self.tables.script)
+                            .where(
+                                and_(
+                                    self.tables.script.port == rec.port,
+                                    self.tables.script.name == rec.name,
+                                )
+                            )
+                            .values(output=smb["output"], data=data)
+                        )
+                        self.db.execute(
+                            insert(self.tables.script).values(
+                                port=rec.port,
+                                name=ntlm["id"],
+                                output=ntlm["output"],
+                                data={"ntlm-info": ntlm["ntlm-info"]},
+                            )
+                        )
+                elif rec.name.endswith("-ntlm-info"):
+                    script = {"id": rec.name, "output": rec.output, rec.name: rec.data}
+                    xmlnmap.post_ntlm_info(script, {}, {})
                     self.db.execute(
                         update(self.tables.script)
                         .where(
@@ -1452,14 +1474,10 @@ class SQLDBActive(SQLDB, DBActive):
                                 self.tables.script.name == rec.name,
                             )
                         )
-                        .values(output=smb["output"], data=data)
-                    )
-                    self.db.execute(
-                        insert(self.tables.script).values(
-                            port=rec.port,
-                            name=ntlm["id"],
-                            output=ntlm["output"],
-                            data={"ntlm-info": ntlm["ntlm-info"]},
+                        .values(
+                            name="ntlm-info",
+                            output=script["output"],
+                            data=script.get("ntlm-info", {}),
                         )
                     )
         self.db.execute(
