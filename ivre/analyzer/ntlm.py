@@ -178,7 +178,7 @@ def _ntlm_challenge_extract(challenge):
         except ValueError:
             pass
         try:
-            value["NTLM_Version"] = ntlm_ver
+            value["NTLM_Version"] = str(ntlm_ver)
         except ValueError:
             pass
 
@@ -277,7 +277,7 @@ def _ntlm_authenticate_info(request):
         except ValueError:
             pass
         try:
-            value["NTLM_Version"] = ntlm_ver
+            value["NTLM_Version"] = str(ntlm_ver)
         except ValueError:
             pass
 
