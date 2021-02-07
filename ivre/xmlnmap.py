@@ -894,7 +894,13 @@ POST_PROCESS = {
 
 
 def split_smb_os_discovery(script):
-    value = script["smb-os-discovery"]
+    try:
+        value = script["smb-os-discovery"]
+    except KeyError:
+        # This may happen when an error occurs in Masscan
+        yield script
+        yield {}
+        return
     if "ntlm-version" not in value:
         value["ntlm-version"] = "15"
     if "os" in value:
@@ -2426,7 +2432,8 @@ class NmapHandler(ContentHandler):
                 POST_PROCESS[infokey](self._curscript, current, self._curhost)
             if infokey in SPLIT_SCRIPTS:
                 for scr in SPLIT_SCRIPTS[infokey](self._curscript):
-                    current.setdefault("scripts", []).append(scr)
+                    if scr:
+                        current.setdefault("scripts", []).append(scr)
             else:
                 current.setdefault("scripts", []).append(self._curscript)
             self._curscript = None

@@ -1455,14 +1455,15 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(output=smb["output"], data=data)
                         )
-                        self.db.execute(
-                            insert(self.tables.script).values(
-                                port=rec.port,
-                                name=ntlm["id"],
-                                output=ntlm["output"],
-                                data={"ntlm-info": ntlm["ntlm-info"]},
+                        if ntlm:
+                            self.db.execute(
+                                insert(self.tables.script).values(
+                                    port=rec.port,
+                                    name=ntlm["id"],
+                                    output=ntlm["output"],
+                                    data={"ntlm-info": ntlm["ntlm-info"]},
+                                )
                             )
-                        )
                 elif rec.name.endswith("-ntlm-info"):
                     script = {"id": rec.name, "output": rec.output, rec.name: rec.data}
                     xmlnmap.post_ntlm_info(script, {}, {})
