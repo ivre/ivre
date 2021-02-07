@@ -1290,7 +1290,8 @@ class DBActive(DB):
                 if script["id"] == "smb-os-discovery":
                     smb, ntlm = xmlnmap.split_smb_os_discovery(script)
                     script.update(smb)
-                    port["scripts"].append(ntlm)
+                    if ntlm:
+                        port["scripts"].append(ntlm)
                 if script["id"].endswith("-ntlm-info"):
                     xmlnmap.post_ntlm_info(script, port, doc)
         return doc
