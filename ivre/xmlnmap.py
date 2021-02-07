@@ -895,7 +895,8 @@ POST_PROCESS = {
 
 def split_smb_os_discovery(script):
     value = script["smb-os-discovery"]
-    value["ntlm-version"] = "15"
+    if "ntlm-version" not in value:
+        value["ntlm-version"] = "15"
     if "os" in value:
         if value["os"] not in WINDOWS_VERSION_TO_BUILD:
             utils.LOGGER.info(
