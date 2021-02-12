@@ -456,10 +456,14 @@ def _getinfos_http_client_authorization(spec):
                         infos[key] = value[1:-1]
             except Exception:
                 pass
-        elif (value[:4].lower() == "ntlm" and value[4:].strip()) or (
-            value[:9].lower() == "negotiate" and value[9:].strip()
-        ):
-            return _getinfos_ntlm(spec)
+        else:
+            try:
+                val1, val2 = value.split(None, 1)
+            except ValueError:
+                pass
+            else:
+                if val1.lower() in {"ntlm", "negotiate"} and val2:
+                    return _getinfos_ntlm(spec)
     res = {}
     if infos:
         res["infos"] = infos
@@ -609,10 +613,13 @@ def _getinfos_authentication(spec):
     Parse value of *-AUTHENTICATE headers depending on the protocol used
     """
     value = spec["value"]
-    if (value[:4].lower() == "ntlm" and value[4:].strip()) or (
-        value[:9].lower() == "negotiate" and value[9:].strip()
-    ):
-        return _getinfos_ntlm(spec)
+    try:
+        val1, val2 = value.split(None, 1)
+    except ValueError:
+        pass
+    else:
+        if val1.lower() in {"ntlm", "negotiate"} and val2:
+            return _getinfos_ntlm(spec)
 
     return {}
 
@@ -622,8 +629,13 @@ def _getinfos_ntlm(spec):
     Get information from NTLMSSP messages
     """
     value = spec["value"]
-    if value.split(None, 1)[0].lower() in {"ntlm", "negotiate"}:
-        value = value.split(None, 1)[1]
+    try:
+        val1, val2 = value.split(None, 1)
+    except ValueError:
+        pass
+    else:
+        if val1.lower() in {"ntlm", "negotiate"} and val2:
+            value = val2
     info = {}
     try:
         for k, v in (item.split(":", 1) for item in value.split(",")):

@@ -313,7 +313,7 @@ def _ntlm_dict2string(dic):
             k,
             (
                 v
-                if k in ["NTLM_Version", "ntlm-fingerprint"]
+                if k in {"NTLM_Version", "ntlm-fingerprint"}
                 else utils.encode_b64(v.encode()).decode()
             ),
         )
@@ -325,13 +325,18 @@ def _is_ntlm_message(message):
     """
     Checks whether the given string is an NTLM message
     """
-    if message[:4].lower() == "ntlm" and message[4:].strip():
-        return True
-    if message[:9].lower() == "negotiate":
-        message = message.split(None, 1)
-        if message[1:]:
+    try:
+        val1, val2 = message.split(None, 1)
+    except ValueError:
+        return False
+    else:
+        if not val2:
+            return False
+        if val1.lower() == "ntlm":
+            return True
+        if val1.lower() == "negotiate":
             try:
-                return utils.decode_b64(message[1].encode())[:7] == b"NTLMSSP"
+                return utils.decode_b64(val2.encode())[:7] == b"NTLMSSP"
             except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
                 pass
     return False
