@@ -4211,14 +4211,15 @@ class IvreTests(unittest.TestCase):
         # DNS audit domain
         with tempfile.NamedTemporaryFile(delete=False) as fdesc:
             res = RUN(
-                ["ivre", "auditdom", "ivre.rocks", "zonetransfer.me"], stdout=fdesc
+                ["ivre", "auditdom", "ivre.rocks", "zonetransfer.me", "hardenize.com"],
+                stdout=fdesc,
             )[0]
             self.assertEqual(res, 0)
         res, out, err = RUN(["ivre", "scan2db", "--test", fdesc.name])
         os.unlink(fdesc.name)
         self.assertEqual(res, 0)
         out = out.decode().splitlines()
-        self.assertEqual(len(out), 26)
+        self.assertEqual(len(out), 34)
         found = False
         for line in out:
             rec = json.loads(line)

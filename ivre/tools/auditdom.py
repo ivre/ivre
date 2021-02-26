@@ -30,7 +30,7 @@ import sys
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
-from ivre.analyzer.dns import AXFRChecker
+from ivre.analyzer.dns import AXFRChecker, TLSRPTChecker
 from ivre.utils import LOGGER, serialize
 
 
@@ -75,7 +75,7 @@ def main():
     results = [
         rec
         for domain in args.domains
-        for test in [AXFRChecker]
+        for test in [AXFRChecker, TLSRPTChecker]
         for rec in test(domain).test(v4=not args.ipv6, v6=not args.ipv4)
     ]
     end = datetime.now()

@@ -20,8 +20,10 @@
 """Sub-module to run DNS checks."""
 
 
+from ast import literal_eval
 from collections import namedtuple
 from datetime import datetime
+import re
 import subprocess
 
 
@@ -30,6 +32,17 @@ from ivre.xmlnmap import SCHEMA_VERSION
 
 
 nsrecord = namedtuple("nsrecord", ["name", "ttl", "rclass", "rtype", "data"])
+
+
+# URL parse - see https://stackoverflow.com/a/7160778
+HTTPS_REGEXP = re.compile(
+    r"^(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|"
+    r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
+    r"(?::\d+)?"
+    r"(?:/?|[/?]\S+)$",
+    re.IGNORECASE,
+)
+MAIL_REGEXP = re.compile(r"[^@]+@[^@]+\.[^@]+", re.IGNORECASE)
 
 
 def _dns_do_query(name, rtype=None, srv=None):
@@ -168,9 +181,9 @@ class AXFRChecker(Checker):
                                         ],
                                     }
                                 ],
-                            }
+                            },
                         ],
-                    }
+                    },
                 ],
             }
             hosts = {}
@@ -196,3 +209,168 @@ class AXFRChecker(Checker):
                     "endtime": datetime.now(),
                 }
             start = datetime.now()
+
+
+class SameValueChecker(Checker):
+    def _test(self, addr):
+        return frozenset(_dns_query(self.name, rtype=self.rtype, srv=addr))
+
+    def test(self, v4=True, v6=True):
+        self.start = datetime.now()
+        results = {}
+        self.results = list(self.do_test(v4=v4, v6=v6))
+        for srvname, addr, res in self.results:
+            srvname = srvname.rstrip(".")
+            results.setdefault(res, {}).setdefault(addr, []).append(srvname)
+        if len(results) < 1:
+            return
+        self.stop = datetime.now()
+        good_value = max(results, key=lambda val: len(results[val]))
+        good_value_repr = "\n".join("  %r" % r for r in sorted(good_value))
+        good_value_sorted = sorted(good_value)
+        for val, servers in results.items():
+            if val == good_value:
+                continue
+            for addr, names in servers.items():
+                yield {
+                    "addr": addr,
+                    "hostnames": [
+                        {
+                            "name": name,
+                            "type": "user",
+                            "domains": list(get_domains(name)),
+                        }
+                        for name in names
+                    ],
+                    "schema_version": SCHEMA_VERSION,
+                    "starttime": self.start,
+                    "endtime": self.stop,
+                    "ports": [
+                        {
+                            "port": 53,
+                            "protocol": "udp",
+                            "service_name": "domain",
+                            "state_state": "open",
+                            "scripts": [
+                                {
+                                    "id": "dns-check-consistency",
+                                    "output": "DNS inconsistency\n\n%s (%s)\nThis server:\n%s\nMost common answer:\n%s"
+                                    % (
+                                        self.name,
+                                        self.rtype,
+                                        "\n".join("  %r" % r for r in sorted(val)),
+                                        good_value_repr,
+                                    ),
+                                    "dns-check-consistency": [
+                                        {
+                                            "domain": self.domain,
+                                            "name": self.name,
+                                            "rtype": self.rtype,
+                                            "value": sorted(val),
+                                            "reference_value": good_value_sorted,
+                                        }
+                                    ],
+                                },
+                            ],
+                        }
+                    ],
+                }
+
+
+class TLSRPTChecker(SameValueChecker):
+    rtype = "TXT"
+
+    def __init__(self, domain):
+        super().__init__(domain)
+        self.name = "_smtp._tls.%s" % domain
+
+    def test(self, v4=True, v6=True):
+        yield from super().test(v4=v4, v6=v6)
+        for srvname, addr, res in self.results:
+            srvname = srvname.rstrip(".")
+            res = [literal_eval(r) for r in sorted(res)]
+            if not res:
+                output = "Domain %s has no TLS-RPT configuration" % self.domain
+                structured = {
+                    "domain": self.domain,
+                    "warnings": ["Domain has no TLS-RPT configuration"],
+                }
+            elif len(res) > 1:
+                output = (
+                    "Domain %s has more than one TLS-RPT configuration" % self.domain
+                )
+                structured = {
+                    "domain": self.domain,
+                    "value": " / ".join(res),
+                    "warnings": ["Domain has more than one TLS-RPT configuration"],
+                }
+            else:
+                value = res[0]
+                structured = {
+                    "domain": self.domain,
+                    "value": value,
+                }
+                warnings = []
+                if value.startswith("v=TLSRPTv1;"):
+                    if not value[11:].startswith("rua="):
+                        warnings.append(
+                            "TLS-RPT configuration should contain 'rua=' after 'v=TLSRPTv1;'"
+                        )
+                else:
+                    warnings.append(
+                        "TLS-RPT configuration should start with 'v=TLSRPTv1;'"
+                    )
+                    if not (value.startswith("rua=") or ";rua=" in value):
+                        warnings.append(
+                            "TLS-RPT configuration should contain 'rua=' after 'v=TLSRPTv1;'"
+                        )
+                ruas = value.split("rua=", 1)[1]
+                for rua_val in ruas.split(","):
+                    if rua_val.startswith("https://"):
+                        if HTTPS_REGEXP.search(rua_val[8:]) is None:
+                            warnings.append(
+                                "TLS-RPT contains an invalid HTTPS URL: %r" % rua_val
+                            )
+                    elif rua_val.startswith("mailto:"):
+                        if MAIL_REGEXP.search(rua_val[7:]) is None:
+                            warnings.append(
+                                "TLS-RPT contains an invalid e-mail URL: %r" % rua_val
+                            )
+                    else:
+                        warnings.append("TLS-RPT contains an invalid URL: %r" % rua_val)
+                if warnings:
+                    structured["warnings"] = warnings
+                    output = (
+                        "Domain %s has a TLS-RPT configuration with warnings:%s"
+                        % (self.domain, "\n".join(warnings))
+                    )
+                else:
+                    output = "Domain %s has a valid TLS-RPT configuration" % self.domain
+            yield {
+                "addr": addr,
+                "hostnames": [
+                    {
+                        "name": srvname,
+                        "type": "user",
+                        "domains": list(get_domains(srvname)),
+                    }
+                ],
+                "schema_version": SCHEMA_VERSION,
+                "starttime": self.start,
+                "endtime": self.stop,
+                "ports": [
+                    {
+                        "port": 53,
+                        "protocol": "udp",
+                        "service_name": "domain",
+                        "state_state": "open",
+                        "scripts": [
+                            {
+                                "id": "dns-tls-rpt",
+                                "output": output,
+                                "dns-tls-rpt": [structured],
+                            },
+                        ],
+                    }
+                ],
+            }
