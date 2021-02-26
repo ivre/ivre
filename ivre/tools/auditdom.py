@@ -31,7 +31,7 @@ import sys
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
 from ivre.analyzer.dns import AXFRChecker
-from ivre.utils import LOGGER
+from ivre.utils import LOGGER, serialize
 
 
 def main():
@@ -49,7 +49,7 @@ def main():
             if scan is not None:
                 LOGGER.debug("Scan not displayed in JSON mode")
             for rec in cur:
-                print(json.dumps(rec))
+                print(json.dumps(rec, default=serialize))
 
     else:
         displayfunction = displayfunction_nmapxml
