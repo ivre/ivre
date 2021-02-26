@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,187 +22,16 @@ Nmap script result."""
 
 
 import argparse
-from collections import namedtuple
 from datetime import datetime
 import json
 import pipes
-import subprocess
 import sys
 
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
-from ivre.utils import LOGGER, get_domains
-from ivre.xmlnmap import SCHEMA_VERSION
-
-
-nsrecord = namedtuple("nsrecord", ["name", "ttl", "rclass", "rtype", "data"])
-
-
-def _dns_do_query(name, rtype=None, srv=None):
-    cmd = ["dig", "+noquestion", "+nocomments", "+nocmd", "+nostat"]
-    if rtype:
-        cmd.extend(["-t", rtype])
-    cmd.append(name)
-    if srv:
-        cmd.append("@%s" % srv)
-    for line in subprocess.Popen(cmd, stdout=subprocess.PIPE).stdout:
-        line = line.decode()[:-1]
-        if line and line[:1] != ";":
-            try:
-                yield nsrecord(*line.split(None, 4))
-            except TypeError:
-                LOGGER.warning("Cannot read line %r", line)
-
-
-def _dns_query(name, rtype=None, srv=None, getall=False, getfull=False):
-    for ans in _dns_do_query(name, rtype=rtype, srv=srv):
-        if ans.rclass == "IN" and (getall or (rtype is None) or (ans.rtype == rtype)):
-            if getfull:
-                yield ans
-            else:
-                yield ans.data
-
-
-class Checker:
-    def __init__(self, domain):
-        self.domain = domain
-
-    @property
-    def ns_servers(self):
-        try:
-            return self._ns
-        except AttributeError:
-            self._ns = list(_dns_query(self.domain, rtype="NS"))
-            return self._ns
-
-    @property
-    def ns4_servers(self):
-        try:
-            return self._ns4
-        except AttributeError:
-            self._ns4 = list(
-                (srv, addr)
-                for srv in self.ns_servers
-                for addr in _dns_query(srv, rtype="A")
-            )
-            return self._ns4
-
-    @property
-    def ns6_servers(self):
-        try:
-            return self._ns6
-        except AttributeError:
-            self._ns6 = list(
-                (srv, addr)
-                for srv in self.ns_servers
-                for addr in _dns_query(srv, rtype="AAAA")
-            )
-            return self._ns6
-
-    def do_test(self, v4=True, v6=True):
-        servers = []
-        if v4:
-            servers.append(self.ns4_servers)
-        if v6:
-            servers.append(self.ns6_servers)
-        for srvlist in servers:
-            for srv, addr in srvlist:
-                yield (srv, addr, self._test(addr))
-
-
-class AXFRChecker(Checker):
-    def _test(self, addr):
-        return list(
-            _dns_query(self.domain, rtype="AXFR", srv=addr, getall=True, getfull=True)
-        )
-
-    def test(self, v4=True, v6=True):
-        start = datetime.now()
-        for srvname, addr, res in self.do_test(v4=v4, v6=v6):
-            srvname = srvname.rstrip(".")
-            if not res:
-                continue
-            if len(res) == 1 and res[0].rtype == "SOA":
-                # SOA only: transfer failed
-                continue
-            LOGGER.info("AXFR success for %r on %r", self.domain, addr)
-            line_fmt = "| %%-%ds  %%-%ds  %%s" % (
-                max(len(r.name) for r in res),
-                max(len(r.rtype) for r in res),
-            )
-            yield {
-                "addr": addr,
-                "hostnames": [
-                    {
-                        "name": srvname,
-                        "type": "user",
-                        "domains": list(get_domains(srvname)),
-                    }
-                ],
-                "schema_version": SCHEMA_VERSION,
-                "starttime": start,
-                "endtime": datetime.now(),
-                "ports": [
-                    {
-                        "port": 53,
-                        "protocol": "tcp",
-                        "service_name": "domain",
-                        "state_state": "open",
-                        "scripts": [
-                            {
-                                "id": "dns-zone-transfer",
-                                "output": "\nDomain: %s\n%s\n\\\n"
-                                % (
-                                    self.domain,
-                                    "\n".join(
-                                        line_fmt % (r.name, r.rtype, r.data)
-                                        for r in res
-                                    ),
-                                ),
-                                "dns-zone-transfer": [
-                                    {
-                                        "domain": self.domain,
-                                        "records": [
-                                            {
-                                                "name": r.name,
-                                                "ttl": r.ttl,
-                                                "class": r.rclass,
-                                                "type": r.rtype,
-                                                "data": r.data,
-                                            }
-                                            for r in res
-                                        ],
-                                    }
-                                ],
-                            }
-                        ],
-                    }
-                ],
-            }
-            hosts = {}
-            for r in res:
-                if r.rclass != "IN":
-                    continue
-                if r.rtype in ["A", "AAAA"]:
-                    name = r.name.rstrip(".")
-                    hosts.setdefault(r.data, set()).add((r.rtype, name))
-            for host, records in hosts.items():
-                yield {
-                    "addr": host,
-                    "hostnames": [
-                        {
-                            "name": rec[1],
-                            "type": rec[0],
-                            "domains": list(get_domains(rec[1])),
-                        }
-                        for rec in records
-                    ],
-                    "schema_version": SCHEMA_VERSION,
-                    "starttime": start,
-                    "endtime": datetime.now(),
-                }
-            start = datetime.now()
+from ivre.analyzer.dns import AXFRChecker
+from ivre.utils import LOGGER
 
 
 def main():
