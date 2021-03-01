@@ -371,24 +371,31 @@ class TLSRPTChecker(SameValueChecker):
                         warnings.append(
                             "TLS-RPT configuration should contain 'rua=' after 'v=TLSRPTv1;'"
                         )
-                ruas = value.split("rua=", 1)[1]
-                for rua_val in ruas.split(","):
-                    if rua_val.startswith("https://"):
-                        if HTTPS_REGEXP.search(rua_val[8:]) is None:
+                if "rua=" in value:
+                    ruas = value.split("rua=", 1)[1]
+                    for rua_val in ruas.split(","):
+                        if rua_val.startswith("https://"):
+                            if HTTPS_REGEXP.search(rua_val[8:]) is None:
+                                warnings.append(
+                                    "TLS-RPT contains an invalid HTTPS URL: %r"
+                                    % rua_val
+                                )
+                        elif rua_val.startswith("mailto:"):
+                            if MAIL_REGEXP.search(rua_val[7:]) is None:
+                                warnings.append(
+                                    "TLS-RPT contains an invalid e-mail URL: %r"
+                                    % rua_val
+                                )
+                        else:
                             warnings.append(
-                                "TLS-RPT contains an invalid HTTPS URL: %r" % rua_val
+                                "TLS-RPT contains an invalid URL: %r" % rua_val
                             )
-                    elif rua_val.startswith("mailto:"):
-                        if MAIL_REGEXP.search(rua_val[7:]) is None:
-                            warnings.append(
-                                "TLS-RPT contains an invalid e-mail URL: %r" % rua_val
-                            )
-                    else:
-                        warnings.append("TLS-RPT contains an invalid URL: %r" % rua_val)
+                else:
+                    warnings.append("TLS-RPT does not contain an rua entry: %r" % value)
                 if warnings:
                     structured["warnings"] = warnings
                     output = (
-                        "Domain %s has a TLS-RPT configuration with warnings:%s"
+                        "Domain %s has a TLS-RPT configuration with warnings:\n%s"
                         % (self.domain, "\n".join(warnings))
                     )
                 else:
