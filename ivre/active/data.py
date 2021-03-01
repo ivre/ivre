@@ -30,7 +30,7 @@ from textwrap import wrap
 
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
-from ivre.utils import nmap_decode_data, nmap_encode_data, ports2nmapspec
+from ivre.utils import get_domains, nmap_decode_data, nmap_encode_data, ports2nmapspec
 
 
 ALIASES_TABLE_ELEMS = {
@@ -521,6 +521,96 @@ def merge_http_git_scripts(curscript, script, script_id):
     return curscript
 
 
+def merge_dns_domains_scripts(curscript, script, script_id):
+    domains = {
+        res["domain"]: (
+            res["parents"] if "parents" in res else list(get_domains(res["domain"]))
+        )
+        for scr in [script, curscript]
+        for res in scr.get(script_id, [])
+        if "domain" in res
+    }
+    domains_order = sorted(domains, key=lambda v: v.strip().split(".")[::-1])
+    if len(domains_order) == 1:
+        output = "Server is authoritative for %s" % domains_order[0]
+    else:
+        output = "Server is authoritative for:\n%s" % "\n".join(
+            "  %s" % dom for dom in domains_order
+        )
+    curscript["output"] = output
+    curscript[script_id] = [
+        {"domain": dom, "parents": domains[dom]} for dom in domains_order
+    ]
+    return curscript
+
+
+def merge_dns_tls_rpt_scripts(curscript, script, script_id):
+    # overwrite results from script by those from curscript
+    domains = {
+        res["domain"]: res
+        for scr in [script, curscript]
+        for res in scr.get(script_id, [])
+        if "domain" in res
+    }
+    domains_order = sorted(domains, key=lambda v: v.strip().split(".")[::-1])
+    output = []
+    for dom in domains_order:
+        cur_data = domains[dom]
+        if "warnings" not in cur_data:
+            output.append("Domain %s has a valid TLS-RPT configuration" % dom)
+            continue
+        warnings = cur_data["warnings"]
+        if warnings == ["Domain has no TLS-RPT configuration"]:
+            output.append("Domain %s has no TLS-RPT configuration" % dom)
+            continue
+        if warnings == ["Domain has more than one TLS-RPT configuration"]:
+            output.append("Domain %s has more than one TLS-RPT configuration" % dom)
+            continue
+        output.append(
+            "Domain %s has a TLS-RPT configuration with warnings:\n%s"
+            % (
+                dom,
+                "\n".join(warnings),
+            )
+        )
+    curscript["output"] = "\n".join(output)
+    curscript[script_id] = [domains[dom] for dom in domains_order]
+    return curscript
+
+
+def merge_dns_check_consistency_scripts(curscript, script, script_id):
+    # overwrite results from script by those from curscript
+    domains_name_type = {
+        (res["domain"], res["name"], res["rtype"]): res
+        for scr in [script, curscript]
+        for res in scr.get(script_id, [])
+        if "domain" in res
+    }
+    domains_name_type_order = sorted(
+        domains_name_type,
+        key=lambda v: (
+            v[0].strip().split(".")[::-1],
+            v[1].strip().split(".")[::-1],
+            v[2],
+        ),
+    )
+    curscript["output"] = "DNS inconsistency\n\n%s" % "\n\n".join(
+        "%s (%s)\nThis server:\n%s\nMost common answer:\n%s"
+        % (
+            name,
+            rtype,
+            "\n".join("  %r" % r for r in cur_data["value"]),
+            "\n".join("  %r" % r for r in cur_data["reference_value"]),
+        )
+        for domain, name, rtype, cur_data in (
+            (domain, name, rtype, domains_name_type[(domain, name, rtype)])
+            for domain, name, rtype in domains_name_type_order
+        )
+    )
+    curscript[script_id] = [domains_name_type[dnt] for dnt in domains_name_type_order]
+    return curscript
+
+
 def _merge_scripts(
     curscript, script, script_id, script_equals, script_output, outsep="\n"
 ):
@@ -551,12 +641,15 @@ def _merge_scripts(
 
 
 _SCRIPT_MERGE = {
+    "dns-check-consistency": merge_dns_check_consistency_scripts,
+    "dns-domains": merge_dns_domains_scripts,
+    "dns-tls-rpt": merge_dns_tls_rpt_scripts,
     "dns-zone-transfer": merge_axfr_scripts,
-    "scanner": merge_scanner_scripts,
     "http-app": merge_http_app_scripts,
     "http-git": merge_http_git_scripts,
     "http-nuclei": merge_nuclei_scripts,
     "http-user-agent": merge_ua_scripts,
+    "scanner": merge_scanner_scripts,
     "ssl-cacert": merge_ssl_cert_scripts,
     "ssl-cert": merge_ssl_cert_scripts,
     "ssl-ja3-client": merge_ja3_scripts,
