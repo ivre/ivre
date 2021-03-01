@@ -2480,9 +2480,8 @@ class NmapHandler(ContentHandler):
                 "ssh-banner": self.masscan_post_ssh,
             }[script["id"]]
         except KeyError:
-            pass
-        else:
-            return function(script)
+            return None
+        return function(script)
 
     def masscan_post_s7info(self, script):
         try:

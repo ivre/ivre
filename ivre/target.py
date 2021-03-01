@@ -336,7 +336,7 @@ class TargetFile(Target):
         try:
             return utils.ip2int(line.split("#", 1)[0].strip())
         except utils.socket.error:
-            pass
+            return None
 
     def __init__(self, filename, categories=None, maxnbr=None, state=None):
         self.filename = filename
@@ -347,11 +347,8 @@ class TargetFile(Target):
         with open(filename) as fdesc:
             i = 0
             for line in fdesc:
-                try:
-                    self._getaddr(line)
+                if self._getaddr(line) is not None:
                     i += 1
-                except utils.socket.error:
-                    pass
             self.targetscount = i
         if maxnbr is None:
             self.maxnbr = self.targetscount

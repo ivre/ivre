@@ -1467,7 +1467,7 @@ def mac2manuf(mac):
         return values[bisect_left(last_addr, _mac2int(mac))]
     except IndexError:
         # empty lists, a warning must have been issued on db load
-        pass
+        return None
 
 
 # Nmap (and Zeek) encoding & decoding
@@ -2031,6 +2031,7 @@ if STRPTIME_SUPPORTS_TZ:
             return datetime.datetime.strptime(value.decode()[:14], "%Y%m%d%H%M%S")
         except Exception:
             LOGGER.warning("Cannot parse datetime value %r", value, exc_info=True)
+            return None
 
 
 else:
