@@ -4209,30 +4209,63 @@ class IvreTests(unittest.TestCase):
             self.assertEqual(expr.sub(result, result), result)
 
         # DNS audit domain
-        with tempfile.NamedTemporaryFile(delete=False) as fdesc:
-            res = RUN(
-                ["ivre", "auditdom", "ivre.rocks", "zonetransfer.me", "hardenize.com"],
-                stdout=fdesc,
-            )[0]
+        for output in [], ["--json"]:
+            with tempfile.NamedTemporaryFile(delete=False) as fdesc:
+                res = RUN(
+                    ["ivre", "auditdom", "--ipv4"]
+                    + output
+                    + ["ivre.rocks", "zonetransfer.me", "hardenize.com"],
+                    stdout=fdesc,
+                )[0]
+                self.assertEqual(res, 0)
+            res, out, err = RUN(["ivre", "scan2db", "--test", fdesc.name])
+            os.unlink(fdesc.name)
             self.assertEqual(res, 0)
-        res, out, err = RUN(["ivre", "scan2db", "--test", fdesc.name])
-        os.unlink(fdesc.name)
-        self.assertEqual(res, 0)
-        out = out.decode().splitlines()
-        self.assertEqual(len(out), 34)
-        found = False
-        for line in out:
-            rec = json.loads(line)
-            for port in rec.get("ports", []):
-                self.assertEqual(len(port["scripts"]), 1)
-                for script in port["scripts"]:
-                    self.assertEqual(script["id"], "dns-zone-transfer")
-                    self.assertEqual(len(script["dns-zone-transfer"]), 1)
-                    self.assertEqual(
-                        script["dns-zone-transfer"][0]["domain"], "zonetransfer.me"
-                    )
-                    found = True
-        self.assertTrue(found)
+            out = out.decode().splitlines()
+            self.assertEqual(len(out), 48)
+            found_zone_transfer = False
+            found_dns_servers = set()
+            found_dns_tls_rpt = set()
+            for line in out:
+                rec = json.loads(line)
+                for port in rec.get("ports", []):
+                    self.assertEqual(len(port["scripts"]), 1)
+                    for script in port["scripts"]:
+                        self.assertIn(
+                            script["id"],
+                            {"dns-domains", "dns-tls-rpt", "dns-zone-transfer"},
+                        )
+                        if script["id"] == "dns-domains":
+                            self.assertEqual(
+                                script["output"][:28], "Server is authoritative for "
+                            )
+                            self.assertIn(
+                                script["dns-domains"][0]["domain"],
+                                {"ivre.rocks", "zonetransfer.me", "hardenize.com"},
+                            )
+                            found_dns_servers.add(script["dns-domains"][0]["domain"])
+                        elif script["id"] == "dns-zone-transfer":
+                            self.assertEqual(len(script["dns-zone-transfer"]), 1)
+                            self.assertEqual(
+                                script["dns-zone-transfer"][0]["domain"],
+                                "zonetransfer.me",
+                            )
+                            found_zone_transfer = True
+                        elif script["id"] == "dns-tls-rpt":
+                            self.assertIn(
+                                script["dns-tls-rpt"][0]["domain"],
+                                {"ivre.rocks", "zonetransfer.me", "hardenize.com"},
+                            )
+                            if script["dns-tls-rpt"][0]["domain"] == "hardenize.com":
+                                self.assertNotIn("warnings", script["dns-tls-rpt"])
+                                self.assertEqual(
+                                    script["output"],
+                                    "Domain hardenize.com has a valid TLS-RPT configuration",
+                                )
+                            found_dns_tls_rpt.add(script["dns-tls-rpt"][0]["domain"])
+            self.assertTrue(found_zone_transfer)
+            self.assertEqual(len(found_dns_servers), 3)
+            self.assertEqual(len(found_dns_tls_rpt), 3)
 
         # url2hostport()
         with self.assertRaises(ValueError):
