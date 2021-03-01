@@ -704,6 +704,8 @@ class DBActive(DB):
         "ports",
         "ports.screenwords",
         "ports.scripts",
+        "ports.scripts.dns-domains",
+        "ports.scripts.dns-domains.parents",
         "ports.scripts.dns-zone-transfer",
         "ports.scripts.dns-zone-transfer.records",
         "ports.scripts.fcrdns",
@@ -1588,6 +1590,19 @@ class DBActive(DB):
             return cls.searchscript(name="http-app", values={"version": version})
         return cls.searchscript(
             name="http-app", values={"application": name, "version": version}
+        )
+
+    @classmethod
+    def searchdnssrv(cls, domain, sub=False):
+        """Filter hosts that are authoritative for `domain` (or for any
+        sub-domain of `domain`, when `sub` is set to True).
+
+        """
+        if sub:
+            return cls.searchscript(name="dns-domains", values={"parents": domain})
+        # `parents` field is indexed, `domain` is not
+        return cls.searchscript(
+            name="dns-domains", values={"parents": domain, "domain": domain}
         )
 
     def searchgeovision(self):

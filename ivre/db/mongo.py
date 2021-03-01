@@ -817,6 +817,10 @@ class MongoDBActive(MongoDB, DBActive):
                 {"sparse": True},
             ),
             (
+                [("ports.scripts.dns-domains.parents", pymongo.ASCENDING)],
+                {"sparse": True},
+            ),
+            (
                 [("ports.scripts.ls.volumes.volume", pymongo.ASCENDING)],
                 {"sparse": True},
             ),

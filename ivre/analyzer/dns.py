@@ -277,6 +277,53 @@ class SameValueChecker(Checker):
                 }
 
 
+class DNSSRVChecker(SameValueChecker):
+    rtype = "NS"
+
+    def __init__(self, domain):
+        super().__init__(domain)
+        self.name = domain
+
+    def test(self, v4=True, v6=True):
+        yield from super().test(v4=v4, v6=v6)
+        for srvname, addr, _ in self.results:
+            srvname = srvname.rstrip(".")
+            yield {
+                "addr": addr,
+                "hostnames": [
+                    {
+                        "name": srvname,
+                        "type": "user",
+                        "domains": list(get_domains(srvname)),
+                    }
+                ],
+                "schema_version": SCHEMA_VERSION,
+                "starttime": self.start,
+                "endtime": self.stop,
+                "ports": [
+                    {
+                        "port": 53,
+                        "protocol": "udp",
+                        "service_name": "domain",
+                        "state_state": "open",
+                        "scripts": [
+                            {
+                                "id": "dns-domains",
+                                "output": "Server is authoritative for %s"
+                                % self.domain,
+                                "dns-domains": [
+                                    {
+                                        "domain": self.domain,
+                                        "parents": list(get_domains(self.domain)),
+                                    }
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            }
+
+
 class TLSRPTChecker(SameValueChecker):
     rtype = "TXT"
 
