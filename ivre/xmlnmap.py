@@ -1232,6 +1232,7 @@ MASSCAN_SERVICES_NMAP_SCRIPTS = {
     "X509CA": "ssl-cacert",
     "s7comm": "s7-info",
     "telnet": "banner",
+    "rdp": "rdp-nla-support",
 }
 
 MASSCAN_NMAP_SCRIPT_NMAP_PROBES = {
@@ -1252,6 +1253,7 @@ MASSCAN_SERVICES_NMAP_SERVICES = {
     "smtp": "smtp",
     "s7comm": "iso-tsap",
     "telnet": "telnet",
+    "rdp": "ms-wbt-server",
 }
 
 
