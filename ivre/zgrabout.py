@@ -259,7 +259,7 @@ def zgrap_parser_http(data, hostrec, port=None):
                             utils.decode_b64(auth.split(None, 1)[1].encode())
                         )
                     except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
-                        pass
+                        continue
                     keyvals = zip(ntlm_values, [infos.get(k) for k in ntlm_values])
                     output = "\n".join("{}: {}".format(k, v) for k, v in keyvals if v)
                     res.setdefault("scripts", []).append(
