@@ -81,10 +81,12 @@ ivre/active/cpe.py
 ivre/active/data.py
 ivre/analyzer/__init__.py
 ivre/analyzer/dicom.py
+ivre/analyzer/dns.py
 ivre/analyzer/ike.py
 ivre/analyzer/ntlm.py
 ivre/data/__init__.py
 ivre/data/scanners.py
+ivre/data/windows.py
 ivre/db/__init__.py
 ivre/db/elastic.py
 ivre/db/http.py
