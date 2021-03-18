@@ -140,8 +140,17 @@ class BulkInsert:
     def append(self, query):
         query._set_bind(self.db)
         s_query = str(query)
-        params = query.parameters
-        query.parameters = None
+        try:
+            params = query._values.items()
+        except KeyError:
+            params = query.parameters
+            query.parameters = None
+        else:
+            params = {
+                key: value.value if hasattr(value, "value") else None
+                for key, value in params
+            }
+            query._values = None
         self.queries.setdefault(s_query, (query, []))[1].append(params)
         if len(self.queries[s_query][1]) >= self.size:
             self.commit(query=s_query)
