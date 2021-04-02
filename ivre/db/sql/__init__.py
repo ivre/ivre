@@ -499,7 +499,6 @@ class SQLDB(DB):
                 select([column("id", Integer)])
                 .select_from(base1)
                 .where(column("field").op(operator)(value))
-                .cte("base2")
             )
             return idfield.in_(base2)
         return not_(field.any(value)) if neg else field.any(value)
@@ -2249,7 +2248,6 @@ class SQLDBActive(SQLDB, DBActive):
                             "~*" if (fname.flags & re.IGNORECASE) else "~"
                         )(fname.pattern)
                     )
-                    .cte("base2")
                 )
                 return cls.base_filter(port=[(True, cls.tables.port.id.in_(base2))])
             req = cls.tables.script.data.op("@>")(
