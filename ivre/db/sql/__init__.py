@@ -35,6 +35,7 @@ import re
 
 
 from sqlalchemy import (
+    Integer,
     and_,
     cast,
     column,
@@ -495,7 +496,7 @@ class SQLDB(DB):
                 [idfield.label("id"), func.unnest(field).label("field")]
             ).cte("base1")
             base2 = (
-                select([column("id")])
+                select([column("id", Integer)])
                 .select_from(base1)
                 .where(column("field").op(operator)(value))
                 .cte("base2")
@@ -1938,7 +1939,7 @@ class SQLDBActive(SQLDB, DBActive):
     def searchcountopenports(cls, minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert minn is not None or maxn is not None
-        req = select([column("scan")]).select_from(
+        req = select([column("scan", Integer)]).select_from(
             select([cls.tables.port.scan.label("scan"), func.count().label("count")])
             .where(cls.tables.port.state == "open")
             .group_by(cls.tables.port.scan)
@@ -2241,7 +2242,7 @@ class SQLDBActive(SQLDB, DBActive):
                     .cte("base1")
                 )
                 base2 = (
-                    select([column("port")])
+                    select([column("port", Integer)])
                     .select_from(base1)
                     .where(
                         column("filename").op(
