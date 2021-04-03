@@ -720,7 +720,7 @@ class ActiveFilter(Filter):
         if self.main is not None:
             req = req.where(self.main)
         for incl, subflt in self.hostname:
-            base = select([self.tables.hostname.scan]).where(subflt).cte("base")
+            base = select([self.tables.hostname.scan]).where(subflt)
             if incl:
                 req = req.where(self.tables.scan.id.in_(base))
             else:
@@ -754,7 +754,7 @@ class ActiveFilter(Filter):
                     )
                 )
             else:
-                base = select([self.tables.port.scan]).where(subflt).cte("base")
+                base = select([self.tables.port.scan]).where(subflt)
                 req = req.where(self.tables.scan.id.notin_(base))
         for incl, subflt in self.script:
             subreq = select([1]).select_from(join(self.tables.script, self.tables.port))
