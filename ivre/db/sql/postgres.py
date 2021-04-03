@@ -292,7 +292,6 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        base = req.cte("base")
         return (
             {
                 "addr": rec[2],
@@ -325,7 +324,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 )
                 .select_from(join(self.tables.port, self.tables.scan))
                 .group_by(self.tables.scan.addr, self.tables.scan.time_start)
-                .where(and_(self.tables.port.port >= 0, self.tables.scan.id.in_(base)))
+                .where(and_(self.tables.port.port >= 0, self.tables.scan.id.in_(req)))
             )
         )
 
@@ -362,9 +361,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """
         if flt is None:
             flt = self.flt_empty
-        base = flt.query(
-            select([self.tables.scan.id]).select_from(flt.select_from)
-        ).cte("base")
+        base = flt.query(select([self.tables.scan.id]).select_from(flt.select_from))
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
