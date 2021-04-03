@@ -74,12 +74,12 @@ def sqlite_engine_connect(dbapi_connection, connection_record):
     def regexp(s, p):
         return re.search(p, s) is not None
 
-    dbapi_connection.create_function("REGEXP", 2, regexp)
+    dbapi_connection.create_function("_REGEXP", 2, regexp)
 
     def iregexp(s, p):
         return re.search(p, s, re.IGNORECASE) is not None
 
-    dbapi_connection.create_function("IREGEXP", 2, iregexp)
+    dbapi_connection.create_function("_IREGEXP", 2, iregexp)
 
     def access(d, k):
         if k.startswith("$."):
@@ -88,17 +88,17 @@ def sqlite_engine_connect(dbapi_connection, connection_record):
             k = json.loads(k[2:])
         return json.dumps(json.loads(d).get(k), sort_keys=True)
 
-    dbapi_connection.create_function("ACCESS", 2, access)
+    dbapi_connection.create_function("_ACCESS", 2, access)
 
     def access_astext(d, k):
         return str(json.loads(d).get(k))
 
-    dbapi_connection.create_function("ACCESS_TXT", 2, access_astext)
+    dbapi_connection.create_function("_ACCESS_TXT", 2, access_astext)
 
     def has_key(d, k):
         return k in json.loads(d) if json.loads(d) else False
 
-    dbapi_connection.create_function("HAS_KEY", 2, has_key)
+    dbapi_connection.create_function("_HAS_KEY", 2, has_key)
 
 
 @compiles(BinaryExpression, "sqlite")
@@ -106,18 +106,18 @@ def extend_binary_expression(element, compiler, **kwargs):
     if isinstance(element.operator, custom_op):
         opstring = element.operator.opstring
         if opstring == "~":
-            return compiler.process(func.REGEXP(element.left, element.right))
+            return compiler.process(func._REGEXP(element.left, element.right))
         if opstring == "~*":
-            return compiler.process(func.IREGEXP(element.left, element.right))
+            return compiler.process(func._IREGEXP(element.left, element.right))
         if opstring == "->":
-            return compiler.process(func.ACCESS(element.left, element.right))
+            return compiler.process(func._ACCESS(element.left, element.right))
         if opstring == "->>":
-            return compiler.process(func.ACCESS_TXT(element.left, element.right))
+            return compiler.process(func._ACCESS_TXT(element.left, element.right))
         if opstring == "?":
-            return compiler.process(func.HAS_KEY(element.left, element.right))
+            return compiler.process(func._HAS_KEY(element.left, element.right))
     # FIXME: Variant base type Comparator seems to be used here.
     if element.operator is json_getitem_op:
-        return compiler.process(func.ACCESS(element.left, element.right))
+        return compiler.process(func._ACCESS(element.left, element.right))
     return compiler.visit_binary(element)
 
 
