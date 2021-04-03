@@ -35,6 +35,7 @@ import re
 
 
 from sqlalchemy import (
+    Integer,
     and_,
     cast,
     column,
@@ -495,10 +496,9 @@ class SQLDB(DB):
                 [idfield.label("id"), func.unnest(field).label("field")]
             ).cte("base1")
             base2 = (
-                select([column("id")])
+                select([column("id", Integer)])
                 .select_from(base1)
                 .where(column("field").op(operator)(value))
-                .cte("base2")
             )
             return idfield.in_(base2)
         return not_(field.any(value)) if neg else field.any(value)
@@ -720,7 +720,7 @@ class ActiveFilter(Filter):
         if self.main is not None:
             req = req.where(self.main)
         for incl, subflt in self.hostname:
-            base = select([self.tables.hostname.scan]).where(subflt).cte("base")
+            base = select([self.tables.hostname.scan]).where(subflt)
             if incl:
                 req = req.where(self.tables.scan.id.in_(base))
             else:
@@ -754,7 +754,7 @@ class ActiveFilter(Filter):
                     )
                 )
             else:
-                base = select([self.tables.port.scan]).where(subflt).cte("base")
+                base = select([self.tables.port.scan]).where(subflt)
                 req = req.where(self.tables.scan.id.notin_(base))
         for incl, subflt in self.script:
             subreq = select([1]).select_from(join(self.tables.script, self.tables.port))
@@ -1938,7 +1938,7 @@ class SQLDBActive(SQLDB, DBActive):
     def searchcountopenports(cls, minn=None, maxn=None, neg=False):
         "Filters records with open port number between minn and maxn"
         assert minn is not None or maxn is not None
-        req = select([column("scan")]).select_from(
+        req = select([column("scan", Integer)]).select_from(
             select([cls.tables.port.scan.label("scan"), func.count().label("count")])
             .where(cls.tables.port.state == "open")
             .group_by(cls.tables.port.scan)
@@ -2241,14 +2241,13 @@ class SQLDBActive(SQLDB, DBActive):
                     .cte("base1")
                 )
                 base2 = (
-                    select([column("port")])
+                    select([column("port", Integer)])
                     .select_from(base1)
                     .where(
                         column("filename").op(
                             "~*" if (fname.flags & re.IGNORECASE) else "~"
                         )(fname.pattern)
                     )
-                    .cte("base2")
                 )
                 return cls.base_filter(port=[(True, cls.tables.port.id.in_(base2))])
             req = cls.tables.script.data.op("@>")(

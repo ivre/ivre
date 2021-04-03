@@ -55,6 +55,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql.sqltypes import TupleType
 
 
 from ivre import config, utils, xmlnmap
@@ -68,6 +69,10 @@ from ivre.db.sql import (
     SQLDBPassive,
     SQLDBView,
 )
+
+
+# Workaround an SQLAlchemy regression
+del TupleType.result_processor
 
 
 class PostgresDB(SQLDB):
@@ -140,8 +145,17 @@ class BulkInsert:
     def append(self, query):
         query._set_bind(self.db)
         s_query = str(query)
-        params = query.parameters
-        query.parameters = None
+        try:
+            params = query._values.items()
+        except KeyError:
+            params = query.parameters
+            query.parameters = None
+        else:
+            params = {
+                key: value.value if hasattr(value, "value") else None
+                for key, value in params
+            }
+            query._values = None
         self.queries.setdefault(s_query, (query, []))[1].append(params)
         if len(self.queries[s_query][1]) >= self.size:
             self.commit(query=s_query)
@@ -283,7 +297,6 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             req = req.offset(skip)
         if limit is not None:
             req = req.limit(limit)
-        base = req.cte("base")
         return (
             {
                 "addr": rec[2],
@@ -316,7 +329,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 )
                 .select_from(join(self.tables.port, self.tables.scan))
                 .group_by(self.tables.scan.addr, self.tables.scan.time_start)
-                .where(and_(self.tables.port.port >= 0, self.tables.scan.id.in_(base)))
+                .where(and_(self.tables.port.port >= 0, self.tables.scan.id.in_(req)))
             )
         )
 
@@ -353,9 +366,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """
         if flt is None:
             flt = self.flt_empty
-        base = flt.query(
-            select([self.tables.scan.id]).select_from(flt.select_from)
-        ).cte("base")
+        base = flt.query(select([self.tables.scan.id]).select_from(flt.select_from))
         order = "count" if least else desc("count")
         outputproc = None
         if field == "port":
