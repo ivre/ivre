@@ -55,6 +55,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.sql.sqltypes import TupleType
 
 
 from ivre import config, utils, xmlnmap
@@ -68,6 +69,10 @@ from ivre.db.sql import (
     SQLDBPassive,
     SQLDBView,
 )
+
+
+# Workaround an SQLAlchemy regression
+del TupleType.result_processor
 
 
 class PostgresDB(SQLDB):
