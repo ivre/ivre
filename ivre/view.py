@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -577,7 +577,8 @@ def _extract_passive_NTLM(rec, service=None):
         script["ntlm-info"]["protocol"] = service
         proto = "tcp"
     port["scripts"] = [script]
-    port["protocol"] = proto
+    if port["port"] != -1:
+        port["protocol"] = proto
     hostnames = []
     if "DNS_Computer_Name" in script["ntlm-info"]:
         add_hostname(script["ntlm-info"]["DNS_Computer_Name"], "ntlm", hostnames)
@@ -603,9 +604,9 @@ def _extract_passive_SMB_SESSION_SETUP(rec):
         port["state_state"] = "open"
         port["state_reason"] = "passive"
         port["port"] = rec["port"]
+        port["protocol"] = rec["source"].split("-", 1)[0]
     else:
         port["port"] = -1
-    port["protocol"] = rec["source"].split("-", 1)[0]
     port["scripts"] = [script]
     return {"ports": [port]}
 

@@ -2724,6 +2724,8 @@ class SQLDBPassive(SQLDB, DBPassive):
                         rec["infos"][fld] = utils.all2datetime(rec["infos"][fld])
                     except KeyError:
                         pass
+            if rec.get("port") == -1:
+                del rec["port"]
             yield rec
 
     def get_one(self, flt, skip=None):
