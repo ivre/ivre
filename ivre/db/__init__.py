@@ -2409,11 +2409,15 @@ class DBNmap(DBActive):
                 except KeyError:
                     utils.LOGGER.warning("No URL found [%r]", rec)
                     continue
+                is_ssl = False
                 try:
                     addr, port = utils.url2hostport(url)
                 except ValueError:
                     utils.LOGGER.warning("Invalid URL %r", url)
                     continue
+                else:
+                    if url.startswith("https:"):
+                        is_ssl = True
                 if "ip" in rec:
                     addr = rec["ip"]
                 try:
@@ -2459,19 +2463,20 @@ class DBNmap(DBActive):
                             ],
                         }
                     )
+                port = {
+                    "protocol": "tcp",
+                    "port": port,
+                    "service_name": "http",
+                    "state_state": "open",
+                    "scripts": scripts,
+                }
+                if is_ssl:
+                    port["service_tunnel"] = "ssl"
                 host = {
                     "addr": addr,
                     "scanid": filehash,
                     "schema_version": xmlnmap.SCHEMA_VERSION,
-                    "ports": [
-                        {
-                            "protocol": "tcp",
-                            "port": port,
-                            "service_name": "http",
-                            "state_state": "open",
-                            "scripts": scripts,
-                        },
-                    ],
+                    "ports": [port],
                 }
                 if "timestamp" in rec:
                     host["starttime"] = host["endtime"] = rec["timestamp"][:19].replace(
