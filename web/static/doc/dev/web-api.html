@@ -3,9 +3,9 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Web API &mdash; IVRE  documentation</title>
   
@@ -17,7 +17,10 @@
 
   
   
+
   
+  
+
   
 
   
@@ -51,7 +54,7 @@
           
 
           
-            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> IVRE
+            <a href="../index.html" class="icon icon-home"> IVRE
           
 
           
@@ -150,6 +153,8 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
@@ -163,7 +168,7 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
             <a href="../_sources/dev/web-api.rst.txt" rel="nofollow"> View page source</a>
           
         
@@ -181,7 +186,7 @@
 <h1>Web API<a class="headerlink" href="#web-api" title="Permalink to this headline">¶</a></h1>
 <dl class="http get">
 <dt id="get--config">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/config</code><a class="headerlink" href="#get--config" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/config</span></code><a class="headerlink" href="#get--config" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns JavaScript code to set client-side configuration values</p>
 <dl class="field-list simple">
 <dt class="field-odd">Status Codes</dt>
@@ -200,7 +205,7 @@
 
 <dl class="http get">
 <dt id="get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/(action:re:onlyips|ipsports|timeline|coordinates|countopenports|diffcats)</code><a class="headerlink" href="#get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/(subdb:re:scans|view)/(action:re:onlyips|ipsports|timeline|coordinates|countopenports|diffcats)</span></code><a class="headerlink" href="#get--(subdb-re-scans|view)-(action-re-onlyips|ipsports|timeline|coordinates|countopenports|diffcats)" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get special values from Nmap &amp; View databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -214,6 +219,7 @@ or “diffcats”)</p></li>
 <dt class="field-even">Query Parameters</dt>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
 <li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results (forces “json”
 format)</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
@@ -239,7 +245,7 @@ timestamps</p></li>
 
 <dl class="http get">
 <dt id="get--(subdb-re-scans|view)-count">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/count</code><a class="headerlink" href="#get--(subdb-re-scans|view)-count" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/(subdb:re:scans|view)/count</span></code><a class="headerlink" href="#get--(subdb-re-scans|view)-count" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get special values from Nmap &amp; View databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -250,6 +256,7 @@ timestamps</p></li>
 <dt class="field-even">Query Parameters</dt>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
 <li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 </ul>
 </dd>
@@ -268,9 +275,9 @@ timestamps</p></li>
 </dd></dl>
 
 <dl class="http get">
-<dt id="get--(subdb-re-scans|view)-top-(field-path)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)/top/</code><span class="sig-paren">(</span><em class="property">field: </em><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view)-top-(field-path)" title="Permalink to this definition">¶</a></dt>
-<dd><p>Get top values from Nmap &amp; View databases</p>
+<dt id="get--(subdb-re-scans|view|passive)-top-(field-path)">
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/(subdb:re:scans|view|passive)/top/</span></code><span class="sig-paren">(</span><em class="property"><span class="pre">field:</span> </em><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view|passive)-top-(field-path)" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get top values from Nmap, View &amp; Passive databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -281,6 +288,45 @@ timestamps</p></li>
 <dt class="field-even">Query Parameters</dt>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
+strings</p></li>
+<li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
+timestamps</p></li>
+<li><p><strong>format</strong> (<em>str</em>) – “json” (the default) or “ndjson”</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Status Codes</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-even">Response JSON Array of Objects</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>label</strong> (<em>str</em>) – field value</p></li>
+<li><p><strong>value</strong> (<em>int</em>) – count for this value</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt id="get--(subdb-re-scans|view|passive)-distinct-(field-path)">
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/(subdb:re:scans|view|passive)/distinct/</span></code><span class="sig-paren">(</span><em class="property"><span class="pre">field:</span> </em><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--(subdb-re-scans|view|passive)-distinct-(field-path)" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get distinct values from Nmap, View &amp; Passive databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subdb</strong> (<em>str</em>) – database to query (must be “scans” or “view”)</p></li>
+<li><p><strong>field</strong> (<em>str</em>) – (pseudo-)field to get distinct values (e.g., “service”)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Query Parameters</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
 <li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
@@ -306,7 +352,7 @@ timestamps</p></li>
 
 <dl class="http get">
 <dt id="get--(subdb-re-scans|view)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/(subdb:re:scans|view)</code><a class="headerlink" href="#get--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/(subdb:re:scans|view)</span></code><a class="headerlink" href="#get--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get records from Nmap &amp; View databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -317,6 +363,7 @@ timestamps</p></li>
 <dt class="field-even">Query Parameters</dt>
 <dd class="field-even"><ul class="simple">
 <li><p><strong>q</strong> (<em>str</em>) – query (including limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
 <li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
 <li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
 strings</p></li>
@@ -341,7 +388,7 @@ timestamps</p></li>
 
 <dl class="http post">
 <dt id="post--(subdb-re-scans|view)">
-<code class="sig-name descname">POST </code><code class="sig-name descname">/(subdb:re:scans|view)</code><a class="headerlink" href="#post--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">POST</span> </code><code class="sig-name descname"><span class="pre">/(subdb:re:scans|view)</span></code><a class="headerlink" href="#post--(subdb-re-scans|view)" title="Permalink to this definition">¶</a></dt>
 <dd><p>Add records to Nmap &amp; View databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -372,7 +419,7 @@ timestamps</p></li>
 
 <dl class="http get">
 <dt id="get--flows">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/flows</code><a class="headerlink" href="#get--flows" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/flows</span></code><a class="headerlink" href="#get--flows" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get special values from Nmap &amp; View databases</p>
 <dl class="field-list simple">
 <dt class="field-odd">Query Parameters</dt>
@@ -398,7 +445,7 @@ timestamps</p></li>
 
 <dl class="http get">
 <dt id="get--ipdata-(addr)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/ipdata/</code><span class="sig-paren">(</span><em class="sig-param">addr</em><span class="sig-paren">)</span><a class="headerlink" href="#get--ipdata-(addr)" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/ipdata/</span></code><span class="sig-paren">(</span><em class="sig-param"><span class="pre">addr</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--ipdata-(addr)" title="Permalink to this definition">¶</a></dt>
 <dd><p>Returns (estimated) geographical and AS data for a given IP address.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -427,7 +474,7 @@ timestamps</p></li>
 
 <dl class="http get">
 <dt id="get--passivedns-(query-path)">
-<code class="sig-name descname">GET </code><code class="sig-name descname">/passivedns/</code><span class="sig-paren">(</span><em class="property">query: </em><em class="sig-param">path</em><span class="sig-paren">)</span><a class="headerlink" href="#get--passivedns-(query-path)" title="Permalink to this definition">¶</a></dt>
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/passivedns/</span></code><span class="sig-paren">(</span><em class="property"><span class="pre">query:</span> </em><em class="sig-param"><span class="pre">path</span></em><span class="sig-paren">)</span><a class="headerlink" href="#get--passivedns-(query-path)" title="Permalink to this definition">¶</a></dt>
 <dd><p>Query passive DNS data. This API is compatible with the <a class="reference external" href="https://datatracker.ietf.org/doc/draft-dulaunoy-dnsop-passive-dns-cof/">Common
 Output Format</a>
 and implemented in CIRCL’s <a class="reference external" href="https://github.com/CIRCL/PyPDNS">PyPDNS</a>.</p>
@@ -476,6 +523,63 @@ where this answer has been seen.</p></li>
 </dl>
 </dd></dl>
 
+<dl class="http get">
+<dt id="get--passive">
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/passive</span></code><a class="headerlink" href="#get--passive" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get records from Passive database</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+<li><p><strong>ipsasnumbers</strong> (<em>bool</em>) – to get IP addresses as numbers rather than as
+strings</p></li>
+<li><p><strong>datesasstrings</strong> (<em>bool</em>) – to get dates as strings rather than as
+timestamps</p></li>
+<li><p><strong>format</strong> (<em>str</em>) – “json” (the default) or “ndjson”</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Array of Objects</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>object</strong> – results</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="http get">
+<dt id="get--passive-count">
+<code class="sig-name descname"><span class="pre">GET</span> </code><code class="sig-name descname"><span class="pre">/passive/count</span></code><a class="headerlink" href="#get--passive-count" title="Permalink to this definition">¶</a></dt>
+<dd><p>Get special values from Nmap &amp; View databases</p>
+<dl class="field-list simple">
+<dt class="field-odd">Query Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>q</strong> (<em>str</em>) – query (only used for limit/skip and sort)</p></li>
+<li><p><strong>f</strong> (<em>str</em>) – filter</p></li>
+<li><p><strong>callback</strong> (<em>str</em>) – callback to use for JSONP results</p></li>
+</ul>
+</dd>
+<dt class="field-even">Status Codes</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.2.1">200 OK</a> – no error</p></li>
+<li><p><a class="reference external" href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec10.html#sec10.4.1">400 Bad Request</a> – invalid referer</p></li>
+</ul>
+</dd>
+<dt class="field-odd">Response JSON Object</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>int</strong> – count</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 
 
@@ -483,37 +587,29 @@ where this answer has been seen.</p></li>
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="tests.html" class="btn btn-neutral float-right" title="Tests" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="index.html" class="btn btn-neutral float-left" title="Development" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="tests.html" class="btn btn-neutral float-right" title="Tests" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Development" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 2011 - 2021, Pierre LALET
+        &#169; Copyright 2011 - 2021, Pierre LALET.
 
     </p>
   </div>
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 

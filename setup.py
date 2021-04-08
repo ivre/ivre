@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -338,22 +338,6 @@ setup(
                 os.path.join("web/static/doc/_static/fonts", x)
                 for x in os.listdir("web/static/doc/_static/fonts")
                 if x.startswith("fontawesome-webfont.")
-            ],
-        ),
-        (
-            "share/ivre/web/static/doc/_static/fonts/Lato",
-            [
-                os.path.join("web/static/doc/_static/fonts/Lato", x)
-                for x in os.listdir("web/static/doc/_static/fonts/Lato")
-                if x.startswith("lato-")
-            ],
-        ),
-        (
-            "share/ivre/web/static/doc/_static/fonts/RobotoSlab",
-            [
-                os.path.join("web/static/doc/_static/fonts/RobotoSlab", x)
-                for x in os.listdir("web/static/doc/_static/fonts/RobotoSlab")
-                if x.startswith("roboto-slab-v7-")
             ],
         ),
         (
