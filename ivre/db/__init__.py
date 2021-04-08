@@ -712,6 +712,7 @@ class DBActive(DB):
         "ports.scripts.fcrdns.addresses",
         "ports.scripts.http-app",
         "ports.scripts.http-headers",
+        "ports.scripts.http-nuclei",
         "ports.scripts.http-server-header",
         "ports.scripts.http-user-agent",
         "ports.scripts.ike-info.transforms",
