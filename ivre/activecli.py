@@ -486,6 +486,23 @@ def displayfunction_honeyd(cur):
     _display_honeyd_epilogue(honeyd_routes, honeyd_entries, sys.stdout)
 
 
+def displayfunction_http_urls(cur):
+    for h in cur:
+        for p in h.get("ports", []):
+            if p.get("service_name") != "http":
+                continue
+            if p.get("service_tunnel") == "ssl":
+                if p.get("port") == 443:
+                    sys.stdout.write("https://%s/\n" % h["addr"])
+                else:
+                    sys.stdout.write("https://%s:%d/\n" % (h["addr"], p["port"]))
+            else:
+                if p.get("port") == 80:
+                    sys.stdout.write("http://%s/\n" % h["addr"])
+                else:
+                    sys.stdout.write("http://%s:%d/\n" % (h["addr"], p["port"]))
+
+
 def displayfunction_nmapxml(cur, scan=None):
     _display_xml_preamble(out=sys.stdout)
     _display_xml_scan(scan or {}, out=sys.stdout)
@@ -647,7 +664,8 @@ def displayfunction_json(cur, dbase, no_screenshots=False):
                     script["masscan"]["raw"] = utils.encode_b64(
                         dbase.from_binary(script["masscan"]["raw"])
                     )
-        print(json.dumps(h, indent=indent, default=dbase.serialize))
+        json.dump(h, sys.stdout, indent=indent, default=dbase.serialize)
+        sys.stdout.write("\n")
 
 
 def display_short(dbase, flt, srt, lmt, skp):
