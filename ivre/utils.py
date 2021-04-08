@@ -845,6 +845,11 @@ CLI_ARGPARSER.add_argument(
     "--json", action="store_true", help="Output results as JSON documents."
 )
 CLI_ARGPARSER.add_argument(
+    "--http-urls",
+    action="store_true",
+    help="Output results as HTTP URLs, one per line.",
+)
+CLI_ARGPARSER.add_argument(
     "--sort",
     metavar="FIELD / ~FIELD",
     nargs="+",
