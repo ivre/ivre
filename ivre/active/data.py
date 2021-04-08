@@ -497,7 +497,7 @@ def merge_nuclei_scripts(curscript, script, script_id):
         return a == b
 
     def nuclei_output(nuclei, script_id):
-        return "%s found at %s" % (nuclei["name"], nuclei["url"])
+        return "[%(severity)s] %(name)s found at %(url)s" % nuclei
 
     return _merge_scripts(curscript, script, script_id, nuclei_equals, nuclei_output)
 

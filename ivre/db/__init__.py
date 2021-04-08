@@ -2433,7 +2433,7 @@ class DBNmap(DBActive):
                 scripts = [
                     {
                         "id": script_id,
-                        "output": "%s found at %s" % (name, url),
+                        "output": "[%s] %s found at %s" % (rec["severity"], name, url),
                         script_id: [
                             {
                                 "template": rec["template"],
