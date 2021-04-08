@@ -3,9 +3,9 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>Some use cases &mdash; IVRE  documentation</title>
   
@@ -17,7 +17,10 @@
 
   
   
+
   
+  
+
   
 
   
@@ -51,7 +54,7 @@
           
 
           
-            <a href="../index.html" class="icon icon-home" alt="Documentation Home"> IVRE
+            <a href="../index.html" class="icon icon-home"> IVRE
           
 
           
@@ -101,6 +104,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#your-own-shodan-zoomeye-censys-binaryedgeio-whatever">Your own Shodan / ZoomEye / Censys / Binaryedgeio / whatever</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#your-own-passive-dns-service">Your own Passive DNS service</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#yeti-plugin">YETI plugin</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#cortex-analyzer">Cortex Analyzer</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#blog-posts-and-other-resources">Blog posts and other resources</a></li>
 </ul>
 </li>
@@ -159,6 +163,8 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
@@ -172,7 +178,7 @@
     
       <li class="wy-breadcrumbs-aside">
         
-            
+          
             <a href="../_sources/usage/use-cases.rst.txt" rel="nofollow"> View page source</a>
           
         
@@ -251,6 +257,18 @@ threats in a single, unified repository.</p>
 <p>It comes with an “analytics” plugin that uses IVRE’s data to create
 links between IP addresses, hostnames, certificates, etc.</p>
 <p>To learn more about this plugin, have a look at <a class="reference external" href="https://github.com/yeti-platform/yeti/tree/master/contrib/analytics/ivre_api">its documentation</a>.</p>
+<p><img alt="yeti_investigation" src="../_images/yeti_investigation.png" /></p>
+</div>
+<div class="section" id="cortex-analyzer">
+<h2>Cortex Analyzer<a class="headerlink" href="#cortex-analyzer" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="https://thehive-project.org/">Cortex</a> is a tool to analyze
+observables for SOCs, CSIRTs and security researchers; it integrates
+well with TheHive.</p>
+<p>It comes with an “Analyzer” that uses IVRE’s data to report
+intelligence about Autonomous Systems, certificates, domain and host
+names, IP addresses, networks, open ports, etc.</p>
+<p>To learn more about this analyzer, have a look at <a class="reference external" href="https://github.com/TheHive-Project/Cortex-Analyzers/blob/develop/analyzers/IVRE/README.md">its documentation</a>.</p>
+<p><img alt="cortex_analyzer_template" src="../_images/cortex-analyzer-template.png" /></p>
 </div>
 <div class="section" id="blog-posts-and-other-resources">
 <h2>Blog posts and other resources<a class="headerlink" href="#blog-posts-and-other-resources" title="Permalink to this headline">¶</a></h2>
@@ -303,37 +321,29 @@ us so that we can add a link here!</p>
            
           </div>
           <footer>
-  
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="active-recon.html" class="btn btn-neutral float-right" title="Active recon" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="index.html" class="btn btn-neutral float-left" title="Usage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+        <a href="active-recon.html" class="btn btn-neutral float-right" title="Active recon" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Usage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 2011 - 2021, Pierre LALET
+        &#169; Copyright 2011 - 2021, Pierre LALET.
 
     </p>
   </div>
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 

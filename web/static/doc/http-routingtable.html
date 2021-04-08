@@ -3,9 +3,9 @@
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <title>HTTP Routing Table &mdash; IVRE  documentation</title>
   
@@ -17,7 +17,10 @@
 
   
   
+
   
+  
+
   
 
   
@@ -56,7 +59,7 @@
           
 
           
-            <a href="index.html" class="icon icon-home" alt="Documentation Home"> IVRE
+            <a href="index.html" class="icon icon-home"> IVRE
           
 
           
@@ -150,6 +153,8 @@
 
 
 
+
+
 <div role="navigation" aria-label="breadcrumbs navigation">
 
   <ul class="wy-breadcrumbs">
@@ -176,9 +181,11 @@
 
    <div class="modindex-jumpbox">
    <a href="#cap-/(subdb:re:scans|view)"><strong>/(subdb:re:scans|view)</strong></a> | 
+   <a href="#cap-/(subdb:re:scans|view|passive)"><strong>/(subdb:re:scans|view|passive)</strong></a> | 
    <a href="#cap-/config"><strong>/config</strong></a> | 
    <a href="#cap-/flows"><strong>/flows</strong></a> | 
    <a href="#cap-/ipdata"><strong>/ipdata</strong></a> | 
+   <a href="#cap-/passive"><strong>/passive</strong></a> | 
    <a href="#cap-/passivedns"><strong>/passivedns</strong></a>
    </div>
 
@@ -204,12 +211,20 @@
      <tr>
        <td></td>
        <td>
-       <a href="dev/web-api.html#get--(subdb-re-scans|view)-top-(field-path)"><code class="xref">GET /(subdb:re:scans|view)/top/(field:path)</code></a></td><td>
+       <a href="dev/web-api.html#post--(subdb-re-scans|view)"><code class="xref">POST /(subdb:re:scans|view)</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="pcap"><td></td><td>&#160;</td><td></td></tr>
+     <tr class="cap" id="cap-/(subdb:re:scans|view|passive)"><td></td><td>
+       <strong>/(subdb:re:scans|view|passive)</strong></td><td></td></tr>
+     <tr>
+       <td></td>
+       <td>
+       <a href="dev/web-api.html#get--(subdb-re-scans|view|passive)-distinct-(field-path)"><code class="xref">GET /(subdb:re:scans|view|passive)/distinct/(field:path)</code></a></td><td>
        <em></em></td></tr>
      <tr>
        <td></td>
        <td>
-       <a href="dev/web-api.html#post--(subdb-re-scans|view)"><code class="xref">POST /(subdb:re:scans|view)</code></a></td><td>
+       <a href="dev/web-api.html#get--(subdb-re-scans|view|passive)-top-(field-path)"><code class="xref">GET /(subdb:re:scans|view|passive)/top/(field:path)</code></a></td><td>
        <em></em></td></tr>
      <tr class="pcap"><td></td><td>&#160;</td><td></td></tr>
      <tr class="cap" id="cap-/config"><td></td><td>
@@ -236,6 +251,19 @@
        <a href="dev/web-api.html#get--ipdata-(addr)"><code class="xref">GET /ipdata/(addr)</code></a></td><td>
        <em></em></td></tr>
      <tr class="pcap"><td></td><td>&#160;</td><td></td></tr>
+     <tr class="cap" id="cap-/passive"><td></td><td>
+       <strong>/passive</strong></td><td></td></tr>
+     <tr>
+       <td></td>
+       <td>
+       <a href="dev/web-api.html#get--passive"><code class="xref">GET /passive</code></a></td><td>
+       <em></em></td></tr>
+     <tr>
+       <td></td>
+       <td>
+       <a href="dev/web-api.html#get--passive-count"><code class="xref">GET /passive/count</code></a></td><td>
+       <em></em></td></tr>
+     <tr class="pcap"><td></td><td>&#160;</td><td></td></tr>
      <tr class="cap" id="cap-/passivedns"><td></td><td>
        <strong>/passivedns</strong></td><td></td></tr>
      <tr>
@@ -250,28 +278,25 @@
            
           </div>
           <footer>
-  
 
   <hr/>
 
   <div role="contentinfo">
     <p>
-        
-        &copy; Copyright 2011 - 2021, Pierre LALET
+        &#169; Copyright 2011 - 2021, Pierre LALET.
 
     </p>
   </div>
     
     
     
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
     
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
     
     provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
 </footer>
-
         </div>
       </div>
 

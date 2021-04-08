@@ -85,7 +85,25 @@ It comes with an "analytics" plugin that uses IVRE's data to create
 links between IP addresses, hostnames, certificates, etc.
 
 To learn more about this plugin, have a look at `its documentation
-<https://github.com/yeti-platform/yeti/tree/master/contrib/analytics/ivre_api>`_.
+<https://github.com/yeti-platform/yeti/tree/master/contrib/analytics/ivre_api>`__.
+
+|yeti_investigation|
+
+Cortex Analyzer
+---------------
+
+`Cortex <https://thehive-project.org/>`_ is a tool to analyze
+observables for SOCs, CSIRTs and security researchers; it integrates
+well with TheHive.
+
+It comes with an "Analyzer" that uses IVRE's data to report
+intelligence about Autonomous Systems, certificates, domain and host
+names, IP addresses, networks, open ports, etc.
+
+To learn more about this analyzer, have a look at `its documentation
+<https://github.com/TheHive-Project/Cortex-Analyzers/blob/develop/analyzers/IVRE/README.md>`__.
+
+|cortex_analyzer_template|
 
 Blog posts and other resources
 ------------------------------
@@ -134,3 +152,6 @@ You have found (or written) a document that might help other use IVRE
 or decide if they need it? Please let us know: `open an issue
 <https://github.com/cea-sec/ivre/issues/new>`_ or :ref:`index:Contact`
 us so that we can add a link here!
+
+.. |yeti_investigation| image:: ../screenshots/yeti_investigation.png
+.. |cortex_analyzer_template| image:: ../screenshots/cortex-analyzer-template.png
