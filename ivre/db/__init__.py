@@ -100,8 +100,9 @@ class DB:
             help="show only results from this(those) AS(es)",
         )
         self.argparser.add_argument("--port", metavar="PORT")
-        self.argparser.add_argument("--service", metavar="SVC")
+        self.argparser.add_argument("--service", metavar="SVC[:PORT]")
         self.argparser.add_argument("--svchostname", metavar="HOSTNAME")
+        self.argparser.add_argument("--product", metavar="[SVC:]PROD")
         self.argparser.add_argument(
             "--useragent", metavar="USER-AGENT", nargs="?", const=False
         )
@@ -137,9 +138,38 @@ class DB:
             port = int(port)
             flt = self.flt_and(flt, self.searchport(port=port, protocol=proto))
         if args.service is not None:
+            try:
+                svc, port = args.service.split(":", 1)
+            except ValueError:
+                svc = args.service
+                port = None
+            else:
+                port = int(port)
             flt = self.flt_and(
                 flt,
-                self.searchservice(utils.str2regexp(args.service)),
+                self.searchservice(utils.str2regexpnone(svc), port=port),
+            )
+        if args.product is not None:
+            try:
+                svc, prod = args.product.split(":", 1)
+            except ValueError:
+                svc = None
+                prod = args.product
+                port = None
+            else:
+                svc = utils.str2regexpnone(svc)
+                if ":" in prod:
+                    prod, port = prod.split(":", 1)
+                    port = int(port)
+                else:
+                    port = None
+            flt = self.flt_and(
+                flt,
+                self.searchproduct(
+                    product=utils.str2regexpnone(prod),
+                    service=svc,
+                    port=port,
+                ),
             )
         if args.svchostname is not None:
             flt = self.flt_and(

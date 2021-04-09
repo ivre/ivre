@@ -211,16 +211,6 @@ def get_init_flt(dbase):
     return _parse_query(dbase, config.WEB_DEFAULT_INIT_QUERY)
 
 
-def str2regexpnone(value):
-    """Just like str2regexp, but handle special '-' value, which means
-    False.
-
-    """
-    if value == "-":
-        return False
-    return utils.str2regexp(value)
-
-
 def flt_from_query(dbase, query, base_flt=None):
     """Return a tuple (`flt`, `sortby`, `unused`, `skip`, `limit`):
 
@@ -334,26 +324,28 @@ def flt_from_query(dbase, query, base_flt=None):
                 req, port = value.split(":", 1)
                 port = int(port)
                 flt = dbase.flt_and(
-                    flt, dbase.searchservice(str2regexpnone(req), port=port)
+                    flt, dbase.searchservice(utils.str2regexpnone(req), port=port)
                 )
             else:
-                flt = dbase.flt_and(flt, dbase.searchservice(str2regexpnone(value)))
+                flt = dbase.flt_and(
+                    flt, dbase.searchservice(utils.str2regexpnone(value))
+                )
         elif not neg and param == "product" and ":" in value:
             product = value.split(":", 2)
             if len(product) == 2:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=str2regexpnone(product[1]),
-                        service=str2regexpnone(product[0]),
+                        product=utils.str2regexpnone(product[1]),
+                        service=utils.str2regexpnone(product[0]),
                     ),
                 )
             else:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=str2regexpnone(product[1]),
-                        service=str2regexpnone(product[0]),
+                        product=utils.str2regexpnone(product[1]),
+                        service=utils.str2regexpnone(product[0]),
                         port=int(product[2]),
                     ),
                 )
@@ -363,18 +355,18 @@ def flt_from_query(dbase, query, base_flt=None):
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=str2regexpnone(product[1]),
-                        version=str2regexpnone(product[2]),
-                        service=str2regexpnone(product[0]),
+                        product=utils.str2regexpnone(product[1]),
+                        version=utils.str2regexpnone(product[2]),
+                        service=utils.str2regexpnone(product[0]),
                     ),
                 )
             else:
                 flt = dbase.flt_and(
                     flt,
                     dbase.searchproduct(
-                        product=str2regexpnone(product[1]),
-                        version=str2regexpnone(product[2]),
-                        service=str2regexpnone(product[0]),
+                        product=utils.str2regexpnone(product[1]),
+                        version=utils.str2regexpnone(product[2]),
+                        service=utils.str2regexpnone(product[0]),
                         port=int(product[3]),
                     ),
                 )

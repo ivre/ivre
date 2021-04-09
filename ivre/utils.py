@@ -422,6 +422,16 @@ def str2regexp(string):
     return string
 
 
+def str2regexpnone(value):
+    """Just like str2regexp, but handle special '-' value, which means
+    False.
+
+    """
+    if value == "-":
+        return False
+    return str2regexp(value)
+
+
 def regexp2pattern(string):
     """This function takes a regexp or a string and returns a pattern and
     some flags, suitable for use with re.compile(), combined with
