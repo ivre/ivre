@@ -2397,7 +2397,11 @@ class DBNmap(DBActive):
         self.start_store_hosts()
         with utils.open_file(fname) as fdesc:
             for line in fdesc:
-                rec = json.loads(line.decode())
+                try:
+                    rec = json.loads(line.decode())
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    utils.LOGGER.warning("Cannot parse line %r", line, exc_info=True)
+                    continue
                 if rec.get("type") != "http":
                     utils.LOGGER.warning(
                         "Data type %r from nuclei not (yet) supported",
