@@ -156,6 +156,7 @@ IPV4ADDR = re.compile(
     ":2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$",
     re.I,
 )
+MACADDR = re.compile("^(?:[0-9a-f]{1,2}:){5}[0-9a-f]{1,2}", re.I)
 
 NMAP_FINGERPRINT_IVRE_KEY = {
     "d": "service_devicetype",

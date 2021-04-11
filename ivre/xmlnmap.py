@@ -885,11 +885,37 @@ def post_http_headers(script, port, host):
     handle_http_headers(host, port, script["http-headers"], handle_server=False)
 
 
+_MACADDR_OCTETS = re.compile("^[0-9a-f]{12}33", re.I)
+
+
+def post_snmp_info(script, _, host):
+    if "snmp-info" not in script:
+        return
+    data_type = script["snmp-info"].get("engineIDFormat")
+    data = script["snmp-info"].get("engineIDData")
+    if data_type == "mac":
+        if utils.MACADDR.search(data):
+            mac = data.lower()
+        else:
+            return
+    elif data_type == "octets":
+        if _MACADDR_OCTETS.search(data):
+            mac = ":".join(wrap(data.lower()[:12], 2))
+        else:
+            return
+    else:
+        return
+    cur_macs = host.setdefault("addresses", {}).setdefault("mac", [])
+    if mac not in cur_macs:
+        cur_macs.append(mac)
+
+
 POST_PROCESS = {
     "http-headers": post_http_headers,
-    "smb-os-discovery": post_smb_os_discovery,
-    "ssl-cert": post_ssl_cert,
     "ntlm-info": post_ntlm_info,
+    "smb-os-discovery": post_smb_os_discovery,
+    "snmp-info": post_snmp_info,
+    "ssl-cert": post_ssl_cert,
 }
 
 
@@ -1774,7 +1800,7 @@ class NmapHandler(ContentHandler):
             else:
                 self._curhost.setdefault("addresses", {}).setdefault(
                     attrs["addrtype"], []
-                ).append(attrs["addr"])
+                ).append(attrs["addr"].lower())
         elif name == "hostnames":
             if self._curhost is None:
                 # We do not want to handle hostnames in hosthint tags,

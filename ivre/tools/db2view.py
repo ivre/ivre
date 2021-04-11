@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,9 +21,12 @@
 
 
 import argparse
+from json import dump
+from sys import stdout
 
 
 from ivre.db import db, DB
+from ivre.utils import serialize
 from ivre.view import from_passive, from_nmap, to_view
 
 
@@ -101,7 +104,8 @@ def main():
     if args.test:
 
         def output(x):
-            print(x)
+            dump(x, stdout, default=serialize)
+            stdout.write("\n")
 
     elif args.no_merge:
         output = db.view.store_host

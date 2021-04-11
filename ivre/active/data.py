@@ -746,12 +746,14 @@ def merge_host_docs(rec1, rec2):
     rec["hostnames"] = [
         {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
     ]
-    addresses = rec1.get("addresses", {})
-    for atype, addrs in rec2.get("addresses", {}).items():
-        cur_addrs = addresses.setdefault(atype, [])
-        for addr in addrs:
-            if addr not in cur_addrs:
-                cur_addrs.append(addr)
+    addresses = {}
+    for record in [rec1, rec2]:
+        for atype, addrs in record.get("addresses", {}).items():
+            cur_addrs = addresses.setdefault(atype, [])
+            for addr in addrs:
+                addr = addr.lower()
+                if addr not in cur_addrs:
+                    cur_addrs.append(addr)
     if addresses:
         rec["addresses"] = addresses
     sa_honeypot_check = False

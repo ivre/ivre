@@ -535,7 +535,7 @@ def _extract_passive_SSL_CLIENT_ja3(rec):
 
 def _extract_passive_MAC_ADDRESS(rec):
     """Handle MAC addresses"""
-    return {"addresses": {"mac": [rec["value"]]}}
+    return {"addresses": {"mac": [rec["value"].lower()]}}
 
 
 def _extract_passive_OPEN_PORT(rec):
