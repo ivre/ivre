@@ -168,9 +168,11 @@ def get_anonymized_user():
     the HMAC secret.
 
     """
-    return utils.encode_b64(
-        hmac.new(config.WEB_SECRET, msg=get_user().encode()).digest()[:9]
-    )
+    try:
+        secret = config.WEB_SECRET.encode()
+    except AttributeError:
+        secret = config.WEB_SECRET
+    return utils.encode_b64(hmac.new(secret, msg=get_user().encode()).digest()[:9])
 
 
 def _parse_query(dbase, query):
