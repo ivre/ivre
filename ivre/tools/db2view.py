@@ -21,12 +21,10 @@
 
 
 import argparse
-from json import dump
-from sys import stdout
 
 
+from ivre.activecli import displayfunction_json
 from ivre.db import db, DB
-from ivre.utils import serialize
 from ivre.view import from_passive, from_nmap, to_view
 
 
@@ -103,9 +101,8 @@ def main():
         _from = [from_passive(fltpass, category=view_category)]
     if args.test:
 
-        def output(x):
-            dump(x, stdout, default=serialize)
-            stdout.write("\n")
+        def output(host):
+            return displayfunction_json([host], db.view)
 
     elif args.no_merge:
         output = db.view.store_host

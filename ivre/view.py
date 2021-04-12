@@ -735,11 +735,11 @@ def nmap_record_to_view(rec, category=None):
     if category is not None:
         rec["categories"].append(category)
     for port in rec.get("ports", []):
+        if "screendata" in port:
+            port["screendata"] = db.nmap.from_binary(port["screendata"])
         for script in port.get("scripts", []):
             if "masscan" in script and "raw" in script["masscan"]:
                 script["masscan"]["raw"] = db.nmap.from_binary(script["masscan"]["raw"])
-            if "screendata" in script:
-                script["screendata"] = db.nmap.from_binary(script["screendata"])
     return rec
 
 
@@ -791,13 +791,13 @@ def to_view(itrs):
 
     def prepare_record(rec):
         for port in rec.get("ports", []):
+            if "screendata" in port:
+                port["screendata"] = db.view.to_binary(port["screendata"])
             for script in port.get("scripts", []):
                 if "masscan" in script and "raw" in script["masscan"]:
                     script["masscan"]["raw"] = db.view.to_binary(
                         script["masscan"]["raw"]
                     )
-                if "screendata" in script:
-                    script["screendata"] = db.view.to_binary(script["screendata"])
         return rec
 
     # We cannot use a `for itr in itrs` loop here because itrs is

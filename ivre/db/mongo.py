@@ -587,6 +587,10 @@ class MongoDB(DB):
     def to_binary(data):
         return bson.Binary(data)
 
+    @staticmethod
+    def from_binary(data):
+        return bytes(data)
+
     @classmethod
     def flt2str(cls, flt):
         return json.dumps(flt, default=cls.serialize)
