@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 import argparse
 
 
+from ivre.activecli import displayfunction_json
 from ivre.db import db, DB
 from ivre.view import from_passive, from_nmap, to_view
 
@@ -100,8 +101,8 @@ def main():
         _from = [from_passive(fltpass, category=view_category)]
     if args.test:
 
-        def output(x):
-            print(x)
+        def output(host):
+            return displayfunction_json([host], db.view)
 
     elif args.no_merge:
         output = db.view.store_host
