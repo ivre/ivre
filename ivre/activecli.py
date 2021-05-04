@@ -489,9 +489,9 @@ def displayfunction_honeyd(cur):
 def displayfunction_http_urls(cur):
     for h in cur:
         for p in h.get("ports", []):
-            if p.get("service_name") != "http":
+            if p.get("service_name") not in {"http", "http-proxy", "https"}:
                 continue
-            if p.get("service_tunnel") == "ssl":
+            if p.get("service_tunnel") == "ssl" or p.get("service_name") == "https":
                 if p.get("port") == 443:
                     sys.stdout.write("https://%s/\n" % h["addr"])
                 else:
