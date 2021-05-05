@@ -1470,7 +1470,7 @@ class DBActive(DB):
     def searchsshkey(
         self, fingerprint=None, key=None, keytype=None, bits=None, output=None
     ):
-        """Search SSH host keys """
+        """Search SSH host keys"""
         params = {"name": "ssh-hostkey"}
         if fingerprint is not None:
             if not isinstance(fingerprint, utils.REGEXP_T):

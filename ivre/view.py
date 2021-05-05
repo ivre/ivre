@@ -550,7 +550,7 @@ def _extract_passive_OPEN_PORT(rec):
 
 
 def _extract_passive_NTLM(rec, service=None):
-    """Handle NTLM """
+    """Handle NTLM"""
     script = {}
     script["id"] = "ntlm-info"
     script["ntlm-info"] = rec["infos"]
