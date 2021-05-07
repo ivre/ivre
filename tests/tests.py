@@ -1045,7 +1045,8 @@ class IvreTests(unittest.TestCase):
             ivre.xmlnmap.change_smb_enum_shares(json_12_smb_enum_shares_new),
         )
 
-        RUN(["ivre", "scancli", "--update-schema"])
+        res, out, err = RUN(["ivre", "scancli", "--update-schema"])
+        self.assertEqual(res, 0)
 
         self.assertEqual(host_counter, host_counter_test)
         self.assertEqual(scan_counter, scan_warning)

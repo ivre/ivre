@@ -886,7 +886,8 @@ class SQLDBActive(SQLDB, DBActive):
         structured output for http-headers script.
 
         """
-        failed = []
+        cond = self.tables.scan.schema_version == 8
+        failed = set()
         req = (
             select(
                 [
@@ -899,12 +900,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 8,
-                    self.tables.script.name == "http-headers",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "http-headers"))
         )
         for rec in self.db.execute(req):
             if "http-headers" not in rec.data:
@@ -916,7 +912,7 @@ class SQLDBActive(SQLDB, DBActive):
                     utils.LOGGER.warning(
                         "Cannot migrate host %r", rec.id, exc_info=True
                     )
-                    failed.append(rec.id)
+                    failed.add(rec.id)
                 else:
                     if data:
                         self.db.execute(
@@ -929,16 +925,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(data={"http-headers": data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 8,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=9)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=9))
         return len(failed)
 
     def _migrate_schema_9_10(self):
@@ -946,7 +935,8 @@ class SQLDBActive(SQLDB, DBActive):
         the field names of the structured output for s7-info script.
 
         """
-        failed = []
+        cond = self.tables.scan.schema_version == 9
+        failed = set()
         req = (
             select(
                 [
@@ -959,12 +949,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 9,
-                    self.tables.script.name == "s7-info",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "s7-info"))
         )
         for rec in self.db.execute(req):
             if "s7-info" in rec.data:
@@ -974,7 +959,7 @@ class SQLDBActive(SQLDB, DBActive):
                     utils.LOGGER.warning(
                         "Cannot migrate host %r", rec.id, exc_info=True
                     )
-                    failed.append(rec.id)
+                    failed.add(rec.id)
                 else:
                     if data:
                         self.db.execute(
@@ -987,16 +972,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(data={"s7-info": data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 9,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=10)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=10))
         return len(failed)
 
     def _migrate_schema_10_11(self):
@@ -1011,6 +989,7 @@ class SQLDBActive(SQLDB, DBActive):
         the structured output for fcrdns and rpcinfo script.
 
         """
+        cond = self.tables.scan.schema_version == 11
         failed = set()
         req = (
             select(
@@ -1025,12 +1004,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 11,
-                    self.tables.script.name.in_(["fcrdns", "rpcinfo"]),
-                )
-            )
+            .where(and_(cond, self.tables.script.name.in_(["fcrdns", "rpcinfo"])))
         )
         for rec in self.db.execute(req):
             if rec.name in rec.data:
@@ -1057,16 +1031,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(data={rec.name: data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 11,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=12)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=12))
         return len(failed)
 
     def _migrate_schema_12_13(self):
@@ -1074,6 +1041,7 @@ class SQLDBActive(SQLDB, DBActive):
         the structured output for ms-sql-info and smq-enum-shares scripts.
 
         """
+        cond = self.tables.scan.schema_version == 12
         failed = set()
         req = (
             select(
@@ -1090,12 +1058,13 @@ class SQLDBActive(SQLDB, DBActive):
             )
             .where(
                 and_(
-                    self.tables.scan.schema_version == 12,
+                    cond,
                     self.tables.script.name.in_(["ms-sql-info", "smb-enum-shares"]),
                 )
             )
         )
         for rec in self.db.execute(req):
+            print(repr(rec))
             if rec.name in rec.data:
                 migr_func = {
                     "ms-sql-info": xmlnmap.change_ms_sql_info,
@@ -1120,16 +1089,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(data={rec.name: data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 12,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=13)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=13))
         return len(failed)
 
     def _migrate_schema_13_14(self):
@@ -1138,6 +1100,7 @@ class SQLDBActive(SQLDB, DBActive):
         field from having different data types.
 
         """
+        cond = self.tables.scan.schema_version == 13
         failed = set()
         scripts = [
             script_name
@@ -1158,12 +1121,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 13,
-                    self.tables.script.name.in_(scripts),
-                )
-            )
+            .where(and_(cond, self.tables.script.name.in_(scripts)))
         )
         for rec in self.db.execute(req):
             if rec.name in rec.data:
@@ -1191,16 +1149,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(data={rec.name: data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 13,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=14)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=14))
         return len(failed)
 
     def _migrate_schema_14_15(self):
@@ -1209,6 +1160,7 @@ class SQLDBActive(SQLDB, DBActive):
         instead of keys.
 
         """
+        cond = self.tables.scan.schema_version == 14
         failed = set()
         req = (
             select(
@@ -1223,12 +1175,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 14,
-                    self.tables.script.name == "http-git",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "http-git"))
         )
         for rec in self.db.execute(req):
             if rec.name in rec.data:
@@ -1251,16 +1198,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(data={rec.name: data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 14,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=15)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=15))
         return len(failed)
 
     def _migrate_schema_15_16(self):
@@ -1270,6 +1210,7 @@ class SQLDBActive(SQLDB, DBActive):
         `["value"]`).
 
         """
+        cond = self.tables.scan.schema_version == 15
         failed = []
         req = (
             select(
@@ -1283,12 +1224,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 15,
-                    self.tables.script.name == "http-server-header",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "http-server-header"))
         )
         for rec in self.db.execute(req):
             updated = False
@@ -1325,16 +1261,9 @@ class SQLDBActive(SQLDB, DBActive):
                     )
                     .values(data={"http-server-header": data})
                 )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 15,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=16)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=16))
         return len(failed)
 
     def _migrate_schema_17_18(self):
@@ -1342,6 +1271,7 @@ class SQLDBActive(SQLDB, DBActive):
         introduces HASSH (SSH fingerprint) in ssh2-enum-algos.
 
         """
+        cond = self.tables.scan.schema_version == 17
         failed = set()
         req = (
             select(
@@ -1356,12 +1286,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 17,
-                    self.tables.script.name == "ssh2-enum-algos",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "ssh2-enum-algos"))
         )
         for rec in self.db.execute(req):
             if rec.name in rec.data:
@@ -1387,16 +1312,9 @@ class SQLDBActive(SQLDB, DBActive):
                             )
                             .values(output=output, data={rec.name: data})
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 17,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=18)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=18))
         return len(failed)
 
     def _migrate_schema_18_19(self):
@@ -1406,6 +1324,7 @@ class SQLDBActive(SQLDB, DBActive):
         smb-os-discovery script with only the information regarding SMB
 
         """
+        cond = self.tables.scan.schema_version == 18
         failed = set()
         req = (
             select(
@@ -1420,12 +1339,7 @@ class SQLDBActive(SQLDB, DBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 18,
-                    self.tables.script.name == "smb-os-discovery",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "smb-os-discovery"))
         )
         for rec in self.db.execute(req):
             if rec.name == "smb-os-discovery":
@@ -1481,16 +1395,9 @@ class SQLDBActive(SQLDB, DBActive):
                             data=script.get("ntlm-info", {}),
                         )
                     )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 18,
-                    self.tables.scan.id.notin_(failed),
-                )
-            )
-            .values(schema_version=19)
-        )
+        if failed:
+            cond = and_(cond, self.tables.scan.id.notin_(failed))
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=19))
         return len(failed)
 
     def count(self, flt, **_):
