@@ -159,6 +159,7 @@ SQLJSONB = postgresql.JSONB().with_variant(DefaultJSONB(), "sqlite")
 class DefaultARRAY(TypeDecorator):
 
     impl = Text
+    cache_ok = False
 
     def __init__(self, item_type, *args, **kwargs):
         TypeDecorator.__init__(self, *args, **kwargs)
