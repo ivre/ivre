@@ -204,6 +204,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         changes.
 
         """
+        cond = self.tables.scan.schema_version == 10
         req = (
             select(
                 [
@@ -216,12 +217,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
             .select_from(
                 join(join(self.tables.scan, self.tables.port), self.tables.script)
             )
-            .where(
-                and_(
-                    self.tables.scan.schema_version == 10,
-                    self.tables.script.name == "ssl-cert",
-                )
-            )
+            .where(and_(cond, self.tables.script.name == "ssl-cert"))
         )
         for rec in self.db.execute(req):
             if "ssl-cert" in rec.data:
@@ -269,11 +265,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                                 }
                             )
                         )
-        self.db.execute(
-            update(self.tables.scan)
-            .where(self.tables.scan.schema_version == 10)
-            .values(schema_version=11)
-        )
+        self.db.execute(update(self.tables.scan).where(cond).values(schema_version=11))
         return 0
 
     def start_store_hosts(self):
@@ -1018,6 +1010,10 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 func.jsonb_array_elements(self.tables.script.data["http-app"]).alias(
                     "app"
                 ),
+            )
+        elif field == "schema_version":
+            field = self._topstructure(
+                self.tables.scan, [self.tables.scan.schema_version]
             )
         else:
             raise NotImplementedError()
