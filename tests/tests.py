@@ -4322,6 +4322,16 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(negotiate["NetBIOS_Domain_Name"], "DOMAINTEST")
         self.assertEqual(negotiate["Workstation"], "NAMETEST")
 
+        res, _, err = RUN(["ivre", "localscan"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+
+        res, out, err = RUN(["ivre", "localscan", "--json"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        for line in out.splitlines():
+            self.assertTrue(isinstance(json.loads(line), dict))
+
     def test_scans(self):
         "Run scans, with and without agents"
 
