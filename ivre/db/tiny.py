@@ -1036,7 +1036,7 @@ class TinyDBActive(TinyDB, DBActive):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / asnum / country / net[:mask]
+          - category[:regexp] / asnum / country / net[:mask]
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -1076,10 +1076,34 @@ class TinyDBActive(TinyDB, DBActive):
 
         if field == "category":
             field = "categories"
+        elif field.startswith("category:") or field.startswith("categories:"):
+            subflt = utils.str2regexp(field.split(":", 1)[1])
+            field = "categories"
+            if isinstance(subflt, utils.REGEXP_T):
+
+                def _macth(value):
+                    return subflt.search(value) is not None
+
+            else:
+
+                def _macth(value):
+                    return value == subflt
+
+            def _extractor(flt, field):  # noqa: F811
+                for rec in self._get(
+                    flt, sort=sort, limit=limit, skip=skip, fields=[field]
+                ):
+                    for cat in rec[field]:
+                        if _macth(cat):
+                            yield cat
+
+            def _newflt(field):  # noqa: F811
+                return self.searchcategory(subflt)
+
         elif field == "country":
             field = "infos.country_code"
 
-            def _extractor(flt, field):  # noqa: F811
+            def _extractor(flt, field):
                 for rec in self._get(
                     flt,
                     sort=sort,
@@ -1092,7 +1116,7 @@ class TinyDBActive(TinyDB, DBActive):
 
         elif field == "city":
 
-            def _newflt(field):  # noqa: F811
+            def _newflt(field):
                 return self._search_field_exists(
                     "infos.country_code"
                 ) & self._search_field_exists("infos.city")

@@ -1588,6 +1588,11 @@ class IvreTests(unittest.TestCase):
         self.assertEqual(category["count"], hosts_count)
         with self.assertRaises(StopIteration):
             next(categories)
+
+        self.check_nmap_top_value("nmap_top_categories", "categories")
+        self.check_nmap_top_value("nmap_top_categories_TEST", "categories:TEST")
+        self.check_nmap_top_value("nmap_top_categories_TEST", "categories:/^TEST$/")
+
         self._check_top_value_api(
             "nmap_top_service_80", "service:80", database=ivre.db.db.nmap
         )
@@ -4887,6 +4892,12 @@ class IvreTests(unittest.TestCase):
         self.check_view_top_value("view_top_version_http", "version:http")
         self.check_view_top_value(
             "view_top_version_http_apache", "version:http:Apache httpd"
+        )
+
+        self.check_view_top_value("view_top_categories", "categories")
+        self.check_view_top_value("view_top_categories_PASSIVE", "categories:PASSIVE")
+        self.check_view_top_value(
+            "view_top_categories_PASSIVE", "categories:/^PASSIVE$/"
         )
 
         if DATABASE == "elastic":

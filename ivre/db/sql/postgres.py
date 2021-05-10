@@ -335,7 +335,7 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / label / asnum / country / net[:mask]
+          - category[:regexp] / label / asnum / country / net[:mask]
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -708,9 +708,20 @@ class PostgresDBActive(PostgresDB, SQLDBActive):
                 field = self._topstructure(
                     self.tables.script, [self.tables.script.name]
                 )
-        elif field in ["category", "categories"]:
+        elif field in {"category", "categories"}:
             field = self._topstructure(
                 self.tables.category, [self.tables.category.name]
+            )
+        elif field.startswith("category:") or field.startswith("categories:"):
+            expr = utils.str2regexp(field.split(":", 1)[1])
+            flt = self.flt_and(flt, self.searchcategory(expr))
+            field = self._topstructure(
+                self.tables.category,
+                [self.tables.category.name],
+                self._searchstring_re(
+                    self.tables.category.name,
+                    expr,
+                ),
             )
         elif field.startswith("cert."):
             subfield = field[5:]

@@ -694,7 +694,7 @@ var HELP_TOPVALUES = {
 	    "title": "<b>(!)</b>script:"
 	},
 	"category": {
-	    "content": "category",
+	    "content": "category(:[pattern])",
 	    "title": "<b>(!)</b>category"
 	},
 	"city": {

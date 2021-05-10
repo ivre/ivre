@@ -386,7 +386,7 @@ class ElasticDBActive(ElasticDB, DBActive):
         """
         This method uses an aggregation to produce top values for a given
         field or pseudo-field. Pseudo-fields are:
-          - category / asnum / country / net[:mask]
+          - category[:regexp] / asnum / country / net[:mask]
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -417,6 +417,14 @@ class ElasticDBActive(ElasticDB, DBActive):
             flt = self.flt_empty
         if field == "category":
             field = {"field": "categories"}
+        elif field.startswith("category:") or field.startswith("categories:"):
+            subfield = utils.str2regexp(field.split(":", 1)[1])
+            flt = self.flt_and(flt, self.searchcategory(subfield))
+            if isinstance(subfield, utils.REGEXP_T):
+                subfield = self._get_pattern(subfield)
+            else:
+                subfield = re.escape(subfield)
+            field = {"field": "categories", "include": subfield}
         elif field == "asnum":
             flt = self.flt_and(flt, Q("exists", field="infos.as_num"))
             field = {"field": "infos.as_num"}
