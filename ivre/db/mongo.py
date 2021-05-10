@@ -2810,7 +2810,7 @@ class MongoDBActive(MongoDB, DBActive):
         """
         This method makes use of the aggregation framework to produce
         top values for a given field or pseudo-field. Pseudo-fields are:
-          - category / asnum / country / net[:mask]
+          - category[:regexp] / asnum / country / net[:mask]
           - port
           - port:open / :closed / :filtered / :<servicename>
           - portlist:open / :closed / :filtered
@@ -2844,6 +2844,12 @@ class MongoDBActive(MongoDB, DBActive):
             specialflt = []
         # pseudo-fields
         if field == "category":
+            field = "categories"
+        elif field.startswith("category:") or field.startswith("categories:"):
+            subflt = utils.str2regexp(field.split(":", 1)[1])
+            catflt = self.searchcategory(subflt)
+            flt = self.flt_and(flt, catflt)
+            specialflt = [{"$match": catflt}]
             field = "categories"
         elif field == "country":
             flt = self.flt_and(flt, {"infos.country_code": {"$exists": True}})
