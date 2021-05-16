@@ -41,27 +41,27 @@ def _get_version_from_file():
 
 
 def _get_version_from_git():
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         [b"git", b"rev-parse", b"--show-toplevel"],
         stdout=subprocess.PIPE,
         stderr=open(os.devnull),
         cwd=os.path.join(_DIR, os.path.pardir),
-    )
-    out, err = proc.communicate()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, err)
+    ) as proc:
+        out, err = proc.communicate()
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, err)
     repo = out.decode().strip()
     if repo != os.path.realpath(os.path.join(_DIR, os.path.pardir)):
         raise ValueError("Git repository is not IVRE")
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         [b"git", b"describe", b"--always"],
         stdout=subprocess.PIPE,
         stderr=open(os.devnull),
         cwd=os.path.join(_DIR, os.path.pardir),
-    )
-    out, err = proc.communicate()
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, err)
+    ) as proc:
+        out, err = proc.communicate()
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, err)
     tag = out.decode().strip()
     match = re.match("^v?(.+?)-(\\d+)-g[a-f0-9]+$", tag)
     if match:

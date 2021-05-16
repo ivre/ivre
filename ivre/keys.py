@@ -107,14 +107,14 @@ class SSLKey:
         except AttributeError:
             pass
         pem = utils.decode_b64(cls.pem_borders.sub(b"", pem))
-        proc = subprocess.Popen(
+        with subprocess.Popen(
             [config.OPENSSL_CMD, "x509", "-noout", "-text", "-inform", "DER"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-        )
-        proc.stdin.write(pem)
-        proc.stdin.close()
-        return proc.stdout.read()
+        ) as proc:
+            proc.stdin.write(pem)
+            proc.stdin.close()
+            return proc.stdout.read()
 
     @classmethod
     def _pem2key(cls, pem):
@@ -124,14 +124,14 @@ class SSLKey:
 
     @staticmethod
     def read_der(der):
-        proc = subprocess.Popen(
+        with subprocess.Popen(
             [config.OPENSSL_CMD, "x509", "-noout", "-text", "-inform", "DER"],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-        )
-        proc.stdin.write(der)
-        proc.stdin.close()
-        return proc.stdout.read()
+        ) as proc:
+            proc.stdin.write(der)
+            proc.stdin.close()
+            return proc.stdout.read()
 
     def _der2key(self, der):
         der = self.read_der(der)

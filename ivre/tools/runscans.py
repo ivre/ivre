@@ -96,9 +96,11 @@ class XmlProcessWritefile(XmlProcess):
         self.isstarting = True
         self.startinfo = b""
         ivre.utils.makedirs(self.path)
+        # pylint: disable=consider-using-with
         self.scaninfo = open("%sscaninfo.%d" % (self.path, self.starttime), "wb")
         if fulloutput:
             self.has_fulloutput = True
+            # pylint: disable=consider-using-with
             self.fulloutput = open(
                 "%sfulloutput.%d" % (self.path, self.starttime), "wb"
             )
@@ -190,6 +192,7 @@ def call_nmap(options, xmlprocess, targets, accept_target_status=None):
     if accept_target_status is None:
         accept_target_status = [STATUS_NEW]
     options += ["-oX", "-", "-iL", "-"]
+    # pylint: disable=consider-using-with
     proc = subprocess.Popen(
         options, preexec_fn=setnmaplimits, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
@@ -398,15 +401,15 @@ def main():
             args.nmap_max_stack_size,
         )
     if args.output == "XMLFork":
-        pool = multiprocessing.Pool(processes=args.processes)
-        call_nmap_single = functools.partial(
-            _call_nmap_single,
-            targets.infos["categories"][0],
-            options,
-            accept_target_status,
-        )
-        for _ in pool.imap(call_nmap_single, targets, chunksize=1):
-            pass
+        with multiprocessing.Pool(processes=args.processes) as pool:
+            call_nmap_single = functools.partial(
+                _call_nmap_single,
+                targets.infos["categories"][0],
+                options,
+                accept_target_status,
+            )
+            for _ in pool.imap(call_nmap_single, targets, chunksize=1):
+                pass
         sys.exit(0)
     elif args.output == "ListAllRand":
         targiter = iter(targets)

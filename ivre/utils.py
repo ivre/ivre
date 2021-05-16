@@ -722,6 +722,7 @@ class FileOpener:
             py_opener = self.FILE_OPENERS_MAGIC[magic]
         except KeyError:
             # Not a compressed file
+            # pylint: disable=consider-using-with
             self.fdesc = open(fname, "rb")
             return
         self.fdesc = py_opener(fname)
@@ -936,6 +937,7 @@ def country_unalias(country):
 def screenwords(imgdata):
     """Takes an image and returns a list of the words seen by the OCR"""
     if config.TESSERACT_CMD is not None:
+        # pylint: disable=consider-using-with
         proc = subprocess.Popen(
             [config.TESSERACT_CMD, "stdin", "stdout"],
             stdin=subprocess.PIPE,
@@ -1054,6 +1056,7 @@ def _set_ports():
     """
     global _PORTS, _PORTS_POPULATED
     try:
+        # pylint: disable=consider-using-with
         fdesc = open(os.path.join(config.NMAP_SHARE_PATH, "nmap-services"))
     except (IOError, AttributeError):
         try:
@@ -2129,13 +2132,12 @@ def _get_cert_info_openssl(cert):
     result = {}
     for hashtype in ["md5", "sha1", "sha256"]:
         result[hashtype] = hashlib.new(hashtype, cert).hexdigest()
-    proc = subprocess.Popen(
+    with subprocess.Popen(
         [config.OPENSSL_CMD, "x509", "-noout", "-text", "-inform", "DER", "-pubkey"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-    )
-    proc.stdin.write(cert)
-    proc.stdin.close()
+    ) as proc:
+        proc.stdin.write(cert)
     data, pubkey = proc.stdout.read().split(b"-----BEGIN PUBLIC KEY-----")
     for expr in _CERTINFOS:
         match = expr.search(data)
