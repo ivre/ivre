@@ -101,6 +101,7 @@ class CSVFile:
     """
 
     def __init__(self, fname, skip=0, limit=None):
+        # pylint: disable=consider-using-with
         self.fdesc = codecs.open(fname, encoding="latin-1")
         for _ in range(skip):
             self.fdesc.readline()

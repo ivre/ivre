@@ -3238,9 +3238,10 @@ class DBAgent(DB):
                 str(agentid),
             )
             utils.makedirs(storedir)
-            fdesc = tempfile.NamedTemporaryFile(
+            with tempfile.NamedTemporaryFile(
                 prefix="", suffix=".xml", dir=storedir, delete=False
-            )
+            ) as fdesc:
+                pass
             shutil.move(os.path.join(outpath, fname), fdesc.name)
             self.globaldb.nmap.store_scan(
                 fdesc.name,
@@ -3374,6 +3375,7 @@ class DBAgent(DB):
         res = pickle.loads(self._get_scan_target(scanid))
         if hasattr(res, "fdesc"):
             opened, seekval = res.fdesc
+            # pylint: disable=consider-using-with
             res.fdesc = open(res.target.filename)
             if opened:
                 res.fdesc.seek(seekval)

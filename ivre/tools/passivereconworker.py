@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -70,6 +70,7 @@ def create_process(progname, sensor):
     `progname`.
 
     """
+    # pylint: disable=consider-using-with
     return subprocess.Popen(
         CMDLINE % {"progname": progname, "sensor": SENSORS.get(sensor, sensor)},
         shell=True,

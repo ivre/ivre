@@ -37,6 +37,7 @@ class CmdParser:
 
     def __init__(self, cmd, cmdkargs):
         cmdkargs["stdout"] = subprocess.PIPE
+        # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(cmd, **cmdkargs)
         self.fdesc = self.proc.stdout
 

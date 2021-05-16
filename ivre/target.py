@@ -345,11 +345,9 @@ class TargetFile(Target):
             categories = [self.name]
         self.infos = {"categories": categories}
         with open(filename) as fdesc:
-            i = 0
-            for line in fdesc:
-                if self._getaddr(line) is not None:
-                    i += 1
-            self.targetscount = i
+            self.targetscount = sum(
+                1 for line in fdesc if self._getaddr(line) is not None
+            )
         if maxnbr is None:
             self.maxnbr = self.targetscount
         else:
@@ -415,12 +413,12 @@ class TargetZMapPreScan(TargetFile):
         zmap_opts += ["-p", str(port)]
         self.infos["zmap_pre_scan"] = zmap_opts[:]
         zmap_opts = [zmap] + zmap_opts + ["-o", "-"]
-        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode="w")
-        for start, count in target.targets.ranges.values():
-            for net in utils.range2nets((start, start + count - 1)):
-                self.tmpfile.write("%s\n" % net)
-        self.tmpfile.close()
+        with tempfile.NamedTemporaryFile(delete=False, mode="w") as self.tmpfile:
+            for start, count in target.targets.ranges.values():
+                for net in utils.range2nets((start, start + count - 1)):
+                    self.tmpfile.write("%s\n" % net)
         zmap_opts += ["-w", self.tmpfile.name]
+        # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(zmap_opts, stdout=subprocess.PIPE)
         self.targetsfd = self.proc.stdout
 
@@ -462,12 +460,12 @@ class TargetNmapPreScan(TargetZMapPreScan):
         self.infos["nmap_pre_scan"] = nmap_opts[:]
         # TODO: use -iL and feed target randomly when needed, w/o
         # using a temporary file
-        self.tmpfile = tempfile.NamedTemporaryFile(delete=False, mode="w")
-        nmap_opts = [nmap, "-iL", self.tmpfile.name, "-oG", "-"] + nmap_opts
-        for start, count in target.targets.ranges.values():
-            for net in utils.range2nets((start, start + count - 1)):
-                self.tmpfile.write("%s\n" % net)
-        self.tmpfile.close()
+        with tempfile.NamedTemporaryFile(delete=False, mode="w") as self.tmpfile:
+            nmap_opts = [nmap, "-iL", self.tmpfile.name, "-oG", "-"] + nmap_opts
+            for start, count in target.targets.ranges.values():
+                for net in utils.range2nets((start, start + count - 1)):
+                    self.tmpfile.write("%s\n" % net)
+        # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(nmap_opts, stdout=subprocess.PIPE)
         self.targetsfd = self.proc.stdout
 

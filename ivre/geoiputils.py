@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -35,10 +35,11 @@ import zipfile
 from ivre import VERSION, utils, config
 
 
-def bgp_raw_to_csv(fname, out):
-    out = open(os.path.join(config.GEOIP_PATH, out), "w")
+def bgp_raw_to_csv(fname, outname):
     cur = None
-    with open(os.path.join(config.GEOIP_PATH, fname), "rb") as fdesc:
+    with open(os.path.join(config.GEOIP_PATH, fname), "rb") as fdesc, open(
+        os.path.join(config.GEOIP_PATH, outname), "w"
+    ) as out:
         for line in fdesc:
             start, stop = (
                 utils.ip2int(elt)
@@ -64,20 +65,20 @@ def bgp_raw_to_csv(fname, out):
                     continue
                 out.write("%d,%d\n" % cur)
             cur = (start, stop)
-    if cur:
-        out.write("%d,%d\n" % cur)
+        if cur:
+            out.write("%d,%d\n" % cur)
 
 
 def unzip_all(fname, cond=None, clean=True):
-    zdesc = zipfile.ZipFile(os.path.join(config.GEOIP_PATH, fname))
-    for filedesc in zdesc.infolist():
-        if cond and not cond(filedesc):
-            continue
-        with open(
-            os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.filename)), "wb"
-        ) as wdesc:
-            wdesc.write(zdesc.read(filedesc))
-    zdesc.close()
+    with zipfile.ZipFile(os.path.join(config.GEOIP_PATH, fname)) as zdesc:
+        for filedesc in zdesc.infolist():
+            if cond and not cond(filedesc):
+                continue
+            with open(
+                os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.filename)),
+                "wb",
+            ) as wdesc:
+                wdesc.write(zdesc.read(filedesc))
     if clean:
         os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
@@ -93,15 +94,14 @@ def gunzip(fname, clean=True):
 
 
 def untar_all(fname, cond=None, clean=True):
-    tdesc = tarfile.TarFile(os.path.join(config.GEOIP_PATH, fname))
-    for filedesc in tdesc:
-        if cond and not cond(filedesc):
-            continue
-        with open(
-            os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.name)), "wb"
-        ) as wdesc:
-            wdesc.write(tdesc.extractfile(filedesc).read())
-    tdesc.close()
+    with tarfile.TarFile(os.path.join(config.GEOIP_PATH, fname)) as tdesc:
+        for filedesc in tdesc:
+            if cond and not cond(filedesc):
+                continue
+            with open(
+                os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.name)), "wb"
+            ) as wdesc:
+                wdesc.write(tdesc.extractfile(filedesc).read())
     if clean:
         os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
@@ -354,11 +354,11 @@ class IPRanges:
 
 
 def _get_by_data(datafile, condition):
-    fdesc = open(os.path.join(config.GEOIP_PATH, datafile))
-    for line in fdesc:
-        line = line[:-1].split(",")
-        if condition(line):
-            yield int(line[0]), int(line[1])
+    with open(os.path.join(config.GEOIP_PATH, datafile)) as fdesc:
+        for line in fdesc:
+            line = line[:-1].split(",")
+            if condition(line):
+                yield int(line[0]), int(line[1])
 
 
 def get_ranges_by_data(datafile, condition):
