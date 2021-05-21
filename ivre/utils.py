@@ -1614,33 +1614,19 @@ def nmap_svc_fp_format_data(data, match):
     return data
 
 
-def normalize_props(props, braces=True):
+def normalize_props(props):
     """Returns a normalized property list/dict so that (roughly):
-    - a list gives {k: "{k}"} if braces=True, {k: "k"} otherwise
-    - a dict gives {k: v if v is not None else "{%s}" % v} if braces=True,
-                   {k: v if v is not Node else "%s" % v} otherwise
+    - a list [k] gives {k: str(k)}
+    - a dict {k: v} gives {k: str(k) if v is None else str(v)}
     """
     if not isinstance(props, dict):
         props = dict.fromkeys(props)
-    # Remove braces if necessary
-    if not braces:
-        for key, value in props.items():
-            if isinstance(value, str) and value.startswith("{") and value.endswith("}"):
-                props[key] = value[1:-1]
-    form = "{%s}" if braces else "%s"
-    props = dict(
-        (
-            key,
-            (
-                value
-                if isinstance(value, str)
-                else (form % key)
-                if value is None
-                else str(value)
-            ),
-        )
-        for key, value in props.items()
-    )
+    for key, value in props.items():
+        if isinstance(value, str) and value.startswith("{") and value.endswith("}"):
+            props[key] = value[1:-1]
+    props = {
+        key: str(key) if value is None else str(value) for key, value in props.items()
+    }
     return props
 
 
