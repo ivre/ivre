@@ -3500,7 +3500,7 @@ class DBFlowMeta(type):
         for proto, configs in flow.META_DESC.items():
             meta_desc[proto] = {}
             for kind, values in configs.items():
-                meta_desc[proto][kind] = utils.normalize_props(values, braces=False)
+                meta_desc[proto][kind] = utils.normalize_props(values)
         return meta_desc
 
     @staticmethod
