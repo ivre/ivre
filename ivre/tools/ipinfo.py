@@ -151,7 +151,9 @@ def disp_recs_distinct(field, flt, *_):
 
 
 def disp_recs_top(top):
-    return lambda flt, sort, limit, _: utils.display_top(db.passive, top, flt, limit)
+    return lambda flt, sort, limit, _: sys.stdout.writelines(
+        db.passive.display_top(top, flt, limit)
+    )
 
 
 def disp_recs_count(flt, sort, limit, skip):

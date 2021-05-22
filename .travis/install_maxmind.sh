@@ -21,5 +21,5 @@ PIP_INSTALL_OPTIONS=""
 if [ "$TRAVIS_PYTHON_VERSION" = 3.9 ]; then
     pip install -U $PIP_INSTALL_OPTIONS -r requirements-linting.txt
 else
-    pip install -U $PIP_INSTALL_OPTIONS flake8
+    pip install -U $PIP_INSTALL_OPTIONS flake8 mypy
 fi

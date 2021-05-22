@@ -36,7 +36,7 @@ from ivre.activecli import (
     displayfunction_remove,
     displayfunction_csv,
 )
-from ivre.utils import display_top, CLI_ARGPARSER
+from ivre.utils import CLI_ARGPARSER
 
 
 def main():
@@ -142,7 +142,7 @@ def main():
         db.db.nmap.ensure_indexes()
         sys.exit(0)
     if args.top is not None:
-        display_top(db.db.nmap, args.top, hostfilter, args.limit)
+        sys.stdout.writelines(db.db.nmap.display_top(args.top, hostfilter, args.limit))
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [

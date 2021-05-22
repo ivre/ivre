@@ -20,6 +20,7 @@
 """This sub-module contains functions used for flow."""
 
 import re
+from typing import Dict, List, Optional
 
 from ivre import utils, config
 
@@ -225,7 +226,7 @@ class Query:
     # Used to split filter in tokens (attributes, operators, values)
     # Example: '"test" test' is divided in 2 groups "test" and test
     splitter_re = re.compile('(?:[^\\s"]|"(?:\\\\.|[^"])*")+')
-    clauses = []
+    clauses: List[List[Optional[Dict[str, bool]]]] = []
 
     @classmethod
     def _split_filter_or(cls, flt):

@@ -23,8 +23,8 @@
 
 # to build graphs with rtgraph3d
 try:
-    import dbus
-    import dbus.mainloop.glib
+    import dbus  # type: ignore
+    import dbus.mainloop.glib  # type: ignore
 
     HAVE_DBUS = True
 except ImportError:

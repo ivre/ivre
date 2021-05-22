@@ -46,7 +46,7 @@ import xml.sax
 
 # tests: I don't want to depend on cluster for now
 try:
-    import cluster
+    import cluster  # type: ignore
 
     USE_CLUSTER = True
 except ImportError:
@@ -718,6 +718,36 @@ class DB:
     @staticmethod
     def cmp_schema_version(*_):
         return 0
+
+    def display_top(self, arg, flt, lmt):
+        field, least = (arg[1:], True) if arg[:1] in "!-~" else (arg, False)
+        if lmt is None:
+            lmt = 10
+        elif lmt == 0:
+            lmt = None
+        for entry in self.topvalues(field, flt=flt, topnbr=lmt, least=least):
+            if isinstance(entry["_id"], (list, tuple)):
+                sep = " / " if isinstance(entry["_id"], tuple) else ", "
+                if entry["_id"]:
+                    if isinstance(entry["_id"][0], (list, tuple)):
+                        entry["_id"] = sep.join(
+                            "/".join(str(subelt) for subelt in elt) if elt else "None"
+                            for elt in entry["_id"]
+                        )
+                    elif isinstance(entry["_id"][0], dict):
+                        entry["_id"] = sep.join(
+                            json.dumps(elt, default=utils.serialize)
+                            for elt in entry["_id"]
+                        )
+                    else:
+                        entry["_id"] = sep.join(str(elt) for elt in entry["_id"])
+                else:
+                    entry["_id"] = "None"
+            elif isinstance(entry["_id"], dict):
+                entry["_id"] = json.dumps(entry["_id"], default=utils.serialize)
+            elif not entry["_id"]:
+                entry["_id"] = "None"
+            yield "%(_id)s: %(count)d\n" % entry
 
 
 class DBActive(DB):

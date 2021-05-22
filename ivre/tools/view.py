@@ -41,7 +41,7 @@ from ivre.activecli import (
     displayfunction_remove,
     displayfunction_csv,
 )
-from ivre.utils import display_top, CLI_ARGPARSER
+from ivre.utils import CLI_ARGPARSER
 
 
 def main():
@@ -153,7 +153,7 @@ def main():
         sys.exit(0)
 
     if args.top is not None:
-        display_top(db.view, args.top, flt, args.limit)
+        sys.stdout.writelines(db.view.display_top(args.top, flt, args.limit))
         sys.exit(0)
     if args.sort is not None:
         sortkeys = [

@@ -85,16 +85,17 @@ We try to comply with the some guidelines for new code:
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
 
--   [Pylint](http://www.pylint.org/) can help you write good Python
+-   [Pylint](https://pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
     or even undesirable; human brain needed!).
 
 -   [Black](https://github.com/psf/black) has to be used to format
     Python code in IVRE.
 
--   [flake8](http://flake8.pycqa.org/), Black and Pylint tests are run
-    for each pull request (see .travis.yml for the specific
-    options). Pull requests will not be accepted when the tests fail.
+-   [flake8](https://flake8.pycqa.org/),
+    [mypy](http://mypy-lang.org/), Black and Pylint tests are run for
+    each pull request (see .travis.yml for the specific options). Pull
+    requests will not be accepted when the tests fail.
 
 -   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!

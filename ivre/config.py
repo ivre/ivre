@@ -31,6 +31,7 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 
 import os
 import stat
+from typing import Dict
 
 # Default values:
 DEBUG = False
@@ -119,7 +120,7 @@ DNS_BLACKLIST_DOMAINS = set(
 #          20202: 0.8,
 #      },
 #  }
-KNOWN_PORTS = {}
+KNOWN_PORTS: Dict[str, Dict[int, float]] = {}
 # Enable the recording of appearance times for flows. Will slow down a
 # bit the insertion rate
 FLOW_TIME = True
@@ -184,7 +185,7 @@ WEB_GET_NOTEPAD_PAGES = None
 WEB_LIMIT = 10
 WEB_GRAPH_LIMIT = 1000
 # access control disabled by default:
-WEB_INIT_QUERIES = {}
+WEB_INIT_QUERIES: Dict[str, str] = {}
 # Warning: None means no access control, and is equivalent to "full"
 WEB_DEFAULT_INIT_QUERY = None
 # upload disabled by default

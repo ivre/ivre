@@ -5,6 +5,7 @@ cryptography
 elasticsearch
 elasticsearch-dsl
 flake8
+mypy
 psycopg2
 pylint
 pymongo>=2.7.2
