@@ -6,8 +6,9 @@ mistakes and to enforce a consistent code style (or at least, attempt
 to do so).
 
 So far, only the Python code uses such linters (`Flake8
-<https://flake8.pycqa.org>`_, `Pylint <https://www.pylint.org/>`_ and
-`Black <https://github.com/psf/black>`_). Adding similar code linting
+<https://flake8.pycqa.org>`_, `Pylint <https://pylint.org/>`_, `Mypy
+<http://mypy-lang.org/>`_ and `Black
+<https://github.com/psf/black>`_). Adding similar code linting
 capabilities to the Zeek scripts (`zeek/`), LUA (`nmap_scripts/`) and
 JavaScript / HTML (`web/static/`) could be a good PR idea!
 

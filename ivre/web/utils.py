@@ -31,14 +31,14 @@ import shlex
 import sys
 
 try:
-    import MySQLdb
+    import MySQLdb  # type: ignore
 
     HAVE_MYSQL = True
 except ImportError:
     HAVE_MYSQL = False
 
 
-from bottle import request
+from bottle import request  # type: ignore
 
 
 from ivre import config, utils

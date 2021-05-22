@@ -1,4 +1,5 @@
 black
 codespell
 flake8
+mypy
 pylint
