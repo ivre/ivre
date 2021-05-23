@@ -22,10 +22,13 @@ documents from the active (nmap & view) purposes.
 """
 
 
+from typing import Any, Dict, List, Set, Union
+
+
 from ivre.utils import LOGGER
 
 
-def cpe2dict(cpe_str):
+def cpe2dict(cpe_str: str) -> Dict[str, Union[str, Set[str]]]:
     """Helper function to parse CPEs. This is a very partial/simple parser.
 
     Raises:
@@ -45,7 +48,7 @@ def cpe2dict(cpe_str):
     cpe_prod = parts[2] if nparts > 2 else ""
     cpe_vers = parts[3] if nparts > 3 else ""
 
-    ret = {
+    ret: Dict[str, Union[str, Set[str]]] = {
         "type": cpe_type,
         "vendor": cpe_vend,
         "product": cpe_prod,
@@ -54,7 +57,7 @@ def cpe2dict(cpe_str):
     return ret
 
 
-def add_cpe_values(hostrec, path, cpe_values):
+def add_cpe_values(hostrec: Dict[str, Any], path: str, cpe_values: List[str]) -> None:
     """Add CPE values (`cpe_values`) to the `hostrec` at the given `path`.
 
     CPEs are indexed in a dictionary to agglomerate origins, but this dict
@@ -74,4 +77,6 @@ def add_cpe_values(hostrec, path, cpe_values):
             cpes[cpe] = cpeobj
         else:
             cpeobj = cpes[cpe]
-        cpeobj.setdefault("origins", set()).add(path)
+        cpeorigins = cpeobj.setdefault("origins", set())
+        assert isinstance(cpeorigins, set)
+        cpeorigins.add(path)

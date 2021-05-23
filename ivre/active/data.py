@@ -26,6 +26,7 @@ from datetime import datetime
 from itertools import chain
 import re
 from textwrap import wrap
+from typing import Any, Callable, Dict, List, Set, Union
 
 
 from ivre.active.cpe import add_cpe_values
@@ -135,7 +136,7 @@ BIG_IP_ERROR_BANNER = re.compile("^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ")
 SONICWALL_ERROR_BANNER = re.compile("^\\(Ref.Id: \\?.*\\?\\)$")
 
 
-def create_ssl_output(info):
+def create_ssl_output(info: Dict[str, Any]) -> List[str]:
     out = []
     for key, name in [("subject_text", "Subject"), ("issuer_text", "Issuer")]:
         try:
@@ -178,7 +179,7 @@ def create_ssl_output(info):
     return out
 
 
-def is_real_service_port(port):
+def is_real_service_port(port: Dict[str, Any]) -> bool:
     """Decides whether a port has a "real" service (=> True) or if it is
     **possibly** a SYN-ACK "honeypot" (=> False).
 
@@ -219,7 +220,7 @@ def is_real_service_port(port):
     return False
 
 
-def set_openports_attribute(host):
+def set_openports_attribute(host: Dict[str, Any]) -> None:
     """This function sets the "openports" value in the `host` record,
     based on the elements of the "ports" list. This is used in MongoDB to
     speed up queries based on open ports.
@@ -236,7 +237,9 @@ def set_openports_attribute(host):
             cur["ports"].append(port["port"])
 
 
-def cleanup_synack_honeypot_host(host, update_openports=True):
+def cleanup_synack_honeypot_host(
+    host: Dict[str, Any], update_openports: bool = True
+) -> None:
     """This function will clean the `host` record if it has too many (at
     least `VIEW_SYNACK_HONEYPOT_COUNT`) open ports that may be "syn-ack"
     honeypots (which means, ports for which is_real_service_port() returns
@@ -260,16 +263,18 @@ def cleanup_synack_honeypot_host(host, update_openports=True):
             set_openports_attribute(host)
 
 
-def merge_ja3_scripts(curscript, script, script_id):
-    def is_server(script_id):
+def merge_ja3_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
+    def is_server(script_id: str) -> bool:
         return script_id == "ssl-ja3-server"
 
-    def ja3_equals(a, b, script_id):
+    def ja3_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return a["raw"] == b["raw"] and (
             not is_server(script_id) or a["client"]["raw"] == b["client"]["raw"]
         )
 
-    def ja3_output(ja3, script_id):
+    def ja3_output(ja3: Dict[str, Any], script_id: str) -> str:
         output = ja3["md5"]
         if is_server(script_id):
             output += " - " + ja3["client"]["md5"]
@@ -278,11 +283,13 @@ def merge_ja3_scripts(curscript, script, script_id):
     return _merge_scripts(curscript, script, script_id, ja3_equals, ja3_output)
 
 
-def merge_http_app_scripts(curscript, script, script_id):
-    def http_app_equals(a, b, script_id):
+def merge_http_app_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
+    def http_app_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return a["application"] == b["application"] and a["path"] == b["path"]
 
-    def http_app_output(app, script_id):
+    def http_app_output(app: Dict[str, Any], script_id: str) -> str:
         return "%s: path %s%s" % (
             app["application"],
             app["path"],
@@ -294,21 +301,25 @@ def merge_http_app_scripts(curscript, script, script_id):
     )
 
 
-def merge_ua_scripts(curscript, script, script_id):
-    def ua_equals(a, b, script_id):
+def merge_ua_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
+    def ua_equals(a: str, b: str, script_id: str) -> bool:
         return a == b
 
-    def ua_output(ua, script_id):
+    def ua_output(ua: str, script_id: str) -> str:
         return ua
 
     return _merge_scripts(curscript, script, script_id, ua_equals, ua_output)
 
 
-def merge_ssl_cert_scripts(curscript, script, script_id):
-    def cert_equals(a, b, script_id):
+def merge_ssl_cert_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
+    def cert_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return a["sha256"] == b["sha256"]
 
-    def cert_output(cert, script_id):
+    def cert_output(cert: Dict[str, Any], script_id: str) -> str:
         return "\n".join(create_ssl_output(cert))
 
     return _merge_scripts(
@@ -322,7 +333,9 @@ def merge_ssl_cert_scripts(curscript, script, script_id):
     )
 
 
-def merge_axfr_scripts(curscript, script, script_id):
+def merge_axfr_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
     # If one results has no structured output, keep the other
     # one. Prefer curscript over script.
     if script_id not in script:
@@ -331,7 +344,7 @@ def merge_axfr_scripts(curscript, script, script_id):
         curscript["output"] = script["output"]
         curscript[script_id] = script[script_id]
         return script
-    res = []
+    res: List[Dict[str, Any]] = []
     for data in chain(curscript[script_id], script[script_id]):
         if any(data["domain"] == r["domain"] for r in res):
             continue
@@ -355,7 +368,9 @@ def merge_axfr_scripts(curscript, script, script_id):
     return curscript
 
 
-def merge_scanner_scripts(curscript, script, script_id):
+def merge_scanner_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
     # If one results has no structured output, keep the other
     # one. Prefer curscript over script.
     if script_id not in script:
@@ -364,7 +379,7 @@ def merge_scanner_scripts(curscript, script, script_id):
         curscript["output"] = script["output"]
         curscript[script_id] = script[script_id]
         return script
-    res = {}
+    res: Dict[str, Any] = {}
     for data in [curscript[script_id], script[script_id]]:
         for proto, ports in data.get("ports", {}).items():
             if proto == "count":
@@ -439,8 +454,8 @@ def merge_scanner_scripts(curscript, script, script_id):
             )
         )
     if res.get("http_uris"):
-        uris_methods = {}
-        uris_versions = {}
+        uris_methods: Dict[str, Set[str]] = {}
+        uris_versions: Dict[str, Set[str]] = {}
         for uri in res["http_uris"]:
             uris_methods.setdefault(uri["uri"], set()).add(uri["method"])
             uris_versions.setdefault(uri["uri"], set()).add(uri["version"])
@@ -460,8 +475,8 @@ def merge_scanner_scripts(curscript, script, script_id):
             )
         )
     if res.get("dns_queries"):
-        queries_qtype = {}
-        queries_qclass = {}
+        queries_qtype: Dict[str, Set[str]] = {}
+        queries_qclass: Dict[str, Set[str]] = {}
         for query in res["dns_queries"]:
             queries_qtype.setdefault(query["query"], set()).add(query["qtype"])
             queries_qclass.setdefault(query["query"], set()).add(query["qclass"])
@@ -492,18 +507,22 @@ def merge_scanner_scripts(curscript, script, script_id):
     return curscript
 
 
-def merge_nuclei_scripts(curscript, script, script_id):
-    def nuclei_equals(a, b, script_id):
+def merge_nuclei_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
+    def nuclei_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return a == b
 
-    def nuclei_output(nuclei, script_id):
+    def nuclei_output(nuclei: Dict[str, Any], script_id: str) -> str:
         return "[%(severity)s] %(name)s found at %(url)s" % nuclei
 
     return _merge_scripts(curscript, script, script_id, nuclei_equals, nuclei_output)
 
 
-def merge_http_git_scripts(curscript, script, script_id):
-    repos = {}
+def merge_http_git_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
+    repos: Dict[str, Any] = {}
     for scr in [script, curscript]:
         for rep in scr.get(script_id, []):
             repos.setdefault(rep["repository"], set()).update(
@@ -521,7 +540,9 @@ def merge_http_git_scripts(curscript, script, script_id):
     return curscript
 
 
-def merge_dns_domains_scripts(curscript, script, script_id):
+def merge_dns_domains_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
     domains = {
         res["domain"]: (
             res["parents"] if "parents" in res else list(get_domains(res["domain"]))
@@ -544,7 +565,9 @@ def merge_dns_domains_scripts(curscript, script, script_id):
     return curscript
 
 
-def merge_dns_tls_rpt_scripts(curscript, script, script_id):
+def merge_dns_tls_rpt_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
     # overwrite results from script by those from curscript
     domains = {
         res["domain"]: res
@@ -578,7 +601,9 @@ def merge_dns_tls_rpt_scripts(curscript, script, script_id):
     return curscript
 
 
-def merge_dns_check_consistency_scripts(curscript, script, script_id):
+def merge_dns_check_consistency_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
     # overwrite results from script by those from curscript
     domains_name_type = {
         (res["domain"], res["name"], res["rtype"]): res
@@ -612,8 +637,18 @@ def merge_dns_check_consistency_scripts(curscript, script, script_id):
 
 
 def _merge_scripts(
-    curscript, script, script_id, script_equals, script_output, outsep="\n"
-):
+    curscript: Dict[str, Any],
+    script: Dict[str, Any],
+    script_id: str,
+    script_equals: Union[
+        Callable[[Dict[str, Any], Dict[str, Any], str], bool],
+        Callable[[str, str, str], bool],
+    ],
+    script_output: Union[
+        Callable[[Dict[str, Any], str], str], Callable[[str, str], str]
+    ],
+    outsep: str = "\n",
+) -> Dict[str, Any]:
     """Helper function to merge two scripts and return the result, using
     specific functions `script_equals` and `script_output`.
 
@@ -657,7 +692,9 @@ _SCRIPT_MERGE = {
 }
 
 
-def merge_scripts(curscript, script, script_id):
+def merge_scripts(
+    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
+) -> Dict[str, Any]:
     """Merge curscript with script"""
     try:
         func = _SCRIPT_MERGE[script_id]
@@ -666,7 +703,7 @@ def merge_scripts(curscript, script, script_id):
     return func(curscript, script, script_id)
 
 
-def merge_host_docs(rec1, rec2):
+def merge_host_docs(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict[str, Any]:
     """Merge two host records and return the result. Unmergeable /
     hard-to-merge fields are lost (e.g., extraports).
 
@@ -746,7 +783,7 @@ def merge_host_docs(rec1, rec2):
     rec["hostnames"] = [
         {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
     ]
-    addresses = {}
+    addresses: Dict[str, Any] = {}
     for record in [rec1, rec2]:
         for atype, addrs in record.get("addresses", {}).items():
             cur_addrs = addresses.setdefault(atype, [])
@@ -834,7 +871,13 @@ def merge_host_docs(rec1, rec2):
     return rec
 
 
-def handle_http_headers(host, port, headers, path="/", handle_server=True):
+def handle_http_headers(
+    host: Dict[str, Any],
+    port: Dict[str, Any],
+    headers: List[Dict[str, str]],
+    path: str = "/",
+    handle_server: bool = True,
+) -> None:
     """This function enriches scan results based on HTTP headers reported
     by the Nmap script http-headers or any similar report, such as
     Masscan or Zgrab(2).

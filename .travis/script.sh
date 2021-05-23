@@ -24,7 +24,7 @@ if [ "$DB" = "maxmind" ]; then
     fi
     echo "flake8 OK"
     mv ivre_bak ivre
-    if ! mypy ./ivre/{config,flow,graphroute,utils}.py; then
+    if ! mypy ./ivre/active/*.py ./ivre/{config,flow,graphroute,utils}.py; then
 	echo "mypy KO"
 	exit -1
     fi
