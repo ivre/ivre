@@ -31,7 +31,7 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 
 import os
 import stat
-from typing import Dict
+from typing import Dict, Generator, List, Optional
 
 # Default values:
 DEBUG = False
@@ -202,7 +202,7 @@ WEB_PUBLIC_SRV = False
 WEB_SECRET = None
 
 
-def get_config_file(paths=None):
+def get_config_file(paths: Optional[List[str]] = None) -> Generator[str, None, None]:
     """Generates (yields) the available config files, in the correct order."""
     if paths is None:
         paths = [
@@ -222,13 +222,13 @@ for fname in get_config_file():
     exec(compile(open(fname, "rb").read(), fname, "exec"))
 
 
-def guess_prefix(directory=None):
+def guess_prefix(directory: Optional[str] = None) -> Optional[str]:
     """Attempts to find the base directory where IVRE components are
     installed.
 
     """
 
-    def check_candidate(path, directory=None):
+    def check_candidate(path: str, directory: Optional[str] = None):
         """Auxiliary function that checks whether a particular path is a good
         candidate.
 
@@ -259,7 +259,7 @@ def guess_prefix(directory=None):
     return None
 
 
-def guess_share(soft):
+def guess_share(soft: str) -> Optional[str]:
     for path in [
         "/usr/local/share/%s" % soft,
         "/opt/%s/share/%s" % (soft, soft),

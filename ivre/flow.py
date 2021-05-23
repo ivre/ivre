@@ -20,7 +20,7 @@
 """This sub-module contains functions used for flow."""
 
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Generator, Optional, Union
 
 from ivre import utils, config
 
@@ -68,7 +68,7 @@ META_DESC_ARRAYS = ["dns.keys.answers"]
 # field name equals the parsed Zeek file field name.
 # If its associated value is a list, each internal field name equals its
 # corresponding parsed Zeek file field name.
-META_DESC = {
+META_DESC: Dict[str, Dict[str, Union[List[str], Dict[str, Optional[str]]]]] = {
     "arp": {
         "keys": ["op", "mac_src", "mac_dst"],
     },
@@ -172,10 +172,10 @@ META_DESC = {
 
 # Stores available fields
 # Populated by validate_field
-_ALL_FIELDS = None
+_ALL_FIELDS: Optional[Dict[str, bool]] = None
 
 
-def validate_field(field):
+def validate_field(field: str) -> None:
     """
     Validates whether the given field is valid.
     If the field does not exist, it raises a ValueError exception.
@@ -184,6 +184,7 @@ def validate_field(field):
     """
     if _ALL_FIELDS is None:
         _compute_available_fields()
+    assert _ALL_FIELDS is not None
     if field not in _ALL_FIELDS:
         raise ValueError(
             "%s is not a valid field. Use --fields to get "
@@ -197,7 +198,7 @@ def validate_field(field):
         )
 
 
-def _compute_available_fields():
+def _compute_available_fields() -> None:
     """
     Computes available fields from FIELDS and META_DESC and stores them in
     _ALL_FIELDS. It is a dictionary where keys are fields and values
@@ -217,6 +218,9 @@ def _compute_available_fields():
             _ALL_FIELDS["meta.%s.%s" % (meta, name)] = meta_enabled
 
 
+Clause = Dict[str, Optional[Union[bool, str]]]
+
+
 class Query:
     # The order matters because regex pipe is ungreedy
     operators_chars = [":", "==", "=~", "=", "!=", "<=", "<", ">=", ">"]
@@ -226,27 +230,27 @@ class Query:
     # Used to split filter in tokens (attributes, operators, values)
     # Example: '"test" test' is divided in 2 groups "test" and test
     splitter_re = re.compile('(?:[^\\s"]|"(?:\\\\.|[^"])*")+')
-    clauses: List[List[Optional[Dict[str, bool]]]] = []
+    clauses: List[List[Clause]] = []
 
     @classmethod
-    def _split_filter_or(cls, flt):
-        current = []
+    def _split_filter_or(cls, flt: str) -> Generator[str, None, None]:
+        current: List[str] = []
         for subflt in cls.splitter_re.finditer(flt):
-            subflt = subflt.group()
-            if cls.or_re.search(subflt):
+            subflt_str = subflt.group()
+            if cls.or_re.search(subflt_str):
                 yield " ".join(current)
                 current = []
             else:
-                current.append(subflt)
+                current.append(subflt_str)
         yield " ".join(current)
 
-    def _add_clause_from_filter(self, flt):
+    def _add_clause_from_filter(self, flt: str) -> Optional[Clause]:
         """
         Returns a clause object computed from the given filter
         flt format is
         "[!|-|~][ANY |ALL |ONE |NONE |LEN ]<attr>[operator <value>]"
         """
-        clause = {
+        clause: Clause = {
             "neg": False,
             "array_mode": None,
             "len_mode": False,
@@ -272,23 +276,22 @@ class Query:
             clause["len_mode"] = True
             flt = flt[4:]
 
-        try:
-            clause["operator"] = self.operators_re.search(flt).group()
-        except AttributeError:
-            clause["operator"] = None
-            clause["attr"] = flt
-        else:
-            clause["attr"], value = [
-                elt.strip() for elt in flt.split(clause["operator"], 1)
-            ]
+        op_match = self.operators_re.search(flt)
+        if op_match is not None:
+            operator = clause["operator"] = op_match.group()
+            attr, value = [elt.strip() for elt in flt.split(operator, 1)]
             clause["value"] = utils.str2pyval(value)
+            clause["attr"] = attr
+        else:
+            clause["operator"] = None
+            attr = clause["attr"] = flt
         # Validate field
         # 'addr' is a shortcut for src.addr OR dst.addr
-        if clause["attr"] != "addr":
-            validate_field(clause["attr"])
+        if attr != "addr":
+            validate_field(attr)
         return clause
 
-    def add_clause_from_filter(self, flt, mode="node"):
+    def add_clause_from_filter(self, flt: str, mode: str = "node") -> None:
         """
         Returns an array representing "AND" clauses, each
         clauses being an array of "OR" clauses
@@ -303,11 +306,11 @@ class Query:
                     clauses.append(subclause)
         return self.add_clause(clauses)
 
-    def add_clause(self, clause):
-        self.clauses.append(clause)
+    def add_clause(self, clauses: List[Clause]) -> None:
+        self.clauses.append(clauses)
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.clauses = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.clauses)
