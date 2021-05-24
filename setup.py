@@ -183,6 +183,7 @@ setup(
         "ivre/db/sql",
         "ivre/parser",
         "ivre/tools",
+        "ivre/types",
         "ivre/web",
     ],
     scripts=["bin/ivre"],

@@ -26,13 +26,14 @@ IVRE is a network recon framework. See https://ivre.rocks/
 import os
 import re
 import subprocess
+from typing import Optional, Tuple, cast
 
 
 _DIR = os.path.dirname(__file__)
 _VERSION_FILE = os.path.join(_DIR, "VERSION")
 
 
-def _get_version_from_file():
+def _get_version_from_file() -> Optional[str]:
     try:
         with open(_VERSION_FILE) as fdesc:
             return fdesc.read()
@@ -40,7 +41,7 @@ def _get_version_from_file():
         return None
 
 
-def _get_version_from_git():
+def _get_version_from_git() -> str:
     with subprocess.Popen(
         [b"git", b"rev-parse", b"--show-toplevel"],
         stdout=subprocess.PIPE,
@@ -66,14 +67,14 @@ def _get_version_from_git():
     match = re.match("^v?(.+?)-(\\d+)-g[a-f0-9]+$", tag)
     if match:
         # remove the 'v' prefix and add a '.devN' suffix
-        value = "%s.dev%s" % match.groups()
+        value = "%s.dev%s" % cast(Tuple[str, str], match.groups())
     else:
         # just remove the 'v' prefix
         value = tag[1:] if tag.startswith("v") else tag
     return value
 
 
-def _version():
+def _version() -> Optional[str]:
     try:
         tag = _get_version_from_git()
     except (subprocess.CalledProcessError, OSError, ValueError):

@@ -1,4 +1,5 @@
-#! /bin/sh
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
 # Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
@@ -16,10 +17,28 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-PIP_INSTALL_OPTIONS=""
-# We only run codespell, mypy and pylint once, with Python 3.9
-if [ "$TRAVIS_PYTHON_VERSION" = 3.9 ]; then
-    pip install -U $PIP_INSTALL_OPTIONS -r requirements-linting.txt
-else
-    pip install -U $PIP_INSTALL_OPTIONS flake8
-fi
+
+"""
+Specific type definitions for IVRE (active)
+"""
+
+
+from typing import Dict
+
+try:
+    from typing import TypedDict
+except ImportError:
+    HAS_TYPED_DICT = False
+else:
+    HAS_TYPED_DICT = True
+
+
+if HAS_TYPED_DICT:
+
+    class HttpHeader(TypedDict):
+        name: str
+        value: str
+
+
+else:
+    HttpHeader = Dict[str, str]  # type: ignore

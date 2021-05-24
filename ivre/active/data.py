@@ -26,11 +26,12 @@ from datetime import datetime
 from itertools import chain
 import re
 from textwrap import wrap
-from typing import Any, Callable, Dict, List, Set, Union
+from typing import Any, Callable, Dict, List, Set, Union, cast
 
 
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
+from ivre.types.active import HttpHeader
 from ivre.utils import get_domains, nmap_decode_data, nmap_encode_data, ports2nmapspec
 
 
@@ -275,7 +276,7 @@ def merge_ja3_scripts(
         )
 
     def ja3_output(ja3: Dict[str, Any], script_id: str) -> str:
-        output = ja3["md5"]
+        output = cast(str, ja3["md5"])
         if is_server(script_id):
             output += " - " + ja3["client"]["md5"]
         return output
@@ -287,7 +288,9 @@ def merge_http_app_scripts(
     curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
 ) -> Dict[str, Any]:
     def http_app_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
-        return a["application"] == b["application"] and a["path"] == b["path"]
+        return cast(
+            bool, a["application"] == b["application"] and a["path"] == b["path"]
+        )
 
     def http_app_output(app: Dict[str, Any], script_id: str) -> str:
         return "%s: path %s%s" % (
@@ -317,7 +320,7 @@ def merge_ssl_cert_scripts(
     curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
 ) -> Dict[str, Any]:
     def cert_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
-        return a["sha256"] == b["sha256"]
+        return cast(bool, a["sha256"] == b["sha256"])
 
     def cert_output(cert: Dict[str, Any], script_id: str) -> str:
         return "\n".join(create_ssl_output(cert))
@@ -540,6 +543,14 @@ def merge_http_git_scripts(
     return curscript
 
 
+def sort_key_dom(domain: str) -> List[str]:
+    """Takes a host / domain name and returns the list of the labels,
+    reversed, so that it can be used by sorted() / .sort()
+
+    """
+    return domain.strip().split(".")[::-1]
+
+
 def merge_dns_domains_scripts(
     curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
 ) -> Dict[str, Any]:
@@ -551,7 +562,7 @@ def merge_dns_domains_scripts(
         for res in scr.get(script_id, [])
         if "domain" in res
     }
-    domains_order = sorted(domains, key=lambda v: v.strip().split(".")[::-1])
+    domains_order = sorted(domains, key=sort_key_dom)
     if len(domains_order) == 1:
         output = "Server is authoritative for %s" % domains_order[0]
     else:
@@ -575,7 +586,7 @@ def merge_dns_tls_rpt_scripts(
         for res in scr.get(script_id, [])
         if "domain" in res
     }
-    domains_order = sorted(domains, key=lambda v: v.strip().split(".")[::-1])
+    domains_order = sorted(domains, key=sort_key_dom)
     output = []
     for dom in domains_order:
         cur_data = domains[dom]
@@ -614,8 +625,8 @@ def merge_dns_check_consistency_scripts(
     domains_name_type_order = sorted(
         domains_name_type,
         key=lambda v: (
-            v[0].strip().split(".")[::-1],
-            v[1].strip().split(".")[::-1],
+            sort_key_dom(v[0]),
+            sort_key_dom(v[1]),
             v[2],
         ),
     )
@@ -874,7 +885,7 @@ def merge_host_docs(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict[str, Any
 def handle_http_headers(
     host: Dict[str, Any],
     port: Dict[str, Any],
-    headers: List[Dict[str, str]],
+    headers: List[HttpHeader],
     path: str = "/",
     handle_server: bool = True,
 ) -> None:

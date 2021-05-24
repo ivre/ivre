@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 
 from argparse import ArgumentParser
 import pipes
+from typing import Dict, Iterable, List, Optional
 
 
 from ivre import config
@@ -37,7 +38,7 @@ ARGPARSER.add_argument(
     default="default",
 )
 
-NMAP_OPT_PORTS = {
+NMAP_OPT_PORTS: Dict[Optional[str], List[str]] = {
     None: [],
     "fast": ["-F"],
     "more": ["--top-ports", "2000"],
@@ -48,22 +49,22 @@ NMAP_OPT_PORTS = {
 class Scan:
     def __init__(
         self,
-        nmap="nmap",
-        pings="SE",
-        scans="SV",
-        osdetect=True,
-        traceroute=True,
-        resolve=1,
-        verbosity=2,
-        ports=None,
-        top_ports=None,
-        host_timeout=None,
-        script_timeout=None,
-        scripts_categories=None,
-        scripts_exclude=None,
-        scripts_force=None,
-        extra_options=None,
-    ):
+        nmap: str = "nmap",
+        pings: str = "SE",
+        scans: str = "SV",
+        osdetect: bool = True,
+        traceroute: bool = True,
+        resolve: int = 1,
+        verbosity: int = 2,
+        ports: Optional[str] = None,
+        top_ports: Optional[int] = None,
+        host_timeout: Optional[str] = None,
+        script_timeout: Optional[str] = None,
+        scripts_categories: Optional[Iterable[str]] = None,
+        scripts_exclude: Optional[Iterable[str]] = None,
+        scripts_force: Optional[Iterable[str]] = None,
+        extra_options: Optional[Iterable[str]] = None,
+    ) -> None:
         self.nmap = nmap
         self.pings = set(pings)
         self.scans = set(scans)
@@ -78,21 +79,21 @@ class Scan:
         if self.ports:
             self.top_ports = None
         if scripts_categories is None:
-            self.scripts_categories = []
+            self.scripts_categories: Iterable[str] = []
         else:
             self.scripts_categories = scripts_categories
         if scripts_exclude is None:
-            self.scripts_exclude = []
+            self.scripts_exclude: Iterable[str] = []
         else:
             self.scripts_exclude = scripts_exclude
         if scripts_force is None:
-            self.scripts_force = []
+            self.scripts_force: Iterable[str] = []
         else:
             self.scripts_force = scripts_force
         self.extra_options = extra_options
 
     @property
-    def options(self):
+    def options(self) -> List[str]:
         options = [self.nmap]
         # use -A instead of many options when possible
         if (
@@ -149,7 +150,7 @@ class Scan:
             options.append("-R")
         if self.verbosity:
             options.append("-%s" % ("v" * self.verbosity))
-        options.extend(NMAP_OPT_PORTS.get(self.ports, ["-p", self.ports]))
+        options.extend(NMAP_OPT_PORTS.get(self.ports, ["-p", self.ports]))  # type: ignore
         if self.top_ports is not None:
             options.extend(["--top-ports", str(self.top_ports)])
         if self.host_timeout is not None:
@@ -163,9 +164,9 @@ class Scan:
         return options
 
 
-def build_nmap_options(template="default"):
+def build_nmap_options(template: str = "default") -> List[str]:
     return Scan(**config.NMAP_SCAN_TEMPLATES[template]).options
 
 
-def build_nmap_commandline(template="default"):
+def build_nmap_commandline(template: str = "default") -> str:
     return " ".join(pipes.quote(elt) for elt in build_nmap_options(template=template))
