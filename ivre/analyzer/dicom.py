@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,12 +18,14 @@
 
 
 import struct
+from typing import Dict, Generator, Tuple, Union, cast
 
 
+from ivre.types.active import NmapPort
 from ivre import utils
 
 
-def _gen_items(data):
+def _gen_items(data: bytes) -> Generator[Tuple[int, bytes], None, None]:
     while data:
         if len(data) < 4:
             utils.LOGGER.debug(
@@ -54,43 +56,46 @@ _USER_INFO_ITEMS = {
 }
 
 
-def _parse_items(data):
-    res = {}
+def _parse_items(data: bytes) -> Dict[str, Union[int, str]]:
+    res: Dict[str, Union[int, str]] = {}
     items = dict(_gen_items(data))
     if 0x50 not in items:
         utils.LOGGER.warning("No User Info in items [%r]", items)
         return res
+    ivalue: bytes
+    ivalue_parsed: Union[int, str]
     for itype, ivalue in _gen_items(items[0x50]):
         if itype == 0x51:
             try:
-                ivalue = struct.unpack(">I", ivalue)[0]
+                ivalue_parsed = cast(int, struct.unpack(">I", ivalue)[0])
             except struct.error:
                 utils.LOGGER.warning(
                     "Cannot convert max_pdu_length value to an integer [%r]",
                     ivalue,
                 )
+                ivalue_parsed = utils.encode_b64(ivalue).decode()
         else:
             try:
-                ivalue = ivalue.decode("ascii")
+                ivalue_parsed = ivalue.decode("ascii")
             except struct.error:
                 utils.LOGGER.warning(
                     "Cannot convert value to an ASCII string [%r]",
                     ivalue,
                 )
-                ivalue = utils.encode_b64(ivalue).decode()
+                ivalue_parsed = utils.encode_b64(ivalue).decode()
         try:
-            itype = _USER_INFO_ITEMS[itype]
+            itype_parsed = _USER_INFO_ITEMS[itype]
         except KeyError:
             utils.LOGGER.warning(
                 "Unknown item type in User Info %02x [%r]", itype, ivalue
             )
-            itype = "unknown_%02x" % itype
-        res[itype] = ivalue
+            itype_parsed = "unknown_%02x" % itype
+        res[itype_parsed] = ivalue_parsed
     return res
 
 
-def parse_message(data):
-    res = {}
+def parse_message(data: bytes) -> NmapPort:
+    res: NmapPort = {}
     if len(data) < 6:
         utils.LOGGER.debug(
             "Message too short: probably not a DICOM message [%r]",
@@ -112,7 +117,7 @@ def parse_message(data):
         return res
     if rtype in [2, 3]:  # Associate accept / reject
         res["service_name"] = "dicom"
-        extra_info = {}
+        extra_info: Dict[str, Union[int, str]] = {}
         if rtype == 2:
             msg = "Any AET is accepted (Insecure)"
             if (
@@ -132,20 +137,25 @@ def parse_message(data):
                 # Source: user (01)
                 # Reason: called AE title not recognized (07)
                 extra_info = {"info": "Unusual reject message"}
-        script = {
-            "id": "dicom-ping",
-            "output": (
-                "\n  dicom: DICOM Service Provider discovered!" "\n  config: %s" % msg
-            ),
-            "dicom-ping": {
-                "dicom": "DICOM Service Provider discovered!",
-                "config": msg,
-            },
+        script_output = [
+            "",
+            "dicom: DICOM Service Provider discovered!",
+            "config: %s" % msg,
+        ]
+        script_data: Dict[str, Union[int, str]] = {
+            "dicom": "DICOM Service Provider discovered!",
+            "config": msg,
         }
         for key, value in extra_info.items():
-            script["output"] += "\n  %s: %s" % (key, value)
-            script["dicom-ping"][key] = value
-        res["scripts"] = [script]
+            script_output.append("%s: %s" % (key, value))
+            script_data[key] = value
+        res["scripts"] = [
+            {
+                "id": "dicom-ping",
+                "output": "\n  ".join(script_output),
+                "dicom-ping": script_data,
+            }
+        ]
         return res
     utils.LOGGER.debug(
         "Unknown message type [%r]: probably not a DICOM message [%r]",

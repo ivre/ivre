@@ -22,14 +22,17 @@
 """
 
 
-import re
 import binascii
+import re
+from typing import Any, Dict, List, Optional, cast
 
 
-from ivre import utils
 from ivre.analyzer import ntlm
 from ivre.active.cpe import add_cpe_values
 from ivre.active.data import handle_http_headers
+from ivre.types import NmapServiceMatch
+from ivre.types.active import HttpHeader, NmapHost, NmapPort
+from ivre import utils
 from ivre.xmlnmap import (
     add_cert_hostnames,
     add_hostname,
@@ -63,7 +66,9 @@ ntlm_values = [
 ]
 
 
-def zgrap_parser_http(data, hostrec, port=None):
+def zgrap_parser_http(
+    data: Dict[str, Any], hostrec: NmapHost, port: Optional[int] = None
+) -> NmapPort:
     """This function handles data from `{"data": {"http": [...]}}`
     records. `data` should be the content, i.e. the `[...]`. It should
     consist of simple dictionary, that may contain a `"response"` key
@@ -93,7 +98,7 @@ def zgrap_parser_http(data, hostrec, port=None):
         return {}
     req = resp["request"]
     url = req.get("url")
-    res = {
+    res: NmapPort = {
         "service_name": "http",
         "service_method": "probed",
         "state_state": "open",
@@ -116,16 +121,16 @@ def zgrap_parser_http(data, hostrec, port=None):
         except KeyError:
             pass
         else:
-            output, info = create_ssl_cert(cert.encode(), b64encoded=True)
-            if info:
+            output, info_cert = create_ssl_cert(cert.encode(), b64encoded=True)
+            if info_cert:
                 res.setdefault("scripts", []).append(
                     {
                         "id": "ssl-cert",
                         "output": output,
-                        "ssl-cert": info,
+                        "ssl-cert": info_cert,
                     }
                 )
-                for cert in info:
+                for cert in info_cert:
                     add_cert_hostnames(cert, hostrec.setdefault("hostnames", []))
     if url:
         try:
@@ -169,27 +174,29 @@ def zgrap_parser_http(data, hostrec, port=None):
         if url.get("path").endswith("/owa/auth/logon.aspx"):
             if resp.get("status_code") != 200:
                 return {}
-            version = set(
+            version_set = set(
                 m.group(1) for m in _EXPR_OWA_VERSION.finditer(resp.get("body", ""))
             )
-            if not version:
+            if not version_set:
                 return {}
-            version = sorted(version, key=lambda v: [int(x) for x in v.split(".")])
+            version_list = sorted(
+                version_set, key=lambda v: [int(x) for x in v.split(".")]
+            )
             res["port"] = port
             path = url["path"][:-15]
-            if len(version) > 1:
+            if len(version_set) > 1:
                 output = "OWA: path %s, version %s (multiple versions found!)" % (
                     path,
-                    " / ".join(version),
+                    " / ".join(version_list),
                 )
             else:
-                output = "OWA: path %s, version %s" % (path, version[0])
+                output = "OWA: path %s, version %s" % (path, version_list[0])
             res.setdefault("scripts", []).append(
                 {
                     "id": "http-app",
                     "output": output,
                     "http-app": [
-                        {"path": path, "application": "OWA", "version": version[0]}
+                        {"path": path, "application": "OWA", "version": version_list[0]}
                     ],
                 }
             )
@@ -208,6 +215,7 @@ def zgrap_parser_http(data, hostrec, port=None):
             if match.groups()[0] != "Centreon - IT & Network Monitoring":
                 return {}
             match = _EXPR_CENTREON_VERSION.search(body)
+            version: Optional[str]
             if match is None:
                 version = None
             else:
@@ -260,6 +268,8 @@ def zgrap_parser_http(data, hostrec, port=None):
                         )
                     except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
                         continue
+                    if not infos:
+                        continue
                     keyvals = zip(ntlm_values, [infos.get(k) for k in ntlm_values])
                     output = "\n".join("{}: {}".format(k, v) for k, v in keyvals if v)
                     res.setdefault("scripts", []).append(
@@ -282,24 +292,24 @@ def zgrap_parser_http(data, hostrec, port=None):
             return res
         # the order will be incorrect!
         line = "%s %s" % (resp["protocol"]["name"], resp["status_line"])
-        http_hdrs = [{"name": "_status", "value": line}]
-        output = [line]
+        http_hdrs: List[HttpHeader] = [{"name": "_status", "value": line}]
+        output_list = [line]
         for unk in headers.pop("unknown", []):
             headers[unk["key"]] = unk["value"]
         for hdr, values in headers.items():
             hdr = hdr.replace("_", "-")
             for val in values:
                 http_hdrs.append({"name": hdr, "value": val})
-                output.append("%s: %s" % (hdr, val))
+                output_list.append("%s: %s" % (hdr, val))
         if http_hdrs:
             method = req.get("method")
             if method:
-                output.append("")
-                output.append("(Request type: %s)" % method)
+                output_list.append("")
+                output_list.append("(Request type: %s)" % method)
             res.setdefault("scripts", []).append(
                 {
                     "id": "http-headers",
-                    "output": "\n".join(output),
+                    "output": "\n".join(output_list),
                     "http-headers": http_hdrs,
                 }
             )
@@ -308,10 +318,12 @@ def zgrap_parser_http(data, hostrec, port=None):
             banner += (
                 b"Server: " + utils.nmap_decode_data(headers["server"][0]) + b"\r\n\r\n"
             )
-    info = utils.match_nmap_svc_fp(banner, proto="tcp", probe="GetRequest")
+    info: NmapServiceMatch = utils.match_nmap_svc_fp(
+        banner, proto="tcp", probe="GetRequest"
+    )
     if info:
         add_cpe_values(hostrec, "ports.port:%s" % port, info.pop("cpe", []))
-        res.update(info)
+        res.update(cast(NmapPort, info))
     if resp.get("body"):
         body = resp["body"]
         res.setdefault("scripts", []).append(
@@ -335,20 +347,22 @@ def zgrap_parser_http(data, hostrec, port=None):
             res.setdefault("scripts", []).append(script_http_ls)
         service_elasticsearch = create_elasticsearch_service(body)
         if service_elasticsearch:
-            if "hostname" in service_elasticsearch:
+            if "service_hostname" in service_elasticsearch:
                 add_hostname(
-                    service_elasticsearch.pop("hostname"),
+                    service_elasticsearch["service_hostname"],
                     "service",
                     hostrec.setdefault("hostnames", []),
                 )
             add_cpe_values(
                 hostrec, "ports.port:%s" % port, service_elasticsearch.pop("cpe", [])
             )
-            res.update(service_elasticsearch)
+            res.update(cast(NmapPort, service_elasticsearch))
     return res
 
 
-def zgrap_parser_jarm(data, hostrec, port=None):
+def zgrap_parser_jarm(
+    data: Dict[str, Any], hostrec: NmapHost, port: Optional[int] = None
+) -> NmapPort:
     """This function handles data from `{"data": {"jarm": [...]}}`
     records. `data` should be the content, i.e. the `[...]`. It should
     consist of simple dictionary, that must contain a `"status"` key and a

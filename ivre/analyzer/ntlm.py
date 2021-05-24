@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -18,14 +18,15 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-import struct
 import binascii
+import struct
+from typing import Any, Dict, Optional
 
 
 from ivre import utils
 
 
-def _extract_substr(ntlm_msg, offset, ln, uses_unicode):
+def _extract_substr(ntlm_msg: bytes, offset: int, ln: int, uses_unicode: bool) -> str:
     """
     Extract the string at te given offset and of the given length from an
     NTLM message
@@ -69,7 +70,7 @@ flag_oem = 0x2
 
 # https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-NLMP/%5bMS-NLMP%5d.pdf
 # p34
-def is_unicode(msg, flags):
+def is_unicode(msg: bytes, flags: int) -> bool:
     if flags & flag_unicode:
         return True
     if flags & flag_oem:
@@ -78,7 +79,7 @@ def is_unicode(msg, flags):
     return False
 
 
-def _ntlm_negotiate_extract(negotiate):
+def _ntlm_negotiate_extract(negotiate: bytes) -> Optional[Dict[str, Any]]:
     """
     Extract host information in an NTLMSSP_NEGOTIATE message
     """
@@ -127,7 +128,7 @@ info_types = {
 }
 
 
-def _ntlm_challenge_extract(challenge):
+def _ntlm_challenge_extract(challenge: bytes) -> Optional[Dict[str, Any]]:
     """
     Extract host information in an NTLMSSP_CHALLENGE message
     """
@@ -220,7 +221,7 @@ def _ntlm_challenge_extract(challenge):
     return value
 
 
-def _ntlm_authenticate_info(request):
+def _ntlm_authenticate_info(request: bytes) -> Optional[Dict[str, Any]]:
     """
     Extract host information in an NTLMSSP_AUTH message
     """
@@ -243,7 +244,7 @@ def _ntlm_authenticate_info(request):
     flags = 0x0
     if offset >= 64 and request[64:]:
         (flags,) = struct.unpack("I", request[60:64])
-        has_version = flags & flag_version
+        has_version = bool(flags & flag_version)
 
     uses_unicode = is_unicode(request, flags)
     ln, off = struct.unpack("H2xI", request[28:36])
@@ -284,7 +285,7 @@ def _ntlm_authenticate_info(request):
     return value
 
 
-def ntlm_extract_info(value):
+def ntlm_extract_info(value: bytes) -> Optional[Dict[str, Any]]:
     """
     Extract valuable host information from an NTLM message
     """
@@ -303,7 +304,7 @@ def ntlm_extract_info(value):
     return {}
 
 
-def _ntlm_dict2string(dic):
+def _ntlm_dict2string(dic: Dict[str, str]) -> str:
     """
     Returns a string with the keys and values (encoded in base64)
     of the given dict, in the format
@@ -321,7 +322,7 @@ def _ntlm_dict2string(dic):
     )
 
 
-def _is_ntlm_message(message):
+def _is_ntlm_message(message: str) -> bool:
     """
     Checks whether the given string is an NTLM message
     """

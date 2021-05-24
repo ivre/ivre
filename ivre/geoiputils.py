@@ -28,6 +28,7 @@ import csv
 import os.path
 import sys
 import tarfile
+from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Tuple
 from urllib.request import build_opener
 import zipfile
 
@@ -35,8 +36,9 @@ import zipfile
 from ivre import VERSION, utils, config
 
 
-def bgp_raw_to_csv(fname, outname):
+def bgp_raw_to_csv(fname: str, outname: str) -> None:
     cur = None
+    assert config.GEOIP_PATH is not None
     with open(os.path.join(config.GEOIP_PATH, fname), "rb") as fdesc, open(
         os.path.join(config.GEOIP_PATH, outname), "w"
     ) as out:
@@ -69,7 +71,12 @@ def bgp_raw_to_csv(fname, outname):
             out.write("%d,%d\n" % cur)
 
 
-def unzip_all(fname, cond=None, clean=True):
+def unzip_all(
+    fname: str,
+    cond: Optional[Callable[[zipfile.ZipInfo], bool]] = None,
+    clean: bool = True,
+) -> None:
+    assert config.GEOIP_PATH is not None
     with zipfile.ZipFile(os.path.join(config.GEOIP_PATH, fname)) as zdesc:
         for filedesc in zdesc.infolist():
             if cond and not cond(filedesc):
@@ -83,9 +90,10 @@ def unzip_all(fname, cond=None, clean=True):
         os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
 
-def gunzip(fname, clean=True):
+def gunzip(fname: str, clean: bool = True) -> None:
     if not fname.endswith(".gz"):
         raise Exception('filename should end with ".gz"')
+    assert config.GEOIP_PATH is not None
     with utils.open_file(os.path.join(config.GEOIP_PATH, fname)) as inp:
         with open(os.path.join(config.GEOIP_PATH, fname[:-3]), "wb") as outp:
             outp.write(inp.read())
@@ -93,7 +101,12 @@ def gunzip(fname, clean=True):
         os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
 
-def untar_all(fname, cond=None, clean=True):
+def untar_all(
+    fname: str,
+    cond: Optional[Callable[[tarfile.TarInfo], bool]] = None,
+    clean: bool = True,
+) -> None:
+    assert config.GEOIP_PATH is not None
     with tarfile.TarFile(os.path.join(config.GEOIP_PATH, fname)) as tdesc:
         for filedesc in tdesc:
             if cond and not cond(filedesc):
@@ -101,18 +114,22 @@ def untar_all(fname, cond=None, clean=True):
             with open(
                 os.path.join(config.GEOIP_PATH, os.path.basename(filedesc.name)), "wb"
             ) as wdesc:
-                wdesc.write(tdesc.extractfile(filedesc).read())
+                rdesc = tdesc.extractfile(filedesc)
+                if rdesc is None:
+                    continue
+                wdesc.write(rdesc.read())
     if clean:
         os.unlink(os.path.join(config.GEOIP_PATH, fname))
 
 
-def rename(src, dst):
+def rename(src: str, dst: str) -> None:
+    assert config.GEOIP_PATH is not None
     os.rename(
         os.path.join(config.GEOIP_PATH, src), os.path.join(config.GEOIP_PATH, dst)
     )
 
 
-PARSERS = [
+PARSERS: List[Tuple[Callable, List[str], Dict[str, Any]]] = [
     (
         unzip_all,
         ["GeoLite2-City-CSV.zip"],
@@ -156,7 +173,8 @@ PARSERS = [
 ]
 
 
-def download_all(verbose=False):
+def download_all(verbose: bool = False) -> None:
+    assert config.GEOIP_PATH is not None
     utils.makedirs(config.GEOIP_PATH)
     opener = build_opener()
     opener.addheaders = [("User-agent", "IVRE/%s +https://ivre.rocks/" % VERSION)]
@@ -203,7 +221,8 @@ def download_all(verbose=False):
         sys.stdout.write("done.\n")
 
 
-def locids_by_country(country_code):
+def locids_by_country(country_code: str) -> Generator[int, None, None]:
+    assert config.GEOIP_PATH is not None
     fdesc = csv.DictReader(
         codecs.open(
             os.path.join(
@@ -218,7 +237,8 @@ def locids_by_country(country_code):
             yield int(line["geoname_id"])
 
 
-def locids_by_city(country_code, city_name):
+def locids_by_city(country_code: str, city_name: str) -> Generator[int, None, None]:
+    assert config.GEOIP_PATH is not None
     fdesc = csv.DictReader(
         codecs.open(
             os.path.join(
@@ -234,7 +254,8 @@ def locids_by_city(country_code, city_name):
             yield int(line["geoname_id"])
 
 
-def locids_by_region(country_code, reg_code):
+def locids_by_region(country_code: str, reg_code: str) -> Generator[int, None, None]:
+    assert config.GEOIP_PATH is not None
     fdesc = csv.DictReader(
         codecs.open(
             os.path.join(
@@ -253,23 +274,23 @@ def locids_by_region(country_code, reg_code):
 
 
 class IPRanges:
-    def __init__(self, ranges=None):
+    def __init__(self, ranges: Optional[Iterable[Tuple[int, int]]] = None) -> None:
         """ranges must be given in the "correct" order *and* not
         overlap.
 
         """
-        self.ranges = {}
+        self.ranges: Dict[int, Tuple[int, int]] = {}
         self.length = 0
         if ranges is not None:
             for rnge in ranges:
                 self.append(*rnge)
 
-    def append(self, start, stop):
+    def append(self, start: int, stop: int) -> None:
         length = stop - start + 1
         self.ranges[self.length] = (start, length)
         self.length += int(length)  # in case it's a long
 
-    def union(self, *others):
+    def union(self, *others: "IPRanges") -> "IPRanges":
         res = IPRanges()
         gens = [self.iter_int_ranges()] + [o.iter_int_ranges() for o in others]
         curs = []
@@ -321,30 +342,30 @@ class IPRanges:
             res.append(*cur_range)
         return res
 
-    def iter_int_ranges(self):
+    def iter_int_ranges(self) -> Generator[Tuple[int, int], None, None]:
         for start, length in sorted(self.ranges.values()):
             yield start, start + length - 1
 
-    def iter_ranges(self):
+    def iter_ranges(self) -> Generator[Tuple[str, str], None, None]:
         for start, length in sorted(self.ranges.values()):
             yield utils.int2ip(start), utils.int2ip(start + length - 1)
 
-    def iter_nets(self):
+    def iter_nets(self) -> Generator[str, None, None]:
         for start, length in sorted(self.ranges.values()):
             for net in utils.range2nets(
                 (utils.int2ip(start), utils.int2ip(start + length - 1))
             ):
                 yield net
 
-    def iter_addrs(self):
+    def iter_addrs(self) -> Generator[str, None, None]:
         for start, length in sorted(self.ranges.values()):
             for val in range(start, start + length):
                 yield utils.int2ip(val)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.length
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> int:
         rangeindex = max(k for k in self.ranges if k <= item)
         item -= rangeindex
         rnge = self.ranges[rangeindex]
@@ -353,42 +374,48 @@ class IPRanges:
         raise IndexError("index out of range")
 
 
-def _get_by_data(datafile, condition):
+ConditionCallback = Callable[[List[str]], bool]
+
+
+def _get_by_data(
+    datafile: str, condition: ConditionCallback
+) -> Generator[Tuple[int, int], None, None]:
+    assert config.GEOIP_PATH is not None
     with open(os.path.join(config.GEOIP_PATH, datafile)) as fdesc:
         for line in fdesc:
-            line = line[:-1].split(",")
-            if condition(line):
-                yield int(line[0]), int(line[1])
+            line_parsed = line[:-1].split(",")
+            if condition(line_parsed):
+                yield int(line_parsed[0]), int(line_parsed[1])
 
 
-def get_ranges_by_data(datafile, condition):
+def get_ranges_by_data(datafile: str, condition: ConditionCallback) -> IPRanges:
     rnge = IPRanges()
     for start, stop in _get_by_data(datafile, condition):
         rnge.append(start, stop)
     return rnge
 
 
-def get_ranges_by_country(code):
+def get_ranges_by_country(code: str) -> IPRanges:
     return get_ranges_by_data(
         "GeoLite2-Country.dump-IPv4.csv",
         lambda line: line[2] == code,
     )
 
 
-def get_ranges_by_registered_country(code):
+def get_ranges_by_registered_country(code: str) -> IPRanges:
     return get_ranges_by_data(
         "GeoLite2-RegisteredCountry.dump-IPv4.csv",
         lambda line: line[2] == code,
     )
 
 
-def get_ranges_by_location(locid):
+def get_ranges_by_location(locid: int) -> IPRanges:
     return get_ranges_by_data(
         "GeoLite2-City.dump-IPv4.csv", lambda line: line[5] == str(locid)
     )
 
 
-def get_ranges_by_city(country_code, city):
+def get_ranges_by_city(country_code: str, city: str) -> IPRanges:
     return get_ranges_by_data(
         "GeoLite2-City.dump-IPv4.csv",
         lambda line: line[2] == country_code
@@ -396,19 +423,19 @@ def get_ranges_by_city(country_code, city):
     )
 
 
-def get_ranges_by_region(country_code, reg_code):
+def get_ranges_by_region(country_code: str, reg_code: str) -> IPRanges:
     return get_ranges_by_data(
         "GeoLite2-City.dump-IPv4.csv",
         lambda line: line[2] == country_code and line[3] == reg_code,
     )
 
 
-def get_ranges_by_asnum(asnum):
+def get_ranges_by_asnum(asnum: int) -> IPRanges:
     return get_ranges_by_data(
         "GeoLite2-ASN.dump-IPv4.csv",
         lambda line: line[2] == str(asnum),
     )
 
 
-def get_routable_ranges():
+def get_routable_ranges() -> IPRanges:
     return get_ranges_by_data("BGP.csv", lambda _: True)

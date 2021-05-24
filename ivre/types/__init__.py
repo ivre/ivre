@@ -34,6 +34,7 @@ else:
 
 
 NmapProbe = List[Tuple[str, Dict[str, Any]]]
+ParsedCertificate = Dict[str, Any]  # TODO: TypedDict
 
 if HAS_TYPED_DICT:
 
@@ -43,6 +44,9 @@ if HAS_TYPED_DICT:
         product: str
         version: str
         origins: Set[str]
+
+    # class ParsedCertificate(TypedDict, total=False):
+    #     TODO
 
     class NmapProbeRec(TypedDict, total=False):
         probe: bytes
@@ -58,6 +62,9 @@ if HAS_TYPED_DICT:
         service_hostname: str
         service_ostype: str
         service_tunnel: str
+        service_method: str
+        service_servicefp: str
+        service_conf: int
         cpe: List[str]
         soft: bool
 
