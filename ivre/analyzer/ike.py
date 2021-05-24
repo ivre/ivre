@@ -18,13 +18,16 @@
 
 
 import struct
+from typing import Any, Dict, Tuple, Union, cast
 
 
+from ivre.types import NmapServiceMatch
+from ivre.types.active import NmapPort
 from ivre.utils import find_ike_vendor_id, encode_hex
 
 
-class Values(dict):
-    def __getitem__(self, item):
+class Values(Dict[int, str]):
+    def __getitem__(self, item: int) -> str:
         try:
             return super().__getitem__(item)
         except KeyError:
@@ -32,7 +35,7 @@ class Values(dict):
 
 
 class NumValues:
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> int:
         return item
 
 
@@ -99,7 +102,7 @@ NOTIFICATION = Values(
 
 
 # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-2
-TRANSFORM_VALUES = {
+TRANSFORM_VALUES: Dict[int, Tuple[str, Union[Values, NumValues]]] = {
     # https://www.iana.org/assignments/ipsec-registry/ipsec-registry.xhtml#ipsec-registry-4
     1: (
         "Encryption",
@@ -219,7 +222,9 @@ TRANSFORM_VALUES = {
 }
 
 
-def info_from_notification(payload, _, output):
+def info_from_notification(
+    payload: bytes, _: NmapServiceMatch, output: Dict[str, Any]
+) -> None:
     payload_len = len(payload)
     if payload_len < 12:
         output.setdefault("protocol", []).append(
@@ -236,7 +241,9 @@ def info_from_notification(payload, _, output):
     )
 
 
-def info_from_vendorid(payload, service, output):
+def info_from_vendorid(
+    payload: bytes, service: NmapServiceMatch, output: Dict[str, Any]
+) -> None:
     name = find_ike_vendor_id(payload[4:])
     if name is not None:
         if name.startswith(b"Windows-"):
@@ -295,10 +302,10 @@ def info_from_vendorid(payload, service, output):
             service["service_ostype"] = "Unix"
         elif name.startswith(b"Openswan ") or name.startswith(b"Linux Openswan "):
             service["service_product"] = "Openswan"
-            version = name.split(b"Openswan ", 1)[1].decode().split(None, 1)
-            service["service_version"] = version[0]
-            if len(version) == 2:
-                service["service_extrainfo"] = version[1]
+            extra_info = name.split(b"Openswan ", 1)[1].decode().split(None, 1)
+            service["service_version"] = extra_info[0]
+            if len(extra_info) == 2:
+                service["service_extrainfo"] = extra_info[1]
             service["service_ostype"] = "Unix"
         elif name in [b"FreeS/WAN or OpenSWAN", b"FreeS/WAN or OpenSWAN or Libreswan"]:
             service["service_product"] = "FreeS/WAN or Openswan or Libreswan"
@@ -334,7 +341,7 @@ def info_from_vendorid(payload, service, output):
     output.setdefault("vendor_ids", []).append(entry)
 
 
-def info_from_sa(payload, _, output):
+def info_from_sa(payload: bytes, _: NmapServiceMatch, output: Dict[str, Any]) -> None:
     payload_len = len(payload)
     if payload_len < 20:
         output.setdefault("protocol", []).append(
@@ -391,9 +398,9 @@ PAYLOADS = {
 }
 
 
-def analyze_ike_payload(payload, probe="ike"):
-    service = {}
-    output = {}
+def analyze_ike_payload(payload: bytes, probe: str = "ike") -> NmapPort:
+    service: NmapServiceMatch = {}
+    output: Dict[str, Any] = {}
     if probe == "ike-ipsec-nat-t":
         if payload.startswith(b"\x00\x00\x00\x00"):
             payload = payload[4:]
@@ -424,29 +431,30 @@ def analyze_ike_payload(payload, probe="ike"):
         payload_type, payload = payload[0], payload[payload_length:]
     if service.get("service_version") == "Unknown Vsn":
         del service["service_version"]
-    if output:
-        txtoutput = []
-        if "transforms" in output:
-            txtoutput.append("Transforms:")
-            for tr in output["transforms"]:
-                txtoutput.append(
-                    "  - %s"
-                    % ", ".join(
-                        "%s: %s" % (key, value) for key, value in sorted(tr.items())
-                    )
+    if not output:
+        return {}
+    txtoutput = []
+    if "transforms" in output:
+        txtoutput.append("Transforms:")
+        for tr in output["transforms"]:
+            txtoutput.append(
+                "  - %s"
+                % ", ".join(
+                    "%s: %s" % (key, value) for key, value in sorted(tr.items())
                 )
-        if "vendor_ids" in output:
-            txtoutput.append("Vendor IDs:")
-            for vid in output["vendor_ids"]:
-                txtoutput.append("  - %s" % vid.get("name", vid["value"]))
-        if "notification_type" in output:
-            txtoutput.append("Notification: %s" % output["notification_type"])
-        # sth identified, let's assume it was correct
-        output = {
-            "service_name": "isakmp",
-            "scripts": [
-                {"id": "ike-info", "output": "\n".join(txtoutput), "ike-info": output}
-            ],
-        }
-        output.update(service)
-    return output
+            )
+    if "vendor_ids" in output:
+        txtoutput.append("Vendor IDs:")
+        for vid in output["vendor_ids"]:
+            txtoutput.append("  - %s" % vid.get("name", vid["value"]))
+    if "notification_type" in output:
+        txtoutput.append("Notification: %s" % output["notification_type"])
+    # sth identified, let's assume it was correct
+    result: NmapPort = {
+        "service_name": "isakmp",
+        "scripts": [
+            {"id": "ike-info", "output": "\n".join(txtoutput), "ike-info": output}
+        ],
+    }
+    result.update(cast(NmapPort, service))
+    return result

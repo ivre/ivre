@@ -31,7 +31,8 @@ from typing import Any, Callable, Dict, List, Set, Union, cast
 
 from ivre.active.cpe import add_cpe_values
 from ivre.config import VIEW_SYNACK_HONEYPOT_COUNT
-from ivre.types.active import HttpHeader
+from ivre.types import ParsedCertificate
+from ivre.types.active import HttpHeader, NmapAddress, NmapHost, NmapPort, NmapScript
 from ivre.utils import get_domains, nmap_decode_data, nmap_encode_data, ports2nmapspec
 
 
@@ -137,7 +138,7 @@ BIG_IP_ERROR_BANNER = re.compile("^BIG-IP: \\[0x[0-9a-f]{7}:[0-9]{1,5}\\] ")
 SONICWALL_ERROR_BANNER = re.compile("^\\(Ref.Id: \\?.*\\?\\)$")
 
 
-def create_ssl_output(info: Dict[str, Any]) -> List[str]:
+def create_ssl_output(info: ParsedCertificate) -> List[str]:
     out = []
     for key, name in [("subject_text", "Subject"), ("issuer_text", "Issuer")]:
         try:
@@ -180,7 +181,7 @@ def create_ssl_output(info: Dict[str, Any]) -> List[str]:
     return out
 
 
-def is_real_service_port(port: Dict[str, Any]) -> bool:
+def is_real_service_port(port: NmapPort) -> bool:
     """Decides whether a port has a "real" service (=> True) or if it is
     **possibly** a SYN-ACK "honeypot" (=> False).
 
@@ -193,12 +194,12 @@ def is_real_service_port(port: Dict[str, Any]) -> bool:
     """
     if port.get("port") == -1:
         return True
-    if port.get("reason") and not (
+    if port.get("state_reason") and not (
         # might be "syn-ack" but might as
         # well be "syn-ack-cwr" or
         # "syn-psh-ack"
-        port["reason"].startswith("syn-")
-        or port["reason"] == "passive"
+        port["state_reason"].startswith("syn-")
+        or port["state_reason"] == "passive"
     ):
         return True
     if port.get("service_name"):
@@ -221,7 +222,7 @@ def is_real_service_port(port: Dict[str, Any]) -> bool:
     return False
 
 
-def set_openports_attribute(host: Dict[str, Any]) -> None:
+def set_openports_attribute(host: NmapHost) -> None:
     """This function sets the "openports" value in the `host` record,
     based on the elements of the "ports" list. This is used in MongoDB to
     speed up queries based on open ports.
@@ -238,9 +239,7 @@ def set_openports_attribute(host: Dict[str, Any]) -> None:
             cur["ports"].append(port["port"])
 
 
-def cleanup_synack_honeypot_host(
-    host: Dict[str, Any], update_openports: bool = True
-) -> None:
+def cleanup_synack_honeypot_host(host: NmapHost, update_openports: bool = True) -> None:
     """This function will clean the `host` record if it has too many (at
     least `VIEW_SYNACK_HONEYPOT_COUNT`) open ports that may be "syn-ack"
     honeypots (which means, ports for which is_real_service_port() returns
@@ -265,8 +264,8 @@ def cleanup_synack_honeypot_host(
 
 
 def merge_ja3_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     def is_server(script_id: str) -> bool:
         return script_id == "ssl-ja3-server"
 
@@ -285,8 +284,8 @@ def merge_ja3_scripts(
 
 
 def merge_http_app_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     def http_app_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return cast(
             bool, a["application"] == b["application"] and a["path"] == b["path"]
@@ -305,8 +304,8 @@ def merge_http_app_scripts(
 
 
 def merge_ua_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     def ua_equals(a: str, b: str, script_id: str) -> bool:
         return a == b
 
@@ -317,9 +316,9 @@ def merge_ua_scripts(
 
 
 def merge_ssl_cert_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
-    def cert_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
+    def cert_equals(a: ParsedCertificate, b: ParsedCertificate, script_id: str) -> bool:
         return cast(bool, a["sha256"] == b["sha256"])
 
     def cert_output(cert: Dict[str, Any], script_id: str) -> str:
@@ -337,8 +336,8 @@ def merge_ssl_cert_scripts(
 
 
 def merge_axfr_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     # If one results has no structured output, keep the other
     # one. Prefer curscript over script.
     if script_id not in script:
@@ -372,8 +371,8 @@ def merge_axfr_scripts(
 
 
 def merge_scanner_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     # If one results has no structured output, keep the other
     # one. Prefer curscript over script.
     if script_id not in script:
@@ -511,8 +510,8 @@ def merge_scanner_scripts(
 
 
 def merge_nuclei_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     def nuclei_equals(a: Dict[str, Any], b: Dict[str, Any], script_id: str) -> bool:
         return a == b
 
@@ -523,8 +522,8 @@ def merge_nuclei_scripts(
 
 
 def merge_http_git_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     repos: Dict[str, Any] = {}
     for scr in [script, curscript]:
         for rep in scr.get(script_id, []):
@@ -552,8 +551,8 @@ def sort_key_dom(domain: str) -> List[str]:
 
 
 def merge_dns_domains_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     domains = {
         res["domain"]: (
             res["parents"] if "parents" in res else list(get_domains(res["domain"]))
@@ -577,8 +576,8 @@ def merge_dns_domains_scripts(
 
 
 def merge_dns_tls_rpt_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     # overwrite results from script by those from curscript
     domains = {
         res["domain"]: res
@@ -613,8 +612,8 @@ def merge_dns_tls_rpt_scripts(
 
 
 def merge_dns_check_consistency_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     # overwrite results from script by those from curscript
     domains_name_type = {
         (res["domain"], res["name"], res["rtype"]): res
@@ -648,8 +647,8 @@ def merge_dns_check_consistency_scripts(
 
 
 def _merge_scripts(
-    curscript: Dict[str, Any],
-    script: Dict[str, Any],
+    curscript: NmapScript,
+    script: NmapScript,
     script_id: str,
     script_equals: Union[
         Callable[[Dict[str, Any], Dict[str, Any], str], bool],
@@ -659,7 +658,7 @@ def _merge_scripts(
         Callable[[Dict[str, Any], str], str], Callable[[str, str], str]
     ],
     outsep: str = "\n",
-) -> Dict[str, Any]:
+) -> NmapScript:
     """Helper function to merge two scripts and return the result, using
     specific functions `script_equals` and `script_output`.
 
@@ -704,8 +703,8 @@ _SCRIPT_MERGE = {
 
 
 def merge_scripts(
-    curscript: Dict[str, Any], script: Dict[str, Any], script_id: str
-) -> Dict[str, Any]:
+    curscript: NmapScript, script: NmapScript, script_id: str
+) -> NmapScript:
     """Merge curscript with script"""
     try:
         func = _SCRIPT_MERGE[script_id]
@@ -714,7 +713,7 @@ def merge_scripts(
     return func(curscript, script, script_id)
 
 
-def merge_host_docs(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict[str, Any]:
+def merge_host_docs(rec1: NmapHost, rec2: NmapHost) -> NmapHost:
     """Merge two host records and return the result. Unmergeable /
     hard-to-merge fields are lost (e.g., extraports).
 
@@ -794,7 +793,7 @@ def merge_host_docs(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict[str, Any
     rec["hostnames"] = [
         {"type": h[0], "name": h[1], "domains": d} for h, d in hostnames.items()
     ]
-    addresses: Dict[str, Any] = {}
+    addresses: NmapAddress = {}
     for record in [rec1, rec2]:
         for atype, addrs in record.get("addresses", {}).items():
             cur_addrs = addresses.setdefault(atype, [])
@@ -883,8 +882,8 @@ def merge_host_docs(rec1: Dict[str, Any], rec2: Dict[str, Any]) -> Dict[str, Any
 
 
 def handle_http_headers(
-    host: Dict[str, Any],
-    port: Dict[str, Any],
+    host: NmapHost,
+    port: NmapPort,
     headers: List[HttpHeader],
     path: str = "/",
     handle_server: bool = True,

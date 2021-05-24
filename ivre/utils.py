@@ -1174,7 +1174,7 @@ def _read_nmap_probes() -> None:
         else:
             return
         service, data = line.split(b" ", 1)
-        info: dict[str, Any] = {"soft": soft}
+        info: Dict[str, Any] = {"soft": soft}
         while data:
             if data.startswith(b"cpe:"):
                 key = "cpe"

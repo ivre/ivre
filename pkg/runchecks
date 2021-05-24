@@ -22,7 +22,8 @@ black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivr
 
 flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre/ && echo "flake8 OK"
 
-mypy --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,types}/*.py ./ivre/{__init__,agent,config,flow,geoiputils,graphroute,nmapopt,utils}.py && echo "mypy OK"
+# TODO: remove --follow-imports=skip
+mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,types}/*.py ./ivre/{__init__,agent,config,flow,geoiputils,graphroute,nmapopt,utils,zgrabout}.py && echo "mypy OK"
 
 codespell  --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
 

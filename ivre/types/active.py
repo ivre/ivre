@@ -23,7 +23,7 @@ Specific type definitions for IVRE (active)
 """
 
 
-from typing import Dict
+from typing import Any, Dict, List, Union
 
 try:
     from typing import TypedDict
@@ -33,12 +33,38 @@ else:
     HAS_TYPED_DICT = True
 
 
+from ivre.types import NmapServiceMatch
+
+
+NmapHost = Dict[str, Any]  # TODO
+NmapAddress = Dict[str, Any]  # TODO & TO FIX...
+NmapScript = Dict[str, Any]  # seems hard to do better for now (lots of keys)
+
+
 if HAS_TYPED_DICT:
 
     class HttpHeader(TypedDict):
         name: str
         value: str
 
+    class NmapPort(NmapServiceMatch, total=False):
+        protocol: str
+        port: int
+        state_state: str
+        state_reason: str
+        state_reason_ttl: int
+        scripts: List[NmapScript]
+        screendata: bytes
+        screenwords: List[str]
+        screenshot: str
+
+    class NmapHostname(TypedDict):
+        type: str
+        name: str
+        domains: List[str]
+
 
 else:
     HttpHeader = Dict[str, str]  # type: ignore
+    NmapPort = Dict[str, Union[str, int, List[NmapScript], bytes, List[str]]]  # type: ignore
+    NmapHostname = Dict[str, Union[str, List[str]]]  # type: ignore

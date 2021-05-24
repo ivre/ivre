@@ -30,6 +30,7 @@ import re
 import struct
 import sys
 from textwrap import wrap
+from typing import List, Optional, Tuple
 from urllib.parse import urlparse
 from xml.sax.handler import ContentHandler, EntityResolver
 
@@ -42,6 +43,8 @@ from ivre.active.data import (
     handle_http_headers,
 )
 from ivre.analyzer import dicom, ike
+from ivre.types import ParsedCertificate, NmapServiceMatch
+from ivre.types.active import NmapHostname, NmapScript
 from ivre import utils
 from ivre.data.windows import WINDOWS_VERSION_TO_BUILD
 
@@ -1441,7 +1444,9 @@ def masscan_parse_s7info(data):
     return service_info, output_text, output_data
 
 
-def create_ssl_cert(data, b64encoded=True):
+def create_ssl_cert(
+    data: bytes, b64encoded: bool = True
+) -> Tuple[str, List[ParsedCertificate]]:
     """Produces an output similar to Nmap script ssl-cert from Masscan
     X509 "service" tag.
 
@@ -1483,7 +1488,7 @@ _EXPR_FILES = [
 ]
 
 
-def create_http_ls(data, url=None):
+def create_http_ls(data: str, url: Optional[str] = None) -> NmapScript:
     """Produces an http-ls script output (both structured and human
     readable) from the content of an HTML page. Used for Zgrab and Masscan
     results.
@@ -1521,7 +1526,7 @@ def create_http_ls(data, url=None):
     }
 
 
-def create_elasticsearch_service(data):
+def create_elasticsearch_service(data: str) -> Optional[NmapServiceMatch]:
     """Produces the service_* attributes from the (JSON) content of an
     HTTP response. Used for Zgrab and Masscan results.
 
@@ -1569,7 +1574,7 @@ def create_elasticsearch_service(data):
     extrainfo = []
     if "name" in data:
         extrainfo.append("name: %s" % data["name"])
-        result["hostname"] = data["name"]
+        result["service_hostname"] = data["name"]
     if "cluster_name" in data:
         extrainfo.append("cluster: %s" % data["cluster_name"])
     if "version" in data and "lucene_version" in data["version"]:
@@ -1616,7 +1621,7 @@ def ignore_script(script):
 _HOSTNAME = re.compile("^[a-z0-9_\\.\\*\\-]+$", re.I)
 
 
-def add_hostname(name, name_type, hostnames):
+def add_hostname(name: str, name_type: str, hostnames: List[NmapHostname]) -> None:
     name = name.rstrip(".").lower()
     if not _HOSTNAME.search(name):
         return
@@ -1646,7 +1651,7 @@ def add_service_hostname(service_info, hostnames):
     add_hostname(name, "service", hostnames)
 
 
-def add_cert_hostnames(cert, hostnames):
+def add_cert_hostnames(cert: ParsedCertificate, hostnames: List[NmapHostname]) -> None:
     if "commonName" in cert.get("subject", {}):
         add_hostname(cert["subject"]["commonName"], "cert-subject-cn", hostnames)
     for san in cert.get("san", []):
