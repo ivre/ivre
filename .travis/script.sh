@@ -17,19 +17,19 @@ if [ "$DB" = "maxmind" ]; then
 	    exit -1
 	fi
 	echo "pylint OK"
+	mv ivre_bak ivre
+	if ! mypy --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,types}/*.py ./ivre/{__init__,agent,config,flow,graphroute,nmapopt,utils}.py; then
+	    echo "mypy KO"
+	    exit -1
+	fi
+	mv ivre ivre_bak
+	echo "mypy OK"
     fi
     if ! flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre_bak/; then
 	echo "flake8 KO"
 	exit -1
     fi
     echo "flake8 OK"
-    mv ivre_bak ivre
-    if ! mypy ./ivre/active/*.py ./ivre/{config,flow,graphroute,utils}.py; then
-	echo "mypy KO"
-	exit -1
-    fi
-    mv ivre ivre_bak
-    echo "mypy OK"
 
 fi
 

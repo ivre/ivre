@@ -44,9 +44,12 @@ import struct
 import subprocess
 import sys
 import time
+from types import TracebackType
 from typing import (
     Any,
     AnyStr,
+    BinaryIO,
+    Callable,
     Dict,
     Generator,
     Iterable,
@@ -57,6 +60,7 @@ from typing import (
     Set,
     Tuple,
     Union,
+    cast,
 )
 from urllib.parse import urlparse
 
@@ -78,6 +82,7 @@ else:
 
 
 from ivre import config
+from ivre.types import NmapProbe, NmapProbeRec, NmapServiceMatch
 
 
 # (1)
@@ -195,8 +200,10 @@ def ip2int(ipstr: AnyStr) -> int:
     else:
         data = ipstr
     try:
-        return struct.unpack("!I", socket.inet_aton(data))[0]
+        return cast(int, struct.unpack("!I", socket.inet_aton(data))[0])
     except socket.error:
+        val1: int
+        val2: int
         val1, val2 = struct.unpack(
             "!QQ",
             socket.inet_pton(socket.AF_INET6, data),
@@ -631,7 +638,7 @@ def diff(doc1: Dict[str, Any], doc2: Dict[str, Any]) -> Dict[str, Any]:
     return res
 
 
-def fields2csv_head(fields: Dict[str, Any], prefix="") -> List[str]:
+def fields2csv_head(fields: Dict[str, Any], prefix: str = "") -> List[str]:
     """Given an (ordered) dictionary `fields`, returns a list of the
     fields. NB: recursive function, hence the `prefix` parameter.
 
@@ -645,12 +652,14 @@ def fields2csv_head(fields: Dict[str, Any], prefix="") -> List[str]:
     return line
 
 
-def doc2csv(doc, fields, nastr="NA"):
+def doc2csv(
+    doc: Dict[str, Any], fields: Dict[str, Any], nastr: str = "NA"
+) -> List[list]:
     """Given a document and an (ordered) dictionary `fields`, returns
     a list of CSV lines. NB: recursive function.
 
     """
-    lines = [[]]
+    lines: List[list] = [[]]
     for field, subfields in fields.items():
         if subfields is True:
             value = doc.get(field)
@@ -707,12 +716,12 @@ class FileOpener:
 
     """
 
-    FILE_OPENERS_MAGIC = {
+    FILE_OPENERS_MAGIC: Dict[bytes, Callable] = {
         b"\x1f\x8b": gzip.open,
         b"BZ": bz2.BZ2File,
     }
 
-    def __init__(self, fname):
+    def __init__(self, fname: Union[str, BinaryIO]) -> None:
         if not isinstance(fname, str):
             self.fdesc = fname
             self.needsclose = False
@@ -729,39 +738,44 @@ class FileOpener:
             return
         self.fdesc = py_opener(fname)
 
-    def read(self, *args):
+    def read(self, *args) -> bytes:  # type: ignore
         return self.fdesc.read(*args)
 
-    def readline(self):
+    def readline(self) -> bytes:
         return self.fdesc.readline()
 
-    def fileno(self):
+    def fileno(self) -> int:
         return self.fdesc.fileno()
 
-    def close(self):
+    def close(self) -> None:
         # since .close() is explicitly called, we close self.fdesc
         # even when self.close is False.
         self.fdesc.close()
 
-    def __enter__(self):
+    def __enter__(self) -> "FileOpener":
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[BaseException],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         if self.needsclose:
             self.fdesc.close()
 
-    def __iter__(self):
+    def __iter__(self) -> "FileOpener":
         return self
 
-    def __next__(self):
+    def __next__(self) -> bytes:
         return next(self.fdesc)
 
 
-def open_file(fname):
+def open_file(fname: str) -> FileOpener:
     return FileOpener(fname)
 
 
-def hash_file(fname, hashtype="sha1"):
+def hash_file(fname: str, hashtype: str = "sha1") -> bytes:
     """Compute a hash of data from a given file"""
     with open_file(fname) as fdesc:
         result = hashlib.new(hashtype)
@@ -770,7 +784,7 @@ def hash_file(fname, hashtype="sha1"):
         return result.hexdigest().encode()
 
 
-def serialize(obj):
+def serialize(obj: Any) -> str:
     """Return a JSON-compatible representation for `obj`"""
     if isinstance(obj, REGEXP_T):
         return "/%s/%s" % (
@@ -793,11 +807,11 @@ class LogFilter(logging.Filter):
 
     MAX_WARNINGS_STORED = 100
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
-        self.warnings = set()
+        self.warnings: Set[str] = set()
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         """Decides whether we should log a record"""
         if record.levelno < logging.INFO:
             if record.msg.startswith("DB:"):
@@ -876,7 +890,7 @@ CLI_ARGPARSER.add_argument("--skip", type=int, help="Skip first SKIP results.")
 # Country aliases:
 #   - UK: GB
 #   - EU: 27 EU member states, + EU itself, for historical reasons
-COUNTRY_ALIASES = {
+COUNTRY_ALIASES: Dict[str, Union[str, List[str]]] = {
     "UK": "GB",
     "EU": [
         "AT",
@@ -911,7 +925,7 @@ COUNTRY_ALIASES = {
 }
 
 
-def country_unalias(country):
+def country_unalias(country: Union[str, Iterable[str]]) -> Union[str, List[str]]:
     """Takes either a country code (or an iterator of country codes)
     and returns either a country code or a list of country codes.
 
@@ -928,15 +942,16 @@ def country_unalias(country):
     if isinstance(country, str):
         return COUNTRY_ALIASES.get(country, country)
     if hasattr(country, "__iter__"):
+        empty: List[str] = []
         return functools.reduce(
             lambda x, y: x + (y if isinstance(y, list) else [y]),
             (country_unalias(country_elt) for country_elt in country),
-            [],
+            empty,
         )
-    return country
+    raise TypeError("country should be a string or an iterable of strings")
 
 
-def screenwords(imgdata):
+def screenwords(imgdata: bytes) -> Optional[List[str]]:
     """Takes an image and returns a list of the words seen by the OCR"""
     if config.TESSERACT_CMD is not None:
         # pylint: disable=consider-using-with
@@ -945,6 +960,8 @@ def screenwords(imgdata):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
+        assert proc.stdin is not None
+        assert proc.stdout is not None
         proc.stdin.write(imgdata)
         proc.stdin.close()
         words = set()
@@ -953,9 +970,9 @@ def screenwords(imgdata):
         for line in proc.stdout:
             if size == 0:
                 break
-            for word in line.split():
+            for word_bytes in line.split():
                 try:
-                    word = word.decode()
+                    word = word_bytes.decode()
                 except UnicodeDecodeError:
                     continue
                 if word not in words:
@@ -977,11 +994,13 @@ def screenwords(imgdata):
 
 if USE_PIL:
 
-    def _img_size(bbox):
+    def _img_size(bbox: Tuple[int, int, int, int]) -> int:
         """Returns the size of a given `bbox`"""
         return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
 
-    def _trim_image(img, tolerance):
+    def _trim_image(
+        img: PIL.Image, tolerance: int
+    ) -> Optional[Tuple[int, int, int, int]]:
         """Returns the tiniest `bbox` to trim `img`"""
         result = None
         for pixel in [
@@ -1053,7 +1072,7 @@ _PORTS: Dict[str, Dict[int, float]] = {}
 _PORTS_POPULATED = False
 
 
-def _set_ports():
+def _set_ports() -> None:
     """Populate _PORTS global dict, based on nmap-services when available
     (and found), with a fallback to /etc/services.
 
@@ -1063,15 +1082,16 @@ def _set_ports():
     global _PORTS, _PORTS_POPULATED
     try:
         # pylint: disable=consider-using-with
+        assert config.NMAP_SHARE_PATH is not None
         fdesc = open(os.path.join(config.NMAP_SHARE_PATH, "nmap-services"))
-    except (IOError, AttributeError):
+    except (IOError, AttributeError, AssertionError):
         try:
             with open("/etc/services") as fdesc:
                 for line in fdesc:
                     try:
-                        _, port = line.split("#", 1)[0].split(None, 2)
-                        port, proto = port.split("/", 1)
-                        port = int(port)
+                        _, port_s = line.split("#", 1)[0].split(None, 2)
+                        port_s, proto = port_s.split("/", 1)
+                        port = int(port_s)
                     except ValueError:
                         continue
                     _PORTS.setdefault(proto, {})[port] = 0.5
@@ -1080,10 +1100,10 @@ def _set_ports():
     else:
         for line in fdesc:
             try:
-                _, port, freq = line.split("#", 1)[0].split(None, 3)
-                port, proto = port.split("/", 1)
-                port = int(port)
-                freq = float(freq)
+                _, port_s, freq_s = line.split("#", 1)[0].split(None, 3)
+                port_s, proto = port_s.split("/", 1)
+                port = int(port_s)
+                freq = float(freq_s)
             except ValueError:
                 continue
             _PORTS.setdefault(proto, {})[port] = freq
@@ -1094,7 +1114,7 @@ def _set_ports():
     _PORTS_POPULATED = True
 
 
-def guess_srv_port(port1, port2, proto="tcp"):
+def guess_srv_port(port1: int, port2: int, proto: str = "tcp") -> int:
     """Returns 1 when port1 is probably the server port, -1 when that's
     port2, and 0 when we cannot tell.
 
@@ -1111,22 +1131,19 @@ def guess_srv_port(port1, port2, proto="tcp"):
 
 _NMAP_PROBES: Dict[
     str,
-    Dict[
-        str,
-        Dict[str, Dict[str, Union[bytes, List[Tuple[str, Dict[str, Any]]], List[str]]]],
-    ],
+    Dict[str, NmapProbeRec],
 ] = {}
 _NMAP_PROBES_POPULATED = False
-_NMAP_CUR_PROBE = None
-_NAMP_CUR_FALLBACK = None
+_NMAP_CUR_PROBE: Optional[NmapProbe] = None
+_NMAP_CUR_FALLBACK: Optional[List[str]] = None
 
 
-def _read_nmap_probes():
+def _read_nmap_probes() -> None:
     global _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK, _NMAP_PROBES_POPULATED
     _NMAP_CUR_PROBE = None
     _NMAP_CUR_FALLBACK = None
 
-    def parse_line(line):
+    def parse_line(line: bytes) -> None:
         global _NMAP_PROBES, _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
         if line.startswith(b"match "):
             line = line[6:]
@@ -1135,6 +1152,7 @@ def _read_nmap_probes():
             line = line[10:]
             soft = True
         elif line.startswith(b"fallback "):
+            assert _NMAP_CUR_FALLBACK is not None
             _NMAP_CUR_FALLBACK.append(line[9:].decode())
             return
         elif line.startswith(b"Probe "):
@@ -1145,6 +1163,8 @@ def _read_nmap_probes():
                 LOGGER.warning("Invalid nmap probe %r", probe)
             else:
                 probe = nmap_decode_data(probe[2:-1].decode(), arbitrary_escapes=True)
+            assert _NMAP_CUR_PROBE is not None
+            assert _NMAP_CUR_FALLBACK is not None
             _NMAP_PROBES.setdefault(proto.lower().decode(), {})[name.decode()] = {
                 "probe": probe,
                 "fp": _NMAP_CUR_PROBE,
@@ -1154,7 +1174,7 @@ def _read_nmap_probes():
         else:
             return
         service, data = line.split(b" ", 1)
-        info = {"soft": soft}
+        info: dict[str, Any] = {"soft": soft}
         while data:
             if data.startswith(b"cpe:"):
                 key = "cpe"
@@ -1166,6 +1186,7 @@ def _read_nmap_probes():
             data = data[1:]
             index = data.index(sep)
             value = data[:index]
+            value_out: Union[Pattern[bytes], str]
             data = data[index + 1 :]
             flag = b""
             if data:
@@ -1180,7 +1201,7 @@ def _read_nmap_probes():
                     value = value[:3] + b"(?:\\\\n|$)"
                 elif value.endswith(b"\\n"):
                     value = value[:-2] + b"(?:\\n|$)"
-                value = re.compile(
+                value_out = re.compile(
                     value,
                     flags=sum(
                         getattr(re, f) if hasattr(re, f) else 0
@@ -1190,46 +1211,50 @@ def _read_nmap_probes():
                 flag = b""
             else:
                 try:
-                    value = value.decode("utf-8")
+                    value_out = value.decode("utf-8")
                 except UnicodeDecodeError:
-                    value = repr(value)
+                    value_out = repr(value)
             if key == "cpe":
-                info.setdefault(key, []).append(value)
+                info.setdefault(key, []).append(value_out)
             else:
-                info[key] = (value, flag)
+                info[key] = (value_out, flag)
             data = data.lstrip(b" ")
+        assert _NMAP_CUR_PROBE is not None
         _NMAP_CUR_PROBE.append((service.decode(), info))
 
     try:
+        assert config.NMAP_SHARE_PATH is not None
         with open(
             os.path.join(config.NMAP_SHARE_PATH, "nmap-service-probes"), "rb"
         ) as fdesc:
             for fline in fdesc:
                 parse_line(fline[:-1])
-    except (AttributeError, TypeError, IOError):
+    except (AttributeError, AssertionError, TypeError, IOError):
         LOGGER.warning("Cannot read Nmap service fingerprint file.", exc_info=True)
     del _NMAP_CUR_PROBE, _NMAP_CUR_FALLBACK
     _NMAP_PROBES_POPULATED = True
 
 
-def get_nmap_svc_fp(proto="tcp", probe="NULL"):
+def get_nmap_svc_fp(proto: str = "tcp", probe: str = "NULL") -> NmapProbeRec:
     global _NMAP_PROBES, _NMAP_PROBES_POPULATED
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return _NMAP_PROBES[proto][probe]
 
 
-def get_nmap_probes(proto):
+def get_nmap_probes(proto: str) -> Dict[bytes, str]:
     if not _NMAP_PROBES_POPULATED:
         _read_nmap_probes()
     return {value["probe"]: name for name, value in _NMAP_PROBES[proto].items()}
 
 
-def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
+def match_nmap_svc_fp(
+    output: bytes, proto: str = "tcp", probe: str = "NULL", soft: bool = False
+) -> NmapServiceMatch:
     """Take output from a given probe and return the closest nmap
     fingerprint."""
-    softmatch = {}
-    result = {}
+    softmatch: NmapServiceMatch = {}
+    result: NmapServiceMatch = {}
     try:
         probe_data = get_nmap_svc_fp(
             proto=proto,
@@ -1262,14 +1287,20 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                 for elt, key in NMAP_FINGERPRINT_IVRE_KEY.items():
                     if elt in fingerprint:
                         if elt == "cpe":
-                            data = [
+                            data_cpe = [
                                 "cpe:/%s" % nmap_svc_fp_format_data(value, match)
                                 for value in fingerprint[elt]
                             ]
+                            if data_cpe:
+                                assert key == "cpe"
+                                doc["cpe"] = data_cpe
                         else:
                             data = nmap_svc_fp_format_data(fingerprint[elt][0], match)
-                        if data:
-                            doc[key] = data
+                            if data:
+                                # key is in
+                                # NMAP_FINGERPRINT_IVRE_KEY.values()
+                                # and is not "cpe"
+                                doc[key] = data  # type: ignore
                 if not fingerprint["soft"]:
                     return result
         if fallbacks:
@@ -1295,7 +1326,7 @@ def match_nmap_svc_fp(output, proto="tcp", probe="NULL", soft=False):
                 else:
                     return fallback_result
     if softmatch and soft:
-        return dict(softmatch, soft=True)
+        softmatch["soft"] = True
     return softmatch
 
 
@@ -1303,10 +1334,10 @@ _NMAP_PAYLOADS = {}
 _NMAP_PAYLOADS_POPULATED = False
 
 
-def _read_nmap_payloads():
+def _read_nmap_payloads() -> None:
     global _NMAP_PAYLOADS_POPULATED
 
-    def _parse_line(line):
+    def _parse_line(line: str) -> Generator[str, None, None]:
         status = 0
         for c in line:
             if status == 0:
@@ -1326,6 +1357,7 @@ def _read_nmap_payloads():
     try:
         cur_probe = None
         cur_line = []
+        assert config.NMAP_SHARE_PATH is not None
         with open(os.path.join(config.NMAP_SHARE_PATH, "nmap-payloads"), "r") as fdesc:
             for line in fdesc:
                 line = "".join(_parse_line(line.strip()))
@@ -1334,12 +1366,12 @@ def _read_nmap_payloads():
                 if line.startswith("source "):
                     continue
                 if line.startswith("udp "):
-                    line = line.strip().split(" ", 2)[1:]
+                    line_l = line.strip().split(" ", 2)[1:]
                     if cur_probe is not None:
                         _NMAP_PAYLOADS[nmap_decode_data("".join(cur_line))] = cur_probe
-                    cur_probe = line.pop(0)
-                    if line:
-                        line = line[0]
+                    cur_probe = line_l.pop(0)
+                    if line_l:
+                        line = line_l[0]
                         if len(line) > 3 and line[0] == line[-1] == '"':
                             line = line[1:-1]
                         cur_line = [line]
@@ -1351,24 +1383,25 @@ def _read_nmap_payloads():
                     cur_line.append(line)
         if cur_probe is not None:
             _NMAP_PAYLOADS[nmap_decode_data("".join(cur_line))] = cur_probe
-    except (AttributeError, TypeError, IOError):
+    except (AttributeError, AssertionError, TypeError, IOError):
         LOGGER.warning("Cannot read Nmap service fingerprint file.", exc_info=True)
     _NMAP_PAYLOADS_POPULATED = True
 
 
-def get_nmap_udp_payloads():
+def get_nmap_udp_payloads() -> Dict[bytes, str]:
     if not _NMAP_PAYLOADS_POPULATED:
         _read_nmap_payloads()
     return _NMAP_PAYLOADS
 
 
-_IKESCAN_VENDOR_IDS = {}
+_IKESCAN_VENDOR_IDS: List[Tuple[bytes, Pattern[bytes]]]
 _IKESCAN_VENDOR_IDS_POPULATED = False
 
 
-def _read_ikescan_vendor_ids():
+def _read_ikescan_vendor_ids() -> None:
     global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     try:
+        assert config.DATA_PATH is not None
         with open(os.path.join(config.DATA_PATH, "ike-vendor-ids"), "rb") as fdesc:
             sep = re.compile(b"\\t+")
             _IKESCAN_VENDOR_IDS = [
@@ -1382,19 +1415,19 @@ def _read_ikescan_vendor_ids():
                     if line
                 )
             ]
-    except (AttributeError, IOError):
+    except (AttributeError, AssertionError, IOError):
         LOGGER.warning("Cannot read ike-scan vendor IDs file.", exc_info=True)
     _IKESCAN_VENDOR_IDS_POPULATED = True
 
 
-def get_ikescan_vendor_ids():
+def get_ikescan_vendor_ids() -> List[Tuple[bytes, Pattern[bytes]]]:
     global _IKESCAN_VENDOR_IDS, _IKESCAN_VENDOR_IDS_POPULATED
     if not _IKESCAN_VENDOR_IDS_POPULATED:
         _read_ikescan_vendor_ids()
     return _IKESCAN_VENDOR_IDS
 
 
-def find_ike_vendor_id(vendorid):
+def find_ike_vendor_id(vendorid: bytes) -> Optional[bytes]:
     vid = encode_hex(vendorid)
     for name, sig in get_ikescan_vendor_ids():
         if sig.search(vid):
@@ -1535,7 +1568,7 @@ def zeek_encode_data(data: bytes) -> str:
 
 
 def _nmap_decode_data(
-    data: str, arbitrary_escapes=False
+    data: str, arbitrary_escapes: bool = False
 ) -> Generator[bytes, None, None]:
     status = 0
     first_byte = -1
@@ -1595,7 +1628,7 @@ def _nmap_decode_data(
         LOGGER.warning("nmap_decode_data: invalid escape sequence at end of string")
 
 
-def nmap_decode_data(data: str, arbitrary_escapes=False) -> bytes:
+def nmap_decode_data(data: str, arbitrary_escapes: bool = False) -> bytes:
     return b"".join(_nmap_decode_data(data, arbitrary_escapes=arbitrary_escapes))
 
 
@@ -1651,7 +1684,7 @@ def normalize_props(props: Union[list, dict]) -> dict:
     return props
 
 
-def tz_offset(timestamp=None) -> int:
+def tz_offset(timestamp: Optional[Union[int, float]] = None) -> int:
     """
     Returns the offset between UTC and local time at "timestamp".
     """

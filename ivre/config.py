@@ -29,9 +29,14 @@ by ~/.ivre.conf, /usr/local/etc/ivre/ivre.conf,
 # The comment lines "Begin XXX" and "End XXX" are used to include
 # parts of this files in the documentation.
 
+
 import os
 import stat
 from typing import Dict, Generator, List, Optional
+
+
+from ivre.types import NmapScanTemplate
+
 
 # Default values:
 DEBUG = False
@@ -62,7 +67,7 @@ OPENSSL_CMD = "openssl"
 # End commands
 
 # Begin default Nmap scan template
-NMAP_SCAN_TEMPLATES = {
+NMAP_SCAN_TEMPLATES: Dict[str, NmapScanTemplate] = {
     "default": {
         # Commented values are default values and to not need to be
         # specified:
@@ -228,7 +233,7 @@ def guess_prefix(directory: Optional[str] = None) -> Optional[str]:
 
     """
 
-    def check_candidate(path: str, directory: Optional[str] = None):
+    def check_candidate(path: str, directory: Optional[str] = None) -> Optional[str]:
         """Auxiliary function that checks whether a particular path is a good
         candidate.
 

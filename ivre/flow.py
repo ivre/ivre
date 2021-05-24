@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -17,12 +17,18 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+
 """This sub-module contains functions used for flow."""
+
 
 import re
 from typing import Dict, List, Generator, Optional, Union
 
-from ivre import utils, config
+
+from ivre import config
+from ivre import utils
+from ivre.types.flow import Clause
+
 
 SCHEMA_VERSION = 1
 
@@ -216,9 +222,6 @@ def _compute_available_fields() -> None:
             _ALL_FIELDS["meta.%s.%s" % (meta, name)] = meta_enabled
         for name in META_DESC[meta].get("counters", []):
             _ALL_FIELDS["meta.%s.%s" % (meta, name)] = meta_enabled
-
-
-Clause = Dict[str, Optional[Union[bool, str]]]
 
 
 class Query:

@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -22,13 +22,14 @@ documents from the active (nmap & view) purposes.
 """
 
 
-from typing import Any, Dict, List, Set, Union
+from typing import Any, Dict, List
 
 
 from ivre.utils import LOGGER
+from ivre.types import CpeDict
 
 
-def cpe2dict(cpe_str: str) -> Dict[str, Union[str, Set[str]]]:
+def cpe2dict(cpe_str: str) -> CpeDict:
     """Helper function to parse CPEs. This is a very partial/simple parser.
 
     Raises:
@@ -48,7 +49,7 @@ def cpe2dict(cpe_str: str) -> Dict[str, Union[str, Set[str]]]:
     cpe_prod = parts[2] if nparts > 2 else ""
     cpe_vers = parts[3] if nparts > 3 else ""
 
-    ret: Dict[str, Union[str, Set[str]]] = {
+    ret: CpeDict = {
         "type": cpe_type,
         "vendor": cpe_vend,
         "product": cpe_prod,
@@ -77,6 +78,4 @@ def add_cpe_values(hostrec: Dict[str, Any], path: str, cpe_values: List[str]) ->
             cpes[cpe] = cpeobj
         else:
             cpeobj = cpes[cpe]
-        cpeorigins = cpeobj.setdefault("origins", set())
-        assert isinstance(cpeorigins, set)
-        cpeorigins.add(path)
+        cpeobj.setdefault("origins", set()).add(path)

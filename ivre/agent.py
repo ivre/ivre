@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ from ivre import nmapopt
 AGENT_TEMPLATE = """#! /bin/sh
 
 # This file is part of IVRE.
-# Copyright 2011 - 2017 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -161,7 +161,7 @@ FILTERS = {
 }
 
 
-def build_agent(filtername="none", template="default"):
+def build_agent(filtername: str = "none", template: str = "default") -> str:
     """Build an agent shell script (returned as  a string)."""
     return AGENT_TEMPLATE % {
         "filter": FILTERS[filtername],

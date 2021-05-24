@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -29,14 +29,32 @@ try:
     HAVE_DBUS = True
 except ImportError:
     HAVE_DBUS = False
+import hashlib
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Optional,
+    Set,
+    TextIO,
+    Tuple,
+    Union,
+)
 
 
 from ivre import utils
 
 
+Graph = Dict[str, Set[str]]
+
+
 def buildgraph(
-    cursor, include_last_hop=False, include_target=False, only_connected=True
-):
+    cursor: Iterable[Dict[str, Any]],
+    include_last_hop: bool = False,
+    include_target: bool = False,
+    only_connected: bool = True,
+) -> Tuple[Graph, Set[str]]:
     """Builds a graph (a dict object, {node: [dest nodes]}) by getting
     host documents from the database `cursor`, including (or not) the
     last hop and the target (for each host).
@@ -47,8 +65,8 @@ def buildgraph(
     present.
 
     """
-    graph = {}
-    entry_nodes = set()
+    graph: Graph = {}
+    entry_nodes: Set[str] = set()
     for host in cursor:
         if "traces" not in host:
             continue
@@ -69,7 +87,15 @@ def buildgraph(
     return graph, entry_nodes
 
 
-def writedotgraph(graph, out, cluster=None):
+def label(node: str) -> str:
+    return hashlib.new("sha256", node.encode()).hexdigest()
+
+
+def writedotgraph(
+    graph: Graph,
+    out: TextIO,
+    cluster: Optional[Callable[[str], Optional[Union[str, Tuple[str, str]]]]] = None,
+) -> None:
     """From a graph produced by buildgraph(), produces an output in
     the (Graphiz) Dot format.
 
@@ -85,17 +111,18 @@ def writedotgraph(graph, out, cluster=None):
     edges = set()
     if cluster is None:
 
-        def _add_node(node):
+        def _add_node(node: str) -> None:
             if node not in nodes:
                 nodes.add(node)
-                out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+                out.write('\t"%s" [label="%s"];\n' % (label(node), node))
 
     else:
-        clusters = {}
+        clusters: Dict[Optional[Union[str, Tuple[str, str]]], Set[str]] = {}
 
-        def _add_node(node):
+        def _add_node(node: str) -> None:
             if node not in nodes:
                 nodes.add(node)
+                assert cluster is not None
                 clusters.setdefault(cluster(node), set()).update([node])
 
     for node, node_edges in graph.items():
@@ -103,26 +130,29 @@ def writedotgraph(graph, out, cluster=None):
         for destnode in node_edges:
             _add_node(destnode)
             if (node, destnode) not in edges:
-                out.write("\t%d -> %d;\n" % (node, destnode))
+                out.write('\t"%s" -> "%s";\n' % (label(node), label(destnode)))
                 edges.add((node, destnode))
     if cluster is not None:
         if None in clusters:
             for node in clusters.pop(None):
-                out.write('\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+                out.write('\t"%s" [label="%s"];\n' % (label(node), node))
         for clu, nodes in clusters.items():
             if isinstance(clu, str):
-                clu = (clu, clu)
-            out.write("\tsubgraph cluster_%s {\n" % clu[0])
-            out.write('\t\tlabel = "%s";\n' % clu[1])
+                clu_data = (clu, clu)
+            else:
+                assert clu is not None  # None value has been .pop()ed
+                clu_data = clu
+            out.write("\tsubgraph cluster_%s {\n" % clu_data[0])
+            out.write('\t\tlabel = "%s";\n' % clu_data[1])
             for node in nodes:
-                out.write('\t\t%d [label="%s"];\n' % (node, utils.int2ip(node)))
+                out.write('\t\t"%s" [label="%s"];\n' % (label(node), node))
             out.write("\t}\n")
     out.write("}\n")
 
 
 if HAVE_DBUS:
 
-    def display3dgraph(graph, reset_world=True):
+    def display3dgraph(graph: Graph, reset_world: bool = True) -> dbus.Interface:
         """Send the graph (produced by buildgraph()) to a running
         rtgraph3d instance.
 
@@ -138,7 +168,7 @@ if HAVE_DBUS:
                 if destnode == node:
                     continue
                 try:
-                    graph3d.new_edge(utils.int2ip(node), {}, utils.int2ip(destnode), {})
+                    graph3d.new_edge(node, {}, destnode, {})
                 except Exception:
                     utils.LOGGER.warning("Exception", exc_info=True)
         return graph3d
