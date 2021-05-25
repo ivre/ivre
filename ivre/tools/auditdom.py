@@ -26,15 +26,17 @@ from datetime import datetime
 import json
 import pipes
 import sys
+from typing import Any, Iterable, Optional
 
 
 from ivre import VERSION
 from ivre.activecli import displayfunction_nmapxml
 from ivre.analyzer.dns import AXFRChecker, DNSSRVChecker, TLSRPTChecker
+from ivre.types import Record
 from ivre.utils import LOGGER, serialize
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--json", action="store_true", help="Output as JSON rather than XML."
@@ -45,7 +47,7 @@ def main():
     args = parser.parse_args()
     if args.json:
 
-        def displayfunction(cur, scan=None):
+        def displayfunction(cur: Iterable[Record], scan: Optional[Any] = None) -> None:
             if scan is not None:
                 LOGGER.debug("Scan not displayed in JSON mode")
             for rec in cur:

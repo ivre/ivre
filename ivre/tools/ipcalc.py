@@ -23,7 +23,7 @@ import argparse
 from ivre import utils
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Tool for ip addresses manipulation.",
     )

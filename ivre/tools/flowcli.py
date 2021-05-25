@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -30,8 +30,8 @@ import sys
 
 
 try:
-    import matplotlib
-    import matplotlib.pyplot as plt
+    import matplotlib  # type: ignore
+    import matplotlib.pyplot as plt  # type: ignore
 except ImportError:
     plt = None
 
@@ -57,7 +57,7 @@ def get_addr_argument(field, value):
     return (addr_field["type"], "%s %s %s" % (addr_field["field"], op, value))
 
 
-def print_fields():
+def print_fields() -> None:
     equals = "=" * 7
     title = "General"
     sys.stdout.write("{0} {1:^10} {0}\n".format(equals, title))
@@ -80,7 +80,7 @@ def print_fields():
         )
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(
         "--init",

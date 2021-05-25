@@ -24,15 +24,16 @@ AS number and country information.
 
 
 from argparse import ArgumentParser
+from typing import Callable, List, Tuple, cast
 
 
 from ivre.db import db
 from ivre import geoiputils, utils
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description=__doc__)
-    torun = []
+    torun: List[Tuple[Callable, list, dict]] = []
     parser.add_argument("--download", action="store_true", help="Fetch all data files.")
     parser.add_argument(
         "--import-all",
@@ -51,7 +52,7 @@ def main():
         geoiputils.download_all(verbose=not args.quiet)
         db.data.reload_files()
     if args.import_all:
-        torun.append((db.data.build_dumps, [], {}))
+        torun.append((cast(Callable, db.data.build_dumps), [], {}))
     for function, fargs, fkargs in torun:
         function(*fargs, **fkargs)
     for addr in args.ip:
@@ -61,6 +62,6 @@ def main():
         info = utils.get_addr_type(addr)
         if info:
             print("    address_type %s" % info)
-        for info in [db.data.as_byip(addr), db.data.location_byip(addr)]:
-            for key, value in (info or {}).items():
+        for subinfo in [db.data.as_byip(addr), db.data.location_byip(addr)]:
+            for key, value in (subinfo or {}).items():
                 print("    %s %s" % (key, value))

@@ -94,7 +94,9 @@ def label(node: str) -> str:
 def writedotgraph(
     graph: Graph,
     out: TextIO,
-    cluster: Optional[Callable[[str], Optional[Union[str, Tuple[str, str]]]]] = None,
+    cluster: Optional[
+        Callable[[str], Optional[Union[str, Tuple[Union[int, str], str]]]]
+    ] = None,
 ) -> None:
     """From a graph produced by buildgraph(), produces an output in
     the (Graphiz) Dot format.
@@ -117,7 +119,7 @@ def writedotgraph(
                 out.write('\t"%s" [label="%s"];\n' % (label(node), node))
 
     else:
-        clusters: Dict[Optional[Union[str, Tuple[str, str]]], Set[str]] = {}
+        clusters: Dict[Optional[Union[str, Tuple[Union[int, str], str]]], Set[str]] = {}
 
         def _add_node(node: str) -> None:
             if node not in nodes:
@@ -137,6 +139,7 @@ def writedotgraph(
             for node in clusters.pop(None):
                 out.write('\t"%s" [label="%s"];\n' % (label(node), node))
         for clu, nodes in clusters.items():
+            clu_data: Tuple[Union[int, str], str]
             if isinstance(clu, str):
                 clu_data = (clu, clu)
             else:

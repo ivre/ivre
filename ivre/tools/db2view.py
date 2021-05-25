@@ -21,14 +21,16 @@
 
 
 import argparse
+from typing import Generator, List
 
 
 from ivre.activecli import displayfunction_json
 from ivre.db import db, DB
+from ivre.types import Record
 from ivre.view import from_passive, from_nmap, to_view
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, parents=[DB().argparser])
     if db.nmap is None:
         fltnmap = None
@@ -38,7 +40,7 @@ def main():
         fltpass = None
     else:
         fltpass = db.passive.flt_empty
-    _from = []
+    _from: List[Generator[Record, None, None]] = []
 
     parser.add_argument(
         "--view-category",
@@ -101,7 +103,7 @@ def main():
         _from = [from_passive(fltpass, category=view_category)]
     if args.test:
 
-        def output(host):
+        def output(host: Record) -> None:
             return displayfunction_json([host], db.view)
 
     elif args.no_merge:

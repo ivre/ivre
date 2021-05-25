@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -26,8 +26,9 @@ To do so, you need to strip the output from the information after the
 moduli. A simple sed with 's# .*##' will do the trick."""
 
 
-import sys
 import getopt
+import sys
+from typing import Dict, Set, Tuple, Type, Union
 
 
 import ivre.db
@@ -35,10 +36,10 @@ import ivre.keys
 import ivre.utils
 
 
-def main():
+def main() -> None:
     # FIXME: this will not work if .nmap and .passive have different
     # backends
-    bases = set()
+    bases: Set[Type[Union[ivre.keys.PassiveKey, ivre.keys.NmapKey]]] = set()
     try:
         opts, _ = getopt.getopt(
             sys.argv[1:],
@@ -70,14 +71,14 @@ def main():
                 "%r %r not understood (this is probably a bug).\n" % (o, a)
             )
             sys.exit(-1)
-    moduli = {}
+    moduli: Dict[int, Set[Tuple[str, int, str]]] = {}
     if not bases:
-        bases = [
+        bases = {
             ivre.keys.SSLRsaPassiveKey,
             ivre.keys.SSLRsaNmapKey,
             ivre.keys.SSHRsaNmapKey,
             ivre.keys.SSHRsaPassiveKey,
-        ]
+        }
     for base in bases:
         for key in base():
             moduli.setdefault(key.key.public_numbers().n, set()).add(

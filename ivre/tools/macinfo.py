@@ -22,6 +22,7 @@
 
 import argparse
 import re
+from typing import List, Tuple
 
 
 from ivre.db import db
@@ -35,7 +36,7 @@ MAC_ADDR = re.compile(
 )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "ips_or_macs",
@@ -51,7 +52,7 @@ def main():
         "-r", "--resolve", action="store_true", help="Resolve MAC manufacturer"
     )
     args = parser.parse_args()
-    flts = ([], [])  # MAC & IP filters
+    flts: Tuple[List[str], List[str]] = ([], [])  # MAC & IP filters
     for arg in args.ips_or_macs:
         if arg[:1] in "-!~":
             neg = True
@@ -83,8 +84,10 @@ def main():
             rec["sensor"] = "-"
         if args.resolve:
             try:
-                manuf = utils.mac2manuf(rec["value"])[0]
-            except (TypeError, ValueError):
+                manuf_res = utils.mac2manuf(rec["value"])
+                assert manuf_res is not None
+                manuf = manuf_res[0]
+            except (TypeError, ValueError, AssertionError):
                 pass
             else:
                 rec["value"] = "%s (%s)" % (rec["value"], manuf)

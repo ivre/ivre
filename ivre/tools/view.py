@@ -191,7 +191,11 @@ def main():
 
         def displayfunction(x):
             return displayfunction_graphroute(
-                x, args.graphroute, args.graphroute_include, args.graphroute_dont_reset
+                x,
+                args.graphroute,
+                args.graphroute_cluster,
+                args.graphroute_include,
+                args.graphroute_dont_reset,
             )
 
     elif args.csv is not None:

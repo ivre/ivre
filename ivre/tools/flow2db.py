@@ -47,7 +47,7 @@ PARSERS_MAGIC = {
 }
 
 
-def main():
+def main() -> None:
     """Update the flow database from log files"""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument(

@@ -25,10 +25,11 @@ import sys
 
 
 from ivre.db import db
+from ivre.types import Record
 from ivre import utils
 
 
-def disp_rec(r):
+def disp_rec(r: Record) -> None:
     firstseen = r["firstseen"]
     lastseen = r["lastseen"]
     if "addr" in r and r["addr"]:
@@ -95,7 +96,7 @@ def disp_rec(r):
             utils.LOGGER.warning("Cannot display record %r", r)
 
 
-def main():
+def main() -> None:
     baseflt = db.passive.searchrecontype("DNS_ANSWER")
     subdomains = False
     try:
