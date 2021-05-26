@@ -23,10 +23,20 @@ Specific type definitions for IVRE
 """
 
 
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 try:
-    from typing import TypedDict
+    from typing import Protocol, TypedDict
 except ImportError:
     HAS_TYPED_DICT = False
 else:
@@ -35,6 +45,27 @@ else:
 
 NmapProbe = List[Tuple[str, Dict[str, Any]]]
 ParsedCertificate = Dict[str, Any]  # TODO: TypedDict
+
+
+# Filters
+
+MongoFilter = Dict[str, Any]  # TODO: TypedDict
+# TODO
+ElasticFilter = Any
+HttpFilter = Any
+SqlFilter = Any
+TinyFilter = Any
+Filter = Union[MongoFilter, SqlFilter, HttpFilter, ElasticFilter, TinyFilter]
+
+
+# Records (TODO)
+Record = Dict[str, Any]
+
+
+# DB objects
+
+DBCursor = Generator[Record, None, None]
+
 
 if HAS_TYPED_DICT:
 
@@ -85,6 +116,102 @@ if HAS_TYPED_DICT:
         scripts_force: Optional[Iterable[str]]
         extra_options: Optional[Iterable[str]]
 
+    class DB(Protocol):
+        flt_empty: Filter
+
+        def distinct(
+            self,
+            field: str,
+            flt: Optional[Filter] = None,
+            sort: Optional[Any] = None,
+            limit: Optional[int] = None,
+            skip: Optional[int] = None,
+        ) -> Iterable:
+            ...
+
+        @classmethod
+        def flt_and(cls, *args: Filter) -> Filter:
+            ...
+
+        def from_binary(self, data: Any) -> bytes:
+            ...
+
+        def get(self, spec: Filter, **kargs: Any) -> Generator[Record, None, None]:
+            ...
+
+        def _get(self, spec: Filter, **kargs: Any) -> DBCursor:
+            ...
+
+        def explain(self, cur: DBCursor, **kargs: Any) -> str:
+            ...
+
+        def remove_many(self, spec: Filter) -> None:
+            ...
+
+        def searchcert(
+            self,
+            keytype: Optional[str] = None,
+            md5: Optional[str] = None,
+            sha1: Optional[str] = None,
+            sha256: Optional[str] = None,
+            subject: Optional[str] = None,
+            issuer: Optional[str] = None,
+            self_signed: Optional[bool] = None,
+            pkmd5: Optional[str] = None,
+            pksha1: Optional[str] = None,
+            pksha256: Optional[str] = None,
+            cacert: bool = False,
+        ) -> Filter:
+            ...
+
+        @staticmethod
+        def serialize(obj: Any) -> str:
+            ...
+
+    class DBAgent(DB, Protocol):
+        pass
+
+    class DBData(DB, Protocol):
+        pass
+
+    class DBFlow(DB, Protocol):
+        pass
+
+    class DBActive(DB, Protocol):
+        def searchsshkey(
+            self,
+            fingerprint: Optional[str] = None,
+            key: Optional[str] = None,
+            keytype: Optional[str] = None,
+            bits: Optional[int] = None,
+            output: Optional[str] = None,
+        ) -> Filter:
+            ...
+
+    class DBNmap(DBActive, Protocol):
+        pass
+
+    class DBPassive(DB, Protocol):
+        def searchsshkey(self, keytype: Optional[str] = None) -> Filter:
+            ...
+
+    class DBView(DBActive, Protocol):
+        pass
+
+    class MetaDB(Protocol):
+        agent: DBAgent
+        data: DBData
+        db_types: Dict[str, Dict[str, Tuple[str, str]]]
+        flow: DBFlow
+        nmap: DBNmap
+        passive: DBPassive
+        url: str
+        urls: Dict[str, str]
+        view: DBView
+
+        def get_class(self, purpose: str) -> DB:
+            ...
+
 
 else:
     CpeDict = Dict[str, Union[str, Set[str]]]  # type: ignore
@@ -94,3 +221,12 @@ else:
         str,
         Union[str, bool, int, Optional[str], Optional[int], Optional[Iterable[str]]],
     ]
+    DB = Any  # type: ignore
+    DBAgent = Any  # type: ignore
+    DBData = Any  # type: ignore
+    DBFlow = Any  # type: ignore
+    DBActive = Any  # type: ignore
+    DBNmap = Any  # type: ignore
+    DBPassive = Any  # type: ignore
+    DBView = Any  # type: ignore
+    MetaDB = Any  # type: ignore

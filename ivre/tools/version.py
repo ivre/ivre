@@ -27,7 +27,7 @@ import sys
 from ivre import VERSION
 
 
-def main():
+def main() -> None:
     """Display IVRE's version"""
     print("IVRE - Network recon framework")
     print("Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>")

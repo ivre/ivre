@@ -20,6 +20,9 @@
 """This sub-module contains functions to implement ivre commands."""
 
 
+from typing import Callable, Optional, List, cast
+
+
 __all__ = [
     "airodump2db",
     "arp2db",
@@ -60,21 +63,27 @@ ALIASES = {
 }
 
 
-def get_command(name):
+def get_command(name: str) -> Optional[Callable[[], None]]:
     if name in __all__:
-        return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
+        return cast(
+            Callable[[], None],
+            getattr(__import__("%s.%s" % (__name__, name)).tools, name).main,
+        )
     if name in ALIASES:
         name = ALIASES[name]
-        return getattr(__import__("%s.%s" % (__name__, name)).tools, name).main
+        return cast(
+            Callable[[], None],
+            getattr(__import__("%s.%s" % (__name__, name)).tools, name).main,
+        )
     return None
 
 
-def guess_command(name):
+def guess_command(name: str) -> List[str]:
     if name in __all__:
         return [name]
-    possible = set(cmd for cmd in __all__ if cmd.startswith(name))
+    possible = sorted(set(cmd for cmd in __all__ if cmd.startswith(name)))
     if possible:
         return possible
     if name in ALIASES:
         return [name]
-    return set(cmd for cmd in ALIASES if cmd.startswith(name))
+    return sorted(set(cmd for cmd in ALIASES if cmd.startswith(name)))

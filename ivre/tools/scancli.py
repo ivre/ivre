@@ -182,7 +182,11 @@ def main():
             if not hasattr(args, "graphroute_dont_reset"):
                 args.graphroute_dont_reset = False
             return displayfunction_graphroute(
-                x, args.graphroute, args.graphroute_include, args.graphroute_dont_reset
+                x,
+                args.graphroute,
+                args.graphroute_cluster,
+                args.graphroute_include,
+                args.graphroute_dont_reset,
             )
 
     elif args.csv is not None:

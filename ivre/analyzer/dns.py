@@ -140,6 +140,9 @@ class Checker:
     def _test(self, addr: str) -> List[nsrecord]:
         raise NotImplementedError
 
+    def test(self, v4: bool = True, v6: bool = True) -> Generator[NmapHost, None, None]:
+        raise NotImplementedError
+
     def do_test(
         self, v4: bool = True, v6: bool = True
     ) -> Generator[Tuple[str, str, Sequence[nsrecord]], None, None]:

@@ -82,7 +82,7 @@ else:
 
 
 from ivre import config
-from ivre.types import NmapProbe, NmapProbeRec, NmapServiceMatch
+from ivre.types import NmapProbe, NmapProbeRec, NmapServiceMatch, Record
 
 
 # (1)
@@ -652,9 +652,7 @@ def fields2csv_head(fields: Dict[str, Any], prefix: str = "") -> List[str]:
     return line
 
 
-def doc2csv(
-    doc: Dict[str, Any], fields: Dict[str, Any], nastr: str = "NA"
-) -> List[list]:
+def doc2csv(doc: Record, fields: Dict[str, Any], nastr: str = "NA") -> List[list]:
     """Given a document and an (ordered) dictionary `fields`, returns
     a list of CSV lines. NB: recursive function.
 

@@ -23,8 +23,9 @@ black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivr
 flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre/ && echo "flake8 OK"
 
 # TODO: remove --follow-imports=skip
-mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,types}/*.py ./ivre/{__init__,agent,config,flow,geoiputils,graphroute,nmapopt,utils,zgrabout}.py && echo "mypy OK"
+mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout,tools/{__init__,auditdom,db2view,flow2db,getmoduli,ipcalc,ipdata,iphost,macinfo,runscansagent,version}}.py && echo "mypy OK"
 
-codespell  --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
+
+codespell --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
 
 pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init,broad-except,duplicate-code,fixme,function-redefined,global-statement,global-variable-undefined,import-error,invalid-name,locally-disabled,missing-docstring,no-absolute-import,no-member,protected-access,raise-missing-from,subprocess-popen-preexec-fn,super-init-not-called,suppressed-message,too-few-public-methods,too-many-ancestors,too-many-arguments,too-many-boolean-expressions,too-many-branches,too-many-instance-attributes,too-many-lines,too-many-locals,too-many-nested-blocks,too-many-public-methods,too-many-return-statements,too-many-statements,unsubscriptable-object,unused-argument,line-too-long ivre ./doc/conf.py ./setup.py ./bin/ivre && echo "pylint OK"

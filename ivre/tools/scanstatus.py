@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import sys
 import time
 
 
-def main():
+def main() -> None:
     statusline = re.compile(
         '<task(?P<status>begin|end|progress) task="(?P<task>[^"]*)" '
         'time="(?P<time>[^"]*)"(?P<otherinfo>.*)/>'

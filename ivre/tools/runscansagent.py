@@ -36,7 +36,7 @@ ACTION_FEED = 2
 ACTION_BOTH = 3
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Sends targets to a remote agent.",
         parents=[ivre.target.ARGPARSER],
