@@ -659,12 +659,16 @@ def passive_record_to_view(rec, category=None):
     sensor = rec.get("sensor")
     if sensor:
         outrec["source"] = [sensor]
+    # This (using "lastseen" from the passive record as both "starttime" and
+    # "endtime" in the view record) might be surprising **but** it makes sense
+    # when you think about it: it avoids having a scan record with
+    # exceptionally long "scan durations"
     try:
-        outrec["starttime"] = datetime.fromtimestamp(rec["firstseen"])
-        outrec["endtime"] = datetime.fromtimestamp(rec["lastseen"])
+        outrec["starttime"] = outrec["endtime"] = datetime.fromtimestamp(
+            rec["lastseen"]
+        )
     except TypeError:
-        outrec["starttime"] = rec["firstseen"]
-        outrec["endtime"] = rec["lastseen"]
+        outrec["starttime"] = outrec["endtime"] = rec["lastseen"]
     function = _EXTRACTORS.get(rec["recontype"], lambda _: {})
     if isinstance(function, dict):
         function = function.get(rec["source"], lambda _: {})
