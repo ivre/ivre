@@ -199,8 +199,11 @@ def download_all(verbose: bool = False) -> None:
             sys.stdout.write("Downloading %s to %s: " % (url, outfile))
             sys.stdout.flush()
         with open(outfile, "wb") as wdesc:
-            udesc = opener.open(url)
-            wdesc.write(udesc.read())
+            try:
+                udesc = opener.open(url)
+                wdesc.write(udesc.read())
+            except Exception as e:
+                utils.LOGGER.warning(e, exc_info=True)
             if verbose:
                 sys.stdout.write("done.\n")
     if verbose:
