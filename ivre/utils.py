@@ -1542,7 +1542,7 @@ def mac2manuf(mac: str) -> Optional[Tuple[str, Optional[str]]]:
 
 
 _REPRS = {13: "\\r", 10: "\\n", 9: "\\t", 92: "\\\\"}
-_RAWS = {"r": b"\r", "n": b"\n", "t": b"\t", "\\": b"\\", "0": b"\x00"}
+_RAWS = {"r": b"\r", "n": b"\n", "t": b"\t", "\\": b"\\", "0": b"\x00", '"': b'"'}
 
 
 def nmap_encode_data(data: bytes) -> str:
