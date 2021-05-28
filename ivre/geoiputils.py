@@ -202,10 +202,10 @@ def download_all(verbose: bool = False) -> None:
             try:
                 udesc = opener.open(url)
                 wdesc.write(udesc.read())
+                if verbose:
+                    sys.stdout.write("done.\n")
             except Exception as e:
                 utils.LOGGER.warning(e, exc_info=True)
-            if verbose:
-                sys.stdout.write("done.\n")
     if verbose:
         sys.stdout.write("Unpacking: ")
         sys.stdout.flush()
