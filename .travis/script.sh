@@ -18,7 +18,7 @@ if [ "$DB" = "maxmind" ]; then
 	fi
 	echo "pylint OK"
 	mv ivre_bak ivre
-	if ! mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout,tools/{__init__,auditdom,db2view,flow2db,getmoduli,ipcalc,ipdata,iphost,macinfo,runscansagent,version}}.py; then
+	if ! mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout,tools/{__init__,airodump2db,arp2db,auditdom,db2view,flow2db,flowcli,getmoduli,ipcalc,ipdata,iphost,macinfo,runscansagent,version}}.py; then
 	    echo "mypy KO"
 	    exit -1
 	fi

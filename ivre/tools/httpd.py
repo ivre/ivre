@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -27,11 +27,11 @@ tested with both Apache and Nginx).
 """
 
 
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 import os
 
 
-from bottle import default_app, get, redirect, run, static_file
+from bottle import HTTPResponse, default_app, get, redirect, run, static_file  # type: ignore
 
 
 from ivre.config import DEBUG, WEB_DOKU_PATH, WEB_STATIC_PATH
@@ -44,28 +44,28 @@ from ivre.web import app as webapp
 
 
 @get("/")
-def server_index():
+def server_index() -> None:
     """Needed to redirect / to index.html"""
-    return redirect("index.html")
+    redirect("index.html")
 
 
 @get("/doc")
-def server_doc_index():
+def server_doc_index() -> None:
     """Needed to redirect / to index.html"""
-    return redirect("doc/index.html")
+    redirect("doc/index.html")
 
 
 @get("/doc/<subdir:re:dev|install|usage>")
-def server_doc_subindex(subdir):
+def server_doc_subindex(subdir) -> None:
     """Needed to redirect / to index.html"""
-    return redirect("%s/index.html" % subdir)
+    redirect("%s/index.html" % subdir)
 
 
 @get("/doc/")
 @get("/doc/<:re:dev|install|usage>/")
-def server_doc_subindex2():
+def server_doc_subindex2() -> None:
     """Needed to redirect / to index.html"""
-    return redirect("index.html")
+    redirect("index.html")
 
 
 #
@@ -74,7 +74,7 @@ def server_doc_subindex2():
 
 
 @get("/dokuwiki/<filepath:path>")
-def server_doku(filepath):
+def server_doku(filepath) -> HTTPResponse:
     """This function serves Dokuwiki files as static text files. This is
     far from being great...
 
@@ -86,12 +86,12 @@ def server_doku(filepath):
 
 
 @get("/<filepath:path>")
-def server_static(filepath):
+def server_static(filepath) -> HTTPResponse:
     """Serve the static (HTML, JS, CSS, ...) content."""
     return static_file(filepath, root=WEB_STATIC_PATH)
 
 
-def parse_args():
+def parse_args() -> Namespace:
     """Imports the available module to parse the arguments and return
     the parsed arguments.
 
@@ -109,7 +109,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
+def main() -> None:
     """Function run when the tool is called."""
     args = parse_args()
     print(__doc__)

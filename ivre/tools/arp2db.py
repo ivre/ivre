@@ -22,24 +22,25 @@
 from argparse import ArgumentParser
 from datetime import datetime
 import subprocess
+from typing import cast, Iterable
 
 
-from scapy.all import PcapReader
+from scapy.all import Packet, PcapReader  # type: ignore
 
 
 from ivre import config
 from ivre.db import db
 
 
-def reader(fname):
+def reader(fname: str) -> Iterable[Packet]:
     # pylint: disable=consider-using-with
     proc = subprocess.Popen(
         ["tcpdump", "-n", "-r", fname, "-w", "-", "arp"], stdout=subprocess.PIPE
     )
-    return PcapReader(proc.stdout)
+    return cast(Iterable[Packet], PcapReader(proc.stdout))
 
 
-def main():
+def main() -> None:
     """Update the flow database from ARP requests in PCAP files"""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("files", nargs="*", metavar="FILE", help="PCAP files")

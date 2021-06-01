@@ -16,15 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-# pip install -U flake8 codespell pylint
+# pip install -U black flake8 mypy codespell pylint
 
 black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre/ && echo "black OK"
 
 flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre/ && echo "flake8 OK"
 
 # TODO: remove --follow-imports=skip
-mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout,tools/{__init__,auditdom,db2view,flow2db,getmoduli,ipcalc,ipdata,iphost,macinfo,runscansagent,version}}.py && echo "mypy OK"
-
+mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout,tools/{__init__,airodump2db,arp2db,auditdom,db2view,flow2db,flowcli,getmoduli,ipcalc,ipdata,iphost,macinfo,runscansagent,version}}.py && echo "mypy OK"
 
 codespell --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
 

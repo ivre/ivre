@@ -27,6 +27,7 @@ from argparse import ArgumentParser
 import datetime
 import os
 import sys
+from typing import Dict, Tuple
 
 
 try:
@@ -48,7 +49,7 @@ addr_fields = {
 }
 
 
-def get_addr_argument(field, value):
+def get_addr_argument(field: str, value: str) -> Tuple[str, str]:
     addr_field = addr_fields[field]
     # Detect CIDR
     op = "="
@@ -400,7 +401,7 @@ def main() -> None:
         precision = (
             args.precision if args.precision is not None else config.FLOW_TIME_PRECISION
         )
-        plot_data = {}
+        plot_data: Dict[str, Dict[datetime.datetime, int]] = {}
         for rec in db.flow.flow_daily(
             precision, query, after=time_values["after"], before=time_values["before"]
         ):
