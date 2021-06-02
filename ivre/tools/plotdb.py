@@ -19,35 +19,37 @@
 
 import argparse
 import math
+from typing import List, Optional, Tuple
 
 
-import matplotlib
-import matplotlib.pyplot
+import matplotlib  # type: ignore
+import matplotlib.pyplot  # type: ignore
 
 # from mpl_toolkits.mplot3d import Axes3D
 # pylint: disable=unused-import
-from mpl_toolkits.mplot3d import axes3d, Axes3D  # noqa: F401
+from mpl_toolkits.mplot3d import axes3d, Axes3D  # type: ignore # noqa: F401
+
 
 from ivre import db
+from ivre.types import Filter, Record
+from ivre import utils
 
 
-def graphhost(ap):
-    if "ports" not in ap:
+def graphhost(host: Record) -> Tuple[List[int], List[int]]:
+    if "ports" not in host:
         return [], []
     hh, pp = [], []
-    an = ap["addr"]
-    ap = ap["ports"]
-    for p in ap:
-        pn = p["port"]
+    addr = utils.ip2int(host["addr"])
+    for p in host["ports"]:
         if p.get("state_state") == "open":
-            hh.append(an)
-            pp.append(pn)
+            hh.append(addr)
+            pp.append(p["port"])
     return hh, pp
 
 
-def getgraph(flt=db.db.nmap.flt_empty):
+def getgraph(flt: Filter = db.db.view.flt_empty) -> Tuple[List[int], List[int]]:
     h, p = [], []
-    allhosts = db.db.nmap.get(flt)
+    allhosts = db.db.view.get(flt)
     for ap in allhosts:
         hh, pp = graphhost(ap)
         h += hh
@@ -55,7 +57,9 @@ def getgraph(flt=db.db.nmap.flt_empty):
     return h, p
 
 
-def graph3d(mainflt=db.db.nmap.flt_empty, alertflt=None):
+def graph3d(
+    mainflt: Filter = db.db.view.flt_empty, alertflt: Optional[Filter] = None
+) -> None:
     h, p = getgraph(flt=mainflt)
     fig = matplotlib.pyplot.figure()
     if matplotlib.__version__.startswith("0.99"):
@@ -69,7 +73,7 @@ def graph3d(mainflt=db.db.nmap.flt_empty, alertflt=None):
         ".",
     )
     if alertflt is not None:
-        h, p = getgraph(flt=db.db.nmap.flt_and(mainflt, alertflt))
+        h, p = getgraph(flt=db.db.view.flt_and(mainflt, alertflt))
         if h:
             ax.plot(
                 [x // 65535 for x in h],
@@ -81,22 +85,24 @@ def graph3d(mainflt=db.db.nmap.flt_empty, alertflt=None):
     matplotlib.pyplot.show()
 
 
-def graph2d(mainflt=db.db.nmap.flt_empty, alertflt=None):
+def graph2d(
+    mainflt: Filter = db.db.view.flt_empty, alertflt: Optional[Filter] = None
+) -> None:
     h, p = getgraph(flt=mainflt)
     fig = matplotlib.pyplot.figure()
     ax = fig.add_subplot(111)
     ax.semilogy(h, p, ".")
     if alertflt is not None:
-        h, p = getgraph(flt=db.db.nmap.flt_and(mainflt, alertflt))
+        h, p = getgraph(flt=db.db.view.flt_and(mainflt, alertflt))
         if h:
             ax.semilogy(h, p, ".", c="r")
     matplotlib.pyplot.show()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Plot scan results.",
-        parents=[db.db.nmap.argparser],
+        parents=[db.db.view.argparser],
     )
     parser.add_argument(
         "--2d", "-2", action="store_const", dest="graph", const=graph2d, default=graph3d
@@ -106,14 +112,14 @@ def main():
         "--alert-445",
         action="store_const",
         dest="alertflt",
-        const=db.db.nmap.searchxp445(),
-        default=db.db.nmap.searchhttpauth(),
+        const=db.db.view.searchxp445(),
+        default=db.db.view.searchhttpauth(),
     )
     parser.add_argument(
         "--alert-nfs",
         action="store_const",
         dest="alertflt",
-        const=db.db.nmap.searchnfs(),
+        const=db.db.view.searchnfs(),
     )
     args = parser.parse_args()
-    args.graph(mainflt=db.db.nmap.parse_args(args), alertflt=args.alertflt)
+    args.graph(mainflt=db.db.view.parse_args(args), alertflt=args.alertflt)
