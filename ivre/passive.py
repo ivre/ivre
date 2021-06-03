@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -184,7 +184,10 @@ def _prepare_rec_ntlm(spec, new_recontype):
     try:
         auth = utils.decode_b64(spec["value"].split(None, 1)[1].encode())
     except (UnicodeDecodeError, TypeError, ValueError, binascii.Error):
-        pass
+        utils.LOGGER.warning(
+            "_prepare_rec_ntlm(): cannot decode %r", spec["value"], exc_info=True
+        )
+        return
     spec["value"] = "%s %s" % (
         spec["value"].split(None, 1)[0],
         ntlm._ntlm_dict2string(ntlm.ntlm_extract_info(auth)),
