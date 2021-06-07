@@ -26,13 +26,19 @@ import os
 import time
 import argparse
 import sys
+from typing import Callable, Optional, cast
 
 
 from ivre.db import db
+from ivre.types import Filter, Record, Sort, SortKey
 from ivre import utils
 
 
-def disp_rec(rec):
+baseflt: Filter
+Displayer = Callable[[Filter, Sort, Optional[int], Optional[int]], None]
+
+
+def disp_rec(rec: Record) -> None:
     print("\t", end=" ")
     if "port" in rec and rec["port"]:
         print(rec["port"], end=" ")
@@ -78,7 +84,9 @@ def disp_rec(rec):
                 print(rec["infos"][i])
 
 
-def disp_recs_std(flt, sort, limit, skip):
+def disp_recs_std(
+    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+) -> None:
     old_addr = None
     sort = sort or [("addr", 1), ("port", 1), ("recontype", 1), ("source", 1)]
     for rec in db.passive.get(flt, sort=sort, limit=limit, skip=skip):
@@ -121,7 +129,10 @@ def disp_recs_std(flt, sort, limit, skip):
         disp_rec(rec)
 
 
-def disp_recs_json(flt, sort, limit, skip):
+def disp_recs_json(
+    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+) -> None:
+    indent: Optional[int]
     if os.isatty(sys.stdout.fileno()):
         indent = 4
     else:
@@ -139,28 +150,34 @@ def disp_recs_json(flt, sort, limit, skip):
         print(json.dumps(rec, indent=indent, default=db.passive.serialize))
 
 
-def disp_recs_short(flt, *_):
+def disp_recs_short(
+    flt: Filter, _sort: Sort, _limit: Optional[int], _skip: Optional[int]
+) -> None:
     for addr in db.passive.distinct("addr", flt=flt):
         if addr is not None:
             print(addr)
 
 
-def disp_recs_distinct(field, flt, *_):
+def disp_recs_distinct(
+    field: str, flt: Filter, _sort: Sort, _limit: Optional[int], _skip: Optional[int]
+) -> None:
     for value in db.passive.distinct(field, flt=flt):
         print(value)
 
 
-def disp_recs_top(top):
+def disp_recs_top(top: str) -> Displayer:
     return lambda flt, sort, limit, _: sys.stdout.writelines(
         db.passive.display_top(top, flt, limit)
     )
 
 
-def disp_recs_count(flt, sort, limit, skip):
+def disp_recs_count(
+    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+) -> None:
     print(db.passive.count(flt))
 
 
-def _disp_recs_tail(flt, field, nbr):
+def _disp_recs_tail(flt: Filter, field: str, nbr: Optional[int]) -> None:
     recs = list(db.passive.get(flt, sort=[(field, -1)], limit=nbr))
     recs.reverse()
     for r in recs:
@@ -171,15 +188,16 @@ def _disp_recs_tail(flt, field, nbr):
         disp_rec(r)
 
 
-def disp_recs_tail(nbr):
+def disp_recs_tail(nbr: int) -> Displayer:
     return lambda flt, *_: _disp_recs_tail(flt, "firstseen", nbr)
 
 
-def disp_recs_tailnew(nbr):
+def disp_recs_tailnew(nbr: int) -> Displayer:
     return lambda flt, *_: _disp_recs_tail(flt, "lastseen", nbr)
 
 
-def _disp_recs_tailf(flt, field):
+def _disp_recs_tailf(flt: Filter, field: str) -> None:
+    global baseflt
     # 1. init
     firstrecs = list(db.passive.get(flt, sort=[(field, -1)], limit=10))
     firstrecs.reverse()
@@ -214,15 +232,17 @@ def _disp_recs_tailf(flt, field):
         pass
 
 
-def disp_recs_tailfnew():
+def disp_recs_tailfnew() -> Displayer:
     return lambda flt, *_: _disp_recs_tailf(flt, "firstseen")
 
 
-def disp_recs_tailf():
+def disp_recs_tailf() -> Displayer:
     return lambda flt, *_: _disp_recs_tailf(flt, "lastseen")
 
 
-def disp_recs_explain(flt, sort, limit, skip):
+def disp_recs_explain(
+    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+) -> None:
     print(
         db.passive.explain(
             db.passive._get(flt, sort=sort, limit=limit, skip=skip), indent=4
@@ -230,14 +250,14 @@ def disp_recs_explain(flt, sort, limit, skip):
     )
 
 
-def main():
+def main() -> None:
     global baseflt
     parser = argparse.ArgumentParser(
         description=__doc__,
         parents=[db.passive.argparser, utils.CLI_ARGPARSER],
     )
     baseflt = db.passive.flt_empty
-    disp_recs = disp_recs_std
+    disp_recs: Displayer = disp_recs_std
     # display modes
     parser.add_argument(
         "--tail", metavar="COUNT", type=int, help="Output latest COUNT results."
@@ -314,11 +334,12 @@ def main():
         disp_recs = db.passive.remove
     elif args.explain:
         disp_recs = disp_recs_explain
+    sort: Sort
     if args.sort is None:
         sort = []
     else:
         sort = [
-            (field[1:], -1) if field.startswith("~") else (field, 1)
+            cast(SortKey, (field[1:], -1) if field.startswith("~") else (field, 1))
             for field in args.sort
         ]
     if not args.ips:

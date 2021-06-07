@@ -35,22 +35,24 @@ def main() -> None:
     endinfo = re.compile('extrainfo="(?P<extrainfo>[^"]*)"')
     curtask = None
     curprogress = None
-    for line in sys.stdin:
-        line = statusline.match(line)
-        if line is None:
+    for line_raw in sys.stdin:
+        line_m = statusline.match(line_raw)
+        if line_m is None:
             continue
-        line = line.groupdict()
+        line = line_m.groupdict()
         if line["status"] == "begin":
             curtask = (line["task"], int(line["time"]))
             curprogress = None
             continue
+        if curtask is None:
+            raise Exception("curtask is None, task is  %r" % line["task"])
         if curtask[0] != line["task"]:
             raise Exception("curtask != task (%r != %r)" % (curtask, line["task"]))
         if line["status"] == "progress":
-            progress = progressinfo.search(line["otherinfo"])
-            if progress is None:
+            progress_m = progressinfo.search(line["otherinfo"])
+            if progress_m is None:
                 raise Exception("progress line not understood [%r]" % line["otherinfo"])
-            progress = progress.groupdict()
+            progress = progress_m.groupdict()
             curprogress = (
                 int(line["time"]),
                 float(progress["percent"]),
@@ -58,11 +60,11 @@ def main() -> None:
                 int(progress["etc"]),
             )
         elif line["status"] == "end":
-            end = endinfo.search(line["otherinfo"])
-            if end is None:
+            end_m = endinfo.search(line["otherinfo"])
+            if end_m is None:
                 end = ""
             else:
-                end = " " + end.group("extrainfo") + "."
+                end = " " + end_m.group("extrainfo") + "."
             print(
                 "task %s completed in %d seconds.%s"
                 % (curtask[0], int(line["time"]) - curtask[1], end)
@@ -73,9 +75,9 @@ def main() -> None:
     if curtask is not None:
         now = int(time.time())
         if curprogress is None:
-            progress = ""
+            progress_str = ""
         else:
-            progress = (
+            progress_str = (
                 "\n     %d seconds ago: %.2f %% done, "
                 "remaining %d seconds.\n     ETC %s."
                 % (
@@ -87,5 +89,5 @@ def main() -> None:
             )
         print(
             "task %s running for %d seconds.%s"
-            % (curtask[0], now - curtask[1], progress)
+            % (curtask[0], now - curtask[1], progress_str)
         )

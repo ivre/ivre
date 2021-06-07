@@ -23,6 +23,7 @@
 import argparse
 import os
 import sys
+from typing import Callable
 
 
 from ivre import graphroute
@@ -41,10 +42,12 @@ from ivre.activecli import (
     displayfunction_remove,
     displayfunction_csv,
 )
+from ivre.types import DBCursor
 from ivre.utils import CLI_ARGPARSER
 
 
-def main():
+def main() -> None:
+    displayfunction: Callable[[DBCursor], None]
     parser = argparse.ArgumentParser(
         description="Print out views.",
         parents=[db.view.argparser, CLI_ARGPARSER],
@@ -176,8 +179,8 @@ def main():
         sys.exit(0)
     if args.json:
 
-        def displayfunction(x):
-            return displayfunction_json(x, db.view, args.no_screenshots)
+        def displayfunction(cur: DBCursor) -> None:
+            return displayfunction_json(cur, db.view, args.no_screenshots)
 
     elif args.honeyd:
         displayfunction = displayfunction_honeyd
@@ -189,9 +192,9 @@ def main():
         displayfunction = displayfunction_gnmap
     elif args.graphroute is not None:
 
-        def displayfunction(x):
+        def displayfunction(cur: DBCursor) -> None:
             return displayfunction_graphroute(
-                x,
+                cur,
                 args.graphroute,
                 args.graphroute_cluster,
                 args.graphroute_include,
@@ -200,15 +203,15 @@ def main():
 
     elif args.csv is not None:
 
-        def displayfunction(x):
+        def displayfunction(cur: DBCursor) -> None:
             return displayfunction_csv(
-                x, args.csv, args.csv_separator, args.csv_na_str, args.csv_add_infos
+                cur, args.csv, args.csv_separator, args.csv_na_str, args.csv_add_infos
             )
 
     else:
 
-        def displayfunction(cursor):
-            displayhosts(cursor, out=sys.stdout)
+        def displayfunction(cur: DBCursor) -> None:
+            displayhosts(cur, out=sys.stdout)
 
     if args.update_schema:
         db.view.migrate_schema(args.version)
