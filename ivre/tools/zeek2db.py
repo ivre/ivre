@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -21,14 +21,17 @@
 
 from argparse import ArgumentParser
 import os
+from typing import Any, Callable, Dict, Iterable
 
 
 from ivre.parser.zeek import ZeekFile
 from ivre.db import db
 from ivre import config, utils, flow
+from ivre.types import Record
+from ivre.types.flow import Bulk
 
 
-def _zeek2flow(rec):
+def _zeek2flow(rec: Dict[str, Any]) -> Record:
     """Prepares a document for db.flow.*add_flow()."""
     if "id_orig_h" in rec:
         rec["src"] = rec.pop("id_orig_h")
@@ -48,22 +51,22 @@ def _zeek2flow(rec):
     return rec
 
 
-def arp2flow(bulk, rec):
+def arp2flow(bulk: Bulk, rec: Record) -> None:
     rec["proto"] = "arp"
     db.flow.any2flow(bulk, "arp", rec)
 
 
-def http2flow(bulk, rec):
+def http2flow(bulk: Bulk, rec: Record) -> None:
     rec["proto"] = "tcp"
     db.flow.any2flow(bulk, "http", rec)
 
 
-def ssh2flow(bulk, rec):
+def ssh2flow(bulk: Bulk, rec: Record) -> None:
     rec["proto"] = "tcp"
     db.flow.any2flow(bulk, "ssh", rec)
 
 
-def _sip_paths_search_tcp(paths):
+def _sip_paths_search_tcp(paths: Iterable[str]) -> bool:
     """
     Fills the given proto_dict with transport protocol info found in path
     """
@@ -76,7 +79,7 @@ def _sip_paths_search_tcp(paths):
     return False
 
 
-def sip2flow(bulk, rec):
+def sip2flow(bulk: Bulk, rec: Record) -> None:
     found_tcp = _sip_paths_search_tcp(rec["response_path"]) or _sip_paths_search_tcp(
         rec["request_path"]
     )
@@ -84,22 +87,22 @@ def sip2flow(bulk, rec):
     db.flow.any2flow(bulk, "sip", rec)
 
 
-def snmp2flow(bulk, rec):
+def snmp2flow(bulk: Bulk, rec: Record) -> None:
     rec["proto"] = "udp"
     db.flow.any2flow(bulk, "snmp", rec)
 
 
-def ssl2flow(bulk, rec):
+def ssl2flow(bulk: Bulk, rec: Record) -> None:
     rec["proto"] = "tcp"  # FIXME Is it always true?
     db.flow.any2flow(bulk, "ssl", rec)
 
 
-def rdp2flow(bulk, rec):
+def rdp2flow(bulk: Bulk, rec: Record) -> None:
     rec["proto"] = "tcp"  # FIXME Is it always true?
     db.flow.any2flow(bulk, "rdp", rec)
 
 
-def dns2flow(bulk, rec):
+def dns2flow(bulk: Bulk, rec: Record) -> None:
     # bug in pylint; see https://github.com/PyCQA/pylint/issues/2818
     # pylint: disable=superfluous-parens
     rec["answers"] = [elt.lower() for elt in (rec["answers"] if rec["answers"] else [])]
@@ -120,14 +123,14 @@ FUNCTIONS = {
 }
 
 
-def any2flow(name):
-    def inserter(bulk, rec):
-        return db.flow.any2flow(bulk, name, rec)
+def any2flow(name: str) -> Callable[[Bulk, Record], None]:
+    def inserter(bulk: Bulk, rec: Record) -> None:
+        db.flow.any2flow(bulk, name, rec)
 
     return inserter
 
 
-def main():
+def main() -> None:
     """Update the flow database from Zeek logs"""
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("logfiles", nargs="*", metavar="FILE", help="Zeek log files")

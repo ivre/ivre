@@ -37,12 +37,14 @@ import subprocess
 import sys
 import termios
 import time
+from typing import Any, BinaryIO, Dict, List, Optional, Set, Tuple, Type
 
 
 import ivre.agent
 import ivre.geoiputils
 import ivre.utils
 import ivre.target
+from ivre.types import Target
 import ivre.nmapopt
 
 
@@ -51,10 +53,10 @@ STATUS_DONE_UP = 1
 STATUS_DONE_DOWN = 2
 STATUS_DONE_UNKNOWN = 3
 
-NMAP_LIMITS = {}
+NMAP_LIMITS: Dict[int, Tuple[int, int]] = {}
 
 
-def setnmaplimits():
+def setnmaplimits() -> None:
     """Enforces limits from NMAP_LIMITS global variable."""
     for limit, value in NMAP_LIMITS.items():
         resource.setrlimit(limit, value)
@@ -63,13 +65,16 @@ def setnmaplimits():
 class XmlProcess:
     addrrec = re.compile(b'<address\\s+addr="([0-9\\.]+)" addrtype="ipv4"/>')
 
-    @staticmethod
-    def target_status(_):
+    # pylint: disable=no-self-use
+    def target_status(self, _target: str) -> int:
         return STATUS_NEW
+
+    def process(self, fdesc: BinaryIO) -> bool:
+        raise NotImplementedError
 
 
 class XmlProcessTest(XmlProcess):
-    def process(self, fdesc):
+    def process(self, fdesc: BinaryIO) -> bool:
         data = fdesc.read()
         if not data:
             return False
@@ -89,7 +94,7 @@ class XmlProcessWritefile(XmlProcess):
         "unknown": STATUS_DONE_UNKNOWN,
     }
 
-    def __init__(self, path, fulloutput=False):
+    def __init__(self, path: str, fulloutput: bool = False) -> None:
         self.path = path
         self.starttime = int(time.time() * 1000000)
         self.data = b""
@@ -107,7 +112,7 @@ class XmlProcessWritefile(XmlProcess):
         else:
             self.has_fulloutput = False
 
-    def process(self, fdesc):
+    def process(self, fdesc: BinaryIO) -> bool:
         newdata = fdesc.read()
         # print("READ", len(newdata), "bytes")
         if not newdata:
@@ -121,7 +126,9 @@ class XmlProcessWritefile(XmlProcess):
             self.fulloutput.flush()
         self.data += newdata
         while b"</host>" in self.data:
-            hostbeginindex = self.data.index(self.hostbegin.search(self.data).group())
+            hostbeginmatch = self.hostbegin.search(self.data)
+            assert hostbeginmatch is not None
+            hostbeginindex = self.data.index(hostbeginmatch.group())
             self.scaninfo.write(self.data[:hostbeginindex])
             self.scaninfo.flush()
             if self.isstarting:
@@ -133,7 +140,9 @@ class XmlProcessWritefile(XmlProcess):
             self.data = self.data[hostbeginindex:]
             hostrec = self.data[: self.data.index(b"</host>") + 7]
             try:
-                addr = self.addrrec.search(hostrec).groups()[0]
+                addrmatch = self.addrrec.search(hostrec)
+                assert addrmatch is not None
+                addr = addrmatch.groups()[0]
             except Exception:
                 ivre.utils.LOGGER.warning(
                     "Exception for record %r", hostrec, exc_info=True
@@ -158,7 +167,7 @@ class XmlProcessWritefile(XmlProcess):
                 self.data = self.data[1:]
         return True
 
-    def target_status(self, target):
+    def target_status(self, target: str) -> int:
         for status, statuscode in self.status_paths.items():
             try:
                 os.stat(
@@ -170,7 +179,7 @@ class XmlProcessWritefile(XmlProcess):
         return STATUS_NEW
 
 
-def restore_echo():
+def restore_echo() -> None:
     """Hack for https://stackoverflow.com/questions/6488275 equivalent
     issue with Nmap (from
     http://stackoverflow.com/a/8758047/3223422)
@@ -188,14 +197,20 @@ def restore_echo():
     termios.tcsetattr(fdesc, termios.TCSADRAIN, attrs)
 
 
-def call_nmap(options, xmlprocess, targets, accept_target_status=None):
+def call_nmap(
+    options: List[str],
+    xmlprocess: XmlProcess,
+    targets: Target,
+    accept_target_status: Optional[Set[int]] = None,
+) -> int:
     if accept_target_status is None:
-        accept_target_status = [STATUS_NEW]
+        accept_target_status = {STATUS_NEW}
     options += ["-oX", "-", "-iL", "-"]
     # pylint: disable=consider-using-with
     proc = subprocess.Popen(
         options, preexec_fn=setnmaplimits, stdin=subprocess.PIPE, stdout=subprocess.PIPE
     )
+    assert proc.stdout is not None
     procout = proc.stdout.fileno()
     procoutfl = fcntl.fcntl(procout, fcntl.F_GETFL)
     fcntl.fcntl(procout, fcntl.F_SETFL, procoutfl | os.O_NONBLOCK)
@@ -218,8 +233,9 @@ def call_nmap(options, xmlprocess, targets, accept_target_status=None):
                 while xmlprocess.target_status(naddr) not in accept_target_status:
                     naddr = ivre.utils.int2ip(next(targiter))
                 print("ADDING TARGET", end=" ")
-                print(targiter.nextcount, end=" ")
-                if hasattr(targets, "targetcount"):
+                # TargetIter has a .nextcount attribute
+                print(targiter.nextcount, end=" ")  # type: ignore
+                if hasattr(targets, "targetscount"):
                     print("/", targets.targetscount, end=" ")
                 print(":", naddr)
                 wfdesc.write(naddr.encode() + b"\n")
@@ -235,9 +251,11 @@ def call_nmap(options, xmlprocess, targets, accept_target_status=None):
     return 0
 
 
-def _call_nmap_single(maincategory, options, accept_target_status, target):
-    target = ivre.utils.int2ip(target)
-    outfile = "scans/%s/%%s/%s.xml" % (maincategory, target.replace(".", "/"))
+def _call_nmap_single(
+    maincategory: str, options: List[str], accept_target_status: List[int], target: int
+) -> None:
+    target_str = ivre.utils.int2ip(target)
+    outfile = "scans/%s/%%s/%s.xml" % (maincategory, target_str.replace(".", "/"))
     if STATUS_DONE_UP not in accept_target_status:
         try:
             os.stat(outfile % "up")
@@ -258,7 +276,7 @@ def _call_nmap_single(maincategory, options, accept_target_status, target):
             pass
     ivre.utils.makedirs(os.path.dirname(outfile % "current"))
     subprocess.call(
-        options + ["-oX", outfile % "current", target], preexec_fn=setnmaplimits
+        options + ["-oX", outfile % "current", target_str], preexec_fn=setnmaplimits
     )
     resdata = open(outfile % "current", "rb").read()
     if b'<status state="up"' in resdata:
@@ -271,7 +289,7 @@ def _call_nmap_single(maincategory, options, accept_target_status, target):
     shutil.move(outfile % "current", outfile % outdir)
 
 
-def main():
+def main() -> None:
     atexit.register(restore_echo)
     accept_target_status = set([STATUS_NEW])
     parser = argparse.ArgumentParser(
@@ -367,20 +385,16 @@ def main():
         )
     if args.again is not None:
         accept_target_status = set(
-            functools.reduce(
-                lambda x, y: x + y,
-                [
-                    {
-                        "up": [STATUS_DONE_UP],
-                        "down": [STATUS_DONE_DOWN],
-                        "unknown": [STATUS_DONE_UNKNOWN],
-                        "all": [STATUS_DONE_UP, STATUS_DONE_DOWN, STATUS_DONE_UNKNOWN],
-                    }[x]
-                    for x in args.again
-                ],
-                [STATUS_NEW],
-            )
+            status
+            for x in args.again
+            for status in {
+                "up": [STATUS_DONE_UP],
+                "down": [STATUS_DONE_DOWN],
+                "unknown": [STATUS_DONE_UNKNOWN],
+                "all": [STATUS_DONE_UP, STATUS_DONE_DOWN, STATUS_DONE_UNKNOWN],
+            }[x]
         )
+        accept_target_status.add(STATUS_NEW)
     if args.zmap_prescan_port is not None:
         args.nmap_ping_types = ["PS%d" % args.zmap_prescan_port]
     elif args.nmap_prescan_ports is not None:
@@ -419,16 +433,18 @@ def main():
         except KeyboardInterrupt:
             print(
                 'Interrupted.\nUse "--state %s" to resume.'
-                % (" ".join(str(elt) for elt in targiter.getstate()))
+                # TargetIter has a .getstate method
+                % (" ".join(str(elt) for elt in targiter.getstate()))  # type: ignore
             )
         except Exception:
             ivre.utils.LOGGER.critical("Exception", exc_info=True)
             print(
                 'Use "--state %s" to resume.'
-                % (" ".join(str(elt) for elt in targiter.getstate()))
+                # TargetIter has a .getstate method
+                % (" ".join(str(elt) for elt in targiter.getstate()))  # type: ignore
             )
         sys.exit(0)
-    xmlprocess = {
+    xmlprocess_choice: Dict[str, Tuple[Type[XmlProcess], List[str], Dict[str, Any]]] = {
         "XML": (
             XmlProcessWritefile,
             ["./scans/%s/" % targets.infos["categories"][0]],
@@ -440,9 +456,10 @@ def main():
             {"fulloutput": True},
         ),
         "Test": (XmlProcessTest, [], {}),
-    }[args.output]
-    xmlprocess = xmlprocess[0](*xmlprocess[1], **xmlprocess[2])
+    }
+    xmlprocess = xmlprocess_choice[args.output]
+    xmlprocess_call = xmlprocess[0](*xmlprocess[1], **xmlprocess[2])  # type: ignore
     retval = call_nmap(
-        options, xmlprocess, targets, accept_target_status=accept_target_status
+        options, xmlprocess_call, targets, accept_target_status=accept_target_status
     )
     sys.exit(retval)

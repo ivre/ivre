@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -23,15 +23,19 @@
 from argparse import ArgumentParser
 import os
 import sys
+from typing import Generator, Iterable, List
 
 
 import ivre.db
+from ivre.types import Record
 import ivre.utils
 from ivre.view import nmap_record_to_view
 import ivre.xmlnmap
 
 
-def recursive_filelisting(base_directories, error):
+def recursive_filelisting(
+    base_directories: Iterable[str], error: List[bool]
+) -> Generator[str, None, None]:
     """Iterator on filenames in base_directories. Ugly hack: error is a
     one-element list that will be set to True if one of the directories in
     base_directories does not exist.
@@ -51,7 +55,7 @@ def recursive_filelisting(base_directories, error):
                 yield os.path.join(root, leaffile)
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("scan", nargs="*", metavar="SCAN", help="Scan results")
     parser.add_argument("-c", "--categories", default="", help="Scan categories.")
@@ -128,8 +132,8 @@ def main():
         callback = None
     else:
 
-        def callback(x):
-            return ivre.db.db.view.store_or_merge_host(nmap_record_to_view(x))
+        def callback(x: Record) -> None:
+            ivre.db.db.view.store_or_merge_host(nmap_record_to_view(x))
 
     count = 0
     for scan in scans:

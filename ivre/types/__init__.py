@@ -36,7 +36,7 @@ from typing import (
 )
 
 try:
-    from typing import Protocol, TypedDict
+    from typing import Literal, Protocol, TypedDict
 except ImportError:
     HAS_TYPED_DICT = False
 else:
@@ -60,6 +60,14 @@ Filter = Union[MongoFilter, SqlFilter, HttpFilter, ElasticFilter, TinyFilter]
 
 # Records (TODO)
 Record = Dict[str, Any]
+
+
+# Sort
+if HAS_TYPED_DICT:
+    SortKey = Tuple[str, Literal[-1, 1]]
+else:
+    SortKey = Tuple[str, int]  # type: ignore
+Sort = Iterable[SortKey]
 
 
 # DB objects
@@ -212,6 +220,9 @@ if HAS_TYPED_DICT:
         def get_class(self, purpose: str) -> DB:
             ...
 
+    class Target(Iterable[int], Protocol):
+        targetscount: int
+
 
 else:
     CpeDict = Dict[str, Union[str, Set[str]]]  # type: ignore
@@ -230,3 +241,4 @@ else:
     DBPassive = Any  # type: ignore
     DBView = Any  # type: ignore
     MetaDB = Any  # type: ignore
+    Target = Any  # type: ignore
