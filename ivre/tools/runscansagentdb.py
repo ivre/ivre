@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ import os
 import signal
 import sys
 import time
+from typing import Any, Dict
 
 
 import ivre.target
@@ -33,7 +34,7 @@ import ivre.utils
 import ivre.config
 
 
-def display_scan(scan, verbose=True):
+def display_scan(scan: Dict[str, Any], verbose: bool = True) -> None:
     scan["target"] = ivre.db.db.agent.get_scan_target(scan["_id"])
     print("scan:")
     if verbose:
@@ -62,7 +63,7 @@ def display_scan(scan, verbose=True):
         print("    - %s" % agent)
 
 
-def display_agent(agent, verbose=True):
+def display_agent(agent: Dict[str, Any], verbose: bool = True) -> None:
     print("agent:")
     if verbose:
         print("  - id: %s" % agent["_id"])
@@ -90,7 +91,7 @@ def display_agent(agent, verbose=True):
     print("  - can receive: %d" % (ivre.db.db.agent.may_receive(agent["_id"])))
 
 
-def display_master(master, verbose=True):
+def display_master(master: Dict[str, Any], verbose: bool = True) -> None:
     print("master:")
     if verbose:
         print("  - id: %s" % master["_id"])
@@ -101,7 +102,7 @@ def display_master(master, verbose=True):
 WANT_DOWN = False
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
         parents=[ivre.target.ARGPARSER],
@@ -243,7 +244,7 @@ def main():
 
     if args.daemon:
 
-        def terminate(signum, _):
+        def terminate(signum: int, _: Any) -> None:
             global WANT_DOWN
             ivre.utils.LOGGER.info(
                 "shutdown: got signal %d, will halt after current task.",
@@ -251,7 +252,7 @@ def main():
             )
             WANT_DOWN = True
 
-        def terminate_now(signum, _):
+        def terminate_now(signum: int, _: Any) -> None:
             ivre.utils.LOGGER.info("shutdown: got signal %d, halting now.", signum)
             sys.exit(0)
 

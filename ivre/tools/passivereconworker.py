@@ -27,19 +27,20 @@ import shutil
 import signal
 import subprocess
 import time
+from typing import Any, Dict, List, Match, Optional
 
 
 from ivre import config, utils
 
 
-SENSORS = {}  # shortname: fullname
+SENSORS: Dict[str, str] = {}  # shortname: fullname
 FILEFORMAT = "^(?P<sensor>%s)\\.(?P<datetime>[0-9-]+)\\.log(?:\\.gz)?$"
 SLEEPTIME = 2
 CMDLINE = "%(progname)s -s %(sensor)s"
 WANTDOWN = False
 
 
-def shutdown(signum, _):
+def shutdown(signum: int, _: Any) -> None:
     """Sets the global variable `WANTDOWN` to `True` to stop
     everything after the current files have been processed.
 
@@ -49,7 +50,9 @@ def shutdown(signum, _):
     WANTDOWN = True
 
 
-def getnextfiles(directory, sensor=None, count=1):
+def getnextfiles(
+    directory: str, sensor: Optional[str] = None, count: int = 1
+) -> List[Match[str]]:
     """Returns a list of maximum `count` filenames (as FILEFORMAT matches)
     to process, given the `directory` and the `sensor` (or, if it is
     `None`, from any sensor).
@@ -59,13 +62,14 @@ def getnextfiles(directory, sensor=None, count=1):
         fmt = re.compile(FILEFORMAT % "[^\\.]*")
     else:
         fmt = re.compile(FILEFORMAT % re.escape(sensor))
-    files = (fmt.match(f) for f in os.listdir(directory))
-    files = [f for f in files if f is not None]
-    files.sort(key=lambda x: [int(val) for val in x.groupdict()["datetime"].split("-")])
+    files = sorted(
+        (f for f in (fmt.match(f) for f in os.listdir(directory)) if f is not None),
+        key=lambda x: [int(val) for val in x.groupdict()["datetime"].split("-")],
+    )
     return files[:count]
 
 
-def create_process(progname, sensor):
+def create_process(progname: str, sensor: str) -> subprocess.Popen:
     """Creates the insertion process for the given `sensor` using
     `progname`.
 
@@ -78,29 +82,30 @@ def create_process(progname, sensor):
     )
 
 
-def worker(progname, directory, sensor=None):
+def worker(progname: str, directory: str, sensor: Optional[str] = None) -> None:
     """This function is the main loop, creating the processes when
     needed and feeding them with the data from the files.
 
     """
     utils.makedirs(os.path.join(directory, "current"))
-    procs = {}
+    procs: Dict[str, subprocess.Popen] = {}
     while not WANTDOWN:
         # We get the next file to handle
-        fname = getnextfiles(directory, sensor=sensor, count=1)
+        fname_l = getnextfiles(directory, sensor=sensor, count=1)
         # ... if we don't, we sleep for a while
-        if not fname:
+        if not fname_l:
             utils.LOGGER.debug("Sleeping for %d s", SLEEPTIME)
             time.sleep(SLEEPTIME)
             continue
-        fname = fname[0]
-        fname_sensor = fname.groupdict()["sensor"]
+        fname_m = fname_l[0]
+        fname_sensor = fname_m.groupdict()["sensor"]
         if fname_sensor in procs:
             proc = procs[fname_sensor]
         else:
             proc = create_process(progname, fname_sensor)
             procs[fname_sensor] = proc
-        fname = fname.group()
+        assert proc.stdin is not None
+        fname = fname_m.group()
         # Our "lock system": if we can move the file, it's ours
         try:
             shutil.move(
@@ -121,6 +126,7 @@ def worker(progname, directory, sensor=None):
                     "Error while handling line %r. " "Trying again", line
                 )
                 proc = create_process(progname, fname_sensor)
+                assert proc.stdin is not None
                 procs[fname_sensor] = proc
                 # Second (and last) try
                 try:
@@ -136,12 +142,13 @@ def worker(progname, directory, sensor=None):
         else:
             utils.LOGGER.debug("  ... KO")
     # SHUTDOWN
-    for sensorjob in procs:
-        procs[sensorjob].stdin.close()
-        procs[sensorjob].wait()
+    for proc in procs.values():
+        assert proc.stdin is not None
+        proc.stdin.close()
+        proc.wait()
 
 
-def main():
+def main() -> None:
     """Parses the arguments and call worker()"""
     # Set the signal handler
     for s in [signal.SIGINT, signal.SIGTERM]:
