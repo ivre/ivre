@@ -28,8 +28,11 @@ import json
 import re
 import subprocess
 import sys
+from typing import Dict, Generator, Set, Tuple
 
 from ivre.activecli import displayfunction_nmapxml
+from ivre.types import DBCursor
+from ivre.types.active import NmapHost
 from ivre import utils
 
 
@@ -44,40 +47,43 @@ class LocalPorts:
         + ' +(users:\\(\\("(?P<progname>[^"]*)",pid=[0-9]+,fd=[0-9]+\\)\\))?'
     )
 
-    def get_addrs(self):
-        for line in subprocess.Popen(self.cmd_addrs, stdout=subprocess.PIPE).stdout:
-            m = self.match_addrs.search(line.decode())
-            if m is None:
-                continue
-            m = m.groupdict()
-            yield m["addr"]
+    def get_addrs(self) -> Generator[str, None, None]:
+        with subprocess.Popen(self.cmd_addrs, stdout=subprocess.PIPE) as proc:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                m = self.match_addrs.search(line.decode())
+                if m is None:
+                    continue
+                yield m.groupdict()["addr"]
 
-    def parse(self):
+    def parse(self) -> Dict[str, Dict[Tuple[str, int], Set[str]]]:
         addresses = set(self.get_addrs())
-        results = {}
-        for line in subprocess.Popen(self.cmd_openports, stdout=subprocess.PIPE).stdout:
-            m = self.match_openports.search(line.decode())
-            if m is None:
-                continue
-            m = m.groupdict()
-            if {"tcp": "LISTEN", "udp": "UNCONN"}[m["proto"]] != m["state"]:
-                print("Weird state %(state)s (proto %(proto)s)" % m)  # XXX warn
-            for addr in addresses if m["addr"] == "0.0.0.0" else [m["addr"]]:
-                progs = results.setdefault(addr, {}).setdefault(
-                    (m["proto"], int(m["port"])), set()
-                )
-                if m["progname"] is not None:
-                    progs.add(m["progname"])
-        return results
+        results: Dict[str, Dict[Tuple[str, int], Set[str]]] = {}
+        with subprocess.Popen(self.cmd_openports, stdout=subprocess.PIPE) as proc:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                m = self.match_openports.search(line.decode())
+                if m is None:
+                    continue
+                md = m.groupdict()
+                if {"tcp": "LISTEN", "udp": "UNCONN"}[md["proto"]] != md["state"]:
+                    utils.LOGGER.warning("Weird state %(state)s (proto %(proto)s)", md)
+                for addr in addresses if md["addr"] == "0.0.0.0" else [md["addr"]]:
+                    progs = results.setdefault(addr, {}).setdefault(
+                        (md["proto"], int(md["port"])), set()
+                    )
+                    if md["progname"] is not None:
+                        progs.add(md["progname"])
+            return results
 
-    def get_scan_results(self):
+    def get_scan_results(self) -> Generator[NmapHost, None, None]:
         starttime = datetime.now()
         results = sorted(self.parse().items(), key=lambda a_p: utils.ip2int(a_p[0]))
         endtime = datetime.now()
         for addr, ports in results:
             rec = {"addr": addr, "starttime": starttime, "endtime": endtime}
-            for (proto, port), progs in sorted(ports.items()):
-                port = {"protocol": proto, "port": port}
+            for (proto, portnum), progs in sorted(ports.items()):
+                port = {"protocol": proto, "port": portnum}
                 if progs:
                     port["scripts"] = [
                         {
@@ -87,11 +93,12 @@ class LocalPorts:
                             "localscan": {"programs": sorted(progs)},
                         },
                     ]
-                rec.setdefault("ports", []).append(port)
+                # TODO: remove when NmapHost is implemented
+                rec.setdefault("ports", []).append(port)  # type: ignore
             yield rec
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--json", action="store_true", help="Output as JSON rather than XML."
@@ -99,7 +106,7 @@ def main():
     args = parser.parse_args()
     if args.json:
 
-        def displayfunction(cur):
+        def displayfunction(cur: DBCursor) -> None:
             for rec in cur:
                 json.dump(rec, sys.stdout, default=utils.serialize)
                 sys.stdout.write("\n")

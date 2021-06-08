@@ -24,30 +24,38 @@ from argparse import ArgumentParser
 import functools
 import signal
 import sys
+from typing import Any, Dict, Generator, Iterable, Optional, Tuple
 
 
 import ivre.db
 import ivre.passive
 import ivre.parser.zeek
+from ivre.types import Record
 
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 
-def _get_ignore_rules(ignore_spec):
+def _get_ignore_rules(
+    ignore_spec: Optional[str],
+) -> Dict[str, Dict[str, Tuple[int, int]]]:
     """Executes the ignore_spec file and returns the ignore_rules
     dictionary.
 
     """
-    ignore_rules = {}
+    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]] = {}
     if ignore_spec is not None:
         # pylint: disable=exec-used
         exec(compile(open(ignore_spec, "rb").read(), ignore_spec, "exec"), ignore_rules)
     return ignore_rules
 
 
-def rec_iter(zeek_parser, sensor, ignore_rules):
+def rec_iter(
+    zeek_parser: Iterable[Dict[str, Any]],
+    sensor: Optional[str],
+    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]],
+) -> Generator[Tuple[Optional[int], Record], None, None]:
     for line in zeek_parser:
         line["timestamp"] = line.pop("ts")
         # skip PassiveRecon::
@@ -60,7 +68,7 @@ def rec_iter(zeek_parser, sensor, ignore_rules):
         )
 
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description=__doc__)
     parser.add_argument("--sensor", "-s", help="Sensor name")
     parser.add_argument("--ignore-spec", "-i", help="Filename containing ignore rules")

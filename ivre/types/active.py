@@ -36,7 +36,7 @@ else:
 from ivre.types import NmapServiceMatch
 
 
-NmapHost = Dict[str, Any]  # TODO
+NmapHost = Dict[str, Any]  # TODO (see below)
 NmapAddress = Dict[str, Any]  # TODO & TO FIX...
 NmapScript = Dict[str, Any]  # seems hard to do better for now (lots of keys)
 
@@ -63,8 +63,17 @@ if HAS_TYPED_DICT:
         name: str
         domains: List[str]
 
+    # TODO
+    # class NmapHost(TypedDict, total=False):
+    #     addr: str
+    #     addresses: List[NmapAddress]
+    #     hostnames: List[NmapHostname]
+    #     ports: List[NmapPort]
+    #     state: str
+
 
 else:
     HttpHeader = Dict[str, str]  # type: ignore
     NmapPort = Dict[str, Union[str, int, List[NmapScript], bytes, List[str]]]  # type: ignore
     NmapHostname = Dict[str, Union[str, List[str]]]  # type: ignore
+    # NmapHost = Dict[str, Any]  # type: ignore
