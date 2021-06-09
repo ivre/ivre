@@ -2,7 +2,7 @@
 
 if [ "$DB" = "maxmind" ]; then
     if [ "$TRAVIS_PYTHON_VERSION" = 3.9 ]; then
-	if ! black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre_bak/; then
+	if ! black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre_bak/ ./pkg/stubs/; then
 	    echo "black KO"
 	    exit -1
 	fi
@@ -16,16 +16,20 @@ if [ "$DB" = "maxmind" ]; then
 	    echo "pylint KO"
 	    exit -1
 	fi
+	if ! pylint -e all -d unused-argument,too-many-arguments,missing-function-docstring,missing-class-docstring,missing-module-docstring,multiple-statements,invalid-name,too-few-public-methods,no-self-use ./pkg/stubs/*.pyi; then
+	    echo "pylint stubs KO"
+	    exit -1
+	fi
 	echo "pylint OK"
 	mv ivre_bak ivre
-	if ! mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout,tools/{__init__,airodump2db,arp2db,auditdom,db2view,flow2db,flowcli,getmoduli,ipcalc,ipdata,iphost,ipinfo,localscan,macinfo,passiverecon2db,passivereconworker,plotdb,runscans,runscansagent,runscansagentdb,scan2db,scancli,scanstatus,version,view,zeek2db}}.py; then
+	if ! MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout}.py; then
 	    echo "mypy KO"
 	    exit -1
 	fi
 	mv ivre ivre_bak
 	echo "mypy OK"
     fi
-    if ! flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre_bak/; then
+    if ! flake8 --ignore=E402,E501,F401 ./doc/conf.py && flake8 --ignore=E501,W503 ./setup.py ./bin/ivre && flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py && flake8 --ignore=E203,E501,W503 ./ivre_bak/ && flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi ; then
 	echo "flake8 KO"
 	exit -1
     fi
