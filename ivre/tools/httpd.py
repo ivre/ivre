@@ -31,7 +31,7 @@ from argparse import ArgumentParser, Namespace
 import os
 
 
-from bottle import HTTPResponse, default_app, get, redirect, run, static_file  # type: ignore
+from bottle import HTTPResponse, default_app, get, redirect, run, static_file
 
 
 from ivre.config import DEBUG, WEB_DOKU_PATH, WEB_STATIC_PATH
@@ -56,7 +56,7 @@ def server_doc_index() -> None:
 
 
 @get("/doc/<subdir:re:dev|install|usage>")
-def server_doc_subindex(subdir) -> None:
+def server_doc_subindex(subdir: str) -> None:
     """Needed to redirect / to index.html"""
     redirect("%s/index.html" % subdir)
 
@@ -74,7 +74,7 @@ def server_doc_subindex2() -> None:
 
 
 @get("/dokuwiki/<filepath:path>")
-def server_doku(filepath) -> HTTPResponse:
+def server_doku(filepath: str) -> HTTPResponse:
     """This function serves Dokuwiki files as static text files. This is
     far from being great...
 
@@ -82,12 +82,14 @@ def server_doku(filepath) -> HTTPResponse:
     filepath = filepath.lower().replace(":", "/")
     if "." not in os.path.basename(filepath):
         filepath += ".txt"
+    assert WEB_DOKU_PATH is not None
     return static_file(filepath, root=WEB_DOKU_PATH)
 
 
 @get("/<filepath:path>")
-def server_static(filepath) -> HTTPResponse:
+def server_static(filepath: str) -> HTTPResponse:
     """Serve the static (HTML, JS, CSS, ...) content."""
+    assert WEB_STATIC_PATH is not None
     return static_file(filepath, root=WEB_STATIC_PATH)
 
 
