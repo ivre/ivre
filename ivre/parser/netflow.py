@@ -19,6 +19,7 @@
 """Support for NetFlow files"""
 
 import datetime
+from typing import Any, BinaryIO, Dict, Optional, Union, cast
 
 
 from ivre import utils
@@ -52,7 +53,9 @@ class NetFlow(CmdParser):
     }
     timefmt = "%Y-%m-%d %H:%M:%S.%f"
 
-    def __init__(self, fdesc, pcap_filter=None):
+    def __init__(
+        self, fdesc: Union[str, BinaryIO], pcap_filter: Optional[str] = None
+    ) -> None:
         """Creates the NetFlow object.
 
         fdesc: a file-like object or a filename
@@ -66,7 +69,7 @@ class NetFlow(CmdParser):
                 if fde.read(2) not in utils.FileOpener.FILE_OPENERS_MAGIC:
                     cmd.extend(["-r", fdesc])
                 else:
-                    cmdkargs["stdin"] = utils.open_file(fdesc)
+                    cmdkargs["stdin"] = cast(BinaryIO, utils.open_file(fdesc))
         else:
             cmdkargs["stdin"] = fdesc
         if pcap_filter is not None:
@@ -74,15 +77,15 @@ class NetFlow(CmdParser):
         super().__init__(cmd, cmdkargs)
 
     @classmethod
-    def str2int(cls, val):
+    def str2int(cls, val: str) -> int:
         try:
             return int(val)
         except ValueError:
             return int(float(val[:-1]) * cls.units[val[-1]])
 
     @classmethod
-    def parse_line(cls, line):
-        fields = dict(
+    def parse_line(cls, line: bytes) -> Dict[str, Any]:
+        fields: Dict[str, Any] = dict(
             (name[0], val.strip())
             for name, val in zip(cls.fields, line.decode().split(","))
         )

@@ -20,6 +20,7 @@
 
 
 import datetime
+from typing import Any, BinaryIO, Dict, Optional, Union
 
 
 from ivre.parser import CmdParser
@@ -45,7 +46,7 @@ class Argus(CmdParser):
     aggregation = ["saddr", "sport", "daddr", "dport", "proto"]
     timefmt = "%s.%f"
 
-    def __init__(self, fdesc, pcap_filter=None):
+    def __init__(self, fdesc: Union[str, BinaryIO], pcap_filter: Optional[str] = None):
         """Creates the Argus object.
 
         fdesc: a file-like object or a filename
@@ -65,8 +66,8 @@ class Argus(CmdParser):
         self.fdesc.readline()
 
     @classmethod
-    def parse_line(cls, line):
-        fields = dict(
+    def parse_line(cls, line: bytes) -> Dict[str, Any]:
+        fields: Dict[str, Any] = dict(
             (name, val.strip().decode())
             for name, val in zip(cls.fields, line.split(b","))
         )

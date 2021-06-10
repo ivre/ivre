@@ -70,9 +70,9 @@ def main() -> None:
         try:
             fileparser = PARSERS_CHOICE[args.type]
         except KeyError:
-            with utils.open_file(fname) as fdesc:
+            with utils.open_file(fname) as fdesc_tmp:
                 try:
-                    fileparser = PARSERS_MAGIC[fdesc.read(4)]
+                    fileparser = PARSERS_MAGIC[fdesc_tmp.read(4)]
                 except KeyError:
                     utils.LOGGER.warning(
                         "Cannot find the appropriate parser for file %r",

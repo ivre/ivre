@@ -153,7 +153,9 @@ def main() -> None:
                 "Parsing %s\n\t%s",
                 fname,
                 "Fields:\n%s\n"
-                % "\n".join("%s: %s" % (f, t) for f, t in zeekf.field_types),
+                % "\n".join(
+                    "%s: %s" % (f.decode(), t.decode()) for f, t in zeekf.field_types
+                ),
             )
             if zeekf.path in FUNCTIONS:
                 func = FUNCTIONS[zeekf.path]
