@@ -4056,9 +4056,9 @@ class IvreTests(unittest.TestCase):
             count = 0
             for res in ipt_parser:
                 count += 1
-                self.assertTrue(b"proto" in res and b"src" in res and b"dst" in res)
-                if res[b"proto"].decode() in ("udp", "tcp"):
-                    self.assertTrue(b"sport" in res and b"dport" in res)
+                self.assertTrue("proto" in res and "src" in res and "dst" in res)
+                if res["proto"] in {"udp", "tcp"}:
+                    self.assertTrue("sport" in res and "dport" in res)
 
             self.assertEqual(count, 40)
 

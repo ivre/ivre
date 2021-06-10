@@ -22,7 +22,7 @@ if [ "$DB" = "maxmind" ]; then
 	fi
 	echo "pylint OK"
 	mv ivre_bak ivre
-	if ! MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout}.py; then
+	if ! MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,parser,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout}.py; then
 	    echo "mypy KO"
 	    exit -1
 	fi

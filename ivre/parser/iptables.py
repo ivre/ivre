@@ -35,17 +35,23 @@
 """Support for Iptables log from syslog files."""
 
 import datetime
+from typing import Any, Dict, Optional
+
+
 from ivre.parser import Parser
+from ivre.utils import LOGGER
 
 
 class Iptables(Parser):
     """Iptables log generator from a syslog file descriptor."""
 
-    def __init__(self, fname, pcap_filter=None):
+    def __init__(self, fname: str, pcap_filter: Optional[str] = None) -> None:
         """Init Ipatbles class."""
+        if pcap_filter is not None:
+            LOGGER.warning("PCAP filter not supported in Iptables")
         super().__init__(fname)
 
-    def parse_line(self, line):
+    def parse_line(self, line: bytes) -> Dict[str, Any]:
         """Process current line in Parser.__next__."""
         field_idx = line.find(b"IN=")
         if field_idx < 0:
@@ -53,8 +59,8 @@ class Iptables(Parser):
             return next(self)
 
         # Converts the syslog iptables log into hash
-        fields = dict(
-            (key.lower(), value)
+        fields: Dict[str, Any] = dict(
+            (key.decode().lower(), value.decode())
             for key, value in (
                 val.split(b"=", 1) if b"=" in val else (val, b"")
                 for val in line[field_idx:].rstrip(b"\r\n").split()
@@ -62,7 +68,7 @@ class Iptables(Parser):
         )
 
         try:
-            fields[b"start_time"] = datetime.datetime.strptime(
+            fields["start_time"] = datetime.datetime.strptime(
                 line[:15].decode(), "%b %d %H:%M:%S"
             )
         except ValueError:
@@ -70,16 +76,16 @@ class Iptables(Parser):
             return next(self)
 
         # sanitized
-        fields[b"proto"] = fields[b"proto"].lower()
+        fields["proto"] = fields["proto"].lower()
         # Rename fields according to flow2db specifications.
-        if fields[b"proto"] in (b"udp", b"tcp"):
-            fields[b"sport"] = int(fields[b"spt"])
-            fields[b"dport"] = int(fields[b"dpt"])
+        if fields["proto"] in ("udp", "tcp"):
+            fields["sport"] = int(fields.pop("spt"))
+            fields["dport"] = int(fields.pop("dpt"))
 
         # This data is mandatory but undefined in iptables logs, so make
         # a choice.
-        fields[b"cspkts"] = fields[b"scpkts"] = 0
-        fields[b"scbytes"] = fields[b"csbytes"] = 0
-        fields[b"end_time"] = fields[b"start_time"]
+        fields["cspkts"] = fields["scpkts"] = 0
+        fields["scbytes"] = fields["csbytes"] = 0
+        fields["end_time"] = fields["start_time"]
 
         return fields

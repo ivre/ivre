@@ -20,37 +20,63 @@
 
 
 import subprocess
+from types import TracebackType
+from typing import Any, BinaryIO, Dict, Iterator, List, Optional, Type, Union, cast
 
 
 from ivre.utils import FileOpener
 
 
-class Parser(FileOpener):
+class Parser:
     """Parent class for file parsers"""
 
-    def __next__(self):
-        return self.parse_line(super().__next__())
+    def __init__(self, fname: Union[str, BinaryIO]) -> None:
+        self.fopener = FileOpener(fname)
+        self.fdesc = self.fopener.fdesc
+
+    def __iter__(self) -> Iterator[Dict[str, Any]]:
+        return self
+
+    def __next__(self) -> Dict[str, Any]:
+        return self.parse_line(next(self.fdesc))
+
+    def parse_line(self, line: bytes) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    def fileno(self) -> int:
+        return self.fdesc.fileno()
+
+    def close(self) -> None:
+        self.fdesc.close()
+
+    def __enter__(self) -> "Parser":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        self.fopener.__exit__(exc_type, exc_val, exc_tb)
 
 
-class CmdParser:
+class CmdParser(Parser):
     """Parent class for file parsers with commands"""
 
-    def __init__(self, cmd, cmdkargs):
+    def __init__(self, cmd: List[str], cmdkargs: Dict[str, Any]) -> None:
         cmdkargs["stdout"] = subprocess.PIPE
         # pylint: disable=consider-using-with
         self.proc = subprocess.Popen(cmd, **cmdkargs)
-        self.fdesc = self.proc.stdout
+        assert self.proc.stdout is not None
+        self.fdesc = cast(BinaryIO, self.proc.stdout)
 
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return self.parse_line(next(self.fdesc))
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.fdesc.close()
         if self.proc is not None:
             self.proc.wait()

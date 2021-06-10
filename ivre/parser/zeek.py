@@ -20,6 +20,7 @@
 
 import datetime
 import re
+from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
 
 
 from ivre.parser import Parser
@@ -36,14 +37,14 @@ class ZeekFile(Parser):
     float_types = set([b"interval"])
     time_types = set([b"time"])
 
-    def __init__(self, fname):
+    def __init__(self, fname: Union[BinaryIO, str]) -> None:
         self.sep = b" "  # b"\t"
         self.set_sep = b","
         self.empty_field = b"(empty)"
         self.unset_field = b"-"
-        self.fields = []
-        self.types = []
-        self.path = None
+        self.fields: List[bytes] = []
+        self.types: List[bytes] = []
+        self.path: Optional[str] = None
         self.nextlines = []
         super().__init__(fname)
         for line in self.fdesc:
@@ -53,12 +54,15 @@ class ZeekFile(Parser):
                 break
             self.parse_header_line(line)
 
-    def __next__(self):
+    def __enter__(self) -> "ZeekFile":
+        return self
+
+    def __next__(self) -> Dict[str, Any]:
         return self.parse_line(
             self.nextlines.pop(0) if self.nextlines else next(self.fdesc).strip()
         )
 
-    def parse_header_line(self, line):
+    def parse_header_line(self, line: bytes) -> None:
         if not line:
             return
         if line[:1] != b"#":
@@ -93,7 +97,7 @@ class ZeekFile(Parser):
         elif directive == b"types":
             self.types = arg.split(self.sep)
 
-    def parse_line(self, line):
+    def parse_line(self, line: bytes) -> Dict[str, Any]:
         if line.startswith(b"#"):
             self.parse_header_line(line)
             return next(self)
@@ -101,11 +105,12 @@ class ZeekFile(Parser):
         fields = line.split(self.sep)
 
         for field, name, typ in zip(fields, self.fields, self.types):
-            name = name.replace(b".", b"_").decode()
-            res[name] = self.fix_value(field, typ)
+            res[name.replace(b".", b"_").decode()] = self.fix_value(field, typ)
         return res
 
-    def fix_value(self, val, typ):
+    def fix_value(
+        self, val: bytes, typ: bytes
+    ) -> Optional[Union[bool, str, int, float, datetime.datetime, list]]:
         if val == self.unset_field:
             return None
         if typ == b"bool":
@@ -127,10 +132,10 @@ class ZeekFile(Parser):
         return val.decode()
 
     @property
-    def field_types(self):
+    def field_types(self) -> List[Tuple[bytes, bytes]]:
         return list(zip(self.fields, self.types))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "\n".join(
             [
                 "%s = %r" % (k, getattr(self, k))

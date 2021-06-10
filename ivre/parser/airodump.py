@@ -19,6 +19,7 @@
 """Support for Airodump csv files"""
 
 import datetime
+from typing import Any, Callable, Dict, Optional
 
 
 from ivre.parser import Parser
@@ -45,7 +46,7 @@ class Airodump(Parser):
         "channel": TYPE_INT,
         "# beacons": TYPE_INT,
     }
-    converters = {
+    converters: Dict[Optional[int], Callable[[str], Any]] = {
         TYPE_INT: int,
         TYPE_DATE: lambda val: datetime.datetime.strptime(val, "%Y-%m-%d %H:%M:%S"),
         TYPE_IP: lambda val: ".".join(elt.strip() for elt in val.split(".")),
@@ -53,27 +54,27 @@ class Airodump(Parser):
         None: lambda val: val.strip(),
     }
 
-    def __init__(self, fname):
+    def __init__(self, fname: str) -> None:
         super().__init__(fname)
         self.nextline_headers = False
 
-    def parse_line(self, line):
-        line = line.decode().rstrip("\r\n")
-        if not line:
+    def parse_line(self, line: bytes) -> Dict[str, Any]:
+        line_s = line.decode().rstrip("\r\n")
+        if not line_s:
             self.nextline_headers = True
             return next(self)
-        line = [elt.strip() for elt in line.split(",")]
+        line_l = [elt.strip() for elt in line_s.split(",")]
         if self.nextline_headers:
-            self.fields = line
-            self.cur_types = [self.types.get(field) for field in line]
+            self.fields = line_l
+            self.cur_types = [self.types.get(field) for field in line_l]
             self.nextline_headers = False
             return next(self)
         return dict(
             zip(
                 self.fields,
                 (
-                    self.converters.get(self.cur_types[i])(val)
-                    for (i, val) in enumerate(line)
+                    self.converters[self.cur_types[i]](val)
+                    for (i, val) in enumerate(line_l)
                 ),
             )
         )

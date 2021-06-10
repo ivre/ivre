@@ -59,6 +59,7 @@ from typing import (
     Pattern,
     Set,
     Tuple,
+    Type,
     Union,
     cast,
 )
@@ -706,7 +707,7 @@ def doc2csv(doc: Record, fields: Dict[str, Any], nastr: str = "NA") -> List[list
     return lines
 
 
-class FileOpener:
+class FileOpener(BinaryIO):
     """A file-like object, working with gzip or bzip2 compressed files.
 
     Uses subprocess.Popen() to call zcat or bzcat by default (much
@@ -739,8 +740,8 @@ class FileOpener:
     def read(self, *args) -> bytes:  # type: ignore
         return self.fdesc.read(*args)
 
-    def readline(self) -> bytes:
-        return self.fdesc.readline()
+    def readline(self, size: int = -1) -> bytes:
+        return self.fdesc.readline(size)
 
     def fileno(self) -> int:
         return self.fdesc.fileno()
@@ -755,7 +756,7 @@ class FileOpener:
 
     def __exit__(
         self,
-        exc_type: Optional[BaseException],
+        exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
@@ -767,6 +768,53 @@ class FileOpener:
 
     def __next__(self) -> bytes:
         return next(self.fdesc)
+
+    # The following methods ensure we have a BinaryIO compatible type
+
+    @property
+    def closed(self) -> bool:
+        return self.fdesc.closed
+
+    @property
+    def mode(self) -> str:
+        return self.fdesc.mode
+
+    @property
+    def name(self) -> str:
+        return self.fdesc.name
+
+    def flush(self) -> None:
+        self.fdesc.flush()
+
+    def isatty(self) -> bool:
+        return self.fdesc.isatty()
+
+    def readable(self) -> bool:
+        return self.fdesc.readable()
+
+    def readlines(self, hint: int = -1) -> List[bytes]:
+        return self.fdesc.readlines(hint)
+
+    def seekable(self) -> bool:
+        return self.fdesc.seekable()
+
+    def seek(self, target: int, whence: int = 0) -> int:
+        return self.fdesc.seek(target, whence=whence)
+
+    def tell(self) -> int:
+        return self.fdesc.tell()
+
+    def truncate(self, size: Optional[int] = None) -> int:
+        return self.fdesc.truncate(size=size)
+
+    def writable(self) -> bool:
+        return self.fdesc.writable()
+
+    def write(self, s: bytes) -> int:
+        return self.fdesc.write(s)
+
+    def writelines(self, lines: Iterable[bytes]) -> None:
+        self.fdesc.writelines(lines)
 
 
 def open_file(fname: str) -> FileOpener:
