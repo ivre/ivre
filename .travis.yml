@@ -38,7 +38,7 @@ cache: pip
 
 python:
   - 3.6
-  - 3.9
+  - 3.10
 
 # PhantomJS is supposed to be installed
 # (https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-PhantomJS),

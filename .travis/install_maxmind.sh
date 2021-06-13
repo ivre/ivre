@@ -17,8 +17,8 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 PIP_INSTALL_OPTIONS=""
-# We only run codespell, mypy and pylint once, with Python 3.9
-if [ "$TRAVIS_PYTHON_VERSION" = 3.9 ]; then
+# We only run codespell, mypy and pylint once, with Python 3.10
+if [ "$TRAVIS_PYTHON_VERSION" = 3.10 ]; then
     pip install -U $PIP_INSTALL_OPTIONS -r requirements-linting.txt
 else
     pip install -U $PIP_INSTALL_OPTIONS flake8

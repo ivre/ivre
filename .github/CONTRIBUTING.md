@@ -80,7 +80,7 @@ dependency makes it harder for users to install IVRE.
 
 We try to comply with the some guidelines for new code:
 
--   The code **must** be compatible with Python 3.6 to 3.9.
+-   The code **must** be compatible with Python 3.6 to 3.10.
 
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).

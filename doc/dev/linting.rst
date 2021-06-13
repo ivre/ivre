@@ -32,5 +32,5 @@ Travis CI
 
 Code linting and spell checking is performed in Travis CI (see
 :ref:`dev/tests:Travis CI`), togethter with the Maxmind tests. Pylint
-and Codespell only run with Python 3.9, while Flake8 runs with all
+and Codespell only run with Python 3.10, while Flake8 runs with all
 Python versions.
