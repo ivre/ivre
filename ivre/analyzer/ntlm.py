@@ -156,9 +156,9 @@ def _ntlm_challenge_extract(challenge: bytes) -> Optional[Dict[str, Any]]:
     # thanks to the target offset)
     #   V1: No context, no target information and no OS version are provided
     #       - offset 32
-    #   V2: Context and target informatio are provided but not the OS version
+    #   V2: Context and target information is provided but not the OS version
     #       - offset 48
-    #   V3: The context, target information and OS Version are all provided
+    #   V3: The context and target information and OS Version are all provided
     #       - offset >= 56
     # cf http://davenport.sourceforge.net/ntlm.html#osVersionStructure
 
