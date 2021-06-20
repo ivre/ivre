@@ -997,6 +997,9 @@ def country_unalias(country: Union[str, Iterable[str]]) -> Union[str, List[str]]
     raise TypeError("country should be a string or an iterable of strings")
 
 
+_WORDS = re.compile(b"\\w+")
+
+
 def screenwords(imgdata: bytes) -> Optional[List[str]]:
     """Takes an image and returns a list of the words seen by the OCR"""
     if config.TESSERACT_CMD is not None:
@@ -1016,23 +1019,25 @@ def screenwords(imgdata: bytes) -> Optional[List[str]]:
         for line in proc.stdout:
             if size == 0:
                 break
-            for word_bytes in line.split():
+            for word_match in _WORDS.finditer(line):
+                word_bytes = word_match.group()
                 try:
-                    word = word_bytes.decode()
+                    word = word_bytes.decode().lower()
                 except UnicodeDecodeError:
                     continue
-                if word not in words:
-                    if len(word) <= size:
-                        words.add(word)
-                        result.append(word)
-                        size -= len(word)
-                    else:
-                        # When we meet the first word that would make
-                        # result too big, we stop immediately. This
-                        # choice has been made to limit the time spent
-                        # here.
-                        size = 0
-                        break
+                if word in words:
+                    continue
+                if len(word) <= size:
+                    words.add(word)
+                    result.append(word)
+                    size -= len(word)
+                else:
+                    # When we meet the first word that would make
+                    # result too big, we stop immediately. This
+                    # choice has been made to limit the time spent
+                    # here.
+                    size = 0
+                    break
         if result:
             return result
     return None
