@@ -92,9 +92,13 @@ Atlas <https://github.com/mbostock/world-atlas.git>`__ from data
 published by `Natural Eath <http://www.naturalearthdata.com/>`__ in the
 public domain.
 
-CEA Logo
---------
+Logos
+-----
 
 The files ``web/static/cea.png`` and ``web/static/cea-white.png`` are
 the logo of the French Alternative Energies and Atomic Energy
-Commission. It is not covered by IVRE license.
+Commission. They are not covered by IVRE license.
+
+The files ``web/static/anssi.png`` and ``web/static/anssi-white.png``
+are the logo of the National Cybersecurity Agency of France. They are
+not covered by IVRE license.

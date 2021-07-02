@@ -145,6 +145,8 @@ nmap_scripts/x11-screenshot.nse
 nmap_scripts/patches/rtsp-url-brute.patch
 web/dokuwiki/backlinks.patch
 web/dokuwiki/media/logo.png
+web/static/anssi-white.png
+web/static/anssi.png
 web/static/cea-white.png
 web/static/cea.png
 web/static/compare.html

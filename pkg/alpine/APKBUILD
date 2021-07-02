@@ -31,7 +31,7 @@ depends="python py-crypto py-mongo py-bottle"
 makedepends="py-setuptools"
 install=""
 subpackages="$pkgname-doc"
-source="https://github.com/cea-sec/$pkgname/archive/$_branch.tar.gz"
+source="https://github.com/ivre/$pkgname/archive/$_branch.tar.gz"
 builddir="$srcdir/"
 
 build() {

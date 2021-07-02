@@ -3,7 +3,7 @@ FAQ
 
 If you cannot find the answer to your question, either here or in this
 documentation, feel free to `open an issue
-<https://github.com/cea-sec/ivre/issues/new>`_ and use the label
+<https://github.com/ivre/ivre/issues/new>`_ and use the label
 "question".
 
 Web interface
@@ -53,7 +53,7 @@ Scanning the Internet is slow!
 ------------------------------
 
 This is based on `issue GH#822
-<https://github.com/cea-sec/ivre/issues/822>`_.
+<https://github.com/ivre/ivre/issues/822>`_.
 
 When running ``ivre runscans --routable --limit 40``, one can notice
 the scan really takes a long time to terminate.
@@ -116,7 +116,7 @@ reality you are asking two different questions:
 The first question is not related to IVRE (and should probably be
 asked to Nmap, Masscan or Zgrab2 developers), but the second question
 is (and may be asked as a `"question" labeled issue
-<https://github.com/cea-sec/ivre/issues/new?labels=question>`_).
+<https://github.com/ivre/ivre/issues/new?labels=question>`_).
 
 For that particular Heartbleed example, Nmap, Masscan and Zgrab2 can
 (reliably) report hosts with the Heartbleed vulnerability, and IVRE

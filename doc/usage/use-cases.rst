@@ -150,8 +150,8 @@ Here is a list of other blog posts about or around IVRE:
 
 You have found (or written) a document that might help other use IVRE
 or decide if they need it? Please let us know: `open an issue
-<https://github.com/cea-sec/ivre/issues/new>`_ or :ref:`index:Contact`
-us so that we can add a link here!
+<https://github.com/ivre/ivre/issues/new>`_ or :ref:`index:Contact` us
+so that we can add a link here!
 
 .. |yeti_investigation| image:: ../screenshots/yeti_investigation.png
 .. |cortex_analyzer_template| image:: ../screenshots/cortex-analyzer-template.png

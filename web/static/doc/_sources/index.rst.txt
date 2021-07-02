@@ -13,7 +13,7 @@ response, monitoring, etc.
 
 - Web site: `https://ivre.rocks/ <https://ivre.rocks/>`_
 - Twitter: `@IvreRocks <https://twitter.com/IvreRocks>`_
-- Github: `cea-sec/ivre <https://github.com/cea-sec/ivre/>`_
+- Github: `ivre/ivre <https://github.com/ivre/ivre/>`_
 
 Features
 --------
@@ -72,12 +72,12 @@ Contact
 -------
 
 For both support and contribution, the `repository
-<https://github.com/cea-sec/ivre>`__ on Github should be used: feel
-free to create a new issue or a pull request!
+<https://github.com/ivre/ivre>`__ on Github should be used: feel free
+to create a new issue or a pull request!
 
 You can also join the `Gitter conversation
-<https://gitter.im/cea-sec/ivre>`_ (that is the preferred way to get
-in touch for questions), or use the e-mail ``dev`` on the domain
+<https://gitter.im/ivre/ivre>`_ (that is the preferred way to get in
+touch for questions), or use the e-mail ``dev`` on the domain
 ``ivre.rocks``.
 
 On Twitter, you can follow and/or mention `@IvreRocks
