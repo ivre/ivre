@@ -1,0 +1,43 @@
+name: Run linting tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - run: pip install -r requirements-linting.txt
+
+    - run: pip install .
+
+    - run: mv ivre ivre_bak
+
+    - run: black -t py36 --check ./doc/conf.py ./setup.py ./bin/ivre ./tests/tests.py ./ivre_bak/ ./pkg/stubs/
+
+    - run: codespell  --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'`
+
+    - run: pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init,broad-except,duplicate-code,fixme,function-redefined,global-statement,global-variable-undefined,import-error,invalid-name,locally-disabled,missing-docstring,no-absolute-import,no-member,protected-access,raise-missing-from,subprocess-popen-preexec-fn,super-init-not-called,suppressed-message,too-few-public-methods,too-many-ancestors,too-many-arguments,too-many-boolean-expressions,too-many-branches,too-many-instance-attributes,too-many-lines,too-many-locals,too-many-nested-blocks,too-many-public-methods,too-many-return-statements,too-many-statements,unsubscriptable-object,unused-argument,line-too-long ivre ./doc/conf.py ./setup.py ./bin/ivre
+    - run: pylint -e all -d unused-argument,too-many-arguments,missing-function-docstring,missing-class-docstring,missing-module-docstring,multiple-statements,invalid-name,too-few-public-methods,no-self-use ./pkg/stubs/*.pyi
+
+    - run: mv ivre_bak ivre
+    - run: MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-untyped-defs --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/{active,analyzer,data,parser,tools,types}/*.py ./ivre/{__init__,activecli,agent,config,flow,geoiputils,graphroute,keys,nmapopt,utils,zgrabout}.py
+    - run: mv ivre ivre_bak
+
+    - run: flake8 --ignore=E402,E501,F401 ./doc/conf.py
+    - run: flake8 --ignore=E501,W503 ./setup.py ./bin/ivre
+    - run: flake8 --ignore=E203,E402,E501,W503 ./tests/tests.py
+    - run: flake8 --ignore=E203,E501,W503 ./ivre_bak/
+    - run: flake8 --ignore=E302,E305,E701,E704 ./pkg/stubs/*.pyi
