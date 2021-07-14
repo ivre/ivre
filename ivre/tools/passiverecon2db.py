@@ -46,8 +46,9 @@ def _get_ignore_rules(
     """
     ignore_rules: Dict[str, Dict[str, Tuple[int, int]]] = {}
     if ignore_spec is not None:
-        # pylint: disable=exec-used
-        exec(compile(open(ignore_spec, "rb").read(), ignore_spec, "exec"), ignore_rules)
+        with open(ignore_spec, "rb") as fdesc:
+            # pylint: disable=exec-used
+            exec(compile(fdesc.read(), ignore_spec, "exec"), ignore_rules)
     return ignore_rules
 
 

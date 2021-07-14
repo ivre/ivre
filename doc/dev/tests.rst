@@ -82,11 +82,11 @@ here are some reasons that can explain test failures:
 -  A new feature has been added to IVRE and the new results are actually
    better than the stored ones.
 
-Travis CI
----------
+GitHub actions
+--------------
 
 Tests are run with several MongoDB and PostgreSQL versions, as well as
 TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
 with Python 3.6 to 3.9.
 
-The configuration is in the `.travis.yml` YAML file.
+The configurations are in the `.github/workflows/*.yml` YAML files.

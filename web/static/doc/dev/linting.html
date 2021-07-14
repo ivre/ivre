@@ -110,7 +110,7 @@
 <li class="toctree-l2"><a class="reference internal" href="tests.html">Tests</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Code linting</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#running-the-linters">Running the linters</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#travis-ci">Travis CI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#github-actions">GitHub actions</a></li>
 </ul>
 </li>
 </ul>
@@ -207,12 +207,13 @@ install the latest versions of the <cite>black</cite>, <cite>codespell</cite>, <
 <p>The script <cite>pkg/runchecks</cite> will run all the tests for you with the
 expected options and exceptions.</p>
 </div>
-<div class="section" id="travis-ci">
-<h2>Travis CI<a class="headerlink" href="#travis-ci" title="Permalink to this headline">¶</a></h2>
-<p>Code linting and spell checking is performed in Travis CI (see
-<a class="reference internal" href="tests.html#travis-ci"><span class="std std-ref">Travis CI</span></a>), togethter with the Maxmind tests. Pylint
-and Codespell only run with Python 3.9, while Flake8 runs with all
-Python versions.</p>
+<div class="section" id="github-actions">
+<h2>GitHub actions<a class="headerlink" href="#github-actions" title="Permalink to this headline">¶</a></h2>
+<p>Code linting and spell checking is performed in a dedicated <a class="reference external" href="https://github.com/ivre/ivre/actions/workflows/linting.yml">GitHub
+action</a>
+(see <a class="reference internal" href="tests.html#github-actions"><span class="std std-ref">GitHub actions</span></a>), togethter with the Maxmind
+tests. Pylint and Codespell only run with Python 3.9, while Flake8
+runs with all Python versions.</p>
 </div>
 </div>
 

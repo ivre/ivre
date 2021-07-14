@@ -278,7 +278,8 @@ def _call_nmap_single(
     subprocess.call(
         options + ["-oX", outfile % "current", target_str], preexec_fn=setnmaplimits
     )
-    resdata = open(outfile % "current", "rb").read()
+    with open(outfile % "current", "rb") as fdesc:
+        resdata = fdesc.read()
     if b'<status state="up"' in resdata:
         outdir = "up"
     elif b'<status state="down"' in resdata:

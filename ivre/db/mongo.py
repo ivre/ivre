@@ -5778,7 +5778,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             flt = cls.flt_and(flt, {"times": {"$elemMatch": times_filter}})
         return flt
 
-    def host_details(self, addr):
+    def host_details(self, node_id):
         """
         Returns details about an host with the given address.
         Details means a dict : {
@@ -5798,11 +5798,11 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
             "clients": set(),
             "servers": set(),
         }
-        g["elt"]["addr"] = addr
-        flt = self.search_flow_host(addr)
+        g["elt"]["addr"] = node_id
+        flt = self.search_flow_host(node_id)
         res = self.db[self.columns[self.column_flow]].find(flt)
         for row in res:
-            internal_addr = self.ip2internal(addr)
+            internal_addr = self.ip2internal(node_id)
             if g["elt"].get("firstseen", None) is None or g["elt"].get(
                 "firstseen"
             ) > row.get("firstseen"):

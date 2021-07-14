@@ -223,54 +223,54 @@ def download_all(verbose: bool = False) -> None:
 
 def locids_by_country(country_code: str) -> Generator[int, None, None]:
     assert config.GEOIP_PATH is not None
-    fdesc = csv.DictReader(
-        codecs.open(
-            os.path.join(
-                config.GEOIP_PATH,
-                "GeoLite2-Country-Locations-%s.csv" % config.GEOIP_LANG,
-            ),
-            encoding="utf-8",
-        )
-    )
-    for line in fdesc:
-        if line["country_iso_code"] == country_code:
-            yield int(line["geoname_id"])
+    with codecs.open(
+        os.path.join(
+            config.GEOIP_PATH,
+            "GeoLite2-Country-Locations-%s.csv" % config.GEOIP_LANG,
+        ),
+        encoding="utf-8",
+    ) as fdesc:
+        csvfd = csv.DictReader(fdesc)
+        for line in csvfd:
+            if line["country_iso_code"] == country_code:
+                yield int(line["geoname_id"])
 
 
 def locids_by_city(country_code: str, city_name: str) -> Generator[int, None, None]:
     assert config.GEOIP_PATH is not None
-    fdesc = csv.DictReader(
-        codecs.open(
-            os.path.join(
-                config.GEOIP_PATH,
-                "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
-            ),
-            encoding="utf-8",
-        )
-    )
-    city_name = utils.encode_b64((city_name or "").encode("utf-8")).decode("utf-8")
-    for line in fdesc:
-        if (line["country_iso_code"], line["city_name"]) == (country_code, city_name):
-            yield int(line["geoname_id"])
+    with codecs.open(
+        os.path.join(
+            config.GEOIP_PATH,
+            "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
+        ),
+        encoding="utf-8",
+    ) as fdesc:
+        csvfd = csv.DictReader(fdesc)
+        city_name = utils.encode_b64((city_name or "").encode("utf-8")).decode("utf-8")
+        for line in csvfd:
+            if (line["country_iso_code"], line["city_name"]) == (
+                country_code,
+                city_name,
+            ):
+                yield int(line["geoname_id"])
 
 
 def locids_by_region(country_code: str, reg_code: str) -> Generator[int, None, None]:
     assert config.GEOIP_PATH is not None
-    fdesc = csv.DictReader(
-        codecs.open(
-            os.path.join(
-                config.GEOIP_PATH,
-                "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
-            ),
-            encoding="utf-8",
-        )
-    )
-    for line in fdesc:
-        if (line["country_iso_code"], line["subdivision_1_iso_code"]) == (
-            country_code,
-            reg_code,
-        ):
-            yield int(line["geoname_id"])
+    with codecs.open(
+        os.path.join(
+            config.GEOIP_PATH,
+            "GeoLite2-City-Locations-%s.csv" % config.GEOIP_LANG,
+        ),
+        encoding="utf-8",
+    ) as fdesc:
+        csvfd = csv.DictReader(fdesc)
+        for line in csvfd:
+            if (line["country_iso_code"], line["subdivision_1_iso_code"]) == (
+                country_code,
+                reg_code,
+            ):
+                yield int(line["geoname_id"])
 
 
 class IPRanges:

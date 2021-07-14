@@ -1,0 +1,38 @@
+name: MongoDB tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.9']
+        mongodb-version: ['3.2', '4.4']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.6.0
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+
+    - run: pip install -r requirements-mongo.txt
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+
+    - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
+      env:
+        CI: true
+        DB: mongo

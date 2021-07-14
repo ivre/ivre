@@ -113,7 +113,7 @@
 <li class="toctree-l3"><a class="reference internal" href="#first-run">First run</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#improving-the-test-case">Improving the test case</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#failures">Failures</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#travis-ci">Travis CI</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#github-actions">GitHub actions</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="linting.html">Code linting</a></li>
@@ -269,12 +269,12 @@ here are some reasons that can explain test failures:</p>
 better than the stored ones.</p></li>
 </ul>
 </div>
-<div class="section" id="travis-ci">
-<h2>Travis CI<a class="headerlink" href="#travis-ci" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="github-actions">
+<h2>GitHub actions<a class="headerlink" href="#github-actions" title="Permalink to this headline">¶</a></h2>
 <p>Tests are run with several MongoDB and PostgreSQL versions, as well as
 TinyDB, SQLite and Elasticsearch for each pull requests. The tests run
 with Python 3.6 to 3.9.</p>
-<p>The configuration is in the <cite>.travis.yml</cite> YAML file.</p>
+<p>The configurations are in the <cite>.github/workflows/*.yml</cite> YAML files.</p>
 </div>
 </div>
 

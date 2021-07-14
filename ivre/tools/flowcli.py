@@ -63,21 +63,15 @@ def print_fields() -> None:
     title = "General"
     sys.stdout.write("{0} {1:^10} {0}\n".format(equals, title))
     sys.stdout.writelines(
-        ("%-12s: %s\n" % (field, ivre.flow.FIELDS[field]) for field in ivre.flow.FIELDS)
+        ("%-12s: %s\n" % (field, name) for field, name in ivre.flow.FIELDS.items())
     )
-    for meta in ivre.flow.META_DESC:
-        sys.stdout.write("{0} {1:^10} {0}\n".format(equals, meta))
+    for proto, configs in ivre.flow.META_DESC.items():
+        sys.stdout.write("{0} {1:^10} {0}\n".format(equals, proto))
         sys.stdout.writelines(
-            (
-                "meta.%s.%s (list)\n" % (meta, name)
-                for name in ivre.flow.META_DESC[meta]["keys"]
-            )
+            ("meta.%s.%s (list)\n" % (proto, name) for name in configs["keys"])
         )
         sys.stdout.writelines(
-            (
-                "meta.%s.%s\n" % (meta, name)
-                for name in ivre.flow.META_DESC[meta].get("counters", [])
-            )
+            ("meta.%s.%s\n" % (proto, name) for name in configs.get("counters", []))
         )
 
 

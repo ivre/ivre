@@ -59,7 +59,7 @@ class DBKey:
         self.dbc = dbc
         self.baseflt = self.dbc.flt_empty if baseflt is None else baseflt
 
-    def getkeys(self, host: Record) -> Generator[Key, None, None]:
+    def getkeys(self, record: Record) -> Generator[Key, None, None]:
         raise NotImplementedError
 
     @property
@@ -179,11 +179,11 @@ class SSLNmapKey(NmapKey, SSLKey):
     def pem2key(cls, pem: bytes) -> Optional[RSAPublicNumbers]:
         raise NotImplementedError
 
-    def getkeys(self, host: Record) -> Generator[Key, None, None]:
-        for script in self.getscripts(host):
+    def getkeys(self, record: Record) -> Generator[Key, None, None]:
+        for script in self.getscripts(record):
             assert isinstance(script["script"], dict)  # NmapRecord
             yield Key(
-                host["addr"],
+                record["addr"],
                 script["port"],
                 "ssl",
                 script["script"][self.scriptid]["pubkey"]["type"],
@@ -249,8 +249,8 @@ class SSHNmapKey(NmapKey, SSHKey):
         NmapKey.__init__(self, baseflt=baseflt)
         SSHKey.__init__(self)
 
-    def getkeys(self, host: Record) -> Generator[Key, None, None]:
-        for script in self.getscripts(host):
+    def getkeys(self, record: Record) -> Generator[Key, None, None]:
+        for script in self.getscripts(record):
             assert isinstance(script["script"], dict)
             for key in script["script"][self.scriptid]:
                 if key["type"][4:] == self.keytype:
@@ -260,7 +260,7 @@ class SSHNmapKey(NmapKey, SSHKey):
                     if data[:1] != b"\x00":
                         data = utils.decode_b64(data)
                     yield Key(
-                        host["addr"],
+                        record["addr"],
                         script["port"],
                         "ssh",
                         key["type"][4:],
@@ -348,13 +348,13 @@ class SSLRsaNmapKey(RSAKey, SSLNmapKey):
         SSLNmapKey.__init__(self, baseflt=baseflt)
         RSAKey.__init__(self)
 
-    def getkeys(self, host: Record) -> Generator[Key, None, None]:
-        for script in self.getscripts(host):
+    def getkeys(self, record: Record) -> Generator[Key, None, None]:
+        for script in self.getscripts(record):
             assert isinstance(script["script"], dict)
             for cert in script["script"].get(self.scriptid, []):
                 key = cert["pubkey"]
                 yield Key(
-                    host["addr"],
+                    record["addr"],
                     script["port"],
                     "ssl",
                     key["type"],
