@@ -19,6 +19,10 @@ ZEEK_VERSION="${zeek_v[ $RANDOM % 4 ]}"
 unset zeek_v
 echo "ZEEK_VERSION: ${ZEEK_VERSION}"
 
+if [ "${ZEEK_VERSION:0:2}" = "4." ]; then
+    cat tests/samples/results_zeek_v4 >> tests/samples/results
+fi
+
 UBUNTU_VERSION="`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release`"
 echo "UBUNTU_VERSION: ${UBUNTU_VERSION}"
 

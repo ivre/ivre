@@ -1,0 +1,4 @@
+passive_count = 495
+passive_count_port_22 = 18
+passive_distinct_moduli = 13
+passive_distinct_ssh_moduli = 2
