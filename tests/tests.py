@@ -123,11 +123,18 @@ def coverage_run_iter(cmd, stdin=None, stdout=subprocess.PIPE, stderr=subprocess
     )
 
 
-def _parse_cli_sort_out(out):
-    return sorted(
+def _parse_cli_top_out(out):
+    data = sorted(
         (int(v), k)
         for k, v in (line.split(b": ", 1) for line in out.split(b"\n") if line)
     )
+    # drop entries with lowest results (so that we cannot have
+    # different results)
+    if data:
+        lowest = data[0][0]
+        while data and data[0][0] == lowest:
+            data.pop(0)
+    return data[::-1]
 
 
 def run_passiverecon_worker(bulk_mode=None):
@@ -1822,7 +1829,7 @@ class IvreTests(unittest.TestCase):
             res, out2, err = RUN(["ivre", "scancli", "--top", topval])
             self.assertEqual(res, 0)
             self.assertFalse(err)
-            self.assertEqual(_parse_cli_sort_out(out1), _parse_cli_sort_out(out2))
+            self.assertEqual(_parse_cli_top_out(out1), _parse_cli_top_out(out2))
 
         for distinct in ["addr", "ports.port", "ports.service_name"]:
             cmd = ["ivre", "scancli", "--distinct", distinct]
@@ -2938,7 +2945,7 @@ class IvreTests(unittest.TestCase):
         res, out2, err = RUN(["ivre", "ipinfo", "--top", "net"])
         self.assertEqual(res, 0)
         self.assertFalse(err)
-        self.assertEqual(_parse_cli_sort_out(out1), _parse_cli_sort_out(out2))
+        self.assertEqual(_parse_cli_top_out(out1), _parse_cli_top_out(out2))
 
         addr = next(iter(ivre.db.db.nmap.get(ivre.db.db.nmap.flt_empty)))["addr"]
         res, out1, err = RUN(["ivre", "ipinfo", addr], env=newenv)
@@ -5469,7 +5476,7 @@ class IvreTests(unittest.TestCase):
             res, out2, err = RUN(["ivre", "view", "--top", topval])
             self.assertEqual(res, 0)
             self.assertFalse(err)
-            self.assertEqual(_parse_cli_sort_out(out1), _parse_cli_sort_out(out2))
+            self.assertEqual(_parse_cli_top_out(out1), _parse_cli_top_out(out2))
 
         for distinct in ["addr", "ports.port", "ports.service_name"]:
             cmd = ["ivre", "view", "--distinct", distinct]
