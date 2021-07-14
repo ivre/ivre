@@ -355,7 +355,11 @@ class TargetFile(Target):
         self.state = state
 
     def __iter__(self):
-        return IterTargetFile(self, open(self.filename), state=self.state)
+        return IterTargetFile(
+            self,
+            open(self.filename),  # pylint: disable=consider-using-with
+            state=self.state,
+        )
 
     def close(self):
         pass

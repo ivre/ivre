@@ -584,7 +584,7 @@ class SQLDBFlow(SQLDB, DBFlow):
     def host_details(self, node_id):
         raise NotImplementedError()
 
-    def flow_details(self, node_id):
+    def flow_details(self, flow_id):
         raise NotImplementedError()
 
     def from_filters(
@@ -598,7 +598,7 @@ class SQLDBFlow(SQLDB, DBFlow):
     def to_iter(self, query):
         raise NotImplementedError()
 
-    def count(self, query):
+    def count(self, flt):
         raise NotImplementedError()
 
     def flow_daily(self, query):

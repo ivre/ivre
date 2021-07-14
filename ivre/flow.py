@@ -216,12 +216,12 @@ def _compute_available_fields() -> None:
     for field in FIELDS:
         _ALL_FIELDS[field] = True
     meta_enabled = config.FLOW_STORE_METADATA
-    for meta in META_DESC:
-        _ALL_FIELDS["meta.%s" % meta] = meta_enabled
-        for name in META_DESC[meta]["keys"]:
-            _ALL_FIELDS["meta.%s.%s" % (meta, name)] = meta_enabled
-        for name in META_DESC[meta].get("counters", []):
-            _ALL_FIELDS["meta.%s.%s" % (meta, name)] = meta_enabled
+    for proto, configs in META_DESC.items():
+        _ALL_FIELDS["meta.%s" % proto] = meta_enabled
+        for name in configs["keys"]:
+            _ALL_FIELDS["meta.%s.%s" % (proto, name)] = meta_enabled
+        for name in configs.get("counters", []):
+            _ALL_FIELDS["meta.%s.%s" % (proto, name)] = meta_enabled
 
 
 class Query:

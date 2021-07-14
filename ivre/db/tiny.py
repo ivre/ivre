@@ -2429,7 +2429,7 @@ class TinyDBPassive(TinyDB, DBPassive):
                 # upsert() won't handle operations
             self.db.upsert(doc, spec_cond)
 
-    def remove(self, spec_or_id):
+    def remove(self, spec_or_id):  # pylint: disable=arguments-renamed
         if isinstance(spec_or_id, int):
             self.db.remove(doc_ids=[spec_or_id])
         else:

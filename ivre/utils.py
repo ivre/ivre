@@ -740,8 +740,8 @@ class FileOpener(BinaryIO):
     def read(self, *args) -> bytes:  # type: ignore
         return self.fdesc.read(*args)
 
-    def readline(self, size: int = -1) -> bytes:
-        return self.fdesc.readline(size)
+    def readline(self, limit: int = -1) -> bytes:
+        return self.fdesc.readline(limit)
 
     def fileno(self) -> int:
         return self.fdesc.fileno()
@@ -798,8 +798,8 @@ class FileOpener(BinaryIO):
     def seekable(self) -> bool:
         return self.fdesc.seekable()
 
-    def seek(self, target: int, whence: int = 0) -> int:
-        return self.fdesc.seek(target, whence=whence)
+    def seek(self, offset: int, whence: int = 0) -> int:
+        return self.fdesc.seek(offset, whence=whence)
 
     def tell(self) -> int:
         return self.fdesc.tell()

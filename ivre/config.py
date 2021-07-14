@@ -224,7 +224,8 @@ def get_config_file(paths: Optional[List[str]] = None) -> Generator[str, None, N
 
 for fname in get_config_file():
     # pylint: disable=exec-used
-    exec(compile(open(fname, "rb").read(), fname, "exec"))
+    with open(fname, "rb") as fdesc:
+        exec(compile(fdesc.read(), fname, "exec"))
 
 
 def guess_prefix(directory: Optional[str] = None) -> Optional[str]:

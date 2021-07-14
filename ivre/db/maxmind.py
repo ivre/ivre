@@ -496,12 +496,13 @@ class MaxMindDBData(DBData):
         calls to self._build_dump().
 
         """
-        for _ in Pool().imap(
-            partial(self._build_dump, force),
-            ["db_asn", "db_country", "db_registered_country", "db_city"],
-            chunksize=1,
-        ):
-            pass
+        with Pool() as pool:
+            for _ in pool.imap(
+                partial(self._build_dump, force),
+                ["db_asn", "db_country", "db_registered_country", "db_city"],
+                chunksize=1,
+            ):
+                pass
 
     def _build_dump(self, force, attr):
         """Helper function used by MaxMindDBData.build_dumps() to create a

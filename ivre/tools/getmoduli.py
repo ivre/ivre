@@ -84,12 +84,12 @@ def main() -> None:
             moduli.setdefault(key.key.public_numbers().n, set()).add(
                 (key.ip, key.port, key.service)
             )
-    for mod in moduli:
+    for mod, used in moduli.items():
         sys.stdout.write(
             "%x %d %s\n"
             % (
                 mod,
-                len(moduli[mod]),
-                ",".join("%s:%d" % (rec[0], rec[1]) for rec in moduli[mod]),
+                len(used),
+                ",".join("%s:%d" % (rec[0], rec[1]) for rec in used),
             )
         )

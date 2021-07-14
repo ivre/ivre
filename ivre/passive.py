@@ -484,12 +484,12 @@ def _getinfos_dns(spec):
     """Extract domain names in an handy-to-index-and-query form."""
     infos = {}
     fields = {"domain": "value", "domaintarget": "targetval"}
-    for field in fields:
+    for field, value in fields.items():
         try:
-            if fields[field] not in spec:
+            if value not in spec:
                 continue
             infos[field] = []
-            for domain in utils.get_domains(spec[fields[field]]):
+            for domain in utils.get_domains(spec[value]):
                 infos[field].append(domain)
             if not infos[field]:
                 del infos[field]
