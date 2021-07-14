@@ -33,14 +33,14 @@ import re
 import socket
 import struct
 import time
-from typing import List, Optional, Pattern, Union
+from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
 from urllib.parse import unquote
 import uuid
 
 
-import bson
-from pymongo.errors import BulkWriteError
-import pymongo
+import bson  # type: ignore
+from pymongo.errors import BulkWriteError  # type: ignore
+import pymongo  # type: ignore
 
 
 from ivre.active.data import ALIASES_TABLE_ELEMS
@@ -56,7 +56,7 @@ from ivre.db import (
     LockError,
 )
 from ivre import config, passive, utils, xmlnmap, flow
-from ivre.types import Filter
+from ivre.types import Filter, SortKey
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -75,9 +75,11 @@ def log_pipeline(pipeline):
 
 class MongoDB(DB):
 
-    schema_migrations_indexes = []
-    schema_latest_versions = []
-    hint_indexes = []
+    schema_migrations_indexes: List[
+        Dict[int, Dict[str, List[Tuple[List[SortKey], Dict[str, Any]]]]]
+    ] = []
+    schema_latest_versions: List[int] = []
+    hint_indexes: List[Dict[str, List[SortKey]]] = []
     no_limit = 0
 
     def __init__(self, url):
@@ -95,7 +97,7 @@ class MongoDB(DB):
                 username = unquote(username)
                 if username == "GSSAPI":
                     # pylint: disable=import-outside-toplevel
-                    import krbV
+                    import krbV  # type: ignore
 
                     self.username = (
                         krbV.default_context().default_ccache().principal().name
@@ -4053,11 +4055,11 @@ class MongoDBPassive(MongoDB, DBPassive):
         # passive
         OrderedDict(
             [
-                [
+                (
                     "addr_0",
                     [("addr_0", 1), ("addr_1", 1), ("recontype", 1), ("port", 1)],
-                ],
-                ["targetval", [("targetval", 1)]],
+                ),
+                ("targetval", [("targetval", 1)]),
             ]
         ),
     ]
@@ -4784,7 +4786,7 @@ class MongoDBAgent(MongoDB, DBAgent):
     column_agents = 0
     column_scans = 1
     column_masters = 2
-    indexes = [
+    indexes: List[List[Tuple[List[SortKey], Dict[str, Any]]]] = [
         # agents
         [
             ([("host", pymongo.ASCENDING)], {}),
@@ -4996,7 +4998,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
     # insertion in db.
     meta_kinds = {"keys": "$addToSet", "counters": "$inc"}
 
-    indexes = [
+    indexes: List[List[Tuple[List[SortKey], Dict[str, Any]]]] = [
         # flows
         [
             (
