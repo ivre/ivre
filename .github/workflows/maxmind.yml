@@ -1,0 +1,30 @@
+name: Maxmind tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.9']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - run: pip install -r requirements-maxmind.txt
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
+      env:
+        CI: true
+        DB: maxmind

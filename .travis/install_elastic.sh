@@ -35,9 +35,4 @@ curl http://127.0.0.1:9200
 # We need a MongoDB server for the scan & nmap databases
 MONGODB_VERSION=4.0.2 source ./.travis/install_mongo.sh
 
-PYVERS=`python -c 'import sys;print("%d%d" % sys.version_info[:2])'`
-if [ -f "requirements-mongo-$PYVERS.txt" ]; then
-    pip install -U $PIP_INSTALL_OPTIONS -r "requirements-mongo-$PYVERS.txt"
-else
-    pip install -U $PIP_INSTALL_OPTIONS -r "requirements-mongo.txt"
-fi
+pip install -U $PIP_INSTALL_OPTIONS -r "requirements-mongo.txt"
