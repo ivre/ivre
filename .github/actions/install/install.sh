@@ -14,11 +14,14 @@ wget -q -O - https://github.com/ivre/ivre-test-samples/archive/0951ba6fc0eee1585
 zeek_v[0]="3.0.6"
 zeek_v[1]="3.1.3"
 zeek_v[2]="3.2.4"
-# zeek_v[3]="4.0.3"
-# ZEEK_VERSION="${zeek_v[ $RANDOM % 4 ]}"
-ZEEK_VERSION="${zeek_v[ $RANDOM % 3 ]}"
+zeek_v[3]="4.0.3"
+ZEEK_VERSION="${zeek_v[ $RANDOM % 4 ]}"
 unset zeek_v
 echo "ZEEK_VERSION: ${ZEEK_VERSION}"
+
+if [ "${ZEEK_VERSION:0:2}" = "4." ]; then
+    cat tests/samples/results_zeek_v4 >> tests/samples/results
+fi
 
 UBUNTU_VERSION="`awk -F = '/^DISTRIB_RELEASE=/ {print $2}' /etc/lsb-release`"
 echo "UBUNTU_VERSION: ${UBUNTU_VERSION}"
