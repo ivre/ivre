@@ -105,7 +105,7 @@ def main() -> None:
                 else sys.argv
             )
             # we make sure we're in screen
-            if os.environ["TERM"] != "screen":
+            if os.environ.get("TERM") != "screen":
                 subprocess.call(["screen"] + argv)
                 sys.exit(0)
             # we run the sync process in another screen window
@@ -139,7 +139,7 @@ def main() -> None:
             )
         else:
             ivre.utils.LOGGER.info("No target left to scan.")
-            if os.environ["TERM"] != "screen":
+            if os.environ.get("TERM") != "screen":
                 ivre.utils.LOGGER.info("Press enter to exit.")
                 try:
                     input()
