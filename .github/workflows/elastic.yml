@@ -1,0 +1,50 @@
+name: Elasticsearch tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.6', '3.9']
+        mongodb-version: ['4.4']
+        elastic-version: ['7.10.2']
+
+    steps:
+
+    - name: Git checkout
+      uses: actions/checkout@v2
+
+    - name: Use Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Start MongoDB
+      uses: supercharge/mongodb-github-action@1.6.0
+      with:
+        mongodb-version: ${{ matrix.mongodb-version }}
+
+    - name: Start Elasticsearch
+      uses: elastic/elastic-github-actions/elasticsearch@master
+      with:
+        stack-version: ${{ matrix.elastic-version }}
+
+    - run: pip install -r requirements-mongo.txt
+
+    - run: pip install -r requirements-elastic.txt
+
+    - name: Install IVRE
+      uses: ./.github/actions/install
+
+    - run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
+
+    - run: echo 'DB_VIEW = "elastic://ivre@localhost:9200/ivre"' >> ~/.ivre.conf
+
+    - run: tar jxf ./tests/mongodb_backup/backup_nmap_passive.tar.bz2
+
+    - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
+      env:
+        CI: true
+        DB: elastic
