@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2020 Pierre LALET <pierre@droids-corp.org>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 @load base/frameworks/notice
+@load base/misc/version
 @load base/protocols/http
 @load base/protocols/ssh
 @load base/protocols/ssl
@@ -212,6 +213,18 @@ event ssh_server_version(c: connection, version: string) {
                      $value=version]);
 }
 
+# API change, see https://docs.zeek.org/en/master/scripts/base/bif/plugins/Zeek_SSH.events.bif.zeek.html#id-ssh1_server_host_key
+@if(Version::number >= 40000)
+event ssh1_server_host_key(c: connection, modulus: string, exponent: string) {
+    Log::write(LOG, [$ts=c$start_time,
+                     $uid=c$uid,
+                     $host=c$id$resp_h,
+                     $srvport=c$id$resp_p,
+                     $recon_type=SSH_SERVER_HOSTKEY,
+                     $source="SSHv1",
+                     $value=fmt("%s %s", exponent, modulus)]);
+}
+@else
 event ssh1_server_host_key(c: connection, p: string, e: string) {
     Log::write(LOG, [$ts=c$start_time,
                      $uid=c$uid,
@@ -221,6 +234,7 @@ event ssh1_server_host_key(c: connection, p: string, e: string) {
                      $source="SSHv1",
                      $value=fmt("%s %s", p, e)]);
 }
+@endif
 
 event ssh2_server_host_key(c: connection, key: string) {
     Log::write(LOG, [$ts=c$start_time,

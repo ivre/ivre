@@ -1,5 +1,5 @@
 # This file is part of IVRE.
-# Copyright 2011 - 2018 Pierre LALET <pierre.lalet@cea.fr>
+# Copyright 2011 - 2021 Pierre LALET <pierre@droids-corp.org>
 #
 # IVRE is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
@@ -70,5 +70,9 @@ event arp_reply(mac_src: string, mac_dst: string, SPA: addr, SHA: string, TPA: a
 }
 
 event bad_arp(SPA: addr, SHA: string, TPA: addr, THA: string, explanation: string) {
+@if(Version::number >= 40000)
+    event flow_weird("arp_bad", SPA, TPA, fmt("%s (%s -> %s)", explanation, SHA, THA), "arp");
+@else
     event flow_weird("arp_bad", SPA, TPA, fmt("%s (%s -> %s)", explanation, SHA, THA));
+@endif
 }
