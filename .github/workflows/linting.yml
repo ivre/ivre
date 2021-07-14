@@ -1,4 +1,4 @@
-name: Run linting tests
+name: Linting tests
 
 on: [push, pull_request]
 

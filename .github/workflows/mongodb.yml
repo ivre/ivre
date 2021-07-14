@@ -1,4 +1,4 @@
-name: Run MongoDB tests
+name: MongoDB tests
 
 on: [push, pull_request]
 
