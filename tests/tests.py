@@ -4633,7 +4633,7 @@ class IvreTests(unittest.TestCase):
             for port in _json_loads(line, {}).get("ports", [])
             for word in port.get("screenwords", [])
         )
-        self.assertTrue("IVRE" in screenwords)
+        self.assertTrue("ivre" in screenwords)
         shutil.rmtree("output")
 
     def test_50_view(self):

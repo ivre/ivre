@@ -33,13 +33,14 @@ import re
 import socket
 import struct
 import time
+from typing import Any, Dict, List, Optional, Pattern, Tuple, Union
 from urllib.parse import unquote
 import uuid
 
 
-import bson
-from pymongo.errors import BulkWriteError
-import pymongo
+import bson  # type: ignore
+from pymongo.errors import BulkWriteError  # type: ignore
+import pymongo  # type: ignore
 
 
 from ivre.active.data import ALIASES_TABLE_ELEMS
@@ -55,6 +56,7 @@ from ivre.db import (
     LockError,
 )
 from ivre import config, passive, utils, xmlnmap, flow
+from ivre.types import Filter, SortKey
 
 
 class Nmap2Mongo(xmlnmap.Nmap2DB):
@@ -73,9 +75,11 @@ def log_pipeline(pipeline):
 
 class MongoDB(DB):
 
-    schema_migrations_indexes = []
-    schema_latest_versions = []
-    hint_indexes = []
+    schema_migrations_indexes: List[
+        Dict[int, Dict[str, List[Tuple[List[SortKey], Dict[str, Any]]]]]
+    ] = []
+    schema_latest_versions: List[int] = []
+    hint_indexes: List[Dict[str, List[SortKey]]] = []
     no_limit = 0
 
     def __init__(self, url):
@@ -93,7 +97,7 @@ class MongoDB(DB):
                 username = unquote(username)
                 if username == "GSSAPI":
                     # pylint: disable=import-outside-toplevel
-                    import krbV
+                    import krbV  # type: ignore
 
                     self.username = (
                         krbV.default_context().default_ccache().principal().name
@@ -573,7 +577,7 @@ class MongoDB(DB):
         raise NotImplementedError()
 
     # filters
-    flt_empty = {}
+    flt_empty: Filter = {}
 
     @staticmethod
     def str2id(string):
@@ -2737,8 +2741,12 @@ class MongoDBActive(MongoDB, DBActive):
 
     @staticmethod
     def searchscreenshot(
-        port=None, protocol="tcp", service=None, words=None, neg=False
-    ):
+        port: Optional[int] = None,
+        protocol: str = "tcp",
+        service: Optional[str] = None,
+        words: Optional[Union[bool, str, Pattern[str], List[str]]] = None,
+        neg: bool = False,
+    ) -> Filter:
         """Filter results with (without, when `neg == True`) a
         screenshot (on a specific `port` if specified).
 
@@ -2749,22 +2757,25 @@ class MongoDBActive(MongoDB, DBActive):
         the word(s) in the OCR results.
 
         """
-        result = {"ports": {"$elemMatch": {}}}
+        result: Filter = {"ports": {"$elemMatch": {}}}
         if words is None:
             if port is None and service is None:
                 return {"ports.screenshot": {"$exists": not neg}}
             result["ports"]["$elemMatch"]["screenshot"] = {"$exists": not neg}
         else:
+            words_f: Filter
             result["ports"]["$elemMatch"]["screenshot"] = {"$exists": True}
             if isinstance(words, list):
-                words = {"$ne" if neg else "$all": words}
-            elif isinstance(words, utils.REGEXP_T):
-                words = {"$not": words} if neg else words
+                words_f = {"$ne" if neg else "$all": [w.lower() for w in words]}
+            elif isinstance(words, Pattern):
+                words = re.compile(words.pattern.lower(), flags=words.flags)
+                words_f = {"$not": words} if neg else words
             elif isinstance(words, bool):
-                words = {"$exists": words}
+                words_f = {"$exists": words}
             else:
-                words = {"$ne": words} if neg else words
-            result["ports"]["$elemMatch"]["screenwords"] = words
+                words = words.lower()
+                words_f = {"$ne": words} if neg else words
+            result["ports"]["$elemMatch"]["screenwords"] = words_f
         if port is not None:
             result["ports"]["$elemMatch"]["port"] = port
             result["ports"]["$elemMatch"]["protocol"] = protocol
@@ -4044,11 +4055,11 @@ class MongoDBPassive(MongoDB, DBPassive):
         # passive
         OrderedDict(
             [
-                [
+                (
                     "addr_0",
                     [("addr_0", 1), ("addr_1", 1), ("recontype", 1), ("port", 1)],
-                ],
-                ["targetval", [("targetval", 1)]],
+                ),
+                ("targetval", [("targetval", 1)]),
             ]
         ),
     ]
@@ -4775,7 +4786,7 @@ class MongoDBAgent(MongoDB, DBAgent):
     column_agents = 0
     column_scans = 1
     column_masters = 2
-    indexes = [
+    indexes: List[List[Tuple[List[SortKey], Dict[str, Any]]]] = [
         # agents
         [
             ([("host", pymongo.ASCENDING)], {}),
@@ -4987,7 +4998,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
     # insertion in db.
     meta_kinds = {"keys": "$addToSet", "counters": "$inc"}
 
-    indexes = [
+    indexes: List[List[Tuple[List[SortKey], Dict[str, Any]]]] = [
         # flows
         [
             (
