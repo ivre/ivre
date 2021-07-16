@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-name: MongoDB tests
+name: PostgreSQL tests
 
 on: [push, pull_request]
 
@@ -24,7 +24,7 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.6', '3.9']
-        mongodb-version: ['3.2', '4.4']
+        postgresql-version: ['12', '13']
 
     steps:
 
@@ -36,22 +36,27 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Start MongoDB
-      uses: supercharge/mongodb-github-action@1.6.0
+    - name: Start PostgreSQL
+      uses: harmon758/postgresql-action@v1
       with:
-        mongodb-version: ${{ matrix.mongodb-version }}
+        postgresql version: ${{ matrix.postgresql-version }}
+        postgresql db: ivre
+        postgresql user: ivre
+        postgresql password: ivre
 
-    - run: pip install -r requirements-mongo.txt
+    - run: pip install -r requirements-postgres.txt
 
     - name: Install IVRE
       uses: ./.github/actions/install
 
-    - run: mongo --eval 'db.version()'
+    - run: psql "postgresql://ivre:ivre@localhost/ivre" -c "SELECT version();"
+
+    - run: echo 'DB = "postgresql://ivre:ivre@localhost/ivre"' >> ~/.ivre.conf
 
     - name: Initialize IVRE databases
-      run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+      run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
 
     - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
       env:
         CI: true
-        DB: mongo
+        DB: postgres
