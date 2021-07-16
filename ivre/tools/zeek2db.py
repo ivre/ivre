@@ -32,7 +32,7 @@ from ivre.types.flow import Bulk
 
 
 def _zeek2flow(rec: Dict[str, Any]) -> Record:
-    """Prepares a document for db.flow.*add_flow()."""
+    """Prepares a document"""
     if "id_orig_h" in rec:
         rec["src"] = rec.pop("id_orig_h")
     elif "pkt_src" in rec:

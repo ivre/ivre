@@ -5097,7 +5097,7 @@ class MongoDBFlow(MongoDB, DBFlow, metaclass=DBFlowMeta):
         if config.FLOW_STORE_METADATA:
             for kind, op in cls.meta_kinds.items():
                 for key, value in cls.meta_desc[name].get(kind, {}).items():
-                    if not rec[value]:
+                    if not rec.get(value):
                         continue
                     if "%s.%s.%s" % (name, kind, key) in flow.META_DESC_ARRAYS:
                         rec[value] = {"$each": rec[value]}
