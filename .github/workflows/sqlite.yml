@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
-name: Elasticsearch tests
+name: SQLite tests
 
 on: [push, pull_request]
 
@@ -24,8 +24,6 @@ jobs:
     strategy:
       matrix:
         python-version: ['3.6', '3.9']
-        mongodb-version: ['4.4']
-        elastic-version: ['7.10.2']
 
     steps:
 
@@ -37,30 +35,16 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Start MongoDB
-      uses: supercharge/mongodb-github-action@1.6.0
-      with:
-        mongodb-version: ${{ matrix.mongodb-version }}
-
-    - name: Start Elasticsearch
-      uses: elastic/elastic-github-actions/elasticsearch@master
-      with:
-        stack-version: ${{ matrix.elastic-version }}
-
-    - run: pip install -r requirements-mongo.txt
-
-    - run: pip install -r requirements-elastic.txt
+    - run: pip install -r requirements-sqlite.txt
 
     - name: Install IVRE
       uses: ./.github/actions/install
 
-    - run: echo 'DB_VIEW = "elastic://ivre@localhost:9200/ivre"' >> ~/.ivre.conf
+    - run: echo 'DB = "sqlite:////tmp/ivre.db"' >> ~/.ivre.conf
 
-    - run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
-
-    - run: tar jxf ./tests/mongodb_backup/backup_nmap_passive.tar.bz2
+    - run: ivre ipinfo --init < /dev/null
 
     - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
       env:
         CI: true
-        DB: elastic
+        DB: sqlite

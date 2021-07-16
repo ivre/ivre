@@ -1,5 +1,7 @@
 [![MongoDB tests](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/mongodb.yml/?branch=master)
 [![Elasticsearch tests](https://github.com/ivre/ivre/actions/workflows/elastic.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/elastic.yml/?branch=master)
+[![TinyDB tests](https://github.com/ivre/ivre/actions/workflows/tinydb.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/tinydb.yml/?branch=master)
+[![SQLite tests](https://github.com/ivre/ivre/actions/workflows/sqlite.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/sqlite.yml/?branch=master)
 [![Maxmind tests](https://github.com/ivre/ivre/actions/workflows/maxmind.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/workflows/maxmind.yml/?branch=master)
 [![Linting tests](https://github.com/ivre/ivre/actions/workflows/linting.yml/badge.svg?branch=master)](https://github.com/ivre/ivre/actions/linting/mongodb.yml/?branch=master)
 [![Documentation Status](https://readthedocs.org/projects/ivre/badge/?version=latest)](https://doc.ivre.rocks/en/latest/?badge=latest)
