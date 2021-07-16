@@ -42,7 +42,8 @@ jobs:
 
     - run: echo 'DB = "sqlite:////tmp/ivre.db"' >> ~/.ivre.conf
 
-    - run: ivre ipinfo --init < /dev/null
+    - name: Initialize IVRE databases
+      run: ivre ipinfo --init < /dev/null
 
     - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
       env:

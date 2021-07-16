@@ -54,9 +54,12 @@ jobs:
     - name: Install IVRE
       uses: ./.github/actions/install
 
+    - run: curl http://127.0.0.1:9200
+
     - run: echo 'DB_VIEW = "elastic://ivre@localhost:9200/ivre"' >> ~/.ivre.conf
 
-    - run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view; do ivre $cli --init < /dev/null; done
 
     - run: tar jxf ./tests/mongodb_backup/backup_nmap_passive.tar.bz2
 

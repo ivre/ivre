@@ -42,7 +42,8 @@ jobs:
 
     - run: echo 'DB = "tinydb:////tmp/ivredb"' >> ~/.ivre.conf
 
-    - run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
+    - name: Initialize IVRE databases
+      run: for cli in ipinfo scancli view flowcli; do ivre $cli --init < /dev/null; done
 
     - run: cd tests && coverage erase && coverage run --parallel-mode tests.py --coverage && coverage combine && coverage report -i
       env:

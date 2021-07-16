@@ -20,7 +20,7 @@ sudo apt-get -qy install tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng phant
 pip install coverage codecov
 pip install .
 mv ivre ivre_bak
-cat .travis/ivre.conf >> ~/.ivre.conf
+cat .github/workflows/files/ivre.conf >> ~/.ivre.conf
 echo "NMAP_SHARE_PATH = '`pwd`/usr/local/nmap/share/nmap'" >> ~/.ivre.conf
 echo "WIRESHARK_SHARE_PATH = '`pwd`/usr/local/wireshark/share/wireshark'" >> ~/.ivre.conf
 mkdir -p usr/local/wireshark/share/wireshark

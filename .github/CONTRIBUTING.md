@@ -94,8 +94,9 @@ We try to comply with the some guidelines for new code:
 
 -   [flake8](https://flake8.pycqa.org/),
     [mypy](http://mypy-lang.org/), Black and Pylint tests are run for
-    each pull request (see .travis.yml for the specific options). Pull
-    requests will not be accepted when the tests fail.
+    each pull request (see `.github/workflows/linting.yml` for the
+    specific options). Pull requests will not be accepted when the
+    tests fail.
 
 -   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!

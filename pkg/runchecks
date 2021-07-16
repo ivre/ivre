@@ -27,7 +27,7 @@ MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disa
 # partial sub-modules
 MYPYPATH=./pkg/stubs/ mypy --follow-imports=skip --disallow-untyped-calls --disallow-untyped-decorators --disallow-incomplete-defs --no-implicit-optional --warn-redundant-casts --warn-unused-ignores --warn-return-any ./ivre/db/mongo.py && echo "mypy (partial) OK"
 
-codespell --ignore-words=.travis/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
+codespell --ignore-words=pkg/codespell_ignore `git ls-files | grep -vE '^web/static/(doc|an|bs|d3|jq|lk)/|^data/|\.(png|gif|svg)$'` && echo "codespell OK"
 
 pylint -e all -d abstract-method,arguments-differ,attribute-defined-outside-init,broad-except,duplicate-code,fixme,function-redefined,global-statement,global-variable-undefined,import-error,invalid-name,locally-disabled,missing-docstring,no-absolute-import,no-member,protected-access,raise-missing-from,subprocess-popen-preexec-fn,super-init-not-called,suppressed-message,too-few-public-methods,too-many-ancestors,too-many-arguments,too-many-boolean-expressions,too-many-branches,too-many-instance-attributes,too-many-lines,too-many-locals,too-many-nested-blocks,too-many-public-methods,too-many-return-statements,too-many-statements,unsubscriptable-object,unused-argument,line-too-long ivre ./doc/conf.py ./setup.py ./bin/ivre && echo "pylint OK"
 
