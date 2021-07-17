@@ -25,7 +25,7 @@ import subprocess
 from typing import cast, Iterable
 
 
-from scapy.all import Packet, PcapReader  # type: ignore
+from scapy.all import ARP, Packet, PcapReader  # type: ignore
 
 
 from ivre import config
@@ -51,16 +51,18 @@ def main() -> None:
         config.DEBUG = True
 
     bulk = db.flow.start_bulk_insert()
-    query_cache = db.flow.add_flow(["Flow"], ("proto",))
     for fname in args.files:
         for pkt in reader(fname):
             rec = {
-                "dst": pkt.pdst,
-                "src": pkt.psrc,
+                "dst": pkt[ARP].pdst,
+                "src": pkt[ARP].psrc,
+                "mac_src": pkt[ARP].hwsrc,
+                "mac_dst": pkt[ARP].hwdst,
                 "start_time": datetime.fromtimestamp(pkt.time),
                 "end_time": datetime.fromtimestamp(pkt.time),
+                "op": pkt.sprintf("%ARP.op%").upper().replace("-", "_"),
                 "proto": "arp",
             }
             if rec["dst"] != "0.0.0.0" and rec["src"] != "0.0.0.0":
-                bulk.append(query_cache, rec)
-    bulk.close()
+                db.flow.any2flow(bulk, "arp", rec)
+    db.flow.bulk_commit(bulk)
