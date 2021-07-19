@@ -61,9 +61,21 @@ def main() -> None:
             neg = False
         match = MAC_ADDR.search(arg)
         if match:
-            flts[0].append(db.passive.searchmac(mac=arg, neg=neg))
+            flts[0].extend(
+                [
+                    db.passive.searchmac(mac=arg.lower(), neg=neg),
+                    db.passive.searchmac(mac=arg.lower(), reverse=True, neg=neg),
+                ]
+            )
         elif arg.startswith("/") and "/" in arg[1:]:
-            flts[0].append(db.passive.searchmac(mac=utils.str2regexp(arg), neg=neg))
+            flts[0].extend(
+                [
+                    db.passive.searchmac(mac=utils.str2regexp(arg.lower()), neg=neg),
+                    db.passive.searchmac(
+                        mac=utils.str2regexp(arg.lower()), reverse=True, neg=neg
+                    ),
+                ]
+            )
         elif "/" in arg:
             flts[1].append(db.passive.searchnet(arg, neg=neg))
         else:
@@ -78,7 +90,9 @@ def main() -> None:
     if args.count:
         print(db.passive.count(flt))
         return
-    for rec in db.passive.get(flt, sort=[("addr", 1), ("value", 1), ("source", 1)]):
+    for rec in db.passive.get(
+        flt, sort=[("value", 1), ("recontype", 1), ("source", 1), ("addr", 1)]
+    ):
         rec["times"] = "s" if rec["count"] > 1 else ""
         if not rec.get("sensor"):
             rec["sensor"] = "-"
@@ -91,7 +105,22 @@ def main() -> None:
                 pass
             else:
                 rec["value"] = "%s (%s)" % (rec["value"], manuf)
+        if "addr" in rec:
+            print(
+                "%(value)s %(source)s %(addr)s on %(sensor)s (%(recontype)s %(count)s "
+                "time%(times)s, %(firstseen)s - %(lastseen)s)" % rec
+            )
+            continue
+        if rec["source"] == "WLAN_ASSOCIATED" and args.resolve:
+            try:
+                manuf_res = utils.mac2manuf(rec["targetval"])
+                assert manuf_res is not None
+                manuf = manuf_res[0]
+            except (TypeError, ValueError, AssertionError):
+                pass
+            else:
+                rec["targetval"] = "%s (%s)" % (rec["targetval"], manuf)
         print(
-            "%(addr)s at %(value)s on %(sensor)s (%(source)s %(count)s "
+            "%(value)s %(source)s %(targetval)s on %(sensor)s (%(recontype)s %(count)s "
             "time%(times)s, %(firstseen)s - %(lastseen)s)" % rec
         )

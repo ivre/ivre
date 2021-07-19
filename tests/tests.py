@@ -1929,11 +1929,14 @@ class IvreTests(unittest.TestCase):
         self.assertFalse(err)
         out = out.splitlines()
         self.check_value("passive_count_mac", len(out))
-        out = out[0].split()
-        self.assertEqual(out[1], b"at")
+        out = next(
+            l_split
+            for l_split in (line.split() for line in out)
+            if l_split[1].startswith(b"ARP_")
+        )
         self.assertEqual(out[3], b"on")
-        ip_addr = out[0]
-        mac_addr = out[2]
+        ip_addr = out[2]
+        mac_addr = out[0]
         ret, out, err = RUN(["ivre", "macinfo", "-r"])
         self.assertEqual(ret, 0)
         self.assertFalse(err)

@@ -2962,21 +2962,20 @@ class SQLDBPassive(SQLDB, DBPassive):
         return PassiveFilter(main=cnd)
 
     @classmethod
-    def searchmac(cls, mac=None, neg=False):
+    def searchmac(cls, mac=None, reverse=False, neg=False):
         if mac is None:
             if neg:
                 return PassiveFilter(main=cls.tables.passive.recontype != "MAC_ADDRESS")
             return PassiveFilter(main=cls.tables.passive.recontype == "MAC_ADDRESS")
+        value = cls.tables.passive.targetval if reverse else cls.tables.passive.value
         if isinstance(mac, utils.REGEXP_T):
-            cnd = cls.tables.passive.value.op(
-                "~*" if (mac.flags & re.IGNORECASE) else "~"
-            )(mac.pattern)
+            cnd = value.op("~*")(mac.pattern)
             if neg:
                 cnd = not_(cnd)
         elif neg:
-            cnd = cls.tables.passive.value != mac
+            cnd = value != mac
         else:
-            cnd = cls.tables.passive.value == mac
+            cnd = value == mac
         return PassiveFilter(main=(cls.tables.passive.recontype == "MAC_ADDRESS") & cnd)
 
     @classmethod
