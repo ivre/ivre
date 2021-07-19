@@ -3075,17 +3075,17 @@ class SQLDBPassive(SQLDB, DBPassive):
         if md5 is not None:
             res &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->>")("md5"),
-                md5,
+                md5.lower(),
             )
         if sha1 is not None:
             res &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->>")("sha1"),
-                sha1,
+                sha1.lower(),
             )
         if sha256 is not None:
             res &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->>")("sha256"),
-                sha256,
+                sha256.lower(),
             )
         if subject is not None:
             res &= cls._searchstring_re(
@@ -3102,17 +3102,17 @@ class SQLDBPassive(SQLDB, DBPassive):
         if pkmd5 is not None:
             res &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("md5"),
-                pkmd5,
+                pkmd5.lower(),
             )
         if pksha1 is not None:
             res &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("sha1"),
-                pksha1,
+                pksha1.lower(),
             )
         if pksha256 is not None:
             res &= cls._searchstring_re(
                 cls.tables.passive.moreinfo.op("->")("pubkey").op("->>")("sha256"),
-                pksha256,
+                pksha256.lower(),
             )
         return PassiveFilter(main=res)
 

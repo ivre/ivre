@@ -689,7 +689,7 @@ class DB:
                 "md5",
                 utils.hashlib.new("md5", value_or_hash.encode()).hexdigest(),
             )
-        return (key, value_or_hash)
+        return (key, value_or_hash.lower())
 
     @staticmethod
     def str2id(string):
@@ -1608,11 +1608,11 @@ class DBActive(DB):
         if keytype is not None:
             values["pubkey.type"] = keytype
         if md5 is not None:
-            values["md5"] = md5
+            values["md5"] = md5.lower()
         if sha1 is not None:
-            values["sha1"] = sha1
+            values["sha1"] = sha1.lower()
         if sha256 is not None:
-            values["sha256"] = sha256
+            values["sha256"] = sha256.lower()
         if subject is not None:
             values["subject_text"] = subject
         if issuer is not None:
@@ -1620,11 +1620,11 @@ class DBActive(DB):
         if self_signed is not None:
             values["self_signed"] = self_signed
         if pkmd5 is not None:
-            values["pubkey.md5"] = pkmd5
+            values["pubkey.md5"] = pkmd5.lower()
         if pksha1 is not None:
-            values["pubkey.sha1"] = pksha1
+            values["pubkey.sha1"] = pksha1.lower()
         if pksha256 is not None:
-            values["pubkey.sha256"] = pksha256
+            values["pubkey.sha256"] = pksha256.lower()
         return cls.searchscript(
             name="ssl-cacert" if cacert else "ssl-cert", values=values
         )
