@@ -4680,11 +4680,11 @@ class MongoDBPassive(MongoDB, DBPassive):
         if keytype is not None:
             res["infos.pubkey.type"] = keytype
         if md5 is not None:
-            res["infos.md5"] = md5
+            res["infos.md5"] = md5.lower()
         if sha1 is not None:
-            res["infos.sha1"] = sha1
+            res["infos.sha1"] = sha1.lower()
         if sha256 is not None:
-            res["infos.sha256"] = sha256
+            res["infos.sha256"] = sha256.lower()
         if subject is not None:
             res["infos.subject_text"] = subject
         if issuer is not None:
@@ -4692,11 +4692,11 @@ class MongoDBPassive(MongoDB, DBPassive):
         if self_signed is not None:
             res["infos.self_signed"] = self_signed
         if pkmd5 is not None:
-            res["infos.pubkey.md5"] = pkmd5
+            res["infos.pubkey.md5"] = pkmd5.lower()
         if pksha1 is not None:
-            res["infos.pubkey.sha1"] = pksha1
+            res["infos.pubkey.sha1"] = pksha1.lower()
         if pksha256 is not None:
-            res["infos.pubkey.sha256"] = pksha256
+            res["infos.pubkey.sha256"] = pksha256.lower()
         return res
 
     @classmethod
