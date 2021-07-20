@@ -2678,11 +2678,17 @@ class TinyDBPassive(TinyDB, DBPassive):
         return cls._searchstring_re(Query().infos.service_hostname, hostname)
 
     @classmethod
-    def searchmac(cls, mac=None, neg=False):
+    def searchmac(cls, mac=None, reverse=False, neg=False):
         q = Query()
         res = q.recontype == "MAC_ADDRESS"
         if mac is not None:
-            res &= cls._searchstring_re(q.value, mac, neg=neg)
+            if isinstance(mac, utils.REGEXP_T):
+                mac = re.compile(mac.pattern, mac.flags | re.I)
+            else:
+                mac = mac.lower()
+            res &= cls._searchstring_re(
+                q.targetval if reverse else q.value, mac, neg=neg
+            )
         elif neg:
             return q.recontype != "MAC_ADDRESS"
         return res

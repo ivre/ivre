@@ -17,73 +17,142 @@
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
 
-"""Update the flow database from Airodump CSV files"""
+"""Update the passive database from Airodump CSV files"""
 
 
 from argparse import ArgumentParser
+from functools import partial
+from typing import Any, Dict, Generator, List, Optional, Tuple
 
 
-from ivre import config
-from ivre.db import db
+from ivre.db import DBPassive, db
 from ivre.parser.airodump import Airodump
+from ivre.passive import _prepare_rec, getinfos
+from ivre.tools.passiverecon2db import _get_ignore_rules
+from ivre.types import Record
+
+
+def _handle_rec(
+    sensor: Optional[str],
+    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]],
+    line: Dict[str, Any],
+) -> Generator[Record, None, None]:
+    yield from _prepare_rec(
+        line, ignore_rules.get("IGNORENETS", {}), ignore_rules.get("NEVERIGNORE", {})
+    )
+
+
+def rec_iter(
+    filenames: List[str],
+    sensor: Optional[str],
+    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]],
+) -> Generator[Record, None, None]:
+    for fname in filenames:
+        with Airodump(fname) as fdesc:
+            for line in fdesc:
+                baserec = {
+                    "recontype": "MAC_ADDRESS",
+                    "firstseen": line["First time seen"],
+                    "lastseen": line["Last time seen"],
+                    "count": 1,
+                }
+                if "Station MAC" in line:
+                    if line["BSSID"] == "(not associated)":
+                        continue
+                    yield from _handle_rec(
+                        sensor,
+                        ignore_rules,
+                        dict(
+                            baserec,
+                            source="WLAN_ASSOCIATED",
+                            value=line["Station MAC"].lower(),
+                            targetval=line["BSSID"].lower(),
+                            # count=line["# packets"],
+                        ),
+                    )
+                    if not line.get("Probed ESSIDs"):
+                        continue
+                    for probed in line["Probed ESSIDs"].split(","):
+                        yield from _handle_rec(
+                            sensor,
+                            ignore_rules,
+                            dict(
+                                baserec,
+                                source="WLAN_PROBED_ESSID",
+                                value=line["Station MAC"].lower(),
+                                targetval=probed,
+                                # count=line["# packets"],
+                            ),
+                        )
+                    continue
+                baserec["value"] = line["BSSID"].lower()
+                for fld, none_val in [
+                    ("ESSID", None),
+                    ("channel", -1),
+                    ("LAN IP", "0.0.0.0"),
+                ]:
+                    if not line.get(fld) or line[fld] == none_val:
+                        continue
+                    yield from _handle_rec(
+                        sensor,
+                        ignore_rules,
+                        dict(
+                            baserec,
+                            source="WLAN_AP_%s" % fld.upper().replace(" ", "_"),
+                            # count=line["# beacons"],
+                            **{
+                                "addr"
+                                if fld == "LAN IP"
+                                else "targetval": str(line[fld])
+                            },
+                        ),
+                    )
+                if not line.get("Privacy"):
+                    continue
+                privacy = line["Privacy"].replace(" ", "_")
+                for fld in ["Cipher", "Authentication"]:
+                    if line.get(fld):
+                        privacy = "%s-%s" % (privacy, line[fld])
+                yield from _handle_rec(
+                    sensor,
+                    ignore_rules,
+                    dict(
+                        baserec,
+                        source="WLAN_AP_PRIVACY",
+                        # count=line["# beacons"],
+                        targetval=privacy,
+                    ),
+                )
 
 
 def main() -> None:
     """Update the flow database from Airodump CSV files"""
     parser = ArgumentParser(description=__doc__)
+    parser.add_argument("--sensor", "-s", help="Sensor name")
+    parser.add_argument("--ignore-spec", "-i", help="Filename containing ignore rules")
+    parser.add_argument(
+        "--bulk", action="store_true", help="Use DB bulk inserts (this is the default)"
+    )
+    parser.add_argument(
+        "--local-bulk", action="store_true", help="Use local (memory) bulk inserts"
+    )
+    parser.add_argument(
+        "--no-bulk", action="store_true", help="Do not use bulk inserts"
+    )
     parser.add_argument("files", nargs="*", metavar="FILE", help="Airodump CSV files")
-    parser.add_argument("-v", "--verbose", help="verbose mode", action="store_true")
     args = parser.parse_args()
-
-    if args.verbose:
-        config.DEBUG = True
-
-    bulk = db.flow.start_bulk_insert()
-    for fname in args.files:
-        with Airodump(fname) as fdesc:
-            for line in fdesc:
-                if "Station MAC" in line:
-                    if line["BSSID"] == "(not associated)":
-                        continue
-                    line["src"] = line.pop("Station MAC")
-                    line["dst"] = line.pop("BSSID")
-                    # TODO FIX list
-                    del line["Probed ESSIDs"]
-                    line["start_time"] = line.pop("First time seen")
-                    line["end_time"] = line.pop("Last time seen")
-                    line["packets"] = line.pop("# packets")
-                    # TODO FIX MEAN (en plus de MAX et MEAN)
-                    db.flow.add_flow(
-                        line,
-                        "WLAN",
-                        {},
-                        counters=["packets"],
-                        srcnode=("Intel:Mac", {"addr": "{src}"}),
-                        dstnode=("Intel:Wlan", {"addr": "{dst}"}),
-                    )
-                else:
-                    line["start_time"] = line.pop("First time seen")
-                    line["end_time"] = line.pop("Last time seen")
-                    line["lan_ip"] = line.pop("LAN IP")
-                    query = [
-                        "MERGE (wlan:Intel:Wlan {addr: {BSSID}})",
-                        "ON CREATE SET wlan.essid = {ESSID}, "
-                        "wlan.firstseen = {start_time}, "
-                        "wlan.lastseen = {end_time}, "
-                        "wlan.channel = {channel}, wlan.speed = {Speed}, "
-                        "wlan.privacy = {Privacy}, wlan.cipher = {Cipher}, "
-                        "wlan.authentication = {Authentication}, "
-                        "wlan.ip = {lan_ip}",
-                        "ON MATCH SET wlan.essid = {ESSID}, "
-                        "wlan.firstseen = CASE WHEN "
-                        "wlan.firstseen > {start_time} THEN {start_time} "
-                        "ELSE wlan.firstseen END, wlan.lastseen = CASE WHEN "
-                        "wlan.lastseen < {end_time} THEN {end_time} ELSE "
-                        "wlan.lastseen END, wlan.channel = {channel}, "
-                        "wlan.speed = {Speed}, wlan.privacy = {Privacy}, "
-                        "wlan.cipher = {Cipher}, "
-                        "wlan.authentication = {Authentication}, "
-                        "wlan.ip = {lan_ip}",
-                    ]
-                    bulk.append("\n".join(query), line)
-    bulk.close()
+    ignore_rules = _get_ignore_rules(args.ignore_spec)
+    if (not (args.no_bulk or args.local_bulk)) or args.bulk:
+        function = db.passive.insert_or_update_bulk
+    elif args.local_bulk:
+        function = db.passive.insert_or_update_local_bulk
+    else:
+        function = partial(
+            DBPassive.insert_or_update_bulk,
+            db.passive,
+        )
+    function(
+        rec_iter(args.files, args.sensor, ignore_rules),
+        getinfos=getinfos,
+        separated_timestamps=False,
+    )
