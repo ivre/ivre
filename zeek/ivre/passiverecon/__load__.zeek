@@ -386,7 +386,7 @@ event ssl_server_hello(c: connection, version: count, record_version: count, pos
                          $host=c$id$resp_h,
                          $srvport=c$id$resp_p,
                          $recon_type=SSL_SERVER,
-                         $source=fmt("ja3-%s", c$ssl$ivreja3c),
+                         $source=fmt("ja3-%s", ja3c),
                          $value=c$ssl$ivreja3s]);
     }
 }

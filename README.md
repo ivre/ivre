@@ -28,6 +28,7 @@ The advertising slogans are:
 
 -   (in French): IVRE, il scanne Internet.
 -   (in English): Know the networks, get DRUNK!
+-   (in Latin): Nunc est bibendum.
 
 The names IVRE and DRUNK have been chosen as a tribute to "Le
 Taullier".
