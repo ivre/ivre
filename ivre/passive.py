@@ -214,7 +214,7 @@ def _prepare_rec(spec, ignorenets, neverignore):
     if "addr" in spec and spec.get("source") not in neverignore.get(
         spec["recontype"], []
     ):
-        for start, stop in ignorenets.get(spec["recontype"], ()):
+        for start, stop in ignorenets.get(spec["recontype"], []):
             if start <= utils.force_ip2int(spec["addr"]) <= stop:
                 return
     # Then, let's clean up the records.

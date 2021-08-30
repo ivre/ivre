@@ -34,7 +34,7 @@ from ivre.types import Record
 
 def _handle_rec(
     sensor: Optional[str],
-    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]],
+    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
     line: Dict[str, Any],
 ) -> Generator[Record, None, None]:
     yield from _prepare_rec(
@@ -45,7 +45,7 @@ def _handle_rec(
 def rec_iter(
     filenames: List[str],
     sensor: Optional[str],
-    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]],
+    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
 ) -> Generator[Record, None, None]:
     for fname in filenames:
         with Airodump(fname) as fdesc:
