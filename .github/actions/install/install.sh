@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with IVRE. If not, see <http://www.gnu.org/licenses/>.
 
+sudo apt-get -q update
 sudo apt-get -qy install tesseract-ocr tesseract-ocr-osd tesseract-ocr-eng phantomjs
 pip install coverage codecov
 pip install .

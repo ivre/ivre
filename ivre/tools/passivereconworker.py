@@ -74,7 +74,6 @@ def create_process(progname: str, sensor: str) -> subprocess.Popen:
     `progname`.
 
     """
-    # pylint: disable=consider-using-with
     return subprocess.Popen(
         CMDLINE % {"progname": progname, "sensor": SENSORS.get(sensor, sensor)},
         shell=True,

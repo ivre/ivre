@@ -103,8 +103,6 @@ def rdp2flow(bulk: Bulk, rec: Record) -> None:
 
 
 def dns2flow(bulk: Bulk, rec: Record) -> None:
-    # bug in pylint; see https://github.com/PyCQA/pylint/issues/2818
-    # pylint: disable=superfluous-parens
     rec["answers"] = [elt.lower() for elt in (rec["answers"] if rec["answers"] else [])]
     rec["query"] = rec["query"].lower() if rec["query"] else None
     db.flow.any2flow(bulk, "dns", rec)
