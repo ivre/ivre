@@ -357,7 +357,7 @@ class TargetFile(Target):
     def __iter__(self):
         return IterTargetFile(
             self,
-            open(self.filename),  # pylint: disable=consider-using-with
+            open(self.filename),
             state=self.state,
         )
 

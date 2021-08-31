@@ -761,8 +761,13 @@ class TinyDBActive(TinyDB, DBActive):
                         list_field = False
                     if isinstance(value, utils.REGEXP_T):
                         if "ports.scripts.%s.%s" % (key, field) in cls.list_fields:
+                            # pylint reports "Cell variable value
+                            # defined in loop" - see
+                            # https://stackoverflow.com/a/25314665
                             base = base.test(
-                                lambda val: any(value.search(subval) for subval in val)
+                                lambda val, v=value: any(
+                                    v.search(subval) for subval in val
+                                )
                             )
                         else:
                             base = base.search(value.pattern, flags=value.flags)
@@ -3483,7 +3488,7 @@ class TinyDBFlow(TinyDB, DBFlow, metaclass=DBFlowMeta):
                     rec[fld] = op(flw.get(fld, value), value)
                 elif fld in flw:
                     rec[fld] = flw[fld]
-            lst_times = rec.setdefault("times", list())
+            lst_times = rec.setdefault("times", [])
             for tslot in flw["times"]:
                 if tslot not in lst_times:
                     lst_times.append(tslot)
