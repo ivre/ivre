@@ -31,6 +31,7 @@ import ivre.db
 import ivre.passive
 import ivre.parser.zeek
 from ivre.types import Record
+from ivre.utils import force_ip2int
 
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -49,6 +50,12 @@ def _get_ignore_rules(
         with open(ignore_spec, "rb") as fdesc:
             # pylint: disable=exec-used
             exec(compile(fdesc.read(), ignore_spec, "exec"), ignore_rules)
+    subdict = ignore_rules.get("IGNORENETS")
+    if subdict:
+        for subkey, values in subdict.items():
+            subdict[subkey] = [
+                (force_ip2int(val[0]), force_ip2int(val[1])) for val in values
+            ]
     return ignore_rules
 
 
