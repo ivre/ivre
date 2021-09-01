@@ -24,13 +24,14 @@ from argparse import ArgumentParser
 import functools
 import signal
 import sys
-from typing import Any, Dict, Generator, Iterable, Optional, Tuple
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple
 
 
 import ivre.db
 import ivre.passive
 import ivre.parser.zeek
 from ivre.types import Record
+from ivre.utils import force_ip2int
 
 
 signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -39,23 +40,29 @@ signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
 def _get_ignore_rules(
     ignore_spec: Optional[str],
-) -> Dict[str, Dict[str, Tuple[int, int]]]:
+) -> Dict[str, Dict[str, List[Tuple[int, int]]]]:
     """Executes the ignore_spec file and returns the ignore_rules
     dictionary.
 
     """
-    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]] = {}
+    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]] = {}
     if ignore_spec is not None:
         with open(ignore_spec, "rb") as fdesc:
             # pylint: disable=exec-used
             exec(compile(fdesc.read(), ignore_spec, "exec"), ignore_rules)
+    subdict = ignore_rules.get("IGNORENETS")
+    if subdict:
+        for subkey, values in subdict.items():
+            subdict[subkey] = [
+                (force_ip2int(val[0]), force_ip2int(val[1])) for val in values
+            ]
     return ignore_rules
 
 
 def rec_iter(
     zeek_parser: Iterable[Dict[str, Any]],
     sensor: Optional[str],
-    ignore_rules: Dict[str, Dict[str, Tuple[int, int]]],
+    ignore_rules: Dict[str, Dict[str, List[Tuple[int, int]]]],
 ) -> Generator[Tuple[Optional[int], Record], None, None]:
     for line in zeek_parser:
         line["timestamp"] = line.pop("ts")
