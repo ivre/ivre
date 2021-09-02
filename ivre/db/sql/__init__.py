@@ -3117,7 +3117,7 @@ class SQLDBPassive(SQLDB, DBPassive):
 
     @classmethod
     def _searchja3(cls, value_or_hash=None):
-        if value_or_hash is None:
+        if not value_or_hash:
             return True
         key, value = cls._ja3keyvalue(value_or_hash)
         try:
@@ -3147,7 +3147,7 @@ class SQLDBPassive(SQLDB, DBPassive):
         base = (cls.tables.passive.recontype == "SSL_SERVER") & cls._searchja3(
             value_or_hash
         )
-        if client_value_or_hash is None:
+        if not client_value_or_hash:
             return PassiveFilter(
                 main=(base & cls.tables.passive.source.op("~")("^ja3-"))
             )

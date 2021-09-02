@@ -4705,7 +4705,7 @@ class MongoDBPassive(MongoDB, DBPassive):
 
     @classmethod
     def _searchja3(cls, value_or_hash):
-        if value_or_hash is None:
+        if not value_or_hash:
             return {}
         key, value = cls._ja3keyvalue(value_or_hash)
         return {"value" if key == "md5" else "infos.%s" % key: value}
@@ -4717,7 +4717,7 @@ class MongoDBPassive(MongoDB, DBPassive):
     @classmethod
     def searchja3server(cls, value_or_hash=None, client_value_or_hash=None):
         base = dict(cls._searchja3(value_or_hash), recontype="SSL_SERVER")
-        if client_value_or_hash is None:
+        if not client_value_or_hash:
             return dict(base, source=re.compile("^ja3-"))
         key, value = cls._ja3keyvalue(client_value_or_hash)
         if key == "md5":
