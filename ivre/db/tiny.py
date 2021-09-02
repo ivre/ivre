@@ -2783,7 +2783,7 @@ class TinyDBPassive(TinyDB, DBPassive):
 
     @classmethod
     def _searchja3(cls, query, value_or_hash):
-        if value_or_hash is None:
+        if not value_or_hash:
             return None
         key, value = cls._ja3keyvalue(value_or_hash)
         return cls._searchstring_re(
@@ -2807,7 +2807,7 @@ class TinyDBPassive(TinyDB, DBPassive):
         res = cls._searchja3(q, value_or_hash)
         if res is not None:
             base &= res
-        if client_value_or_hash is None:
+        if not client_value_or_hash:
             return base & q.source.search("^ja3-")
         key, value = cls._ja3keyvalue(client_value_or_hash)
         if key == "md5":
