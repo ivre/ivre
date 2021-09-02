@@ -250,6 +250,12 @@ def disp_recs_explain(
     )
 
 
+def disp_recs_delete(
+    flt: Filter, sort: Sort, limit: Optional[int], skip: Optional[int]
+) -> None:
+    db.passive.remove(flt)
+
+
 def main() -> None:
     global baseflt
     parser = argparse.ArgumentParser(
@@ -331,7 +337,7 @@ def main() -> None:
     elif args.count:
         disp_recs = disp_recs_count
     elif args.delete:
-        disp_recs = db.passive.remove
+        disp_recs = disp_recs_delete
     elif args.explain:
         disp_recs = disp_recs_explain
     sort: Sort
