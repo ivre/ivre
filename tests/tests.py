@@ -2982,6 +2982,27 @@ class IvreTests(unittest.TestCase):
         ivre.db.db.passive.remove(flt)
         new_count = ivre.db.db.passive.count(ivre.db.db.passive.flt_empty)
         self.assertEqual(count + new_count, total_count)
+        total_count = new_count
+        flt_str = "10.0.0.0/8"
+        res, out, err = RUN(["ivre", "ipinfo", "--count", flt_str])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        count = int(out)
+        res, out, err = RUN(["ivre", "ipinfo", "--delete", flt_str])
+        self.assertEqual(res, 0)
+        self.assertFalse(out)
+        if DATABASE not in {"postgres", "sqlite"}:
+            # There is a warning in SQL backends:
+            #
+            # ivre/db/sql/__init__.py:2576: SAWarning: Coercing CTE
+            # object into a select() for use in IN(); please pass a
+            # select() construct explicitly
+            self.assertFalse(err)
+        res, out, err = RUN(["ivre", "ipinfo", "--count"])
+        self.assertEqual(res, 0)
+        self.assertFalse(err)
+        new_count = int(out)
+        self.assertEqual(count + new_count, total_count)
 
     def test_60_flow(self):
 
@@ -5531,7 +5552,7 @@ class IvreTests(unittest.TestCase):
 
     def test_90_cleanup(self):
         # Clean DB
-        if DATABASE not in ["postgres", "sqlite"]:
+        if DATABASE not in {"postgres", "sqlite"}:
             # FIXME: for some reason, this does not terminate
             RUN(["ivre", "scancli", "--init"], stdin=open(os.devnull))
         RUN(["ivre", "ipinfo", "--init"], stdin=open(os.devnull))
